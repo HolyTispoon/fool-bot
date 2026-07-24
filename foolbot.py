@@ -8,8 +8,8 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 STATE_FILE = "game_state.json"
 
-SUITS = ["♠", "♥", "♦", "♣"]
-RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+SUITS = ["$", "⚔", "〠", "⚒", "☯", "🃟"]
+RANKS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "L", "R"]
 
 @dataclass
 class GameState:
@@ -45,13 +45,13 @@ bot = GameBot()
 async def on_ready():
     print(f"Logged in as {bot.user}")
 
-@bot.tree.command(name="newdeck", description="Create and shuffle a standard 52-card deck")
+@bot.tree.command(name="newdeck", description="Create and shuffle a 72-card Foolish Style deck")
 async def newdeck(interaction: discord.Interaction):
     state.deck = [f"{rank}{suit}" for suit in SUITS for rank in RANKS]
     random.shuffle(state.deck)
     state.discard = []
     save_state(state)
-    await interaction.response.send_message("Shuffled a new 52-card deck.")
+    await interaction.response.send_message("Shuffled a new 72-card deck.")
 
 @bot.tree.command(name="draw", description="Draw cards from the deck")
 async def draw(interaction: discord.Interaction, count: int = 1):
