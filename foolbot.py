@@ -3,6 +3,7 @@ from dataclasses import dataclass, field, asdict
 from dotenv import load_dotenv
 import discord
 from discord import app_commands
+from discord.ext import commands
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -31,19 +32,28 @@ def save_state(state):
 
 state = load_state()
 
-class GameBot(discord.Client):
+class GameBot(commands.Bot):
     def __init__(self):
-        super().__init__(intents=discord.Intents.default())
-        self.tree = app_commands.CommandTree(self)
+        intents = discord.Intents.default()
+
+        super().__init__(
+            command_prefix="!",
+            intents=intents,
+        )
 
     async def setup_hook(self):
-        await self.tree.sync()
+        print("Loading D12 Ball extension...")
+        await self.load_extension("cogs.d12ball")
+        print("Extension loaded.")
+        synced = await self.tree.sync()
+        print(f"Synced {len(synced)} commands.")
 
 bot = GameBot()
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+    print(f"Bot user ID: {bot.user.id}")
 
 @bot.tree.command(name="newdeck", description="Create and shuffle a 72-card Foolish Style deck")
 async def newdeck(interaction: discord.Interaction):
@@ -51,7 +61,7 @@ async def newdeck(interaction: discord.Interaction):
     random.shuffle(state.deck)
     state.discard = []
     save_state(state)
-    await interaction.response.send_message("Shuffled a new 72-card deck.")
+    await interaction.response.send_message("Shuffled a new Foolish style 72-card deck.")
 
 @bot.tree.command(name="draw", description="Draw cards from the deck")
 async def draw(interaction: discord.Interaction, count: int = 1):
@@ -108,5 +118,9 @@ async def board(interaction: discord.Interaction):
         return
     lines = [f"**{u}**: ({p['x']}, {p['y']})" for u, p in state.units.items()]
     await interaction.response.send_message("\n".join(lines))
+
+print("Token exists:", TOKEN is not None)
+print("Token length:", len(TOKEN) if TOKEN else 0)
+print("Token start:", TOKEN[:6] if TOKEN else "NONE")
 
 bot.run(TOKEN)
