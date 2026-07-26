@@ -37,7 +37,7 @@ class GameBot(commands.Bot):
         intents = discord.Intents.default()
 
         super().__init__(
-            command_prefix="!",
+            command_prefix=commands.when_mentioned,
             intents=intents,
         )
 
@@ -45,6 +45,7 @@ class GameBot(commands.Bot):
         print("Loading D12 Ball extension...")
         await self.load_extension("cogs.d12ball")
         print("Extension loaded.")
+
         synced = await self.tree.sync()
         print(f"Synced {len(synced)} commands.")
 

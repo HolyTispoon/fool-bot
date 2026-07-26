@@ -1,0 +1,13 @@
+{
+  "7a4b539566224d429a6d13dc24c54719": {
+    "game_id": "7a4b539566224d429a6d13dc24c54719",
+    "game_number": 5,
+    "guild_id": 1518686170647892088,
+    "channel_id": 1530917514010165359,
+    "message_id": 1530917514702356572,
+    "player_1_id": 150809002974904321,
+    "player_2_id": null,
+    "coin_flipped": true,
+    "coin_winner": "<@150809002974904321>"
+  }
+}

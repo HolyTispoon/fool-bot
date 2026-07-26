@@ -1,10 +1,17 @@
 import random
 import re
+import uuid
 from typing import Optional
 
 import discord
 from discord import app_commands
 from discord.ext import commands
+
+from gamesaves.d12ball.storage import (
+    D12BallGame,
+    load_games,
+    save_games,
+)
 
 
 CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)$")
@@ -13,29 +20,44 @@ CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)$")
 class CoinFlipView(discord.ui.View):
     def __init__(
         self,
-        player_1: discord.Member,
-        player_2: Optional[discord.Member],
+        cog: "D12Ball",
+        game_id: str,
     ):
         super().__init__(timeout=None)
 
-        self.player_1 = player_1
-        self.player_2 = player_2
-        self.coin_flipped = False
+        self.cog = cog
+        self.game_id = game_id
 
-    @discord.ui.button(
-        label="Flip a coin",
-        style=discord.ButtonStyle.primary,
-        emoji="🪙",
-    )
+        game = self.cog.games.get(game_id)
+
+        self.flip_button = discord.ui.Button(
+            label="Flip a coin",
+            style=discord.ButtonStyle.primary,
+            emoji="🪙",
+            custom_id=f"d12ball:flip_coin:{game_id}",
+            disabled=game.coin_flipped if game else False,
+        )
+
+        self.flip_button.callback = self.flip_coin
+        self.add_item(self.flip_button)
+
     async def flip_coin(
         self,
         interaction: discord.Interaction,
-        button: discord.ui.Button,
-    ):
-        allowed_player_ids = {self.player_1.id}
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
 
-        if self.player_2 is not None:
-            allowed_player_ids.add(self.player_2.id)
+        if game is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        allowed_player_ids = {game.player_1_id}
+
+        if game.player_2_id is not None:
+            allowed_player_ids.add(game.player_2_id)
 
         if interaction.user.id not in allowed_player_ids:
             await interaction.response.send_message(
@@ -44,28 +66,38 @@ class CoinFlipView(discord.ui.View):
             )
             return
 
-        if self.coin_flipped:
-            await interaction.response.send_message(
+        if game.coin_flipped:
+            self.flip_button.disabled = True
+
+            await interaction.response.edit_message(view=self)
+
+            await interaction.followup.send(
                 "The coin has already been flipped.",
                 ephemeral=True,
             )
             return
 
-        self.coin_flipped = True
-        button.disabled = True
+        player_1_text = f"<@{game.player_1_id}>"
 
-        if self.player_2 is None:
+        if game.player_2_id is None:
             competitors = [
-                self.player_1.mention,
+                player_1_text,
                 "the AI opponent",
             ]
         else:
             competitors = [
-                self.player_1.mention,
-                self.player_2.mention,
+                player_1_text,
+                f"<@{game.player_2_id}>",
             ]
 
         winner = random.choice(competitors)
+
+        game.coin_flipped = True
+        game.coin_winner = winner
+
+        save_games(self.cog.games)
+
+        self.flip_button.disabled = True
 
         await interaction.response.edit_message(view=self)
 
@@ -78,16 +110,48 @@ class CoinFlipView(discord.ui.View):
 class D12Ball(commands.GroupCog, group_name="d12ball"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.games = load_games()
 
-    @staticmethod
-    def get_next_game_number(guild: discord.Guild) -> int:
-        existing_numbers = []
+        restored_views = 0
+
+        for game in self.games.values():
+            if game.message_id is None:
+                continue
+
+            view = CoinFlipView(
+                cog=self,
+                game_id=game.game_id,
+            )
+
+            self.bot.add_view(
+                view,
+                message_id=game.message_id,
+            )
+
+            restored_views += 1
+
+        print(
+            f"Loaded {len(self.games)} saved D12 Ball games "
+            f"and restored {restored_views} button views."
+        )
+
+    def get_next_game_number(
+        self,
+        guild: discord.Guild,
+    ) -> int:
+        existing_numbers: list[int] = []
 
         for channel in guild.text_channels:
-            match = CHANNEL_NAME_PATTERN.fullmatch(channel.name.lower())
+            match = CHANNEL_NAME_PATTERN.fullmatch(
+                channel.name.lower()
+            )
 
             if match:
                 existing_numbers.append(int(match.group(1)))
+
+        for game in self.games.values():
+            if game.guild_id == guild.id:
+                existing_numbers.append(game.game_number)
 
         if not existing_numbers:
             return 1
@@ -108,7 +172,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         p1: Optional[discord.Member] = None,
         p2: Optional[discord.Member] = None,
-    ):
+    ) -> None:
         guild = interaction.guild
 
         if guild is None:
@@ -125,7 +189,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        # Determine the players.
+        # Work out which members are Player 1 and Player 2.
         if p1 is None and p2 is None:
             player_1 = interaction.user
             player_2 = None
@@ -208,12 +272,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 read_message_history=True,
             )
 
+        category = None
+
+        if isinstance(interaction.channel, discord.TextChannel):
+            category = interaction.channel.category
+
         try:
-            category = None
-
-            if isinstance(interaction.channel, discord.TextChannel):
-                category = interaction.channel.category
-
             game_channel = await guild.create_text_channel(
                 name=channel_name,
                 overwrites=overwrites,
@@ -235,34 +299,62 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
+        game_id = uuid.uuid4().hex
+
+        game = D12BallGame(
+            game_id=game_id,
+            game_number=game_number,
+            guild_id=guild.id,
+            channel_id=game_channel.id,
+            message_id=None,
+            player_1_id=player_1.id,
+            player_2_id=player_2.id if player_2 else None,
+        )
+
+        self.games[game_id] = game
+
         view = CoinFlipView(
-            player_1=player_1,
-            player_2=player_2,
+            cog=self,
+            game_id=game_id,
         )
 
         if player_2 is None:
-            message = (
+            message_text = (
                 f"{player_1.mention}, start playing in this channel.\n\n"
                 f"**Player 1:** {player_1.mention}\n"
                 f"**Player 2:** AI opponent"
             )
         else:
-            message = (
+            message_text = (
                 f"{player_1.mention} {player_2.mention}, "
                 f"start playing in this channel.\n\n"
                 f"**Player 1:** {player_1.mention}\n"
                 f"**Player 2:** {player_2.mention}"
             )
 
-        await game_channel.send(
-            message,
-            view=view,
-            allowed_mentions=discord.AllowedMentions(
-                users=True,
-                roles=False,
-                everyone=False,
-            ),
-        )
+        try:
+            game_message = await game_channel.send(
+                message_text,
+                view=view,
+                allowed_mentions=discord.AllowedMentions(
+                    users=True,
+                    roles=False,
+                    everyone=False,
+                ),
+            )
+
+        except discord.HTTPException as error:
+            self.games.pop(game_id, None)
+
+            await interaction.followup.send(
+                f"The channel was created, but I could not send "
+                f"the game message: {error}",
+                ephemeral=True,
+            )
+            return
+
+        game.message_id = game_message.id
+        save_games(self.games)
 
         await interaction.followup.send(
             f"Game created: {game_channel.mention}",
@@ -270,5 +362,5 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(D12Ball(bot))
