@@ -46,6 +46,10 @@ class GameBot(commands.Bot):
         await self.load_extension("cogs.d12ball")
         print("Extension loaded.")
 
+        print("Loading debug extension...")
+        await self.load_extension("cogs.debug")
+        print("Debug extension loaded.")
+
         synced = await self.tree.sync()
         print(f"Synced {len(synced)} commands.")
 

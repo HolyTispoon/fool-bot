@@ -22,7 +22,202 @@ from gamesaves.d12ball.storage import (
 
 CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)$")
 
-class TeamSelectionView(discord.ui.View):
+
+def build_setup_message(game: D12BallGame) -> str:
+    player_1_team = (
+        game.player_1_team.value.title()
+        if game.player_1_team
+        else "Not selected"
+    )
+
+    player_2_team = (
+        game.player_2_team.value.title()
+        if game.player_2_team
+        else "Not selected"
+    )
+
+    if game.player_2_id is None:
+        player_2_name = "AI opponent"
+    else:
+        player_2_name = f"<@{game.player_2_id}>"
+
+    text = (
+        "## D12 Ball game setup\n\n"
+        "### Choose your teams\n\n"
+        f"**Player 1:** <@{game.player_1_id}>\n"
+        f"**Team:** {player_1_team}\n\n"
+        f"**Player 2:** {player_2_name}\n"
+        f"**Team:** {player_2_team}\n\n"
+        "### Game settings\n\n"
+        f"Game Mode: {game.mode.value.title()}\n"
+        f"Board size: {game.board_size}\n\n"
+    )
+
+    if game.teams_selected:
+        text += (
+            "Both teams have been selected.\n"
+            "Click below to determine who chooses whether they are home team."
+        )
+    elif game.is_solo_game:
+        text += (
+            "Choose a team using the buttons. After you chose your team, "
+            "a random team will be assigned to the AI opponent of the "
+            "remaining teams."
+        )
+    else:
+        text += "Each player should choose a team below."
+
+    return text
+
+
+class GameConfigurationView(discord.ui.View):
+    def add_configuration_buttons(self) -> None:
+        game = self.cog.games.get(self.game_id)
+        selected_mode = game.mode if game else GameMode.BASIC
+        selected_board_size = game.board_size if game else 7
+        configuration_closed = bool(
+            game and game.status != GameStatus.SETUP
+        )
+
+        for label, mode in (
+            ("Basic", GameMode.BASIC),
+            ("Advanced", GameMode.ADVANCED),
+        ):
+            button = discord.ui.Button(
+                label=label,
+                style=(
+                    discord.ButtonStyle.secondary
+                    if mode == selected_mode
+                    else discord.ButtonStyle.primary
+                ),
+                custom_id=f"d12ball:mode:{self.game_id}:{mode.value}",
+                disabled=configuration_closed or mode == selected_mode,
+                row=1,
+            )
+
+            async def mode_callback(
+                interaction: discord.Interaction,
+                selected_mode: GameMode = mode,
+            ) -> None:
+                await self.select_mode(interaction, selected_mode)
+
+            button.callback = mode_callback
+            self.add_item(button)
+
+        for board_size in (6, 7, 9):
+            button = discord.ui.Button(
+                label=str(board_size),
+                style=(
+                    discord.ButtonStyle.secondary
+                    if board_size == selected_board_size
+                    else discord.ButtonStyle.primary
+                ),
+                custom_id=(
+                    f"d12ball:board_size:{self.game_id}:{board_size}"
+                ),
+                disabled=(
+                    configuration_closed
+                    or board_size == selected_board_size
+                ),
+                row=2,
+            )
+
+            async def board_size_callback(
+                interaction: discord.Interaction,
+                selected_board_size: int = board_size,
+            ) -> None:
+                await self.select_board_size(
+                    interaction,
+                    selected_board_size,
+                )
+
+            button.callback = board_size_callback
+            self.add_item(button)
+
+    async def validate_configuration_change(
+        self,
+        interaction: discord.Interaction,
+    ) -> Optional[D12BallGame]:
+        game = self.cog.games.get(self.game_id)
+
+        if game is None:
+            await interaction.response.send_message(
+                "I could not find this game.",
+                ephemeral=True,
+            )
+            return None
+
+        if game.status != GameStatus.SETUP:
+            await interaction.response.send_message(
+                "Game settings can only be changed during setup.",
+                ephemeral=True,
+            )
+            return None
+
+        player_ids = {game.player_1_id}
+        if game.player_2_id is not None:
+            player_ids.add(game.player_2_id)
+
+        if interaction.user.id not in player_ids:
+            await interaction.response.send_message(
+                "Only the players in this game can change its settings.",
+                ephemeral=True,
+            )
+            return None
+
+        return game
+
+    async def select_mode(
+        self,
+        interaction: discord.Interaction,
+        selected_mode: GameMode,
+    ) -> None:
+        game = await self.validate_configuration_change(interaction)
+        if game is None:
+            return
+
+        if selected_mode == GameMode.ADVANCED:
+            await interaction.response.send_message(
+                "advanced mode is not yet ready, please play in basic mode",
+                ephemeral=True,
+            )
+            return
+
+        game.mode = GameMode.BASIC
+        save_games(self.cog.games)
+
+        refreshed_view = type(self)(
+            cog=self.cog,
+            game_id=self.game_id,
+        )
+        await interaction.response.edit_message(
+            content=build_setup_message(game),
+            view=refreshed_view,
+        )
+
+    async def select_board_size(
+        self,
+        interaction: discord.Interaction,
+        selected_board_size: int,
+    ) -> None:
+        game = await self.validate_configuration_change(interaction)
+        if game is None:
+            return
+
+        game.board_size = selected_board_size
+        save_games(self.cog.games)
+
+        refreshed_view = type(self)(
+            cog=self.cog,
+            game_id=self.game_id,
+        )
+        await interaction.response.edit_message(
+            content=build_setup_message(game),
+            view=refreshed_view,
+        )
+
+
+class TeamSelectionView(GameConfigurationView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -32,6 +227,13 @@ class TeamSelectionView(discord.ui.View):
 
         self.cog = cog
         self.game_id = game_id
+
+        game = self.cog.games.get(game_id)
+        selected_teams = (
+            {game.player_1_team, game.player_2_team}
+            if game
+            else set()
+        )
 
         teams = [
             ("Orange", Team.ORANGE, discord.ButtonStyle.primary),
@@ -43,8 +245,13 @@ class TeamSelectionView(discord.ui.View):
         for label, team, style in teams:
             button = discord.ui.Button(
                 label=label,
-                style=style,
+                style=(
+                    discord.ButtonStyle.secondary
+                    if team in selected_teams
+                    else style
+                ),
                 custom_id=f"d12ball:team:{game_id}:{team.value}",
+                disabled=team in selected_teams,
             )
 
             async def callback(
@@ -58,6 +265,8 @@ class TeamSelectionView(discord.ui.View):
 
             button.callback = callback
             self.add_item(button)
+
+        self.add_configuration_buttons()
 
     async def select_team(
         self,
@@ -123,10 +332,9 @@ class TeamSelectionView(discord.ui.View):
 
             game.player_2_team = selected_team
 
-        
         save_games(self.cog.games)
 
-        message = self.build_team_message(game)
+        message = build_setup_message(game)
 
         if game.teams_selected:
             coin_view = CoinFlipView(
@@ -134,58 +342,28 @@ class TeamSelectionView(discord.ui.View):
                 game_id=self.game_id,
             )
 
-            message += "\n\nClick below to determine who chooses whether they are home team."
-
             await interaction.response.edit_message(
                 content=message,
                 view=coin_view,
             )
         else:
+            refreshed_view = TeamSelectionView(
+                cog=self.cog,
+                game_id=self.game_id,
+            )
             await interaction.response.edit_message(
-            content=message,
-            view=self,
+                content=message,
+                view=refreshed_view,
             )
 
     def build_team_message(
         self,
         game: D12BallGame,
     ) -> str:
-        player_1_team = (
-            game.player_1_team.value.title()
-            if game.player_1_team
-            else "Not selected"
-        )
+        return build_setup_message(game)
 
-        player_2_team = (
-            game.player_2_team.value.title()
-            if game.player_2_team
-            else "Not selected"
-        )
 
-        if game.player_2_id is None:
-            player_2_name = "AI opponent"
-        else:
-            player_2_name = f"<@{game.player_2_id}>"
-
-        text = (
-            "## Choose your teams\n\n"
-            f"**Player 1:** <@{game.player_1_id}>\n"
-            f"**Team:** {player_1_team}\n\n"
-            f"**Player 2:** {player_2_name}\n"
-            f"**Team:** {player_2_team}\n\n"
-        )
-
-        if game.teams_selected:
-            text += (
-                "Both teams have been selected.\n"
-                "The game is ready for the next setup step."
-            )
-        else:
-            text += "Each player should choose a team below."
-
-        return text
-    
-class CoinFlipView(discord.ui.View):
+class CoinFlipView(GameConfigurationView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -199,15 +377,17 @@ class CoinFlipView(discord.ui.View):
         game = self.cog.games.get(game_id)
 
         self.flip_button = discord.ui.Button(
-            label="Flip a coin",
+            label="Flip a Coin! (this would start the game)",
             style=discord.ButtonStyle.primary,
             emoji="🪙",
             custom_id=f"d12ball:flip_coin:{game_id}",
             disabled=game.coin_flipped if game else False,
+            row=3,
         )
 
         self.flip_button.callback = self.flip_coin
         self.add_item(self.flip_button)
+        self.add_configuration_buttons()
 
     async def flip_coin(
         self,
@@ -262,12 +442,16 @@ class CoinFlipView(discord.ui.View):
 
         game.coin_flipped = True
         game.coin_winner = winner
+        game.start_game()
 
         save_games(self.cog.games)
 
-        self.flip_button.disabled = True
+        refreshed_view = CoinFlipView(
+            cog=self.cog,
+            game_id=self.game_id,
+        )
 
-        await interaction.response.edit_message(view=self)
+        await interaction.response.edit_message(view=refreshed_view)
 
         await interaction.followup.send(
             f"🪙 The coin has been flipped!\n\n"
@@ -313,19 +497,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self,
         guild: discord.Guild,
     ) -> int:
-        existing_numbers: list[int] = []
-
-        for channel in guild.text_channels:
-            match = CHANNEL_NAME_PATTERN.fullmatch(
-                channel.name.lower()
-            )
-
-            if match:
-                existing_numbers.append(int(match.group(1)))
-
-        for game in self.games.values():
-            if game.guild_id == guild.id:
-                existing_numbers.append(game.game_number)
+        existing_numbers = [
+            game.game_number
+            for game in self.games.values()
+            if game.guild_id == guild.id
+        ]
 
         if not existing_numbers:
             return 1
