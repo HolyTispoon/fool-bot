@@ -649,6 +649,41 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
+        try:
+            await game_channel.set_permissions(
+                bot_member,
+                view_channel=True,
+                send_messages=True,
+                read_message_history=True,
+                manage_channels=True,
+                reason="Ensure the bot can manage its private game channel.",
+            )
+        except (discord.Forbidden, discord.HTTPException) as error:
+            bot_permissions = game_channel.permissions_for(bot_member)
+
+            if (
+                not bot_permissions.view_channel
+                or not bot_permissions.manage_channels
+            ):
+                await interaction.followup.send(
+                    "The private channel was created, but I could not add "
+                    f"myself with permission to manage it: {error}",
+                    ephemeral=True,
+                )
+                return
+
+        bot_permissions = game_channel.permissions_for(bot_member)
+        if (
+            not bot_permissions.view_channel
+            or not bot_permissions.manage_channels
+        ):
+            await interaction.followup.send(
+                "The private channel was created, but Discord did not grant "
+                "me View Channel and Manage Channels permissions.",
+                ephemeral=True,
+            )
+            return
+
         game_id = uuid.uuid4().hex
 
         game = D12BallGame(
