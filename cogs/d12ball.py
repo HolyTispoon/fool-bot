@@ -21,6 +21,20 @@ from gamesaves.d12ball.storage import (
 
 
 CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)$")
+PBD_GAMES_CATEGORY_NAME = "PBD Games"
+PBD_ARCHIVE_CATEGORY_NAME = "PBD Archive"
+
+
+async def get_or_create_category(
+    guild: discord.Guild,
+    name: str,
+    reason: str,
+) -> discord.CategoryChannel:
+    for category in guild.categories:
+        if category.name.casefold() == name.casefold():
+            return category
+
+    return await guild.create_category(name=name, reason=reason)
 
 
 def build_setup_message(game: D12BallGame) -> str:
@@ -508,6 +522,68 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         return max(existing_numbers) + 1
 
+    async def archive_game_channel(
+        self,
+        game: D12BallGame,
+    ) -> None:
+        guild = self.bot.get_guild(game.guild_id)
+        if guild is None:
+            raise ValueError("The server for this game is not available.")
+
+        channel = guild.get_channel(game.channel_id)
+        if channel is None:
+            channel = await guild.fetch_channel(game.channel_id)
+
+        if not isinstance(channel, discord.TextChannel):
+            raise ValueError("The channel for this game is not a text channel.")
+
+        if (
+            channel.category is not None
+            and channel.category.name.casefold()
+            == PBD_ARCHIVE_CATEGORY_NAME.casefold()
+        ):
+            return
+
+        archive_category = await get_or_create_category(
+            guild,
+            PBD_ARCHIVE_CATEGORY_NAME,
+            "Create the category for finished PBD games.",
+        )
+        await channel.edit(
+            category=archive_category,
+            reason="Move a finished D12 Ball game to the PBD archive.",
+        )
+
+    async def finish_and_archive_game(
+        self,
+        game_id: str,
+    ) -> D12BallGame:
+        game = self.games.get(game_id)
+        if game is None:
+            raise ValueError("The D12 Ball game could not be found.")
+
+        if game.status != GameStatus.IN_PROGRESS:
+            raise ValueError("Only a game in progress can be finished.")
+
+        await self.archive_game_channel(game)
+        game.finish_game()
+        save_games(self.games)
+        return game
+
+    @commands.Cog.listener()
+    async def on_ready(self) -> None:
+        for game in self.games.values():
+            if game.status != GameStatus.FINISHED:
+                continue
+
+            try:
+                await self.archive_game_channel(game)
+            except (ValueError, discord.Forbidden, discord.HTTPException) as error:
+                print(
+                    f"Could not archive finished D12 Ball game "
+                    f"{game.game_id}: {error}"
+                )
+
     @app_commands.command(
         name="create_game",
         description="Create a new D12 Ball game.",
@@ -622,12 +698,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 read_message_history=True,
             )
 
-        category = None
-
-        if isinstance(interaction.channel, discord.TextChannel):
-            category = interaction.channel.category
-
         try:
+            category = await get_or_create_category(
+                guild,
+                PBD_GAMES_CATEGORY_NAME,
+                "Create the category for active PBD games.",
+            )
             game_channel = await guild.create_text_channel(
                 name=channel_name,
                 overwrites=overwrites,
@@ -637,7 +713,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         except discord.Forbidden:
             await interaction.followup.send(
-                "I do not have permission to create channels.",
+                "I do not have permission to create the PBD Games category "
+                "or its game channels.",
                 ephemeral=True,
             )
             return

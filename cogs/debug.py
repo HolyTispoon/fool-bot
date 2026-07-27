@@ -2,7 +2,10 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from cogs.d12ball import CHANNEL_NAME_PATTERN
+from cogs.d12ball import (
+    CHANNEL_NAME_PATTERN,
+    PBD_ARCHIVE_CATEGORY_NAME,
+)
 from gamesaves.d12ball.storage import save_games
 
 
@@ -65,7 +68,23 @@ class Debug(commands.Cog):
             for channel in guild_channels
             if isinstance(channel, discord.TextChannel)
             if CHANNEL_NAME_PATTERN.fullmatch(channel.name.lower())
+            if (
+                channel.category is None
+                or channel.category.name.casefold()
+                != PBD_ARCHIVE_CATEGORY_NAME.casefold()
+            )
         ]
+        archived_channel_ids = {
+            channel.id
+            for channel in guild_channels
+            if isinstance(channel, discord.TextChannel)
+            if CHANNEL_NAME_PATTERN.fullmatch(channel.name.lower())
+            if (
+                channel.category is not None
+                and channel.category.name.casefold()
+                == PBD_ARCHIVE_CATEGORY_NAME.casefold()
+            )
+        }
         failed_channels: list[tuple[str, str]] = []
         deleted_channels = 0
 
@@ -97,19 +116,23 @@ class Debug(commands.Cog):
         game_ids = [
             game_id
             for game_id, game in d12ball_cog.games.items()
-            if game.guild_id == guild.id
+            if (
+                game.guild_id == guild.id
+                and game.channel_id not in archived_channel_ids
+            )
         ]
 
         for game_id in game_ids:
             d12ball_cog.games.pop(game_id)
 
         save_games(d12ball_cog.games)
+        next_game_number = d12ball_cog.get_next_game_number(guild)
 
         result = (
             f"Deleted {deleted_channels} PBD channel(s) and "
             f"{len(game_ids)} saved game(s). "
             "The channel count has been reset; the next D12 Ball game "
-            "will start at 1."
+            f"will be pbd{next_game_number}."
         )
 
         if failed_channels:
