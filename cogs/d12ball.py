@@ -7,8 +7,14 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from gamesaves.d12ball.storage import (
+from d12ball.game import (
     D12BallGame,
+    GameMode,
+    GameStatus,
+    Team,
+)
+
+from gamesaves.d12ball.storage import (
     load_games,
     save_games,
 )
@@ -16,7 +22,169 @@ from gamesaves.d12ball.storage import (
 
 CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)$")
 
+class TeamSelectionView(discord.ui.View):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+    ):
+        super().__init__(timeout=None)
 
+        self.cog = cog
+        self.game_id = game_id
+
+        teams = [
+            ("Orange", Team.ORANGE, discord.ButtonStyle.primary),
+            ("Teal", Team.TEAL, discord.ButtonStyle.primary),
+            ("Purple", Team.PURPLE, discord.ButtonStyle.primary),
+            ("Slime", Team.SLIME, discord.ButtonStyle.primary),
+        ]
+
+        for label, team, style in teams:
+            button = discord.ui.Button(
+                label=label,
+                style=style,
+                custom_id=f"d12ball:team:{game_id}:{team.value}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                selected_team: Team = team,
+            ) -> None:
+                await self.select_team(
+                    interaction,
+                    selected_team,
+                )
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def select_team(
+        self,
+        interaction: discord.Interaction,
+        selected_team: Team,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+
+        if game is None:
+            await interaction.response.send_message(
+                "I could not find this game.",
+                ephemeral=True,
+            )
+            return
+
+        if game.status != GameStatus.SETUP:
+            await interaction.response.send_message(
+                "Team selection is already closed.",
+                ephemeral=True,
+            )
+            return
+
+        is_player_1 = interaction.user.id == game.player_1_id
+        is_player_2 = (
+            game.player_2_id is not None
+            and interaction.user.id == game.player_2_id
+        )
+
+        if not is_player_1 and not is_player_2:
+            await interaction.response.send_message(
+                "Only the players in this game can choose teams.",
+                ephemeral=True,
+            )
+            return
+
+        if is_player_1:
+            if game.player_2_team == selected_team:
+                await interaction.response.send_message(
+                    "Player 2 has already selected that team.",
+                    ephemeral=True,
+                )
+                return
+
+            game.player_1_team = selected_team
+            if game.player_2_id is None:
+                available_ai_teams = [
+                    team
+                    for team in Team
+                    if team != selected_team
+                ]
+
+                game.player_2_team = random.choice(
+                    available_ai_teams
+                )
+
+        else:
+            if game.player_1_team == selected_team:
+                await interaction.response.send_message(
+                    "Player 1 has already selected that team.",
+                    ephemeral=True,
+                )
+                return
+
+            game.player_2_team = selected_team
+
+        
+        save_games(self.cog.games)
+
+        message = self.build_team_message(game)
+
+        if game.teams_selected:
+            coin_view = CoinFlipView(
+                cog=self.cog,
+                game_id=self.game_id,
+            )
+
+            message += "\n\nClick below to determine who chooses whether they are home team."
+
+            await interaction.response.edit_message(
+                content=message,
+                view=coin_view,
+            )
+        else:
+            await interaction.response.edit_message(
+            content=message,
+            view=self,
+            )
+
+    def build_team_message(
+        self,
+        game: D12BallGame,
+    ) -> str:
+        player_1_team = (
+            game.player_1_team.value.title()
+            if game.player_1_team
+            else "Not selected"
+        )
+
+        player_2_team = (
+            game.player_2_team.value.title()
+            if game.player_2_team
+            else "Not selected"
+        )
+
+        if game.player_2_id is None:
+            player_2_name = "AI opponent"
+        else:
+            player_2_name = f"<@{game.player_2_id}>"
+
+        text = (
+            "## Choose your teams\n\n"
+            f"**Player 1:** <@{game.player_1_id}>\n"
+            f"**Team:** {player_1_team}\n\n"
+            f"**Player 2:** {player_2_name}\n"
+            f"**Team:** {player_2_team}\n\n"
+        )
+
+        if game.teams_selected:
+            text += (
+                "Both teams have been selected.\n"
+                "The game is ready for the next setup step."
+            )
+        else:
+            text += "Each player should choose a team below."
+
+        return text
+    
 class CoinFlipView(discord.ui.View):
     def __init__(
         self,
@@ -118,7 +286,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if game.message_id is None:
                 continue
 
-            view = CoinFlipView(
+            if game.teams_selected:
+                view = CoinFlipView(
+                cog=self,
+                game_id=game.game_id,
+            )
+            else:
+                view = TeamSelectionView(
                 cog=self,
                 game_id=game.game_id,
             )
@@ -309,27 +483,30 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             message_id=None,
             player_1_id=player_1.id,
             player_2_id=player_2.id if player_2 else None,
+            mode=GameMode.BASIC,
+            status=GameStatus.SETUP,
+            board_size=7,
         )
 
         self.games[game_id] = game
 
-        view = CoinFlipView(
+        view = TeamSelectionView(
             cog=self,
             game_id=game_id,
         )
 
+        message_text = view.build_team_message(game)
+
         if player_2 is None:
             message_text = (
                 f"{player_1.mention}, start playing in this channel.\n\n"
-                f"**Player 1:** {player_1.mention}\n"
-                f"**Player 2:** AI opponent"
+                f"{message_text}"
             )
         else:
             message_text = (
                 f"{player_1.mention} {player_2.mention}, "
                 f"start playing in this channel.\n\n"
-                f"**Player 1:** {player_1.mention}\n"
-                f"**Player 2:** {player_2.mention}"
+                f"{message_text}"
             )
 
         try:

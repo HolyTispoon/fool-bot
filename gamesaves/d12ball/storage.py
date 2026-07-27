@@ -2,25 +2,12 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
+from d12ball.game import D12BallGame
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_FOLDER = PROJECT_ROOT / "data"
 GAMES_FILE = DATA_FOLDER / "d12ball_games.json"
-
-
-@dataclass
-class D12BallGame:
-    game_id: str
-    game_number: int
-    guild_id: int
-    channel_id: int
-    message_id: Optional[int]
-    player_1_id: int
-    player_2_id: Optional[int]
-    coin_flipped: bool = False
-    coin_winner: Optional[str] = None
-
 
 def load_games() -> dict[str, D12BallGame]:
     DATA_FOLDER.mkdir(parents=True, exist_ok=True)
