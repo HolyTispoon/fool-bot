@@ -21,6 +21,11 @@ class GameStatus(str, Enum):
     FINISHED = "finished"
 
 
+class HomeChoice(str, Enum):
+    HOME = "home"
+    VISITING = "visiting"
+
+
 VALID_BOARD_SIZES = {6, 7, 9}
 
 
@@ -38,6 +43,8 @@ class D12BallGame:
     player_2_id: Optional[int]
     # None means Player 2 is controlled by the AI.
 
+    player_1_name: Optional[str] = None
+    player_2_name: Optional[str] = None
     player_1_team: Optional[Team] = None
     player_2_team: Optional[Team] = None
 
@@ -49,6 +56,11 @@ class D12BallGame:
     # Coin-toss information
     coin_flipped: bool = False
     coin_winner: Optional[str] = None
+    coin_winner_player_number: Optional[int] = None
+
+    # Home and visiting assignments (1 = Player 1, 2 = Player 2/AI)
+    home_player_number: Optional[int] = None
+    visiting_player_number: Optional[int] = None
 
     def __post_init__(self) -> None:
         if self.player_1_team is not None:
@@ -59,6 +71,45 @@ class D12BallGame:
 
         self.mode = GameMode(self.mode)
         self.status = GameStatus(self.status)
+
+        if (
+            self.coin_flipped
+            and self.coin_winner_player_number is None
+            and self.coin_winner is not None
+        ):
+            if self.coin_winner == f"<@{self.player_1_id}>":
+                self.coin_winner_player_number = 1
+            elif (
+                self.player_2_id is None
+                and self.coin_winner == "the AI opponent"
+            ):
+                self.coin_winner_player_number = 2
+            elif self.coin_winner == f"<@{self.player_2_id}>":
+                self.coin_winner_player_number = 2
+
+        for player_number in (
+            self.coin_winner_player_number,
+            self.home_player_number,
+            self.visiting_player_number,
+        ):
+            if player_number is not None and player_number not in {1, 2}:
+                raise ValueError("Player numbers must be either 1 or 2.")
+
+        if (
+            (self.home_player_number is None)
+            != (self.visiting_player_number is None)
+        ):
+            raise ValueError(
+                "Home and visiting players must be assigned together."
+            )
+
+        if (
+            self.home_player_number is not None
+            and self.home_player_number == self.visiting_player_number
+        ):
+            raise ValueError(
+                "Home and visiting players must be different."
+            )
 
         if self.board_size not in VALID_BOARD_SIZES:
             raise ValueError(
@@ -98,6 +149,37 @@ class D12BallGame:
             self.player_1_team is not None
             and self.player_2_team is not None
         )
+
+    @property
+    def home_and_visiting_selected(self) -> bool:
+        return (
+            self.home_player_number is not None
+            and self.visiting_player_number is not None
+        )
+
+    def choose_home_or_visiting(
+        self,
+        player_number: int,
+        choice: HomeChoice,
+    ) -> None:
+        if not self.coin_flipped:
+            raise ValueError("The coin must be flipped first.")
+
+        if self.coin_winner_player_number != player_number:
+            raise ValueError("Only the coin-toss winner can choose.")
+
+        if self.home_and_visiting_selected:
+            raise ValueError("Home and visiting teams are already assigned.")
+
+        choice = HomeChoice(choice)
+        other_player_number = 2 if player_number == 1 else 1
+
+        if choice == HomeChoice.HOME:
+            self.home_player_number = player_number
+            self.visiting_player_number = other_player_number
+        else:
+            self.home_player_number = other_player_number
+            self.visiting_player_number = player_number
 
     def start_game(self) -> None:
         """

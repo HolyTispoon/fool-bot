@@ -11,6 +11,7 @@ from d12ball.game import (
     D12BallGame,
     GameMode,
     GameStatus,
+    HomeChoice,
     Team,
 )
 
@@ -37,37 +38,37 @@ async def get_or_create_category(
     return await guild.create_category(name=name, reason=reason)
 
 
-def build_setup_message(game: D12BallGame) -> str:
-    player_1_team = (
-        game.player_1_team.value.title()
-        if game.player_1_team
-        else "Not selected"
+def build_setup_message(
+    game: D12BallGame,
+    mention_players: bool = True,
+) -> str:
+    player_1 = format_player_with_team(
+        game,
+        1,
+        mention=mention_players,
     )
-
-    player_2_team = (
-        game.player_2_team.value.title()
-        if game.player_2_team
-        else "Not selected"
+    player_2 = format_player_with_team(
+        game,
+        2,
+        mention=mention_players,
     )
-
-    if game.player_2_id is None:
-        player_2_name = "AI opponent"
-    else:
-        player_2_name = f"<@{game.player_2_id}>"
 
     text = (
         "## D12 Ball game setup\n\n"
         "### Choose your teams\n\n"
-        f"**Player 1:** <@{game.player_1_id}>\n"
-        f"**Team:** {player_1_team}\n\n"
-        f"**Player 2:** {player_2_name}\n"
-        f"**Team:** {player_2_team}\n\n"
+        f"**Player 1:** {player_1}\n\n"
+        f"**Player 2:** {player_2}\n\n"
         "### Game settings\n\n"
         f"Game Mode: {game.mode.value.title()}\n"
         f"Board size: {game.board_size}\n\n"
     )
 
-    if game.teams_selected:
+    if game.coin_flipped:
+        text += (
+            "The coin has been flipped. See the result and the "
+            "Home/Visiting selection below."
+        )
+    elif game.teams_selected:
         text += (
             "Both teams have been selected.\n"
             "Click below to determine who chooses whether they are home team."
@@ -80,6 +81,95 @@ def build_setup_message(game: D12BallGame) -> str:
         )
     else:
         text += "Each player should choose a team below."
+
+    return text
+
+
+def format_player(
+    game: D12BallGame,
+    player_number: Optional[int],
+    mention: bool = False,
+) -> str:
+    if player_number == 1:
+        if mention:
+            return f"<@{game.player_1_id}>"
+        return game.player_1_name or "Player 1"
+
+    if player_number == 2:
+        if game.player_2_id is None:
+            return "AI opponent"
+        if mention:
+            return f"<@{game.player_2_id}>"
+        return game.player_2_name or "Player 2"
+
+    return "Unknown player"
+
+
+def format_player_with_team(
+    game: D12BallGame,
+    player_number: Optional[int],
+    mention: bool = False,
+) -> str:
+    player = format_player(game, player_number, mention=mention)
+    team = (
+        game.player_1_team
+        if player_number == 1
+        else game.player_2_team
+    )
+    team_name = team.value.title() if team else "Unknown team"
+    return f"{player} ({team_name})"
+
+
+def refresh_player_names(
+    game: D12BallGame,
+    guild: Optional[discord.Guild],
+) -> None:
+    if guild is None:
+        return
+
+    player_1 = guild.get_member(game.player_1_id)
+    if player_1 is not None:
+        game.player_1_name = player_1.display_name
+
+    if game.player_2_id is not None:
+        player_2 = guild.get_member(game.player_2_id)
+        if player_2 is not None:
+            game.player_2_name = player_2.display_name
+
+
+def build_home_choice_message(game: D12BallGame) -> str:
+    winner = format_player_with_team(
+        game,
+        game.coin_winner_player_number,
+    )
+    text = (
+        "🪙 The coin has been flipped!\n\n"
+        f"**{winner} wins the coin toss!**"
+    )
+
+    if game.home_and_visiting_selected:
+        home_player = format_player_with_team(
+            game,
+            game.home_player_number,
+        )
+        visiting_player = format_player_with_team(
+            game,
+            game.visiting_player_number,
+        )
+        text += (
+            f"\n\n**Home:** {home_player}\n"
+            f"**Visiting:** {visiting_player}"
+        )
+    else:
+        winner_mention = format_player_with_team(
+            game,
+            game.coin_winner_player_number,
+            mention=True,
+        )
+        text += (
+            f"\n\n{winner_mention}, choose whether you want to play "
+            "as Home or Visiting."
+        )
 
     return text
 
@@ -429,9 +519,15 @@ class CoinFlipView(GameConfigurationView):
             return
 
         if game.coin_flipped:
-            self.flip_button.disabled = True
+            refreshed_view = HomeAwaySelectionView(
+                cog=self.cog,
+                game_id=self.game_id,
+            )
 
-            await interaction.response.edit_message(view=self)
+            await interaction.response.edit_message(
+                content=build_home_choice_message(game),
+                view=refreshed_view,
+            )
 
             await interaction.followup.send(
                 "The coin has already been flipped.",
@@ -439,37 +535,154 @@ class CoinFlipView(GameConfigurationView):
             )
             return
 
-        player_1_text = f"<@{game.player_1_id}>"
-
-        if game.player_2_id is None:
-            competitors = [
-                player_1_text,
-                "the AI opponent",
-            ]
-        else:
-            competitors = [
-                player_1_text,
-                f"<@{game.player_2_id}>",
-            ]
-
-        winner = random.choice(competitors)
+        winner_player_number = random.choice((1, 2))
+        refresh_player_names(game, interaction.guild)
+        winner = format_player(game, winner_player_number)
 
         game.coin_flipped = True
         game.coin_winner = winner
+        game.coin_winner_player_number = winner_player_number
         game.start_game()
 
-        save_games(self.cog.games)
+        if game.is_solo_game and winner_player_number == 2:
+            ai_choice = random.choice(
+                (HomeChoice.HOME, HomeChoice.VISITING)
+            )
+            game.choose_home_or_visiting(2, ai_choice)
 
-        refreshed_view = CoinFlipView(
+        refreshed_view = HomeAwaySelectionView(
             cog=self.cog,
             game_id=self.game_id,
         )
 
-        await interaction.response.edit_message(view=refreshed_view)
+        await interaction.response.edit_message(
+            content=build_setup_message(
+                game,
+                mention_players=False,
+            ),
+            view=None,
+        )
+
+        choice_message = await interaction.followup.send(
+            build_home_choice_message(game),
+            view=refreshed_view,
+            wait=True,
+        )
+        game.message_id = choice_message.id
+        save_games(self.cog.games)
+
+
+class HomeAwaySelectionView(discord.ui.View):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+    ):
+        super().__init__(timeout=None)
+
+        self.cog = cog
+        self.game_id = game_id
+
+        game = self.cog.games.get(game_id)
+        selected_choice = None
+        assignment_complete = bool(
+            game and game.home_and_visiting_selected
+        )
+
+        if assignment_complete and game is not None:
+            selected_choice = (
+                HomeChoice.HOME
+                if (
+                    game.home_player_number
+                    == game.coin_winner_player_number
+                )
+                else HomeChoice.VISITING
+            )
+
+        for label, choice in (
+            ("Home", HomeChoice.HOME),
+            ("Visiting", HomeChoice.VISITING),
+        ):
+            button = discord.ui.Button(
+                label=label,
+                style=(
+                    discord.ButtonStyle.success
+                    if choice == selected_choice
+                    else (
+                        discord.ButtonStyle.secondary
+                        if assignment_complete
+                        else discord.ButtonStyle.primary
+                    )
+                ),
+                custom_id=(
+                    f"d12ball:home_choice:{game_id}:{choice.value}"
+                ),
+                disabled=assignment_complete,
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                selected_choice: HomeChoice = choice,
+            ) -> None:
+                await self.select_home_or_visiting(
+                    interaction,
+                    selected_choice,
+                )
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def select_home_or_visiting(
+        self,
+        interaction: discord.Interaction,
+        choice: HomeChoice,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+
+        if game is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        if game.home_and_visiting_selected:
+            await interaction.response.send_message(
+                "Home and visiting teams have already been assigned.",
+                ephemeral=True,
+            )
+            return
+
+        winner_player_number = game.coin_winner_player_number
+        refresh_player_names(game, interaction.guild)
+        winner_user_id = (
+            game.player_1_id
+            if winner_player_number == 1
+            else game.player_2_id
+        )
+
+        if interaction.user.id != winner_user_id:
+            await interaction.response.send_message(
+                "Only the player who won the coin toss can make this choice.",
+                ephemeral=True,
+            )
+            return
+
+        game.choose_home_or_visiting(winner_player_number, choice)
+        save_games(self.cog.games)
+
+        refreshed_view = HomeAwaySelectionView(
+            cog=self.cog,
+            game_id=self.game_id,
+        )
+        await interaction.response.edit_message(
+            content=build_home_choice_message(game),
+            view=refreshed_view,
+        )
 
         await interaction.followup.send(
-            f"🪙 The coin has been flipped!\n\n"
-            f"**{winner} wins the coin toss.**"
+            f"{format_player_with_team(game, winner_player_number)} chose "
+            f"**{choice.value.title()}**."
         )
 
 
@@ -484,16 +697,23 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if game.message_id is None:
                 continue
 
-            if game.teams_selected:
+            if game.coin_flipped and not game.home_and_visiting_selected:
+                view = HomeAwaySelectionView(
+                    cog=self,
+                    game_id=game.game_id,
+                )
+            elif game.teams_selected and not game.coin_flipped:
                 view = CoinFlipView(
-                cog=self,
-                game_id=game.game_id,
-            )
-            else:
+                    cog=self,
+                    game_id=game.game_id,
+                )
+            elif not game.teams_selected:
                 view = TeamSelectionView(
-                cog=self,
-                game_id=game.game_id,
-            )
+                    cog=self,
+                    game_id=game.game_id,
+                )
+            else:
+                continue
 
             self.bot.add_view(
                 view,
@@ -771,6 +991,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             message_id=None,
             player_1_id=player_1.id,
             player_2_id=player_2.id if player_2 else None,
+            player_1_name=player_1.display_name,
+            player_2_name=player_2.display_name if player_2 else None,
             mode=GameMode.BASIC,
             status=GameStatus.SETUP,
             board_size=7,
@@ -785,17 +1007,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         message_text = view.build_team_message(game)
 
-        if player_2 is None:
-            message_text = (
-                f"{player_1.mention}, start playing in this channel.\n\n"
-                f"{message_text}"
-            )
-        else:
-            message_text = (
-                f"{player_1.mention} {player_2.mention}, "
-                f"start playing in this channel.\n\n"
-                f"{message_text}"
-            )
+        message_text = (
+            "Start playing in this channel.\n\n"
+            f"{message_text}"
+        )
 
         try:
             game_message = await game_channel.send(
