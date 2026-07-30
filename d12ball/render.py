@@ -59,15 +59,15 @@ def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
-FONT_TITLE = load_font(34, bold=True)
-FONT_HEADING = load_font(24, bold=True)
-FONT_BODY = load_font(18)
+FONT_TITLE = load_font(44, bold=True)
+FONT_HEADING = load_font(34, bold=True)
+FONT_BODY = load_font(28)
 FONT_SMALL = load_font(14)
-FONT_MEEPLE = load_font(20, bold=True)
+FONT_MEEPLE = load_font(24, bold=True)
 FONT_TOKEN = load_font(16, bold=True)
 FONT_SCORE = load_font(52, bold=True)
-MEEPLE_SIZE = 46
-BALL_RADIUS = 20
+MEEPLE_SIZE = 52
+BALL_RADIUS = 25
 
 ROLE_INITIALS = {
     "fullback": "FB",
@@ -526,7 +526,7 @@ def draw_player_board(
         (MARGIN + 20, y + 14),
         f"{setup.side.value.title()} Player Board — "
         f"{setup.team.value.title()}",
-        font=FONT_HEADING,
+        font=FONT_BODY,
         fill="#ffffff",
     )
 
