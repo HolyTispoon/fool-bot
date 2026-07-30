@@ -7,6 +7,13 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from d12ball.components import (
+    MatchState,
+    PlayerDefinition,
+    TeamSide,
+    load_basic_ruleset,
+    load_player_catalog,
+)
 from d12ball.game import (
     D12BallGame,
     GameMode,
@@ -14,6 +21,7 @@ from d12ball.game import (
     HomeChoice,
     Team,
 )
+from d12ball.render import render_match_image
 
 from gamesaves.d12ball.storage import (
     load_games,
@@ -24,6 +32,14 @@ from gamesaves.d12ball.storage import (
 CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)$")
 PBD_GAMES_CATEGORY_NAME = "PBD Games"
 PBD_ARCHIVE_CATEGORY_NAME = "PBD Archive"
+ROLE_INITIALS = {
+    "fullback": "FB",
+    "defender": "DD",
+    "midfielder": "MF",
+    "playmaker": "PM",
+    "winger": "WG",
+    "striker": "SK",
+}
 
 
 async def get_or_create_category(
@@ -549,6 +565,7 @@ class CoinFlipView(GameConfigurationView):
                 (HomeChoice.HOME, HomeChoice.VISITING)
             )
             game.choose_home_or_visiting(2, ai_choice)
+            self.cog.initialize_standard_match(game)
 
         refreshed_view = HomeAwaySelectionView(
             cog=self.cog,
@@ -563,13 +580,22 @@ class CoinFlipView(GameConfigurationView):
             view=None,
         )
 
+        followup_arguments = {
+            "view": refreshed_view,
+            "wait": True,
+        }
+        if game.match_state is not None:
+            followup_arguments["file"] = self.cog.build_match_file(game)
+
         choice_message = await interaction.followup.send(
             build_home_choice_message(game),
-            view=refreshed_view,
-            wait=True,
+            **followup_arguments,
         )
         game.message_id = choice_message.id
         save_games(self.cog.games)
+
+        if game.match_state is not None:
+            await self.cog.send_turn_prompt(interaction, game)
 
 
 class HomeAwaySelectionView(discord.ui.View):
@@ -669,6 +695,7 @@ class HomeAwaySelectionView(discord.ui.View):
             return
 
         game.choose_home_or_visiting(winner_player_number, choice)
+        self.cog.initialize_standard_match(game)
         save_games(self.cog.games)
 
         refreshed_view = HomeAwaySelectionView(
@@ -678,11 +705,187 @@ class HomeAwaySelectionView(discord.ui.View):
         await interaction.response.edit_message(
             content=build_home_choice_message(game),
             view=refreshed_view,
+            attachments=[self.cog.build_match_file(game)],
         )
 
         await interaction.followup.send(
             f"{format_player_with_team(game, winner_player_number)} chose "
             f"**{choice.value.title()}**."
+        )
+        await self.cog.send_turn_prompt(interaction, game)
+
+
+class BallHandlerSelectionView(discord.ui.View):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+    ):
+        super().__init__(timeout=None)
+
+        self.cog = cog
+        self.game_id = game_id
+        game = self.cog.games.get(game_id)
+        if game is None or game.match_state is None:
+            return
+
+        match = self.cog.load_match_state(game)
+        for player_id in match.eligible_ball_handlers():
+            player = self.cog.get_player_definition(player_id)
+            button = discord.ui.Button(
+                label=player.name,
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:ball_handler:{game_id}:{player_id}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                selected_player_id: str = player_id,
+            ) -> None:
+                await self.select_handler(
+                    interaction,
+                    selected_player_id,
+                )
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def select_handler(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+        if match.active_player_id is not None:
+            await interaction.response.edit_message(
+                content=self.cog.build_turn_prompt(game, match),
+                view=PlayerActionView(self.cog, self.game_id),
+            )
+            await interaction.followup.send(
+                "A player has already been selected.",
+                ephemeral=True,
+            )
+            return
+
+        if not self.cog.user_controls_possession(
+            interaction.user.id,
+            game,
+            match,
+        ):
+            await interaction.response.send_message(
+                "Only the player whose team has possession can "
+                "choose the ball handler.",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            match.select_ball_handler(player_id)
+        except ValueError as error:
+            await interaction.response.send_message(
+                str(error),
+                ephemeral=True,
+            )
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+        await interaction.response.edit_message(
+            content=self.cog.build_turn_prompt(game, match),
+            view=PlayerActionView(self.cog, self.game_id),
+        )
+
+
+class PlayerActionView(discord.ui.View):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+    ):
+        super().__init__(timeout=None)
+
+        self.cog = cog
+        self.game_id = game_id
+
+        for label, action, style in (
+            (
+                "Shoot to score",
+                "shoot",
+                discord.ButtonStyle.danger,
+            ),
+            (
+                "Maneuver",
+                "maneuver",
+                discord.ButtonStyle.primary,
+            ),
+        ):
+            button = discord.ui.Button(
+                label=label,
+                style=style,
+                custom_id=f"d12ball:action:{game_id}:{action}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                selected_action: str = action,
+                action_label: str = label,
+            ) -> None:
+                await self.choose_action(
+                    interaction,
+                    selected_action,
+                    action_label,
+                )
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose_action(
+        self,
+        interaction: discord.Interaction,
+        action: str,
+        action_label: str,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+        if match.active_player_id is None:
+            await interaction.response.send_message(
+                "Choose a player to handle the ball first.",
+                ephemeral=True,
+            )
+            return
+
+        if not self.cog.user_controls_possession(
+            interaction.user.id,
+            game,
+            match,
+        ):
+            await interaction.response.send_message(
+                "Only the player whose team has possession can "
+                "choose this action.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            f"{action_label} is not implemented yet.",
+            ephemeral=True,
         )
 
 
@@ -690,37 +893,51 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.games = load_games()
+        self.player_catalog = load_player_catalog()
+        self.basic_ruleset = load_basic_ruleset()
 
         restored_views = 0
 
         for game in self.games.values():
-            if game.message_id is None:
-                continue
-
+            setup_view = None
             if game.coin_flipped and not game.home_and_visiting_selected:
-                view = HomeAwaySelectionView(
+                setup_view = HomeAwaySelectionView(
                     cog=self,
                     game_id=game.game_id,
                 )
             elif game.teams_selected and not game.coin_flipped:
-                view = CoinFlipView(
+                setup_view = CoinFlipView(
                     cog=self,
                     game_id=game.game_id,
                 )
             elif not game.teams_selected:
-                view = TeamSelectionView(
+                setup_view = TeamSelectionView(
                     cog=self,
                     game_id=game.game_id,
                 )
-            else:
-                continue
 
-            self.bot.add_view(
-                view,
-                message_id=game.message_id,
-            )
+            if setup_view is not None and game.message_id is not None:
+                self.bot.add_view(
+                    setup_view,
+                    message_id=game.message_id,
+                )
+                restored_views += 1
 
-            restored_views += 1
+            if (
+                game.turn_message_id is not None
+                and game.match_state is not None
+            ):
+                match = self.load_match_state(game)
+                turn_view = (
+                    PlayerActionView(self, game.game_id)
+                    if match.active_player_id is not None
+                    else BallHandlerSelectionView(self, game.game_id)
+                )
+                self.bot.add_view(
+                    turn_view,
+                    message_id=game.turn_message_id,
+                )
+                restored_views += 1
 
         print(
             f"Loaded {len(self.games)} saved D12 Ball games "
@@ -741,6 +958,187 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return 1
 
         return max(existing_numbers) + 1
+
+    def initialize_standard_match(
+        self,
+        game: D12BallGame,
+    ) -> MatchState:
+        if not game.home_and_visiting_selected:
+            raise ValueError(
+                "Home and visiting teams must be selected first."
+            )
+        if game.player_1_team is None or game.player_2_team is None:
+            raise ValueError("Both teams must be selected first.")
+
+        home_team = (
+            game.player_1_team
+            if game.home_player_number == 1
+            else game.player_2_team
+        )
+        visiting_team = (
+            game.player_1_team
+            if game.visiting_player_number == 1
+            else game.player_2_team
+        )
+        match = MatchState.standard(
+            catalog=self.player_catalog,
+            ruleset=self.basic_ruleset,
+            board_size=game.board_size,
+            home_team=home_team,
+            visiting_team=visiting_team,
+        )
+        game.ruleset_id = match.ruleset_id
+        game.player_data_version = match.player_data_version
+        game.match_state = match.to_dict()
+        return match
+
+    def load_match_state(self, game: D12BallGame) -> MatchState:
+        if game.match_state is None:
+            raise ValueError("This game does not have initialized match state.")
+        match = MatchState.from_dict(
+            game.match_state,
+            self.basic_ruleset,
+        )
+        match.validate(self.player_catalog)
+        return match
+
+    def get_player_definition(
+        self,
+        player_id: str,
+    ) -> PlayerDefinition:
+        for roster in self.player_catalog.teams.values():
+            for player in roster.players:
+                if player.player_id == player_id:
+                    return player
+        raise ValueError(f"Unknown player: {player_id}")
+
+    def possession_player_number(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> Optional[int]:
+        if match.ball.possession == TeamSide.HOME:
+            return game.home_player_number
+        return game.visiting_player_number
+
+    def possession_user_id(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> Optional[int]:
+        player_number = self.possession_player_number(game, match)
+        if player_number == 1:
+            return game.player_1_id
+        if player_number == 2:
+            return game.player_2_id
+        return None
+
+    def user_controls_possession(
+        self,
+        user_id: int,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> bool:
+        return self.possession_user_id(game, match) == user_id
+
+    def format_roster_player(self, player_id: str) -> str:
+        player = self.get_player_definition(player_id)
+        initials = ROLE_INITIALS[player.role.value]
+        return f"{player.name} ({initials})"
+
+    def build_turn_prompt(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> str:
+        player_number = self.possession_player_number(game, match)
+        controller = format_player_with_team(
+            game,
+            player_number,
+            mention=player_number is not None,
+        )
+
+        if match.active_player_id is None:
+            return (
+                f"{controller}, it is your turn.\n\n"
+                "Choose which player in the ball's space will take "
+                "an action."
+            )
+
+        handler = self.format_roster_player(match.active_player_id)
+        return (
+            f"{controller}, it is your turn.\n\n"
+            f"{handler} will be handling the ball.\n\n"
+            "Choose an action:"
+        )
+
+    async def send_turn_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        refresh_player_names(game, interaction.guild)
+        match = self.load_match_state(game)
+        eligible_handlers = match.eligible_ball_handlers()
+        if not eligible_handlers:
+            raise ValueError(
+                "The team in possession has no player in the ball's space."
+            )
+
+        if len(eligible_handlers) == 1:
+            match.select_ball_handler(eligible_handlers[0])
+            game.match_state = match.to_dict()
+            view: discord.ui.View = PlayerActionView(
+                self,
+                game.game_id,
+            )
+        else:
+            view = BallHandlerSelectionView(
+                self,
+                game.game_id,
+            )
+
+        turn_message = await interaction.followup.send(
+            self.build_turn_prompt(game, match),
+            view=view,
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True,
+                roles=False,
+                everyone=False,
+            ),
+        )
+        game.turn_message_id = turn_message.id
+        save_games(self.games)
+
+    def build_match_file(self, game: D12BallGame) -> discord.File:
+        match = self.load_match_state(game)
+        home_player = format_player_with_team(
+            game,
+            game.home_player_number,
+        )
+        visiting_player = format_player_with_team(
+            game,
+            game.visiting_player_number,
+        )
+        period = (
+            "First Half"
+            if match.scoreboard.period.value == "first_half"
+            else "Second Half"
+        )
+        title = (
+            f"PBD{game.game_number} - {home_player} vs. "
+            f"{visiting_player}, {period}"
+        )
+        image = render_match_image(
+            match,
+            self.player_catalog,
+            title=title,
+        )
+        return discord.File(
+            image,
+            filename=f"d12ball-pbd{game.game_number}.png",
+        )
 
     async def archive_game_channel(
         self,

@@ -1,0 +1,55 @@
+{
+  "ruleset_id": "basic-v1",
+  "board_layouts": {
+    "6": {
+      "home_goal": 2,
+      "midfield": 2,
+      "visitors_goal": 2
+    },
+    "7": {
+      "home_goal": 2,
+      "midfield": 3,
+      "visitors_goal": 2
+    },
+    "9": {
+      "home_goal": 3,
+      "midfield": 3,
+      "visitors_goal": 3
+    }
+  },
+  "standard_setup": {
+    "own_goal": [
+      "fullback",
+      "defender"
+    ],
+    "midfield": [
+      "midfielder",
+      "playmaker"
+    ],
+    "opponent_goal": [
+      "winger",
+      "striker"
+    ]
+  },
+  "player_board": {
+    "areas": [
+      "bench",
+      "back_bench",
+      "head_coach"
+    ],
+    "head_coach_dice": {
+      "offense": {
+        "sides": 6,
+        "color": "crimson"
+      },
+      "defense": {
+        "sides": 6,
+        "color": "green"
+      },
+      "team": {
+        "sides": 12,
+        "color": "team"
+      }
+    }
+  }
+}

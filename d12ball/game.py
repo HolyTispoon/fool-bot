@@ -62,6 +62,12 @@ class D12BallGame:
     home_player_number: Optional[int] = None
     visiting_player_number: Optional[int] = None
 
+    # Standard board, player-board, card, and meeple state
+    ruleset_id: Optional[str] = None
+    player_data_version: Optional[int] = None
+    match_state: Optional[dict] = None
+    turn_message_id: Optional[int] = None
+
     def __post_init__(self) -> None:
         if self.player_1_team is not None:
             self.player_1_team = Team(self.player_1_team)

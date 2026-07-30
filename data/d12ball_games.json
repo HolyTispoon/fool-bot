@@ -1,97 +1,13 @@
 {
-  "1ca6a41615d440d48575dada4f346991": {
-    "game_id": "1ca6a41615d440d48575dada4f346991",
+  "2022d96da2354dfcb67b3fd25c678b0e": {
+    "game_id": "2022d96da2354dfcb67b3fd25c678b0e",
     "game_number": 1,
     "guild_id": 1518686170647892088,
-    "channel_id": 1532118118615224370,
-    "message_id": 1532118120888533124,
-    "player_1_id": 150809002974904321,
-    "player_2_id": 120406149018288128,
-    "player_1_name": null,
-    "player_2_name": null,
-    "player_1_team": "teal",
-    "player_2_team": null,
-    "mode": "basic",
-    "status": "setup",
-    "board_size": 9,
-    "coin_flipped": false,
-    "coin_winner": null,
-    "coin_winner_player_number": null,
-    "home_player_number": null,
-    "visiting_player_number": null
-  },
-  "443b943cc686431ebdc389a6e6ceb299": {
-    "game_id": "443b943cc686431ebdc389a6e6ceb299",
-    "game_number": 2,
-    "guild_id": 1518686170647892088,
-    "channel_id": 1532118190833008660,
-    "message_id": 1532118192888221807,
+    "channel_id": 1532232420529799251,
+    "message_id": 1532232441597530282,
     "player_1_id": 150809002974904321,
     "player_2_id": null,
-    "player_1_name": null,
-    "player_2_name": null,
-    "player_1_team": "teal",
-    "player_2_team": "orange",
-    "mode": "basic",
-    "status": "in_progress",
-    "board_size": 7,
-    "coin_flipped": true,
-    "coin_winner": "<@150809002974904321>",
-    "coin_winner_player_number": 1,
-    "home_player_number": 1,
-    "visiting_player_number": 2
-  },
-  "59182ad4c0b94e24bb1281eaafb65363": {
-    "game_id": "59182ad4c0b94e24bb1281eaafb65363",
-    "game_number": 3,
-    "guild_id": 1518686170647892088,
-    "channel_id": 1532118912198774996,
-    "message_id": 1532118948516991097,
-    "player_1_id": 150809002974904321,
-    "player_2_id": null,
-    "player_1_name": null,
-    "player_2_name": null,
-    "player_1_team": "orange",
-    "player_2_team": "teal",
-    "mode": "basic",
-    "status": "in_progress",
-    "board_size": 7,
-    "coin_flipped": true,
-    "coin_winner": "<@150809002974904321>",
-    "coin_winner_player_number": 1,
-    "home_player_number": 1,
-    "visiting_player_number": 2
-  },
-  "32ef86771841441b82224e88b7345816": {
-    "game_id": "32ef86771841441b82224e88b7345816",
-    "game_number": 4,
-    "guild_id": 1518686170647892088,
-    "channel_id": 1532120979562561606,
-    "message_id": 1532121017638457515,
-    "player_1_id": 150809002974904321,
-    "player_2_id": null,
-    "player_1_name": "holytispoon",
-    "player_2_name": null,
-    "player_1_team": "teal",
-    "player_2_team": "orange",
-    "mode": "basic",
-    "status": "in_progress",
-    "board_size": 7,
-    "coin_flipped": true,
-    "coin_winner": "AI opponent",
-    "coin_winner_player_number": 2,
-    "home_player_number": 2,
-    "visiting_player_number": 1
-  },
-  "ebf183074307470cb9ab209fc4a19f66": {
-    "game_id": "ebf183074307470cb9ab209fc4a19f66",
-    "game_number": 5,
-    "guild_id": 1518686170647892088,
-    "channel_id": 1532121070646329607,
-    "message_id": 1532121091135246515,
-    "player_1_id": 150809002974904321,
-    "player_2_id": null,
-    "player_1_name": "holytispoon",
+    "player_1_name": "HolyTispoon",
     "player_2_name": null,
     "player_1_team": "teal",
     "player_2_team": "purple",
@@ -99,72 +15,246 @@
     "status": "in_progress",
     "board_size": 7,
     "coin_flipped": true,
-    "coin_winner": "AI opponent",
-    "coin_winner_player_number": 2,
-    "home_player_number": 2,
-    "visiting_player_number": 1
-  },
-  "0b8e760e0e444231b1b89cbaf6811ea5": {
-    "game_id": "0b8e760e0e444231b1b89cbaf6811ea5",
-    "game_number": 6,
-    "guild_id": 1518686170647892088,
-    "channel_id": 1532121147368407063,
-    "message_id": 1532121166930645172,
-    "player_1_id": 150809002974904321,
-    "player_2_id": null,
-    "player_1_name": "holytispoon",
-    "player_2_name": null,
-    "player_1_team": "teal",
-    "player_2_team": "slime",
-    "mode": "basic",
-    "status": "in_progress",
-    "board_size": 7,
-    "coin_flipped": true,
-    "coin_winner": "AI opponent",
-    "coin_winner_player_number": 2,
-    "home_player_number": 1,
-    "visiting_player_number": 2
-  },
-  "7c45aa3c385c4e999ff26cf2a93e5a29": {
-    "game_id": "7c45aa3c385c4e999ff26cf2a93e5a29",
-    "game_number": 7,
-    "guild_id": 1518686170647892088,
-    "channel_id": 1532121210245222562,
-    "message_id": 1532121229610192916,
-    "player_1_id": 150809002974904321,
-    "player_2_id": null,
-    "player_1_name": "holytispoon",
-    "player_2_name": null,
-    "player_1_team": "teal",
-    "player_2_team": "slime",
-    "mode": "basic",
-    "status": "in_progress",
-    "board_size": 7,
-    "coin_flipped": true,
-    "coin_winner": "holytispoon",
+    "coin_winner": "HolyTispoon",
     "coin_winner_player_number": 1,
     "home_player_number": 1,
-    "visiting_player_number": 2
+    "visiting_player_number": 2,
+    "ruleset_id": "basic-v1",
+    "player_data_version": 1,
+    "match_state": {
+      "ruleset_id": "basic-v1",
+      "player_data_version": 1,
+      "board": {
+        "board_size": 7,
+        "spaces": {
+          "home_goal": [
+            [
+              "teal_bulwark",
+              "purple_zenith"
+            ],
+            [
+              "teal_voltus",
+              "purple_noxar"
+            ]
+          ],
+          "midfield": [
+            [
+              "teal_strider",
+              "purple_spectra"
+            ],
+            [
+              "teal_synapse",
+              "purple_hexis"
+            ],
+            []
+          ],
+          "visitors_goal": [
+            [
+              "teal_quantor",
+              "purple_umbrik"
+            ],
+            [
+              "teal_pulsar",
+              "purple_vorix"
+            ]
+          ]
+        }
+      },
+      "home": {
+        "team": "teal",
+        "side": "home",
+        "zones": {
+          "home_goal": [
+            "teal_bulwark",
+            "teal_voltus"
+          ],
+          "midfield": [
+            "teal_strider",
+            "teal_synapse"
+          ],
+          "visitors_goal": [
+            "teal_quantor",
+            "teal_pulsar"
+          ]
+        },
+        "player_board": {
+          "bench": [
+            "teal_gearclaw",
+            "teal_tachyon",
+            "teal_flux"
+          ],
+          "back_bench": [],
+          "offense_die_value": null,
+          "defense_die_value": null,
+          "team_die_value": null
+        }
+      },
+      "visiting": {
+        "team": "purple",
+        "side": "visiting",
+        "zones": {
+          "visitors_goal": [
+            "purple_umbrik",
+            "purple_vorix"
+          ],
+          "midfield": [
+            "purple_spectra",
+            "purple_hexis"
+          ],
+          "home_goal": [
+            "purple_zenith",
+            "purple_noxar"
+          ]
+        },
+        "player_board": {
+          "bench": [
+            "purple_quillon",
+            "purple_zytheris",
+            "purple_dravox"
+          ],
+          "back_bench": [],
+          "offense_die_value": null,
+          "defense_die_value": null,
+          "team_die_value": null
+        }
+      }
+    },
+    "turn_message_id": null
   },
-  "d353cc76ac464a1b944edb12fc86611b": {
-    "game_id": "d353cc76ac464a1b944edb12fc86611b",
-    "game_number": 8,
+  "7457990edfb741e1858c880c8dc45b5c": {
+    "game_id": "7457990edfb741e1858c880c8dc45b5c",
+    "game_number": 2,
     "guild_id": 1518686170647892088,
-    "channel_id": 1532121586033758359,
-    "message_id": 1532121612009345044,
+    "channel_id": 1532241863564726373,
+    "message_id": 1532241883965821048,
     "player_1_id": 150809002974904321,
     "player_2_id": null,
     "player_1_name": "HolyTispoon",
     "player_2_name": null,
-    "player_1_team": "teal",
-    "player_2_team": "slime",
+    "player_1_team": "orange",
+    "player_2_team": "purple",
     "mode": "basic",
     "status": "in_progress",
     "board_size": 7,
     "coin_flipped": true,
     "coin_winner": "HolyTispoon",
     "coin_winner_player_number": 1,
-    "home_player_number": 2,
-    "visiting_player_number": 1
+    "home_player_number": 1,
+    "visiting_player_number": 2,
+    "ruleset_id": "basic-v1",
+    "player_data_version": 1,
+    "match_state": {
+      "ruleset_id": "basic-v1",
+      "player_data_version": 1,
+      "board": {
+        "board_size": 7,
+        "spaces": {
+          "home_goal": [
+            [
+              "orange_hellguard",
+              "purple_noxar"
+            ],
+            [
+              "orange_blazebulk",
+              "purple_zenith"
+            ]
+          ],
+          "midfield": [
+            [
+              "orange_sizzik"
+            ],
+            [
+              "orange_scorchit",
+              "purple_hexis"
+            ],
+            [
+              "purple_spectra"
+            ]
+          ],
+          "visitors_goal": [
+            [
+              "orange_flickerwing",
+              "purple_vorix"
+            ],
+            [
+              "orange_kindlefoot",
+              "purple_umbrik"
+            ]
+          ]
+        }
+      },
+      "home": {
+        "team": "orange",
+        "side": "home",
+        "zones": {
+          "home_goal": [
+            "orange_hellguard",
+            "orange_blazebulk"
+          ],
+          "midfield": [
+            "orange_sizzik",
+            "orange_scorchit"
+          ],
+          "visitors_goal": [
+            "orange_flickerwing",
+            "orange_kindlefoot"
+          ]
+        },
+        "player_board": {
+          "bench": [
+            "orange_blazekick",
+            "orange_inferno",
+            "orange_emberdash"
+          ],
+          "back_bench": [],
+          "offense_die_value": null,
+          "defense_die_value": null,
+          "team_die_value": null
+        }
+      },
+      "visiting": {
+        "team": "purple",
+        "side": "visiting",
+        "zones": {
+          "visitors_goal": [
+            "purple_umbrik",
+            "purple_vorix"
+          ],
+          "midfield": [
+            "purple_spectra",
+            "purple_hexis"
+          ],
+          "home_goal": [
+            "purple_zenith",
+            "purple_noxar"
+          ]
+        },
+        "player_board": {
+          "bench": [
+            "purple_quillon",
+            "purple_zytheris",
+            "purple_dravox"
+          ],
+          "back_bench": [],
+          "offense_die_value": null,
+          "defense_die_value": null,
+          "team_die_value": null
+        }
+      },
+      "ball": {
+        "zone": "midfield",
+        "space_index": 1,
+        "possession": "home",
+        "speed": 1
+      },
+      "scoreboard": {
+        "home_score": 0,
+        "visiting_score": 0,
+        "time": 0,
+        "period": "first_half"
+      },
+      "active_player_id": "orange_scorchit"
+    },
+    "turn_message_id": 1532241894346719262
   }
 }
