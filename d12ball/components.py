@@ -11,6 +11,7 @@ from d12ball.game import Team
 DATA_FOLDER = Path(__file__).resolve().parent / "data"
 PLAYERS_FILE = DATA_FOLDER / "players.json"
 BASIC_RULES_FILE = DATA_FOLDER / "basic_rules.json"
+MANEUVERS_FILE = DATA_FOLDER / "maneuvers.json"
 
 
 class Zone(str, Enum):
@@ -309,6 +310,56 @@ class BasicRuleset:
     player_board: PlayerBoardDefinition
 
 
+@dataclass(frozen=True)
+class ManeuverDefinition:
+    name: str
+    rank: int
+    die_values: tuple[int, ...]
+    defeats: str
+    effect: str
+    time: str
+
+
+@dataclass(frozen=True)
+class ManeuverCatalog:
+    data_version: int
+    source: str
+    offense: tuple[ManeuverDefinition, ...]
+    defense: tuple[ManeuverDefinition, ...]
+
+    def offense_by_name(self) -> dict[str, ManeuverDefinition]:
+        return {maneuver.name: maneuver for maneuver in self.offense}
+
+    def defense_by_name(self) -> dict[str, ManeuverDefinition]:
+        return {maneuver.name: maneuver for maneuver in self.defense}
+
+    def offense_for_die(self, value: int) -> ManeuverDefinition:
+        for maneuver in self.offense:
+            if value in maneuver.die_values:
+                return maneuver
+        raise ValueError(f"No offense maneuver covers die value {value}.")
+
+    def defense_for_die(self, value: int) -> ManeuverDefinition:
+        for maneuver in self.defense:
+            if value in maneuver.die_values:
+                return maneuver
+        raise ValueError(f"No defense maneuver covers die value {value}.")
+
+    def resolve(self, offense_name: str, defense_name: str) -> str:
+        """
+        The outcome of an offense maneuver against a defense maneuver:
+        "offense" or "defense" if one defeats the other, otherwise "tie".
+        """
+        offense = self.offense_by_name()[offense_name]
+        defense = self.defense_by_name()[defense_name]
+
+        if offense.defeats == defense_name:
+            return "offense"
+        if defense.defeats == offense_name:
+            return "defense"
+        return "tie"
+
+
 @dataclass
 class BallState:
     zone: Zone
@@ -350,6 +401,8 @@ class MatchState:
     active_player_id: Optional[str] = None
     pending_action: Optional[str] = None
     challenger_id: Optional[str] = None
+    offense_maneuver: Optional[str] = None
+    defense_maneuver: Optional[str] = None
     exhaustion: dict[str, int] = field(default_factory=dict)
 
     @classmethod
@@ -559,6 +612,27 @@ class MatchState:
         self.pending_action = None
         return distance
 
+    def choose_offense_maneuver(self, name: str) -> None:
+        if self.offense_maneuver is not None:
+            raise ValueError("The offense has already chosen a maneuver.")
+        self.offense_maneuver = name
+
+    def choose_defense_maneuver(self, name: str) -> None:
+        if self.defense_maneuver is not None:
+            raise ValueError("The defense has already chosen a maneuver.")
+        self.defense_maneuver = name
+
+    def reset_maneuver(self) -> None:
+        """
+        Clear the ball-handler and maneuver-clash state once a maneuver
+        resolves, so the match no longer looks mid-turn.
+        """
+        self.active_player_id = None
+        self.pending_action = None
+        self.challenger_id = None
+        self.offense_maneuver = None
+        self.defense_maneuver = None
+
     def move_meeple(
         self,
         player_id: str,
@@ -672,6 +746,8 @@ class MatchState:
             "active_player_id": self.active_player_id,
             "pending_action": self.pending_action,
             "challenger_id": self.challenger_id,
+            "offense_maneuver": self.offense_maneuver,
+            "defense_maneuver": self.defense_maneuver,
             "exhaustion": dict(self.exhaustion),
         }
 
@@ -715,6 +791,8 @@ class MatchState:
             active_player_id=data.get("active_player_id"),
             pending_action=data.get("pending_action"),
             challenger_id=data.get("challenger_id"),
+            offense_maneuver=data.get("offense_maneuver"),
+            defense_maneuver=data.get("defense_maneuver"),
             exhaustion=dict(data.get("exhaustion", {})),
         )
 
@@ -810,6 +888,32 @@ def load_basic_ruleset(
         board_layouts=layouts,
         standard_setup=standard_setup,
         player_board=player_board,
+    )
+
+
+def load_maneuver_catalog(
+    path: Path = MANEUVERS_FILE,
+) -> ManeuverCatalog:
+    data = json.loads(path.read_text(encoding="utf-8"))
+
+    def build(maneuver_type: str) -> tuple[ManeuverDefinition, ...]:
+        return tuple(
+            ManeuverDefinition(
+                name=maneuver["name"],
+                rank=maneuver["rank"],
+                die_values=tuple(maneuver["die_values"]),
+                defeats=maneuver["defeats"],
+                effect=maneuver["effect"],
+                time=maneuver["time"],
+            )
+            for maneuver in data["maneuvers"][maneuver_type]
+        )
+
+    return ManeuverCatalog(
+        data_version=data["data_version"],
+        source=data["source"],
+        offense=build("offense"),
+        defense=build("defense"),
     )
 
 

@@ -12,6 +12,7 @@ from d12ball.components import (
     PlayerDefinition,
     TeamSide,
     load_basic_ruleset,
+    load_maneuver_catalog,
     load_player_catalog,
 )
 from d12ball.game import (
@@ -1056,6 +1057,11 @@ class PlayerActionView(discord.ui.View):
                 ),
             )
             await self.cog.refresh_match_image(interaction, game)
+            await self.cog.begin_maneuver_action_selection(
+                interaction,
+                game,
+                match,
+            )
             return
 
         game.match_state = match.to_dict()
@@ -1209,6 +1215,356 @@ class ManeuverChallengeView(discord.ui.View):
         )
 
         await self.cog.refresh_match_image(interaction, game)
+        await self.cog.begin_maneuver_action_selection(
+            interaction,
+            game,
+            match,
+        )
+
+
+class ManeuverActionPromptView(discord.ui.View):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+    ):
+        super().__init__(timeout=None)
+
+        self.cog = cog
+        self.game_id = game_id
+
+        game = self.cog.games.get(game_id)
+        if game is None or game.match_state is None:
+            return
+
+        match = self.cog.load_match_state(game)
+
+        sides: list[tuple[str, str]] = []
+        if match.offense_maneuver is None and not (
+            game.is_solo_game
+            and self.cog.possession_player_number(game, match) == 2
+        ):
+            sides.append(("offense", "Offense: Choose Maneuver"))
+        if match.defense_maneuver is None and not (
+            game.is_solo_game
+            and self.cog.defending_player_number(game, match) == 2
+        ):
+            sides.append(("defense", "Defense: Choose Maneuver"))
+
+        for side, label in sides:
+            button = discord.ui.Button(
+                label=label,
+                style=discord.ButtonStyle.primary,
+                custom_id=f"d12ball:maneuver_prompt:{game_id}:{side}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_side: str = side,
+            ) -> None:
+                await self.open_action_menu(interaction, chosen_side)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def open_action_menu(
+        self,
+        interaction: discord.Interaction,
+        side: str,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+
+        if side == "offense":
+            authorized = self.cog.user_controls_possession(
+                interaction.user.id,
+                game,
+                match,
+            )
+            already_chosen = match.offense_maneuver is not None
+        else:
+            authorized = self.cog.user_controls_defense(
+                interaction.user.id,
+                game,
+                match,
+            )
+            already_chosen = match.defense_maneuver is not None
+
+        if already_chosen:
+            await interaction.response.send_message(
+                "A maneuver has already been chosen for that side.",
+                ephemeral=True,
+            )
+            return
+
+        if not authorized:
+            await interaction.response.send_message(
+                "Only the player on that side can choose this maneuver.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            content=self.cog.build_maneuver_reference_text(),
+            view=ManeuverActionSelectView(self.cog, self.game_id, side),
+            ephemeral=True,
+        )
+
+
+class ManeuverActionSelectView(discord.ui.View):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        side: str,
+    ):
+        super().__init__(timeout=180)
+
+        self.cog = cog
+        self.game_id = game_id
+        self.side = side
+
+        maneuvers = (
+            cog.maneuver_catalog.offense
+            if side == "offense"
+            else cog.maneuver_catalog.defense
+        )
+        for maneuver in sorted(maneuvers, key=lambda item: item.rank):
+            button = discord.ui.Button(
+                label=maneuver.name,
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:maneuver_pick:{game_id}:{side}:"
+                    f"{maneuver.name}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_name: str = maneuver.name,
+            ) -> None:
+                await self.pick(interaction, chosen_name)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def pick(
+        self,
+        interaction: discord.Interaction,
+        maneuver_name: str,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+
+        if self.side == "offense":
+            authorized = self.cog.user_controls_possession(
+                interaction.user.id,
+                game,
+                match,
+            )
+            already_chosen = match.offense_maneuver is not None
+        else:
+            authorized = self.cog.user_controls_defense(
+                interaction.user.id,
+                game,
+                match,
+            )
+            already_chosen = match.defense_maneuver is not None
+
+        if already_chosen:
+            await interaction.response.edit_message(
+                content="A maneuver has already been chosen for that side.",
+                view=None,
+            )
+            return
+
+        if not authorized:
+            await interaction.response.send_message(
+                "Only the player on that side can choose this maneuver.",
+                ephemeral=True,
+            )
+            return
+
+        if self.side == "offense":
+            match.choose_offense_maneuver(maneuver_name)
+        else:
+            match.choose_defense_maneuver(maneuver_name)
+
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        await interaction.response.edit_message(
+            content=f"You chose **{maneuver_name}**.",
+            view=None,
+        )
+
+        side_number = (
+            self.cog.possession_player_number(game, match)
+            if self.side == "offense"
+            else self.cog.defending_player_number(game, match)
+        )
+        side_display = format_player_with_team(game, side_number)
+        await interaction.followup.send(
+            f"{side_display} has picked their maneuver.",
+        )
+
+        await self.cog.refresh_maneuver_prompt(interaction, game)
+
+        if (
+            match.offense_maneuver is not None
+            and match.defense_maneuver is not None
+        ):
+            await self.cog.resolve_maneuver_clash(interaction, game, match)
+
+
+class SkillTestView(discord.ui.View):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+    ):
+        super().__init__(timeout=None)
+
+        self.cog = cog
+        self.game_id = game_id
+
+        button = discord.ui.Button(
+            label="Roll the skill test",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:skill_test:{game_id}",
+        )
+        button.callback = self.roll
+        self.add_item(button)
+
+    async def roll(self, interaction: discord.Interaction) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+        if match.offense_maneuver is None or match.defense_maneuver is None:
+            await interaction.response.send_message(
+                "This skill test is no longer active.",
+                ephemeral=True,
+            )
+            return
+
+        participant_ids = {game.player_1_id}
+        if game.player_2_id is not None:
+            participant_ids.add(game.player_2_id)
+
+        if interaction.user.id not in participant_ids:
+            await interaction.response.send_message(
+                "Only a player in this game can roll the skill test.",
+                ephemeral=True,
+            )
+            return
+
+        offense_player = self.cog.get_player_definition(
+            match.active_player_id,
+        )
+        defense_player = self.cog.get_player_definition(
+            match.challenger_id,
+        )
+        offense_skill = self.cog.player_catalog.effective_profile(
+            offense_player,
+        ).offense
+        defense_skill = self.cog.player_catalog.effective_profile(
+            defense_player,
+        ).defense
+
+        offense_roll = random.randint(1, 12)
+        defense_roll = random.randint(1, 12)
+        offense_total = offense_roll + offense_skill
+        defense_total = defense_roll + defense_skill
+
+        modifier_note = ""
+        if match.defense_maneuver == "Steal Intercept":
+            modifier = match.ball.speed // 2
+            defense_total += modifier
+            modifier_note = f" + {modifier} ball speed"
+
+        breakdown = (
+            f"**{format_role_bracket(offense_player)}** (offense): "
+            f"d12 {offense_roll} + skill {offense_skill} = "
+            f"{offense_total}\n"
+            f"**{format_role_bracket(defense_player)}** (defense): "
+            f"d12 {defense_roll} + skill {defense_skill}"
+            f"{modifier_note} = {defense_total}"
+        )
+
+        if offense_total == defense_total:
+            match.add_exhaustion(match.active_player_id, 1)
+            match.add_exhaustion(match.challenger_id, 1)
+            game.match_state = match.to_dict()
+            save_games(self.cog.games)
+
+            exhaust_emoji = get_exhaust_emoji(interaction.client)
+            await interaction.response.edit_message(
+                content=(
+                    f"{breakdown}\n\n"
+                    "Another tie! Both players gain an exhaustion "
+                    f"token {exhaust_emoji}. Roll again:"
+                ),
+                view=SkillTestView(self.cog, self.game_id),
+            )
+            await self.cog.refresh_match_image(interaction, game)
+            return
+
+        outcome = "offense" if offense_total > defense_total else "defense"
+        winner_name = (
+            match.offense_maneuver
+            if outcome == "offense"
+            else match.defense_maneuver
+        )
+        catalog = self.cog.maneuver_catalog
+        winner_definition = (
+            catalog.offense_by_name()
+            if outcome == "offense"
+            else catalog.defense_by_name()
+        )[winner_name]
+        winner_number = (
+            self.cog.possession_player_number(game, match)
+            if outcome == "offense"
+            else self.cog.defending_player_number(game, match)
+        )
+        winner_mention = format_player_with_team(
+            game,
+            winner_number,
+            mention=True,
+        )
+
+        match.reset_maneuver()
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        await interaction.response.edit_message(
+            content=(
+                f"{breakdown}\n\n"
+                f"**{winner_name}** wins the skill test! {winner_mention}, "
+                f"resolve the effect:\n{winner_definition.effect}"
+            ),
+            view=None,
+        )
+        await self.cog.refresh_match_image(interaction, game)
 
 
 class D12Ball(commands.GroupCog, group_name="d12ball"):
@@ -1217,6 +1573,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.games = load_games()
         self.player_catalog = load_player_catalog()
         self.basic_ruleset = load_basic_ruleset()
+        self.maneuver_catalog = load_maneuver_catalog()
         self.coin_emojis: dict[CoinFace, str] = {}
 
         restored_views = 0
@@ -1258,6 +1615,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     and match.challenger_id is None
                 ):
                     turn_view = ManeuverChallengeView(self, game.game_id)
+                elif (
+                    match.pending_action == "maneuver"
+                    and match.challenger_id is not None
+                    and (
+                        match.offense_maneuver is None
+                        or match.defense_maneuver is None
+                    )
+                ):
+                    turn_view = ManeuverActionPromptView(self, game.game_id)
+                elif (
+                    match.pending_action == "maneuver"
+                    and match.challenger_id is not None
+                    and match.offense_maneuver is not None
+                    and match.defense_maneuver is not None
+                ):
+                    turn_view = SkillTestView(self, game.game_id)
                 else:
                     turn_view = PlayerActionView(self, game.game_id)
                 self.bot.add_view(
@@ -1464,6 +1837,220 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if match.is_ball_at_scoring_space():
             return "shoot"
         return "maneuver"
+
+    def choose_ai_maneuver_action(self, side: str) -> str:
+        """
+        Dinky AI's rule for a maneuver clash: always roll a d6 and take
+        whichever maneuver that die value maps to.
+        """
+        roll = random.randint(1, 6)
+        if side == "offense":
+            return self.maneuver_catalog.offense_for_die(roll).name
+        return self.maneuver_catalog.defense_for_die(roll).name
+
+    def build_maneuver_reference_text(self) -> str:
+        lines = ["**Offense maneuvers**"]
+        for maneuver in sorted(
+            self.maneuver_catalog.offense,
+            key=lambda item: item.rank,
+        ):
+            lines.append(f"- **{maneuver.name}**: {maneuver.effect}")
+        lines.append("")
+        lines.append("**Defense maneuvers**")
+        for maneuver in sorted(
+            self.maneuver_catalog.defense,
+            key=lambda item: item.rank,
+        ):
+            lines.append(f"- **{maneuver.name}**: {maneuver.effect}")
+        return "\n".join(lines)
+
+    async def begin_maneuver_action_selection(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Kick off the simultaneous maneuver-action clash once a
+        challenger has been chosen: Dinky AI rolls immediately, and any
+        human side gets a prompt to open their private maneuver menu.
+        """
+        if (
+            game.is_solo_game
+            and self.possession_player_number(game, match) == 2
+        ):
+            match.choose_offense_maneuver(
+                self.choose_ai_maneuver_action("offense")
+            )
+        if (
+            game.is_solo_game
+            and self.defending_player_number(game, match) == 2
+        ):
+            match.choose_defense_maneuver(
+                self.choose_ai_maneuver_action("defense")
+            )
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        if (
+            match.offense_maneuver is not None
+            and match.defense_maneuver is not None
+        ):
+            await self.resolve_maneuver_clash(interaction, game, match)
+            return
+
+        waiting_on = []
+        if match.offense_maneuver is None:
+            waiting_on.append(
+                format_player_with_team(
+                    game,
+                    self.possession_player_number(game, match),
+                    mention=True,
+                )
+            )
+        if match.defense_maneuver is None:
+            waiting_on.append(
+                format_player_with_team(
+                    game,
+                    self.defending_player_number(game, match),
+                    mention=True,
+                )
+            )
+
+        prompt_message = await interaction.followup.send(
+            f"{' and '.join(waiting_on)}, choose your maneuver using the "
+            "button below. Your options will be shown privately.",
+            view=ManeuverActionPromptView(self, game.game_id),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True,
+                roles=False,
+                everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
+
+    async def resolve_maneuver_clash(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        offense_name = match.offense_maneuver
+        defense_name = match.defense_maneuver
+        offense_number = self.possession_player_number(game, match)
+        defense_number = self.defending_player_number(game, match)
+        offense_display = format_player_with_team(game, offense_number)
+        defense_display = format_player_with_team(game, defense_number)
+
+        reveal = (
+            f"{offense_display} chose **{offense_name}**.\n"
+            f"{defense_display} chose **{defense_name}**."
+        )
+
+        outcome = self.maneuver_catalog.resolve(offense_name, defense_name)
+
+        if outcome != "tie":
+            winner_name = (
+                offense_name if outcome == "offense" else defense_name
+            )
+            winner_number = (
+                offense_number if outcome == "offense" else defense_number
+            )
+            winner_mention = format_player_with_team(
+                game,
+                winner_number,
+                mention=True,
+            )
+            catalog_by_name = (
+                self.maneuver_catalog.offense_by_name()
+                if outcome == "offense"
+                else self.maneuver_catalog.defense_by_name()
+            )
+            winner_definition = catalog_by_name[winner_name]
+
+            match.reset_maneuver()
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            await interaction.followup.send(
+                f"{reveal}\n\n"
+                f"**{winner_name}** wins! {winner_mention}, resolve the "
+                f"effect:\n{winner_definition.effect}",
+                allowed_mentions=discord.AllowedMentions(
+                    users=True,
+                    roles=False,
+                    everyone=False,
+                ),
+            )
+            await self.refresh_match_image(interaction, game)
+            return
+
+        match.add_exhaustion(match.active_player_id, 1)
+        match.add_exhaustion(match.challenger_id, 1)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        offense_player = self.get_player_definition(match.active_player_id)
+        defense_player = self.get_player_definition(match.challenger_id)
+        offense_skill = self.player_catalog.effective_profile(
+            offense_player,
+        ).offense
+        defense_skill = self.player_catalog.effective_profile(
+            defense_player,
+        ).defense
+        exhaust_emoji = get_exhaust_emoji(interaction.client)
+
+        content = (
+            f"{reveal}\n\n"
+            f"**{offense_name}** ties with **{defense_name}** — skill "
+            "test!\n\n"
+            f"{format_role_bracket(offense_player)}: offense skill "
+            f"{offense_skill}\n"
+            f"{format_role_bracket(defense_player)}: defense skill "
+            f"{defense_skill}\n\n"
+            f"Both players gain an exhaustion token {exhaust_emoji}.\n\n"
+            "Either player can roll:"
+        )
+        test_message = await interaction.followup.send(
+            content,
+            view=SkillTestView(self, game.game_id),
+            wait=True,
+        )
+        game.turn_message_id = test_message.id
+        save_games(self.games)
+        await self.refresh_match_image(interaction, game)
+
+    async def refresh_maneuver_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        """
+        Re-render the public "choose your maneuver" prompt after one
+        side picks, so the button for the side that already chose
+        disappears.
+        """
+        if game.turn_message_id is None or interaction.channel is None:
+            return
+
+        refreshed_view = ManeuverActionPromptView(self, game.game_id)
+
+        try:
+            prompt_message = interaction.channel.get_partial_message(
+                game.turn_message_id,
+            )
+            if refreshed_view.children:
+                await prompt_message.edit(view=refreshed_view)
+            else:
+                await prompt_message.edit(
+                    content="Both sides have chosen their maneuvers.",
+                    view=None,
+                )
+        except (discord.NotFound, discord.HTTPException):
+            pass
 
     def build_challenge_announcement(
         self,

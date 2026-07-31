@@ -14,6 +14,7 @@ from d12ball.components import (
     Zone,
     create_standard_setup,
     load_basic_ruleset,
+    load_maneuver_catalog,
     load_player_catalog,
 )
 from d12ball.game import Team
@@ -322,6 +323,33 @@ class D12BallComponentTests(unittest.TestCase):
         restored.validate(self.catalog)
         self.assertEqual(restored.to_dict(), match.to_dict())
 
+    def test_maneuver_choice_round_trip_and_reset(self) -> None:
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.SLIME,
+            visiting_team=Team.TEAL,
+        )
+        match.choose_offense_maneuver("Low Pass")
+        match.choose_defense_maneuver("Pressure")
+
+        with self.assertRaises(ValueError):
+            match.choose_offense_maneuver("High Pass")
+        with self.assertRaises(ValueError):
+            match.choose_defense_maneuver("Block Deflect")
+
+        restored = MatchState.from_dict(match.to_dict(), self.rules)
+        self.assertEqual(restored.offense_maneuver, "Low Pass")
+        self.assertEqual(restored.defense_maneuver, "Pressure")
+
+        match.reset_maneuver()
+        self.assertIsNone(match.active_player_id)
+        self.assertIsNone(match.pending_action)
+        self.assertIsNone(match.challenger_id)
+        self.assertIsNone(match.offense_maneuver)
+        self.assertIsNone(match.defense_maneuver)
+
     def test_setup_overview_renders_as_png(self) -> None:
         match = MatchState.standard(
             catalog=self.catalog,
@@ -335,6 +363,40 @@ class D12BallComponentTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
             self.assertEqual(image.size, (2200, 1280))
+
+
+class D12BallManeuverTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_maneuver_catalog()
+
+    def test_catalog_has_three_offense_and_defense_maneuvers(self) -> None:
+        self.assertEqual(len(self.catalog.offense), 3)
+        self.assertEqual(len(self.catalog.defense), 3)
+
+    def test_die_faces_cover_one_through_six_with_no_overlap(self) -> None:
+        for value in range(1, 7):
+            self.catalog.offense_for_die(value)
+            self.catalog.defense_for_die(value)
+
+    def test_matchup_triangle_resolves_as_expected(self) -> None:
+        expected = {
+            ("Low Pass", "Block Deflect"): "tie",
+            ("Low Pass", "Steal Intercept"): "defense",
+            ("Low Pass", "Pressure"): "offense",
+            ("Dribble Advance", "Block Deflect"): "offense",
+            ("Dribble Advance", "Steal Intercept"): "tie",
+            ("Dribble Advance", "Pressure"): "defense",
+            ("High Pass", "Block Deflect"): "defense",
+            ("High Pass", "Steal Intercept"): "offense",
+            ("High Pass", "Pressure"): "tie",
+        }
+        for (offense_name, defense_name), outcome in expected.items():
+            self.assertEqual(
+                self.catalog.resolve(offense_name, defense_name),
+                outcome,
+                f"{offense_name} vs {defense_name}",
+            )
 
 
 class D12BallFontTests(unittest.TestCase):
