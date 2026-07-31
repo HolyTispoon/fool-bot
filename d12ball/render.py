@@ -598,7 +598,7 @@ def draw_meeple_group(
             ),
             label,
             font=FONT_MEEPLE,
-            fill="#ffffff",
+            fill=color,
         )
         token_x += token_size + gap
 

@@ -2660,6 +2660,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             filename=f"d12ball-pbd{game.game_number}.png",
         )
 
+    async def announce_board_update(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        message: str,
+    ) -> None:
+        """
+        Confirm a manual board correction (/coach, /ref, /meeple move,
+        /ball move/possession/speed, /score, /time) with a fresh
+        snapshot attached directly to the reply, in addition to
+        keeping the persistent board message in sync.
+        """
+        await interaction.followup.send(
+            message,
+            file=self.build_match_file(game),
+        )
+        await self.refresh_match_image(interaction, game)
+
     async def archive_game_channel(
         self,
         game: D12BallGame,
@@ -3021,11 +3039,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         player = self.get_player_definition(player_card)
-        await interaction.followup.send(
+        await self.announce_board_update(
+            interaction,
+            game,
             f"{format_role_bracket(player)} moved to "
-            f"{destination_display_name(destination)}."
+            f"{destination_display_name(destination)}.",
         )
-        await self.refresh_match_image(interaction, game)
 
     @coach.autocomplete("player_card")
     async def coach_player_card_autocomplete(
@@ -3134,11 +3153,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        await interaction.followup.send(
+        await self.announce_board_update(
+            interaction,
+            game,
             f"{format_role_bracket(player)} moved to "
-            f"{destination_display_name(dest_target)}."
+            f"{destination_display_name(dest_target)}.",
         )
-        await self.refresh_match_image(interaction, game)
 
     @ref.autocomplete("player_card")
     async def ref_player_card_autocomplete(
@@ -3218,11 +3238,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         player = self.get_player_definition(meeple)
-        await interaction.followup.send(
+        await self.announce_board_update(
+            interaction,
+            game,
             f"{format_role_bracket(player)} moved to "
-            f"{space_label(zone, space_index)}."
+            f"{space_label(zone, space_index)}.",
         )
-        await self.refresh_match_image(interaction, game)
 
     @meeple_move.autocomplete("meeple")
     async def meeple_move_meeple_autocomplete(
@@ -3282,11 +3303,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         possession_team = match.setup_for_side(match.ball.possession).team
-        await interaction.followup.send(
+        await self.announce_board_update(
+            interaction,
+            game,
             f"The ball moved to {space_label(zone, space_index)}. "
-            f"{possession_team.value.title()} has possession."
+            f"{possession_team.value.title()} has possession.",
         )
-        await self.refresh_match_image(interaction, game)
 
     @ball_move.autocomplete("destination")
     async def ball_move_destination_autocomplete(
@@ -3326,11 +3348,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        await interaction.followup.send(
+        await self.announce_board_update(
+            interaction,
+            game,
             f"{match.setup_for_side(side).team.value.title()} now has "
-            "possession."
+            "possession.",
         )
-        await self.refresh_match_image(interaction, game)
 
     @ball_possession.autocomplete("team")
     async def ball_possession_team_autocomplete(
@@ -3380,10 +3403,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        await interaction.followup.send(
-            f"Ball speed is now {match.ball.speed}."
+        await self.announce_board_update(
+            interaction,
+            game,
+            f"Ball speed is now {match.ball.speed}.",
         )
-        await self.refresh_match_image(interaction, game)
 
     @app_commands.command(
         name="score",
@@ -3447,12 +3471,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         team_name = match.setup_for_side(side).team.value.title()
-        await interaction.followup.send(
+        await self.announce_board_update(
+            interaction,
+            game,
             f"{team_name}'s score is now {new_value} "
             f"({match.scoreboard.home_score}:"
-            f"{match.scoreboard.visiting_score})."
+            f"{match.scoreboard.visiting_score}).",
         )
-        await self.refresh_match_image(interaction, game)
 
     @score.autocomplete("team")
     async def score_team_autocomplete(
@@ -3518,11 +3543,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if match.scoreboard.period == MatchPeriod.FIRST_HALF
             else "Second Half"
         )
-        await interaction.followup.send(
+        await self.announce_board_update(
+            interaction,
+            game,
             f"The clock is now {match.scoreboard.time:02d} "
-            f"({period_label})."
+            f"({period_label}).",
         )
-        await self.refresh_match_image(interaction, game)
 
 
 async def setup(bot: commands.Bot) -> None:
