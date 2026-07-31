@@ -26,6 +26,8 @@ from d12ball.render import (
     FONT_SMALL,
     FONT_TITLE,
     load_font,
+    render_dice_row,
+    render_maneuver_reference_image,
     render_match_image,
 )
 
@@ -350,6 +352,44 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertIsNone(match.offense_maneuver)
         self.assertIsNone(match.defense_maneuver)
 
+    def test_mark_exhausted_if_needed_transitions_once(self) -> None:
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.SLIME,
+            visiting_team=Team.TEAL,
+        )
+        player_id = "teal_bulwark"
+
+        match.add_exhaustion(player_id, 2)
+        self.assertFalse(match.mark_exhausted_if_needed(player_id, 2))
+        self.assertNotIn(player_id, match.exhausted)
+
+        match.add_exhaustion(player_id, 1)
+        self.assertTrue(match.mark_exhausted_if_needed(player_id, 2))
+        self.assertIn(player_id, match.exhausted)
+
+        # Already exhausted: further calls report no new transition.
+        match.add_exhaustion(player_id, 1)
+        self.assertFalse(match.mark_exhausted_if_needed(player_id, 2))
+
+    def test_mark_injured_and_round_trip(self) -> None:
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.SLIME,
+            visiting_team=Team.TEAL,
+        )
+        match.add_exhaustion("teal_bulwark", 3)
+        match.mark_exhausted_if_needed("teal_bulwark", 2)
+        match.mark_injured("teal_bulwark")
+
+        restored = MatchState.from_dict(match.to_dict(), self.rules)
+        self.assertEqual(restored.exhausted, {"teal_bulwark"})
+        self.assertEqual(restored.injured, {"teal_bulwark"})
+
     def test_setup_overview_renders_as_png(self) -> None:
         match = MatchState.standard(
             catalog=self.catalog,
@@ -397,6 +437,21 @@ class D12BallManeuverTests(unittest.TestCase):
                 outcome,
                 f"{offense_name} vs {defense_name}",
             )
+
+    def test_reference_image_renders_as_png(self) -> None:
+        image_data = render_maneuver_reference_image(self.catalog)
+
+        with Image.open(image_data) as image:
+            self.assertEqual(image.format, "PNG")
+
+    def test_dice_row_renders_one_die_per_entry(self) -> None:
+        image_data = render_dice_row(
+            [(7, "#f28c28", "Orange"), (12, "#19b5a5", "Teal")]
+        )
+
+        with Image.open(image_data) as image:
+            self.assertEqual(image.format, "PNG")
+            self.assertEqual(image.width, 480)
 
 
 class D12BallFontTests(unittest.TestCase):

@@ -1,3 +1,4 @@
+import io
 import random
 import re
 import uuid
@@ -23,7 +24,12 @@ from d12ball.game import (
     HomeChoice,
     Team,
 )
-from d12ball.render import render_match_image
+from d12ball.render import (
+    TEAM_COLORS,
+    render_dice_row,
+    render_maneuver_reference_image,
+    render_match_image,
+)
 
 from gamesaves.d12ball.storage import (
     load_games,
@@ -51,6 +57,11 @@ COIN_EMOJI_FALLBACK = "🪙"
 # The exhaustion token emoji is uploaded to Discord (as an application or
 # guild emoji) from images/emoji/exhaust.png and looked up here by name.
 EXHAUST_EMOJI_NAME = "exhaust"
+# Same deal for the "exhausted" condition; "injured" has no upload yet so
+# it just gets a plain fallback emoji.
+EXHAUSTED_EMOJI_NAME = "exhausted"
+EXHAUSTED_EMOJI_FALLBACK = "🥵"
+INJURED_EMOJI_FALLBACK = "🤕"
 EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
 
 
@@ -59,6 +70,13 @@ def get_exhaust_emoji(client: discord.Client) -> str:
     if emoji is not None:
         return str(emoji)
     return EXHAUST_EMOJI_FALLBACK
+
+
+def get_exhausted_emoji(client: discord.Client) -> str:
+    emoji = discord.utils.get(client.emojis, name=EXHAUSTED_EMOJI_NAME)
+    if emoji is not None:
+        return str(emoji)
+    return EXHAUSTED_EMOJI_FALLBACK
 
 
 def format_role_bracket(player: PlayerDefinition) -> str:
@@ -1233,45 +1251,23 @@ class ManeuverActionPromptView(discord.ui.View):
         self.cog = cog
         self.game_id = game_id
 
-        game = self.cog.games.get(game_id)
-        if game is None or game.match_state is None:
-            return
-
-        match = self.cog.load_match_state(game)
-
-        sides: list[tuple[str, str]] = []
-        if match.offense_maneuver is None and not (
-            game.is_solo_game
-            and self.cog.possession_player_number(game, match) == 2
-        ):
-            sides.append(("offense", "Offense: Choose Maneuver"))
-        if match.defense_maneuver is None and not (
-            game.is_solo_game
-            and self.cog.defending_player_number(game, match) == 2
-        ):
-            sides.append(("defense", "Defense: Choose Maneuver"))
-
-        for side, label in sides:
-            button = discord.ui.Button(
-                label=label,
-                style=discord.ButtonStyle.primary,
-                custom_id=f"d12ball:maneuver_prompt:{game_id}:{side}",
-            )
-
-            async def callback(
-                interaction: discord.Interaction,
-                chosen_side: str = side,
-            ) -> None:
-                await self.open_action_menu(interaction, chosen_side)
-
-            button.callback = callback
-            self.add_item(button)
+        button = discord.ui.Button(
+            label="Choose Your Maneuver",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:maneuver_prompt:{game_id}",
+        )
+        button.callback = self.open_action_menu
+        self.add_item(button)
 
     async def open_action_menu(
         self,
         interaction: discord.Interaction,
-        side: str,
     ) -> None:
+        """
+        One shared button for both sides: which ephemeral menu opens
+        depends only on who clicked, so nobody has to pick "which
+        button is mine" first.
+        """
         game = self.cog.games.get(self.game_id)
         if game is None or game.match_state is None:
             await interaction.response.send_message(
@@ -1281,38 +1277,36 @@ class ManeuverActionPromptView(discord.ui.View):
             return
 
         match = self.cog.load_match_state(game)
+        is_offense_player = self.cog.user_controls_possession(
+            interaction.user.id,
+            game,
+            match,
+        )
+        is_defense_player = self.cog.user_controls_defense(
+            interaction.user.id,
+            game,
+            match,
+        )
 
-        if side == "offense":
-            authorized = self.cog.user_controls_possession(
-                interaction.user.id,
-                game,
-                match,
-            )
-            already_chosen = match.offense_maneuver is not None
-        else:
-            authorized = self.cog.user_controls_defense(
-                interaction.user.id,
-                game,
-                match,
-            )
-            already_chosen = match.defense_maneuver is not None
-
-        if already_chosen:
+        if match.offense_maneuver is None and is_offense_player:
+            side = "offense"
+        elif match.defense_maneuver is None and is_defense_player:
+            side = "defense"
+        elif is_offense_player or is_defense_player:
             await interaction.response.send_message(
-                "A maneuver has already been chosen for that side.",
+                "You have already chosen your maneuver.",
                 ephemeral=True,
             )
             return
-
-        if not authorized:
+        else:
             await interaction.response.send_message(
-                "Only the player on that side can choose this maneuver.",
+                "Only a player in this game can choose a maneuver.",
                 ephemeral=True,
             )
             return
 
         await interaction.response.send_message(
-            content=self.cog.build_maneuver_reference_text(),
+            content="Pick your maneuver — see the reference image above.",
             view=ManeuverActionSelectView(self.cog, self.game_id, side),
             ephemeral=True,
         )
@@ -1428,7 +1422,7 @@ class ManeuverActionSelectView(discord.ui.View):
             match.offense_maneuver is not None
             and match.defense_maneuver is not None
         ):
-            await self.cog.resolve_maneuver_clash(interaction, game, match)
+            await self.cog.resolve_maneuver(interaction, game, match)
 
 
 class SkillTestView(discord.ui.View):
@@ -1500,15 +1494,32 @@ class SkillTestView(discord.ui.View):
         if match.defense_maneuver == "Steal Intercept":
             modifier = match.ball.speed // 2
             defense_total += modifier
-            modifier_note = f" + {modifier} ball speed"
+            modifier_note = f" + {modifier} (ball speed modifier)"
 
         breakdown = (
             f"**{format_role_bracket(offense_player)}** (offense): "
-            f"d12 {offense_roll} + skill {offense_skill} = "
-            f"{offense_total}\n"
+            f"rolled {offense_roll} + {offense_skill} (offensive skill "
+            f"modifier) = {offense_total}\n"
             f"**{format_role_bracket(defense_player)}** (defense): "
-            f"d12 {defense_roll} + skill {defense_skill}"
-            f"{modifier_note} = {defense_total}"
+            f"rolled {defense_roll} + {defense_skill} (defensive skill "
+            f"modifier){modifier_note} = {defense_total}"
+        )
+        dice_file = discord.File(
+            render_dice_row(
+                [
+                    (
+                        offense_roll,
+                        TEAM_COLORS[offense_player.team],
+                        offense_player.team.value.title(),
+                    ),
+                    (
+                        defense_roll,
+                        TEAM_COLORS[defense_player.team],
+                        defense_player.team.value.title(),
+                    ),
+                ]
+            ),
+            filename="skill_test_dice.png",
         )
 
         if offense_total == defense_total:
@@ -1517,13 +1528,28 @@ class SkillTestView(discord.ui.View):
             game.match_state = match.to_dict()
             save_games(self.cog.games)
 
-            exhaust_emoji = get_exhaust_emoji(interaction.client)
+            exhaustion_text = "\n".join(
+                [
+                    self.cog.describe_exhaustion_gain(
+                        match,
+                        match.active_player_id,
+                        1,
+                        interaction.client,
+                    ),
+                    self.cog.describe_exhaustion_gain(
+                        match,
+                        match.challenger_id,
+                        1,
+                        interaction.client,
+                    ),
+                ]
+            )
             await interaction.response.edit_message(
                 content=(
                     f"{breakdown}\n\n"
-                    "Another tie! Both players gain an exhaustion "
-                    f"token {exhaust_emoji}. Roll again:"
+                    f"Another tie!\n{exhaustion_text}\n\nRoll again:"
                 ),
+                attachments=[dice_file],
                 view=SkillTestView(self.cog, self.game_id),
             )
             await self.cog.refresh_match_image(interaction, game)
@@ -1552,6 +1578,12 @@ class SkillTestView(discord.ui.View):
             mention=True,
         )
 
+        exhausted_participants = [
+            player
+            for player in (offense_player, defense_player)
+            if player.player_id in match.exhausted
+        ]
+
         match.reset_maneuver()
         game.match_state = match.to_dict()
         save_games(self.cog.games)
@@ -1562,9 +1594,13 @@ class SkillTestView(discord.ui.View):
                 f"**{winner_name}** wins the skill test! {winner_mention}, "
                 f"resolve the effect:\n{winner_definition.effect}"
             ),
+            attachments=[dice_file],
             view=None,
         )
         await self.cog.refresh_match_image(interaction, game)
+
+        for player in exhausted_participants:
+            await self.cog.run_injury_test(interaction, game, match, player)
 
 
 class D12Ball(commands.GroupCog, group_name="d12ball"):
@@ -1574,6 +1610,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.player_catalog = load_player_catalog()
         self.basic_ruleset = load_basic_ruleset()
         self.maneuver_catalog = load_maneuver_catalog()
+        self.maneuver_reference_image_bytes = render_maneuver_reference_image(
+            self.maneuver_catalog
+        ).read()
         self.coin_emojis: dict[CoinFace, str] = {}
 
         restored_views = 0
@@ -1840,35 +1879,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     def choose_ai_maneuver_action(self, side: str) -> str:
         """
-        Dinky AI's rule for a maneuver clash: always roll a d6 and take
-        whichever maneuver that die value maps to.
+        Dinky AI's rule for choosing a maneuver: always roll a d6 and
+        take whichever maneuver that die value maps to.
         """
         roll = random.randint(1, 6)
         if side == "offense":
             return self.maneuver_catalog.offense_for_die(roll).name
         return self.maneuver_catalog.defense_for_die(roll).name
 
-    def build_maneuver_reference_text(self) -> str:
-        lines = ["**Offense maneuvers**"]
-        for maneuver in sorted(
-            self.maneuver_catalog.offense,
-            key=lambda item: item.rank,
-        ):
-            lines.append(
-                f"- **{maneuver.name}** (defeats {maneuver.defeats}): "
-                f"{maneuver.effect}"
-            )
-        lines.append("")
-        lines.append("**Defense maneuvers**")
-        for maneuver in sorted(
-            self.maneuver_catalog.defense,
-            key=lambda item: item.rank,
-        ):
-            lines.append(
-                f"- **{maneuver.name}** (defeats {maneuver.defeats}): "
-                f"{maneuver.effect}"
-            )
-        return "\n".join(lines)
+    def build_maneuver_reference_file(self) -> discord.File:
+        return discord.File(
+            io.BytesIO(self.maneuver_reference_image_bytes),
+            filename="maneuver_reference.png",
+        )
 
     async def begin_maneuver_action_selection(
         self,
@@ -1877,7 +1900,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         """
-        Kick off the simultaneous maneuver-action clash once a
+        Kick off the simultaneous maneuver-action choice once a
         challenger has been chosen: Dinky AI rolls immediately, and any
         human side gets a prompt to open their private maneuver menu.
         """
@@ -1903,7 +1926,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.offense_maneuver is not None
             and match.defense_maneuver is not None
         ):
-            await self.resolve_maneuver_clash(interaction, game, match)
+            await self.resolve_maneuver(interaction, game, match)
             return
 
         waiting_on = []
@@ -1925,8 +1948,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         prompt_message = await interaction.followup.send(
-            f"{' and '.join(waiting_on)}, choose your maneuver using the "
-            "button below. Your options will be shown privately.",
+            f"{' and '.join(waiting_on)}, both sides will now choose a "
+            "maneuver privately. See the reference below for all six "
+            "maneuvers, then use the button to make your pick.",
+            file=self.build_maneuver_reference_file(),
             view=ManeuverActionPromptView(self, game.game_id),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -1938,7 +1963,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 
-    async def resolve_maneuver_clash(
+    async def resolve_maneuver(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
@@ -2007,9 +2032,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         defense_skill = self.player_catalog.effective_profile(
             defense_player,
         ).defense
-        exhaust_emoji = get_exhaust_emoji(interaction.client)
 
-        content = (
+        # This reveal is a permanent message, separate from the roll
+        # prompt below, so it survives every re-roll intact instead of
+        # being edited away.
+        await interaction.followup.send(
             f"{reveal}\n\n"
             f"**{offense_name}** ties with **{defense_name}** — skill "
             "test!\n\n"
@@ -2017,17 +2044,78 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{offense_skill}\n"
             f"{format_role_bracket(defense_player)}: defense skill "
             f"{defense_skill}\n\n"
-            f"Both players gain an exhaustion token {exhaust_emoji}.\n\n"
-            "Either player can roll:"
+            + self.describe_exhaustion_gain(
+                match, match.active_player_id, 1, interaction.client,
+            )
+            + "\n"
+            + self.describe_exhaustion_gain(
+                match, match.challenger_id, 1, interaction.client,
+            ),
+            allowed_mentions=discord.AllowedMentions(
+                users=False,
+                roles=False,
+                everyone=False,
+            ),
         )
+        await self.refresh_match_image(interaction, game)
+
         test_message = await interaction.followup.send(
-            content,
+            "Either player can roll:",
             view=SkillTestView(self, game.game_id),
             wait=True,
         )
         game.turn_message_id = test_message.id
         save_games(self.games)
-        await self.refresh_match_image(interaction, game)
+
+    async def run_injury_test(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        player: PlayerDefinition,
+    ) -> None:
+        """
+        Automatic injury test for a player who was already exhausted
+        going into a skill test they just took part in: roll a d12,
+        and if it doesn't beat their current exhaustion token count,
+        they become injured.
+        """
+        roll = random.randint(1, 12)
+        current_tokens = match.exhaustion.get(player.player_id, 0)
+        dice_file = discord.File(
+            render_dice_row(
+                [
+                    (
+                        roll,
+                        TEAM_COLORS[player.team],
+                        player.team.value.title(),
+                    )
+                ]
+            ),
+            filename="injury_test_die.png",
+        )
+
+        if roll > current_tokens:
+            content = (
+                f"{format_role_bracket(player)} is exhausted and rolls "
+                f"an injury test: {roll} beats their {current_tokens} "
+                "exhaustion tokens — safe."
+            )
+        else:
+            match.mark_injured(player.player_id)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            content = (
+                f"{format_role_bracket(player)} is exhausted and rolls "
+                f"an injury test: {roll} does not beat their "
+                f"{current_tokens} exhaustion tokens — injury! "
+                f"{format_role_bracket(player)} now has the condition "
+                f"**injured** {INJURED_EMOJI_FALLBACK}."
+            )
+            await self.refresh_match_image(interaction, game)
+
+        await interaction.followup.send(content, file=dice_file)
 
     async def refresh_maneuver_prompt(
         self,
@@ -2058,6 +2146,37 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         except (discord.NotFound, discord.HTTPException):
             pass
 
+    def describe_exhaustion_gain(
+        self,
+        match: MatchState,
+        player_id: str,
+        amount: int,
+        client: discord.Client,
+    ) -> str:
+        """
+        Text describing an exhaustion-token gain that has already been
+        applied to `match` — the running total, plus a line the moment
+        it pushes the player's token count past their defense skill.
+        """
+        player = self.get_player_definition(player_id)
+        exhaust_emoji = get_exhaust_emoji(client)
+        total = match.exhaustion.get(player_id, 0)
+        token_word = "token" if amount == 1 else "tokens"
+        text = (
+            f"{format_role_bracket(player)} gains {amount} exhaustion "
+            f"{token_word} {exhaust_emoji * amount} (now {total} total)."
+        )
+
+        defense_skill = self.player_catalog.effective_profile(player).defense
+        if match.mark_exhausted_if_needed(player_id, defense_skill):
+            exhausted_emoji = get_exhausted_emoji(client)
+            text += (
+                f"\n{format_role_bracket(player)} now has the condition "
+                f"**exhausted** {exhausted_emoji} — {total} exhaustion "
+                f"tokens exceeds their defense skill of {defense_skill}."
+            )
+        return text
+
     def build_challenge_announcement(
         self,
         client: discord.Client,
@@ -2079,13 +2198,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
 
         if distance > 0:
-            exhaust_emoji = get_exhaust_emoji(client)
             space_word = "space" if distance == 1 else "spaces"
-            token_word = "token" if distance == 1 else "tokens"
             announcement += (
-                f"\n\n{defender.name} has moved {distance} {space_word} "
-                f"and will gain {distance} exhaustion {token_word} "
-                f"{exhaust_emoji * distance}"
+                f"\n\n{defender.name} has moved {distance} {space_word}."
+                f"\n{self.describe_exhaustion_gain(match, defender_id, distance, client)}"
             )
 
         return announcement

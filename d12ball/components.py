@@ -404,6 +404,8 @@ class MatchState:
     offense_maneuver: Optional[str] = None
     defense_maneuver: Optional[str] = None
     exhaustion: dict[str, int] = field(default_factory=dict)
+    exhausted: set[str] = field(default_factory=set)
+    injured: set[str] = field(default_factory=set)
 
     @classmethod
     def standard(
@@ -590,6 +592,26 @@ class MatchState:
             self.exhaustion.get(player_id, 0) + amount
         )
 
+    def mark_exhausted_if_needed(
+        self,
+        player_id: str,
+        defense_skill: int,
+    ) -> bool:
+        """
+        Mark a player exhausted the moment their token count first
+        exceeds their defense skill. Returns True only on that
+        transition, so callers can announce it once.
+        """
+        if player_id in self.exhausted:
+            return False
+        if self.exhaustion.get(player_id, 0) > defense_skill:
+            self.exhausted.add(player_id)
+            return True
+        return False
+
+    def mark_injured(self, player_id: str) -> None:
+        self.injured.add(player_id)
+
     def choose_challenger(self, player_id: str) -> int:
         """
         Move the defending player's chosen meeple into the ball's space
@@ -624,8 +646,8 @@ class MatchState:
 
     def reset_maneuver(self) -> None:
         """
-        Clear the ball-handler and maneuver-clash state once a maneuver
-        resolves, so the match no longer looks mid-turn.
+        Clear the ball-handler and maneuver-selection state once a
+        maneuver resolves, so the match no longer looks mid-turn.
         """
         self.active_player_id = None
         self.pending_action = None
@@ -749,6 +771,8 @@ class MatchState:
             "offense_maneuver": self.offense_maneuver,
             "defense_maneuver": self.defense_maneuver,
             "exhaustion": dict(self.exhaustion),
+            "exhausted": sorted(self.exhausted),
+            "injured": sorted(self.injured),
         }
 
     @classmethod
@@ -794,6 +818,8 @@ class MatchState:
             offense_maneuver=data.get("offense_maneuver"),
             defense_maneuver=data.get("defense_maneuver"),
             exhaustion=dict(data.get("exhaustion", {})),
+            exhausted=set(data.get("exhausted", [])),
+            injured=set(data.get("injured", [])),
         )
 
 
