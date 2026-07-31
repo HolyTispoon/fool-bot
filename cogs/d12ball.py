@@ -3348,12 +3348,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        await self.announce_board_update(
-            interaction,
-            game,
+        await interaction.followup.send(
             f"{match.setup_for_side(side).team.value.title()} now has "
-            "possession.",
+            "possession."
         )
+        await self.refresh_match_image(interaction, game)
 
     @ball_possession.autocomplete("team")
     async def ball_possession_team_autocomplete(
@@ -3403,11 +3402,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        await self.announce_board_update(
-            interaction,
-            game,
-            f"Ball speed is now {match.ball.speed}.",
+        await interaction.followup.send(
+            f"Ball speed is now {match.ball.speed}."
         )
+        await self.refresh_match_image(interaction, game)
 
     @app_commands.command(
         name="score",
@@ -3471,13 +3469,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         team_name = match.setup_for_side(side).team.value.title()
-        await self.announce_board_update(
-            interaction,
-            game,
+        await interaction.followup.send(
             f"{team_name}'s score is now {new_value} "
             f"({match.scoreboard.home_score}:"
-            f"{match.scoreboard.visiting_score}).",
+            f"{match.scoreboard.visiting_score})."
         )
+        await self.refresh_match_image(interaction, game)
 
     @score.autocomplete("team")
     async def score_team_autocomplete(
@@ -3543,12 +3540,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if match.scoreboard.period == MatchPeriod.FIRST_HALF
             else "Second Half"
         )
-        await self.announce_board_update(
-            interaction,
-            game,
+        await interaction.followup.send(
             f"The clock is now {match.scoreboard.time:02d} "
-            f"({period_label}).",
+            f"({period_label})."
         )
+        await self.refresh_match_image(interaction, game)
 
 
 async def setup(bot: commands.Bot) -> None:
