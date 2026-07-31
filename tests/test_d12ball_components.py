@@ -1,7 +1,8 @@
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from PIL import Image
+from PIL import Image, ImageFont
 
 from d12ball.components import (
     AssignmentEdge,
@@ -16,7 +17,16 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import Team
-from d12ball.render import render_match_image
+from d12ball.render import (
+    FONT_BODY,
+    FONT_DIR,
+    FONT_HEADING,
+    FONT_SCORE,
+    FONT_SMALL,
+    FONT_TITLE,
+    load_font,
+    render_match_image,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -325,6 +335,68 @@ class D12BallComponentTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
             self.assertEqual(image.size, (2200, 1280))
+
+
+class D12BallFontTests(unittest.TestCase):
+    """Guard the bundled fonts.
+
+    A host without system fonts used to fall through to Pillow's built-in
+    face, which is pinned to size 10 and ignores the requested size, so
+    every label on the board rendered at the same tiny size.
+    """
+
+    def test_bundled_font_files_exist(self) -> None:
+        for file_name in ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"):
+            self.assertTrue(
+                (FONT_DIR / file_name).is_file(),
+                f"Missing bundled font {FONT_DIR / file_name}",
+            )
+
+    def test_load_font_honours_requested_size(self) -> None:
+        for size in (14, 28, 44, 52):
+            for bold in (False, True):
+                with self.subTest(size=size, bold=bold):
+                    font = load_font(size, bold=bold)
+                    self.assertEqual(font.size, size)
+
+    def test_load_font_uses_bundled_files_not_system_fonts(self) -> None:
+        # Simulate a host where every lookup by bare name misses, as it
+        # does anywhere the installed fonts are filed under other names.
+        real_truetype = ImageFont.truetype
+
+        def only_absolute_paths(font=None, size=10, *args, **kwargs):
+            if isinstance(font, str) and not Path(font).is_absolute():
+                raise OSError("cannot open resource")
+            return real_truetype(font, size, *args, **kwargs)
+
+        with mock.patch.object(
+            ImageFont, "truetype", side_effect=only_absolute_paths
+        ):
+            font = load_font(44, bold=True)
+
+        self.assertEqual(font.size, 44)
+        self.assertEqual(
+            Path(font.path).name,
+            "DejaVuSans-Bold.ttf",
+        )
+
+    def test_render_fonts_keep_their_relative_scale(self) -> None:
+        # The bug's signature was every font collapsing to one size.
+        self.assertGreater(FONT_SCORE.size, FONT_TITLE.size)
+        self.assertGreater(FONT_TITLE.size, FONT_HEADING.size)
+        self.assertGreater(FONT_HEADING.size, FONT_BODY.size)
+        self.assertGreater(FONT_BODY.size, FONT_SMALL.size)
+
+    def test_bundled_font_covers_board_label_glyphs(self) -> None:
+        # The em dash in the player board heading rendered as a tofu box
+        # under the fallback face.
+        font = load_font(28)
+        for character in "—:!":
+            with self.subTest(character=character):
+                self.assertTrue(
+                    font.getmask(character).getbbox(),
+                    f"No glyph for {character!r}",
+                )
 
 
 if __name__ == "__main__":
