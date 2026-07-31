@@ -26,6 +26,11 @@ class HomeChoice(str, Enum):
     VISITING = "visiting"
 
 
+class CoinFace(str, Enum):
+    FORTUNE = "fortune"
+    DOOM = "doom"
+
+
 VALID_BOARD_SIZES = {6, 7, 9}
 
 
@@ -57,6 +62,8 @@ class D12BallGame:
     coin_flipped: bool = False
     coin_winner: Optional[str] = None
     coin_winner_player_number: Optional[int] = None
+    coin_flipped_by_player_number: Optional[int] = None
+    coin_face: Optional[CoinFace] = None
 
     # Home and visiting assignments (1 = Player 1, 2 = Player 2/AI)
     home_player_number: Optional[int] = None
@@ -78,6 +85,9 @@ class D12BallGame:
         self.mode = GameMode(self.mode)
         self.status = GameStatus(self.status)
 
+        if self.coin_face is not None:
+            self.coin_face = CoinFace(self.coin_face)
+
         if (
             self.coin_flipped
             and self.coin_winner_player_number is None
@@ -95,6 +105,7 @@ class D12BallGame:
 
         for player_number in (
             self.coin_winner_player_number,
+            self.coin_flipped_by_player_number,
             self.home_player_number,
             self.visiting_player_number,
         ):
@@ -162,6 +173,39 @@ class D12BallGame:
             self.home_player_number is not None
             and self.visiting_player_number is not None
         )
+
+    def resolve_coin_toss(
+        self,
+        flipping_player_number: int,
+        face: CoinFace,
+    ) -> int:
+        """
+        Record a coin toss and return the winning player number.
+
+        The coin is read from the point of view of the player who
+        flipped it: a fortune side wins them the toss, a doom side
+        hands it to their opponent.
+        """
+        if self.coin_flipped:
+            raise ValueError("The coin has already been flipped.")
+
+        if flipping_player_number not in {1, 2}:
+            raise ValueError("Player numbers must be either 1 or 2.")
+
+        face = CoinFace(face)
+        other_player_number = 2 if flipping_player_number == 1 else 1
+        winner_player_number = (
+            flipping_player_number
+            if face == CoinFace.FORTUNE
+            else other_player_number
+        )
+
+        self.coin_flipped = True
+        self.coin_face = face
+        self.coin_flipped_by_player_number = flipping_player_number
+        self.coin_winner_player_number = winner_player_number
+
+        return winner_player_number
 
     def choose_home_or_visiting(
         self,
