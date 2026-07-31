@@ -1,7 +1,7 @@
-import logging
 from io import BytesIO
 from math import cos, pi, sin
 from pathlib import Path
+from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -46,48 +46,18 @@ ZONE_LABELS = {
 }
 
 
-LOGGER = logging.getLogger(__name__)
-
-# Fonts are bundled rather than looked up by name so that board images render
-# identically everywhere. A bare `ImageFont.truetype("DejaVuSans.ttf", size)`
-# only searches the host's font directories, and no list of bare names can be
-# right on every platform: the same typeface is filed under a different name
-# on each. "Arial Bold.ttf" exists on macOS, Windows calls that file
-# "arialbd.ttf", and Linux ships neither unless DejaVu is installed. When
-# every name misses, Pillow's `load_default()` hands back a built-in face
-# pinned to size 10 that ignores the requested size, so every label on the
-# board silently collapses to the same tiny text.
-FONT_DIR = Path(__file__).resolve().parent / "fonts"
-
-
 def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
-    bundled = FONT_DIR / (
-        "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
+    font_names = (
+        ("DejaVuSans-Bold.ttf", "Arial Bold.ttf")
+        if bold
+        else ("DejaVuSans.ttf", "Arial.ttf")
     )
-    candidates = (
-        str(bundled),
-        "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
-        "Arial Bold.ttf" if bold else "Arial.ttf",
-    )
-    for candidate in candidates:
+    for font_name in font_names:
         try:
-            return ImageFont.truetype(candidate, size)
+            return ImageFont.truetype(font_name, size)
         except OSError:
             continue
-
-    LOGGER.warning(
-        "No scalable font found for size %d (bold=%s); falling back to "
-        "Pillow's built-in face. Expected a bundled font at %s.",
-        size,
-        bold,
-        bundled,
-    )
-    try:
-        # Pillow >= 10.1 can scale the built-in face. Without an explicit
-        # size it returns a 10px font no matter what was asked for.
-        return ImageFont.load_default(size=size)
-    except TypeError:
-        return ImageFont.load_default()
+    return ImageFont.load_default()
 
 
 FONT_TITLE = load_font(44, bold=True)
@@ -108,6 +78,38 @@ ROLE_INITIALS = {
     "winger": "WG",
     "striker": "SK",
 }
+
+EXHAUST_ICON_PATH = (
+    Path(__file__).resolve().parent / "images" / "emoji" / "exhaust.png"
+)
+EXHAUST_ICON_SIZE = 20
+_EXHAUST_ICON_CACHE: Optional[Image.Image] = None
+_EXHAUST_ICON_LOAD_ATTEMPTED = False
+
+
+def load_exhaust_icon() -> Optional[Image.Image]:
+    """
+    Load (and cache) the exhaustion token icon. Returns None if the image
+    is not available so rendering can gracefully skip it.
+    """
+    global _EXHAUST_ICON_CACHE, _EXHAUST_ICON_LOAD_ATTEMPTED
+
+    if _EXHAUST_ICON_LOAD_ATTEMPTED:
+        return _EXHAUST_ICON_CACHE
+
+    _EXHAUST_ICON_LOAD_ATTEMPTED = True
+    try:
+        with Image.open(EXHAUST_ICON_PATH) as source:
+            icon = source.convert("RGBA")
+            icon.thumbnail(
+                (EXHAUST_ICON_SIZE, EXHAUST_ICON_SIZE),
+                Image.Resampling.LANCZOS,
+            )
+            _EXHAUST_ICON_CACHE = icon
+    except OSError:
+        _EXHAUST_ICON_CACHE = None
+
+    return _EXHAUST_ICON_CACHE
 
 
 def player_index(
@@ -142,6 +144,7 @@ def draw_card(
     player: PlayerDefinition,
     x: int,
     y: int,
+    exhaustion: int = 0,
 ) -> None:
     image_path = Path(__file__).resolve().parent / player.card_image
     with Image.open(image_path) as source:
@@ -156,6 +159,60 @@ def draw_card(
     )
     canvas.alpha_composite(card, (x, y))
 
+    if exhaustion > 0:
+        draw_exhaustion_badge(canvas, draw, x, y, exhaustion)
+
+
+def draw_exhaustion_badge(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    card_x: int,
+    card_y: int,
+    exhaustion: int,
+) -> None:
+    icon = load_exhaust_icon()
+    badge_x = card_x + CARD_SIZE[0] - EXHAUST_ICON_SIZE - 1
+    badge_y = card_y + CARD_SIZE[1] - EXHAUST_ICON_SIZE - 1
+
+    if icon is not None:
+        canvas.alpha_composite(icon, (badge_x, badge_y))
+    else:
+        draw.ellipse(
+            (
+                badge_x,
+                badge_y,
+                badge_x + EXHAUST_ICON_SIZE,
+                badge_y + EXHAUST_ICON_SIZE,
+            ),
+            fill="#5a2d2d",
+            outline="#ffffff",
+            width=1,
+        )
+
+    if exhaustion > 1:
+        count_label = str(exhaustion)
+        count_width = draw.textlength(count_label, font=FONT_SMALL)
+        label_x = badge_x - count_width / 2 - 1
+        label_y = badge_y - 2
+        draw.rounded_rectangle(
+            (
+                label_x - 3,
+                label_y - 1,
+                label_x + count_width + 3,
+                label_y + 15,
+            ),
+            radius=5,
+            fill="#161d26",
+            outline="#ffffff",
+            width=1,
+        )
+        draw.text(
+            (label_x, label_y),
+            count_label,
+            font=FONT_SMALL,
+            fill="#ffffff",
+        )
+
 
 def draw_assignment_cards(
     canvas: Image.Image,
@@ -164,6 +221,7 @@ def draw_assignment_cards(
     players: dict[str, PlayerDefinition],
     bounds: dict[Zone, tuple[int, int]],
     y: int,
+    exhaustion: dict[str, int],
 ) -> None:
     for zone in Zone:
         left, right = bounds[zone]
@@ -174,7 +232,14 @@ def draw_assignment_cards(
         x = left + (right - left - total_width) // 2
 
         for player_id in player_ids:
-            draw_card(canvas, draw, players[player_id], x, y)
+            draw_card(
+                canvas,
+                draw,
+                players[player_id],
+                x,
+                y,
+                exhaustion=exhaustion.get(player_id, 0),
+            )
             x += CARD_SIZE[0] + 12
 
 
@@ -544,6 +609,7 @@ def draw_player_board(
     setup: TeamSetup,
     players: dict[str, PlayerDefinition],
     y: int,
+    exhaustion: dict[str, int],
 ) -> None:
     color = TEAM_COLORS[setup.team]
     draw.rounded_rectangle(
@@ -570,7 +636,14 @@ def draw_player_board(
     )
     card_x = bench_x
     for player_id in setup.player_board.bench:
-        draw_card(canvas, draw, players[player_id], card_x, y + 48)
+        draw_card(
+            canvas,
+            draw,
+            players[player_id],
+            card_x,
+            y + 48,
+            exhaustion=exhaustion.get(player_id, 0),
+        )
         card_x += CARD_SIZE[0] + 12
 
     back_bench_x = MARGIN + 850
@@ -638,7 +711,9 @@ def render_match_image(
         fill="#ffffff",
     )
 
-    draw_player_board(canvas, draw, match.visiting, players, 65)
+    draw_player_board(
+        canvas, draw, match.visiting, players, 65, match.exhaustion,
+    )
     bounds = zone_bounds(match)
     draw_assignment_cards(
         canvas,
@@ -647,6 +722,7 @@ def render_match_image(
         players,
         bounds,
         290,
+        match.exhaustion,
     )
     draw_board(canvas, draw, match, players)
     draw_assignment_cards(
@@ -656,8 +732,11 @@ def render_match_image(
         players,
         bounds,
         850,
+        match.exhaustion,
     )
-    draw_player_board(canvas, draw, match.home, players, 1080)
+    draw_player_board(
+        canvas, draw, match.home, players, 1080, match.exhaustion,
+    )
     draw_jumbotron(draw, match)
 
     output = BytesIO()

@@ -174,6 +174,20 @@ class BoardState:
                     return zone, space_index
         return None
 
+    def flat_index(self, zone: Zone, space_index: int) -> int:
+        """
+        Convert a (zone, space_index) position into a single left-to-right
+        index across the whole board, so distances can be measured between
+        spaces even when they fall in different zones.
+        """
+        zone = Zone(zone)
+        offset = 0
+        for board_zone in Zone:
+            if board_zone == zone:
+                return offset + space_index
+            offset += len(self.spaces[board_zone])
+        raise ValueError("Unknown zone.")
+
 
 @dataclass(frozen=True)
 class DieDefinition:
@@ -334,6 +348,9 @@ class MatchState:
     ball: BallState
     scoreboard: ScoreboardState
     active_player_id: Optional[str] = None
+    pending_action: Optional[str] = None
+    challenger_id: Optional[str] = None
+    exhaustion: dict[str, int] = field(default_factory=dict)
 
     @classmethod
     def standard(
@@ -452,6 +469,74 @@ class MatchState:
                 "The selected player is not an eligible ball handler."
             )
         self.active_player_id = player_id
+        self.pending_action = None
+        self.challenger_id = None
+
+    def distance_to_ball(self, player_id: str) -> int:
+        """
+        Number of spaces a fielded player's meeple would need to move to
+        reach the ball's current space.
+        """
+        position = self.board.meeple_position(player_id)
+        if position is None:
+            raise ValueError(f"{player_id} does not have a fielded meeple.")
+        zone, space_index = position
+        player_flat = self.board.flat_index(zone, space_index)
+        ball_flat = self.board.flat_index(
+            self.ball.zone,
+            self.ball.space_index,
+        )
+        return abs(ball_flat - player_flat)
+
+    def eligible_challengers(self) -> list[str]:
+        """
+        Fielded players belonging to the defending team who share the
+        ball's zone, and so can be chosen to maneuver and challenge the
+        ball handler.
+        """
+        defending_side = (
+            TeamSide.VISITING
+            if self.ball.possession == TeamSide.HOME
+            else TeamSide.HOME
+        )
+        defending_players = set(
+            self.setup_for_side(defending_side).field_players
+        )
+        return [
+            player_id
+            for occupants in self.board.spaces[self.ball.zone]
+            for player_id in occupants
+            if player_id in defending_players
+        ]
+
+    def add_exhaustion(self, player_id: str, amount: int) -> None:
+        if amount <= 0:
+            return
+        self.exhaustion[player_id] = (
+            self.exhaustion.get(player_id, 0) + amount
+        )
+
+    def choose_challenger(self, player_id: str) -> int:
+        """
+        Move the defending player's chosen meeple into the ball's space
+        (if it is not already there), gaining one exhaustion token per
+        space moved. Returns the number of spaces moved.
+        """
+        if self.challenger_id is not None:
+            raise ValueError("A defender has already been chosen.")
+        if player_id not in self.eligible_challengers():
+            raise ValueError(
+                "The selected player cannot challenge for the ball."
+            )
+
+        distance = self.distance_to_ball(player_id)
+        if distance > 0:
+            self.move_meeple(player_id, self.ball.zone, self.ball.space_index)
+            self.add_exhaustion(player_id, distance)
+
+        self.challenger_id = player_id
+        self.pending_action = None
+        return distance
 
     def move_meeple(
         self,
@@ -564,6 +649,9 @@ class MatchState:
                 "period": self.scoreboard.period.value,
             },
             "active_player_id": self.active_player_id,
+            "pending_action": self.pending_action,
+            "challenger_id": self.challenger_id,
+            "exhaustion": dict(self.exhaustion),
         }
 
     @classmethod
@@ -604,6 +692,9 @@ class MatchState:
                 **data.get("scoreboard", {})
             ),
             active_player_id=data.get("active_player_id"),
+            pending_action=data.get("pending_action"),
+            challenger_id=data.get("challenger_id"),
+            exhaustion=dict(data.get("exhaustion", {})),
         )
 
 

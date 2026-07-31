@@ -15,7 +15,6 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import (
-    CoinFace,
     D12BallGame,
     GameMode,
     GameStatus,
@@ -41,11 +40,23 @@ ROLE_INITIALS = {
     "winger": "WG",
     "striker": "SK",
 }
-COIN_EMOJI_NAMES = {
-    CoinFace.FORTUNE: "1_gold_fortune",
-    CoinFace.DOOM: "1_gold_doom",
-}
-COIN_EMOJI_FALLBACK = "🪙"
+
+# The exhaustion token emoji is uploaded to Discord (as an application or
+# guild emoji) from images/emoji/exhaust.png and looked up here by name.
+EXHAUST_EMOJI_NAME = "exhaust"
+EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
+
+
+def get_exhaust_emoji(client: discord.Client) -> str:
+    emoji = discord.utils.get(client.emojis, name=EXHAUST_EMOJI_NAME)
+    if emoji is not None:
+        return str(emoji)
+    return EXHAUST_EMOJI_FALLBACK
+
+
+def format_role_bracket(player: PlayerDefinition) -> str:
+    initials = ROLE_INITIALS[player.role.value]
+    return f"{player.name} [{initials}]"
 
 
 async def get_or_create_category(
@@ -93,9 +104,7 @@ def build_setup_message(
     elif game.teams_selected:
         text += (
             "Both teams have been selected.\n"
-            "Flip the coin below to determine who chooses whether they "
-            "are home team. A fortune side wins the toss for whoever "
-            "flipped it, a doom side hands it to their opponent."
+            "Click below to determine who chooses whether they are home team."
         )
     elif game.is_solo_game:
         text += (
@@ -161,91 +170,15 @@ def refresh_player_names(
             game.player_2_name = player_2.display_name
 
 
-async def load_coin_emojis(
-    bot: commands.Bot,
-) -> dict[CoinFace, str]:
-    """
-    Look up the coin emoji uploaded to the application.
-
-    Application emoji work in every server the bot is in, but
-    discord.py does not cache them, so they are fetched once and kept
-    as ready-to-post <:name:id> strings.
-
-    Anything that goes wrong here leaves a face out of the mapping and
-    the coin toss falls back to a plain coin. An app that has not had
-    the emoji uploaded yet is the expected case, not an error.
-    """
-    try:
-        emojis = await bot.fetch_application_emojis()
-    except Exception as error:
-        # Deliberately broad: the emoji is decoration, and no failure
-        # to fetch it should stop anyone from flipping a coin.
-        print(f"Could not load the D12 Ball coin emoji: {error}")
-        return {}
-
-    emojis_by_name = {emoji.name: emoji for emoji in emojis}
-    coin_emojis: dict[CoinFace, str] = {}
-    missing: list[str] = []
-
-    for face, name in COIN_EMOJI_NAMES.items():
-        emoji = emojis_by_name.get(name)
-
-        if emoji is None:
-            missing.append(name)
-        else:
-            coin_emojis[face] = str(emoji)
-
-    if missing:
-        print(
-            "This application has no coin emoji named "
-            f"{', '.join(missing)}; coin tosses will show "
-            f"{COIN_EMOJI_FALLBACK} instead."
-        )
-
-    return coin_emojis
-
-
-def format_coin_emoji(
-    coin_emojis: Optional[dict[CoinFace, str]],
-    face: Optional[CoinFace],
-) -> str:
-    """
-    The emoji for a coin face, or a plain coin when it is unavailable.
-    """
-    if not coin_emojis or face is None:
-        return COIN_EMOJI_FALLBACK
-
-    return coin_emojis.get(CoinFace(face), COIN_EMOJI_FALLBACK)
-
-
-def build_home_choice_message(
-    game: D12BallGame,
-    coin_emojis: Optional[dict[CoinFace, str]] = None,
-) -> str:
+def build_home_choice_message(game: D12BallGame) -> str:
     winner = format_player_with_team(
         game,
         game.coin_winner_player_number,
     )
-
-    if (
-        game.coin_face is not None
-        and game.coin_flipped_by_player_number is not None
-    ):
-        flipper = format_player_with_team(
-            game,
-            game.coin_flipped_by_player_number,
-        )
-        text = (
-            f"{format_coin_emoji(coin_emojis, game.coin_face)} {flipper} "
-            f"flipped **{game.coin_face.value.title()}**!\n\n"
-            f"**{winner} wins the coin toss!**"
-        )
-    else:
-        # Games flipped before coin faces were recorded.
-        text = (
-            "🪙 The coin has been flipped!\n\n"
-            f"**{winner} wins the coin toss!**"
-        )
+    text = (
+        "🪙 The coin has been flipped!\n\n"
+        f"**{winner} wins the coin toss!**"
+    )
 
     if game.home_and_visiting_selected:
         home_player = format_player_with_team(
@@ -581,10 +514,7 @@ class CoinFlipView(GameConfigurationView):
         game = self.cog.games.get(game_id)
 
         self.flip_button = discord.ui.Button(
-            label=(
-                "Flip a Coin! Fortune wins it, doom loses it "
-                "(this would start the game)"
-            ),
+            label="Flip a Coin! (this would start the game)",
             style=discord.ButtonStyle.primary,
             emoji="🪙",
             custom_id=f"d12ball:flip_coin:{game_id}",
@@ -621,8 +551,6 @@ class CoinFlipView(GameConfigurationView):
             )
             return
 
-        coin_emojis = await self.cog.ensure_coin_emojis()
-
         if game.coin_flipped:
             refreshed_view = HomeAwaySelectionView(
                 cog=self.cog,
@@ -630,7 +558,7 @@ class CoinFlipView(GameConfigurationView):
             )
 
             await interaction.response.edit_message(
-                content=build_home_choice_message(game, coin_emojis),
+                content=build_home_choice_message(game),
                 view=refreshed_view,
             )
 
@@ -640,18 +568,13 @@ class CoinFlipView(GameConfigurationView):
             )
             return
 
-        flipping_player_number = (
-            1 if interaction.user.id == game.player_1_id else 2
-        )
-        face = random.choice((CoinFace.FORTUNE, CoinFace.DOOM))
-
+        winner_player_number = random.choice((1, 2))
         refresh_player_names(game, interaction.guild)
-        winner_player_number = game.resolve_coin_toss(
-            flipping_player_number,
-            face,
-        )
+        winner = format_player(game, winner_player_number)
 
-        game.coin_winner = format_player(game, winner_player_number)
+        game.coin_flipped = True
+        game.coin_winner = winner
+        game.coin_winner_player_number = winner_player_number
         game.start_game()
 
         if game.is_solo_game and winner_player_number == 2:
@@ -682,7 +605,7 @@ class CoinFlipView(GameConfigurationView):
             followup_arguments["file"] = self.cog.build_match_file(game)
 
         choice_message = await interaction.followup.send(
-            build_home_choice_message(game, coin_emojis),
+            build_home_choice_message(game),
             **followup_arguments,
         )
         game.message_id = choice_message.id
@@ -797,10 +720,7 @@ class HomeAwaySelectionView(discord.ui.View):
             game_id=self.game_id,
         )
         await interaction.response.edit_message(
-            content=build_home_choice_message(
-                game,
-                await self.cog.ensure_coin_emojis(),
-            ),
+            content=build_home_choice_message(game),
             view=refreshed_view,
             attachments=[self.cog.build_match_file(game)],
         )
@@ -980,10 +900,209 @@ class PlayerActionView(discord.ui.View):
             )
             return
 
-        await interaction.response.send_message(
-            f"{action_label} is not implemented yet.",
-            ephemeral=True,
+        if action != "maneuver":
+            await interaction.response.send_message(
+                f"{action_label} is not implemented yet.",
+                ephemeral=True,
+            )
+            return
+
+        eligible_challengers = match.eligible_challengers()
+        if not eligible_challengers:
+            await interaction.response.send_message(
+                "The defending team has no player in the ball's zone "
+                "to challenge.",
+                ephemeral=True,
+            )
+            return
+
+        match.pending_action = "maneuver"
+        handler = self.cog.get_player_definition(match.active_player_id)
+        defender_number = self.cog.defending_player_number(game, match)
+
+        if game.is_solo_game and defender_number == 2:
+            challenger_id = self.cog.choose_ai_challenger(match)
+            distance = match.choose_challenger(challenger_id)
+            game.match_state = match.to_dict()
+            save_games(self.cog.games)
+
+            refresh_player_names(game, interaction.guild)
+
+            await interaction.response.edit_message(
+                content=(
+                    f"**{action_label}** was chosen for "
+                    f"{format_role_bracket(handler)}."
+                ),
+                view=None,
+            )
+            await interaction.followup.send(
+                self.cog.build_challenge_announcement(
+                    interaction.client,
+                    game,
+                    match,
+                    challenger_id,
+                    distance,
+                ),
+                allowed_mentions=discord.AllowedMentions(
+                    users=False,
+                    roles=False,
+                    everyone=False,
+                ),
+            )
+            await self.cog.refresh_match_image(interaction, game)
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        refresh_player_names(game, interaction.guild)
+        defender_mention = format_player_with_team(
+            game,
+            defender_number,
+            mention=True,
         )
+
+        await interaction.response.edit_message(
+            content=(
+                f"**{action_label}** was chosen for "
+                f"{format_role_bracket(handler)}.\n\n"
+                "Waiting for the defense to choose a challenger..."
+            ),
+            view=None,
+        )
+
+        challenge_view = ManeuverChallengeView(self.cog, self.game_id)
+        challenge_message = await interaction.followup.send(
+            f"{defender_mention}, choose which player will maneuver "
+            "to challenge for the ball.",
+            view=challenge_view,
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True,
+                roles=False,
+                everyone=False,
+            ),
+        )
+        game.turn_message_id = challenge_message.id
+        save_games(self.cog.games)
+
+
+class ManeuverChallengeView(discord.ui.View):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+    ):
+        super().__init__(timeout=None)
+
+        self.cog = cog
+        self.game_id = game_id
+
+        game = self.cog.games.get(game_id)
+        if game is None or game.match_state is None:
+            return
+
+        match = self.cog.load_match_state(game)
+        for player_id in match.eligible_challengers():
+            player = self.cog.get_player_definition(player_id)
+            distance = match.distance_to_ball(player_id)
+            initials = ROLE_INITIALS[player.role.value]
+            button = discord.ui.Button(
+                label=f"{player.name} [{initials}] ({distance})",
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:challenger:{game_id}:{player_id}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                selected_player_id: str = player_id,
+            ) -> None:
+                await self.select_challenger(
+                    interaction,
+                    selected_player_id,
+                )
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def select_challenger(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+
+        if match.challenger_id is not None:
+            await interaction.response.edit_message(
+                content=self.cog.build_turn_prompt(game, match),
+                view=PlayerActionView(self.cog, self.game_id),
+            )
+            await interaction.followup.send(
+                "A defender has already been chosen.",
+                ephemeral=True,
+            )
+            return
+
+        if not self.cog.user_controls_defense(
+            interaction.user.id,
+            game,
+            match,
+        ):
+            await interaction.response.send_message(
+                "Only the player whose team is defending can make "
+                "this choice.",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            distance = match.choose_challenger(player_id)
+        except ValueError as error:
+            await interaction.response.send_message(
+                str(error),
+                ephemeral=True,
+            )
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        refresh_player_names(game, interaction.guild)
+        defender_number = self.cog.defending_player_number(game, match)
+        defender_display = format_player_with_team(game, defender_number)
+
+        announcement = self.cog.build_challenge_announcement(
+            interaction.client,
+            game,
+            match,
+            player_id,
+            distance,
+        )
+
+        await interaction.response.edit_message(
+            content=f"{defender_display} has chosen their challenger.",
+            view=None,
+        )
+        await interaction.followup.send(
+            announcement,
+            allowed_mentions=discord.AllowedMentions(
+                users=False,
+                roles=False,
+                everyone=False,
+            ),
+        )
+
+        await self.cog.refresh_match_image(interaction, game)
 
 
 class D12Ball(commands.GroupCog, group_name="d12ball"):
@@ -992,7 +1111,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.games = load_games()
         self.player_catalog = load_player_catalog()
         self.basic_ruleset = load_basic_ruleset()
-        self.coin_emojis: dict[CoinFace, str] = {}
 
         restored_views = 0
 
@@ -1026,11 +1144,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 and game.match_state is not None
             ):
                 match = self.load_match_state(game)
-                turn_view = (
-                    PlayerActionView(self, game.game_id)
-                    if match.active_player_id is not None
-                    else BallHandlerSelectionView(self, game.game_id)
-                )
+                if match.active_player_id is None:
+                    turn_view = BallHandlerSelectionView(self, game.game_id)
+                elif (
+                    match.pending_action == "maneuver"
+                    and match.challenger_id is None
+                ):
+                    turn_view = ManeuverChallengeView(self, game.game_id)
+                else:
+                    turn_view = PlayerActionView(self, game.game_id)
                 self.bot.add_view(
                     turn_view,
                     message_id=game.turn_message_id,
@@ -1041,21 +1163,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"Loaded {len(self.games)} saved D12 Ball games "
             f"and restored {restored_views} button views."
         )
-
-    async def cog_load(self) -> None:
-        self.coin_emojis = await load_coin_emojis(self.bot)
-
-    async def ensure_coin_emojis(self) -> dict[CoinFace, str]:
-        """
-        The coin emoji, retrying the lookup while any are missing.
-
-        Uploading the emoji to the application therefore takes effect
-        on the next coin toss instead of needing a restart.
-        """
-        if len(self.coin_emojis) < len(COIN_EMOJI_NAMES):
-            self.coin_emojis = await load_coin_emojis(self.bot)
-
-        return self.coin_emojis
 
     def get_next_game_number(
         self,
@@ -1153,6 +1260,113 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> bool:
         return self.possession_user_id(game, match) == user_id
+
+    def defending_player_number(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> Optional[int]:
+        offense_number = self.possession_player_number(game, match)
+        if offense_number == 1:
+            return 2
+        if offense_number == 2:
+            return 1
+        return None
+
+    def defending_user_id(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> Optional[int]:
+        player_number = self.defending_player_number(game, match)
+        if player_number == 1:
+            return game.player_1_id
+        if player_number == 2:
+            return game.player_2_id
+        return None
+
+    def user_controls_defense(
+        self,
+        user_id: int,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> bool:
+        return self.defending_user_id(game, match) == user_id
+
+    def choose_ai_challenger(self, match: MatchState) -> str:
+        """
+        The AI opponent's rule for picking a challenger: always the
+        player closest to the ball, with ties broken in favor of the
+        higher defensive skill.
+        """
+        candidates = match.eligible_challengers()
+        if not candidates:
+            raise ValueError(
+                "There are no eligible challengers to choose from."
+            )
+
+        def sort_key(player_id: str) -> tuple[int, int]:
+            distance = match.distance_to_ball(player_id)
+            defense = self.player_catalog.effective_profile(
+                self.get_player_definition(player_id)
+            ).defense
+            return (distance, -defense)
+
+        return min(candidates, key=sort_key)
+
+    def build_challenge_announcement(
+        self,
+        client: discord.Client,
+        game: D12BallGame,
+        match: MatchState,
+        defender_id: str,
+        distance: int,
+    ) -> str:
+        defender = self.get_player_definition(defender_id)
+        handler = self.get_player_definition(match.active_player_id)
+        defender_number = self.defending_player_number(game, match)
+        defender_display = format_player_with_team(game, defender_number)
+
+        announcement = (
+            f"{defender_display} has chosen "
+            f"{format_role_bracket(defender)} to challenge "
+            f"{format_role_bracket(handler)} from the other team "
+            "who is handling the ball."
+        )
+
+        if distance > 0:
+            exhaust_emoji = get_exhaust_emoji(client)
+            space_word = "space" if distance == 1 else "spaces"
+            token_word = "token" if distance == 1 else "tokens"
+            announcement += (
+                f"\n\n{defender.name} has moved {distance} {space_word} "
+                f"and will gain {distance} exhaustion {token_word} "
+                f"{exhaust_emoji * distance}"
+            )
+
+        return announcement
+
+    async def refresh_match_image(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        """
+        Re-render the persistent board image after the match state
+        changes outside of the interaction that owns that message.
+        """
+        if game.message_id is None or interaction.channel is None:
+            return
+
+        try:
+            board_message = interaction.channel.get_partial_message(
+                game.message_id,
+            )
+            await board_message.edit(
+                attachments=[self.build_match_file(game)],
+            )
+        except (discord.NotFound, discord.HTTPException):
+            pass
 
     def format_roster_player(self, player_id: str) -> str:
         player = self.get_player_definition(player_id)
