@@ -15,6 +15,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import (
+    CoinFace,
     D12BallGame,
     GameMode,
     GameStatus,
@@ -40,6 +41,11 @@ ROLE_INITIALS = {
     "winger": "WG",
     "striker": "SK",
 }
+COIN_EMOJI_NAMES = {
+    CoinFace.FORTUNE: "1_gold_fortune",
+    CoinFace.DOOM: "1_gold_doom",
+}
+COIN_EMOJI_FALLBACK = "🪙"
 
 # The exhaustion token emoji is uploaded to Discord (as an application or
 # guild emoji) from images/emoji/exhaust.png and looked up here by name.
@@ -104,7 +110,9 @@ def build_setup_message(
     elif game.teams_selected:
         text += (
             "Both teams have been selected.\n"
-            "Click below to determine who chooses whether they are home team."
+            "Flip the coin below to determine who chooses whether they "
+            "are home team. A fortune side wins the toss for whoever "
+            "flipped it, a doom side hands it to their opponent."
         )
     elif game.is_solo_game:
         text += (
@@ -170,15 +178,91 @@ def refresh_player_names(
             game.player_2_name = player_2.display_name
 
 
-def build_home_choice_message(game: D12BallGame) -> str:
+async def load_coin_emojis(
+    bot: commands.Bot,
+) -> dict[CoinFace, str]:
+    """
+    Look up the coin emoji uploaded to the application.
+
+    Application emoji work in every server the bot is in, but
+    discord.py does not cache them, so they are fetched once and kept
+    as ready-to-post <:name:id> strings.
+
+    Anything that goes wrong here leaves a face out of the mapping and
+    the coin toss falls back to a plain coin. An app that has not had
+    the emoji uploaded yet is the expected case, not an error.
+    """
+    try:
+        emojis = await bot.fetch_application_emojis()
+    except Exception as error:
+        # Deliberately broad: the emoji is decoration, and no failure
+        # to fetch it should stop anyone from flipping a coin.
+        print(f"Could not load the D12 Ball coin emoji: {error}")
+        return {}
+
+    emojis_by_name = {emoji.name: emoji for emoji in emojis}
+    coin_emojis: dict[CoinFace, str] = {}
+    missing: list[str] = []
+
+    for face, name in COIN_EMOJI_NAMES.items():
+        emoji = emojis_by_name.get(name)
+
+        if emoji is None:
+            missing.append(name)
+        else:
+            coin_emojis[face] = str(emoji)
+
+    if missing:
+        print(
+            "This application has no coin emoji named "
+            f"{', '.join(missing)}; coin tosses will show "
+            f"{COIN_EMOJI_FALLBACK} instead."
+        )
+
+    return coin_emojis
+
+
+def format_coin_emoji(
+    coin_emojis: Optional[dict[CoinFace, str]],
+    face: Optional[CoinFace],
+) -> str:
+    """
+    The emoji for a coin face, or a plain coin when it is unavailable.
+    """
+    if not coin_emojis or face is None:
+        return COIN_EMOJI_FALLBACK
+
+    return coin_emojis.get(CoinFace(face), COIN_EMOJI_FALLBACK)
+
+
+def build_home_choice_message(
+    game: D12BallGame,
+    coin_emojis: Optional[dict[CoinFace, str]] = None,
+) -> str:
     winner = format_player_with_team(
         game,
         game.coin_winner_player_number,
     )
-    text = (
-        "🪙 The coin has been flipped!\n\n"
-        f"**{winner} wins the coin toss!**"
-    )
+
+    if (
+        game.coin_face is not None
+        and game.coin_flipped_by_player_number is not None
+    ):
+        flipper = format_player_with_team(
+            game,
+            game.coin_flipped_by_player_number,
+        )
+        text = (
+            f"{format_coin_emoji(coin_emojis, game.coin_face)} {flipper} "
+            f"flipped **{game.coin_face.value.title()}**!\n\n"
+            f"**{winner} wins the coin toss!**"
+        )
+    else:
+        # Games flipped before coin faces were recorded.
+        text = (
+            "🪙 The coin has been flipped!\n\n"
+            f"**{winner} wins the coin toss!**"
+        )
 
     if game.home_and_visiting_selected:
         home_player = format_player_with_team(
@@ -514,7 +598,10 @@ class CoinFlipView(GameConfigurationView):
         game = self.cog.games.get(game_id)
 
         self.flip_button = discord.ui.Button(
-            label="Flip a Coin! (this would start the game)",
+            label=(
+                "Flip a Coin! Fortune wins it, doom loses it "
+                "(this would start the game)"
+            ),
             style=discord.ButtonStyle.primary,
             emoji="🪙",
             custom_id=f"d12ball:flip_coin:{game_id}",
@@ -551,6 +638,8 @@ class CoinFlipView(GameConfigurationView):
             )
             return
 
+        coin_emojis = await self.cog.ensure_coin_emojis()
+
         if game.coin_flipped:
             refreshed_view = HomeAwaySelectionView(
                 cog=self.cog,
@@ -558,7 +647,7 @@ class CoinFlipView(GameConfigurationView):
             )
 
             await interaction.response.edit_message(
-                content=build_home_choice_message(game),
+                content=build_home_choice_message(game, coin_emojis),
                 view=refreshed_view,
             )
 
@@ -568,13 +657,18 @@ class CoinFlipView(GameConfigurationView):
             )
             return
 
-        winner_player_number = random.choice((1, 2))
-        refresh_player_names(game, interaction.guild)
-        winner = format_player(game, winner_player_number)
+        flipping_player_number = (
+            1 if interaction.user.id == game.player_1_id else 2
+        )
+        face = random.choice((CoinFace.FORTUNE, CoinFace.DOOM))
 
-        game.coin_flipped = True
-        game.coin_winner = winner
-        game.coin_winner_player_number = winner_player_number
+        refresh_player_names(game, interaction.guild)
+        winner_player_number = game.resolve_coin_toss(
+            flipping_player_number,
+            face,
+        )
+
+        game.coin_winner = format_player(game, winner_player_number)
         game.start_game()
 
         if game.is_solo_game and winner_player_number == 2:
@@ -605,7 +699,7 @@ class CoinFlipView(GameConfigurationView):
             followup_arguments["file"] = self.cog.build_match_file(game)
 
         choice_message = await interaction.followup.send(
-            build_home_choice_message(game),
+            build_home_choice_message(game, coin_emojis),
             **followup_arguments,
         )
         game.message_id = choice_message.id
@@ -720,7 +814,10 @@ class HomeAwaySelectionView(discord.ui.View):
             game_id=self.game_id,
         )
         await interaction.response.edit_message(
-            content=build_home_choice_message(game),
+            content=build_home_choice_message(
+                game,
+                await self.cog.ensure_coin_emojis(),
+            ),
             view=refreshed_view,
             attachments=[self.cog.build_match_file(game)],
         )
@@ -1111,6 +1208,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.games = load_games()
         self.player_catalog = load_player_catalog()
         self.basic_ruleset = load_basic_ruleset()
+        self.coin_emojis: dict[CoinFace, str] = {}
 
         restored_views = 0
 
@@ -1163,6 +1261,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"Loaded {len(self.games)} saved D12 Ball games "
             f"and restored {restored_views} button views."
         )
+
+    async def cog_load(self) -> None:
+        self.coin_emojis = await load_coin_emojis(self.bot)
+
+    async def ensure_coin_emojis(self) -> dict[CoinFace, str]:
+        """
+        The coin emoji, retrying the lookup while any are missing.
+
+        Uploading the emoji to the application therefore takes effect
+        on the next coin toss instead of needing a restart.
+        """
+        if len(self.coin_emojis) < len(COIN_EMOJI_NAMES):
+            self.coin_emojis = await load_coin_emojis(self.bot)
+
+        return self.coin_emojis
 
     def get_next_game_number(
         self,
