@@ -1,12 +1,14 @@
 import logging
 from io import BytesIO
-from math import cos, pi, sin
+from math import cos, hypot, pi, radians, sin
 from pathlib import Path
 from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.components import (
+    ManeuverCatalog,
+    ManeuverDefinition,
     MatchState,
     MatchPeriod,
     PlayerCatalog,
@@ -97,6 +99,9 @@ FONT_BODY = load_font(28)
 FONT_SMALL = load_font(14)
 FONT_MEEPLE = load_font(24, bold=True)
 FONT_TOKEN = load_font(16, bold=True)
+FONT_MANEUVER_TITLE = load_font(30, bold=True)
+FONT_MANEUVER_BODY = load_font(22)
+FONT_MANEUVER_LEGEND = load_font(22)
 FONT_SCORE = load_font(52, bold=True)
 MEEPLE_SIZE = 52
 BALL_RADIUS = 25
@@ -116,6 +121,20 @@ EXHAUST_ICON_PATH = (
 EXHAUST_ICON_SIZE = 20
 _EXHAUST_ICON_CACHE: Optional[Image.Image] = None
 _EXHAUST_ICON_LOAD_ATTEMPTED = False
+
+EXHAUSTED_ICON_PATH = (
+    Path(__file__).resolve().parent / "images" / "emoji" / "exhausted.png"
+)
+EXHAUSTED_ICON_SIZE = 20
+_EXHAUSTED_ICON_CACHE: Optional[Image.Image] = None
+_EXHAUSTED_ICON_LOAD_ATTEMPTED = False
+
+INJURED_ICON_PATH = (
+    Path(__file__).resolve().parent / "images" / "emoji" / "injured.png"
+)
+INJURED_ICON_SIZE = 20
+_INJURED_ICON_CACHE: Optional[Image.Image] = None
+_INJURED_ICON_LOAD_ATTEMPTED = False
 
 
 def load_exhaust_icon() -> Optional[Image.Image]:
@@ -141,6 +160,56 @@ def load_exhaust_icon() -> Optional[Image.Image]:
         _EXHAUST_ICON_CACHE = None
 
     return _EXHAUST_ICON_CACHE
+
+
+def load_exhausted_icon() -> Optional[Image.Image]:
+    """
+    Load (and cache) the exhausted-condition icon. Returns None if the
+    image is not available so rendering can gracefully skip it.
+    """
+    global _EXHAUSTED_ICON_CACHE, _EXHAUSTED_ICON_LOAD_ATTEMPTED
+
+    if _EXHAUSTED_ICON_LOAD_ATTEMPTED:
+        return _EXHAUSTED_ICON_CACHE
+
+    _EXHAUSTED_ICON_LOAD_ATTEMPTED = True
+    try:
+        with Image.open(EXHAUSTED_ICON_PATH) as source:
+            icon = source.convert("RGBA")
+            icon.thumbnail(
+                (EXHAUSTED_ICON_SIZE, EXHAUSTED_ICON_SIZE),
+                Image.Resampling.LANCZOS,
+            )
+            _EXHAUSTED_ICON_CACHE = icon
+    except OSError:
+        _EXHAUSTED_ICON_CACHE = None
+
+    return _EXHAUSTED_ICON_CACHE
+
+
+def load_injured_icon() -> Optional[Image.Image]:
+    """
+    Load (and cache) the injured-condition icon. Returns None if the
+    image is not available so rendering can gracefully skip it.
+    """
+    global _INJURED_ICON_CACHE, _INJURED_ICON_LOAD_ATTEMPTED
+
+    if _INJURED_ICON_LOAD_ATTEMPTED:
+        return _INJURED_ICON_CACHE
+
+    _INJURED_ICON_LOAD_ATTEMPTED = True
+    try:
+        with Image.open(INJURED_ICON_PATH) as source:
+            icon = source.convert("RGBA")
+            icon.thumbnail(
+                (INJURED_ICON_SIZE, INJURED_ICON_SIZE),
+                Image.Resampling.LANCZOS,
+            )
+            _INJURED_ICON_CACHE = icon
+    except OSError:
+        _INJURED_ICON_CACHE = None
+
+    return _INJURED_ICON_CACHE
 
 
 def player_index(
@@ -176,6 +245,8 @@ def draw_card(
     x: int,
     y: int,
     exhaustion: int = 0,
+    exhausted: bool = False,
+    injured: bool = False,
 ) -> None:
     image_path = Path(__file__).resolve().parent / player.card_image
     with Image.open(image_path) as source:
@@ -192,6 +263,10 @@ def draw_card(
 
     if exhaustion > 0:
         draw_exhaustion_badge(canvas, draw, x, y, exhaustion)
+    if injured:
+        draw_injured_badge(canvas, draw, x, y)
+    if exhausted:
+        draw_exhausted_badge(canvas, draw, x, y)
 
 
 def draw_exhaustion_badge(
@@ -245,6 +320,58 @@ def draw_exhaustion_badge(
         )
 
 
+def draw_exhausted_badge(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    card_x: int,
+    card_y: int,
+) -> None:
+    icon = load_exhausted_icon()
+    badge_x = card_x + CARD_SIZE[0] - EXHAUSTED_ICON_SIZE - 1
+    badge_y = card_y + 1
+
+    if icon is not None:
+        canvas.alpha_composite(icon, (badge_x, badge_y))
+    else:
+        draw.ellipse(
+            (
+                badge_x,
+                badge_y,
+                badge_x + EXHAUSTED_ICON_SIZE,
+                badge_y + EXHAUSTED_ICON_SIZE,
+            ),
+            fill="#b3701f",
+            outline="#ffffff",
+            width=1,
+        )
+
+
+def draw_injured_badge(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    card_x: int,
+    card_y: int,
+) -> None:
+    icon = load_injured_icon()
+    badge_x = card_x + 1
+    badge_y = card_y + 1
+
+    if icon is not None:
+        canvas.alpha_composite(icon, (badge_x, badge_y))
+    else:
+        draw.ellipse(
+            (
+                badge_x,
+                badge_y,
+                badge_x + INJURED_ICON_SIZE,
+                badge_y + INJURED_ICON_SIZE,
+            ),
+            fill="#8a1f1f",
+            outline="#ffffff",
+            width=1,
+        )
+
+
 def draw_assignment_cards(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
@@ -253,6 +380,8 @@ def draw_assignment_cards(
     bounds: dict[Zone, tuple[int, int]],
     y: int,
     exhaustion: dict[str, int],
+    exhausted: set[str] = frozenset(),
+    injured: set[str] = frozenset(),
 ) -> None:
     for zone in Zone:
         left, right = bounds[zone]
@@ -270,6 +399,8 @@ def draw_assignment_cards(
                 x,
                 y,
                 exhaustion=exhaustion.get(player_id, 0),
+                exhausted=player_id in exhausted,
+                injured=player_id in injured,
             )
             x += CARD_SIZE[0] + 12
 
@@ -527,13 +658,376 @@ def draw_d12_polygon(
     points = polygon_points(center_x, center_y, radius, 12)
     draw.polygon(points, fill=color, outline=outline, width=3)
 
-    label_width = draw.textlength(label, font=font)
+    bbox = draw.textbbox((0, 0), label, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
     draw.text(
-        (center_x - label_width / 2, center_y - 12),
+        (
+            center_x - text_width / 2 - bbox[0],
+            center_y - text_height / 2 - bbox[1],
+        ),
         label,
         font=font,
         fill=text_color,
     )
+
+
+DICE_IMAGE_DIE_RADIUS = 90
+DICE_IMAGE_CELL_WIDTH = 240
+DICE_IMAGE_HEIGHT = 260
+
+
+def render_dice_row(dice: list[tuple[int, str, str]]) -> BytesIO:
+    """
+    Render one or more d12 results side by side as a standalone image —
+    each entry is (rolled value, team color, team label). Used for both
+    skill-test rolls (two dice) and injury-test rolls (one die).
+    """
+    width = DICE_IMAGE_CELL_WIDTH * len(dice)
+    canvas = Image.new("RGBA", (width, DICE_IMAGE_HEIGHT), "#111820")
+    draw = ImageDraw.Draw(canvas)
+    center_y = DICE_IMAGE_HEIGHT // 2 - 15
+
+    for index, (value, color, label) in enumerate(dice):
+        center_x = index * DICE_IMAGE_CELL_WIDTH + DICE_IMAGE_CELL_WIDTH // 2
+        draw_d12_polygon(
+            draw,
+            center_x,
+            center_y,
+            DICE_IMAGE_DIE_RADIUS,
+            color,
+            str(value),
+            font=FONT_SCORE,
+        )
+        label_width = draw.textlength(label, font=FONT_BODY)
+        draw.text(
+            (
+                center_x - label_width / 2,
+                center_y + DICE_IMAGE_DIE_RADIUS + 20,
+            ),
+            label,
+            font=FONT_BODY,
+            fill="#ffffff",
+        )
+
+    output = BytesIO()
+    canvas.convert("RGB").save(output, format="PNG", optimize=True)
+    output.seek(0)
+    return output
+
+
+MANEUVER_DIAGRAM_WIDTH = 1360
+MANEUVER_DIAGRAM_HEIGHT = 1410
+MANEUVER_DIAGRAM_CENTER = (680, 680)
+MANEUVER_DIAGRAM_NODE_RADIUS = 450
+MANEUVER_DIAGRAM_ARC_RADIUS = 180
+MANEUVER_DIAGRAM_BOX_SIZE = (340, 300)
+MANEUVER_OFFENSE_COLOR = "#E24B4A"
+MANEUVER_DEFENSE_COLOR = "#97C459"
+MANEUVER_CARD_TEXT_COLOR = "#14202b"
+
+
+def wrap_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.ImageFont,
+    max_width: int,
+) -> list[str]:
+    words = text.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if draw.textlength(candidate, font=font) <= max_width:
+            current = candidate
+        else:
+            if current:
+                lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines
+
+
+def draw_centered_text(
+    draw: ImageDraw.ImageDraw,
+    center_x: float,
+    y: float,
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: str,
+) -> None:
+    width = draw.textlength(text, font=font)
+    draw.text((center_x - width / 2, y), text, font=font, fill=fill)
+
+
+def draw_dashed_line(
+    draw: ImageDraw.ImageDraw,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    fill: str,
+    width: int,
+    dash_length: int = 22,
+    gap_length: int = 16,
+) -> None:
+    total_length = hypot(x2 - x1, y2 - y1)
+    if total_length == 0:
+        return
+    direction = ((x2 - x1) / total_length, (y2 - y1) / total_length)
+    distance = 0.0
+    drawing = True
+    while distance < total_length:
+        segment = dash_length if drawing else gap_length
+        next_distance = min(distance + segment, total_length)
+        if drawing:
+            draw.line(
+                (
+                    x1 + direction[0] * distance,
+                    y1 + direction[1] * distance,
+                    x1 + direction[0] * next_distance,
+                    y1 + direction[1] * next_distance,
+                ),
+                fill=fill,
+                width=width,
+            )
+        distance = next_distance
+        drawing = not drawing
+
+
+def draw_arc_arrow(
+    draw: ImageDraw.ImageDraw,
+    center: tuple[int, int],
+    radius: int,
+    start_deg: float,
+    end_deg: float,
+    fill: str,
+    width: int,
+) -> None:
+    cx, cy = center
+    draw.arc(
+        (cx - radius, cy - radius, cx + radius, cy + radius),
+        start=start_deg,
+        end=end_deg,
+        fill=fill,
+        width=width,
+    )
+
+    theta = radians(end_deg)
+    tip_x = cx + radius * cos(theta)
+    tip_y = cy + radius * sin(theta)
+    tangent_x, tangent_y = -sin(theta), cos(theta)
+    perp_x, perp_y = -tangent_y, tangent_x
+
+    arrow_length = 34
+    arrow_half_width = 20
+    back_x = tip_x - tangent_x * arrow_length
+    back_y = tip_y - tangent_y * arrow_length
+    left = (
+        back_x + perp_x * arrow_half_width,
+        back_y + perp_y * arrow_half_width,
+    )
+    right = (
+        back_x - perp_x * arrow_half_width,
+        back_y - perp_y * arrow_half_width,
+    )
+    draw.polygon([(tip_x, tip_y), left, right], fill=fill)
+
+
+def _maneuver_cycle_order(
+    catalog: ManeuverCatalog,
+) -> list[tuple[ManeuverDefinition, bool]]:
+    """
+    Walk the single defeat cycle formed by the maneuver catalog,
+    alternating offense/defense, starting from the lowest-rank offense
+    maneuver. Returns (maneuver, is_offense) pairs in cycle order,
+    matching the hexagon diagram's node order.
+    """
+    offense_by_name = catalog.offense_by_name()
+    defense_by_name = catalog.defense_by_name()
+    start = min(catalog.offense, key=lambda item: item.rank)
+
+    order: list[tuple[ManeuverDefinition, bool]] = [(start, True)]
+    current, is_offense = start, True
+    node_count = len(catalog.offense) + len(catalog.defense)
+    for _ in range(node_count - 1):
+        if is_offense:
+            current = defense_by_name[current.defeats]
+            is_offense = False
+        else:
+            current = offense_by_name[current.defeats]
+            is_offense = True
+        order.append((current, is_offense))
+    return order
+
+
+def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
+    """
+    Render the maneuvers arranged in their defeat cycle: arrows trace
+    who beats whom, dashed diameters connect the tie pairs (opposite
+    nodes), and each card carries its die range and full effect text.
+    """
+    canvas = Image.new(
+        "RGBA",
+        (MANEUVER_DIAGRAM_WIDTH, MANEUVER_DIAGRAM_HEIGHT),
+        "#111820",
+    )
+    draw = ImageDraw.Draw(canvas)
+    cx, cy = MANEUVER_DIAGRAM_CENTER
+    node_radius = MANEUVER_DIAGRAM_NODE_RADIUS
+    box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
+
+    order = _maneuver_cycle_order(catalog)
+    node_count = len(order)
+    angles = [270 + 360 * index / node_count for index in range(node_count)]
+    centers = [
+        (
+            cx + node_radius * cos(radians(angle)),
+            cy + node_radius * sin(radians(angle)),
+        )
+        for angle in angles
+    ]
+
+    # Tie diameters (opposite nodes), drawn first so cards sit on top.
+    half = node_count // 2
+    near = MANEUVER_DIAGRAM_ARC_RADIUS + 40
+    for index in range(half):
+        start_x, start_y = centers[index]
+        end_x, end_y = centers[index + half]
+        length = hypot(end_x - start_x, end_y - start_y)
+        ux, uy = (end_x - start_x) / length, (end_y - start_y) / length
+        draw_dashed_line(
+            draw,
+            start_x + ux * near,
+            start_y + uy * near,
+            end_x - ux * near,
+            end_y - uy * near,
+            fill="#808080",
+            width=5,
+        )
+
+    # Defeat-cycle arrows.
+    for index in range(node_count):
+        start_angle = angles[index]
+        end_angle = (
+            angles[index + 1]
+            if index + 1 < node_count
+            else angles[0] + 360
+        )
+        draw_arc_arrow(
+            draw,
+            (cx, cy),
+            MANEUVER_DIAGRAM_ARC_RADIUS,
+            start_angle,
+            end_angle,
+            fill="#808080",
+            width=6,
+        )
+
+    for (maneuver, is_offense), (center_x, center_y) in zip(
+        order, centers
+    ):
+        color = (
+            MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR
+        )
+        box_left = center_x - box_width / 2
+        box_top = center_y - box_height / 2
+        draw.rounded_rectangle(
+            (
+                box_left,
+                box_top,
+                box_left + box_width,
+                box_top + box_height,
+            ),
+            radius=16,
+            fill=color,
+            outline="#ffffff",
+            width=2,
+        )
+
+        text_y = box_top + 20
+        draw_centered_text(
+            draw,
+            center_x,
+            text_y,
+            maneuver.name,
+            FONT_MANEUVER_TITLE,
+            MANEUVER_CARD_TEXT_COLOR,
+        )
+        text_y += 42
+        draw_centered_text(
+            draw,
+            center_x,
+            text_y,
+            f"Die {maneuver.die_values[0]}-{maneuver.die_values[-1]}",
+            FONT_MANEUVER_BODY,
+            MANEUVER_CARD_TEXT_COLOR,
+        )
+        text_y += 38
+        for line in wrap_text(
+            draw, maneuver.effect, FONT_MANEUVER_BODY, box_width - 48
+        ):
+            draw_centered_text(
+                draw,
+                center_x,
+                text_y,
+                line,
+                FONT_MANEUVER_BODY,
+                MANEUVER_CARD_TEXT_COLOR,
+            )
+            text_y += 30
+
+    legend_y = MANEUVER_DIAGRAM_HEIGHT - 70
+    swatch_size = 32
+    draw.rounded_rectangle(
+        (120, legend_y, 120 + swatch_size, legend_y + swatch_size),
+        radius=6,
+        fill=MANEUVER_OFFENSE_COLOR,
+    )
+    draw.text(
+        (168, legend_y + 4),
+        "Offense",
+        font=FONT_MANEUVER_LEGEND,
+        fill="#ffffff",
+    )
+    draw.rounded_rectangle(
+        (320, legend_y, 320 + swatch_size, legend_y + swatch_size),
+        radius=6,
+        fill=MANEUVER_DEFENSE_COLOR,
+    )
+    draw.text(
+        (368, legend_y + 4),
+        "Defense",
+        font=FONT_MANEUVER_LEGEND,
+        fill="#ffffff",
+    )
+    arrow_y = legend_y + swatch_size / 2
+    draw.line((560, arrow_y, 660, arrow_y), fill="#808080", width=6)
+    draw.polygon(
+        [(660, arrow_y - 12), (660, arrow_y + 12), (682, arrow_y)],
+        fill="#808080",
+    )
+    draw.text(
+        (700, legend_y + 4),
+        "Defeats",
+        font=FONT_MANEUVER_LEGEND,
+        fill="#ffffff",
+    )
+    draw_dashed_line(
+        draw, 900, arrow_y, 1000, arrow_y, fill="#808080", width=5
+    )
+    draw.text(
+        (1020, legend_y + 4),
+        "Ties (skill test)",
+        font=FONT_MANEUVER_LEGEND,
+        fill="#ffffff",
+    )
+
+    output = BytesIO()
+    canvas.convert("RGB").save(output, format="PNG", optimize=True)
+    output.seek(0)
+    return output
 
 
 def draw_jumbotron(
@@ -641,6 +1135,8 @@ def draw_player_board(
     players: dict[str, PlayerDefinition],
     y: int,
     exhaustion: dict[str, int],
+    exhausted: set[str] = frozenset(),
+    injured: set[str] = frozenset(),
 ) -> None:
     color = TEAM_COLORS[setup.team]
     draw.rounded_rectangle(
@@ -674,6 +1170,8 @@ def draw_player_board(
             card_x,
             y + 48,
             exhaustion=exhaustion.get(player_id, 0),
+            exhausted=player_id in exhausted,
+            injured=player_id in injured,
         )
         card_x += CARD_SIZE[0] + 12
 
@@ -744,6 +1242,7 @@ def render_match_image(
 
     draw_player_board(
         canvas, draw, match.visiting, players, 65, match.exhaustion,
+        match.exhausted, match.injured,
     )
     bounds = zone_bounds(match)
     draw_assignment_cards(
@@ -754,6 +1253,8 @@ def render_match_image(
         bounds,
         290,
         match.exhaustion,
+        match.exhausted,
+        match.injured,
     )
     draw_board(canvas, draw, match, players)
     draw_assignment_cards(
@@ -764,9 +1265,12 @@ def render_match_image(
         bounds,
         850,
         match.exhaustion,
+        match.exhausted,
+        match.injured,
     )
     draw_player_board(
         canvas, draw, match.home, players, 1080, match.exhaustion,
+        match.exhausted, match.injured,
     )
     draw_jumbotron(draw, match)
 

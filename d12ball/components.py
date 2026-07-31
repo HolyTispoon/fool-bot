@@ -11,6 +11,7 @@ from d12ball.game import Team
 DATA_FOLDER = Path(__file__).resolve().parent / "data"
 PLAYERS_FILE = DATA_FOLDER / "players.json"
 BASIC_RULES_FILE = DATA_FOLDER / "basic_rules.json"
+MANEUVERS_FILE = DATA_FOLDER / "maneuvers.json"
 
 
 class Zone(str, Enum):
@@ -309,6 +310,56 @@ class BasicRuleset:
     player_board: PlayerBoardDefinition
 
 
+@dataclass(frozen=True)
+class ManeuverDefinition:
+    name: str
+    rank: int
+    die_values: tuple[int, ...]
+    defeats: str
+    effect: str
+    time: str
+
+
+@dataclass(frozen=True)
+class ManeuverCatalog:
+    data_version: int
+    source: str
+    offense: tuple[ManeuverDefinition, ...]
+    defense: tuple[ManeuverDefinition, ...]
+
+    def offense_by_name(self) -> dict[str, ManeuverDefinition]:
+        return {maneuver.name: maneuver for maneuver in self.offense}
+
+    def defense_by_name(self) -> dict[str, ManeuverDefinition]:
+        return {maneuver.name: maneuver for maneuver in self.defense}
+
+    def offense_for_die(self, value: int) -> ManeuverDefinition:
+        for maneuver in self.offense:
+            if value in maneuver.die_values:
+                return maneuver
+        raise ValueError(f"No offense maneuver covers die value {value}.")
+
+    def defense_for_die(self, value: int) -> ManeuverDefinition:
+        for maneuver in self.defense:
+            if value in maneuver.die_values:
+                return maneuver
+        raise ValueError(f"No defense maneuver covers die value {value}.")
+
+    def resolve(self, offense_name: str, defense_name: str) -> str:
+        """
+        The outcome of an offense maneuver against a defense maneuver:
+        "offense" or "defense" if one defeats the other, otherwise "tie".
+        """
+        offense = self.offense_by_name()[offense_name]
+        defense = self.defense_by_name()[defense_name]
+
+        if offense.defeats == defense_name:
+            return "offense"
+        if defense.defeats == offense_name:
+            return "defense"
+        return "tie"
+
+
 @dataclass
 class BallState:
     zone: Zone
@@ -350,7 +401,11 @@ class MatchState:
     active_player_id: Optional[str] = None
     pending_action: Optional[str] = None
     challenger_id: Optional[str] = None
+    offense_maneuver: Optional[str] = None
+    defense_maneuver: Optional[str] = None
     exhaustion: dict[str, int] = field(default_factory=dict)
+    exhausted: set[str] = field(default_factory=set)
+    injured: set[str] = field(default_factory=set)
 
     @classmethod
     def standard(
@@ -537,6 +592,26 @@ class MatchState:
             self.exhaustion.get(player_id, 0) + amount
         )
 
+    def mark_exhausted_if_needed(
+        self,
+        player_id: str,
+        defense_skill: int,
+    ) -> bool:
+        """
+        Mark a player exhausted the moment their token count first
+        exceeds their defense skill. Returns True only on that
+        transition, so callers can announce it once.
+        """
+        if player_id in self.exhausted:
+            return False
+        if self.exhaustion.get(player_id, 0) > defense_skill:
+            self.exhausted.add(player_id)
+            return True
+        return False
+
+    def mark_injured(self, player_id: str) -> None:
+        self.injured.add(player_id)
+
     def choose_challenger(self, player_id: str) -> int:
         """
         Move the defending player's chosen meeple into the ball's space
@@ -558,6 +633,27 @@ class MatchState:
         self.challenger_id = player_id
         self.pending_action = None
         return distance
+
+    def choose_offense_maneuver(self, name: str) -> None:
+        if self.offense_maneuver is not None:
+            raise ValueError("The offense has already chosen a maneuver.")
+        self.offense_maneuver = name
+
+    def choose_defense_maneuver(self, name: str) -> None:
+        if self.defense_maneuver is not None:
+            raise ValueError("The defense has already chosen a maneuver.")
+        self.defense_maneuver = name
+
+    def reset_maneuver(self) -> None:
+        """
+        Clear the ball-handler and maneuver-selection state once a
+        maneuver resolves, so the match no longer looks mid-turn.
+        """
+        self.active_player_id = None
+        self.pending_action = None
+        self.challenger_id = None
+        self.offense_maneuver = None
+        self.defense_maneuver = None
 
     def move_meeple(
         self,
@@ -672,7 +768,11 @@ class MatchState:
             "active_player_id": self.active_player_id,
             "pending_action": self.pending_action,
             "challenger_id": self.challenger_id,
+            "offense_maneuver": self.offense_maneuver,
+            "defense_maneuver": self.defense_maneuver,
             "exhaustion": dict(self.exhaustion),
+            "exhausted": sorted(self.exhausted),
+            "injured": sorted(self.injured),
         }
 
     @classmethod
@@ -715,7 +815,11 @@ class MatchState:
             active_player_id=data.get("active_player_id"),
             pending_action=data.get("pending_action"),
             challenger_id=data.get("challenger_id"),
+            offense_maneuver=data.get("offense_maneuver"),
+            defense_maneuver=data.get("defense_maneuver"),
             exhaustion=dict(data.get("exhaustion", {})),
+            exhausted=set(data.get("exhausted", [])),
+            injured=set(data.get("injured", [])),
         )
 
 
@@ -810,6 +914,32 @@ def load_basic_ruleset(
         board_layouts=layouts,
         standard_setup=standard_setup,
         player_board=player_board,
+    )
+
+
+def load_maneuver_catalog(
+    path: Path = MANEUVERS_FILE,
+) -> ManeuverCatalog:
+    data = json.loads(path.read_text(encoding="utf-8"))
+
+    def build(maneuver_type: str) -> tuple[ManeuverDefinition, ...]:
+        return tuple(
+            ManeuverDefinition(
+                name=maneuver["name"],
+                rank=maneuver["rank"],
+                die_values=tuple(maneuver["die_values"]),
+                defeats=maneuver["defeats"],
+                effect=maneuver["effect"],
+                time=maneuver["time"],
+            )
+            for maneuver in data["maneuvers"][maneuver_type]
+        )
+
+    return ManeuverCatalog(
+        data_version=data["data_version"],
+        source=data["source"],
+        offense=build("offense"),
+        defense=build("defense"),
     )
 
 
