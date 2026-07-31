@@ -488,6 +488,27 @@ class MatchState:
         )
         return abs(ball_flat - player_flat)
 
+    def is_ball_at_scoring_space(self) -> bool:
+        """
+        True when the ball sits on the space of its zone that is closest
+        to the goal belonging to the team that does not have possession.
+        """
+        opponent_goal_zone = (
+            Zone.VISITORS_GOAL
+            if self.ball.possession == TeamSide.HOME
+            else Zone.HOME_GOAL
+        )
+        if self.ball.zone != opponent_goal_zone:
+            return False
+
+        final_space = len(self.board.spaces[opponent_goal_zone]) - 1
+        closest_space = (
+            final_space
+            if opponent_goal_zone == Zone.VISITORS_GOAL
+            else 0
+        )
+        return self.ball.space_index == closest_space
+
     def eligible_challengers(self) -> list[str]:
         """
         Fielded players belonging to the defending team who share the

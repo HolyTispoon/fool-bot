@@ -109,7 +109,7 @@ def build_setup_message(
     elif game.is_solo_game:
         text += (
             "Choose a team using the buttons. After you chose your team, "
-            "a random team will be assigned to the AI opponent of the "
+            "a random team will be assigned to the Dinky AI of the "
             "remaining teams."
         )
     else:
@@ -130,7 +130,7 @@ def format_player(
 
     if player_number == 2:
         if game.player_2_id is None:
-            return "AI opponent"
+            return "Dinky AI"
         if mention:
             return f"<@{game.player_2_id}>"
         return game.player_2_name or "Player 2"
@@ -1295,7 +1295,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     def choose_ai_challenger(self, match: MatchState) -> str:
         """
-        The AI opponent's rule for picking a challenger: always the
+        Dinky AI's rule for picking a challenger: always the
         player closest to the ball, with ties broken in favor of the
         higher defensive skill.
         """
@@ -1313,6 +1313,35 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return (distance, -defense)
 
         return min(candidates, key=sort_key)
+
+    def choose_ai_ball_handler(self, match: MatchState) -> str:
+        """
+        Dinky AI's rule for picking which fielded player handles the
+        ball when more than one of its players shares the ball's space:
+        the one with the higher offensive skill.
+        """
+        candidates = match.eligible_ball_handlers()
+        if not candidates:
+            raise ValueError(
+                "There are no eligible ball handlers to choose from."
+            )
+
+        def sort_key(player_id: str) -> int:
+            return -self.player_catalog.effective_profile(
+                self.get_player_definition(player_id)
+            ).offense
+
+        return min(candidates, key=sort_key)
+
+    def choose_ai_action(self, match: MatchState) -> str:
+        """
+        Dinky AI's rule for choosing an offensive action: shoot when the
+        ball is already on the space closest to the opponent's goal,
+        otherwise always maneuver to advance it.
+        """
+        if match.is_ball_at_scoring_space():
+            return "shoot"
+        return "maneuver"
 
     def build_challenge_announcement(
         self,
@@ -1399,6 +1428,79 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "Choose an action:"
         )
 
+    async def play_ai_turn(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Play out Dinky AI's turn with possession: pick a ball handler,
+        then shoot if the ball is already on the space closest to the
+        opponent's goal, otherwise always maneuver.
+        """
+        handler_id = self.choose_ai_ball_handler(match)
+        match.select_ball_handler(handler_id)
+        handler = self.get_player_definition(handler_id)
+        action = self.choose_ai_action(match)
+
+        if action == "shoot":
+            match.pending_action = "shoot"
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            turn_message = await interaction.followup.send(
+                f"Dinky AI has {format_role_bracket(handler)} shoot "
+                "to score.",
+                wait=True,
+            )
+            game.turn_message_id = turn_message.id
+            save_games(self.games)
+            return
+
+        eligible_challengers = match.eligible_challengers()
+        if not eligible_challengers:
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            turn_message = await interaction.followup.send(
+                f"Dinky AI has {format_role_bracket(handler)} maneuver, "
+                "but the defending team has no player in the ball's "
+                "zone to challenge.",
+                wait=True,
+            )
+            game.turn_message_id = turn_message.id
+            save_games(self.games)
+            return
+
+        match.pending_action = "maneuver"
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        defender_number = self.defending_player_number(game, match)
+        defender_mention = format_player_with_team(
+            game,
+            defender_number,
+            mention=True,
+        )
+
+        challenge_view = ManeuverChallengeView(self, game.game_id)
+        challenge_message = await interaction.followup.send(
+            f"Dinky AI has {format_role_bracket(handler)} maneuver to "
+            "keep possession.\n\n"
+            f"{defender_mention}, choose which player will maneuver "
+            "to challenge for the ball.",
+            view=challenge_view,
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True,
+                roles=False,
+                everyone=False,
+            ),
+        )
+        game.turn_message_id = challenge_message.id
+        save_games(self.games)
+
     async def send_turn_prompt(
         self,
         interaction: discord.Interaction,
@@ -1411,6 +1513,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             raise ValueError(
                 "The team in possession has no player in the ball's space."
             )
+
+        offense_number = self.possession_player_number(game, match)
+        if game.is_solo_game and offense_number == 2:
+            await self.play_ai_turn(interaction, game, match)
+            return
 
         if len(eligible_handlers) == 1:
             match.select_ball_handler(eligible_handlers[0])

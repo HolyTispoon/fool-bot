@@ -97,7 +97,7 @@ class D12BallGame:
                 self.coin_winner_player_number = 1
             elif (
                 self.player_2_id is None
-                and self.coin_winner == "the AI opponent"
+                and self.coin_winner == "the Dinky AI"
             ):
                 self.coin_winner_player_number = 2
             elif self.coin_winner == f"<@{self.player_2_id}>":
