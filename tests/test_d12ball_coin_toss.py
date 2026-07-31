@@ -1,3 +1,4 @@
+import asyncio
 import json
 import unittest
 
@@ -8,6 +9,7 @@ from cogs.d12ball import (
     COIN_EMOJI_NAMES,
     build_home_choice_message,
     format_coin_emoji,
+    load_coin_emojis,
 )
 from d12ball.game import (
     CoinFace,
@@ -32,22 +34,28 @@ def build_game(player_2_id: int = 222) -> D12BallGame:
     )
 
 
-class FakeGuild:
+class FakeBot:
     """
-    Stands in for a Guild, which only needs to expose its emoji list.
+    Stands in for the bot, which only has to hand back application
+    emoji or fail the way discord.py would.
     """
 
-    def __init__(self, emojis: list) -> None:
-        self.emojis = emojis
+    def __init__(self, emojis: list = None, error: Exception = None) -> None:
+        self.emojis = emojis or []
+        self.error = error
+
+    async def fetch_application_emojis(self) -> list:
+        if self.error is not None:
+            raise self.error
+
+        return self.emojis
 
 
-def build_guild() -> FakeGuild:
-    return FakeGuild(
-        [
-            discord.PartialEmoji(name="1goldfortune", id=101),
-            discord.PartialEmoji(name="1golddoom", id=102),
-        ]
-    )
+def build_coin_emojis() -> dict:
+    return {
+        CoinFace.FORTUNE: "<:1_gold_fortune:101>",
+        CoinFace.DOOM: "<:1_gold_doom:102>",
+    }
 
 
 class D12BallCoinTossTests(unittest.TestCase):
@@ -143,35 +151,76 @@ class D12BallCoinEmojiTests(unittest.TestCase):
     def test_every_coin_face_has_an_emoji_name(self) -> None:
         self.assertEqual(set(COIN_EMOJI_NAMES), set(CoinFace))
 
-    def test_coin_faces_use_the_server_emoji(self) -> None:
-        guild = build_guild()
-
+    def test_the_names_match_the_uploaded_emoji(self) -> None:
         self.assertEqual(
-            format_coin_emoji(guild, CoinFace.FORTUNE),
-            "<:1goldfortune:101>",
+            COIN_EMOJI_NAMES[CoinFace.FORTUNE],
+            "1_gold_fortune",
         )
         self.assertEqual(
-            format_coin_emoji(guild, CoinFace.DOOM),
-            "<:1golddoom:102>",
+            COIN_EMOJI_NAMES[CoinFace.DOOM],
+            "1_gold_doom",
         )
 
-    def test_a_server_without_the_emoji_falls_back(self) -> None:
+    def test_application_emoji_are_looked_up_by_name(self) -> None:
+        bot = FakeBot(
+            [
+                discord.PartialEmoji(name="Exhaust", id=100),
+                discord.PartialEmoji(name="1_gold_fortune", id=101),
+                discord.PartialEmoji(name="1_gold_doom", id=102),
+            ]
+        )
+
+        coin_emojis = asyncio.run(load_coin_emojis(bot))
+
+        self.assertEqual(coin_emojis, build_coin_emojis())
+
+    def test_an_application_without_the_emoji_is_not_an_error(self) -> None:
+        coin_emojis = asyncio.run(load_coin_emojis(FakeBot([])))
+
+        self.assertEqual(coin_emojis, {})
+
+    def test_a_failed_lookup_is_not_an_error(self) -> None:
+        bot = FakeBot(error=discord.DiscordException("no application id"))
+
+        self.assertEqual(asyncio.run(load_coin_emojis(bot)), {})
+
+    def test_coin_faces_use_the_application_emoji(self) -> None:
+        coin_emojis = build_coin_emojis()
+
         self.assertEqual(
-            format_coin_emoji(FakeGuild([]), CoinFace.FORTUNE),
-            COIN_EMOJI_FALLBACK,
+            format_coin_emoji(coin_emojis, CoinFace.FORTUNE),
+            "<:1_gold_fortune:101>",
         )
         self.assertEqual(
-            format_coin_emoji(None, CoinFace.FORTUNE),
-            COIN_EMOJI_FALLBACK,
+            format_coin_emoji(coin_emojis, CoinFace.DOOM),
+            "<:1_gold_doom:102>",
         )
+
+    def test_a_missing_emoji_falls_back_to_a_plain_coin(self) -> None:
+        for coin_emojis in ({}, None, {CoinFace.DOOM: "<:1_gold_doom:102>"}):
+            with self.subTest(coin_emojis=coin_emojis):
+                self.assertEqual(
+                    format_coin_emoji(coin_emojis, CoinFace.FORTUNE),
+                    COIN_EMOJI_FALLBACK,
+                )
 
     def test_the_result_names_the_flipper_and_the_face(self) -> None:
         game = build_game()
         game.resolve_coin_toss(1, CoinFace.DOOM)
 
-        message = build_home_choice_message(game, build_guild())
+        message = build_home_choice_message(game, build_coin_emojis())
 
-        self.assertIn("<:1golddoom:102>", message)
+        self.assertIn("<:1_gold_doom:102>", message)
+        self.assertIn("Player One (Purple) flipped **Doom**", message)
+        self.assertIn("**Player Two (Teal) wins the coin toss!**", message)
+
+    def test_the_result_reads_without_any_emoji(self) -> None:
+        game = build_game()
+        game.resolve_coin_toss(1, CoinFace.DOOM)
+
+        message = build_home_choice_message(game)
+
+        self.assertIn(COIN_EMOJI_FALLBACK, message)
         self.assertIn("Player One (Purple) flipped **Doom**", message)
         self.assertIn("**Player Two (Teal) wins the coin toss!**", message)
 
@@ -180,7 +229,7 @@ class D12BallCoinEmojiTests(unittest.TestCase):
         game.coin_flipped = True
         game.coin_winner_player_number = 1
 
-        message = build_home_choice_message(game, build_guild())
+        message = build_home_choice_message(game, build_coin_emojis())
 
         self.assertIn("The coin has been flipped", message)
         self.assertIn("**Player One (Purple) wins the coin toss!**", message)
