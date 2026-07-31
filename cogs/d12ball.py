@@ -1,6 +1,7 @@
 import io
 import random
 import re
+import traceback
 import uuid
 from typing import Optional
 
@@ -423,7 +424,50 @@ def build_home_choice_message(game: D12BallGame) -> str:
     return text
 
 
-class GameConfigurationView(discord.ui.View):
+async def send_error_fallback(
+    interaction: discord.Interaction,
+    message: str,
+) -> None:
+    """
+    Best-effort ephemeral notice for an interaction that failed with an
+    unexpected exception (e.g. a dropped connection), so a player sees
+    something instead of their click or command silently doing nothing.
+    """
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(message, ephemeral=True)
+        else:
+            await interaction.response.send_message(
+                message,
+                ephemeral=True,
+            )
+    except discord.HTTPException:
+        pass
+
+
+class SafeView(discord.ui.View):
+    """
+    Base class for every D12 Ball view. discord.py's default behavior
+    for an uncaught exception in a button/select callback is to log it
+    and otherwise do nothing, which leaves the click looking like it
+    had no effect at all. This surfaces a message instead.
+    """
+
+    async def on_error(
+        self,
+        interaction: discord.Interaction,
+        error: Exception,
+        item: discord.ui.Item,
+    ) -> None:
+        print(f"Unhandled error in {self!r} for {item!r}: {error!r}")
+        traceback.print_exception(type(error), error, error.__traceback__)
+        await send_error_fallback(
+            interaction,
+            "Something went wrong handling that click. Please try again.",
+        )
+
+
+class GameConfigurationView(SafeView):
     def add_configuration_buttons(self) -> None:
         game = self.cog.games.get(self.game_id)
         selected_mode = game.mode if game else GameMode.BASIC
@@ -911,7 +955,7 @@ class CoinFlipView(GameConfigurationView):
             await self.cog.send_turn_prompt(interaction, game)
 
 
-class HomeAwaySelectionView(discord.ui.View):
+class HomeAwaySelectionView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1028,7 +1072,7 @@ class HomeAwaySelectionView(discord.ui.View):
         await self.cog.send_turn_prompt(interaction, game)
 
 
-class BallHandlerSelectionView(discord.ui.View):
+class BallHandlerSelectionView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1119,7 +1163,7 @@ class BallHandlerSelectionView(discord.ui.View):
         )
 
 
-class PlayerActionView(discord.ui.View):
+class PlayerActionView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1290,7 +1334,7 @@ class PlayerActionView(discord.ui.View):
         save_games(self.cog.games)
 
 
-class ManeuverChallengeView(discord.ui.View):
+class ManeuverChallengeView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1413,7 +1457,7 @@ class ManeuverChallengeView(discord.ui.View):
         )
 
 
-class ManeuverActionPromptView(discord.ui.View):
+class ManeuverActionPromptView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1485,7 +1529,7 @@ class ManeuverActionPromptView(discord.ui.View):
         )
 
 
-class ManeuverActionSelectView(discord.ui.View):
+class ManeuverActionSelectView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1598,7 +1642,7 @@ class ManeuverActionSelectView(discord.ui.View):
             await self.cog.resolve_maneuver(interaction, game, match)
 
 
-class SkillTestView(discord.ui.View):
+class SkillTestView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1871,6 +1915,33 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     async def cog_load(self) -> None:
         self.coin_emojis = await load_coin_emojis(self.bot)
+
+    async def cog_app_command_error(
+        self,
+        interaction: discord.Interaction,
+        error: app_commands.AppCommandError,
+    ) -> None:
+        """
+        Catch-all for exceptions raised anywhere in a /d12ball command
+        (including group subcommands like /d12ball ball move) that
+        weren't already handled as an expected ValueError, e.g. a
+        dropped connection to Discord. Without this, discord.py just
+        logs it and the command looks like it silently did nothing.
+        """
+        original = getattr(error, "original", error)
+        command_name = (
+            interaction.command.qualified_name
+            if interaction.command is not None
+            else "unknown command"
+        )
+        print(f"Unhandled error in /{command_name}: {original!r}")
+        traceback.print_exception(
+            type(original), original, original.__traceback__,
+        )
+        await send_error_fallback(
+            interaction,
+            "Something went wrong running that command. Please try again.",
+        )
 
     async def ensure_coin_emojis(self) -> dict[CoinFace, str]:
         """
