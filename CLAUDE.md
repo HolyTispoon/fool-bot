@@ -42,8 +42,10 @@ python3 scripts/render_sample.py --list-games
 python3 scripts/render_sample.py --game <game_id>      # reproduce a real board
 ```
 
-`--game` renders a real saved game, which is how to reproduce a board someone
-reported a problem with rather than guessing at the state.
+`--game` renders a real saved game from your own `data/d12ball_games.json`,
+which is how to reproduce a board someone reported a problem with rather than
+guessing at the state. Saved games are local to each machine, so a fresh clone
+lists none until the bot has been run.
 
 ### Fonts
 
@@ -61,10 +63,11 @@ whatever it resolved at startup. Restart after any render change.
 
 ## Gotchas
 
-- **`data/d12ball_games.json` is tracked in git but rewritten by the bot on
-  every game action**, so it shows as modified more or less permanently and is
-  a standing source of merge conflicts between developers. Don't be surprised
-  by it; don't commit it as part of an unrelated change.
+- **`data/d12ball_games.json` is runtime state and is deliberately untracked.**
+  The bot rewrites it on every game action. It used to be committed, which
+  meant it showed as modified more or less permanently and was a standing
+  source of merge conflicts. Don't re-add it. Each developer's saved games are
+  local to their own machine, and `data/` is created at startup if missing.
 - **Known unfixed issue:** meeple name labels overflow their space borders and
   collide when two meeples share a space. `draw_meeple_group` in `render.py`
   clamps label positions and offsets stacked names by a fixed 23px, both tuned
