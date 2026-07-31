@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 game_state.json
 .DS_Store
+board.png
