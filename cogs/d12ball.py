@@ -1,6 +1,7 @@
 import io
 import random
 import re
+import traceback
 import uuid
 from typing import Optional
 
@@ -10,9 +11,11 @@ from discord.ext import commands
 
 from d12ball.ai import build_ai_strategies, AIStrategy
 from d12ball.components import (
+    MatchPeriod,
     MatchState,
     PlayerDefinition,
     TeamSide,
+    Zone,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -50,6 +53,13 @@ ROLE_INITIALS = {
     "winger": "WG",
     "striker": "SK",
 }
+# Matches the H1/M1/V1-style space labels drawn on the board in render.py.
+ZONE_LETTERS = {
+    Zone.HOME_GOAL: "H",
+    Zone.MIDFIELD: "M",
+    Zone.VISITORS_GOAL: "V",
+}
+BENCH_DESTINATIONS = ("bench", "back_bench")
 COIN_EMOJI_NAMES = {
     CoinFace.FORTUNE: "3_gold_fortune",
     CoinFace.DOOM: "3_gold_doom",
@@ -93,6 +103,92 @@ def format_ai_name(ai_opponent: Optional[AIOpponent]) -> str:
 def format_role_bracket(player: PlayerDefinition) -> str:
     initials = ROLE_INITIALS[player.role.value]
     return f"{player.name} [{initials}]"
+
+
+def destination_display_name(destination: str) -> str:
+    if destination in BENCH_DESTINATIONS:
+        return destination.replace("_", " ").title()
+    return Zone(destination).value.replace("_", " ").title()
+
+
+def format_team_side_label(setup) -> str:
+    return f"{setup.team.value.title()} ({setup.side.value.title()})"
+
+
+def space_label(zone: Zone, space_index: int) -> str:
+    return f"{ZONE_LETTERS[zone]}{space_index + 1}"
+
+
+def space_choices(match: MatchState) -> list[tuple[str, str]]:
+    """
+    (value, label) pairs for every board space, e.g. ("home_goal:0", "H1").
+    """
+    return [
+        (f"{zone.value}:{space_index}", space_label(zone, space_index))
+        for zone in Zone
+        for space_index in range(len(match.board.spaces[zone]))
+    ]
+
+
+def parse_space_value(value: str) -> tuple[Zone, int]:
+    zone_value, _, space_index = value.partition(":")
+    if not space_index:
+        raise ValueError(f"\"{value}\" is not a valid board space.")
+    try:
+        return Zone(zone_value), int(space_index)
+    except ValueError as error:
+        raise ValueError(f"\"{value}\" is not a valid board space.") from error
+
+
+def resolve_adjustable_value(
+    raw: Optional[str],
+    current: int,
+    minimum: int,
+    maximum: int,
+) -> int:
+    """
+    Interpret a speed/score/time-style value field: a plain integer sets
+    the value directly, "+N"/"-N" adjusts it relative to the current
+    value, and leaving it blank bumps it by one. The result is clamped
+    to [minimum, maximum].
+    """
+    if raw is None or not raw.strip():
+        target = current + 1
+    else:
+        raw = raw.strip()
+        try:
+            delta_or_value = int(raw)
+        except ValueError as error:
+            raise ValueError(
+                f"\"{raw}\" is not a whole number."
+            ) from error
+        target = (
+            current + delta_or_value
+            if raw[0] in "+-"
+            else delta_or_value
+        )
+
+    return max(minimum, min(maximum, target))
+
+
+def filter_choices(
+    current: str,
+    options: list[tuple[str, str]],
+) -> list[app_commands.Choice[str]]:
+    """
+    Narrow (value, label) autocomplete options to those matching the
+    text typed so far, capped at Discord's 25-choice limit.
+    """
+    needle = current.strip().casefold()
+    matches = [
+        (value, label)
+        for value, label in options
+        if needle in label.casefold()
+    ]
+    return [
+        app_commands.Choice(name=label, value=value)
+        for value, label in matches[:25]
+    ]
 
 
 async def get_or_create_category(
@@ -328,7 +424,50 @@ def build_home_choice_message(game: D12BallGame) -> str:
     return text
 
 
-class GameConfigurationView(discord.ui.View):
+async def send_error_fallback(
+    interaction: discord.Interaction,
+    message: str,
+) -> None:
+    """
+    Best-effort ephemeral notice for an interaction that failed with an
+    unexpected exception (e.g. a dropped connection), so a player sees
+    something instead of their click or command silently doing nothing.
+    """
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(message, ephemeral=True)
+        else:
+            await interaction.response.send_message(
+                message,
+                ephemeral=True,
+            )
+    except discord.HTTPException:
+        pass
+
+
+class SafeView(discord.ui.View):
+    """
+    Base class for every D12 Ball view. discord.py's default behavior
+    for an uncaught exception in a button/select callback is to log it
+    and otherwise do nothing, which leaves the click looking like it
+    had no effect at all. This surfaces a message instead.
+    """
+
+    async def on_error(
+        self,
+        interaction: discord.Interaction,
+        error: Exception,
+        item: discord.ui.Item,
+    ) -> None:
+        print(f"Unhandled error in {self!r} for {item!r}: {error!r}")
+        traceback.print_exception(type(error), error, error.__traceback__)
+        await send_error_fallback(
+            interaction,
+            "Something went wrong handling that click. Please try again.",
+        )
+
+
+class GameConfigurationView(SafeView):
     def add_configuration_buttons(self) -> None:
         game = self.cog.games.get(self.game_id)
         selected_mode = game.mode if game else GameMode.BASIC
@@ -816,7 +955,7 @@ class CoinFlipView(GameConfigurationView):
             await self.cog.send_turn_prompt(interaction, game)
 
 
-class HomeAwaySelectionView(discord.ui.View):
+class HomeAwaySelectionView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -933,7 +1072,7 @@ class HomeAwaySelectionView(discord.ui.View):
         await self.cog.send_turn_prompt(interaction, game)
 
 
-class BallHandlerSelectionView(discord.ui.View):
+class BallHandlerSelectionView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1024,7 +1163,7 @@ class BallHandlerSelectionView(discord.ui.View):
         )
 
 
-class PlayerActionView(discord.ui.View):
+class PlayerActionView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1195,7 +1334,7 @@ class PlayerActionView(discord.ui.View):
         save_games(self.cog.games)
 
 
-class ManeuverChallengeView(discord.ui.View):
+class ManeuverChallengeView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1318,7 +1457,7 @@ class ManeuverChallengeView(discord.ui.View):
         )
 
 
-class ManeuverActionPromptView(discord.ui.View):
+class ManeuverActionPromptView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1390,7 +1529,7 @@ class ManeuverActionPromptView(discord.ui.View):
         )
 
 
-class ManeuverActionSelectView(discord.ui.View):
+class ManeuverActionSelectView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1503,7 +1642,7 @@ class ManeuverActionSelectView(discord.ui.View):
             await self.cog.resolve_maneuver(interaction, game, match)
 
 
-class SkillTestView(discord.ui.View):
+class SkillTestView(SafeView):
     def __init__(
         self,
         cog: "D12Ball",
@@ -1682,6 +1821,15 @@ class SkillTestView(discord.ui.View):
 
 
 class D12Ball(commands.GroupCog, group_name="d12ball"):
+    ball_group = app_commands.Group(
+        name="ball",
+        description="Move the ball and manage possession, speed.",
+    )
+    meeple_group = app_commands.Group(
+        name="meeple",
+        description="Move meeples on the board.",
+    )
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.games = load_games()
@@ -1768,6 +1916,33 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     async def cog_load(self) -> None:
         self.coin_emojis = await load_coin_emojis(self.bot)
 
+    async def cog_app_command_error(
+        self,
+        interaction: discord.Interaction,
+        error: app_commands.AppCommandError,
+    ) -> None:
+        """
+        Catch-all for exceptions raised anywhere in a /d12ball command
+        (including group subcommands like /d12ball ball move) that
+        weren't already handled as an expected ValueError, e.g. a
+        dropped connection to Discord. Without this, discord.py just
+        logs it and the command looks like it silently did nothing.
+        """
+        original = getattr(error, "original", error)
+        command_name = (
+            interaction.command.qualified_name
+            if interaction.command is not None
+            else "unknown command"
+        )
+        print(f"Unhandled error in /{command_name}: {original!r}")
+        traceback.print_exception(
+            type(original), original, original.__traceback__,
+        )
+        await send_error_fallback(
+            interaction,
+            "Something went wrong running that command. Please try again.",
+        )
+
     async def ensure_coin_emojis(self) -> dict[CoinFace, str]:
         """
         The coin emoji, retrying the lookup while any are missing.
@@ -1837,6 +2012,60 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         match.validate(self.player_catalog)
         return match
+
+    def game_for_channel(self, channel_id: int) -> Optional[D12BallGame]:
+        for game in self.games.values():
+            if game.channel_id == channel_id:
+                return game
+        return None
+
+    def side_for_user(
+        self,
+        game: D12BallGame,
+        user_id: int,
+    ) -> Optional[TeamSide]:
+        """
+        Which side (home/visiting) a Discord user controls in this
+        game, or None if they are not one of its two players, or the
+        home/visiting assignment has not been made yet.
+        """
+        if not game.home_and_visiting_selected:
+            return None
+
+        if user_id == game.player_1_id:
+            player_number = 1
+        elif game.player_2_id is not None and user_id == game.player_2_id:
+            player_number = 2
+        else:
+            return None
+
+        if player_number == game.home_player_number:
+            return TeamSide.HOME
+        if player_number == game.visiting_player_number:
+            return TeamSide.VISITING
+        return None
+
+    async def defer_and_get_match(
+        self,
+        interaction: discord.Interaction,
+    ) -> Optional[tuple[D12BallGame, MatchState]]:
+        """
+        Defer the interaction and load the game/match tied to the
+        current channel, replying with an ephemeral error and
+        returning None when there isn't one to work with.
+        """
+        await interaction.response.defer()
+
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.match_state is None:
+            await interaction.followup.send(
+                "There is no D12 Ball match in progress in this channel.",
+                ephemeral=True,
+            )
+            return None
+
+        match = self.load_match_state(game)
+        return game, match
 
     def get_player_definition(
         self,
@@ -2252,6 +2481,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         initials = ROLE_INITIALS[player.role.value]
         return f"{player.name} ({initials})"
 
+    def format_roster_player_with_team(self, player_id: str) -> str:
+        player = self.get_player_definition(player_id)
+        initials = ROLE_INITIALS[player.role.value]
+        return f"{player.name} ({player.team.value.title()}, {initials})"
+
     def build_turn_prompt(
         self,
         game: D12BallGame,
@@ -2425,6 +2659,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             image,
             filename=f"d12ball-pbd{game.game_number}.png",
         )
+
+    async def announce_board_update(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        message: str,
+    ) -> None:
+        """
+        Confirm a manual board correction (/coach, /ref, /meeple move,
+        /ball move/possession/speed, /score, /time) with a fresh
+        snapshot attached directly to the reply, in addition to
+        keeping the persistent board message in sync.
+        """
+        await interaction.followup.send(
+            message,
+            file=self.build_match_file(game),
+        )
+        await self.refresh_match_image(interaction, game)
 
     async def archive_game_channel(
         self,
@@ -2725,6 +2977,574 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"Game created: {game_channel.mention}",
             ephemeral=True,
         )
+
+    @app_commands.command(
+        name="show_game",
+        description="Post a fresh snapshot of the full board.",
+    )
+    @app_commands.guild_only()
+    async def show_game(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "There is no D12 Ball match in progress in this channel.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer()
+        await interaction.followup.send(file=self.build_match_file(game))
+
+    @app_commands.command(
+        name="coach",
+        description=(
+            "Move one of your own player cards between zones and benches."
+        ),
+    )
+    @app_commands.describe(
+        player_card="One of your team's player cards.",
+        destination="Where to move the card: a zone or a bench.",
+    )
+    @app_commands.guild_only()
+    async def coach(
+        self,
+        interaction: discord.Interaction,
+        player_card: str,
+        destination: str,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        side = self.side_for_user(game, interaction.user.id)
+        if side is None:
+            await interaction.followup.send(
+                "You are not one of the players in this game. Use "
+                "/d12ball ref to move a specific team's card instead.",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            match.move_card(side, player_card, destination)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        player = self.get_player_definition(player_card)
+        await self.announce_board_update(
+            interaction,
+            game,
+            f"{format_role_bracket(player)} moved to "
+            f"{destination_display_name(destination)}.",
+        )
+
+    @coach.autocomplete("player_card")
+    async def coach_player_card_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.match_state is None:
+            return []
+        side = self.side_for_user(game, interaction.user.id)
+        if side is None:
+            return []
+        match = self.load_match_state(game)
+        setup = match.setup_for_side(side)
+        roster_ids = (
+            setup.field_players
+            + setup.player_board.bench
+            + setup.player_board.back_bench
+        )
+        options = [
+            (player_id, self.format_roster_player(player_id))
+            for player_id in roster_ids
+        ]
+        return filter_choices(current, options)
+
+    @coach.autocomplete("destination")
+    async def coach_destination_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        options = [
+            (value, destination_display_name(value))
+            for value in (
+                Zone.HOME_GOAL.value,
+                Zone.MIDFIELD.value,
+                Zone.VISITORS_GOAL.value,
+                *BENCH_DESTINATIONS,
+            )
+        ]
+        return filter_choices(current, options)
+
+    @app_commands.command(
+        name="ref",
+        description=(
+            "Move a player card (either team) between its team's zones "
+            "and benches."
+        ),
+    )
+    @app_commands.describe(
+        player_card="Any player card from either team.",
+        destination="Where to move the card: a team's zone or bench.",
+    )
+    @app_commands.guild_only()
+    async def ref(
+        self,
+        interaction: discord.Interaction,
+        player_card: str,
+        destination: str,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        try:
+            player = self.get_player_definition(player_card)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+
+        card_side = (
+            TeamSide.HOME
+            if player.team == match.home.team
+            else TeamSide.VISITING
+        )
+
+        dest_side_value, _, dest_target = destination.partition(":")
+        try:
+            dest_side = TeamSide(dest_side_value)
+        except ValueError:
+            await interaction.followup.send(
+                f"\"{destination}\" is not a valid destination.",
+                ephemeral=True,
+            )
+            return
+
+        if dest_side != card_side:
+            team_label = format_team_side_label(
+                match.setup_for_side(card_side),
+            )
+            await interaction.followup.send(
+                f"{player.name} plays for {team_label}; move them to "
+                f"one of {team_label}'s zones or benches instead.",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            match.move_card(card_side, player_card, dest_target)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await self.announce_board_update(
+            interaction,
+            game,
+            f"{format_role_bracket(player)} moved to "
+            f"{destination_display_name(dest_target)}.",
+        )
+
+    @ref.autocomplete("player_card")
+    async def ref_player_card_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.match_state is None:
+            return []
+        match = self.load_match_state(game)
+        options = [
+            (player_id, self.format_roster_player_with_team(player_id))
+            for setup in (match.home, match.visiting)
+            for player_id in (
+                setup.field_players
+                + setup.player_board.bench
+                + setup.player_board.back_bench
+            )
+        ]
+        return filter_choices(current, options)
+
+    @ref.autocomplete("destination")
+    async def ref_destination_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.match_state is None:
+            return []
+        match = self.load_match_state(game)
+        options = [
+            (
+                f"{setup.side.value}:{target}",
+                f"{format_team_side_label(setup)} - "
+                f"{destination_display_name(target)}",
+            )
+            for setup in (match.home, match.visiting)
+            for target in (
+                Zone.HOME_GOAL.value,
+                Zone.MIDFIELD.value,
+                Zone.VISITORS_GOAL.value,
+                *BENCH_DESTINATIONS,
+            )
+        ]
+        return filter_choices(current, options)
+
+    @meeple_group.command(
+        name="move",
+        description="Move a fielded player's meeple to another space.",
+    )
+    @app_commands.describe(
+        meeple="A currently fielded player.",
+        destination="The board space to move them to, e.g. H1.",
+    )
+    @app_commands.guild_only()
+    async def meeple_move(
+        self,
+        interaction: discord.Interaction,
+        meeple: str,
+        destination: str,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        try:
+            zone, space_index = parse_space_value(destination)
+            match.move_meeple(meeple, zone, space_index)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        player = self.get_player_definition(meeple)
+        await self.announce_board_update(
+            interaction,
+            game,
+            f"{format_role_bracket(player)} moved to "
+            f"{space_label(zone, space_index)}.",
+        )
+
+    @meeple_move.autocomplete("meeple")
+    async def meeple_move_meeple_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.match_state is None:
+            return []
+        match = self.load_match_state(game)
+        options = [
+            (player_id, self.format_roster_player_with_team(player_id))
+            for setup in (match.home, match.visiting)
+            for player_id in setup.field_players
+        ]
+        return filter_choices(current, options)
+
+    @meeple_move.autocomplete("destination")
+    async def meeple_move_destination_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.match_state is None:
+            return []
+        match = self.load_match_state(game)
+        return filter_choices(current, space_choices(match))
+
+    @ball_group.command(
+        name="move",
+        description="Place the ball on any board space.",
+    )
+    @app_commands.describe(
+        destination="The board space to move the ball to, e.g. H1.",
+    )
+    @app_commands.guild_only()
+    async def ball_move(
+        self,
+        interaction: discord.Interaction,
+        destination: str,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        try:
+            zone, space_index = parse_space_value(destination)
+            match.move_ball(zone, space_index)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        possession_team = match.setup_for_side(match.ball.possession).team
+        await self.announce_board_update(
+            interaction,
+            game,
+            f"The ball moved to {space_label(zone, space_index)}. "
+            f"{possession_team.value.title()} has possession.",
+        )
+
+    @ball_move.autocomplete("destination")
+    async def ball_move_destination_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.match_state is None:
+            return []
+        match = self.load_match_state(game)
+        return filter_choices(current, space_choices(match))
+
+    @ball_group.command(
+        name="possession",
+        description="Set which team has possession of the ball.",
+    )
+    @app_commands.describe(team="The team to give possession to.")
+    @app_commands.guild_only()
+    async def ball_possession(
+        self,
+        interaction: discord.Interaction,
+        team: str,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        try:
+            side = TeamSide(team)
+            match.set_possession(side)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await interaction.followup.send(
+            f"{match.setup_for_side(side).team.value.title()} now has "
+            "possession."
+        )
+        await self.refresh_match_image(interaction, game)
+
+    @ball_possession.autocomplete("team")
+    async def ball_possession_team_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.match_state is None:
+            return []
+        match = self.load_match_state(game)
+        options = [
+            (setup.side.value, format_team_side_label(setup))
+            for setup in (match.home, match.visiting)
+        ]
+        return filter_choices(current, options)
+
+    @ball_group.command(
+        name="speed",
+        description="Set or adjust the ball's speed (1-12).",
+    )
+    @app_commands.describe(
+        value=(
+            "A number to set the speed to, or +1/-1 to adjust it. "
+            "Leave blank to increase it by one."
+        ),
+    )
+    @app_commands.guild_only()
+    async def ball_speed(
+        self,
+        interaction: discord.Interaction,
+        value: Optional[str] = None,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        try:
+            match.ball.speed = resolve_adjustable_value(
+                value, match.ball.speed, 1, 12,
+            )
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await interaction.followup.send(
+            f"Ball speed is now {match.ball.speed}."
+        )
+        await self.refresh_match_image(interaction, game)
+
+    @app_commands.command(
+        name="score",
+        description="Set or adjust a team's score.",
+    )
+    @app_commands.describe(
+        team="The team to adjust. Defaults to your own team.",
+        value=(
+            "A number to set the score to, or +1/-1 to adjust it. "
+            "Leave blank to increase it by one."
+        ),
+    )
+    @app_commands.guild_only()
+    async def score(
+        self,
+        interaction: discord.Interaction,
+        team: Optional[str] = None,
+        value: Optional[str] = None,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        if team is not None:
+            try:
+                side = TeamSide(team)
+            except ValueError:
+                await interaction.followup.send(
+                    f"\"{team}\" is not a valid team.",
+                    ephemeral=True,
+                )
+                return
+        else:
+            side = self.side_for_user(game, interaction.user.id)
+            if side is None:
+                await interaction.followup.send(
+                    "You are not one of the players in this game; "
+                    "specify a team.",
+                    ephemeral=True,
+                )
+                return
+
+        current = (
+            match.scoreboard.home_score
+            if side == TeamSide.HOME
+            else match.scoreboard.visiting_score
+        )
+        try:
+            new_value = resolve_adjustable_value(value, current, 0, 999)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+
+        if side == TeamSide.HOME:
+            match.scoreboard.home_score = new_value
+        else:
+            match.scoreboard.visiting_score = new_value
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        team_name = match.setup_for_side(side).team.value.title()
+        await interaction.followup.send(
+            f"{team_name}'s score is now {new_value} "
+            f"({match.scoreboard.home_score}:"
+            f"{match.scoreboard.visiting_score})."
+        )
+        await self.refresh_match_image(interaction, game)
+
+    @score.autocomplete("team")
+    async def score_team_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.match_state is None:
+            return []
+        match = self.load_match_state(game)
+        options = [
+            (setup.side.value, format_team_side_label(setup))
+            for setup in (match.home, match.visiting)
+        ]
+        return filter_choices(current, options)
+
+    @app_commands.command(
+        name="time",
+        description="Set or adjust the game clock (00-15) and half.",
+    )
+    @app_commands.describe(
+        value=(
+            "A number to set the clock to, or +1/-1 to adjust it. "
+            "Leave blank to increase it by one."
+        ),
+        period="Switch to the first or second half.",
+    )
+    @app_commands.choices(
+        period=[
+            app_commands.Choice(name="First Half", value="first_half"),
+            app_commands.Choice(name="Second Half", value="second_half"),
+        ],
+    )
+    @app_commands.guild_only()
+    async def time(
+        self,
+        interaction: discord.Interaction,
+        value: Optional[str] = None,
+        period: Optional[str] = None,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        try:
+            match.scoreboard.time = resolve_adjustable_value(
+                value, match.scoreboard.time, 0, 15,
+            )
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+
+        if period is not None:
+            match.scoreboard.period = MatchPeriod(period)
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        period_label = (
+            "First Half"
+            if match.scoreboard.period == MatchPeriod.FIRST_HALF
+            else "Second Half"
+        )
+        await interaction.followup.send(
+            f"The clock is now {match.scoreboard.time:02d} "
+            f"({period_label})."
+        )
+        await self.refresh_match_image(interaction, game)
 
 
 async def setup(bot: commands.Bot) -> None:

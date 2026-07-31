@@ -248,19 +248,21 @@ class TeamSetup:
         ]
 
     def validate(self, roster: TeamDefinition) -> None:
+        """
+        Check that every roster player is assigned exactly once across
+        the zones and both benches. This intentionally does not assume
+        any particular distribution (e.g. two players per zone) since
+        /coach and /ref can leave zones and benches uneven.
+        """
         if set(self.zones) != set(Zone):
             raise ValueError("A setup must assign players to all zones.")
-        if any(len(players) != 2 for players in self.zones.values()):
-            raise ValueError(
-                "The standard setup must assign two players to each zone."
-            )
 
-        assigned = self.field_players + self.player_board.bench
-        if len(self.field_players) != 6:
-            raise ValueError("Exactly six players must start on the field.")
-        if len(self.player_board.bench) != 3:
-            raise ValueError("Exactly three players must start on the bench.")
-        if len(set(assigned)) != 9:
+        assigned = (
+            self.field_players
+            + self.player_board.bench
+            + self.player_board.back_bench
+        )
+        if len(set(assigned)) != len(assigned):
             raise ValueError("Every roster player must be assigned once.")
         if set(assigned) != {
             player.player_id
@@ -674,6 +676,102 @@ class MatchState:
         if player_id not in fielded_players:
             raise ValueError("Only a fielded player's meeple can move.")
         self.board.place_meeple(player_id, zone, space_index)
+
+    def move_card(
+        self,
+        side: TeamSide,
+        player_id: str,
+        destination: str,
+    ) -> None:
+        """
+        Move one team's player card to a zone or a bench, for manual
+        board correction (/coach and /ref).
+
+        A zone destination fields the card and places its meeple in an
+        empty space of that zone, or, if none is empty, in the space
+        closest to the team's own goal. A "bench"/"back_bench"
+        destination benches the card and clears its meeple.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+        roster_ids = (
+            setup.field_players
+            + setup.player_board.bench
+            + setup.player_board.back_bench
+        )
+        if player_id not in roster_ids:
+            raise ValueError(f"{player_id} is not assigned to this team.")
+
+        for zone_players in setup.zones.values():
+            if player_id in zone_players:
+                zone_players.remove(player_id)
+        if player_id in setup.player_board.bench:
+            setup.player_board.bench.remove(player_id)
+        if player_id in setup.player_board.back_bench:
+            setup.player_board.back_bench.remove(player_id)
+        self.board.remove_meeple(player_id, required=False)
+
+        if destination in ("bench", "back_bench"):
+            getattr(setup.player_board, destination).append(player_id)
+            return
+
+        zone = Zone(destination)
+        setup.zones[zone].append(player_id)
+        spaces = self.board.spaces[zone]
+        empty_index = next(
+            (
+                index
+                for index, occupants in enumerate(spaces)
+                if not occupants
+            ),
+            None,
+        )
+        if empty_index is None:
+            empty_index = 0 if side == TeamSide.HOME else len(spaces) - 1
+        self.board.place_meeple(player_id, zone, empty_index)
+
+    def move_ball(self, zone: Zone, space_index: int) -> None:
+        """
+        Move the ball to any board space. Possession changes to
+        whichever team has meeples there, if only one side is present;
+        it is unchanged when both or neither side is present. Fails if
+        the space has no meeple at all.
+        """
+        zone = Zone(zone)
+        if space_index not in range(len(self.board.spaces[zone])):
+            raise ValueError("The target board space does not exist.")
+
+        occupants = self.board.spaces[zone][space_index]
+        if not occupants:
+            raise ValueError(
+                "The ball can't be moved there until a meeple is present."
+            )
+
+        home_present = any(
+            player_id in self.home.field_players
+            for player_id in occupants
+        )
+        visiting_present = any(
+            player_id in self.visiting.field_players
+            for player_id in occupants
+        )
+
+        self.ball.zone = zone
+        self.ball.space_index = space_index
+        if home_present and not visiting_present:
+            self.ball.possession = TeamSide.HOME
+        elif visiting_present and not home_present:
+            self.ball.possession = TeamSide.VISITING
+
+    def set_possession(self, side: TeamSide) -> None:
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+        occupants = self.board.spaces[self.ball.zone][self.ball.space_index]
+        if not any(player_id in setup.field_players for player_id in occupants):
+            raise ValueError(
+                "The ball's current space has no player from that team."
+            )
+        self.ball.possession = side
 
     def substitute(
         self,
