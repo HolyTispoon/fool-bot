@@ -291,6 +291,11 @@ def build_home_choice_message(game: D12BallGame) -> str:
             game,
             game.visiting_player_number,
         )
+
+        if game.is_solo_game and game.coin_winner_player_number == 2:
+            ai_side = "Home" if game.home_player_number == 2 else "Visiting"
+            text += f"\n\nDinky AI has chosen to play as **{ai_side}**."
+
         text += (
             f"\n\n**Home:** {home_player}\n"
             f"**Visiting:** {visiting_player}"
