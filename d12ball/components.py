@@ -367,7 +367,6 @@ class MatchState:
         for setup in (home, visiting):
             for zone, player_ids in setup.zones.items():
                 final_space = len(board.spaces[zone]) - 1
-                middle_space = min(1, final_space)
 
                 for player_id in player_ids:
                     role = player_role(player_id)
@@ -390,18 +389,22 @@ class MatchState:
                             else final_space
                         )
                     elif role == PlayerRole.PLAYMAKER:
-                        space_index = middle_space
+                        space_index = (
+                            min(1, final_space)
+                            if setup.side == TeamSide.HOME
+                            else max(0, final_space - 1)
+                        )
                     elif role == PlayerRole.STRIKER:
                         space_index = (
-                            final_space
+                            min(1, final_space)
                             if setup.side == TeamSide.HOME
-                            else 0
+                            else max(0, final_space - 1)
                         )
                     else:
                         space_index = (
-                            max(0, final_space - 1)
+                            0
                             if setup.side == TeamSide.HOME
-                            else min(1, final_space)
+                            else final_space
                         )
 
                     board.place_meeple(player_id, zone, space_index)
