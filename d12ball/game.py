@@ -15,6 +15,11 @@ class GameMode(str, Enum):
     ADVANCED = "advanced"
 
 
+class AIOpponent(str, Enum):
+    DINKY = "dinky"
+    DECENT = "decent"
+
+
 class GameStatus(str, Enum):
     SETUP = "setup"
     IN_PROGRESS = "in_progress"
@@ -53,6 +58,10 @@ class D12BallGame:
     player_1_team: Optional[Team] = None
     player_2_team: Optional[Team] = None
 
+    # Which AI template controls Player 2. Only meaningful when
+    # player_2_id is None; unused (and left None) in two-player games.
+    ai_opponent: Optional[AIOpponent] = None
+
     # Game configuration
     mode: GameMode = GameMode.BASIC
     status: GameStatus = GameStatus.SETUP
@@ -84,6 +93,9 @@ class D12BallGame:
 
         self.mode = GameMode(self.mode)
         self.status = GameStatus(self.status)
+
+        if self.ai_opponent is not None:
+            self.ai_opponent = AIOpponent(self.ai_opponent)
 
         if self.coin_face is not None:
             self.coin_face = CoinFace(self.coin_face)

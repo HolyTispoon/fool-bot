@@ -108,6 +108,13 @@ class PlayerCatalog:
         values.update(player.stat_overrides)
         return RoleProfile(**values)
 
+    def player_by_id(self, player_id: str) -> PlayerDefinition:
+        for roster in self.teams.values():
+            for player in roster.players:
+                if player.player_id == player_id:
+                    return player
+        raise ValueError(f"Unknown player: {player_id}")
+
 
 @dataclass(frozen=True)
 class BoardLayout:

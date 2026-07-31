@@ -8,6 +8,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from d12ball.ai import build_ai_strategies, AIStrategy
 from d12ball.components import (
     MatchState,
     PlayerDefinition,
@@ -17,6 +18,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import (
+    AIOpponent,
     CoinFace,
     D12BallGame,
     GameMode,
@@ -54,6 +56,11 @@ COIN_EMOJI_NAMES = {
 }
 COIN_EMOJI_FALLBACK = "🪙"
 
+AI_OPPONENT_NAMES = {
+    AIOpponent.DINKY: "Dinky AI",
+    AIOpponent.DECENT: "Decent AI",
+}
+
 # The exhaustion token emoji is uploaded to Discord (as an application or
 # guild emoji) from images/emoji/exhaust.png and looked up here by name.
 EXHAUST_EMOJI_NAME = "exhaust"
@@ -77,6 +84,10 @@ def get_exhausted_emoji(client: discord.Client) -> str:
     if emoji is not None:
         return str(emoji)
     return EXHAUSTED_EMOJI_FALLBACK
+
+
+def format_ai_name(ai_opponent: Optional[AIOpponent]) -> str:
+    return AI_OPPONENT_NAMES[ai_opponent or AIOpponent.DINKY]
 
 
 def format_role_bracket(player: PlayerDefinition) -> str:
@@ -136,8 +147,8 @@ def build_setup_message(
     elif game.is_solo_game:
         text += (
             "Choose a team using the buttons. After you chose your team, "
-            "a random team will be assigned to the Dinky AI of the "
-            "remaining teams."
+            f"a random team will be assigned to {format_ai_name(game.ai_opponent)} "
+            "of the remaining teams."
         )
     else:
         text += "Each player should choose a team below."
@@ -157,7 +168,7 @@ def format_player(
 
     if player_number == 2:
         if game.player_2_id is None:
-            return "Dinky AI"
+            return format_ai_name(game.ai_opponent)
         if mention:
             return f"<@{game.player_2_id}>"
         return game.player_2_name or "Player 2"
@@ -294,7 +305,10 @@ def build_home_choice_message(game: D12BallGame) -> str:
 
         if game.is_solo_game and game.coin_winner_player_number == 2:
             ai_side = "Home" if game.home_player_number == 2 else "Visiting"
-            text += f"\n\nDinky AI has chosen to play as **{ai_side}**."
+            text += (
+                f"\n\n{format_ai_name(game.ai_opponent)} has chosen to "
+                f"play as **{ai_side}**."
+            )
 
         text += (
             f"\n\n**Home:** {home_player}\n"
@@ -378,6 +392,35 @@ class GameConfigurationView(discord.ui.View):
             button.callback = board_size_callback
             self.add_item(button)
 
+        if game is None or not game.is_solo_game:
+            return
+
+        selected_ai = game.ai_opponent or AIOpponent.DINKY
+
+        for ai_type, label in AI_OPPONENT_NAMES.items():
+            button = discord.ui.Button(
+                label=label,
+                style=(
+                    discord.ButtonStyle.secondary
+                    if ai_type == selected_ai
+                    else discord.ButtonStyle.primary
+                ),
+                custom_id=(
+                    f"d12ball:ai_opponent:{self.game_id}:{ai_type.value}"
+                ),
+                disabled=configuration_closed or ai_type == selected_ai,
+                row=3,
+            )
+
+            async def ai_opponent_callback(
+                interaction: discord.Interaction,
+                selected_ai_type: AIOpponent = ai_type,
+            ) -> None:
+                await self.select_ai_opponent(interaction, selected_ai_type)
+
+            button.callback = ai_opponent_callback
+            self.add_item(button)
+
     async def validate_configuration_change(
         self,
         interaction: discord.Interaction,
@@ -428,6 +471,34 @@ class GameConfigurationView(discord.ui.View):
             return
 
         game.mode = GameMode.BASIC
+        save_games(self.cog.games)
+
+        refreshed_view = type(self)(
+            cog=self.cog,
+            game_id=self.game_id,
+        )
+        await interaction.response.edit_message(
+            content=build_setup_message(game),
+            view=refreshed_view,
+        )
+
+    async def select_ai_opponent(
+        self,
+        interaction: discord.Interaction,
+        selected_ai_type: AIOpponent,
+    ) -> None:
+        game = await self.validate_configuration_change(interaction)
+        if game is None:
+            return
+
+        if selected_ai_type == AIOpponent.DECENT:
+            await interaction.response.send_message(
+                "Decent AI is not yet ready, please play against Dinky AI.",
+                ephemeral=True,
+            )
+            return
+
+        game.ai_opponent = AIOpponent.DINKY
         save_games(self.cog.games)
 
         refreshed_view = type(self)(
@@ -699,9 +770,9 @@ class CoinFlipView(GameConfigurationView):
         game.start_game()
 
         if game.is_solo_game and winner_player_number == 2:
-            ai_choice = random.choice(
-                (HomeChoice.HOME, HomeChoice.VISITING)
-            )
+            ai_choice = self.cog.get_ai_strategy(
+                game,
+            ).choose_home_or_visiting()
             game.choose_home_or_visiting(2, ai_choice)
             self.cog.initialize_standard_match(game)
 
@@ -1051,7 +1122,9 @@ class PlayerActionView(discord.ui.View):
         defender_number = self.cog.defending_player_number(game, match)
 
         if game.is_solo_game and defender_number == 2:
-            challenger_id = self.cog.choose_ai_challenger(match)
+            challenger_id = self.cog.get_ai_strategy(game).choose_challenger(
+                match
+            )
             distance = match.choose_challenger(challenger_id)
             game.match_state = match.to_dict()
             save_games(self.cog.games)
@@ -1619,6 +1692,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.maneuver_catalog
         ).read()
         self.coin_emojis: dict[CoinFace, str] = {}
+        self.ai_strategies = build_ai_strategies(
+            self.player_catalog,
+            self.maneuver_catalog,
+        )
 
         restored_views = 0
 
@@ -1765,11 +1842,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self,
         player_id: str,
     ) -> PlayerDefinition:
-        for roster in self.player_catalog.teams.values():
-            for player in roster.players:
-                if player.player_id == player_id:
-                    return player
-        raise ValueError(f"Unknown player: {player_id}")
+        return self.player_catalog.player_by_id(player_id)
 
     def possession_player_number(
         self,
@@ -1832,65 +1905,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> bool:
         return self.defending_user_id(game, match) == user_id
 
-    def choose_ai_challenger(self, match: MatchState) -> str:
-        """
-        Dinky AI's rule for picking a challenger: always the
-        player closest to the ball, with ties broken in favor of the
-        higher defensive skill.
-        """
-        candidates = match.eligible_challengers()
-        if not candidates:
-            raise ValueError(
-                "There are no eligible challengers to choose from."
-            )
-
-        def sort_key(player_id: str) -> tuple[int, int]:
-            distance = match.distance_to_ball(player_id)
-            defense = self.player_catalog.effective_profile(
-                self.get_player_definition(player_id)
-            ).defense
-            return (distance, -defense)
-
-        return min(candidates, key=sort_key)
-
-    def choose_ai_ball_handler(self, match: MatchState) -> str:
-        """
-        Dinky AI's rule for picking which fielded player handles the
-        ball when more than one of its players shares the ball's space:
-        the one with the higher offensive skill.
-        """
-        candidates = match.eligible_ball_handlers()
-        if not candidates:
-            raise ValueError(
-                "There are no eligible ball handlers to choose from."
-            )
-
-        def sort_key(player_id: str) -> int:
-            return -self.player_catalog.effective_profile(
-                self.get_player_definition(player_id)
-            ).offense
-
-        return min(candidates, key=sort_key)
-
-    def choose_ai_action(self, match: MatchState) -> str:
-        """
-        Dinky AI's rule for choosing an offensive action: shoot when the
-        ball is already on the space closest to the opponent's goal,
-        otherwise always maneuver to advance it.
-        """
-        if match.is_ball_at_scoring_space():
-            return "shoot"
-        return "maneuver"
-
-    def choose_ai_maneuver_action(self, side: str) -> str:
-        """
-        Dinky AI's rule for choosing a maneuver: always roll a d6 and
-        take whichever maneuver that die value maps to.
-        """
-        roll = random.randint(1, 6)
-        if side == "offense":
-            return self.maneuver_catalog.offense_for_die(roll).name
-        return self.maneuver_catalog.defense_for_die(roll).name
+    def get_ai_strategy(self, game: D12BallGame) -> AIStrategy:
+        return self.ai_strategies[game.ai_opponent or AIOpponent.DINKY]
 
     def build_maneuver_reference_file(self) -> discord.File:
         return discord.File(
@@ -1906,23 +1922,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Kick off the simultaneous maneuver-action choice once a
-        challenger has been chosen: Dinky AI rolls immediately, and any
-        human side gets a prompt to open their private maneuver menu.
+        challenger has been chosen: the AI opponent rolls immediately,
+        and any human side gets a prompt to open their private
+        maneuver menu.
         """
-        if (
-            game.is_solo_game
-            and self.possession_player_number(game, match) == 2
-        ):
-            match.choose_offense_maneuver(
-                self.choose_ai_maneuver_action("offense")
-            )
-        if (
-            game.is_solo_game
-            and self.defending_player_number(game, match) == 2
-        ):
-            match.choose_defense_maneuver(
-                self.choose_ai_maneuver_action("defense")
-            )
+        if game.is_solo_game:
+            ai_strategy = self.get_ai_strategy(game)
+
+            if self.possession_player_number(game, match) == 2:
+                match.choose_offense_maneuver(
+                    ai_strategy.choose_maneuver_action("offense")
+                )
+            if self.defending_player_number(game, match) == 2:
+                match.choose_defense_maneuver(
+                    ai_strategy.choose_maneuver_action("defense")
+                )
 
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -2271,14 +2285,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         """
-        Play out Dinky AI's turn with possession: pick a ball handler,
-        then shoot if the ball is already on the space closest to the
-        opponent's goal, otherwise always maneuver.
+        Play out the AI opponent's turn with possession: pick a ball
+        handler, then shoot if the ball is already on the space
+        closest to the opponent's goal, otherwise always maneuver.
         """
-        handler_id = self.choose_ai_ball_handler(match)
+        ai_name = format_ai_name(game.ai_opponent)
+        ai_strategy = self.get_ai_strategy(game)
+        handler_id = ai_strategy.choose_ball_handler(match)
         match.select_ball_handler(handler_id)
         handler = self.get_player_definition(handler_id)
-        action = self.choose_ai_action(match)
+        action = ai_strategy.choose_action(match)
 
         if action == "shoot":
             match.pending_action = "shoot"
@@ -2286,7 +2302,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
 
             turn_message = await interaction.followup.send(
-                f"Dinky AI has {format_role_bracket(handler)} shoot "
+                f"{ai_name} has {format_role_bracket(handler)} shoot "
                 "to score.",
                 wait=True,
             )
@@ -2300,7 +2316,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
 
             turn_message = await interaction.followup.send(
-                f"Dinky AI has {format_role_bracket(handler)} maneuver, "
+                f"{ai_name} has {format_role_bracket(handler)} maneuver, "
                 "but the defending team has no player in the ball's "
                 "zone to challenge.",
                 wait=True,
@@ -2322,7 +2338,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         challenge_view = ManeuverChallengeView(self, game.game_id)
         challenge_message = await interaction.followup.send(
-            f"Dinky AI has {format_role_bracket(handler)} maneuver to "
+            f"{ai_name} has {format_role_bracket(handler)} maneuver to "
             "keep possession.\n\n"
             f"{defender_mention}, choose which player will maneuver "
             "to challenge for the ball.",
@@ -2664,6 +2680,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             mode=GameMode.BASIC,
             status=GameStatus.SETUP,
             board_size=7,
+            ai_opponent=None if player_2 else AIOpponent.DINKY,
         )
 
         self.games[game_id] = game
