@@ -1854,14 +1854,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.maneuver_catalog.offense,
             key=lambda item: item.rank,
         ):
-            lines.append(f"- **{maneuver.name}**: {maneuver.effect}")
+            lines.append(
+                f"- **{maneuver.name}** (defeats {maneuver.defeats}): "
+                f"{maneuver.effect}"
+            )
         lines.append("")
         lines.append("**Defense maneuvers**")
         for maneuver in sorted(
             self.maneuver_catalog.defense,
             key=lambda item: item.rank,
         ):
-            lines.append(f"- **{maneuver.name}**: {maneuver.effect}")
+            lines.append(
+                f"- **{maneuver.name}** (defeats {maneuver.defeats}): "
+                f"{maneuver.effect}"
+            )
         return "\n".join(lines)
 
     async def begin_maneuver_action_selection(
