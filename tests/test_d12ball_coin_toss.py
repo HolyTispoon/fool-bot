@@ -7,6 +7,7 @@ import discord
 from cogs.d12ball import (
     COIN_EMOJI_FALLBACK,
     COIN_EMOJI_NAMES,
+    CoinFlipView,
     build_home_choice_message,
     format_coin_emoji,
     load_coin_emojis,
@@ -51,10 +52,27 @@ class FakeBot:
         return self.emojis
 
 
+# Real emoji ids, because discord.py only reads <:name:id> as a custom
+# emoji when the id is a full-length snowflake.
+FORTUNE_EMOJI_ID = 1532254775624601701
+DOOM_EMOJI_ID = 1532254775624601702
+
+
+class FakeCog:
+    """
+    Stands in for the cog when building a view: the games it knows
+    about and the coin emoji it has resolved.
+    """
+
+    def __init__(self, game, coin_emojis: dict) -> None:
+        self.games = {game.game_id: game}
+        self.coin_emojis = coin_emojis
+
+
 def build_coin_emojis() -> dict:
     return {
-        CoinFace.FORTUNE: "<:1_gold_fortune:101>",
-        CoinFace.DOOM: "<:1_gold_doom:102>",
+        CoinFace.FORTUNE: f"<:3_gold_fortune:{FORTUNE_EMOJI_ID}>",
+        CoinFace.DOOM: f"<:3_gold_doom:{DOOM_EMOJI_ID}>",
     }
 
 
@@ -154,19 +172,29 @@ class D12BallCoinEmojiTests(unittest.TestCase):
     def test_the_names_match_the_uploaded_emoji(self) -> None:
         self.assertEqual(
             COIN_EMOJI_NAMES[CoinFace.FORTUNE],
-            "1_gold_fortune",
+            "3_gold_fortune",
         )
         self.assertEqual(
             COIN_EMOJI_NAMES[CoinFace.DOOM],
-            "1_gold_doom",
+            "3_gold_doom",
         )
 
     def test_application_emoji_are_looked_up_by_name(self) -> None:
         bot = FakeBot(
             [
                 discord.PartialEmoji(name="Exhaust", id=100),
-                discord.PartialEmoji(name="1_gold_fortune", id=101),
-                discord.PartialEmoji(name="1_gold_doom", id=102),
+                discord.PartialEmoji(
+                    name="1_gold_fortune",
+                    id=1532254775624601700,
+                ),
+                discord.PartialEmoji(
+                    name="3_gold_fortune",
+                    id=FORTUNE_EMOJI_ID,
+                ),
+                discord.PartialEmoji(
+                    name="3_gold_doom",
+                    id=DOOM_EMOJI_ID,
+                ),
             ]
         )
 
@@ -189,15 +217,17 @@ class D12BallCoinEmojiTests(unittest.TestCase):
 
         self.assertEqual(
             format_coin_emoji(coin_emojis, CoinFace.FORTUNE),
-            "<:1_gold_fortune:101>",
+            f"<:3_gold_fortune:{FORTUNE_EMOJI_ID}>",
         )
         self.assertEqual(
             format_coin_emoji(coin_emojis, CoinFace.DOOM),
-            "<:1_gold_doom:102>",
+            f"<:3_gold_doom:{DOOM_EMOJI_ID}>",
         )
 
     def test_a_missing_emoji_falls_back_to_a_plain_coin(self) -> None:
-        for coin_emojis in ({}, None, {CoinFace.DOOM: "<:1_gold_doom:102>"}):
+        only_doom = {CoinFace.DOOM: f"<:3_gold_doom:{DOOM_EMOJI_ID}>"}
+
+        for coin_emojis in ({}, None, only_doom):
             with self.subTest(coin_emojis=coin_emojis):
                 self.assertEqual(
                     format_coin_emoji(coin_emojis, CoinFace.FORTUNE),
@@ -208,28 +238,71 @@ class D12BallCoinEmojiTests(unittest.TestCase):
         game = build_game()
         game.resolve_coin_toss(1, CoinFace.DOOM)
 
-        message = build_home_choice_message(game, build_coin_emojis())
+        message = build_home_choice_message(game)
 
-        self.assertIn("<:1_gold_doom:102>", message)
-        self.assertIn("Player One (Purple) flipped **Doom**", message)
+        self.assertEqual(
+            message.splitlines()[0],
+            "Player One (Purple) flipped **Doom**!",
+        )
         self.assertIn("**Player Two (Teal) wins the coin toss!**", message)
 
-    def test_the_result_reads_without_any_emoji(self) -> None:
+    def test_the_result_does_not_repeat_the_coin(self) -> None:
+        # The coin is posted as a message of its own, so that Discord
+        # renders it large. Repeating it here would show it twice.
         game = build_game()
         game.resolve_coin_toss(1, CoinFace.DOOM)
 
         message = build_home_choice_message(game)
 
-        self.assertIn(COIN_EMOJI_FALLBACK, message)
-        self.assertIn("Player One (Purple) flipped **Doom**", message)
-        self.assertIn("**Player Two (Teal) wins the coin toss!**", message)
+        self.assertNotIn(COIN_EMOJI_FALLBACK, message)
+        for coin_emoji in build_coin_emojis().values():
+            self.assertNotIn(coin_emoji, message)
+
+    def test_the_coin_message_is_only_the_coin(self) -> None:
+        # What flip_coin posts on its own line-free message.
+        coin_emojis = build_coin_emojis()
+
+        self.assertEqual(
+            format_coin_emoji(coin_emojis, CoinFace.DOOM),
+            f"<:3_gold_doom:{DOOM_EMOJI_ID}>",
+        )
+        self.assertEqual(
+            format_coin_emoji({}, CoinFace.DOOM),
+            COIN_EMOJI_FALLBACK,
+        )
+
+    def test_the_flip_button_wears_the_fortune_coin(self) -> None:
+        game = build_game()
+        view = CoinFlipView(
+            cog=FakeCog(game, build_coin_emojis()),
+            game_id=game.game_id,
+        )
+
+        # The payload Discord receives: a name and id, not the raw
+        # <:name:id> text.
+        self.assertEqual(
+            view.flip_button.to_component_dict()["emoji"],
+            {"id": FORTUNE_EMOJI_ID, "name": "3_gold_fortune"},
+        )
+
+    def test_the_flip_button_falls_back_to_a_plain_coin(self) -> None:
+        game = build_game()
+        view = CoinFlipView(
+            cog=FakeCog(game, {}),
+            game_id=game.game_id,
+        )
+
+        self.assertEqual(
+            view.flip_button.to_component_dict()["emoji"],
+            {"id": None, "name": COIN_EMOJI_FALLBACK},
+        )
 
     def test_a_game_without_a_recorded_face_still_reads(self) -> None:
         game = build_game()
         game.coin_flipped = True
         game.coin_winner_player_number = 1
 
-        message = build_home_choice_message(game, build_coin_emojis())
+        message = build_home_choice_message(game)
 
         self.assertIn("The coin has been flipped", message)
         self.assertIn("**Player One (Purple) wins the coin toss!**", message)

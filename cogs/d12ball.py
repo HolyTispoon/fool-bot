@@ -42,8 +42,8 @@ ROLE_INITIALS = {
     "striker": "SK",
 }
 COIN_EMOJI_NAMES = {
-    CoinFace.FORTUNE: "1_gold_fortune",
-    CoinFace.DOOM: "1_gold_doom",
+    CoinFace.FORTUNE: "3_gold_fortune",
+    CoinFace.DOOM: "3_gold_doom",
 }
 COIN_EMOJI_FALLBACK = "🪙"
 
@@ -235,10 +235,7 @@ def format_coin_emoji(
     return coin_emojis.get(CoinFace(face), COIN_EMOJI_FALLBACK)
 
 
-def build_home_choice_message(
-    game: D12BallGame,
-    coin_emojis: Optional[dict[CoinFace, str]] = None,
-) -> str:
+def build_home_choice_message(game: D12BallGame) -> str:
     winner = format_player_with_team(
         game,
         game.coin_winner_player_number,
@@ -252,9 +249,11 @@ def build_home_choice_message(
             game,
             game.coin_flipped_by_player_number,
         )
+        # The coin itself goes out as its own message, so that Discord
+        # renders it large; this text does not repeat it.
         text = (
-            f"{format_coin_emoji(coin_emojis, game.coin_face)} {flipper} "
-            f"flipped **{game.coin_face.value.title()}**!\n\n"
+            f"{flipper} flipped "
+            f"**{game.coin_face.value.title()}**!\n\n"
             f"**{winner} wins the coin toss!**"
         )
     else:
@@ -558,6 +557,9 @@ class TeamSelectionView(GameConfigurationView):
         message = build_setup_message(game)
 
         if game.teams_selected:
+            # Resolved before the view is built, because the flip
+            # button carries the fortune coin.
+            await self.cog.ensure_coin_emojis()
             coin_view = CoinFlipView(
                 cog=self.cog,
                 game_id=self.game_id,
@@ -603,7 +605,10 @@ class CoinFlipView(GameConfigurationView):
                 "(this would start the game)"
             ),
             style=discord.ButtonStyle.primary,
-            emoji="🪙",
+            emoji=format_coin_emoji(
+                self.cog.coin_emojis,
+                CoinFace.FORTUNE,
+            ),
             custom_id=f"d12ball:flip_coin:{game_id}",
             disabled=game.coin_flipped if game else False,
             row=3,
@@ -638,8 +643,6 @@ class CoinFlipView(GameConfigurationView):
             )
             return
 
-        coin_emojis = await self.cog.ensure_coin_emojis()
-
         if game.coin_flipped:
             refreshed_view = HomeAwaySelectionView(
                 cog=self.cog,
@@ -647,7 +650,7 @@ class CoinFlipView(GameConfigurationView):
             )
 
             await interaction.response.edit_message(
-                content=build_home_choice_message(game, coin_emojis),
+                content=build_home_choice_message(game),
                 view=refreshed_view,
             )
 
@@ -691,6 +694,15 @@ class CoinFlipView(GameConfigurationView):
             view=None,
         )
 
+        # The coin goes out on its own, with nothing else in the
+        # message, which is what makes Discord render it large.
+        await interaction.followup.send(
+            format_coin_emoji(
+                await self.cog.ensure_coin_emojis(),
+                game.coin_face,
+            ),
+        )
+
         followup_arguments = {
             "view": refreshed_view,
             "wait": True,
@@ -699,7 +711,7 @@ class CoinFlipView(GameConfigurationView):
             followup_arguments["file"] = self.cog.build_match_file(game)
 
         choice_message = await interaction.followup.send(
-            build_home_choice_message(game, coin_emojis),
+            build_home_choice_message(game),
             **followup_arguments,
         )
         game.message_id = choice_message.id
@@ -814,10 +826,7 @@ class HomeAwaySelectionView(discord.ui.View):
             game_id=self.game_id,
         )
         await interaction.response.edit_message(
-            content=build_home_choice_message(
-                game,
-                await self.cog.ensure_coin_emojis(),
-            ),
+            content=build_home_choice_message(game),
             view=refreshed_view,
             attachments=[self.cog.build_match_file(game)],
         )
