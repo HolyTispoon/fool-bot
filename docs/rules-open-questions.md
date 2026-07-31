@@ -1,217 +1,165 @@
-# D12 Ball -- rules questions and code/rules divergences
+# D12 Ball -- rules questions
 
-**As of:** 2026-07-31, against `main` at `8fad2b3` plus the unmerged
-`claude/import-maneuvers-script` branch.
-**Companion to:** [d12ball-rules.md](d12ball-rules.md), the vendored copy of upstream.
+**As of:** 2026-07-31, against `main` at `8fad2b3` plus open PR #9
+(`claude/import-maneuvers-script`).
+**Companion to:** [d12ball-rules.md](d12ball-rules.md).
 
-This file is for things that **cannot be answered from either upstream source** and should
-go to the author rather than be guessed at. It is expected to shrink as answers land.
-
-The headline: the code has outrun the written rules. Several mechanics the bot already
-implements appear in neither the Notion page nor the spreadsheet, so for those the code is
-currently the only specification -- which means a bug and a design decision look identical
-from the outside.
-
----
-
-## A. Rules the code implements that are written down nowhere
-
-Highest priority. Each of these is a real behaviour with no upstream text to check it
-against.
-
-### A1. Board sizes 6, 7 and 9
-
-`VALID_BOARD_SIZES = {6, 7, 9}` with layouts 2-2-2, 2-3-2, 3-3-3, defaulting to **7**.
-
-Both upstream sources describe a **6-space** field only: Notion says "12 cards", "6 field
-cards" each, "3 zones, each comprised of two pairs opposing spaces", and the spreadsheet's
-`older Field` tab lists exactly six named spaces per team. The 7 and 9 layouts came in via
-commit `5b0508c`.
-
-- Is 7 the intended default, and 6 now a variant?
-- With a 3-space zone the standard 2-2-2 setup only ever fills two of the three spaces --
-  the third stays empty. Intended?
-- Do any zone-relative rules change? "Back"/"front" is unambiguous for two spaces and not
-  for three.
-
-### A2. The coin toss, and the winner's home/visiting choice
-
-The code flips a coin with **fortune** and **doom** faces; fortune wins the flipper the
-toss, doom hands it to the opponent. The winner then chooses home or visiting
-(`choose_home_or_visiting`).
-
-Notion says only: "One player is randomly assigned to be home team player." No coin, no
-faces, no choice. The `Coins` tab defines coins as currency ("Worth in Dinkys") and says
-nothing about fortune or doom.
-
-- Is "winner of the toss picks a side" the real rule, or a bot convenience?
-- Does the choice matter beyond first possession? Home kicks off; visitors get possession
-  after halftime -- so choosing to be the visitor trades the opening for the second-half
-  restart. Deliberate?
-
-### A3. What are coins and Dinkys for?
-
-The `Coins` tab is a full currency table with an exchange matrix, and it is unreferenced by
-any rule. Is it a D12 Ball mechanic that is not written up yet, a component shared with
-another Prophetic Fools game, or dead data?
-
-Also: the AI opponent is named "Dinky AI" and Dinky is the currency unit. Coincidence?
-
-### A4. Role abilities
-
-All six are in the spreadsheet and none are implemented:
-
-| Role | Ability | Needs to be pinned down |
-|---|---|---|
-| Fullback | No disadvantage on own goal rolls | requires "disadvantage" to be defined -- see B4 |
-| Defender | Can manipulate the ball when stealing | Steal Intercept already lets anyone manipulate speed. Does this mean the defender is the **only** role that can, or that they manipulate on some other trigger? |
-| Midfielder | +3 for dribble/advance | added to a clash roll when their action is Dribble Advance? |
-| Playmaker | +3 for all passes | both Low and High Pass, on the clash roll? |
-| Winger | Can set up a scoring opportunity with a low pass | High Pass says "if ball reaches goal, set up a scoring opportunity" -- so what is a scoring opportunity, mechanically? |
-| Striker | +3 for scoring off a high pass | applies to the score-attempt roll after a High Pass set-up? |
-
-"Set up a scoring opportunity" is used by both High Pass and the winger's ability and is
-never defined. That is the single biggest gap in the maneuver rules.
+Questions that cannot be answered from either upstream source and need the author. The
+author answered most of the first round reviewing
+[PR #10](https://github.com/HolyTispoon/fool-bot/pull/10) on 2026-07-31; those answers are
+now rules and live in the
+"[Author clarifications](d12ball-rules.md#author-clarifications)" section of the rules file
+rather than here.
 
 ---
 
-## B. Ambiguities in the Notion text, still unresolved
+## 1. Answered -- now in the rules file
 
-Carried forward from the 2026-07-25 read; all still present upstream.
+Kept as a short index so a question is not re-asked. Detail is in
+[d12ball-rules.md](d12ball-rules.md#author-clarifications).
 
-### B1. "The attacker chooses an offensive action while the defender chooses an offensive action."
-
-The second "offensive" should be "defensive". Effectively settled by the spreadsheet, which
-types each maneuver Offense or Defense, and by the two separate coloured dice -- but the
-sentence is still wrong upstream and worth fixing at source.
-
-### B2. "zone" vs "space" -- and this one is now load-bearing
-
-Notion uses both interchangeably ("scoring from zone 4", where spaces are numbered and
-zones are not; "conceding team starts from zone 1 (back of their Goal zone)").
-
-The maneuver rule reads: pick a challenger "in the same **space**"; "in the case where
-there are no players in the **zone**", pick any other player and move them in.
-
-`MatchState.eligible_challengers()` returns every defender in the ball's **zone**. That is a
-choice, and it has two consequences worth confirming:
-
-- If a defender is standing on the ball's exact space, must they be the challenger, or may
-  the defence pick a different one from elsewhere in the zone and walk them over?
-- **This is a live dead end:** when no defender is in the ball's zone at all,
-  `eligible_challengers()` returns empty and the bot replies "The defending team has no
-  player in the ball's zone to challenge", so the turn cannot proceed. The rules say the
-  defender must instead choose one of their *other* players, move that token to the ball
-  and take one exhaustion token per space travelled. The fallback is written but not
-  implemented.
-
-### B3. Who rolls in a score attempt?
-
-"each player rolls a d12 ... while all defending players add their defensive skill (5+2+6 in
-this case)". The worked example sums three defenders into one total, implying one defending
-roll plus summed skills rather than one roll each. Not stated. Score attempts are the next
-thing to build ("Shoot to score" currently answers "not implemented yet"), so this needs an
-answer before that work starts.
-
-### B4. The score threshold, and what "disadvantage" means
-
-"If the attacker rolls a higher number that is equal or higher than the defense" is
-self-contradictory. Presumably attacker total >= defender total, but ties decide goals so
-it matters.
-
-Separately, "disadvantage" appears in the own-goal rule ("Roll with offense skill,
-disadvantage. Need 7+ to avoid") and in the injured-player rule, and is never defined. Roll
-two d12 and take the lower? And does the offense skill add to or subtract from that roll --
-a fullback is 1/6, so "roll with offense skill" makes the best defender the *worst* at
-avoiding an own goal, which reads odd next to their ability being "no disadvantage on own
-goal rolls".
-
-### B5. "Conceding team" in the Score/Miss table
-
-Appears to mean "the team defending that attempt" in both rows -- on a Score they restart at
-their space 3, on a Miss they take the ball at their space 1 -- but on a miss nobody
-concedes anything.
-
-### B6. Halftime exhaustion recovery
-
-Upstream still says "1 (or 2, TBD)".
-
-### B7. Ball speed modifier scope
-
-Stated as affecting "scoring and stealing attempts". Does it apply only to a Steal Intercept
-clash, or to any clash where possession is contested? The unmerged maneuver code applies it
-to Steal Intercept only.
-
-### B8. Low Pass can now go backward
-
-The new wording is "Ball moves 1-2 spaces **forward or backward**". A backward low pass
-toward your own goal raises questions the text does not cover: can it reach your own goal,
-and if so does the own-goal rule fire? Does it still increase ball speed by 1 when moving
-backward?
+| Question | Answer |
+|---|---|
+| Board sizes 6/7/9 -- intended? | Yes. 7 is the default, 6 is a variant. |
+| 3-space zone leaves a space empty under 2-2-2? | Intended. |
+| Do "back"/"front" rules change on a 3-space zone? | Ignore back/front -- an abandoned variant. Spaces will be renotated `H1`, `H2`, ... |
+| Is the coin toss and side choice a real rule? | Real rule, and the trade it creates is deliberate. |
+| Kickoff space | Depends on board size: middle of the board on 7 and 9; on 6, the midfield space nearer the kicking team's goal. |
+| Who rolls in a score attempt? | Two dice total, one per human. Defence adds every intervening meeple's defensive skill. |
+| Score threshold | Attacker total **>=** defence total scores. |
+| What is "disadvantage"? | Roll two d12, take the lower. Fullbacks exempt on own-goal rolls. |
+| Must the challenger be on the ball's exact space? | No -- any player in the ball's zone. Current bot behaviour is correct. |
+| What if no defender is in the ball's zone? | No challenger; the offence's maneuver automatically succeeds. |
+| Ball-speed modifier scope | Steal Intercept only. |
+| Backward low pass | Speed still increases; reaching your own goal does trigger an own-goal attempt. |
+| What is a "scoring opportunity"? | Defined in full -- see the rules file. |
+| Striker's `+3` | Applies to all scoring attempts off a set-up, not just from a high pass. |
+| Coins and Dinkys | Exchange matrix not relevant to D12 Ball for now. Dinky is the currency; the Dinky AI is named for it. More AIs planned. |
+| Is the Dinky AI meant to become a real opponent? | No -- it stays a dice-roller. Other AI opponents may come later. |
+| Is the 72-card "Foolish" deck a D12 Ball component? | No -- another game. |
+| Keep or retire `foolbot.py`'s generic commands? | See section 4. |
 
 ---
 
-## C. Divergences and gaps between code and the written rules
+## 2. Still open from the first round
 
-Not questions for the author so much as work items -- but each should be confirmed as "not
-built yet" rather than "built wrong".
+The author did not reach these.
 
-### C1. Kickoff space looks off by one
+### 2.1 "Conceding team" in the Score/Miss table
 
-`MatchState.standard` places the ball at `Zone.MIDFIELD, space_index=min(1, len-1)`.
+Reads as "the team defending that attempt" in both rows -- on a Score they restart at their
+space 3, on a Miss they take the ball at their space 1 -- but on a miss nobody concedes
+anything. Confirm the reading, or renotate along with the `H1`/`H2` change.
 
-Home attacks left-to-right and low indices are home's end (the same convention the meeple
-placement uses -- fullback at index 0). So the **back of the midfield for home is midfield
-index 0**, and the code uses index 1.
+### 2.2 Halftime exhaustion recovery is 1 or 2
 
-On a 6-board that is the *front* of the midfield -- one space too far forward. On 7 and 9
-(three midfield spaces) index 1 is the exact centre of the board, which is a defensible
-"kickoff from the centre" reading.
+Upstream still says "1 (or 2, TBD)". Needed before halftime can be implemented.
 
-Both upstream sources say back of the midfield: Notion ("space 3 of the home team", "home
-team starts with the possession at the back of the midfield") and the `older Field` tab
-("Back of the Midfield -- Kickoff from here at the start of the game"). So either the rule
-changed for variable boards, or this is a bug. **Ask before changing it** -- the same
-position is reused after a goal.
+### 2.3 "The attacker chooses an offensive action while the defender chooses an offensive action"
 
-### C2. Ball speed modifier lives in the cog, untested
-
-`main` has no speed modifier at all. The unmerged maneuver branch computes
-`modifier = match.ball.speed // 2` inline in `cogs/d12ball.py`.
-
-That formula is **correct** -- it reproduces all twelve rows of the rules table exactly. But
-it is an undocumented magic expression in the Discord layer rather than a table in
-`d12ball/`, and nothing tests it. If the table ever stops being integer division, this
-silently diverges.
-
-### C3. Exhaustion accumulates but does nothing
-
-`add_exhaustion` sums tokens. There is no "exhausted" threshold (tokens > defensive skill),
-no exhaustion check roll, no injured state, and nothing ever puts a player on the
-`back_bench` even though the spreadsheet defines it as where injured players go.
-
-### C4. Substitution has no policy
-
-`MatchState.substitute` performs the swap but enforces none of the rules around it: once per
-half, up to 2 out, opponent may then respond with 1, no re-entry except for injuries, half
-the exhaustion tokens returned on re-entry.
-
-### C5. Not built yet
-
-Score attempts, clock advance, turnover, players-run-back, halftime, the last-possession
-rule, and the extreme shootout. Maneuver *effects* are not mechanized either -- the bot
-reveals the winner and asks them to apply the effect by hand.
+The second "offensive" should be "defensive". Almost certainly the same class of human error
+as the zone/space slips, and the spreadsheet types each maneuver Offense or Defense, so
+nothing is blocked -- but worth fixing at source.
 
 ---
 
-## D. Project questions
+## 3. New questions raised by the answers
 
-- The **AI opponent** ("Dinky AI") now picks maneuvers by rolling a d6 and picks the closest
-  challenger with defensive skill as tie-break. Is it meant to stay a dice-roller, or become
-  a real opponent?
-- `foolbot.py` still carries the original generic `/newdeck`, `/draw`, `/roll`, `/place`,
-  `/move`, `/board` commands over a single global `game_state.json`, untouched by all of
-  this. `/place` and `/move` take unbounded `(x, y)`, which is not the board's coordinate
-  system. Keep as generic playtest helpers, or retire them?
-- The 72-card "Foolish" deck (`SUITS`/`RANKS`, ranks `L` and `R`, a joker-glyph suit) in
-  `foolbot.py` still belongs to no D12 Ball rule. Is it for another game in the setting?
+### 3.1 Does the post-goal restart also move with board size?
+
+The kickoff answer covers the **start of the game**. The same position is reused after a
+goal ("conceding team gains ball in their space 3, back of the midfield") and at the start
+of the second half. Do those follow the same size-dependent rule -- middle of the board on
+7 and 9, nearer space on 6 -- or does only the opening kickoff change?
+
+This matters because it is the difference between one constant and three call sites.
+
+### 3.2 What is the new space notation, exactly?
+
+`H1`, `H2`, ... was mentioned but not spelled out. On a 7- or 9-space board, does each team
+still number from its own end (so home `H1` is the visitors' last space), and is there a
+visitor-side prefix? The engine currently uses one absolute left-to-right index with
+possession stored separately, which sidesteps the question -- but the bot's user-facing
+text will need the real notation.
+
+### 3.3 Scoring opportunity: "last space" or "zone"?
+
+The definition uses both. The trigger requires "at least one player from the offensive team
+in the **last space** closest to the opponent's goal", but the choice is "one of the players
+in the **zone** near the goal". So can a player standing in the goal zone but not on the
+last space take the shot, provided someone else is on the last space?
+
+Also:
+
+- Is the "score to shoot" roll the ordinary score attempt (d12 + offensive skill +
+  ball-speed modifier vs. the defence total), or its own roll?
+- Does the exhaust token land before or after that roll -- i.e. can the exhaustion tip the
+  player over the Exhausted threshold in time to matter for this roll?
+- "Enough movement to reach beyond the last space of the field" -- is the overshoot required,
+  or does landing exactly on the last space also set up an opportunity?
+
+### 3.4 Defender's new ability: "Steals the ball when wins a maneuver with Pressure"
+
+Pressure normally moves player and ball back one space and the defender forward one, with no
+turnover. When a Defender wins with Pressure, does the ball's normal Pressure movement still
+happen and possession additionally flips, or does the steal replace the movement?
+
+If possession flips, does the ball-speed manipulation that Steal Intercept grants come with
+it?
+
+### 3.5 What should `/flip` offer?
+
+All six coins (1 and 3, in bronze/silver/gold), or only the 3-gold the toss uses? Does the
+coin's denomination affect anything, or is it purely cosmetic?
+
+---
+
+## 4. Decisions recorded (not questions)
+
+From the author, for `foolbot.py`'s generic commands:
+
+- **Delete** `/place`, `/move`, `/board`.
+- **Keep** `/newdeck` and `/draw` -- the 72-card deck belongs to another game he wants to
+  develop further. Possibly move to their own file.
+- **Keep** `/roll` as a generic dice roller.
+- **Add** `/flip` -- pick a coin, get a fortune/doom result.
+- Longer term: devices for his other games, including an RPG using a 2d12 system of one doom
+  die and one fortune die.
+
+---
+
+## 5. Implementation gaps
+
+Confirmed as "not built yet" rather than built wrong.
+
+- **Skill tests** (the roll formerly called a clash) and the six **role abilities** -- "not
+  yet but we're getting there".
+- **Exhaustion.** PR #9 grants and displays tokens on ties, but there is still no Exhausted
+  threshold (tokens > defensive skill), no exhaustion check roll, no injured state, and
+  nothing uses the `back_bench` the spreadsheet reserves for injured players.
+- **Substitution policy** -- the swap works; none of the rules around it are enforced.
+- **Score attempts** -- "Shoot to score" still answers "not implemented yet". Now unblocked:
+  two dice, defence sums intervening meeples, `>=` scores.
+- **Not started:** clock advance, turnover, players-run-back, halftime, last possession, the
+  extreme shootout. Maneuver effects are still applied by hand.
+
+### Three code items the answers turn into concrete work
+
+**An unchallenged maneuver should succeed, not stall.** When no defender is in the ball's
+zone, `eligible_challengers()` returns empty and the cog replies "The defending team has no
+player in the ball's zone to challenge" and stops, so the turn cannot proceed. The author's
+answer is that this case has no challenger and the offence's maneuver **automatically
+succeeds**. Note this is simpler than the Notion rule it replaces -- nobody is walked in from
+another zone and no exhaustion is paid.
+
+**Kickoff is wrong on a 6-board.** `MatchState.standard` uses
+`space_index=min(1, len(midfield) - 1)` for every board size. On 7 and 9 that is index 1,
+which is the middle of the board -- correct. On a 6-board the midfield has two spaces and
+index 1 is the one *further* from the kicking team's goal, so the ball starts one space too
+far forward. Home attacks from low indices, so the 6-board case wants index 0.
+
+**Stale player data.** `d12ball/data/players.json` predates two ability changes in the
+spreadsheet -- the Defender's (a confirmed mistake in the old data) and the Striker's. A
+re-import picks both up; the importer already skips the `Backside` rows the sheet has since
+gained. The author also mentioned he may restructure where abilities live in the sheet, so
+this may be worth doing after that.

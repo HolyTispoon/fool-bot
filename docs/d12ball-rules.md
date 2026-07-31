@@ -14,9 +14,11 @@ rules are versioned alongside the code and a session without network access can 
 Re-copy it as its own commit when upstream moves, so each rules change is a reviewable
 diff.
 
-A third body of rules exists only in the author's head -- see
-[rules-open-questions.md](rules-open-questions.md). Several things the code implements are
-in neither source above.
+A third body of rules exists only in the author's head. Some of it was written down for the
+first time in his review of PR #10 and is collected under
+"[Author clarifications](#author-clarifications)" below -- **read that section, because it
+supersedes parts of the transcription that follows.** What is still unanswered is tracked in
+[rules-open-questions.md](rules-open-questions.md).
 
 The upstream page carries this note from the author:
 
@@ -48,6 +50,84 @@ when this file was first written.
 - The spreadsheet's five tabs are `Sheet1` (gid 0, players), `Benches` (884760728),
   `older Field` (1743933596), `maneuvers` (1487033386), `Coins` (36115124). Tabs the code
   imports are `Sheet1` and `maneuvers`.
+
+---
+
+## Author clarifications
+
+Answers given by the author (@HolyTispoon) reviewing
+[PR #10](https://github.com/HolyTispoon/fool-bot/pull/10) on 2026-07-31. **These are rules,
+and where they conflict with the transcription below, these win** -- the transcription is a
+faithful copy of a page that is behind in places. They are kept in their own section so it
+stays obvious which text came from upstream and which came from the author directly.
+
+### Terminology and notation
+
+- **"Clash roll" is renamed "skill test".** Not yet implemented.
+- **Ignore "back" and "front".** They belong to an older variant. The Notion page was
+  written when each zone was two cards; that "proved too confusing" and was abandoned.
+  Spaces will be renotated `H1`, `H2`, ... and the Notion page has not been updated yet.
+- The zone/space confusion throughout the Notion text is "human error", not a distinction.
+
+### Board and setup
+
+- **Board sizes are 6, 7 and 9. 7 is the intended default; 6 is now a variant.**
+- On a 3-space zone the standard 2-2-2 setup deliberately leaves one space empty.
+- **Kickoff depends on board size:**
+  - boards **7 and 9** -- always from the **middle of the board**;
+  - board **6** -- from the midfield space **closer to the goal of the team kicking off**.
+
+### Coin toss
+
+- The coin toss and the winner's choice of home or visiting is a **real rule**, not a bot
+  convenience.
+- The trade it creates is deliberate: home kicks off, visitors receive at halftime, so
+  picking visitor buys the second-half restart.
+
+### Score attempts
+
+- **Exactly two dice are rolled.** Each *human* rolls one d12. The attacking side adds only
+  the shooting player's offensive skill (plus the ball-speed modifier); the defending side
+  adds the defensive skills of **all** its meeples standing between the ball and the goal.
+  The Notion wording implies one roll per defender; it does not work that way.
+- **Attacker total equal to or higher than the defence total scores.**
+
+### Disadvantage
+
+- **Disadvantage means rolling two dice and taking the lower result.** This was never
+  written up in Notion. It applies to own-goal rolls and to injured players.
+- Fullbacks avoid the disadvantage on own-goal rolls. They still have the worst modifier, so
+  they end up "a bit better than 50%" while every other role adds a modifier to a
+  disadvantaged roll. The author notes this may prove too harsh and needs more testing.
+
+### Maneuvers
+
+- The defence may choose **any** player in the ball's zone as the challenger -- not only one
+  standing on the ball's exact space. The current bot behaviour is correct.
+- **If there is no defending player in the ball's zone at all, there is no challenger and
+  the offence's maneuver automatically succeeds.** This replaces the Notion rule about
+  moving a player in from elsewhere and paying exhaustion per space.
+- The ball-speed modifier applies to **Steal Intercept only**.
+- A **backward low pass** still increases ball speed by 1, and if it reaches the passing
+  team's own goal it does trigger an own-goal attempt.
+
+### Scoring opportunities
+
+Quoting the author:
+
+> When a player succeeds in a high pass and the ball has enough movement to reach beyond the
+> last space of the field, and there is at least one player from the offensive team in the
+> last space closest to the opponent's goal, that sets up a scoring opportunity. The human
+> player may choose one of the players in the zone near the goal to gain an exhaust token
+> and do a 'score to shoot' roll to see if they can score a goal.
+
+The striker's `+3` applies to **all** scoring attempts off a set-up -- normally from a high
+pass, but also from a winger's low pass.
+
+### Coins
+
+The `Coins` exchange matrix is **not relevant to D12 Ball for now**. "Dinky" is the currency
+unit and the Dinky AI is named after it; more and different AI opponents are planned.
 
 ---
 
@@ -85,10 +165,12 @@ at the start of the game the home team starts with the possession at the back of
 midfield and after halftime the visitor team starts with possession at the back of the
 midfield.
 
-> The spreadsheet's `older Field` tab independently confirms the kickoff space: its
-> "Back of the Midfield" row is annotated "Kickoff from here at the start of the game".
-> That tab describes the **6-space** field only. The code supports 6, 7 and 9 -- see
-> [rules-open-questions.md](rules-open-questions.md).
+> **Superseded in two ways** -- see [Author clarifications](#author-clarifications).
+> "Back"/"front" belongs to an abandoned variant, and the kickoff space now depends on board
+> size: the middle of the board on 7 and 9, and on a 6-board the midfield space closer to
+> the kicking team's own goal. The paragraph above, and the `older Field` tab's
+> "Kickoff from here at the start of the game" annotation, both describe the 6-space field
+> only.
 
 ### Player setup
 
@@ -137,16 +219,26 @@ ability is the d6 inverse of their offensive ability (i.e. the two numbers sum t
 for example, the better a player is on offense the worse they are on defense and vice
 versa.
 
-Roles, skills and abilities from the spreadsheet's `Sheet1` tab (offense/defense):
+Roles, skills and abilities from the spreadsheet's `Sheet1` tab (offense/defense), re-read
+2026-07-31:
 
 | Role | Off | Def | Ability |
 |---|---|---|---|
 | Fullback | 1 | 6 | No disadvantage on own goal rolls |
-| Defender | 2 | 5 | Can manipulate the ball when stealing |
+| Defender | 2 | 5 | Steals the ball when wins a maneuver with Pressure |
 | Midfielder | 3 | 4 | +3 for dribble/advance |
 | Playmaker | 4 | 3 | +3 for all passes |
 | Winger | 5 | 2 | Can set up a scoring opportunity with a low pass |
-| Striker | 6 | 1 | +3 for scoring off a high pass |
+| Striker | 6 | 1 | +3 for scoring off a set up |
+
+> **`d12ball/data/players.json` is stale against this.** It still carries the Defender's old
+> ability ("Can manipulate the ball when stealing" -- which the author has confirmed was a
+> mistake) and the Striker's old "+3 for scoring off a high pass". Re-run
+> `scripts/import_d12ball_players.py` to pick both up. The importer already skips the
+> `Backside` rows the sheet has gained, so a re-import is safe.
+
+The `+3` abilities are modifiers on the skill test (the roll formerly called a clash). None
+of the six abilities is implemented yet.
 
 There are four teams -- Orange, Teal, Purple and Slime -- of nine players each: one of each
 role on the field plus three on the bench.
@@ -179,6 +271,12 @@ adds their offensive skill modifier (+4 in this case) as well as the Ball's Spee
 this case). If the attacker rolls a higher number that is equal or higher than the defense,
 they score! Otherwise it's a missed attempt.
 
+> **Clarified.** Only **two** dice are rolled in total -- one per human, not one per
+> defender. The attacker adds the shooting player's offensive skill plus the ball-speed
+> modifier; the defender adds the defensive skills of every meeple between the ball and the
+> goal. Attacker total **>=** defence total scores. See
+> [Author clarifications](#author-clarifications).
+
 Time advance: a scoring attempt advances the time by 1 space minute for each space the ball
 has traveled through (including the one from which it originates). In the example above the
 scoring attempt will advance time by 3 space minutes.
@@ -201,6 +299,11 @@ defender must choose one of their other players to challenge the attacker. They 
 token to the space with the ball and the player that had to meet the challenge gains an
 Exhaustion token for each space they had to travel.
 
+> **Superseded.** The defence may pick **any** player in the ball's zone, not only one on
+> the ball's exact space. And if there is no defender in the zone at all, there is **no
+> challenger and the offence's maneuver automatically succeeds** -- nobody is walked in and
+> no exhaustion is paid. See [Author clarifications](#author-clarifications).
+
 **Select a maneuver.** Both players now use their dice to secretly select an action for
 their fielded player to attempt, using their six sided action-selection die. The attacker
 chooses an offensive action while the defender chooses an offensive action [sic -- see
@@ -222,6 +325,8 @@ When a player moves, move their player token an appropriate amount of steps, kee
 on their side of the field.
 
 ### Challenges
+
+> **The "Clash roll" described here is now called a skill test.** Not yet implemented.
 
 When both players choose an action of the same 'rank' (i.e. they both choose a 'rock'), the
 players on the field are now challenges each other. Each of the challenging players adds an
@@ -258,6 +363,9 @@ Two actions of the same rank tie, which is what sends a maneuver to a clash roll
 ### Own goal
 
 Roll with offense skill, disadvantage. Need 7+ to avoid.
+
+> **"Disadvantage" means rolling two d12 and taking the lower result** -- never stated
+> upstream. Fullbacks are exempt from the disadvantage on this roll.
 
 ### Ball's speed
 
@@ -376,8 +484,9 @@ they score and win the game!
 
 ## Coins
 
-The spreadsheet's `Coins` tab defines a currency. Nothing in the rules above references it,
-so what coins are spent on is unknown -- see [rules-open-questions.md](rules-open-questions.md).
+The spreadsheet's `Coins` tab defines a currency. The author has confirmed the exchange
+matrix is **not relevant to D12 Ball for now**; the bot only borrows the coin art for the
+toss.
 
 Coins come in an amount (1 or 3) and a metal (bronze, silver, gold), and are worth a number
 of "Dinkys":
@@ -394,5 +503,10 @@ of "Dinkys":
 Note that 3 Silver (18) is worth more than 1 Gold (12). The tab also carries a pairwise
 exchange matrix consistent with those values.
 
-The bot reuses the coin art for the coin toss, where each coin has a **fortune** face and a
-**doom** face. Those faces are not described in either upstream source.
+Every coin has a **fortune** face and a **doom** face, which is what the coin toss reads --
+fortune wins the flipper the toss, doom hands it to their opponent, and the winner then
+chooses home or visiting. Neither upstream source describes the faces; the toss is confirmed
+a real rule under [Author clarifications](#author-clarifications).
+
+The author also plans a generic `/flip` command and, longer term, an RPG system built on
+2d12 -- one doom die and one fortune die.
