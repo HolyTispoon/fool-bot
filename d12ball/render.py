@@ -1,3 +1,4 @@
+import logging
 from io import BytesIO
 from math import cos, pi, sin
 from pathlib import Path
@@ -45,18 +46,48 @@ ZONE_LABELS = {
 }
 
 
+LOGGER = logging.getLogger(__name__)
+
+# Fonts are bundled rather than looked up by name so that board images render
+# identically everywhere. A bare `ImageFont.truetype("DejaVuSans.ttf", size)`
+# only searches the host's font directories, and no list of bare names can be
+# right on every platform: the same typeface is filed under a different name
+# on each. "Arial Bold.ttf" exists on macOS, Windows calls that file
+# "arialbd.ttf", and Linux ships neither unless DejaVu is installed. When
+# every name misses, Pillow's `load_default()` hands back a built-in face
+# pinned to size 10 that ignores the requested size, so every label on the
+# board silently collapses to the same tiny text.
+FONT_DIR = Path(__file__).resolve().parent / "fonts"
+
+
 def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
-    font_names = (
-        ("DejaVuSans-Bold.ttf", "Arial Bold.ttf")
-        if bold
-        else ("DejaVuSans.ttf", "Arial.ttf")
+    bundled = FONT_DIR / (
+        "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
     )
-    for font_name in font_names:
+    candidates = (
+        str(bundled),
+        "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
+        "Arial Bold.ttf" if bold else "Arial.ttf",
+    )
+    for candidate in candidates:
         try:
-            return ImageFont.truetype(font_name, size)
+            return ImageFont.truetype(candidate, size)
         except OSError:
             continue
-    return ImageFont.load_default()
+
+    LOGGER.warning(
+        "No scalable font found for size %d (bold=%s); falling back to "
+        "Pillow's built-in face. Expected a bundled font at %s.",
+        size,
+        bold,
+        bundled,
+    )
+    try:
+        # Pillow >= 10.1 can scale the built-in face. Without an explicit
+        # size it returns a 10px font no matter what was asked for.
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
 
 
 FONT_TITLE = load_font(44, bold=True)
