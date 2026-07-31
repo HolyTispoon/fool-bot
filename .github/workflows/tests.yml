@@ -1,0 +1,26 @@
+name: tests
+
+# Runs on every pull request, and on pushes straight to main so that a
+# commit that never went through a pull request is still checked.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # 3.13 or newer: requirements.txt pins audioop-lts, which does
+          # not build on earlier versions (audioop is stdlib there).
+          python-version: "3.13"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - run: python -m unittest discover -s tests
