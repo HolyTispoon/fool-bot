@@ -79,6 +79,22 @@ EXHAUST_EMOJI_NAME = "exhaust"
 EXHAUSTED_EMOJI_NAME = "exhausted"
 EXHAUSTED_EMOJI_FALLBACK = "🥵"
 INJURED_EMOJI_FALLBACK = "🤕"
+
+# Team emoji (a letter in a team-colored ring, images/emoji/team_*.png)
+# are looked up by name the same way as the exhaust/exhausted emoji above:
+# they must be uploaded to the server as guild emoji with these names.
+TEAM_EMOJI_NAMES = {
+    Team.ORANGE: "team_orange",
+    Team.TEAL: "team_teal",
+    Team.PURPLE: "team_purple",
+    Team.SLIME: "team_slime",
+}
+TEAM_EMOJI_FALLBACKS = {
+    Team.ORANGE: "🟠",
+    Team.TEAL: "🔵",
+    Team.PURPLE: "🟣",
+    Team.SLIME: "🟢",
+}
 EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
 
 
@@ -96,13 +112,24 @@ def get_exhausted_emoji(client: discord.Client) -> str:
     return EXHAUSTED_EMOJI_FALLBACK
 
 
+def get_team_emoji(client: discord.Client, team: Team) -> str:
+    emoji = discord.utils.get(client.emojis, name=TEAM_EMOJI_NAMES[team])
+    if emoji is not None:
+        return str(emoji)
+    return TEAM_EMOJI_FALLBACKS[team]
+
+
 def format_ai_name(ai_opponent: Optional[AIOpponent]) -> str:
     return AI_OPPONENT_NAMES[ai_opponent or AIOpponent.DINKY]
 
 
-def format_role_bracket(player: PlayerDefinition) -> str:
+def format_role_bracket(
+    player: PlayerDefinition,
+    client: discord.Client,
+) -> str:
     initials = ROLE_INITIALS[player.role.value]
-    return f"{player.name} [{initials}]"
+    team_emoji = get_team_emoji(client, player.team)
+    return f"{team_emoji} {player.name} [{initials}]"
 
 
 def destination_display_name(destination: str) -> str:
@@ -1273,7 +1300,7 @@ class PlayerActionView(SafeView):
             await interaction.response.edit_message(
                 content=(
                     f"**{action_label}** was chosen for "
-                    f"{format_role_bracket(handler)}."
+                    f"{format_role_bracket(handler, interaction.client)}."
                 ),
                 view=None,
             )
@@ -1312,7 +1339,7 @@ class PlayerActionView(SafeView):
         await interaction.response.edit_message(
             content=(
                 f"**{action_label}** was chosen for "
-                f"{format_role_bracket(handler)}.\n\n"
+                f"{format_role_bracket(handler, interaction.client)}.\n\n"
                 "Waiting for the defense to choose a challenger..."
             ),
             view=None,
@@ -1714,10 +1741,10 @@ class SkillTestView(SafeView):
             modifier_note = f" + {modifier} (ball speed modifier)"
 
         breakdown = (
-            f"**{format_role_bracket(offense_player)}** (offense): "
+            f"**{format_role_bracket(offense_player, interaction.client)}** (offense): "
             f"rolled {offense_roll} + {offense_skill} (offensive skill "
             f"modifier) = {offense_total}\n"
-            f"**{format_role_bracket(defense_player)}** (defense): "
+            f"**{format_role_bracket(defense_player, interaction.client)}** (defense): "
             f"rolled {defense_roll} + {defense_skill} (defensive skill "
             f"modifier){modifier_note} = {defense_total}"
         )
@@ -2288,9 +2315,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{reveal}\n\n"
             f"**{offense_name}** ties with **{defense_name}** — skill "
             "test!\n\n"
-            f"{format_role_bracket(offense_player)}: offense skill "
+            f"{format_role_bracket(offense_player, interaction.client)}: offense skill "
             f"{offense_skill}\n"
-            f"{format_role_bracket(defense_player)}: defense skill "
+            f"{format_role_bracket(defense_player, interaction.client)}: defense skill "
             f"{defense_skill}\n\n"
             + self.describe_exhaustion_gain(
                 match, match.active_player_id, 1, interaction.client,
@@ -2345,7 +2372,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         if roll > current_tokens:
             content = (
-                f"{format_role_bracket(player)} is exhausted and rolls "
+                f"{format_role_bracket(player, interaction.client)} is exhausted and rolls "
                 f"an injury test: {roll} beats their {current_tokens} "
                 "exhaustion tokens — safe."
             )
@@ -2355,10 +2382,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
 
             content = (
-                f"{format_role_bracket(player)} is exhausted and rolls "
+                f"{format_role_bracket(player, interaction.client)} is exhausted and rolls "
                 f"an injury test: {roll} does not beat their "
                 f"{current_tokens} exhaustion tokens — injury! "
-                f"{format_role_bracket(player)} now has the condition "
+                f"{format_role_bracket(player, interaction.client)} now has the condition "
                 f"**injured** {INJURED_EMOJI_FALLBACK}."
             )
             await self.refresh_match_image(interaction, game)
@@ -2411,7 +2438,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         total = match.exhaustion.get(player_id, 0)
         token_word = "token" if amount == 1 else "tokens"
         text = (
-            f"{format_role_bracket(player)} gains {amount} exhaustion "
+            f"{format_role_bracket(player, client)} gains {amount} exhaustion "
             f"{token_word} {exhaust_emoji * amount} (now {total} total)."
         )
 
@@ -2419,7 +2446,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if match.mark_exhausted_if_needed(player_id, defense_skill):
             exhausted_emoji = get_exhausted_emoji(client)
             text += (
-                f"\n{format_role_bracket(player)} now has the condition "
+                f"\n{format_role_bracket(player, client)} now has the condition "
                 f"**exhausted** {exhausted_emoji} — {total} exhaustion "
                 f"tokens exceeds their defense skill of {defense_skill}."
             )
@@ -2440,8 +2467,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         announcement = (
             f"{defender_display} has chosen "
-            f"{format_role_bracket(defender)} to challenge "
-            f"{format_role_bracket(handler)} from the other team "
+            f"{format_role_bracket(defender, client)} to challenge "
+            f"{format_role_bracket(handler, client)} from the other team "
             "who is handling the ball."
         )
 
@@ -2536,7 +2563,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
 
             turn_message = await interaction.followup.send(
-                f"{ai_name} has {format_role_bracket(handler)} shoot "
+                f"{ai_name} has {format_role_bracket(handler, interaction.client)} shoot "
                 "to score.",
                 wait=True,
             )
@@ -2550,7 +2577,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
 
             turn_message = await interaction.followup.send(
-                f"{ai_name} has {format_role_bracket(handler)} maneuver, "
+                f"{ai_name} has {format_role_bracket(handler, interaction.client)} maneuver, "
                 "but the defending team has no player in the ball's "
                 "zone to challenge.",
                 wait=True,
@@ -2572,7 +2599,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         challenge_view = ManeuverChallengeView(self, game.game_id)
         challenge_message = await interaction.followup.send(
-            f"{ai_name} has {format_role_bracket(handler)} maneuver to "
+            f"{ai_name} has {format_role_bracket(handler, interaction.client)} maneuver to "
             "keep possession.\n\n"
             f"{defender_mention}, choose which player will maneuver "
             "to challenge for the ball.",
@@ -3042,7 +3069,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.announce_board_update(
             interaction,
             game,
-            f"{format_role_bracket(player)} moved to "
+            f"{format_role_bracket(player, interaction.client)} moved to "
             f"{destination_display_name(destination)}.",
         )
 
@@ -3156,7 +3183,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.announce_board_update(
             interaction,
             game,
-            f"{format_role_bracket(player)} moved to "
+            f"{format_role_bracket(player, interaction.client)} moved to "
             f"{destination_display_name(dest_target)}.",
         )
 
@@ -3241,7 +3268,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.announce_board_update(
             interaction,
             game,
-            f"{format_role_bracket(player)} moved to "
+            f"{format_role_bracket(player, interaction.client)} moved to "
             f"{space_label(zone, space_index)}.",
         )
 
