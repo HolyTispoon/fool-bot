@@ -1,0 +1,138 @@
+# D12 Ball -- rules questions
+
+**As of:** 2026-08-01, against `main` at `8fad2b3` plus open PR #9
+(`claude/import-maneuvers-script`).
+**Companion to:** [d12ball-rules.md](d12ball-rules.md).
+
+Questions that cannot be answered from either upstream source and need the author. Two
+rounds of answers came from his review of
+[PR #10](https://github.com/HolyTispoon/fool-bot/pull/10) on 2026-07-31 and 2026-08-01.
+
+**Almost everything is now answered.** Most answers went into Notion directly and are in the
+transcription; the rest are under
+"[Author clarifications](d12ball-rules.md#author-clarifications)". This file is now mostly a
+work list.
+
+---
+
+## 1. Still open
+
+### 1.1 Is the exhaustion work in PR #9 the intended scope?
+
+The author's answer to "exhaustion accumulates but does nothing" was "yet, it's in my PR"
+(PR #9, `claude/import-maneuvers-script`).
+
+That PR grants an exhaust token to both sides on a tie and renders them with an emoji, but
+it does **not** add the Exhausted threshold (tokens > defensive skill), the injury check
+roll, an injured state, or any use of the `back_bench` the spreadsheet reserves for injured
+players. Worth confirming that accrual is the intended scope of that PR and the Exhausted /
+Injured layer is a later piece, rather than it being assumed done.
+
+### 1.2 Where do role abilities live in the spreadsheet?
+
+The author mentioned wanting to "update the spreadsheet so the ability are found somewhere
+else matching the roles" -- currently the ability is repeated on every player row and the
+importer asserts all players of a role agree. Worth knowing before re-importing, since a
+restructure would change the importer.
+
+---
+
+## 2. Answered
+
+A short index so nothing is re-asked. Detail is in the rules file.
+
+### Written into Notion, now in the transcription
+
+| Question | Where it landed |
+|---|---|
+| Score threshold ("higher number that is equal or higher") | Fixed upstream: "a number that is equal or higher". |
+| "Conceding team" in the Miss row | Rewritten upstream: "team that avoided conceding a goal starts from space closest to their goal". |
+| "The defender chooses an offensive action" | Fixed upstream: "the defender chooses a defensive maneuver". |
+| "zone 4" in the score-attempt example | Fixed upstream to "space 4". |
+| Post-goal restart position | Score row now reads "middle of the midfield or back side of it (in case of board size 6)". |
+| Must the challenger be on the ball's exact space? | Rewritten upstream: same **zone**, walk-in costs one exhaust token per space. |
+| No defender in the zone | Added upstream: no challenger, offence's maneuver automatically succeeds. |
+| What is "disadvantage"? | Own-goal rule expanded upstream to define it: roll two dice, take the lower, then add offensive skill, need 7+. |
+| What is a "scoring opportunity"? | New "Setting a scoring opportunity" section upstream. |
+
+### Answered on the PR, not yet upstream
+
+| Question | Answer |
+|---|---|
+| Board sizes 6/7/9, and 3-space zones leaving a space empty | Yes to both; 7 is the default, 6 a variant. |
+| Kickoff space | Middle of the board on 7 and 9; nearer midfield space on 6. Governs every restart, not just the opening. |
+| Is the coin toss and side choice real? | Real rule; the trade it creates is deliberate. |
+| Space notation | Use the bot's existing scheme -- one clear notation. `H1`/`H2` was floated and dropped. |
+| Who rolls in a score attempt? | Two dice total, one per human; defence sums intervening meeples. |
+| Ball-speed modifier scope | Steal Intercept only. |
+| Backward low pass | Speed still increases; can trigger an own-goal attempt. |
+| Halftime exhaustion recovery | 1. |
+| Scoring opportunity: last space or zone? | Last space. The upstream sentence should read "in the space near the goal". |
+| Is "score to shoot" its own roll? | No -- an ordinary score attempt. |
+| Exhaust token before or after the roll? | After. |
+| Is the overshoot required? | Yes. |
+| Striker's `+3` | All scoring attempts off a set-up, not just from a high pass. |
+| Defender's Pressure-steal | Pressure's normal movement still happens **and** possession flips in addition. |
+| `/flip` scope | All six coins; denomination purely cosmetic. |
+| Coins and Dinkys | Exchange matrix not relevant to D12 Ball for now. More AIs planned. |
+| Dinky AI ambitions | Stays a dice-roller. |
+| The 72-card "Foolish" deck | Belongs to another game. |
+| `foolbot.py`'s generic commands | See section 3. |
+
+---
+
+## 3. Decisions recorded
+
+From the author, for `foolbot.py`'s generic commands:
+
+- **Delete** `/place`, `/move`, `/board`.
+- **Keep** `/newdeck` and `/draw` -- the 72-card deck belongs to another game he wants to
+  develop further. Possibly move to their own file.
+- **Keep** `/roll` as a generic dice roller.
+- **Add** `/flip` -- pick any of the six coins, get a fortune/doom result. Denomination is
+  cosmetic.
+- Longer term: devices for his other games, including an RPG using a 2d12 system of one doom
+  die and one fortune die.
+
+---
+
+## 4. Work the answers unblock
+
+### Code fixes with a confirmed rule behind them
+
+**Kickoff is wrong on a 6-board.** `MatchState.standard` uses
+`space_index=min(1, len(midfield) - 1)` for every board size. On 7 and 9 that is index 1 --
+the middle of the board, correct. On a 6-board the midfield has two spaces and index 1 is
+the one *further* from the kicking team's goal, so the ball starts one space too far
+forward. Home attacks from low indices, so the 6-board case wants index 0.
+
+Since the same rule governs the restart after a goal and at the second half, this wants to
+be one shared helper rather than a literal at each call site.
+
+**An unchallenged maneuver should succeed, not stall.** When no defender is in the ball's
+zone, `eligible_challengers()` returns empty and the cog replies "The defending team has no
+player in the ball's zone to challenge" and stops. The maneuver should automatically
+succeed for the offence.
+
+**Stale player data.** `d12ball/data/players.json` predates two ability changes in the
+spreadsheet -- the Defender's (a confirmed mistake in the old data) and the Striker's. A
+re-import picks both up, and the importer already skips the `Backside` rows the sheet has
+since gained. Gated on 1.2 if the sheet is about to be restructured.
+
+### Newly specified, not yet built
+
+- **Score attempts.** Fully specified now: two dice, defence sums the skills of every meeple
+  between ball and goal, attacker total `>=` defence total scores, ball-speed modifier on
+  the attacker. "Shoot to score" still answers "not implemented yet".
+- **Own goals.** Trigger (a deflected low or high pass), roll (2d12 take lower, add
+  offensive skill, need 7+), and the fullback exemption are all specified.
+- **Scoring opportunities.** Overshoot required, shooter must be in the last space, ordinary
+  score attempt, exhaust token after the roll.
+- **Skill tests** (the roll formerly called a clash) and the six **role abilities** -- the
+  `+3` modifiers apply to the skill test.
+
+### Still unspecified enough to block
+
+- Clock advance, turnover, players-run-back, halftime, last possession, and the extreme
+  shootout are described upstream but not built. Maneuver effects are still applied by hand.
+- Substitution policy -- the swap works; none of the rules around it are enforced.
