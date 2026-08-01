@@ -14,6 +14,7 @@ from d12ball.components import (
     MatchPeriod,
     MatchState,
     PlayerDefinition,
+    TeamSetup,
     TeamSide,
     Zone,
     load_basic_ruleset,
@@ -71,8 +72,9 @@ AI_OPPONENT_NAMES = {
     AIOpponent.DECENT: "Decent AI",
 }
 
-# The exhaustion token emoji is uploaded to Discord (as an application or
-# guild emoji) from images/emoji/exhaust.png and looked up here by name.
+# The exhaustion token emoji is uploaded to the application (via the
+# Developer Portal's "Emojis" tab, from images/emoji/exhaust.png) and
+# looked up here by name using load_condition_emojis below.
 EXHAUST_EMOJI_NAME = "exhaust"
 # Same deal for the "exhausted" condition; "injured" has no upload yet so
 # it just gets a plain fallback emoji.
@@ -81,8 +83,9 @@ EXHAUSTED_EMOJI_FALLBACK = "🥵"
 INJURED_EMOJI_FALLBACK = "🤕"
 
 # Team emoji (a letter in a team-colored ring, images/emoji/team_*.png)
-# are looked up by name the same way as the exhaust/exhausted emoji above:
-# they must be uploaded to the server as guild emoji with these names.
+# are uploaded to the application (Developer Portal "Emojis" tab) and
+# looked up by name the same way as the exhaust/exhausted emoji above,
+# via load_team_emojis below.
 TEAM_EMOJI_NAMES = {
     Team.ORANGE: "team_orange",
     Team.TEAL: "team_teal",
@@ -98,25 +101,101 @@ TEAM_EMOJI_FALLBACKS = {
 EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
 
 
-def get_exhaust_emoji(client: discord.Client) -> str:
-    emoji = discord.utils.get(client.emojis, name=EXHAUST_EMOJI_NAME)
-    if emoji is not None:
-        return str(emoji)
-    return EXHAUST_EMOJI_FALLBACK
+CONDITION_EMOJI_NAMES = {
+    "exhaust": EXHAUST_EMOJI_NAME,
+    "exhausted": EXHAUSTED_EMOJI_NAME,
+}
 
 
-def get_exhausted_emoji(client: discord.Client) -> str:
-    emoji = discord.utils.get(client.emojis, name=EXHAUSTED_EMOJI_NAME)
-    if emoji is not None:
-        return str(emoji)
-    return EXHAUSTED_EMOJI_FALLBACK
+async def load_condition_emojis(
+    bot: commands.Bot,
+) -> dict[str, str]:
+    """
+    Look up the exhaustion-token and exhausted-condition emoji uploaded
+    to the application (the Developer Portal's "Emojis" tab), the same
+    way load_coin_emojis does.
+
+    Application emoji work in every server the bot is in, but unlike
+    guild emoji they are not part of discord.py's `client.emojis`
+    cache, so they have to be fetched explicitly.
+
+    Anything that goes wrong here just leaves a condition out of the
+    mapping and callers fall back to a plain emoji.
+    """
+    try:
+        emojis = await bot.fetch_application_emojis()
+    except Exception as error:
+        print(f"Could not load the D12 Ball condition emoji: {error}")
+        return {}
+
+    emojis_by_name = {emoji.name: emoji for emoji in emojis}
+    condition_emojis: dict[str, str] = {}
+    missing: list[str] = []
+
+    for key, name in CONDITION_EMOJI_NAMES.items():
+        emoji = emojis_by_name.get(name)
+
+        if emoji is None:
+            missing.append(name)
+        else:
+            condition_emojis[key] = str(emoji)
+
+    if missing:
+        print(
+            "This application has no condition emoji named "
+            f"{', '.join(missing)}; those conditions will show their "
+            "fallback emoji instead."
+        )
+
+    return condition_emojis
 
 
-def get_team_emoji(client: discord.Client, team: Team) -> str:
-    emoji = discord.utils.get(client.emojis, name=TEAM_EMOJI_NAMES[team])
-    if emoji is not None:
-        return str(emoji)
-    return TEAM_EMOJI_FALLBACKS[team]
+def get_exhaust_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("exhaust", EXHAUST_EMOJI_FALLBACK)
+
+
+def get_exhausted_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("exhausted", EXHAUSTED_EMOJI_FALLBACK)
+
+
+async def load_team_emojis(
+    bot: commands.Bot,
+) -> dict[Team, str]:
+    """
+    Look up the team-letter emoji uploaded to the application (the
+    Developer Portal's "Emojis" tab), the same way load_coin_emojis
+    and load_condition_emojis do.
+    """
+    try:
+        emojis = await bot.fetch_application_emojis()
+    except Exception as error:
+        print(f"Could not load the D12 Ball team emoji: {error}")
+        return {}
+
+    emojis_by_name = {emoji.name: emoji for emoji in emojis}
+    team_emojis: dict[Team, str] = {}
+    missing: list[str] = []
+
+    for team, name in TEAM_EMOJI_NAMES.items():
+        emoji = emojis_by_name.get(name)
+
+        if emoji is None:
+            missing.append(name)
+        else:
+            team_emojis[team] = str(emoji)
+
+    if missing:
+        print(
+            "This application has no team emoji named "
+            f"{', '.join(missing)}; those teams will show a colored "
+            "circle instead."
+        )
+
+    return team_emojis
+
+
+def get_team_emoji(team_emojis: dict[Team, str], team: Team) -> str:
+    return team_emojis.get(team, TEAM_EMOJI_FALLBACKS[team])
 
 
 def format_ai_name(ai_opponent: Optional[AIOpponent]) -> str:
@@ -125,10 +204,10 @@ def format_ai_name(ai_opponent: Optional[AIOpponent]) -> str:
 
 def format_role_bracket(
     player: PlayerDefinition,
-    client: discord.Client,
+    team_emojis: dict[Team, str],
 ) -> str:
     initials = ROLE_INITIALS[player.role.value]
-    team_emoji = get_team_emoji(client, player.team)
+    team_emoji = get_team_emoji(team_emojis, player.team)
     return f"{team_emoji} {player.name} [{initials}]"
 
 
@@ -1302,13 +1381,12 @@ class PlayerActionView(SafeView):
             await interaction.response.edit_message(
                 content=(
                     f"{offense_display} has chosen to {action_label} with "
-                    f"{format_role_bracket(handler, interaction.client)}."
+                    f"{format_role_bracket(handler, self.cog.team_emojis)}."
                 ),
                 view=None,
             )
             await interaction.followup.send(
                 self.cog.build_challenge_announcement(
-                    interaction.client,
                     game,
                     match,
                     challenger_id,
@@ -1342,7 +1420,7 @@ class PlayerActionView(SafeView):
         await interaction.response.edit_message(
             content=(
                 f"{offense_display} has chosen to {action_label} with "
-                f"{format_role_bracket(handler, interaction.client)}.\n\n"
+                f"{format_role_bracket(handler, self.cog.team_emojis)}.\n\n"
                 "Waiting for the defense to choose a challenger..."
             ),
             view=None,
@@ -1459,7 +1537,6 @@ class ManeuverChallengeView(SafeView):
         defender_display = format_player_with_team(game, defender_number)
 
         announcement = self.cog.build_challenge_announcement(
-            interaction.client,
             game,
             match,
             player_id,
@@ -1744,10 +1821,10 @@ class SkillTestView(SafeView):
             modifier_note = f" + {modifier} (ball speed modifier)"
 
         breakdown = (
-            f"**{format_role_bracket(offense_player, interaction.client)}** (offense): "
+            f"**{format_role_bracket(offense_player, self.cog.team_emojis)}** (offense): "
             f"rolled {offense_roll} + {offense_skill} (offensive skill "
             f"modifier) = {offense_total}\n"
-            f"**{format_role_bracket(defense_player, interaction.client)}** (defense): "
+            f"**{format_role_bracket(defense_player, self.cog.team_emojis)}** (defense): "
             f"rolled {defense_roll} + {defense_skill} (defensive skill "
             f"modifier){modifier_note} = {defense_total}"
         )
@@ -1781,13 +1858,11 @@ class SkillTestView(SafeView):
                         match,
                         match.active_player_id,
                         1,
-                        interaction.client,
                     ),
                     self.cog.describe_exhaustion_gain(
                         match,
                         match.challenger_id,
                         1,
-                        interaction.client,
                     ),
                 ]
             )
@@ -1870,6 +1945,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.maneuver_catalog
         ).read()
         self.coin_emojis: dict[CoinFace, str] = {}
+        self.condition_emojis: dict[str, str] = {}
+        self.team_emojis: dict[Team, str] = {}
         self.ai_strategies = build_ai_strategies(
             self.player_catalog,
             self.maneuver_catalog,
@@ -1945,6 +2022,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     async def cog_load(self) -> None:
         self.coin_emojis = await load_coin_emojis(self.bot)
+        self.condition_emojis = await load_condition_emojis(self.bot)
+        self.team_emojis = await load_team_emojis(self.bot)
 
     async def cog_app_command_error(
         self,
@@ -2318,16 +2397,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{reveal}\n\n"
             f"**{offense_name}** ties with **{defense_name}** — skill "
             "test!\n\n"
-            f"{format_role_bracket(offense_player, interaction.client)}: offense skill "
+            f"{format_role_bracket(offense_player, self.team_emojis)}: offense skill "
             f"{offense_skill}\n"
-            f"{format_role_bracket(defense_player, interaction.client)}: defense skill "
+            f"{format_role_bracket(defense_player, self.team_emojis)}: defense skill "
             f"{defense_skill}\n\n"
             + self.describe_exhaustion_gain(
-                match, match.active_player_id, 1, interaction.client,
+                match, match.active_player_id, 1,
             )
             + "\n"
             + self.describe_exhaustion_gain(
-                match, match.challenger_id, 1, interaction.client,
+                match, match.challenger_id, 1,
             ),
             allowed_mentions=discord.AllowedMentions(
                 users=False,
@@ -2375,7 +2454,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         if roll > current_tokens:
             content = (
-                f"{format_role_bracket(player, interaction.client)} is exhausted and rolls "
+                f"{format_role_bracket(player, self.team_emojis)} is exhausted and rolls "
                 f"an injury test: {roll} beats their {current_tokens} "
                 "exhaustion tokens — safe."
             )
@@ -2385,10 +2464,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
 
             content = (
-                f"{format_role_bracket(player, interaction.client)} is exhausted and rolls "
+                f"{format_role_bracket(player, self.team_emojis)} is exhausted and rolls "
                 f"an injury test: {roll} does not beat their "
                 f"{current_tokens} exhaustion tokens — injury! "
-                f"{format_role_bracket(player, interaction.client)} now has the condition "
+                f"{format_role_bracket(player, self.team_emojis)} now has the condition "
                 f"**injured** {INJURED_EMOJI_FALLBACK}."
             )
             await self.refresh_match_image(interaction, game)
@@ -2429,7 +2508,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         player_id: str,
         amount: int,
-        client: discord.Client,
     ) -> str:
         """
         Text describing an exhaustion-token gain that has already been
@@ -2437,19 +2515,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         it pushes the player's token count past their defense skill.
         """
         player = self.get_player_definition(player_id)
-        exhaust_emoji = get_exhaust_emoji(client)
+        exhaust_emoji = get_exhaust_emoji(self.condition_emojis)
         total = match.exhaustion.get(player_id, 0)
         token_word = "token" if amount == 1 else "tokens"
         text = (
-            f"{format_role_bracket(player, client)} gains {amount} exhaustion "
+            f"{format_role_bracket(player, self.team_emojis)} gains {amount} exhaustion "
             f"{token_word} {exhaust_emoji * amount} (now {total} total)."
         )
 
         defense_skill = self.player_catalog.effective_profile(player).defense
         if match.mark_exhausted_if_needed(player_id, defense_skill):
-            exhausted_emoji = get_exhausted_emoji(client)
+            exhausted_emoji = get_exhausted_emoji(self.condition_emojis)
             text += (
-                f"\n{format_role_bracket(player, client)} now has the condition "
+                f"\n{format_role_bracket(player, self.team_emojis)} now has the condition "
                 f"**exhausted** {exhausted_emoji} — {total} exhaustion "
                 f"tokens exceeds their defense skill of {defense_skill}."
             )
@@ -2457,7 +2535,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     def build_challenge_announcement(
         self,
-        client: discord.Client,
         game: D12BallGame,
         match: MatchState,
         defender_id: str,
@@ -2470,8 +2547,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         announcement = (
             f"{defender_display} has chosen "
-            f"{format_role_bracket(defender, client)} to challenge "
-            f"{format_role_bracket(handler, client)} from the other team "
+            f"{format_role_bracket(defender, self.team_emojis)} to challenge "
+            f"{format_role_bracket(handler, self.team_emojis)} from the other team "
             "who is handling the ball."
         )
 
@@ -2479,7 +2556,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             space_word = "space" if distance == 1 else "spaces"
             announcement += (
                 f"\n\n{defender.name} has moved {distance} {space_word}."
-                f"\n{self.describe_exhaustion_gain(match, defender_id, distance, client)}"
+                f"\n{self.describe_exhaustion_gain(match, defender_id, distance)}"
             )
 
         return announcement
@@ -2515,6 +2592,57 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player = self.get_player_definition(player_id)
         initials = ROLE_INITIALS[player.role.value]
         return f"{player.name} ({player.team.value.title()}, {initials})"
+
+    def format_team_roster_entry(
+        self,
+        match: MatchState,
+        setup: TeamSetup,
+        player_id: str,
+    ) -> str:
+        player = self.get_player_definition(player_id)
+        position = match.board.meeple_position(player_id)
+        if position is not None:
+            zone, space_index = position
+            location = (
+                f"{destination_display_name(zone.value)} "
+                f"({space_label(zone, space_index)})"
+            )
+        elif player_id in setup.player_board.bench:
+            location = destination_display_name("bench")
+        else:
+            location = destination_display_name("back_bench")
+
+        tokens = match.exhaustion.get(player_id, 0)
+        token_word = "token" if tokens == 1 else "tokens"
+
+        conditions = []
+        if player_id in match.exhausted:
+            conditions.append(
+                f"exhausted {get_exhausted_emoji(self.condition_emojis)}"
+            )
+        if player_id in match.injured:
+            conditions.append(f"injured {INJURED_EMOJI_FALLBACK}")
+        condition_text = ", ".join(conditions) if conditions else "healthy"
+
+        return (
+            f"{format_role_bracket(player, self.team_emojis)} — {location} — "
+            f"{tokens} exhaustion {token_word} "
+            f"{get_exhaust_emoji(self.condition_emojis)} — {condition_text}"
+        )
+
+    def build_team_roster_section(
+        self,
+        match: MatchState,
+        setup: TeamSetup,
+    ) -> str:
+        roster = self.player_catalog.teams[setup.team].players
+        lines = [
+            self.format_team_roster_entry(
+                match, setup, player.player_id,
+            )
+            for player in roster
+        ]
+        return f"**{format_team_side_label(setup)}**\n" + "\n".join(lines)
 
     def build_turn_prompt(
         self,
@@ -2567,7 +2695,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
             turn_message = await interaction.followup.send(
                 f"{ai_name} has chosen to shoot to score with "
-                f"{format_role_bracket(handler, interaction.client)}.",
+                f"{format_role_bracket(handler, self.team_emojis)}.",
                 wait=True,
             )
             game.turn_message_id = turn_message.id
@@ -2581,7 +2709,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
             turn_message = await interaction.followup.send(
                 f"{ai_name} has chosen to maneuver with "
-                f"{format_role_bracket(handler, interaction.client)}, "
+                f"{format_role_bracket(handler, self.team_emojis)}, "
                 "but the defending team has no player in the ball's "
                 "zone to challenge.",
                 wait=True,
@@ -2604,7 +2732,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         challenge_view = ManeuverChallengeView(self, game.game_id)
         challenge_message = await interaction.followup.send(
             f"{ai_name} has chosen to maneuver with "
-            f"{format_role_bracket(handler, interaction.client)}.\n\n"
+            f"{format_role_bracket(handler, self.team_emojis)}.\n\n"
             f"{defender_mention}, choose which player will maneuver "
             "to challenge for the ball.",
             view=challenge_view,
@@ -3030,6 +3158,59 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await interaction.followup.send(file=self.build_match_file(game))
 
     @app_commands.command(
+        name="team_roster",
+        description=(
+            "List a team's players, positions, exhaustion, and conditions."
+        ),
+    )
+    @app_commands.describe(
+        all_teams="Show both teams' rosters instead of just your own.",
+    )
+    @app_commands.guild_only()
+    async def team_roster(
+        self,
+        interaction: discord.Interaction,
+        all_teams: bool = False,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        if all_teams:
+            setups = [match.home, match.visiting]
+        else:
+            side = self.side_for_user(game, interaction.user.id)
+            if side is None:
+                await interaction.followup.send(
+                    "You are not one of the players in this game. Use "
+                    "all_teams:true to see both rosters.",
+                    ephemeral=True,
+                )
+                return
+            setups = [match.setup_for_side(side)]
+
+        for setup in setups:
+            await interaction.followup.send(
+                self.build_team_roster_section(match, setup)
+            )
+
+    @app_commands.command(
+        name="maneuver_reference",
+        description=(
+            "Post the maneuver reference image showing all six maneuvers."
+        ),
+    )
+    @app_commands.guild_only()
+    async def maneuver_reference(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        await interaction.response.send_message(
+            file=self.build_maneuver_reference_file(),
+        )
+
+    @app_commands.command(
         name="offensive_choice",
         description=(
             "(Re-)post the ball-handler and shoot/maneuver choice for "
@@ -3114,7 +3295,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.announce_board_update(
             interaction,
             game,
-            f"{format_role_bracket(player, interaction.client)} moved to "
+            f"{format_role_bracket(player, self.team_emojis)} moved to "
             f"{destination_display_name(destination)}.",
         )
 
@@ -3228,7 +3409,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.announce_board_update(
             interaction,
             game,
-            f"{format_role_bracket(player, interaction.client)} moved to "
+            f"{format_role_bracket(player, self.team_emojis)} moved to "
             f"{destination_display_name(dest_target)}.",
         )
 
@@ -3313,7 +3494,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.announce_board_update(
             interaction,
             game,
-            f"{format_role_bracket(player, interaction.client)} moved to "
+            f"{format_role_bracket(player, self.team_emojis)} moved to "
             f"{space_label(zone, space_index)}.",
         )
 
