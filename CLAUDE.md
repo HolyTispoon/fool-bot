@@ -29,6 +29,37 @@ python3 -m unittest discover -s tests
 | `d12ball/fonts/` | Bundled DejaVu — see "Fonts" below |
 | `gamesaves/d12ball/storage.py` | Persistence to `data/d12ball_games.json` |
 | `scripts/` | CLI tools used repeatedly (not one-off scratch work) |
+| `docs/` | The game rules and what is still unanswered about them -- see below |
+
+## The rules
+
+**Read [docs/d12ball-rules.md](docs/d12ball-rules.md) before changing anything that models
+the game.** It is a vendored copy of rules that live in two upstream places, neither
+complete on its own:
+
+- a [Notion page](https://propheticfools.notion.site/D12-Ball-6c9e1ea7ca61825391e881ec5fbfdca5)
+  for the narrative rules. It is a JS app, so a plain fetch returns an empty shell -- render
+  it in a browser to read it.
+- a [Google Sheet](https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw)
+  for component data. The share URL is not fetchable but `export?format=csv&gid=<gid>` is,
+  which is how `scripts/import_d12ball_players.py` works.
+
+The rules are a live prototype and move. Re-copy the file as its own commit when they do, so
+each rules change is a reviewable diff.
+
+Two things about that file matter when editing it:
+
+- Its **Author clarifications** section holds rules the author has stated but not yet written
+  upstream. Keep it separate from the transcription so it stays obvious which text is
+  upstream and which is him.
+- Where the transcription is wrong or superseded, it carries a blockquote callout rather
+  than a silent edit. Don't "correct" the quoted text -- upstream is allowed to be behind.
+
+[docs/rules-open-questions.md](docs/rules-open-questions.md) tracks what is still unanswered
+and the work the answers unblock. **Take rules questions to the author rather than inferring
+them from the code** -- several mechanics exist only in the code, so there a bug and a
+deliberate decision look identical. Asking as inline comments on a docs PR has worked far
+better than asking in chat, and it leaves the answers versioned.
 
 ## Working on the board image
 
