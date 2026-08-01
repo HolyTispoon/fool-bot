@@ -2604,8 +2604,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         challenge_view = ManeuverChallengeView(self, game.game_id)
         challenge_message = await interaction.followup.send(
             f"{ai_name} has chosen to maneuver with "
-            f"{format_role_bracket(handler, interaction.client)} to keep "
-            "possession.\n\n"
+            f"{format_role_bracket(handler, interaction.client)}.\n\n"
             f"{defender_mention}, choose which player will maneuver "
             "to challenge for the ball.",
             view=challenge_view,
