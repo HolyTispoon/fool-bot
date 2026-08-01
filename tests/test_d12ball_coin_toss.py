@@ -7,10 +7,19 @@ import discord
 from cogs.d12ball import (
     COIN_EMOJI_FALLBACK,
     COIN_EMOJI_NAMES,
+    EXHAUST_EMOJI_FALLBACK,
+    EXHAUSTED_EMOJI_FALLBACK,
+    TEAM_EMOJI_FALLBACKS,
+    TEAM_EMOJI_NAMES,
     CoinFlipView,
     build_home_choice_message,
     format_coin_emoji,
+    get_exhaust_emoji,
+    get_exhausted_emoji,
+    get_team_emoji,
     load_coin_emojis,
+    load_condition_emojis,
+    load_team_emojis,
 )
 from d12ball.game import (
     CoinFace,
@@ -306,6 +315,112 @@ class D12BallCoinEmojiTests(unittest.TestCase):
 
         self.assertIn("The coin has been flipped", message)
         self.assertIn("**Player One (Purple) wins the coin toss!**", message)
+
+
+class D12BallConditionEmojiTests(unittest.TestCase):
+    def test_application_emoji_are_looked_up_by_name(self) -> None:
+        bot = FakeBot(
+            [
+                discord.PartialEmoji(name="exhaust", id=100),
+                discord.PartialEmoji(name="exhausted", id=101),
+                discord.PartialEmoji(
+                    name="3_gold_fortune",
+                    id=FORTUNE_EMOJI_ID,
+                ),
+            ]
+        )
+
+        condition_emojis = asyncio.run(load_condition_emojis(bot))
+
+        self.assertEqual(
+            condition_emojis,
+            {"exhaust": "<:exhaust:100>", "exhausted": "<:exhausted:101>"},
+        )
+
+    def test_an_application_without_the_emoji_is_not_an_error(self) -> None:
+        condition_emojis = asyncio.run(load_condition_emojis(FakeBot([])))
+
+        self.assertEqual(condition_emojis, {})
+
+    def test_a_failed_lookup_is_not_an_error(self) -> None:
+        bot = FakeBot(error=discord.DiscordException("no application id"))
+
+        self.assertEqual(asyncio.run(load_condition_emojis(bot)), {})
+
+    def test_missing_conditions_fall_back_to_a_plain_emoji(self) -> None:
+        self.assertEqual(get_exhaust_emoji({}), EXHAUST_EMOJI_FALLBACK)
+        self.assertEqual(get_exhausted_emoji({}), EXHAUSTED_EMOJI_FALLBACK)
+
+    def test_resolved_conditions_use_the_application_emoji(self) -> None:
+        condition_emojis = {
+            "exhaust": "<:exhaust:100>",
+            "exhausted": "<:exhausted:101>",
+        }
+
+        self.assertEqual(
+            get_exhaust_emoji(condition_emojis), "<:exhaust:100>",
+        )
+        self.assertEqual(
+            get_exhausted_emoji(condition_emojis), "<:exhausted:101>",
+        )
+
+
+class D12BallTeamEmojiTests(unittest.TestCase):
+    def test_every_team_has_an_emoji_name(self) -> None:
+        self.assertEqual(set(TEAM_EMOJI_NAMES), set(Team))
+
+    def test_application_emoji_are_looked_up_by_name(self) -> None:
+        # Regression test: these are uploaded via the Developer Portal's
+        # "Emojis" tab, which makes them application emoji, not guild
+        # emoji -- they must come from fetch_application_emojis(), not
+        # from a guild's emoji cache. FakeBot only implements the
+        # former, so this would fail if the lookup ever went back to
+        # reading a guild emoji cache instead.
+        bot = FakeBot(
+            [
+                discord.PartialEmoji(name="team_purple", id=100),
+                discord.PartialEmoji(name="team_orange", id=101),
+                discord.PartialEmoji(name="team_teal", id=102),
+                discord.PartialEmoji(name="team_slime", id=103),
+            ]
+        )
+
+        team_emojis = asyncio.run(load_team_emojis(bot))
+
+        self.assertEqual(
+            team_emojis,
+            {
+                Team.PURPLE: "<:team_purple:100>",
+                Team.ORANGE: "<:team_orange:101>",
+                Team.TEAL: "<:team_teal:102>",
+                Team.SLIME: "<:team_slime:103>",
+            },
+        )
+
+    def test_an_application_without_the_emoji_is_not_an_error(self) -> None:
+        team_emojis = asyncio.run(load_team_emojis(FakeBot([])))
+
+        self.assertEqual(team_emojis, {})
+
+    def test_a_failed_lookup_is_not_an_error(self) -> None:
+        bot = FakeBot(error=discord.DiscordException("no application id"))
+
+        self.assertEqual(asyncio.run(load_team_emojis(bot)), {})
+
+    def test_missing_teams_fall_back_to_a_colored_circle(self) -> None:
+        for team in Team:
+            with self.subTest(team=team):
+                self.assertEqual(
+                    get_team_emoji({}, team),
+                    TEAM_EMOJI_FALLBACKS[team],
+                )
+
+    def test_resolved_teams_use_the_application_emoji(self) -> None:
+        team_emojis = {Team.PURPLE: "<:team_purple:100>"}
+
+        self.assertEqual(
+            get_team_emoji(team_emojis, Team.PURPLE), "<:team_purple:100>",
+        )
 
 
 if __name__ == "__main__":
