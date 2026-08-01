@@ -1346,11 +1346,24 @@ class PlayerActionView(SafeView):
             )
             return
 
-        if action != "maneuver":
-            await interaction.response.send_message(
-                f"{action_label} is not implemented yet.",
-                ephemeral=True,
+        if action == "shoot":
+            match.pending_action = "shoot"
+            game.match_state = match.to_dict()
+            save_games(self.cog.games)
+
+            refresh_player_names(game, interaction.guild)
+            handler = self.cog.get_player_definition(match.active_player_id)
+            offense_number = self.cog.possession_player_number(game, match)
+            offense_display = format_player_with_team(game, offense_number)
+
+            await interaction.response.edit_message(
+                content=(
+                    f"{offense_display} has chosen to {action_label} with "
+                    f"{format_role_bracket(handler, self.cog.team_emojis)}."
+                ),
+                view=None,
             )
+            await self.cog.begin_score_attempt(interaction, game, match)
             return
 
         eligible_challengers = match.eligible_challengers()
@@ -1925,6 +1938,141 @@ class SkillTestView(SafeView):
             await self.cog.run_injury_test(interaction, game, match, player)
 
 
+class ScoreAttemptView(SafeView):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+    ):
+        super().__init__(timeout=None)
+
+        self.cog = cog
+        self.game_id = game_id
+
+        button = discord.ui.Button(
+            label="Roll the score attempt",
+            style=discord.ButtonStyle.danger,
+            custom_id=f"d12ball:score_attempt:{game_id}",
+        )
+        button.callback = self.roll
+        self.add_item(button)
+
+    async def roll(self, interaction: discord.Interaction) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+        if match.pending_action != "shoot" or match.active_player_id is None:
+            await interaction.response.send_message(
+                "This score attempt is no longer active.",
+                ephemeral=True,
+            )
+            return
+
+        participant_ids = {game.player_1_id}
+        if game.player_2_id is not None:
+            participant_ids.add(game.player_2_id)
+
+        if interaction.user.id not in participant_ids:
+            await interaction.response.send_message(
+                "Only a player in this game can roll the score attempt.",
+                ephemeral=True,
+            )
+            return
+
+        shooter = self.cog.get_player_definition(match.active_player_id)
+        offense_skill = self.cog.player_catalog.effective_profile(
+            shooter,
+        ).offense
+        speed_modifier = match.ball.speed // 2
+        defenders = self.cog.intervening_defenders(match)
+        defense_skill_total = sum(skill for _, skill in defenders)
+
+        attacking_setup = match.setup_for_side(match.ball.possession)
+        defending_setup = match.setup_for_side(match.defending_side())
+
+        # Two dice, one per human: the attacker adds the shooting
+        # player's offensive skill and the ball-speed modifier, the
+        # defence adds the defensive skill of every meeple in the way.
+        attack_roll = random.randint(1, 12)
+        defense_roll = random.randint(1, 12)
+        attack_total = attack_roll + offense_skill + speed_modifier
+        defense_total = defense_roll + defense_skill_total
+
+        speed_note = ""
+        if speed_modifier:
+            speed_note = f" + {speed_modifier} (ball speed modifier)"
+        defense_source = (
+            f"{defense_skill_total} (defensive skill in the way)"
+            if defenders
+            else "0 (nobody in the way)"
+        )
+        breakdown = (
+            f"**{format_role_bracket(shooter, self.cog.team_emojis)}** "
+            f"(attack): rolled {attack_roll} + {offense_skill} (offensive "
+            f"skill modifier){speed_note} = {attack_total}\n"
+            f"**{format_team_side_label(defending_setup)}** (defense): "
+            f"rolled {defense_roll} + {defense_source} = {defense_total}"
+        )
+        dice_file = discord.File(
+            render_dice_row(
+                [
+                    (
+                        attack_roll,
+                        TEAM_COLORS[attacking_setup.team],
+                        attacking_setup.team.value.title(),
+                    ),
+                    (
+                        defense_roll,
+                        TEAM_COLORS[defending_setup.team],
+                        defending_setup.team.value.title(),
+                    ),
+                ]
+            ),
+            filename="score_attempt_dice.png",
+        )
+
+        scored = attack_total >= defense_total
+        if scored:
+            match.award_goal()
+            verdict = (
+                f"**GOAL!** "
+                f"{format_role_bracket(shooter, self.cog.team_emojis)} scores "
+                f"for {format_team_side_label(attacking_setup)}!\n"
+                f"{match.home.team.value.title()} "
+                f"{match.scoreboard.home_score}:"
+                f"{match.scoreboard.visiting_score} "
+                f"{match.visiting.team.value.title()}"
+            )
+        else:
+            verdict = (
+                "**Missed attempt.** "
+                f"{format_team_side_label(defending_setup)} keeps the goal "
+                "intact."
+            )
+        cleanup = self.cog.build_score_attempt_cleanup(match, scored)
+
+        # A plain score attempt costs no exhaustion and owes no injury
+        # check: the author has confirmed only a shot taken off a set-up
+        # gains a token, and injury checks stay exclusive to skill
+        # tests. Set-ups are not built yet, so nothing accrues here.
+        match.reset_maneuver()
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        await interaction.response.edit_message(
+            content=f"{breakdown}\n\n{verdict}\n\n{cleanup}",
+            attachments=[dice_file],
+            view=None,
+        )
+        await self.cog.refresh_match_image(interaction, game)
+
+
 class D12Ball(commands.GroupCog, group_name="d12ball"):
     ball_group = app_commands.Group(
         name="ball",
@@ -1986,6 +2134,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 match = self.load_match_state(game)
                 if match.active_player_id is None:
                     turn_view = BallHandlerSelectionView(self, game.game_id)
+                elif match.pending_action == "shoot":
+                    turn_view = ScoreAttemptView(self, game.game_id)
                 elif (
                     match.pending_action == "maneuver"
                     and match.challenger_id is None
@@ -2250,6 +2400,137 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return discord.File(
             io.BytesIO(self.maneuver_reference_image_bytes),
             filename="maneuver_reference.png",
+        )
+
+    def intervening_defenders(
+        self,
+        match: MatchState,
+    ) -> list[tuple[PlayerDefinition, int]]:
+        """
+        Every defending player between the ball and the goal it is being
+        shot at, each paired with the defensive skill they add to the
+        defence's side of a score attempt.
+        """
+        defenders = []
+        for player_id in match.defenders_between_ball_and_goal():
+            player = self.get_player_definition(player_id)
+            defense = self.player_catalog.effective_profile(player).defense
+            defenders.append((player, defense))
+        return defenders
+
+    async def begin_score_attempt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Post what the score attempt is made of, then the roll prompt.
+        The composition is a permanent message of its own so the numbers
+        that fed the roll survive the prompt being edited into a result.
+        """
+        shooter = self.get_player_definition(match.active_player_id)
+        offense_skill = self.player_catalog.effective_profile(
+            shooter,
+        ).offense
+        speed_modifier = match.ball.speed // 2
+        defenders = self.intervening_defenders(match)
+        defense_skill_total = sum(skill for _, skill in defenders)
+        defending_setup = match.setup_for_side(match.defending_side())
+
+        attack_line = f"offensive skill {offense_skill}"
+        if speed_modifier:
+            attack_line += (
+                f", plus {speed_modifier} for a ball speed of "
+                f"{match.ball.speed}"
+            )
+
+        if defenders:
+            defense_line = (
+                ", ".join(
+                    f"{format_role_bracket(player, self.team_emojis)} "
+                    f"{skill}"
+                    for player, skill in defenders
+                )
+                + f" -- {defense_skill_total} in total"
+            )
+        else:
+            defense_line = (
+                "nobody is in the way, so the defence rolls a bare d12"
+            )
+
+        await interaction.followup.send(
+            "**Score attempt** -- "
+            f"{format_role_bracket(shooter, self.team_emojis)} shoots from "
+            f"{space_label(match.ball.zone, match.ball.space_index)} at the "
+            f"{format_team_side_label(defending_setup)} goal.\n\n"
+            f"Attack: {attack_line}\n"
+            f"Defence: {defense_line}\n\n"
+            "Both sides roll one d12. The attacker scores on a total equal "
+            "to or higher than the defence.",
+            allowed_mentions=discord.AllowedMentions(
+                users=False,
+                roles=False,
+                everyone=False,
+            ),
+        )
+
+        prompt_message = await interaction.followup.send(
+            "Either player can roll:",
+            view=ScoreAttemptView(self, game.game_id),
+            wait=True,
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
+
+    def build_score_attempt_cleanup(
+        self,
+        match: MatchState,
+        scored: bool,
+    ) -> str:
+        """
+        The cleanup a resolved score attempt still calls for, as
+        instructions rather than state changes. A goal itself is applied
+        -- it is a bare increment with no threshold behind it -- but the
+        clock advance wants deciding for maneuvers at the same time, and
+        the restart is gated on the run back, so those stay with the
+        players. Maneuver effects are hand-applied the same way.
+        """
+        defending_setup = match.setup_for_side(match.defending_side())
+        space_minutes = match.spaces_to_goal()
+        minute_word = "minute" if space_minutes == 1 else "minutes"
+
+        steps = [
+            f"The clock advances {space_minutes} space {minute_word} "
+            "-- `/d12ball time`"
+        ]
+
+        if scored:
+            # The restart space follows the same board-size rule as the
+            # kickoff: the middle of the board on 7 and 9, and on a
+            # 6-board the midfield space nearer the restarting team's
+            # own goal.
+            if match.board.layout.board_size == 6:
+                restart = "on the midfield space nearer their own goal"
+            else:
+                restart = "in the middle of the board"
+        else:
+            restart = "on the space closest to their own goal"
+        steps.append(
+            f"Turnover to {format_team_side_label(defending_setup)}, "
+            f"restarting with the ball {restart} "
+            "-- `/d12ball ball move`"
+        )
+        steps.append(
+            "Players run back to their assigned zones, no more than one "
+            "per space per team, gaining one exhaust token per space "
+            "traveled -- `/d12ball meeple move`"
+        )
+
+        return (
+            "Cleanup -- apply by hand:\n"
+            + "\n".join(f"- {step}" for step in steps)
+            + "\n\nThen `/d12ball offensive_choice` for the next turn."
         )
 
     async def begin_maneuver_action_selection(
@@ -2695,13 +2976,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.match_state = match.to_dict()
             save_games(self.games)
 
-            turn_message = await interaction.followup.send(
+            await interaction.followup.send(
                 f"{ai_name} has chosen to shoot to score with "
                 f"{format_role_bracket(handler, self.team_emojis)}.",
-                wait=True,
             )
-            game.turn_message_id = turn_message.id
-            save_games(self.games)
+            await self.begin_score_attempt(interaction, game, match)
             return
 
         eligible_challengers = match.eligible_challengers()
@@ -3237,13 +3516,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        # A ball handler or a shoot/maneuver choice may already be
-        # recorded from a prior offensive choice whose effect was never
-        # resolved into a state change (e.g. an uncontested maneuver, or
-        # a shoot, which has no automatic resolution yet). Nothing else
-        # advances the match to its next turn, so this command always
-        # starts fresh: clear that stale choice and re-derive the ball
-        # handler from the board's current occupancy.
+        if match.pending_action == "shoot":
+            await interaction.followup.send(
+                "A score attempt is already in progress for this turn.",
+                ephemeral=True,
+            )
+            return
+
+        # A ball handler or a maneuver choice may already be recorded
+        # from a prior offensive choice whose effect was never resolved
+        # into a state change (e.g. an uncontested maneuver). Nothing
+        # else advances the match to its next turn, so this command
+        # always starts fresh: clear that stale choice and re-derive the
+        # ball handler from the board's current occupancy.
         match.reset_maneuver()
         game.match_state = match.to_dict()
         save_games(self.games)

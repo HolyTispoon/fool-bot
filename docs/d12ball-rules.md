@@ -72,7 +72,8 @@ added at this point, having been unreachable when the file was first written.
 ## Author clarifications
 
 Answers given by the author (@HolyTispoon) reviewing
-[PR #10](https://github.com/HolyTispoon/fool-bot/pull/10), 2026-07-31 and 2026-08-01.
+[PR #10](https://github.com/HolyTispoon/fool-bot/pull/10) on 2026-07-31 and 2026-08-01,
+plus answers he gave directly while the shoot-to-score work was being scoped, 2026-08-01.
 **These are rules, and where they conflict with the transcription below, these win** -- the
 transcription is a faithful copy of a page that is behind in places. They are kept in their
 own section so it stays obvious which text came from upstream and which came from the
@@ -116,6 +117,10 @@ transcription itself. What remains below is what upstream still does not say.
   the shooting player's offensive skill (plus the ball-speed modifier); the defending side
   adds the defensive skills of **all** its meeples standing between the ball and the goal.
   The Notion wording still implies one roll per defender; it does not work that way.
+- **A plain score attempt costs no exhaustion at all** -- not the shooter, not the defenders
+  in the way. Only a shot taken off a set-up gains a token, and only the shooter gains it,
+  after the roll. The rules grant a token to players "involved in a challenge" and the score
+  attempt section calls itself a challenge, but that wording does not reach this roll.
 
 ### Maneuvers
 
@@ -129,6 +134,19 @@ transcription itself. What remains below is what upstream still does not say.
 ### Exhaustion
 
 - Halftime recovery is **1** token. Upstream still says "1 (or 2, TBD)".
+- **The injury check belongs to skill tests only.** Taking part in a score attempt never
+  triggers one, however exhausted the players involved are.
+
+### Running back
+
+- Run-back exhaustion is **one token per space traveled** -- the same rate a challenger pays
+  walking in to a maneuver.
+- The coach **chooses** which space in the assigned zone each player runs back to, so long as
+  there is at most one player per space once the run back is done. Where a zone has more
+  spaces than players assigned to it that is a real choice; where the counts match it is
+  forced.
+- That one-per-space limit is **per team.** Opposing meeples still share a space, the way they
+  do at setup, so it only ever constrains a team against its own players.
 
 ### Coins
 
