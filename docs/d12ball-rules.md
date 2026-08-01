@@ -1,6 +1,6 @@
 # D12 Ball -- rules
 
-**Retrieved:** 2026-07-31 (first copied 2026-07-25)
+**Retrieved:** 2026-08-01 (first copied 2026-07-25)
 
 D12 Ball's rules live in **two** upstream places, and neither one is complete on its own:
 
@@ -26,17 +26,33 @@ The upstream page carries this note from the author:
 > humans who play the game as 'players' as well as the fictional characters on the field
 > of play as 'players'. This ambiguity will be cleared up once proper terminology is picked.
 
-### Changes since the 2026-07-25 copy
+### Changelog
 
-The Notion page moved very little. Only two action effects changed:
+**2026-08-01.** The author pushed most of his PR #10 answers into Notion. Changed upstream:
 
-- **Low Pass** was "Ball moves forward 1-2 spaces"; it is now "Ball moves 1-2 spaces
-  **forward or backward**".
-- **Block Deflect** gained "**Ball speed decreases by 1.**"
+- The score-attempt example says "space 4", not "zone 4", and the threshold now reads "if
+  the attacker rolls a number that is equal or higher than the defense" -- the
+  self-contradictory "a higher number that is equal or higher" is gone.
+- Both rows of the Score/Miss table were rewritten. The restart after a goal is now
+  explicitly board-size dependent, and the "conceding team" wording on a miss is replaced
+  by "team that avoided conceding a goal".
+- "Determine players" now says the challenger comes from the same **zone**, spells out the
+  walk-in and exhaust cost, and adds the no-challenger case.
+- "The attacker chooses an offensive maneuver while the defender chooses a **defensive**
+  maneuver" -- the long-standing offensive/offensive typo is fixed.
+- **Own goal** is expanded from one line into a full rule that defines *disadvantage*.
+- A new **Setting a scoring opportunity** section was added.
+- "exhaustion token" is drifting to "exhaust token" throughout.
 
-Everything else on the page is unchanged, including all of its ambiguities. The
-significant new material in this file is the spreadsheet data, which was not reachable
-when this file was first written.
+Still stale upstream: the setup section's 12-cards / 6-field-cards / two-spaces-per-zone
+model and its back/front paragraph, "Place the ball ... on the space 3 of the home team",
+the Cleanup section's "restarts from the middle (back of the midfield)", the "1 (or 2, TBD)"
+halftime recovery, and "Clash" for what is now called a skill test. Those are covered under
+[Author clarifications](#author-clarifications).
+
+**2026-07-31.** Two action effects changed: **Low Pass** gained "forward **or backward**",
+**Block Deflect** gained "Ball speed decreases by 1." The spreadsheet data in this file was
+added at this point, having been unreachable when the file was first written.
 
 ### About this transcription
 
@@ -56,31 +72,41 @@ when this file was first written.
 ## Author clarifications
 
 Answers given by the author (@HolyTispoon) reviewing
-[PR #10](https://github.com/HolyTispoon/fool-bot/pull/10) on 2026-07-31. **These are rules,
-and where they conflict with the transcription below, these win** -- the transcription is a
-faithful copy of a page that is behind in places. They are kept in their own section so it
-stays obvious which text came from upstream and which came from the author directly.
+[PR #10](https://github.com/HolyTispoon/fool-bot/pull/10), 2026-07-31 and 2026-08-01.
+**These are rules, and where they conflict with the transcription below, these win** -- the
+transcription is a faithful copy of a page that is behind in places. They are kept in their
+own section so it stays obvious which text came from upstream and which came from the
+author directly.
+
+Answers he has since written into Notion are **not** repeated here -- they now live in the
+transcription itself. What remains below is what upstream still does not say.
 
 ### Terminology and notation
 
-- **"Clash roll" is renamed "skill test".** Not yet implemented.
+- **"Clash roll" is renamed "skill test".** Not yet implemented. Upstream still says clash.
 - **Ignore "back" and "front".** They belong to an older variant. The Notion page was
-  written when each zone was two cards; that "proved too confusing" and was abandoned.
-  Spaces will be renotated `H1`, `H2`, ... and the Notion page has not been updated yet.
-- The zone/space confusion throughout the Notion text is "human error", not a distinction.
+  written when each zone was two cards; that "proved too confusing" and was abandoned. The
+  setup section still describes that older model.
+- On space notation: "use it the way the bot currently uses it with one clear notation" --
+  i.e. the engine's single absolute left-to-right index, with possession tracked separately,
+  is the notation to standardise on. `H1`/`H2` was floated but the bot's scheme wins.
+- The zone/space confusion elsewhere in the Notion text is "human error", not a distinction.
 
 ### Board and setup
 
-- **Board sizes are 6, 7 and 9. 7 is the intended default; 6 is now a variant.**
+- **Board sizes are 6, 7 and 9. 7 is the intended default; 6 is now a variant.** The setup
+  section still describes a fixed 12-card, 6-space field.
 - On a 3-space zone the standard 2-2-2 setup deliberately leaves one space empty.
-- **Kickoff depends on board size:**
-  - boards **7 and 9** -- always from the **middle of the board**;
-  - board **6** -- from the midfield space **closer to the goal of the team kicking off**.
+- **Kickoff depends on board size:** boards **7 and 9** start from the **middle of the
+  board**; board **6** starts from the midfield space **closer to the kicking team's goal**.
+- **The same rule governs every restart** -- after a goal and at the start of the second
+  half, not just the opening kickoff. The Score row of the Score/Miss table now says this;
+  the setup section and the Cleanup section still say "back of the midfield".
 
 ### Coin toss
 
 - The coin toss and the winner's choice of home or visiting is a **real rule**, not a bot
-  convenience.
+  convenience. Upstream still says home is randomly assigned.
 - The trade it creates is deliberate: home kicks off, visitors receive at halftime, so
   picking visitor buys the second-half restart.
 
@@ -89,45 +115,28 @@ stays obvious which text came from upstream and which came from the author direc
 - **Exactly two dice are rolled.** Each *human* rolls one d12. The attacking side adds only
   the shooting player's offensive skill (plus the ball-speed modifier); the defending side
   adds the defensive skills of **all** its meeples standing between the ball and the goal.
-  The Notion wording implies one roll per defender; it does not work that way.
-- **Attacker total equal to or higher than the defence total scores.**
-
-### Disadvantage
-
-- **Disadvantage means rolling two dice and taking the lower result.** This was never
-  written up in Notion. It applies to own-goal rolls and to injured players.
-- Fullbacks avoid the disadvantage on own-goal rolls. They still have the worst modifier, so
-  they end up "a bit better than 50%" while every other role adds a modifier to a
-  disadvantaged roll. The author notes this may prove too harsh and needs more testing.
+  The Notion wording still implies one roll per defender; it does not work that way.
 
 ### Maneuvers
 
-- The defence may choose **any** player in the ball's zone as the challenger -- not only one
-  standing on the ball's exact space. The current bot behaviour is correct.
-- **If there is no defending player in the ball's zone at all, there is no challenger and
-  the offence's maneuver automatically succeeds.** This replaces the Notion rule about
-  moving a player in from elsewhere and paying exhaustion per space.
 - The ball-speed modifier applies to **Steal Intercept only**.
 - A **backward low pass** still increases ball speed by 1, and if it reaches the passing
   team's own goal it does trigger an own-goal attempt.
+- **Defender role ability, "Steals the ball when wins a maneuver with Pressure":** Pressure's
+  normal effect still happens -- player and ball go back one space, the defender moves one
+  forward -- **and** possession flips in addition.
 
-### Scoring opportunities
+### Exhaustion
 
-Quoting the author:
-
-> When a player succeeds in a high pass and the ball has enough movement to reach beyond the
-> last space of the field, and there is at least one player from the offensive team in the
-> last space closest to the opponent's goal, that sets up a scoring opportunity. The human
-> player may choose one of the players in the zone near the goal to gain an exhaust token
-> and do a 'score to shoot' roll to see if they can score a goal.
-
-The striker's `+3` applies to **all** scoring attempts off a set-up -- normally from a high
-pass, but also from a winger's low pass.
+- Halftime recovery is **1** token. Upstream still says "1 (or 2, TBD)".
 
 ### Coins
 
 The `Coins` exchange matrix is **not relevant to D12 Ball for now**. "Dinky" is the currency
 unit and the Dinky AI is named after it; more and different AI opponents are planned.
+
+The planned `/flip` command should offer **all six coins**, and the denomination is purely
+cosmetic in that context.
 
 ---
 
@@ -263,18 +272,17 @@ resolved.
 
 If the player in possession is attending to score, they have to roll a challenge vs. all
 the opposing players between them and the goal (including any on their own space). For
-example, if the home team playmaker 4/3 attempting to score from zone 4 of the home team,
+example, if the home team playmaker 4/3 attempting to score from space 4 of the home team,
 they have to roll a challenge vs. visitors players in visitor spaces 1-3, in the picture
 above: 2/5, 5/2, 1/6. To roll a challenge, each player rolls a d12. The attacking player
 adds their offensive skill modifier (+4 in this case) as well as the Ball's Speed modifier
 (see below, Ball's speed), while all defending players add their defensive skill (5+2+6 in
-this case). If the attacker rolls a higher number that is equal or higher than the defense,
-they score! Otherwise it's a missed attempt.
+this case). If the attacker rolls a number that is equal or higher than the defense, they
+score! Otherwise it's a missed attempt.
 
-> **Clarified.** Only **two** dice are rolled in total -- one per human, not one per
-> defender. The attacker adds the shooting player's offensive skill plus the ball-speed
-> modifier; the defender adds the defensive skills of every meeple between the ball and the
-> goal. Attacker total **>=** defence total scores. See
+> **Still ambiguous upstream:** "each player rolls a d12" reads as one roll per defender.
+> Only **two** dice are rolled in total, one per human. The defender rolls once and adds
+> the defensive skills of every meeple between the ball and the goal. See
 > [Author clarifications](#author-clarifications).
 
 Time advance: a scoring attempt advances the time by 1 space minute for each space the ball
@@ -283,8 +291,8 @@ scoring attempt will advance time by 3 space minutes.
 
 | | Time | Cleanup |
 |---|---|---|
-| Score | Spaces the ball traveled | Score tracker up 1; turnover; conceding team gains ball in their space 3 (back of the midfield) |
-| Miss | Spaces the ball traveled | Turnover; conceding team starts from zone 1 (back of their Goal zone) |
+| Score | Spaces the ball traveled | Score tracker up 1; turnover; conceding team gains ball in the middle of the midfield or back side of it (in case of board size 6) |
+| Miss | Spaces the ball traveled | Turnover; team that avoided conceding a goal starts from space closest to their goal |
 
 ### Maneuver
 
@@ -293,22 +301,23 @@ time), they maneuver which goes through the following steps.
 
 **Determine players.** The player with possession picks a player to attempt a maneuver,
 which has to be a player in the same space the ball (there would often be only one option).
-Then, the player must pick a player in the same space to challenge the attacker (there
-would often be only one choice). In the case where there are no players in the zone, the
-defender must choose one of their other players to challenge the attacker. They move that
-token to the space with the ball and the player that had to meet the challenge gains an
-Exhaustion token for each space they had to travel.
+Then, the player must pick a player in the same zone to challenge the attacker. If they pick
+a player that isn't in the same space as the attacker that is handling the ball, that player
+then moves to the appropriate space and gains an exhaust token for every space they had to
+move. They move that token to the space with the ball and the player that had to meet the
+challenge gains an Exhaust token for each space they had to travel. in the rare case that
+there is no player in the zone, there is no challenger and the offense's maneuver
+automatically succeeds.
 
-> **Superseded.** The defence may pick **any** player in the ball's zone, not only one on
-> the ball's exact space. And if there is no defender in the zone at all, there is **no
-> challenger and the offence's maneuver automatically succeeds** -- nobody is walked in and
-> no exhaustion is paid. See [Author clarifications](#author-clarifications).
+> The third sentence repeats the second -- an editing leftover from the rewrite, not two
+> separate costs. A challenger walked in from elsewhere in the zone pays one exhaust token
+> per space, once.
 
 **Select a maneuver.** Both players now use their dice to secretly select an action for
 their fielded player to attempt, using their six sided action-selection die. The attacker
-chooses an offensive action while the defender chooses an offensive action [sic -- see
-open questions]. After both players have picked their action, they simultaneously reveal
-their choice and play proceeds to resolution.
+chooses an offensive maneuver while the defender chooses a defensive maneuver. After both
+players have picked their action, they simultaneously reveal their choice and play proceeds
+to resolution.
 
 **Resolving maneuvers.** Offensive and defensive actions are related to each other in a
 rock-paper-scissors like cycle where each offensive action defeats one defensive action, is
@@ -362,10 +371,30 @@ Two actions of the same rank tie, which is what sends a maneuver to a clash roll
 
 ### Own goal
 
-Roll with offense skill, disadvantage. Need 7+ to avoid.
+When a team is in risk of scoring an own goal (because a low or high pass was deflected)
+they need to roll to see if they can avoid an own goal. The player involved in the maneuver
+adds their offense skill to a d12 roll that is rolled at a disadvantage, meaning that you
+roll two dice and take the lower result. After you pick the lower result, and add the
+offensive skill of the player, you need a result of 7 and above to avoid an own goal.
 
-> **"Disadvantage" means rolling two d12 and taking the lower result** -- never stated
-> upstream. Fullbacks are exempt from the disadvantage on this roll.
+> Fullbacks are exempt from the disadvantage on this roll (their role ability), so they roll
+> a single d12. They also have the worst offensive modifier, which leaves them a little
+> better than even overall -- the author flags this balance as needing more playtesting.
+
+### Setting a scoring opportunity
+
+When a player succeeds in a high pass and the ball has enough movement to reach beyond the
+last space of the field, and there is at least one player from the offensive team in the
+last space closest to the opponent's goal, that sets up a scoring opportunity. The human
+player may choose one of the players in the zone near the goal to gain an exhaust token and
+do a 'score to shoot' roll to see if they can score a goal.
+
+> Clarified by the author beyond this text: the overshoot is **required** (landing exactly
+> on the last space does not set one up); the shooter must be **in the last space**, so
+> "in the zone near the goal" above should read "in the space near the goal"; the 'score to
+> shoot' roll is an **ordinary score attempt**; and the exhaust token is taken **after** the
+> roll. A winger can set one up with a low pass, and a striker's `+3` applies to any scoring
+> attempt off a set-up.
 
 ### Ball's speed
 
@@ -406,17 +435,20 @@ have to run back to their assigned locations.
 
 ## Exhaustion
 
-Every time players are involved in a challenge, they gain an exhaustion token. Every time
+Every time players are involved in a challenge, they gain an exhaust token. Every time
 players have to run back to their position, they gain exhaustion tokens (see Cleanup below).
-As soon as a player has a number of exhaustion tokens that is higher than their defensive
+As soon as a player has a number of exhaust tokens that is higher than their defensive
 skill, they are considered Exhausted. When a player is exhausted, they risk getting injured
-during challenges. During halftime, each player loses 1 (or 2, TBD) exhaustion tokens. In
+during challenges. During halftime, each player loses 1 (or 2, TBD) exhaust tokens. In
 addition, human players can choose one of their player to lose an extra exhaustion token.
 
 **Exhausted:** When a player is exhausted, after they participate in a challenge they must
-roll an exhaustion check. To roll an exhaustion check, roll a d12. If you roll a number that
-is higher than the number of exhaustion tokens you are safe! Otherwise, your player is now
+roll an injury check. To roll an exhaustion check, roll a d12. If you roll a number that is
+higher than the number of exhaustion tokens you are safe! Otherwise, your player is now
 injured.
+
+> **Halftime recovery is 1** -- the "(or 2, TBD)" is settled. The check is named twice here
+> ("injury check", then "exhaustion check") mid-rename; they are the same roll.
 
 **Injured:** When a player is injured, their team must declare substitution at their next
 opportunity if they can, and sub out the injured player (see Substitutions). Until they are
