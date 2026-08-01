@@ -405,6 +405,206 @@ class D12BallComponentTests(unittest.TestCase):
             self.assertEqual(image.size, (2200, 1280))
 
 
+class D12BallScoreAttemptTests(unittest.TestCase):
+    """
+    The geometry a score attempt is built on: which defenders stand
+    between the ball and the goal, and how many spaces the ball travels
+    to get there.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_match(self, board_size: int) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=board_size,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+        )
+
+    def defender_roles(self, match: MatchState) -> list[PlayerRole]:
+        return [
+            self.catalog.player_by_id(player_id).role
+            for player_id in match.defenders_between_ball_and_goal()
+        ]
+
+    def test_spaces_in_order_matches_flat_index(self) -> None:
+        match = self.build_match(7)
+        ordered = match.board.spaces_in_order()
+
+        self.assertEqual(len(ordered), 7)
+        for zone in Zone:
+            for space_index in range(len(match.board.spaces[zone])):
+                flat = match.board.flat_index(zone, space_index)
+                self.assertIs(
+                    ordered[flat],
+                    match.board.spaces[zone][space_index],
+                )
+
+    def test_home_shot_counts_spaces_and_defenders_to_the_high_end(
+        self,
+    ) -> None:
+        """
+        The rules' worked example: a home shot from the third space of a
+        6-board travels 3 spaces and faces every visiting meeple from
+        the ball's own space outwards.
+        """
+        match = self.build_match(6)
+
+        self.assertEqual(match.ball.possession, TeamSide.HOME)
+        self.assertEqual(
+            match.board.flat_index(
+                match.ball.zone,
+                match.ball.space_index,
+            ),
+            3,
+        )
+        self.assertEqual(match.spaces_to_goal(), 3)
+        self.assertEqual(
+            self.defender_roles(match),
+            [
+                PlayerRole.MIDFIELDER,
+                PlayerRole.DEFENDER,
+                PlayerRole.FULLBACK,
+            ],
+        )
+
+        # Every defender counted is a visiting player, and the meeple
+        # sharing the ball's own space is one of them.
+        defenders = match.defenders_between_ball_and_goal()
+        self.assertTrue(
+            set(defenders).issubset(set(match.visiting.field_players))
+        )
+        self.assertIn(
+            defenders[0],
+            match.board.spaces[match.ball.zone][match.ball.space_index],
+        )
+
+    def test_visiting_shot_runs_the_other_way(self) -> None:
+        """
+        From the same space, the visitors shoot towards the low end of
+        the board, so both the distance and the defenders differ.
+        """
+        match = self.build_match(6)
+        match.ball.possession = TeamSide.VISITING
+
+        self.assertEqual(match.spaces_to_goal(), 4)
+        self.assertEqual(
+            self.defender_roles(match),
+            [
+                PlayerRole.PLAYMAKER,
+                PlayerRole.MIDFIELDER,
+                PlayerRole.DEFENDER,
+                PlayerRole.FULLBACK,
+            ],
+        )
+        self.assertTrue(
+            set(match.defenders_between_ball_and_goal()).issubset(
+                set(match.home.field_players)
+            )
+        )
+
+    def test_spaces_to_goal_spans_exactly_the_defenders_scanned(
+        self,
+    ) -> None:
+        """
+        A score attempt's time cost and its defender search cover the
+        same run of spaces, from every space of every board size and for
+        either team in possession.
+        """
+        for board_size in (6, 7, 9):
+            match = self.build_match(board_size)
+            for zone in Zone:
+                for space_index in range(len(match.board.spaces[zone])):
+                    for side in TeamSide:
+                        with self.subTest(
+                            board_size=board_size,
+                            space=(zone.value, space_index),
+                            possession=side.value,
+                        ):
+                            match.ball.zone = zone
+                            match.ball.space_index = space_index
+                            match.ball.possession = side
+
+                            flat = match.board.flat_index(zone, space_index)
+                            expected = (
+                                board_size - flat
+                                if side == TeamSide.HOME
+                                else flat + 1
+                            )
+                            self.assertEqual(
+                                match.spaces_to_goal(),
+                                expected,
+                            )
+
+                            # Nobody behind the ball is ever counted.
+                            for player_id in (
+                                match.defenders_between_ball_and_goal()
+                            ):
+                                position = match.board.meeple_position(
+                                    player_id
+                                )
+                                defender_flat = match.board.flat_index(
+                                    *position
+                                )
+                                if side == TeamSide.HOME:
+                                    self.assertGreaterEqual(
+                                        defender_flat,
+                                        flat,
+                                    )
+                                else:
+                                    self.assertLessEqual(
+                                        defender_flat,
+                                        flat,
+                                    )
+
+    def test_an_empty_path_leaves_the_defence_with_no_skill(self) -> None:
+        match = self.build_match(6)
+        match.ball.zone = Zone.VISITORS_GOAL
+        match.ball.space_index = 1
+
+        fullback_id = next(
+            player_id
+            for player_id in match.visiting.field_players
+            if self.catalog.player_by_id(player_id).role
+            == PlayerRole.FULLBACK
+        )
+        match.move_meeple(fullback_id, Zone.HOME_GOAL, 0)
+
+        self.assertEqual(match.defenders_between_ball_and_goal(), [])
+        self.assertEqual(match.spaces_to_goal(), 1)
+        match.validate(self.catalog)
+
+    def test_defending_side_follows_possession(self) -> None:
+        match = self.build_match(7)
+
+        self.assertEqual(match.defending_side(), TeamSide.VISITING)
+        match.ball.possession = TeamSide.VISITING
+        self.assertEqual(match.defending_side(), TeamSide.HOME)
+
+    def test_a_pending_shoot_survives_a_save_and_reload(self) -> None:
+        """
+        The cog restores the roll button on startup from a pending
+        "shoot", so it has to round-trip, and resolving has to clear it.
+        """
+        match = self.build_match(7)
+        match.select_ball_handler(match.eligible_ball_handlers()[0])
+        match.pending_action = "shoot"
+
+        restored = MatchState.from_dict(match.to_dict(), self.rules)
+        restored.validate(self.catalog)
+        self.assertEqual(restored.pending_action, "shoot")
+        self.assertIsNotNone(restored.active_player_id)
+
+        restored.reset_maneuver()
+        self.assertIsNone(restored.pending_action)
+        self.assertIsNone(restored.active_player_id)
+
+
 class D12BallManeuverTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

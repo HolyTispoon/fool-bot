@@ -196,6 +196,18 @@ class BoardState:
             offset += len(self.spaces[board_zone])
         raise ValueError("Unknown zone.")
 
+    def spaces_in_order(self) -> list[list[str]]:
+        """
+        Every space's occupants as one left-to-right list, indexed the
+        same way flat_index() numbers them, so a run of spaces can be
+        scanned across zone boundaries.
+        """
+        return [
+            occupants
+            for zone in Zone
+            for occupants in self.spaces[zone]
+        ]
+
 
 @dataclass(frozen=True)
 class DieDefinition:
@@ -573,19 +585,72 @@ class MatchState:
         )
         return self.ball.space_index == closest_space
 
+    def defending_side(self) -> TeamSide:
+        return (
+            TeamSide.VISITING
+            if self.ball.possession == TeamSide.HOME
+            else TeamSide.HOME
+        )
+
+    def spaces_to_goal(self) -> int:
+        """
+        How many spaces the ball travels through on a shot at goal,
+        counting the space it starts from. This is both the time a
+        score attempt costs in space minutes and the number of spaces
+        that can hold defenders in the way.
+
+        Home attacks towards the high end of the board's left-to-right
+        indexing and the visitors towards the low end, so the count
+        runs to whichever edge the shooting team is aiming at.
+        """
+        ball_flat = self.board.flat_index(
+            self.ball.zone,
+            self.ball.space_index,
+        )
+        if self.ball.possession == TeamSide.HOME:
+            return self.board.layout.board_size - ball_flat
+        return ball_flat + 1
+
+    def defenders_between_ball_and_goal(self) -> list[str]:
+        """
+        Fielded players of the defending team standing anywhere between
+        the ball and the goal it is being shot at, including any that
+        share the ball's own space. Ordered outwards from the ball, so
+        the list reads the way the shot travels.
+
+        Opposing spaces are one and the same space, so both teams'
+        meeples share these occupant lists and only the team a meeple
+        belongs to decides whether it is in the way.
+        """
+        defending_players = set(
+            self.setup_for_side(self.defending_side()).field_players
+        )
+        ordered = self.board.spaces_in_order()
+        ball_flat = self.board.flat_index(
+            self.ball.zone,
+            self.ball.space_index,
+        )
+
+        if self.ball.possession == TeamSide.HOME:
+            span = ordered[ball_flat:]
+        else:
+            span = list(reversed(ordered[: ball_flat + 1]))
+
+        return [
+            player_id
+            for occupants in span
+            for player_id in occupants
+            if player_id in defending_players
+        ]
+
     def eligible_challengers(self) -> list[str]:
         """
         Fielded players belonging to the defending team who share the
         ball's zone, and so can be chosen to maneuver and challenge the
         ball handler.
         """
-        defending_side = (
-            TeamSide.VISITING
-            if self.ball.possession == TeamSide.HOME
-            else TeamSide.HOME
-        )
         defending_players = set(
-            self.setup_for_side(defending_side).field_players
+            self.setup_for_side(self.defending_side()).field_players
         )
         return [
             player_id

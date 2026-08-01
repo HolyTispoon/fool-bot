@@ -1,12 +1,12 @@
 # D12 Ball -- rules questions
 
-**As of:** 2026-08-01, against `main` at `8fad2b3` plus open PR #9
-(`claude/import-maneuvers-script`).
+**As of:** 2026-08-01, against `main` at `0f61f26`.
 **Companion to:** [d12ball-rules.md](d12ball-rules.md).
 
 Questions that cannot be answered from either upstream source and need the author. Two
 rounds of answers came from his review of
-[PR #10](https://github.com/HolyTispoon/fool-bot/pull/10) on 2026-07-31 and 2026-08-01.
+[PR #10](https://github.com/HolyTispoon/fool-bot/pull/10) on 2026-07-31 and 2026-08-01, and a
+third came directly while shoot to score was being scoped.
 
 **Almost everything is now answered.** Most answers went into Notion directly and are in the
 transcription; the rest are under
@@ -34,6 +34,14 @@ The author mentioned wanting to "update the spreadsheet so the ability are found
 else matching the roles" -- currently the ability is repeated on every player row and the
 importer asserts all players of a role agree. Worth knowing before re-importing, since a
 restructure would change the importer.
+
+### 1.3 Is the one-player-per-space run-back limit per team?
+
+The author's run-back answer is "the human player chooses a space in the zone the player is
+assigned to, so long as there is max 1 player per space after run back". Read across both
+teams that is unsatisfiable -- opposing meeples routinely share a space (the standard setup
+puts them together), and a 6-board zone has two spaces for each team's two players. So the
+limit must be per team. Worth one line of confirmation before a run-back UI enforces it.
 
 ---
 
@@ -79,6 +87,14 @@ A short index so nothing is re-asked. Detail is in the rules file.
 | The 72-card "Foolish" deck | Belongs to another game. |
 | `foolbot.py`'s generic commands | See section 3. |
 
+### Answered while scoping shoot to score
+
+| Question | Answer |
+|---|---|
+| Does a score attempt cost exhaust tokens, and to whom? | No -- a plain attempt costs nothing. Only a shot off a set-up does, and only the shooter. |
+| Does an exhausted participant in a score attempt roll an injury check? | No. Injury checks happen after a skill test only. |
+| Run back: which space in the zone, and how many tokens? | One token per space traveled. The coach picks the space, at most one player per space afterwards. |
+
 ---
 
 ## 3. Decisions recorded
@@ -119,20 +135,30 @@ spreadsheet -- the Defender's (a confirmed mistake in the old data) and the Stri
 re-import picks both up, and the importer already skips the `Backside` rows the sheet has
 since gained. Gated on 1.2 if the sheet is about to be restructured.
 
+### Built
+
+- **Score attempts.** "Shoot to score" now rolls: two dice, defence sums the skills of every
+  meeple between ball and goal, attacker total `>=` defence total scores, ball-speed modifier
+  on the attacker, and no exhaustion either side. The **cleanup it calls for is announced as
+  text, not applied** -- the score, the clock, the restart and the run back are still hand
+  applied, the same way maneuver effects are. The run back below and the clock in "Still
+  unspecified enough to block" are what stand between this and an automatic cleanup.
+
 ### Newly specified, not yet built
 
-- **Score attempts.** Fully specified now: two dice, defence sums the skills of every meeple
-  between ball and goal, attacker total `>=` defence total scores, ball-speed modifier on
-  the attacker. "Shoot to score" still answers "not implemented yet".
 - **Own goals.** Trigger (a deflected low or high pass), roll (2d12 take lower, add
   offensive skill, need 7+), and the fullback exemption are all specified.
+- **Players run back.** Fully specified now: one exhaust token per space traveled, the coach
+  picks each player's space within their assigned zone, at most one player per space
+  afterwards (see 1.3). Wants a per-turnover placement step, and `move_ball` refuses a space
+  with no meeple, so the post-goal and post-miss restarts are gated on this.
 - **Scoring opportunities.** Overshoot required, shooter must be in the last space, ordinary
   score attempt, exhaust token after the roll.
-- **Skill tests** (the roll formerly called a clash) and the six **role abilities** -- the
-  `+3` modifiers apply to the skill test.
+- The six **role abilities** -- the `+3` modifiers apply to the skill test. (The skill test
+  itself, the roll formerly called a clash, is built.)
 
 ### Still unspecified enough to block
 
-- Clock advance, turnover, players-run-back, halftime, last possession, and the extreme
-  shootout are described upstream but not built. Maneuver effects are still applied by hand.
+- Clock advance, turnover, halftime, last possession, and the extreme shootout are described
+  upstream but not built. Maneuver effects and score-attempt cleanup are applied by hand.
 - Substitution policy -- the swap works; none of the rules around it are enforced.
