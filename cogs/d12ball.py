@@ -2622,13 +2622,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
         if player_id in match.injured:
             conditions.append(f"injured {INJURED_EMOJI_FALLBACK}")
-        condition_text = ", ".join(conditions) if conditions else "healthy"
 
-        return (
+        entry = (
             f"{format_role_bracket(player, self.team_emojis)} — {location} — "
             f"{tokens} exhaustion {token_word} "
-            f"{get_exhaust_emoji(self.condition_emojis)} — {condition_text}"
+            f"{get_exhaust_emoji(self.condition_emojis)}"
         )
+        if conditions:
+            entry += f" — {', '.join(conditions)}"
+        return entry
 
     def build_team_roster_section(
         self,
