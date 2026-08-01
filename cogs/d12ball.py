@@ -1286,6 +1286,7 @@ class PlayerActionView(SafeView):
         match.pending_action = "maneuver"
         handler = self.cog.get_player_definition(match.active_player_id)
         defender_number = self.cog.defending_player_number(game, match)
+        offense_number = self.cog.possession_player_number(game, match)
 
         if game.is_solo_game and defender_number == 2:
             challenger_id = self.cog.get_ai_strategy(game).choose_challenger(
@@ -1296,10 +1297,11 @@ class PlayerActionView(SafeView):
             save_games(self.cog.games)
 
             refresh_player_names(game, interaction.guild)
+            offense_display = format_player_with_team(game, offense_number)
 
             await interaction.response.edit_message(
                 content=(
-                    f"**{action_label}** was chosen for "
+                    f"{offense_display} has chosen to {action_label} with "
                     f"{format_role_bracket(handler, interaction.client)}."
                 ),
                 view=None,
@@ -1330,6 +1332,7 @@ class PlayerActionView(SafeView):
         save_games(self.cog.games)
 
         refresh_player_names(game, interaction.guild)
+        offense_display = format_player_with_team(game, offense_number)
         defender_mention = format_player_with_team(
             game,
             defender_number,
@@ -1338,7 +1341,7 @@ class PlayerActionView(SafeView):
 
         await interaction.response.edit_message(
             content=(
-                f"**{action_label}** was chosen for "
+                f"{offense_display} has chosen to {action_label} with "
                 f"{format_role_bracket(handler, interaction.client)}.\n\n"
                 "Waiting for the defense to choose a challenger..."
             ),
@@ -3024,6 +3027,47 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         await interaction.response.defer()
         await interaction.followup.send(file=self.build_match_file(game))
+
+    @app_commands.command(
+        name="offensive_choice",
+        description=(
+            "(Re-)post the ball-handler and shoot/maneuver choice for "
+            "the team in possession."
+        ),
+    )
+    @app_commands.guild_only()
+    async def offensive_choice(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        if match.pending_action == "maneuver":
+            await interaction.followup.send(
+                "A maneuver challenge is already in progress for this "
+                "turn.",
+                ephemeral=True,
+            )
+            return
+
+        # A ball handler or a shoot/maneuver choice may already be
+        # recorded from a prior offensive choice whose effect was never
+        # resolved into a state change (e.g. an uncontested maneuver, or
+        # a shoot, which has no automatic resolution yet). Nothing else
+        # advances the match to its next turn, so this command always
+        # starts fresh: clear that stale choice and re-derive the ball
+        # handler from the board's current occupancy.
+        match.reset_maneuver()
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        try:
+            await self.send_turn_prompt(interaction, game)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
 
     @app_commands.command(
         name="coach",
