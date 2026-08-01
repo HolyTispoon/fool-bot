@@ -145,6 +145,8 @@ transcription itself. What remains below is what upstream still does not say.
   there is at most one player per space once the run back is done. Where a zone has more
   spaces than players assigned to it that is a real choice; where the counts match it is
   forced.
+- That one-per-space limit is **per team.** Opposing meeples still share a space, the way they
+  do at setup, so it only ever constrains a team against its own players.
 
 ### Coins
 

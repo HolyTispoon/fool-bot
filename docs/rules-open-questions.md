@@ -35,14 +35,6 @@ else matching the roles" -- currently the ability is repeated on every player ro
 importer asserts all players of a role agree. Worth knowing before re-importing, since a
 restructure would change the importer.
 
-### 1.3 Is the one-player-per-space run-back limit per team?
-
-The author's run-back answer is "the human player chooses a space in the zone the player is
-assigned to, so long as there is max 1 player per space after run back". Read across both
-teams that is unsatisfiable -- opposing meeples routinely share a space (the standard setup
-puts them together), and a 6-board zone has two spaces for each team's two players. So the
-limit must be per team. Worth one line of confirmation before a run-back UI enforces it.
-
 ---
 
 ## 2. Answered
@@ -94,6 +86,7 @@ A short index so nothing is re-asked. Detail is in the rules file.
 | Does a score attempt cost exhaust tokens, and to whom? | No -- a plain attempt costs nothing. Only a shot off a set-up does, and only the shooter. |
 | Does an exhausted participant in a score attempt roll an injury check? | No. Injury checks happen after a skill test only. |
 | Run back: which space in the zone, and how many tokens? | One token per space traveled. The coach picks the space, at most one player per space afterwards. |
+| Is that one-per-space limit per team? | Yes. Opposing meeples still share a space. |
 
 ---
 
@@ -151,8 +144,10 @@ since gained. Gated on 1.2 if the sheet is about to be restructured.
   offensive skill, need 7+), and the fullback exemption are all specified.
 - **Players run back.** Fully specified now: one exhaust token per space traveled, the coach
   picks each player's space within their assigned zone, at most one player per space
-  afterwards (see 1.3). Wants a per-turnover placement step, and `move_ball` refuses a space
-  with no meeple, so the post-goal and post-miss restarts are gated on this.
+  afterwards, counted per team. Wants a per-turnover placement step, and `move_ball` refuses a
+  space with no meeple, so the post-goal and post-miss restarts are gated on this. **Nothing
+  enforces any of this yet** -- the score-attempt cleanup only asks the players for it in
+  words.
 - **Scoring opportunities.** Overshoot required, shooter must be in the last space, ordinary
   score attempt, exhaust token after the roll.
 - The six **role abilities** -- the `+3` modifiers apply to the skill test. (The skill test

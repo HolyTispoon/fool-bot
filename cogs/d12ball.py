@@ -2522,9 +2522,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "-- `/d12ball ball move`"
         )
         steps.append(
-            "Players run back to their assigned zones, at most one per "
-            "space, gaining one exhaust token per space traveled "
-            "-- `/d12ball meeple move`"
+            "Players run back to their assigned zones, no more than one "
+            "per space per team, gaining one exhaust token per space "
+            "traveled -- `/d12ball meeple move`"
         )
 
         return (
