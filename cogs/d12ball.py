@@ -2566,8 +2566,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
 
             turn_message = await interaction.followup.send(
-                f"{ai_name} has {format_role_bracket(handler, interaction.client)} shoot "
-                "to score.",
+                f"{ai_name} has chosen to shoot to score with "
+                f"{format_role_bracket(handler, interaction.client)}.",
                 wait=True,
             )
             game.turn_message_id = turn_message.id
@@ -2580,7 +2580,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
 
             turn_message = await interaction.followup.send(
-                f"{ai_name} has {format_role_bracket(handler, interaction.client)} maneuver, "
+                f"{ai_name} has chosen to maneuver with "
+                f"{format_role_bracket(handler, interaction.client)}, "
                 "but the defending team has no player in the ball's "
                 "zone to challenge.",
                 wait=True,
@@ -2602,8 +2603,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         challenge_view = ManeuverChallengeView(self, game.game_id)
         challenge_message = await interaction.followup.send(
-            f"{ai_name} has {format_role_bracket(handler, interaction.client)} maneuver to "
-            "keep possession.\n\n"
+            f"{ai_name} has chosen to maneuver with "
+            f"{format_role_bracket(handler, interaction.client)} to keep "
+            "possession.\n\n"
             f"{defender_mention}, choose which player will maneuver "
             "to challenge for the ball.",
             view=challenge_view,
