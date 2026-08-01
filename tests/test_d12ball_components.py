@@ -586,6 +586,26 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         match.ball.possession = TeamSide.VISITING
         self.assertEqual(match.defending_side(), TeamSide.HOME)
 
+    def test_award_goal_credits_whoever_has_the_ball(self) -> None:
+        match = self.build_match(7)
+
+        match.award_goal()
+        self.assertEqual(match.scoreboard.home_score, 1)
+        self.assertEqual(match.scoreboard.visiting_score, 0)
+
+        match.ball.possession = TeamSide.VISITING
+        match.award_goal()
+        match.award_goal()
+        self.assertEqual(match.scoreboard.home_score, 1)
+        self.assertEqual(match.scoreboard.visiting_score, 2)
+
+        # Scores have no ceiling, so a goal can never leave the
+        # scoreboard in a state that fails to reload.
+        for _ in range(20):
+            match.award_goal()
+        restored = MatchState.from_dict(match.to_dict(), self.rules)
+        self.assertEqual(restored.scoreboard.visiting_score, 22)
+
     def test_a_pending_shoot_survives_a_save_and_reload(self) -> None:
         """
         The cog restores the roll button on startup from a pending

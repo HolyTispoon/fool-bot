@@ -139,10 +139,11 @@ since gained. Gated on 1.2 if the sheet is about to be restructured.
 
 - **Score attempts.** "Shoot to score" now rolls: two dice, defence sums the skills of every
   meeple between ball and goal, attacker total `>=` defence total scores, ball-speed modifier
-  on the attacker, and no exhaustion either side. The **cleanup it calls for is announced as
-  text, not applied** -- the score, the clock, the restart and the run back are still hand
-  applied, the same way maneuver effects are. The run back below and the clock in "Still
-  unspecified enough to block" are what stand between this and an automatic cleanup.
+  on the attacker, and no exhaustion either side. A goal **applies** to the scoreboard -- a
+  bare increment with no threshold behind it. The rest of the cleanup is **announced as text,
+  not applied**: the clock, the restart and the run back are hand applied, the same way
+  maneuver effects are. The run back below and the clock in "Still unspecified enough to
+  block" are what stand between this and an automatic cleanup.
 
 ### Newly specified, not yet built
 

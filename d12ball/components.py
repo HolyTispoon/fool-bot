@@ -659,6 +659,17 @@ class MatchState:
             if player_id in defending_players
         ]
 
+    def award_goal(self) -> None:
+        """
+        Credit a goal to the team in possession. Scores have no upper
+        bound, so unlike the clock this needs no clamp and cannot put
+        the scoreboard into a state that fails to reload.
+        """
+        if self.ball.possession == TeamSide.HOME:
+            self.scoreboard.home_score += 1
+        else:
+            self.scoreboard.visiting_score += 1
+
     def add_exhaustion(self, player_id: str, amount: int) -> None:
         if amount <= 0:
             return

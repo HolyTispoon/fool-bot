@@ -2039,10 +2039,15 @@ class ScoreAttemptView(SafeView):
 
         scored = attack_total >= defense_total
         if scored:
+            match.award_goal()
             verdict = (
                 f"**GOAL!** "
                 f"{format_role_bracket(shooter, self.cog.team_emojis)} scores "
-                f"for {format_team_side_label(attacking_setup)}!"
+                f"for {format_team_side_label(attacking_setup)}!\n"
+                f"{match.home.team.value.title()} "
+                f"{match.scoreboard.home_score}:"
+                f"{match.scoreboard.visiting_score} "
+                f"{match.visiting.team.value.title()}"
             )
         else:
             verdict = (
@@ -2484,27 +2489,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         scored: bool,
     ) -> str:
         """
-        The cleanup a resolved score attempt calls for, as instructions
-        rather than state changes. Maneuver effects are applied by hand
-        too, and the clock and the run-back are not built yet, so this
-        spells out what the players owe the board and which commands
-        get them there.
+        The cleanup a resolved score attempt still calls for, as
+        instructions rather than state changes. A goal itself is applied
+        -- it is a bare increment with no threshold behind it -- but the
+        clock advance wants deciding for maneuvers at the same time, and
+        the restart is gated on the run back, so those stay with the
+        players. Maneuver effects are hand-applied the same way.
         """
-        attacking_setup = match.setup_for_side(match.ball.possession)
         defending_setup = match.setup_for_side(match.defending_side())
         space_minutes = match.spaces_to_goal()
         minute_word = "minute" if space_minutes == 1 else "minutes"
 
-        steps = []
-        if scored:
-            steps.append(
-                f"{format_team_side_label(attacking_setup)} score up 1 "
-                "-- `/d12ball score`"
-            )
-        steps.append(
+        steps = [
             f"The clock advances {space_minutes} space {minute_word} "
             "-- `/d12ball time`"
-        )
+        ]
 
         if scored:
             # The restart space follows the same board-size rule as the
