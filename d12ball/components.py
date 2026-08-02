@@ -624,24 +624,6 @@ class MatchState:
         )
         return self.ball.space_index == closest_space
 
-    def is_ball_at_own_scoring_space(self) -> bool:
-        """
-        True when the ball sits on the space of its zone that is
-        closest to the goal belonging to the team WITH possession --
-        the own-goal risk a deflected pass can land on.
-        """
-        own_goal_zone = (
-            Zone.HOME_GOAL
-            if self.ball.possession == TeamSide.HOME
-            else Zone.VISITORS_GOAL
-        )
-        if self.ball.zone != own_goal_zone:
-            return False
-
-        final_space = len(self.board.spaces[own_goal_zone]) - 1
-        closest_space = 0 if own_goal_zone == Zone.HOME_GOAL else final_space
-        return self.ball.space_index == closest_space
-
     def defending_side(self) -> TeamSide:
         return (
             TeamSide.VISITING

@@ -3439,17 +3439,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         offense_side = match.ball.possession
         signed_distance = distance if direction == "forward" else -distance
 
-        # Only a forward pass can overshoot into the opponent's goal --
-        # a backward one heads toward the passer's own goal instead.
-        overshot = False
-        if direction == "forward":
-            origin_flat = match.board.flat_index(
-                match.ball.zone, match.ball.space_index,
-            )
-            target_flat = match.relative_flat_index(
-                origin_flat, offense_side, distance,
-            )
-            overshot = abs(target_flat - origin_flat) < distance
+        # An "overshoot" is the deflection/pass being clamped short of
+        # the requested distance, i.e. it would have pushed the ball
+        # past the space closest to a goal (there's no space beyond
+        # that one to land on) -- own-goal risk backward, a scoring
+        # opportunity forward.
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        target_flat = match.relative_flat_index(
+            origin_flat, offense_side, signed_distance,
+        )
+        overshot = abs(target_flat - origin_flat) < distance
 
         actual_distance = match.move_ball_relative(offense_side, signed_distance)
         match.ball.speed = min(12, match.ball.speed + 1)
@@ -3462,9 +3463,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{direction}. Ball speed is now {match.ball.speed}."
         )
 
-        if direction == "backward" and match.is_ball_at_own_scoring_space():
+        if direction == "backward" and overshot:
             await interaction.followup.send(
-                f"{content}\n\nThat's dangerously close to their own goal!",
+                f"{content}\n\nThat overshoots toward their own goal!",
             )
             await self.refresh_match_image(interaction, game)
             await self.run_own_goal_roll(interaction, game, match)
@@ -3475,7 +3476,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # High Pass normally uses.
         handler = self.get_player_definition(match.active_player_id)
         candidates = []
-        if overshot and handler.role == PlayerRole.WINGER:
+        if direction == "forward" and overshot and handler.role == PlayerRole.WINGER:
             candidates = self.scoring_opportunity_candidates(
                 match, offense_side,
             )
@@ -3691,6 +3692,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         offense_side = match.ball.possession
+
+        # Overshoot: the deflection is clamped short of the full 2
+        # spaces, i.e. it would have pushed the ball past the space
+        # closest to the offense's own goal -- that's the own-goal
+        # risk, not merely landing on that space.
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        target_flat = match.relative_flat_index(origin_flat, offense_side, -2)
+        overshot = abs(target_flat - origin_flat) < 2
+
         actual_distance = match.move_ball_relative(offense_side, -2)
         match.ball.speed = max(1, match.ball.speed - 1)
         game.match_state = match.to_dict()
@@ -3702,9 +3714,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{space_word} back. Ball speed is now {match.ball.speed}."
         )
 
-        if match.is_ball_at_own_scoring_space():
+        if overshot:
             await interaction.followup.send(
-                f"{content}\n\nThat's dangerously close to their own goal!",
+                f"{content}\n\nThat overshoots toward their own goal!",
             )
             await self.refresh_match_image(interaction, game)
             await self.run_own_goal_roll(interaction, game, match)
@@ -4122,6 +4134,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.reset_maneuver()
         game.match_state = match.to_dict()
         save_games(self.games)
+
+        # One last board refresh with everything settled (run-back,
+        # speed choice, own-goal, etc. may have landed after the last
+        # refresh inside the effect itself), right before the
+        # offensive choice comes back up.
+        await self.refresh_match_image(interaction, game)
 
         try:
             await self.send_turn_prompt(interaction, game)

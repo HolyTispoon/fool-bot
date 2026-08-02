@@ -621,16 +621,14 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         self.assertEqual(match.spaces_to_goal(), 1)
         match.validate(self.catalog)
 
-    def test_is_ball_at_own_scoring_space(self) -> None:
+    def test_is_ball_at_scoring_space(self) -> None:
         match = self.build_match(7)
         match.ball.zone = Zone.HOME_GOAL
         match.ball.space_index = 0
         match.ball.possession = TeamSide.HOME
-        self.assertTrue(match.is_ball_at_own_scoring_space())
         self.assertFalse(match.is_ball_at_scoring_space())
 
         match.ball.possession = TeamSide.VISITING
-        self.assertFalse(match.is_ball_at_own_scoring_space())
         self.assertTrue(match.is_ball_at_scoring_space())
 
     def test_defending_side_follows_possession(self) -> None:
