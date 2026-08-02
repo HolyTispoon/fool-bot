@@ -13,6 +13,7 @@ from d12ball.components import (
     TeamSide,
     Zone,
     create_standard_setup,
+    kickoff_space_index,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -279,6 +280,43 @@ class D12BallComponentTests(unittest.TestCase):
         )
         self.assertEqual(restored.active_player_id, "orange_sizzik")
 
+    def test_validate_tolerates_a_stale_active_player_mid_resolution(
+        self,
+    ) -> None:
+        """
+        Once both sides have picked a maneuver, resolving it is free to
+        move the ball away from active_player_id (a pass) or flip
+        possession without moving the challenger (Steal Intercept) --
+        validate() must not treat that as corruption while
+        reset_maneuver() hasn't run yet, but it must still catch a
+        genuinely stale active_player_id at any other time.
+        """
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+        )
+        match.select_ball_handler(match.eligible_ball_handlers()[0])
+        match.pending_action = "maneuver"
+        challenger_id = match.eligible_challengers()[0]
+        match.choose_challenger(challenger_id)
+        match.choose_offense_maneuver("Low Pass")
+        match.choose_defense_maneuver("Steal Intercept")
+
+        # Simulate a turnover moving the ball away from both players.
+        match.move_ball_relative(TeamSide.VISITING, 3)
+        match.ball.possession = TeamSide.VISITING
+        match.validate(self.catalog)  # must not raise
+
+        # Once the maneuver is actually reset, the same stale id must
+        # be caught again like any other time.
+        match.reset_maneuver()
+        match.active_player_id = challenger_id
+        with self.assertRaises(ValueError):
+            match.validate(self.catalog)
+
     def test_substitution_swaps_card_and_meeple_state(self) -> None:
         match = MatchState.standard(
             catalog=self.catalog,
@@ -454,6 +492,8 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         the ball's own space outwards.
         """
         match = self.build_match(6)
+        match.ball.zone = Zone.MIDFIELD
+        match.ball.space_index = 1
 
         self.assertEqual(match.ball.possession, TeamSide.HOME)
         self.assertEqual(
@@ -490,6 +530,8 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         the board, so both the distance and the defenders differ.
         """
         match = self.build_match(6)
+        match.ball.zone = Zone.MIDFIELD
+        match.ball.space_index = 1
         match.ball.possession = TeamSide.VISITING
 
         self.assertEqual(match.spaces_to_goal(), 4)
@@ -579,6 +621,18 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         self.assertEqual(match.spaces_to_goal(), 1)
         match.validate(self.catalog)
 
+    def test_is_ball_at_own_scoring_space(self) -> None:
+        match = self.build_match(7)
+        match.ball.zone = Zone.HOME_GOAL
+        match.ball.space_index = 0
+        match.ball.possession = TeamSide.HOME
+        self.assertTrue(match.is_ball_at_own_scoring_space())
+        self.assertFalse(match.is_ball_at_scoring_space())
+
+        match.ball.possession = TeamSide.VISITING
+        self.assertFalse(match.is_ball_at_own_scoring_space())
+        self.assertTrue(match.is_ball_at_scoring_space())
+
     def test_defending_side_follows_possession(self) -> None:
         match = self.build_match(7)
 
@@ -605,6 +659,163 @@ class D12BallScoreAttemptTests(unittest.TestCase):
             match.award_goal()
         restored = MatchState.from_dict(match.to_dict(), self.rules)
         self.assertEqual(restored.scoreboard.visiting_score, 22)
+
+    def test_concede_own_goal_credits_the_other_side(self) -> None:
+        match = self.build_match(7)
+
+        match.concede_own_goal()
+        self.assertEqual(match.scoreboard.home_score, 0)
+        self.assertEqual(match.scoreboard.visiting_score, 1)
+
+        match.ball.possession = TeamSide.VISITING
+        match.concede_own_goal()
+        self.assertEqual(match.scoreboard.home_score, 1)
+        self.assertEqual(match.scoreboard.visiting_score, 1)
+
+    def test_advance_time_clamps_and_flags_last_possession_once(
+        self,
+    ) -> None:
+        match = self.build_match(7)
+
+        self.assertFalse(match.advance_time(3))
+        self.assertEqual(match.scoreboard.time, 3)
+        self.assertFalse(match.scoreboard.last_possession)
+
+        self.assertTrue(match.advance_time(20))
+        self.assertEqual(match.scoreboard.time, 15)
+        self.assertTrue(match.scoreboard.last_possession)
+
+        # Once in last possession, further advances are no-ops.
+        self.assertFalse(match.advance_time(5))
+        self.assertEqual(match.scoreboard.time, 15)
+
+    def test_kickoff_space_index_matches_the_rules_fix(self) -> None:
+        # 7/9-boards: true middle regardless of who's kicking off.
+        self.assertEqual(kickoff_space_index(3, TeamSide.HOME), 1)
+        self.assertEqual(kickoff_space_index(3, TeamSide.VISITING), 1)
+        # 6-board: biased toward the kicking team's own goal.
+        self.assertEqual(kickoff_space_index(2, TeamSide.HOME), 0)
+        self.assertEqual(kickoff_space_index(2, TeamSide.VISITING), 1)
+
+    def test_standard_match_uses_the_fixed_six_board_kickoff(self) -> None:
+        match = self.build_match(6)
+        self.assertEqual(match.ball.zone, Zone.MIDFIELD)
+        self.assertEqual(match.ball.space_index, 0)
+
+    def test_set_ball_space_allows_an_empty_destination(self) -> None:
+        match = self.build_match(7)
+        # A standard 7v7 has no fully empty space anywhere on the board
+        # -- clear one by hand to exercise move_ball's usual blocker.
+        match.board.remove_meeple("orange_flickerwing")
+        match.board.remove_meeple("teal_voltus")
+        self.assertEqual(match.board.spaces[Zone.VISITORS_GOAL][0], [])
+
+        match.set_ball_space(Zone.VISITORS_GOAL, 0)
+        self.assertEqual(match.ball.zone, Zone.VISITORS_GOAL)
+        self.assertEqual(match.ball.space_index, 0)
+        # Possession is untouched -- callers apply a turnover separately.
+        self.assertEqual(match.ball.possession, TeamSide.HOME)
+
+    def test_run_back_moves_a_displaced_player_and_reports_distance(
+        self,
+    ) -> None:
+        match = self.build_match(7)
+        home_midfielder = match.home.zones[Zone.MIDFIELD][0]
+
+        # Walk them out to the visitors' goal zone.
+        match.move_meeple(home_midfielder, Zone.VISITORS_GOAL, 0)
+        self.assertIn(home_midfielder, match.displaced_players(TeamSide.HOME))
+
+        open_spaces = match.open_spaces_in_zone(TeamSide.HOME, Zone.MIDFIELD)
+        distance = match.run_back_player(
+            home_midfielder, Zone.MIDFIELD, open_spaces[0]
+        )
+        self.assertGreater(distance, 0)
+        self.assertNotIn(
+            home_midfielder, match.displaced_players(TeamSide.HOME)
+        )
+        self.assertEqual(
+            match.board.meeple_position(home_midfielder),
+            (Zone.MIDFIELD, open_spaces[0]),
+        )
+
+    def test_open_spaces_in_zone_ignores_opposing_meeples(self) -> None:
+        match = self.build_match(7)
+        # Standard 7-a-side midfield: space 0 is home-only, space 1 has
+        # one of each team, space 2 is visiting-only. Only space 2 has
+        # no home meeple, so it's the one "open" for a home player --
+        # a visiting occupant never blocks it.
+        self.assertEqual(
+            set(match.open_spaces_in_zone(TeamSide.HOME, Zone.MIDFIELD)),
+            {2},
+        )
+
+    def test_run_back_rejects_the_wrong_zone_or_a_taken_space(self) -> None:
+        match = self.build_match(7)
+        home_midfielder = match.home.zones[Zone.MIDFIELD][0]
+        other_home_midfielder = match.home.zones[Zone.MIDFIELD][1]
+        match.move_meeple(home_midfielder, Zone.VISITORS_GOAL, 0)
+
+        with self.assertRaises(ValueError):
+            match.run_back_player(home_midfielder, Zone.HOME_GOAL, 0)
+
+        occupied_space = match.board.meeple_position(
+            other_home_midfielder
+        )[1]
+        with self.assertRaises(ValueError):
+            match.run_back_player(
+                home_midfielder, Zone.MIDFIELD, occupied_space
+            )
+
+    def test_move_ball_relative_respects_attack_direction(self) -> None:
+        match = self.build_match(7)
+        match.ball.zone = Zone.MIDFIELD
+        match.ball.space_index = 1
+        origin_flat = match.board.flat_index(Zone.MIDFIELD, 1)
+
+        distance = match.move_ball_relative(TeamSide.HOME, 2)
+        self.assertEqual(distance, 2)
+        self.assertEqual(
+            match.board.flat_index(match.ball.zone, match.ball.space_index),
+            origin_flat + 2,
+        )
+
+        match.ball.zone = Zone.MIDFIELD
+        match.ball.space_index = 1
+        distance = match.move_ball_relative(TeamSide.VISITING, 2)
+        self.assertEqual(distance, 2)
+        self.assertEqual(
+            match.board.flat_index(match.ball.zone, match.ball.space_index),
+            origin_flat - 2,
+        )
+
+    def test_move_ball_relative_clamps_at_the_board_edge(self) -> None:
+        match = self.build_match(7)
+        match.ball.zone = Zone.VISITORS_GOAL
+        match.ball.space_index = 1  # the last space, flat index 6
+
+        distance = match.move_ball_relative(TeamSide.HOME, 5)
+        self.assertEqual(distance, 0)
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index),
+            (Zone.VISITORS_GOAL, 1),
+        )
+
+    def test_move_player_relative_moves_the_meeple_only(self) -> None:
+        match = self.build_match(7)
+        home_midfielder = match.home.zones[Zone.MIDFIELD][0]
+        ball_flat_before = match.board.flat_index(
+            match.ball.zone, match.ball.space_index
+        )
+
+        distance = match.move_player_relative(
+            home_midfielder, TeamSide.HOME, 1
+        )
+        self.assertGreaterEqual(distance, 0)
+        self.assertEqual(
+            match.board.flat_index(match.ball.zone, match.ball.space_index),
+            ball_flat_before,
+        )
 
     def test_a_pending_shoot_survives_a_save_and_reload(self) -> None:
         """

@@ -42,6 +42,37 @@ class AIStrategy(ABC):
     def choose_maneuver_action(self, side: str) -> str:
         ...
 
+    @abstractmethod
+    def choose_low_pass(self, match: MatchState) -> tuple[str, int]:
+        """(direction, distance) -- direction is "forward"/"backward",
+        distance is 1 or 2."""
+        ...
+
+    @abstractmethod
+    def choose_high_pass_distance(self, match: MatchState) -> int:
+        """2 or 3."""
+        ...
+
+    @abstractmethod
+    def choose_speed_delta(self, skill: int) -> int:
+        """A change to apply to the ball's speed, magnitude at most
+        `skill` in either direction. The caller clamps the result to a
+        valid speed."""
+        ...
+
+    @abstractmethod
+    def choose_shooter(
+        self,
+        candidates: list[str],
+        match: MatchState,
+    ) -> str:
+        """Which offensive player takes a scoring-opportunity shot."""
+        ...
+
+    @abstractmethod
+    def choose_run_back_space(self, open_spaces: list[int]) -> int:
+        ...
+
 
 class DinkyAI(AIStrategy):
     """
@@ -109,6 +140,43 @@ class DinkyAI(AIStrategy):
         if side == "offense":
             return self.maneuver_catalog.offense_for_die(roll).name
         return self.maneuver_catalog.defense_for_die(roll).name
+
+    def choose_low_pass(self, match: MatchState) -> tuple[str, int]:
+        """
+        Always forward at the maximum distance -- backward risks an
+        own goal for no advancing benefit.
+        """
+        return "forward", 2
+
+    def choose_high_pass_distance(self, match: MatchState) -> int:
+        """Always the maximum distance, most likely to overshoot into
+        a scoring opportunity."""
+        return 3
+
+    def choose_speed_delta(self, skill: int) -> int:
+        """
+        Always maximize the ball's speed. This ignores the tradeoff
+        that a faster ball is also harder to keep possession of --
+        simple by design, the same spirit as the rest of this AI.
+        """
+        return skill
+
+    def choose_shooter(
+        self,
+        candidates: list[str],
+        match: MatchState,
+    ) -> str:
+        """The candidate with the higher offensive skill."""
+
+        def sort_key(player_id: str) -> int:
+            return -self.player_catalog.effective_profile(
+                self.player_catalog.player_by_id(player_id)
+            ).offense
+
+        return min(candidates, key=sort_key)
+
+    def choose_run_back_space(self, open_spaces: list[int]) -> int:
+        return min(open_spaces)
 
 
 def build_ai_strategies(

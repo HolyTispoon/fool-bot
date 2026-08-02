@@ -208,6 +208,19 @@ class BoardState:
             for occupants in self.spaces[zone]
         ]
 
+    def position_at_flat_index(self, index: int) -> tuple[Zone, int]:
+        """
+        The inverse of flat_index(): the (zone, space_index) at a given
+        left-to-right position across the whole board.
+        """
+        offset = 0
+        for zone in Zone:
+            count = len(self.spaces[zone])
+            if index < offset + count:
+                return zone, index - offset
+            offset += count
+        raise ValueError("Flat index is off the board.")
+
 
 @dataclass(frozen=True)
 class DieDefinition:
@@ -258,6 +271,12 @@ class TeamSetup:
             for zone in Zone
             for player_id in self.zones[zone]
         ]
+
+    def assigned_zone(self, player_id: str) -> Zone:
+        for zone, player_ids in self.zones.items():
+            if player_id in player_ids:
+                return zone
+        raise ValueError(f"{player_id} is not assigned to a zone.")
 
     def validate(self, roster: TeamDefinition) -> None:
         """
@@ -401,6 +420,7 @@ class ScoreboardState:
     visiting_score: int = 0
     time: int = 0
     period: MatchPeriod = MatchPeriod.FIRST_HALF
+    last_possession: bool = False
 
     def __post_init__(self) -> None:
         self.period = MatchPeriod(self.period)
@@ -408,6 +428,23 @@ class ScoreboardState:
             raise ValueError("Scores cannot be negative.")
         if self.time not in range(0, 16):
             raise ValueError("The game clock must be from 00 to 15.")
+
+
+def kickoff_space_index(midfield_spaces: int, kicking_side: TeamSide) -> int:
+    """
+    The midfield space a kickoff (or any other restart) places the ball
+    on: the middle of the board when the midfield has an odd number of
+    spaces, otherwise whichever of the two middle spaces sits closer to
+    the kicking team's own goal. Home attacks from low indices to high,
+    so a kicking home team is biased low and a kicking visiting team is
+    biased high; the two formulas agree on the true middle when the
+    zone is odd-sized (i.e. board sizes 7 and 9), which is what makes
+    this one rule instead of two.
+    """
+    kicking_side = TeamSide(kicking_side)
+    if kicking_side == TeamSide.HOME:
+        return (midfield_spaces - 1) // 2
+    return midfield_spaces // 2
 
 
 @dataclass
@@ -427,6 +464,8 @@ class MatchState:
     exhaustion: dict[str, int] = field(default_factory=dict)
     exhausted: set[str] = field(default_factory=set)
     injured: set[str] = field(default_factory=set)
+    pending_run_back: bool = False
+    pending_shot_is_set_up: bool = False
 
     @classmethod
     def standard(
@@ -510,9 +549,9 @@ class MatchState:
             visiting=visiting,
             ball=BallState(
                 zone=Zone.MIDFIELD,
-                space_index=min(
-                    1,
-                    len(board.spaces[Zone.MIDFIELD]) - 1,
+                space_index=kickoff_space_index(
+                    len(board.spaces[Zone.MIDFIELD]),
+                    TeamSide.HOME,
                 ),
                 possession=TeamSide.HOME,
                 speed=1,
@@ -583,6 +622,24 @@ class MatchState:
             if opponent_goal_zone == Zone.VISITORS_GOAL
             else 0
         )
+        return self.ball.space_index == closest_space
+
+    def is_ball_at_own_scoring_space(self) -> bool:
+        """
+        True when the ball sits on the space of its zone that is
+        closest to the goal belonging to the team WITH possession --
+        the own-goal risk a deflected pass can land on.
+        """
+        own_goal_zone = (
+            Zone.HOME_GOAL
+            if self.ball.possession == TeamSide.HOME
+            else Zone.VISITORS_GOAL
+        )
+        if self.ball.zone != own_goal_zone:
+            return False
+
+        final_space = len(self.board.spaces[own_goal_zone]) - 1
+        closest_space = 0 if own_goal_zone == Zone.HOME_GOAL else final_space
         return self.ball.space_index == closest_space
 
     def defending_side(self) -> TeamSide:
@@ -670,6 +727,30 @@ class MatchState:
         else:
             self.scoreboard.visiting_score += 1
 
+    def concede_own_goal(self) -> None:
+        """
+        Credit a goal to the team WITHOUT possession -- an own goal by
+        the team currently holding the ball.
+        """
+        if self.ball.possession == TeamSide.HOME:
+            self.scoreboard.visiting_score += 1
+        else:
+            self.scoreboard.home_score += 1
+
+    def advance_time(self, minutes: int) -> bool:
+        """
+        Advance the clock by `minutes` space minutes, clamped at 15.
+        Returns True only the moment this call first reaches 15
+        (entering last possession), so callers can react to it once.
+        """
+        if minutes <= 0 or self.scoreboard.last_possession:
+            return False
+        self.scoreboard.time = min(15, self.scoreboard.time + minutes)
+        if self.scoreboard.time >= 15:
+            self.scoreboard.last_possession = True
+            return True
+        return False
+
     def add_exhaustion(self, player_id: str, amount: int) -> None:
         if amount <= 0:
             return
@@ -739,6 +820,8 @@ class MatchState:
         self.challenger_id = None
         self.offense_maneuver = None
         self.defense_maneuver = None
+        self.pending_run_back = False
+        self.pending_shot_is_set_up = False
 
     def move_meeple(
         self,
@@ -806,6 +889,78 @@ class MatchState:
             empty_index = 0 if side == TeamSide.HOME else len(spaces) - 1
         self.board.place_meeple(player_id, zone, empty_index)
 
+    def set_ball_space(self, zone: Zone, space_index: int) -> None:
+        """
+        Reposition the ball as a maneuver effect, without `move_ball`'s
+        "a meeple must already be there" requirement -- a pass or
+        deflection can legitimately land on an empty space. Possession
+        is left untouched; callers apply a turnover separately via
+        `set_possession`.
+        """
+        zone = Zone(zone)
+        if space_index not in range(len(self.board.spaces[zone])):
+            raise ValueError("The target board space does not exist.")
+        self.ball.zone = zone
+        self.ball.space_index = space_index
+
+    def move_ball_relative(self, side: TeamSide, spaces: int) -> int:
+        """
+        Move the ball `spaces` steps in `side`'s attack direction
+        (negative moves it backward relative to that side), clamped to
+        the board edge. Returns the actual distance traveled, which may
+        be less than requested if it was clamped. Possession is left
+        untouched.
+        """
+        origin_flat = self.board.flat_index(
+            self.ball.zone, self.ball.space_index
+        )
+        target_flat = self.relative_flat_index(origin_flat, side, spaces)
+        zone, space_index = self.board.position_at_flat_index(target_flat)
+        self.set_ball_space(zone, space_index)
+        return abs(target_flat - origin_flat)
+
+    def move_player_relative(
+        self,
+        player_id: str,
+        side: TeamSide,
+        spaces: int,
+    ) -> int:
+        """
+        Move a fielded player's meeple `spaces` steps in `side`'s attack
+        direction, clamped to the board edge. Returns the actual
+        distance traveled.
+        """
+        position = self.board.meeple_position(player_id)
+        if position is None:
+            raise ValueError(f"{player_id} does not have a fielded meeple.")
+        origin_flat = self.board.flat_index(*position)
+        target_flat = self.relative_flat_index(origin_flat, side, spaces)
+        zone, space_index = self.board.position_at_flat_index(target_flat)
+        self.board.place_meeple(player_id, zone, space_index)
+        return abs(target_flat - origin_flat)
+
+    def relative_flat_index(
+        self,
+        origin_flat: int,
+        side: TeamSide,
+        spaces: int,
+    ) -> int:
+        """
+        `origin_flat` shifted `spaces` steps in `side`'s attack
+        direction, clamped to the board edge. Shared by
+        move_ball_relative/move_player_relative; also useful on its own
+        to detect an overshoot by comparing the clamped distance
+        against the requested one.
+        """
+        direction = (
+            1
+            if self.setup_for_side(side).attack_direction
+            == AttackDirection.LEFT_TO_RIGHT
+            else -1
+        )
+        target_flat = origin_flat + direction * spaces
+        return max(0, min(self.board.layout.board_size - 1, target_flat))
+
     def move_ball(self, zone: Zone, space_index: int) -> None:
         """
         Move the ball to any board space. Possession changes to
@@ -848,6 +1003,75 @@ class MatchState:
                 "The ball's current space has no player from that team."
             )
         self.ball.possession = side
+
+    def displaced_players(self, side: TeamSide) -> list[str]:
+        """
+        That side's fielded players whose meeple currently sits outside
+        the zone their player card is assigned to -- the players a
+        turnover sends running back.
+        """
+        setup = self.setup_for_side(side)
+        displaced = []
+        for player_id in setup.field_players:
+            position = self.board.meeple_position(player_id)
+            if position is None:
+                continue
+            zone, _ = position
+            if zone != setup.assigned_zone(player_id):
+                displaced.append(player_id)
+        return displaced
+
+    def open_spaces_in_zone(self, side: TeamSide, zone: Zone) -> list[int]:
+        """
+        Space indices in `zone` not already holding a meeple belonging
+        to `side`. The one-player-per-space limit run-back enforces is
+        per team, so an opposing meeple never blocks a space here.
+        """
+        zone = Zone(zone)
+        setup = self.setup_for_side(side)
+        team_players = set(setup.field_players)
+        return [
+            index
+            for index, occupants in enumerate(self.board.spaces[zone])
+            if not team_players.intersection(occupants)
+        ]
+
+    def run_back_player(
+        self,
+        player_id: str,
+        zone: Zone,
+        space_index: int,
+    ) -> int:
+        """
+        Move a displaced player's meeple back into their assigned zone,
+        at a space still open for their team. Returns the distance
+        traveled, for the exhaust tokens run-back costs.
+        """
+        side = (
+            TeamSide.HOME
+            if player_id in self.home.field_players
+            else TeamSide.VISITING
+        )
+        setup = self.setup_for_side(side)
+        zone = Zone(zone)
+
+        if zone != setup.assigned_zone(player_id):
+            raise ValueError(
+                f"{player_id} is not assigned to {zone.value}."
+            )
+        if space_index not in self.open_spaces_in_zone(side, zone):
+            raise ValueError(
+                "That space is already occupied by a teammate."
+            )
+
+        origin_flat = self.board.flat_index(
+            *self.board.meeple_position(player_id)
+        )
+        destination_flat = self.board.flat_index(zone, space_index)
+        distance = abs(destination_flat - origin_flat)
+
+        self.board.place_meeple(player_id, zone, space_index)
+        return distance
 
     def substitute(
         self,
@@ -909,9 +1133,28 @@ class MatchState:
         ):
             raise ValueError("The ball is in an invalid board space.")
 
+        # Once both sides have picked a maneuver, its effect is free to
+        # move the ball away from active_player_id (a pass), flip
+        # possession without moving the challenger (Steal Intercept),
+        # or otherwise leave the pre-effect ball-handler/challenger
+        # pairing stale until reset_maneuver() clears it at the end of
+        # the pipeline -- this invariant only describes the state
+        # before an effect has started applying.
+        # challenger_id is only ever set while a maneuver is in
+        # progress and cleared by reset_maneuver(), so it alone
+        # identifies this phase -- pending_action itself is cleared to
+        # None by choose_challenger() right when the challenger is
+        # picked, well before an effect can be resolving.
+        maneuver_effect_in_progress = (
+            self.challenger_id is not None
+            and self.offense_maneuver is not None
+            and self.defense_maneuver is not None
+        )
         if (
             self.active_player_id is not None
             and self.active_player_id not in self.eligible_ball_handlers()
+            and not maneuver_effect_in_progress
+            and not self.pending_run_back
         ):
             raise ValueError(
                 "The active player must share the ball's space and "
@@ -945,6 +1188,7 @@ class MatchState:
                 "visiting_score": self.scoreboard.visiting_score,
                 "time": self.scoreboard.time,
                 "period": self.scoreboard.period.value,
+                "last_possession": self.scoreboard.last_possession,
             },
             "active_player_id": self.active_player_id,
             "pending_action": self.pending_action,
@@ -954,6 +1198,8 @@ class MatchState:
             "exhaustion": dict(self.exhaustion),
             "exhausted": sorted(self.exhausted),
             "injured": sorted(self.injured),
+            "pending_run_back": self.pending_run_back,
+            "pending_shot_is_set_up": self.pending_shot_is_set_up,
         }
 
     @classmethod
@@ -1001,6 +1247,10 @@ class MatchState:
             exhaustion=dict(data.get("exhaustion", {})),
             exhausted=set(data.get("exhausted", [])),
             injured=set(data.get("injured", [])),
+            pending_run_back=data.get("pending_run_back", False),
+            pending_shot_is_set_up=data.get(
+                "pending_shot_is_set_up", False
+            ),
         )
 
 
