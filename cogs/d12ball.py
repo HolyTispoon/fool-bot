@@ -66,6 +66,7 @@ COIN_EMOJI_NAMES = {
     CoinFace.DOOM: "3_gold_doom",
 }
 COIN_EMOJI_FALLBACK = "🪙"
+FULL_IMAGE_BUTTON_LABEL = "View full image"
 
 AI_OPPONENT_NAMES = {
     AIOpponent.DINKY: "Dinky AI",
@@ -549,6 +550,80 @@ async def send_error_fallback(
             )
     except discord.HTTPException:
         pass
+
+
+def build_full_image_button(
+    message: discord.Message,
+) -> Optional[discord.ui.Button]:
+    """
+    A link straight to the file Discord stored for a posted image.
+
+    Discord's Android client draws an attachment from a resized copy on
+    media.discordapp.net and keeps showing that copy when you zoom in,
+    so the ability text on the player cards is unreadable on a phone.
+    iOS hands out the original, so only some of the table sees the
+    problem. This opens the unresized upload in a browser instead.
+
+    Attachment URLs are signed, and Discord stops honouring a signature
+    24 hours after it was issued, so the button is rebuilt from the
+    message every time the image is posted or replaced. A board nobody
+    has touched for a day has a dead link until the next update
+    replaces it.
+    """
+    if not message.attachments:
+        return None
+
+    return discord.ui.Button(
+        label=FULL_IMAGE_BUTTON_LABEL,
+        style=discord.ButtonStyle.link,
+        url=message.attachments[0].url,
+    )
+
+
+async def add_full_image_button(
+    message: discord.Message,
+    view: Optional[discord.ui.View] = None,
+) -> None:
+    """
+    Put the full-image link on a message that has already gone out.
+
+    The URL only exists once Discord has stored the file, so this is
+    always a second round trip. Editing a message's view replaces it
+    wholesale, so `view` has to carry the message's own buttons too --
+    discord.py routes clicks against the components in the payload, and
+    dropping them would leave a message that looks interactive and
+    is not.
+    """
+    button = build_full_image_button(message)
+
+    if button is None:
+        return
+
+    view = discord.ui.View(timeout=None) if view is None else view
+    view.add_item(button)
+
+    try:
+        await message.edit(view=view)
+    except discord.HTTPException:
+        # The image itself is already posted, so a missing link is
+        # worth less than the game action it would take down with it.
+        pass
+
+
+async def add_full_image_button_to_response(
+    interaction: discord.Interaction,
+    view: Optional[discord.ui.View] = None,
+) -> None:
+    """
+    The same, for an image posted as the interaction response itself,
+    which has to be fetched back before its attachment URL is known.
+    """
+    try:
+        message = await interaction.original_response()
+    except discord.HTTPException:
+        return
+
+    await add_full_image_button(message, view)
 
 
 class SafeView(discord.ui.View):
@@ -1057,6 +1132,8 @@ class CoinFlipView(GameConfigurationView):
         game.message_id = choice_message.id
         save_games(self.cog.games)
 
+        await add_full_image_button(choice_message, refreshed_view)
+
         if game.match_state is not None:
             await self.cog.send_turn_prompt(interaction, game)
 
@@ -1170,6 +1247,8 @@ class HomeAwaySelectionView(SafeView):
             view=refreshed_view,
             attachments=[self.cog.build_match_file(game)],
         )
+
+        await add_full_image_button_to_response(interaction, refreshed_view)
 
         await interaction.followup.send(
             f"{format_player_with_team(game, winner_player_number)} chose "
@@ -2585,12 +2664,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 )
             )
 
+        prompt_view = ManeuverActionPromptView(self, game.game_id)
         prompt_message = await interaction.followup.send(
             f"{' and '.join(waiting_on)}, both sides will now choose a "
             "maneuver privately. See the reference below for all six "
             "maneuvers, then use the button to make your pick.",
             file=self.build_maneuver_reference_file(),
-            view=ManeuverActionPromptView(self, game.game_id),
+            view=prompt_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True,
@@ -2600,6 +2680,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         game.turn_message_id = prompt_message.id
         save_games(self.games)
+
+        await add_full_image_button(prompt_message, prompt_view)
 
     async def resolve_maneuver(
         self,
@@ -2858,11 +2940,23 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             board_message = interaction.channel.get_partial_message(
                 game.message_id,
             )
-            await board_message.edit(
+            updated_message = await board_message.edit(
                 attachments=[self.build_match_file(game)],
             )
         except (discord.NotFound, discord.HTTPException):
-            pass
+            return
+
+        # The link has to be re-cut because the edit above uploaded a
+        # new file, and setting a view replaces the one already there,
+        # so the message's own home/visiting buttons get rebuilt with
+        # it. Those are inert once the assignment is made, which is the
+        # only state a board refresh runs in; before it, this message
+        # is still the team/coin prompt and its buttons are live.
+        if game.home_and_visiting_selected:
+            await add_full_image_button(
+                updated_message,
+                HomeAwaySelectionView(cog=self, game_id=game.game_id),
+            )
 
     def format_roster_player(self, player_id: str) -> str:
         player = self.get_player_definition(player_id)
@@ -3112,10 +3206,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         snapshot attached directly to the reply, in addition to
         keeping the persistent board message in sync.
         """
-        await interaction.followup.send(
+        snapshot = await interaction.followup.send(
             message,
             file=self.build_match_file(game),
+            wait=True,
         )
+        await add_full_image_button(snapshot)
         await self.refresh_match_image(interaction, game)
 
     async def archive_game_channel(
@@ -3436,7 +3532,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         await interaction.response.defer()
-        await interaction.followup.send(file=self.build_match_file(game))
+        snapshot = await interaction.followup.send(
+            file=self.build_match_file(game),
+            wait=True,
+        )
+        await add_full_image_button(snapshot)
 
     @app_commands.command(
         name="team_roster",
@@ -3490,6 +3590,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await interaction.response.send_message(
             file=self.build_maneuver_reference_file(),
         )
+        await add_full_image_button_to_response(interaction)
 
     @app_commands.command(
         name="offensive_choice",
