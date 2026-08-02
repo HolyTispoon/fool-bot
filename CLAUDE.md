@@ -103,6 +103,13 @@ whatever it resolved at startup. Restart after any render change.
   collide when two meeples share a space. `draw_meeple_group` in `render.py`
   clamps label positions and offsets stacked names by a fixed 23px, both tuned
   for a smaller `FONT_MEEPLE` than the current one.
+- **The "View full image" button dies after 24 hours, by design.** Discord
+  signs attachment URLs and stops honouring a signature a day after issuing it,
+  so the link baked into a board or maneuver-reference message goes dead once
+  the message sits untouched that long. The next board update re-cuts it. This
+  is an accepted trade for a one-tap link; the alternative was a callback
+  button that fetches a fresh URL on click at the cost of an extra tap. See
+  `add_full_image_button` in `cogs/d12ball.py`.
 
 ## Collaboration
 
