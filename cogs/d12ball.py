@@ -2241,6 +2241,16 @@ class ScoreAttemptView(SafeView):
         # is reached, so a bot restart mid-run-back reconstructs
         # correctly (build_run_back_view is checked before
         # pending_action == "shoot" in the view-rebuild cascade).
+        #
+        # pending_run_back has to be set (matching begin_run_back)
+        # before the state is saved, not after: the shooter no longer
+        # shares the restarted ball's space or side, and validate()
+        # only allows a stale active_player_id while a maneuver effect
+        # is in progress or pending_run_back is set -- a score attempt
+        # has neither until this line.
+        match.pending_run_back = True
+        match.pending_run_back_distance = space_minutes
+        match.pending_run_back_turnover = True
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
@@ -2250,13 +2260,7 @@ class ScoreAttemptView(SafeView):
             view=None,
         )
         await self.cog.refresh_match_image(interaction, game)
-        await self.cog.begin_run_back(
-            interaction,
-            game,
-            match,
-            distance_moved=space_minutes,
-            turnover_occurred=True,
-        )
+        await self.cog.continue_run_back(interaction, game, match)
 
 
 class LowPassChoiceView(SafeView):
