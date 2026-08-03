@@ -73,6 +73,16 @@ class AIStrategy(ABC):
     def choose_run_back_space(self, open_spaces: list[int]) -> int:
         ...
 
+    @abstractmethod
+    def choose_loose_ball_player(
+        self,
+        candidates: list[str],
+        skill_type: str,
+    ) -> str:
+        """Which zone-mate contests a loose ball; skill_type is
+        "offense" or "defense", matching the skill the test uses."""
+        ...
+
 
 class DinkyAI(AIStrategy):
     """
@@ -141,16 +151,53 @@ class DinkyAI(AIStrategy):
             return self.maneuver_catalog.offense_for_die(roll).name
         return self.maneuver_catalog.defense_for_die(roll).name
 
+    def _has_teammate_at_pass_distance(
+        self,
+        match: MatchState,
+        distance: int,
+    ) -> bool:
+        """
+        Whether a fielded teammate already occupies the space the ball
+        would land on (clamped to the board edge) at this pass
+        distance in the current attack direction.
+        """
+        offense_side = match.ball.possession
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        target_flat = match.relative_flat_index(
+            origin_flat, offense_side, distance,
+        )
+        zone, space_index = match.board.position_at_flat_index(target_flat)
+        offense_setup = match.setup_for_side(offense_side)
+        occupants = match.board.spaces[zone][space_index]
+        return any(
+            player_id in offense_setup.field_players
+            for player_id in occupants
+        )
+
     def choose_low_pass(self, match: MatchState) -> tuple[str, int]:
         """
-        Always forward at the maximum distance -- backward risks an
-        own goal for no advancing benefit.
+        Always forward -- backward risks an own goal for no advancing
+        benefit. Prefers the farthest distance that still lands on a
+        teammate, since passing into an empty space triggers a
+        contested loose-ball skill test instead of a clean reception;
+        only passes into empty space if no distance has a teammate.
         """
+        for distance in (2, 1):
+            if self._has_teammate_at_pass_distance(match, distance):
+                return "forward", distance
         return "forward", 2
 
     def choose_high_pass_distance(self, match: MatchState) -> int:
-        """Always the maximum distance, most likely to overshoot into
-        a scoring opportunity."""
+        """
+        Prefers the farthest distance (most likely to overshoot into a
+        scoring opportunity) that still lands on a teammate; same
+        loose-ball reasoning as choose_low_pass.
+        """
+        for distance in (3, 2):
+            if self._has_teammate_at_pass_distance(match, distance):
+                return distance
         return 3
 
     def choose_speed_delta(self, skill: int) -> int:
@@ -177,6 +224,26 @@ class DinkyAI(AIStrategy):
 
     def choose_run_back_space(self, open_spaces: list[int]) -> int:
         return min(open_spaces)
+
+    def choose_loose_ball_player(
+        self,
+        candidates: list[str],
+        skill_type: str,
+    ) -> str:
+        """The candidate with the higher skill of whichever type this
+        side rolls with."""
+
+        def sort_key(player_id: str) -> int:
+            profile = self.player_catalog.effective_profile(
+                self.player_catalog.player_by_id(player_id)
+            )
+            skill = (
+                profile.offense if skill_type == "offense"
+                else profile.defense
+            )
+            return -skill
+
+        return min(candidates, key=sort_key)
 
 
 def build_ai_strategies(

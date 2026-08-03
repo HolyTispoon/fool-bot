@@ -428,6 +428,82 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertEqual(restored.exhausted, {"teal_bulwark"})
         self.assertEqual(restored.injured, {"teal_bulwark"})
 
+    def test_fielded_players_in_zone(self) -> None:
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.SLIME,
+            visiting_team=Team.TEAL,
+        )
+        home_players = match.fielded_players_in_zone(
+            TeamSide.HOME, Zone.HOME_GOAL,
+        )
+        self.assertEqual(
+            set(home_players), set(match.home.zones[Zone.HOME_GOAL]),
+        )
+
+        visiting_players = match.fielded_players_in_zone(
+            TeamSide.VISITING, Zone.HOME_GOAL,
+        )
+        self.assertEqual(
+            set(visiting_players),
+            set(match.visiting.zones[Zone.HOME_GOAL]),
+        )
+
+    def test_loose_ball_picks_round_trip_and_reset(self) -> None:
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.SLIME,
+            visiting_team=Team.TEAL,
+        )
+        match.begin_loose_ball(2)
+        match.choose_loose_ball_offense_player("slime_goopkeeper")
+        match.choose_loose_ball_defense_player("teal_bulwark")
+
+        with self.assertRaises(ValueError):
+            match.choose_loose_ball_offense_player("slime_gurgoth")
+        with self.assertRaises(ValueError):
+            match.choose_loose_ball_defense_player("teal_strider")
+
+        restored = MatchState.from_dict(match.to_dict(), self.rules)
+        self.assertTrue(restored.pending_loose_ball)
+        self.assertEqual(restored.pending_loose_ball_distance, 2)
+        self.assertEqual(
+            restored.loose_ball_offense_player, "slime_goopkeeper",
+        )
+        self.assertEqual(
+            restored.loose_ball_defense_player, "teal_bulwark",
+        )
+
+        match.reset_maneuver()
+        self.assertFalse(match.pending_loose_ball)
+        self.assertEqual(match.pending_loose_ball_distance, 1)
+        self.assertIsNone(match.loose_ball_offense_player)
+        self.assertIsNone(match.loose_ball_defense_player)
+
+    def test_run_back_distance_and_turnover_round_trip(self) -> None:
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.SLIME,
+            visiting_team=Team.TEAL,
+        )
+        match.pending_run_back = True
+        match.pending_run_back_distance = 3
+        match.pending_run_back_turnover = False
+
+        restored = MatchState.from_dict(match.to_dict(), self.rules)
+        self.assertEqual(restored.pending_run_back_distance, 3)
+        self.assertFalse(restored.pending_run_back_turnover)
+
+        match.reset_maneuver()
+        self.assertEqual(match.pending_run_back_distance, 1)
+        self.assertTrue(match.pending_run_back_turnover)
+
     def test_setup_overview_renders_as_png(self) -> None:
         match = MatchState.standard(
             catalog=self.catalog,

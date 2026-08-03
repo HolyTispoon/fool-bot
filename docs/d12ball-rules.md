@@ -130,6 +130,14 @@ transcription itself. What remains below is what upstream still does not say.
 - **Defender role ability, "Steals the ball when wins a maneuver with Pressure":** Pressure's
   normal effect still happens -- player and ball go back one space, the defender moves one
   forward -- **and** possession flips in addition.
+- **A pass landing on an empty space (Low Pass or High Pass) is a contested loose ball, not
+  a clean reception.** It triggers a skill test: starting with the player who last had
+  possession, each side picks a player of their team that is in the space where the ball is
+  landing. That player is moved to that space, gains 1 exhaustion, and participates in a
+  skill test. The player who last had possession is considered the offense and their player
+  uses offensive skill (the other side is defense). The winner of the test gains possession.
+  See [rules-open-questions.md](rules-open-questions.md) for how the bot fills the gap this
+  leaves for a side with no eligible player to send.
 
 ### Exhaustion
 
@@ -398,6 +406,12 @@ offensive skill of the player, you need a result of 7 and above to avoid an own 
 > Fullbacks are exempt from the disadvantage on this roll (their role ability), so they roll
 > a single d12. They also have the worst offensive modifier, which leaves them a little
 > better than even overall -- the author flags this balance as needing more playtesting.
+
+> Clarified by the author beyond this text: there is no "goal space" -- the field only has
+> spaces. The risk is triggered by **overshoot**, the same requirement
+> [Setting a scoring opportunity](#setting-a-scoring-opportunity) uses: a deflection that
+> would push the ball past the space closest to the team's own goal, not merely landing on
+> that space.
 
 ### Setting a scoring opportunity
 

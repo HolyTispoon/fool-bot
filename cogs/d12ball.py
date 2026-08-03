@@ -2566,6 +2566,287 @@ class RunBackChoiceView(SafeView):
         await self.cog.continue_run_back(interaction, game, match)
 
 
+class LooseBallChoiceView(SafeView):
+    """
+    One combined prompt for whichever side(s) still need a real human
+    pick of who contests a loose ball -- entries is a list of
+    (side, candidates) for only the sides that still need one.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        entries: list[tuple[str, list[str]]],
+    ):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+        for side, candidates in entries:
+            for player_id in candidates:
+                player = cog.get_player_definition(player_id)
+                button = discord.ui.Button(
+                    label=f"{player.name} ({side})",
+                    style=(
+                        discord.ButtonStyle.primary
+                        if side == "offense"
+                        else discord.ButtonStyle.danger
+                    ),
+                    custom_id=(
+                        f"d12ball:loose_ball:{game_id}:{side}:{player_id}"
+                    ),
+                )
+
+                async def callback(
+                    interaction: discord.Interaction,
+                    chosen_side: str = side,
+                    chosen_player_id: str = player_id,
+                ) -> None:
+                    await self.choose(
+                        interaction, chosen_side, chosen_player_id,
+                    )
+
+                button.callback = callback
+                self.add_item(button)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        side: str,
+        player_id: str,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+        match = self.cog.load_match_state(game)
+
+        if side == "offense":
+            authorized = self.cog.user_controls_possession(
+                interaction.user.id, game, match,
+            )
+            already_chosen = match.loose_ball_offense_player is not None
+        else:
+            authorized = self.cog.user_controls_defense(
+                interaction.user.id, game, match,
+            )
+            already_chosen = match.loose_ball_defense_player is not None
+
+        if already_chosen:
+            await interaction.response.send_message(
+                "A player has already been chosen for that side.",
+                ephemeral=True,
+            )
+            return
+        if not authorized:
+            await interaction.response.send_message(
+                "Only the player on that side can choose.",
+                ephemeral=True,
+            )
+            return
+
+        if side == "offense":
+            match.choose_loose_ball_offense_player(player_id)
+        else:
+            match.choose_loose_ball_defense_player(player_id)
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        player = self.cog.get_player_definition(player_id)
+        refreshed_view = self.cog.build_loose_ball_view(
+            self.game_id, match,
+        )
+        await interaction.response.edit_message(view=refreshed_view)
+        await interaction.followup.send(
+            f"{format_role_bracket(player, self.cog.team_emojis)} "
+            f"contests the loose ball ({side})."
+        )
+
+        offense_ready, defense_ready = self.cog.loose_ball_sides_ready(
+            match,
+        )
+        if offense_ready and defense_ready:
+            await self.cog.resolve_loose_ball(interaction, game, match)
+
+
+class LooseBallSkillTestView(SafeView):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+    ):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+        button = discord.ui.Button(
+            label="Roll for the loose ball",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:loose_ball_test:{game_id}",
+        )
+        button.callback = self.roll
+        self.add_item(button)
+
+    async def roll(self, interaction: discord.Interaction) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+        if (
+            not match.pending_loose_ball
+            or match.loose_ball_offense_player is None
+            or match.loose_ball_defense_player is None
+        ):
+            await interaction.response.send_message(
+                "This loose ball is no longer active.",
+                ephemeral=True,
+            )
+            return
+
+        participant_ids = {game.player_1_id}
+        if game.player_2_id is not None:
+            participant_ids.add(game.player_2_id)
+        if interaction.user.id not in participant_ids:
+            await interaction.response.send_message(
+                "Only a player in this game can roll for the loose ball.",
+                ephemeral=True,
+            )
+            return
+
+        offense_player = self.cog.get_player_definition(
+            match.loose_ball_offense_player,
+        )
+        defense_player = self.cog.get_player_definition(
+            match.loose_ball_defense_player,
+        )
+        offense_skill = self.cog.player_catalog.effective_profile(
+            offense_player,
+        ).offense
+        defense_skill = self.cog.player_catalog.effective_profile(
+            defense_player,
+        ).defense
+
+        offense_roll = random.randint(1, 12)
+        defense_roll = random.randint(1, 12)
+        offense_total = offense_roll + offense_skill
+        defense_total = defense_roll + defense_skill
+
+        breakdown = (
+            f"**{format_role_bracket(offense_player, self.cog.team_emojis)}** "
+            f"(offense): rolled {offense_roll} + {offense_skill} "
+            f"(offensive skill modifier) = {offense_total}\n"
+            f"**{format_role_bracket(defense_player, self.cog.team_emojis)}** "
+            f"(defense): rolled {defense_roll} + {defense_skill} "
+            f"(defensive skill modifier) = {defense_total}"
+        )
+        dice_file = discord.File(
+            render_dice_row(
+                [
+                    (
+                        offense_roll,
+                        TEAM_COLORS[offense_player.team],
+                        offense_player.team.value.title(),
+                    ),
+                    (
+                        defense_roll,
+                        TEAM_COLORS[defense_player.team],
+                        defense_player.team.value.title(),
+                    ),
+                ]
+            ),
+            filename="loose_ball_dice.png",
+        )
+
+        if offense_total == defense_total:
+            match.add_exhaustion(match.loose_ball_offense_player, 1)
+            match.add_exhaustion(match.loose_ball_defense_player, 1)
+            game.match_state = match.to_dict()
+            save_games(self.cog.games)
+
+            exhaustion_text = "\n".join(
+                [
+                    self.cog.describe_exhaustion_gain(
+                        match, match.loose_ball_offense_player, 1,
+                    ),
+                    self.cog.describe_exhaustion_gain(
+                        match, match.loose_ball_defense_player, 1,
+                    ),
+                ]
+            )
+            await interaction.response.edit_message(
+                content=(
+                    f"{breakdown}\n\n"
+                    f"Another tie!\n{exhaustion_text}\n\nRoll again:"
+                ),
+                attachments=[dice_file],
+                view=LooseBallSkillTestView(self.cog, self.game_id),
+            )
+            await self.cog.refresh_match_image(interaction, game)
+            return
+
+        outcome = "offense" if offense_total > defense_total else "defense"
+        winner_side = (
+            match.ball.possession
+            if outcome == "offense"
+            else match.defending_side()
+        )
+        turnover_occurred = winner_side != match.ball.possession
+        winner_number = (
+            self.cog.possession_player_number(game, match)
+            if outcome == "offense"
+            else self.cog.defending_player_number(game, match)
+        )
+        winner_mention = format_player_with_team(
+            game, winner_number, mention=True,
+        )
+        winner_player = (
+            offense_player if outcome == "offense" else defense_player
+        )
+
+        exhausted_participants = [
+            player
+            for player in (offense_player, defense_player)
+            if player.player_id in match.exhausted
+        ]
+        distance_moved = match.pending_loose_ball_distance
+
+        match.ball.possession = winner_side
+        match.pending_loose_ball = False
+        match.loose_ball_offense_player = None
+        match.loose_ball_defense_player = None
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        await interaction.response.edit_message(
+            content=(
+                f"{breakdown}\n\n"
+                f"{format_role_bracket(winner_player, self.cog.team_emojis)} "
+                f"wins the loose ball! {winner_mention} has possession."
+            ),
+            attachments=[dice_file],
+            view=None,
+        )
+        await self.cog.refresh_match_image(interaction, game)
+
+        for player in exhausted_participants:
+            await self.cog.run_injury_test(interaction, game, match, player)
+
+        await self.cog.begin_run_back(
+            interaction, game, match,
+            distance_moved=distance_moved,
+            turnover_occurred=turnover_occurred,
+        )
+
+
 class D12Ball(commands.GroupCog, group_name="d12ball"):
     ball_group = app_commands.Group(
         name="ball",
@@ -2631,6 +2912,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     turn_view = self.build_run_back_view(
                         game.game_id, match,
                     ) or PlayerActionView(self, game.game_id)
+                elif match.pending_loose_ball:
+                    if (
+                        match.loose_ball_offense_player is not None
+                        and match.loose_ball_defense_player is not None
+                    ):
+                        turn_view = LooseBallSkillTestView(
+                            self, game.game_id,
+                        )
+                    else:
+                        turn_view = self.build_loose_ball_view(
+                            game.game_id, match,
+                        ) or PlayerActionView(self, game.game_id)
                 elif match.pending_action == "shoot":
                     turn_view = ScoreAttemptView(self, game.game_id)
                 elif (
@@ -3484,9 +3777,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if not candidates:
             await interaction.followup.send(content)
             await self.refresh_match_image(interaction, game)
-            await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=actual_distance,
-            )
+            if self.is_landing_space_empty(match):
+                await self.begin_loose_ball(
+                    interaction, game, match, actual_distance,
+                )
+            else:
+                await self.finish_maneuver_resolution(
+                    interaction, game, match, distance_moved=actual_distance,
+                )
             return
 
         await interaction.followup.send(
@@ -3596,9 +3894,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if not candidates:
             await interaction.followup.send(content)
             await self.refresh_match_image(interaction, game)
-            await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=actual_distance,
-            )
+            if self.is_landing_space_empty(match):
+                await self.begin_loose_ball(
+                    interaction, game, match, actual_distance,
+                )
+            else:
+                await self.finish_maneuver_resolution(
+                    interaction, game, match, distance_moved=actual_distance,
+                )
             return
 
         await interaction.followup.send(
@@ -3627,6 +3930,275 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             for player_id in occupants
             if player_id in offense_setup.field_players
         ]
+
+    # -- Loose ball (a pass landing on an empty space) -----------------
+
+    def is_landing_space_empty(self, match: MatchState) -> bool:
+        return not match.board.spaces[match.ball.zone][match.ball.space_index]
+
+    def loose_ball_candidates(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> list[str]:
+        return match.fielded_players_in_zone(side, match.ball.zone)
+
+    def loose_ball_sides_ready(
+        self,
+        match: MatchState,
+    ) -> tuple[bool, bool]:
+        """
+        Whether the offense/defense pick is settled -- either made, or
+        moot because that side has nobody in the zone to send.
+        """
+        offense_candidates = self.loose_ball_candidates(
+            match, match.ball.possession,
+        )
+        defense_candidates = self.loose_ball_candidates(
+            match, match.defending_side(),
+        )
+        offense_ready = (
+            match.loose_ball_offense_player is not None
+            or not offense_candidates
+        )
+        defense_ready = (
+            match.loose_ball_defense_player is not None
+            or not defense_candidates
+        )
+        return offense_ready, defense_ready
+
+    def auto_resolve_loose_ball_picks(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Settle whichever side doesn't need (or can't get) a real human
+        choice: AI-controlled, or exactly one candidate. A side with no
+        candidates at all is left unset -- resolve_loose_ball reads
+        that as "nobody available", not "still deciding".
+        """
+        for side, skill_type, choose in (
+            (
+                match.ball.possession,
+                "offense",
+                match.choose_loose_ball_offense_player,
+            ),
+            (
+                match.defending_side(),
+                "defense",
+                match.choose_loose_ball_defense_player,
+            ),
+        ):
+            already_picked = (
+                match.loose_ball_offense_player
+                if skill_type == "offense"
+                else match.loose_ball_defense_player
+            ) is not None
+            if already_picked:
+                continue
+
+            candidates = self.loose_ball_candidates(match, side)
+            if not candidates:
+                continue
+            if len(candidates) == 1:
+                choose(candidates[0])
+            elif self.side_controlled_by_ai(game, match, skill_type):
+                choose(
+                    self.get_ai_strategy(game).choose_loose_ball_player(
+                        candidates, skill_type,
+                    )
+                )
+
+    def build_loose_ball_view(
+        self,
+        game_id: str,
+        match: MatchState,
+    ) -> Optional[discord.ui.View]:
+        """
+        Reconstruct the loose-ball pick prompt for whichever side(s)
+        still need a real human choice (2+ candidates, not yet picked)
+        -- purely from match state, so a bot restart mid-pick
+        reconstructs correctly, same as build_run_back_view.
+        """
+        entries: list[tuple[str, list[str]]] = []
+        if match.loose_ball_offense_player is None:
+            candidates = self.loose_ball_candidates(
+                match, match.ball.possession,
+            )
+            if len(candidates) > 1:
+                entries.append(("offense", candidates))
+        if match.loose_ball_defense_player is None:
+            candidates = self.loose_ball_candidates(
+                match, match.defending_side(),
+            )
+            if len(candidates) > 1:
+                entries.append(("defense", candidates))
+        if not entries:
+            return None
+        return LooseBallChoiceView(self, game_id, entries)
+
+    async def begin_loose_ball(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        distance_moved: int,
+    ) -> None:
+        """
+        `distance_moved` (the pass's own clamped travel) is stashed on
+        `match` by begin_loose_ball() -- the pick and, if it comes to
+        one, the skill test both span later interactions that can't
+        see a Python-level parameter from this call, so everything
+        downstream reads it back from match state instead.
+        """
+        match.begin_loose_ball(distance_moved)
+        self.auto_resolve_loose_ball_picks(game, match)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await interaction.followup.send(
+            "**Loose ball!** The pass lands in an empty space -- each "
+            "side may send a nearby player to contest it."
+        )
+
+        offense_ready, defense_ready = self.loose_ball_sides_ready(match)
+        if offense_ready and defense_ready:
+            await self.resolve_loose_ball(interaction, game, match)
+            return
+
+        waiting_on = []
+        if not offense_ready:
+            waiting_on.append(
+                format_player_with_team(
+                    game,
+                    self.possession_player_number(game, match),
+                    mention=True,
+                )
+            )
+        if not defense_ready:
+            waiting_on.append(
+                format_player_with_team(
+                    game,
+                    self.defending_player_number(game, match),
+                    mention=True,
+                )
+            )
+
+        prompt_message = await interaction.followup.send(
+            f"{' and '.join(waiting_on)}, choose who contests it:",
+            view=self.build_loose_ball_view(game.game_id, match),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
+
+    async def resolve_loose_ball(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        offense_player_id = match.loose_ball_offense_player
+        defense_player_id = match.loose_ball_defense_player
+        distance_moved = match.pending_loose_ball_distance
+
+        if offense_player_id is None and defense_player_id is None:
+            match.pending_loose_ball = False
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await interaction.followup.send(
+                "Nobody is nearby to contest it -- the ball stays where "
+                "it landed."
+            )
+            await self.begin_run_back(
+                interaction, game, match,
+                distance_moved=distance_moved, turnover_occurred=False,
+            )
+            return
+
+        if defense_player_id is None:
+            player = self.get_player_definition(offense_player_id)
+            match.move_meeple(
+                offense_player_id, match.ball.zone, match.ball.space_index,
+            )
+            match.add_exhaustion(offense_player_id, 1)
+            match.pending_loose_ball = False
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            await interaction.followup.send(
+                f"{format_role_bracket(player, self.team_emojis)} "
+                "recovers the loose ball uncontested.\n"
+                + self.describe_exhaustion_gain(match, offense_player_id, 1)
+            )
+            await self.refresh_match_image(interaction, game)
+            await self.begin_run_back(
+                interaction, game, match,
+                distance_moved=distance_moved, turnover_occurred=False,
+            )
+            return
+
+        if offense_player_id is None:
+            player = self.get_player_definition(defense_player_id)
+            match.move_meeple(
+                defense_player_id, match.ball.zone, match.ball.space_index,
+            )
+            match.add_exhaustion(defense_player_id, 1)
+            match.ball.possession = match.defending_side()
+            match.pending_loose_ball = False
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            await interaction.followup.send(
+                f"{format_role_bracket(player, self.team_emojis)} "
+                "recovers the loose ball uncontested. "
+                f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
+                "now has possession.\n"
+                + self.describe_exhaustion_gain(match, defense_player_id, 1)
+            )
+            await self.refresh_match_image(interaction, game)
+            await self.begin_run_back(
+                interaction, game, match,
+                distance_moved=distance_moved, turnover_occurred=True,
+            )
+            return
+
+        # Both sides have a candidate -- move them both in and run the
+        # actual skill test.
+        match.move_meeple(
+            offense_player_id, match.ball.zone, match.ball.space_index,
+        )
+        match.move_meeple(
+            defense_player_id, match.ball.zone, match.ball.space_index,
+        )
+        game.match_state = match.to_dict()
+        save_games(self.games)
+        await self.refresh_match_image(interaction, game)
+
+        offense_player = self.get_player_definition(offense_player_id)
+        defense_player = self.get_player_definition(defense_player_id)
+        offense_skill = self.player_catalog.effective_profile(
+            offense_player,
+        ).offense
+        defense_skill = self.player_catalog.effective_profile(
+            defense_player,
+        ).defense
+
+        test_message = await interaction.followup.send(
+            f"{format_role_bracket(offense_player, self.team_emojis)} "
+            f"(offense skill {offense_skill}) and "
+            f"{format_role_bracket(defense_player, self.team_emojis)} "
+            f"(defense skill {defense_skill}) both reach the loose "
+            "ball -- skill test!\n\nEither player can roll:",
+            view=LooseBallSkillTestView(self, game.game_id),
+            wait=True,
+        )
+        game.turn_message_id = test_message.id
+        save_games(self.games)
 
     async def begin_shooter_choice(
         self,
@@ -3993,8 +4565,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        distance_moved: int = 1,
+        turnover_occurred: bool = True,
     ) -> None:
+        """
+        `distance_moved`/`turnover_occurred` describe the maneuver that
+        triggered this run-back, stashed on `match` so they survive the
+        multi-turn choice flow and reach finish_maneuver_resolution
+        correctly once run-back itself (which only ever costs
+        exhaustion, never time) is done.
+        """
         match.pending_run_back = True
+        match.pending_run_back_distance = distance_moved
+        match.pending_run_back_turnover = turnover_occurred
         game.match_state = match.to_dict()
         save_games(self.games)
         await self.continue_run_back(interaction, game, match)
@@ -4093,13 +4676,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         # Nobody is displaced on either side -- run-back is done.
         match.pending_run_back = False
+        distance_moved = match.pending_run_back_distance
+        turnover_occurred = match.pending_run_back_turnover
         game.match_state = match.to_dict()
         save_games(self.games)
-        # Steal Intercept is the only maneuver that reaches run-back,
-        # and its own ball movement always costs a fixed 1 space
-        # minute -- run-back itself only costs exhaustion, not time.
+        # Run-back itself only ever costs exhaustion, not time -- the
+        # time cost is whatever the triggering maneuver's own ball
+        # movement was, stashed by begin_run_back.
         await self.finish_maneuver_resolution(
-            interaction, game, match, distance_moved=1, turnover_occurred=True,
+            interaction,
+            game,
+            match,
+            distance_moved=distance_moved,
+            turnover_occurred=turnover_occurred,
         )
 
     # -- Clock, period transitions, and the turn loop -----------------
