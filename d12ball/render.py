@@ -102,6 +102,7 @@ FONT_TOKEN = load_font(16, bold=True)
 FONT_MANEUVER_TITLE = load_font(30, bold=True)
 FONT_MANEUVER_BODY = load_font(22)
 FONT_MANEUVER_LEGEND = load_font(22)
+FONT_DICE_TOTAL = load_font(38, bold=True)
 FONT_SCORE = load_font(52, bold=True)
 MEEPLE_SIZE = 52
 BALL_RADIUS = 25
@@ -717,39 +718,52 @@ def render_dice_row(dice: list[tuple[int, str, str]]) -> BytesIO:
 
 
 SKILL_TEST_CELL_WIDTH = 340
+SKILL_TEST_DIE_RADIUS = 72
+SKILL_TEST_CENTER_Y = SKILL_TEST_DIE_RADIUS + 35
 SKILL_TEST_DETAIL_LINE_HEIGHT = 28
-SKILL_TEST_DETAIL_TOP_GAP = 60
+SKILL_TEST_DETAIL_TOP_GAP = 55
+SKILL_TEST_TOTAL_GAP = 20
+SKILL_TEST_TOTAL_LINE_HEIGHT = 50
+SKILL_TEST_BOTTOM_PADDING = 20
 
 
 def render_skill_test_dice(
-    dice: list[tuple[int, str, str, list[str]]],
+    dice: list[tuple[int, str, str, list[str], int]],
 ) -> BytesIO:
     """
     Render one or more d12 results side by side, each annotated with the
-    team, the player(s) behind that side of the roll, and the skill and
-    modifiers that built the total -- used for skill tests and score
-    (shooting) attempts, where a bare team-colored die isn't enough to
-    show who rolled it or why.
+    team, the player(s) behind that side of the roll, the skill and
+    modifiers that built the total, and the total itself -- used for
+    skill tests and score (shooting) attempts, where a bare
+    team-colored die isn't enough to show who rolled it, why, or what
+    it added up to.
 
-    Each entry is (rolled value, team color, team label, detail lines),
-    where detail lines are pre-formatted strings -- player name and
-    role, skill applied, any other modifiers -- stacked one per line
-    under the team label.
+    Each entry is (rolled value, team color, team label, detail lines,
+    total), where detail lines are pre-formatted strings -- player name
+    and role, skill applied, any other modifiers -- stacked one per
+    line under the team label, and total is the final modified result,
+    drawn large underneath so the number that actually decided the
+    roll doesn't require reading the accompanying message.
     """
-    max_lines = max((len(detail) for _, _, _, detail in dice), default=0)
-    height = DICE_IMAGE_HEIGHT + max_lines * SKILL_TEST_DETAIL_LINE_HEIGHT
+    max_lines = max((len(detail) for _, _, _, detail, _ in dice), default=0)
+    detail_block_height = max_lines * SKILL_TEST_DETAIL_LINE_HEIGHT
+    total_y = (
+        SKILL_TEST_CENTER_Y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
+        + detail_block_height + SKILL_TEST_TOTAL_GAP
+    )
+    height = total_y + SKILL_TEST_TOTAL_LINE_HEIGHT + SKILL_TEST_BOTTOM_PADDING
     width = SKILL_TEST_CELL_WIDTH * len(dice)
     canvas = Image.new("RGBA", (width, height), "#111820")
     draw = ImageDraw.Draw(canvas)
-    center_y = DICE_IMAGE_HEIGHT // 2 - 15
+    center_y = SKILL_TEST_CENTER_Y
 
-    for index, (value, color, label, detail_lines) in enumerate(dice):
+    for index, (value, color, label, detail_lines, total) in enumerate(dice):
         center_x = index * SKILL_TEST_CELL_WIDTH + SKILL_TEST_CELL_WIDTH // 2
         draw_d12_polygon(
             draw,
             center_x,
             center_y,
-            DICE_IMAGE_DIE_RADIUS,
+            SKILL_TEST_DIE_RADIUS,
             color,
             str(value),
             font=FONT_SCORE,
@@ -758,14 +772,14 @@ def render_skill_test_dice(
         draw.text(
             (
                 center_x - label_width / 2,
-                center_y + DICE_IMAGE_DIE_RADIUS + 20,
+                center_y + SKILL_TEST_DIE_RADIUS + 20,
             ),
             label,
             font=FONT_BODY,
             fill="#ffffff",
         )
 
-        detail_y = center_y + DICE_IMAGE_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
+        detail_y = center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
         for line in detail_lines:
             line_width = draw.textlength(line, font=FONT_SMALL)
             draw.text(
@@ -775,6 +789,18 @@ def render_skill_test_dice(
                 fill="#c7ced6",
             )
             detail_y += SKILL_TEST_DETAIL_LINE_HEIGHT
+
+        # Aligned on max_lines rather than this entry's own line count,
+        # so the totals line up across dice even when one side has more
+        # modifiers listed than the other.
+        total_label = f"= {total}"
+        total_width = draw.textlength(total_label, font=FONT_DICE_TOTAL)
+        draw.text(
+            (center_x - total_width / 2, total_y),
+            total_label,
+            font=FONT_DICE_TOTAL,
+            fill=color,
+        )
 
     output = BytesIO()
     canvas.convert("RGB").save(output, format="PNG", optimize=True)

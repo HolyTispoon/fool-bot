@@ -707,6 +707,24 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         match.ball.possession = TeamSide.VISITING
         self.assertTrue(match.is_ball_at_scoring_space())
 
+    def test_own_goal_restart_space_is_closest_to_that_side_own_goal(
+        self,
+    ) -> None:
+        for board_size in (6, 7, 9):
+            match = self.build_match(board_size)
+
+            self.assertEqual(
+                match.own_goal_restart_space(TeamSide.HOME),
+                (Zone.HOME_GOAL, 0),
+            )
+            self.assertEqual(
+                match.own_goal_restart_space(TeamSide.VISITING),
+                (
+                    Zone.VISITORS_GOAL,
+                    len(match.board.spaces[Zone.VISITORS_GOAL]) - 1,
+                ),
+            )
+
     def test_defending_side_follows_possession(self) -> None:
         match = self.build_match(7)
 

@@ -5,6 +5,7 @@ import re
 import uuid
 from typing import Optional
 
+import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -612,9 +613,13 @@ async def add_full_image_button(
 
     try:
         await message.edit(view=view)
-    except discord.HTTPException:
+    except (discord.HTTPException, aiohttp.ClientError):
         # The image itself is already posted, so a missing link is
         # worth less than the game action it would take down with it.
+        # aiohttp.ClientError (connection reset, a bad SSL record, a
+        # timeout) covers a dropped connection below discord.py's own
+        # exception types -- equally not worth losing the rest of the
+        # turn over.
         pass
 
 
@@ -628,7 +633,7 @@ async def add_full_image_button_to_response(
     """
     try:
         message = await interaction.original_response()
-    except discord.HTTPException:
+    except (discord.HTTPException, aiohttp.ClientError):
         return
 
     await add_full_image_button(message, view)
@@ -1284,8 +1289,9 @@ class BallHandlerSelectionView(SafeView):
         match = self.cog.load_match_state(game)
         for player_id in match.eligible_ball_handlers():
             player = self.cog.get_player_definition(player_id)
+            initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
-                label=player.name,
+                label=f"{player.name} [{initials}]",
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:ball_handler:{game_id}:{player_id}"
@@ -1972,12 +1978,14 @@ class SkillTestView(SafeView):
                         TEAM_COLORS[offense_player.team],
                         offense_player.team.value.title(),
                         offense_detail,
+                        offense_total,
                     ),
                     (
                         defense_roll,
                         TEAM_COLORS[defense_player.team],
                         defense_player.team.value.title(),
                         defense_detail,
+                        defense_total,
                     ),
                 ]
             ),
@@ -2007,7 +2015,9 @@ class SkillTestView(SafeView):
             await interaction.response.edit_message(
                 content=(
                     f"{breakdown}\n\n"
-                    f"Another tie!\n{exhaustion_text}\n\nRoll again:"
+                    f"**It's a tie ({offense_total}-{defense_total})!** "
+                    f"The skill test must be rolled again.\n"
+                    f"{exhaustion_text}\n\nRoll again:"
                 ),
                 attachments=[dice_file],
                 view=SkillTestView(self.cog, self.game_id),
@@ -2021,12 +2031,6 @@ class SkillTestView(SafeView):
             if outcome == "offense"
             else match.defense_maneuver
         )
-        catalog = self.cog.maneuver_catalog
-        winner_definition = (
-            catalog.offense_by_name()
-            if outcome == "offense"
-            else catalog.defense_by_name()
-        )[winner_name]
         winner_number = (
             self.cog.possession_player_number(game, match)
             if outcome == "offense"
@@ -2047,8 +2051,8 @@ class SkillTestView(SafeView):
         await interaction.response.edit_message(
             content=(
                 f"{breakdown}\n\n"
-                f"**{winner_name}** wins the skill test! {winner_mention}, "
-                f"resolving the effect:\n{winner_definition.effect}"
+                f"**{winner_name}** wins the skill test! {winner_mention} "
+                "resolves the effect:"
             ),
             attachments=[dice_file],
             view=None,
@@ -2178,12 +2182,14 @@ class ScoreAttemptView(SafeView):
                         TEAM_COLORS[attacking_setup.team],
                         attacking_setup.team.value.title(),
                         attack_detail,
+                        attack_total,
                     ),
                     (
                         defense_roll,
                         TEAM_COLORS[defending_setup.team],
                         defending_setup.team.value.title(),
                         defense_detail,
+                        defense_total,
                     ),
                 ]
             ),
@@ -2208,7 +2214,6 @@ class ScoreAttemptView(SafeView):
                 f"{format_team_side_label(defending_setup)} keeps the goal "
                 "intact."
             )
-        cleanup = self.cog.build_score_attempt_cleanup(match, scored)
 
         # A plain score attempt costs no exhaustion and owes no injury
         # check -- only a shot taken off a set-up gains a token, taken
@@ -2221,16 +2226,53 @@ class ScoreAttemptView(SafeView):
                 match, shooter.player_id, 1,
             )
 
-        match.reset_maneuver()
+        # Every score attempt is a turnover, win or miss: the clock
+        # cost is the shot's own distance to goal, captured before the
+        # restart moves the ball, and the team that just defended
+        # restarts play -- in the middle of the midfield on a goal
+        # (the same kickoff rule as the start of a half), or at the
+        # space closest to their own goal on a miss.
+        space_minutes = match.spaces_to_goal()
+        new_possession_side = defending_setup.side
+        if scored:
+            kickoff_index = kickoff_space_index(
+                len(match.board.spaces[Zone.MIDFIELD]),
+                new_possession_side,
+            )
+            match.set_ball_space(Zone.MIDFIELD, kickoff_index)
+        else:
+            restart_zone, restart_index = match.own_goal_restart_space(
+                new_possession_side,
+            )
+            match.set_ball_space(restart_zone, restart_index)
+        match.ball.possession = new_possession_side
+        match.ball.speed = 1
+
+        # active_player_id/pending_action stay set -- like a maneuver,
+        # reset_maneuver() only happens once finish_maneuver_resolution
+        # is reached, so a bot restart mid-run-back reconstructs
+        # correctly (build_run_back_view is checked before
+        # pending_action == "shoot" in the view-rebuild cascade).
+        #
+        # pending_run_back has to be set (matching begin_run_back)
+        # before the state is saved, not after: the shooter no longer
+        # shares the restarted ball's space or side, and validate()
+        # only allows a stale active_player_id while a maneuver effect
+        # is in progress or pending_run_back is set -- a score attempt
+        # has neither until this line.
+        match.pending_run_back = True
+        match.pending_run_back_distance = space_minutes
+        match.pending_run_back_turnover = True
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
         await interaction.response.edit_message(
-            content=f"{breakdown}\n\n{verdict}{set_up_note}\n\n{cleanup}",
+            content=f"{breakdown}\n\n{verdict}{set_up_note}",
             attachments=[dice_file],
             view=None,
         )
         await self.cog.refresh_match_image(interaction, game)
+        await self.cog.continue_run_back(interaction, game, match)
 
 
 class LowPassChoiceView(SafeView):
@@ -2466,8 +2508,9 @@ class ShooterChoiceView(SafeView):
 
         for player_id in candidates:
             player = cog.get_player_definition(player_id)
+            initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
-                label=player.name,
+                label=f"{player.name} [{initials}]",
                 style=discord.ButtonStyle.danger,
                 custom_id=f"d12ball:shooter:{game_id}:{player_id}",
             )
@@ -2636,8 +2679,9 @@ class LooseBallChoiceView(SafeView):
         for side, candidates in entries:
             for player_id in candidates:
                 player = cog.get_player_definition(player_id)
+                initials = ROLE_INITIALS[player.role.value]
                 button = discord.ui.Button(
-                    label=f"{player.name} ({side})",
+                    label=f"{player.name} [{initials}] ({side})",
                     style=(
                         discord.ButtonStyle.primary
                         if side == "offense"
@@ -2810,6 +2854,7 @@ class LooseBallSkillTestView(SafeView):
                             f"[{ROLE_INITIALS[offense_player.role.value]}]",
                             f"Offensive skill +{offense_skill}",
                         ],
+                        offense_total,
                     ),
                     (
                         defense_roll,
@@ -2820,6 +2865,7 @@ class LooseBallSkillTestView(SafeView):
                             f"[{ROLE_INITIALS[defense_player.role.value]}]",
                             f"Defensive skill +{defense_skill}",
                         ],
+                        defense_total,
                     ),
                 ]
             ),
@@ -2845,7 +2891,9 @@ class LooseBallSkillTestView(SafeView):
             await interaction.response.edit_message(
                 content=(
                     f"{breakdown}\n\n"
-                    f"Another tie!\n{exhaustion_text}\n\nRoll again:"
+                    f"**It's a tie ({offense_total}-{defense_total})!** "
+                    f"The skill test must be rolled again.\n"
+                    f"{exhaustion_text}\n\nRoll again:"
                 ),
                 attachments=[dice_file],
                 view=LooseBallSkillTestView(self.cog, self.game_id),
@@ -2880,6 +2928,8 @@ class LooseBallSkillTestView(SafeView):
         distance_moved = match.pending_loose_ball_distance
 
         match.ball.possession = winner_side
+        if turnover_occurred:
+            match.ball.speed = 1
         match.pending_loose_ball = False
         match.loose_ball_offense_player = None
         match.loose_ball_defense_player = None
@@ -2966,7 +3016,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 game.turn_message_id is not None
                 and game.match_state is not None
             ):
-                match = self.load_match_state(game)
+                try:
+                    match = self.load_match_state(game)
+                except ValueError as error:
+                    # Saved state that no longer passes validate() (e.g.
+                    # a crash that saved state mid-effect, before the
+                    # rest of the pipeline could finish) shouldn't take
+                    # every other game's button views down with it on
+                    # startup -- log it so it reaches #logs and needs
+                    # fixing, and move on to the next game.
+                    LOGGER.error(
+                        "Could not restore views for game %s: %s",
+                        game.game_id, error,
+                    )
+                    continue
                 if match.active_player_id is None:
                     turn_view = BallHandlerSelectionView(self, game.game_id)
                 elif match.pending_run_back:
@@ -3348,56 +3411,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         game.turn_message_id = prompt_message.id
         save_games(self.games)
-
-    def build_score_attempt_cleanup(
-        self,
-        match: MatchState,
-        scored: bool,
-    ) -> str:
-        """
-        The cleanup a resolved score attempt still calls for, as
-        instructions rather than state changes. A goal itself is applied
-        -- it is a bare increment with no threshold behind it -- but the
-        clock advance wants deciding for maneuvers at the same time, and
-        the restart is gated on the run back, so those stay with the
-        players. Maneuver effects are hand-applied the same way.
-        """
-        defending_setup = match.setup_for_side(match.defending_side())
-        space_minutes = match.spaces_to_goal()
-        minute_word = "minute" if space_minutes == 1 else "minutes"
-
-        steps = [
-            f"The clock advances {space_minutes} space {minute_word} "
-            "-- `/d12ball time`"
-        ]
-
-        if scored:
-            # The restart space follows the same board-size rule as the
-            # kickoff: the middle of the board on 7 and 9, and on a
-            # 6-board the midfield space nearer the restarting team's
-            # own goal.
-            if match.board.layout.board_size == 6:
-                restart = "on the midfield space nearer their own goal"
-            else:
-                restart = "in the middle of the board"
-        else:
-            restart = "on the space closest to their own goal"
-        steps.append(
-            f"Turnover to {format_team_side_label(defending_setup)}, "
-            f"restarting with the ball {restart} "
-            "-- `/d12ball ball move`"
-        )
-        steps.append(
-            "Players run back to their assigned zones, no more than one "
-            "per space per team, gaining one exhaust token per space "
-            "traveled -- `/d12ball meeple move`"
-        )
-
-        return (
-            "Cleanup -- apply by hand:\n"
-            + "\n".join(f"- {step}" for step in steps)
-            + "\n\nThen `/d12ball offensive_choice` for the next turn."
-        )
 
     async def begin_maneuver_action_selection(
         self,
@@ -3838,25 +3851,37 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         if not candidates:
-            await interaction.followup.send(content)
             await self.refresh_match_image(interaction, game)
             if self.is_landing_space_empty(match):
                 await self.begin_loose_ball(
-                    interaction, game, match, actual_distance,
+                    interaction,
+                    game,
+                    match,
+                    actual_distance,
+                    lead_in=content,
                 )
             else:
                 await self.finish_maneuver_resolution(
-                    interaction, game, match, distance_moved=actual_distance,
+                    interaction,
+                    game,
+                    match,
+                    distance_moved=actual_distance,
+                    lead_in=content,
                 )
             return
 
-        await interaction.followup.send(
-            f"{content} That overshoots the field -- "
-            f"{format_role_bracket(handler, self.team_emojis)}'s Winger "
-            "ability sets up a scoring opportunity!"
-        )
         await self.refresh_match_image(interaction, game)
-        await self.begin_shooter_choice(interaction, game, match, candidates)
+        await self.begin_shooter_choice(
+            interaction,
+            game,
+            match,
+            candidates,
+            lead_in=(
+                f"{content} That overshoots the field -- "
+                f"{format_role_bracket(handler, self.team_emojis)}'s Winger "
+                "ability sets up a scoring opportunity!"
+            ),
+        )
 
     # -- Dribble Advance ---------------------------------------------
 
@@ -3875,11 +3900,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         handler = self.get_player_definition(match.active_player_id)
-        await interaction.followup.send(
-            f"**Dribble Advance:** "
-            f"{format_role_bracket(handler, self.team_emojis)} and the "
-            "ball move forward 1 space."
-        )
         await self.refresh_match_image(interaction, game)
 
         await self.offer_speed_choice(
@@ -3889,6 +3909,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             player_id=match.active_player_id,
             skill_type="offense",
             after_turnover=False,
+            lead_in=(
+                f"**Dribble Advance:** "
+                f"{format_role_bracket(handler, self.team_emojis)} and the "
+                "ball move forward 1 space."
+            ),
         )
 
     # -- High Pass -----------------------------------------------------
@@ -3955,24 +3980,34 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         if not candidates:
-            await interaction.followup.send(content)
             await self.refresh_match_image(interaction, game)
             if self.is_landing_space_empty(match):
                 await self.begin_loose_ball(
-                    interaction, game, match, actual_distance,
+                    interaction,
+                    game,
+                    match,
+                    actual_distance,
+                    lead_in=content,
                 )
             else:
                 await self.finish_maneuver_resolution(
-                    interaction, game, match, distance_moved=actual_distance,
+                    interaction,
+                    game,
+                    match,
+                    distance_moved=actual_distance,
+                    lead_in=content,
                 )
             return
 
-        await interaction.followup.send(
-            f"{content} That overshoots the field -- a scoring "
-            "opportunity!"
-        )
         await self.refresh_match_image(interaction, game)
-        await self.begin_shooter_choice(interaction, game, match, candidates)
+        await self.begin_shooter_choice(
+            interaction,
+            game,
+            match,
+            candidates,
+            lead_in=f"{content} That overshoots the field -- a scoring "
+            "opportunity!",
+        )
 
     def scoring_opportunity_candidates(
         self,
@@ -4120,6 +4155,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
         distance_moved: int,
+        lead_in: str = "",
     ) -> None:
         """
         `distance_moved` (the pass's own clamped travel) is stashed on
@@ -4127,15 +4163,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         one, the skill test both span later interactions that can't
         see a Python-level parameter from this call, so everything
         downstream reads it back from match state instead.
+
+        `lead_in` is narration from the pass that hasn't been posted
+        yet -- it rides along on this function's own first message.
         """
         match.begin_loose_ball(distance_moved)
         self.auto_resolve_loose_ball_picks(game, match)
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        prefix = f"{lead_in}\n\n" if lead_in else ""
         await interaction.followup.send(
-            "**Loose ball!** The pass lands in an empty space -- each "
-            "side may send a nearby player to contest it."
+            f"{prefix}**Loose ball!** The pass lands in an empty space -- "
+            "each side may send a nearby player to contest it."
         )
 
         offense_ready, defense_ready = self.loose_ball_sides_ready(match)
@@ -4241,6 +4281,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             match.add_exhaustion(defense_player_id, recovery_distance)
             match.ball.possession = match.defending_side()
+            match.ball.speed = 1
             match.pending_loose_ball = False
             game.match_state = match.to_dict()
             save_games(self.games)
@@ -4306,7 +4347,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
         candidates: list[str],
+        lead_in: str = "",
     ) -> None:
+        """
+        `lead_in` is narration from the pass that set this scoring
+        opportunity up -- it rides along on the "choose who takes the
+        shot" prompt when a human has to pick. When the pick is
+        automatic there's no prompt to attach it to, so it's posted on
+        its own instead of being dropped.
+        """
         if len(candidates) == 1 or self.side_controlled_by_ai(
             game, match, "offense",
         ):
@@ -4316,6 +4365,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 shooter_id = self.get_ai_strategy(game).choose_shooter(
                     candidates, match,
                 )
+            if lead_in:
+                await interaction.followup.send(lead_in)
             await self.start_set_up_shot(interaction, game, match, shooter_id)
             return
 
@@ -4324,8 +4375,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.possession_player_number(game, match),
             mention=True,
         )
+        prefix = f"{lead_in}\n\n" if lead_in else ""
         prompt_message = await interaction.followup.send(
-            f"{mention}, choose who takes the shot:",
+            f"{prefix}{mention}, choose who takes the shot:",
             view=ShooterChoiceView(self, game.game_id, candidates),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -4394,13 +4446,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.run_own_goal_roll(interaction, game, match)
             return
 
-        await interaction.followup.send(content)
         await self.refresh_match_image(interaction, game)
         # Block Deflect's time cost is a fixed 2 space minutes per the
         # rules table, not "distance traveled" like Low/High Pass, so
         # this doesn't shrink if the move was clamped at the edge.
         await self.finish_maneuver_resolution(
-            interaction, game, match, distance_moved=2,
+            interaction, game, match, distance_moved=2, lead_in=content,
         )
 
     # -- Steal Intercept -------------------------------------------------
@@ -4421,6 +4472,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # keeps the two in the same space, so possession can be assigned
         # directly without set_possession's occupancy check.
         match.ball.possession = new_possession_side
+        # Every turnover drops the ball's speed back to 1 -- the
+        # defender's manipulate-speed choice below applies to that
+        # reset value, not whatever the speed was before the steal.
+        match.ball.speed = 1
         actual_distance = match.move_player_relative(
             challenger_id, new_possession_side, -1,
         )
@@ -4431,14 +4486,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         space_word = "space" if actual_distance == 1 else "spaces"
         challenger = self.get_player_definition(challenger_id)
         new_possession = match.setup_for_side(match.ball.possession)
-        await interaction.followup.send(
-            f"**Steal Intercept:**\n"
-            "# Turnover!\n"
-            f"{format_role_bracket(challenger, self.team_emojis)} steals "
-            f"the ball. {format_team_side_label(new_possession)} now has "
-            f"possession, then falls back {actual_distance} {space_word} "
-            "toward their own goal with the ball."
-        )
         await self.refresh_match_image(interaction, game)
 
         await self.offer_speed_choice(
@@ -4448,6 +4495,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             player_id=challenger_id,
             skill_type="defense",
             after_turnover=True,
+            lead_in=(
+                "**Steal Intercept:**\n"
+                "# Turnover!\n"
+                f"{format_role_bracket(challenger, self.team_emojis)} "
+                f"steals the ball. "
+                f"{format_team_side_label(new_possession)} now has "
+                f"possession, then falls back {actual_distance} "
+                f"{space_word} toward their own goal with the ball."
+            ),
         )
 
     # -- Pressure --------------------------------------------------------
@@ -4485,6 +4541,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         stolen = defender.role == PlayerRole.DEFENDER
         if stolen:
             match.ball.possession = defense_side
+            match.ball.speed = 1
             content += (
                 "\n\n# Turnover!\n"
                 f"{format_role_bracket(defender, self.team_emojis)} "
@@ -4496,16 +4553,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        await interaction.followup.send(content)
         await self.refresh_match_image(interaction, game)
 
         # Fixed 1 space minute per the rules table, independent of
         # clamping, same reasoning as Block Deflect above.
         if stolen:
-            await self.begin_run_back(interaction, game, match)
+            await self.begin_run_back(interaction, game, match, lead_in=content)
         else:
             await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=1,
+                interaction, game, match, distance_moved=1, lead_in=content,
             )
 
     # -- Ball-speed manipulation (Dribble Advance / Steal Intercept) --
@@ -4518,7 +4574,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player_id: str,
         skill_type: str,
         after_turnover: bool,
+        lead_in: str = "",
     ) -> None:
+        """
+        `lead_in` is narration from the maneuver that led here -- it
+        rides along on the speed-choice prompt when a human picks, or
+        gets forwarded to apply_speed_choice to ride along on its own
+        message when the pick is automatic.
+        """
         skill = self.player_catalog.effective_profile(
             self.get_player_definition(player_id),
         )
@@ -4531,13 +4594,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             delta = self.get_ai_strategy(game).choose_speed_delta(skill_value)
             target_speed = max(1, min(12, match.ball.speed + delta))
             await self.apply_speed_choice(
-                interaction, game, match, target_speed, after_turnover,
+                interaction,
+                game,
+                match,
+                target_speed,
+                after_turnover,
+                lead_in=lead_in,
             )
             return
 
         mention = f"<@{controller_id}>" if controller_id else "Someone"
+        prefix = f"{lead_in}\n\n" if lead_in else ""
         prompt_message = await interaction.followup.send(
-            f"{mention}, manipulate the ball's speed (up to {skill_value}):",
+            f"{prefix}{mention}, manipulate the ball's speed (up to "
+            f"{skill_value}):",
             view=SpeedDeltaChoiceView(
                 self, game.game_id, player_id, skill_type,
             ),
@@ -4556,13 +4626,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         target_speed: int,
         after_turnover: bool,
+        lead_in: str = "",
     ) -> None:
         match.ball.speed = target_speed
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        prefix = f"{lead_in}\n\n" if lead_in else ""
         await interaction.followup.send(
-            f"Ball speed is now **{target_speed}**."
+            f"{prefix}Ball speed is now **{target_speed}**."
         )
         await self.refresh_match_image(interaction, game)
 
@@ -4673,6 +4745,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         distance_moved: int = 1,
         turnover_occurred: bool = True,
+        lead_in: str = "",
     ) -> None:
         """
         `distance_moved`/`turnover_occurred` describe the maneuver that
@@ -4680,25 +4753,36 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         multi-turn choice flow and reach finish_maneuver_resolution
         correctly once run-back itself (which only ever costs
         exhaustion, never time) is done.
+
+        `lead_in` is narration from the triggering effect that hasn't
+        been posted yet -- it rides along on whichever message this
+        run-back sends first (see continue_run_back).
         """
         match.pending_run_back = True
         match.pending_run_back_distance = distance_moved
         match.pending_run_back_turnover = turnover_occurred
         game.match_state = match.to_dict()
         save_games(self.games)
-        await self.continue_run_back(interaction, game, match)
+        await self.continue_run_back(interaction, game, match, lead_in=lead_in)
 
     async def continue_run_back(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        lead_in: str = "",
     ) -> None:
         """
         Auto-place every forced run-back (no real choice: the open
         spaces in a zone exactly match the players who need one) right
         away, then either present a choice for the next player who has
         a real one, or finish once nobody is displaced.
+
+        `lead_in` only ever applies to the first message this call (or
+        its chain of recursive/resumed calls) sends -- every call site
+        that already consumed it passes none, including this method's
+        own recursion and the human-choice resumption in
+        RunBackChoiceView.
         """
         applied_forced = True
         while applied_forced:
@@ -4744,7 +4828,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 game.match_state = match.to_dict()
                 save_games(self.games)
 
+                prefix = f"{lead_in}\n\n" if lead_in else ""
                 await interaction.followup.send(
+                    f"{prefix}"
                     f"{format_role_bracket(player, self.team_emojis)} runs "
                     f"back to {space_label(zone, space_index)}.\n"
                     + self.describe_exhaustion_gain(
@@ -4766,8 +4852,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 else game.player_2_id
             )
             mention = f"<@{controller_id}>" if controller_id else "Someone"
+            prefix = f"{lead_in}\n\n" if lead_in else ""
             prompt_message = await interaction.followup.send(
-                f"{mention}, choose where "
+                f"{prefix}{mention}, choose where "
                 f"{format_role_bracket(player, self.team_emojis)} runs "
                 "back to:",
                 view=RunBackChoiceView(self, game.game_id, player_id),
@@ -4795,6 +4882,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match,
             distance_moved=distance_moved,
             turnover_occurred=turnover_occurred,
+            lead_in=lead_in,
         )
 
     # -- Clock, period transitions, and the turn loop -----------------
@@ -4806,6 +4894,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         distance_moved: int = 1,
         turnover_occurred: bool = False,
+        lead_in: str = "",
     ) -> None:
         """
         The tail of every maneuver-effect path once movement, speed,
@@ -4813,17 +4902,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         end the period if this turnover closes out last possession,
         clear the maneuver state, and hand the offensive choice back to
         whoever now has the ball.
+
+        `lead_in`, if given, is narration from earlier in the same
+        effect that hasn't been posted yet -- it rides along on this
+        function's own first message instead of being sent separately,
+        so a deterministic effect (no further human choice in between)
+        reads as one message rather than a chain of them.
         """
         entered_last_possession = match.advance_time(distance_moved)
         if entered_last_possession:
+            prefix = f"{lead_in}\n\n" if lead_in else ""
             await interaction.followup.send(
-                "The clock reaches 15 -- this is now **last possession**. "
-                "Play continues until the ball turns over, which ends "
-                "the period."
+                f"{prefix}The clock reaches 15 -- this is now **last "
+                "possession**. Play continues until the ball turns over, "
+                "which ends the period."
             )
+            lead_in = ""
 
         if turnover_occurred and match.scoreboard.last_possession:
-            await self.end_period(interaction, game, match)
+            await self.end_period(interaction, game, match, lead_in=lead_in)
             return
 
         match.reset_maneuver()
@@ -4836,14 +4933,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # offensive choice comes back up.
         await self.refresh_match_image(interaction, game)
 
-        await interaction.followup.send(
-            f"Ball is now {space_label(match.ball.zone, match.ball.space_index)}, "
-            f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
-            f"has possession. Time has advanced {distance_moved}, now at "
-            f"{match.scoreboard.time:02d}."
-        )
+        prefix = f"{lead_in}\n\n" if lead_in else ""
         snapshot = await interaction.followup.send(
-            file=self.build_match_file(game), wait=True,
+            content=(
+                f"{prefix}Ball is now "
+                f"{space_label(match.ball.zone, match.ball.space_index)}, "
+                f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
+                f"has possession. Time has advanced {distance_moved}, now "
+                f"at {match.scoreboard.time:02d}."
+            ),
+            file=self.build_match_file(game),
+            wait=True,
         )
         await add_full_image_button(snapshot)
 
@@ -4857,6 +4957,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        lead_in: str = "",
     ) -> None:
         """
         The turnover that closes out last possession: transition to the
@@ -4866,6 +4967,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         the same way score-attempt cleanup already defers its own
         unautomated pieces.
         """
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+
         if match.scoreboard.period == MatchPeriod.FIRST_HALF:
             match.scoreboard.period = MatchPeriod.SECOND_HALF
             match.scoreboard.time = 0
@@ -4876,13 +4979,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             match.set_ball_space(Zone.MIDFIELD, kickoff_index)
             match.ball.possession = TeamSide.VISITING
+            match.ball.speed = 1
             match.reset_maneuver()
             game.match_state = match.to_dict()
             save_games(self.games)
 
             await interaction.followup.send(
-                "**End of the first half!** The clock reaches 15 and the "
-                "ball turns over -- the period ends.\n\n"
+                f"{prefix}**End of the first half!** The clock reaches 15 "
+                "and the ball turns over -- the period ends.\n\n"
                 "Cleanup -- apply by hand:\n"
                 "- Fielded players lose 1 exhaustion token\n"
                 "- One player of the coach's choice loses an extra "
@@ -4916,8 +5020,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else "Full time."
         )
         await interaction.followup.send(
-            "**Full time!** The clock reaches 15 and the ball turns "
-            "over -- the game ends.\n\n"
+            f"{prefix}**Full time!** The clock reaches 15 and the ball "
+            "turns over -- the game ends.\n\n"
             f"Final score: {match.home.team.value.title()} {home_score}:"
             f"{visiting_score} {match.visiting.team.value.title()}\n\n"
             f"{result}"
@@ -5019,6 +5123,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         Re-render the persistent board image after the match state
         changes outside of the interaction that owns that message.
+
+        This is a nicety layered on top of state that has already been
+        saved, not the thing carrying the turn forward -- a dropped
+        connection here (aiohttp.ClientError, e.g. a reset or a bad SSL
+        record on a flaky link) shouldn't abort the caller and strand
+        the turn before it reaches the next prompt, any more than a 404
+        or a Discord-side HTTP error already doesn't.
         """
         if game.message_id is None or interaction.channel is None:
             return
@@ -5030,7 +5141,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             updated_message = await board_message.edit(
                 attachments=[self.build_match_file(game)],
             )
-        except (discord.NotFound, discord.HTTPException):
+        except (discord.NotFound, discord.HTTPException, aiohttp.ClientError):
             return
 
         # The link has to be re-cut because the edit above uploaded a

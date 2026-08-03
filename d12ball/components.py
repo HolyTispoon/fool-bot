@@ -630,6 +630,17 @@ class MatchState:
         )
         return self.ball.space_index == closest_space
 
+    def own_goal_restart_space(self, side: TeamSide) -> tuple[Zone, int]:
+        """
+        The space closest to `side`'s own goal -- where a missed score
+        attempt restarts play for the team that just defended it.
+        """
+        side = TeamSide(side)
+        goal_zone = Zone.HOME_GOAL if side == TeamSide.HOME else Zone.VISITORS_GOAL
+        final_space = len(self.board.spaces[goal_zone]) - 1
+        closest_space = final_space if goal_zone == Zone.VISITORS_GOAL else 0
+        return goal_zone, closest_space
+
     def defending_side(self) -> TeamSide:
         return (
             TeamSide.VISITING
