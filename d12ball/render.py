@@ -103,6 +103,7 @@ FONT_MANEUVER_TITLE = load_font(30, bold=True)
 FONT_MANEUVER_BODY = load_font(22)
 FONT_MANEUVER_LEGEND = load_font(22)
 FONT_DICE_TOTAL = load_font(38, bold=True)
+FONT_DICE_VALUE = load_font(32, bold=True)
 FONT_SCORE = load_font(52, bold=True)
 MEEPLE_SIZE = 52
 BALL_RADIUS = 25
@@ -717,8 +718,8 @@ def render_dice_row(dice: list[tuple[int, str, str]]) -> BytesIO:
     return output
 
 
-SKILL_TEST_CELL_WIDTH = 340
-SKILL_TEST_DIE_RADIUS = 72
+SKILL_TEST_CELL_WIDTH = 280
+SKILL_TEST_DIE_RADIUS = 52
 SKILL_TEST_CENTER_Y = SKILL_TEST_DIE_RADIUS + 35
 SKILL_TEST_DETAIL_LINE_HEIGHT = 28
 SKILL_TEST_DETAIL_TOP_GAP = 55
@@ -766,7 +767,7 @@ def render_skill_test_dice(
             SKILL_TEST_DIE_RADIUS,
             color,
             str(value),
-            font=FONT_SCORE,
+            font=FONT_DICE_VALUE,
         )
         label_width = draw.textlength(label, font=FONT_BODY)
         draw.text(

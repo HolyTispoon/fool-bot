@@ -2200,7 +2200,7 @@ class ScoreAttemptView(SafeView):
         if scored:
             match.award_goal()
             verdict = (
-                f"**GOAL!** "
+                "# GOAL!\n"
                 f"{format_role_bracket(shooter, self.cog.team_emojis)} scores "
                 f"for {format_team_side_label(attacking_setup)}!\n"
                 f"{match.home.team.value.title()} "
