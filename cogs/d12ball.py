@@ -1284,8 +1284,9 @@ class BallHandlerSelectionView(SafeView):
         match = self.cog.load_match_state(game)
         for player_id in match.eligible_ball_handlers():
             player = self.cog.get_player_definition(player_id)
+            initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
-                label=player.name,
+                label=f"{player.name} [{initials}]",
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:ball_handler:{game_id}:{player_id}"
@@ -2491,8 +2492,9 @@ class ShooterChoiceView(SafeView):
 
         for player_id in candidates:
             player = cog.get_player_definition(player_id)
+            initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
-                label=player.name,
+                label=f"{player.name} [{initials}]",
                 style=discord.ButtonStyle.danger,
                 custom_id=f"d12ball:shooter:{game_id}:{player_id}",
             )
@@ -2661,8 +2663,9 @@ class LooseBallChoiceView(SafeView):
         for side, candidates in entries:
             for player_id in candidates:
                 player = cog.get_player_definition(player_id)
+                initials = ROLE_INITIALS[player.role.value]
                 button = discord.ui.Button(
-                    label=f"{player.name} ({side})",
+                    label=f"{player.name} [{initials}] ({side})",
                     style=(
                         discord.ButtonStyle.primary
                         if side == "offense"
