@@ -2826,9 +2826,10 @@ class LooseBallSkillTestView(SafeView):
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
+        turnover_line = "\n\n# Turnover!" if turnover_occurred else ""
         await interaction.response.edit_message(
             content=(
-                f"{breakdown}\n\n"
+                f"{breakdown}{turnover_line}\n\n"
                 f"{format_role_bracket(winner_player, self.cog.team_emojis)} "
                 f"wins the loose ball! {winner_mention} has possession."
             ),
@@ -4188,6 +4189,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "recovers the loose ball uncontested."
             )
             await interaction.followup.send(
+                "# Turnover!\n"
                 f"{headline} "
                 f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
                 f"now has possession -- {format_role_bracket(player, self.team_emojis)} "
@@ -4364,7 +4366,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         challenger = self.get_player_definition(challenger_id)
         new_possession = match.setup_for_side(match.ball.possession)
         await interaction.followup.send(
-            f"**Steal Intercept:** turnover! "
+            f"**Steal Intercept:**\n"
+            "# Turnover!\n"
             f"{format_role_bracket(challenger, self.team_emojis)} steals "
             f"the ball, which moves {actual_distance} {space_word} back. "
             f"{format_team_side_label(new_possession)} now has "
@@ -4417,7 +4420,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if stolen:
             match.ball.possession = defense_side
             content += (
-                f"\n\n{format_role_bracket(defender, self.team_emojis)} "
+                "\n\n# Turnover!\n"
+                f"{format_role_bracket(defender, self.team_emojis)} "
                 "steals the ball (Defender ability)! "
                 f"{format_team_side_label(match.setup_for_side(defense_side))} "
                 "now has possession."
@@ -4765,6 +4769,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # refresh inside the effect itself), right before the
         # offensive choice comes back up.
         await self.refresh_match_image(interaction, game)
+
+        await interaction.followup.send(
+            f"Ball is now {space_label(match.ball.zone, match.ball.space_index)}, "
+            f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
+            f"has possession. Time has advanced {distance_moved}, now at "
+            f"{match.scoreboard.time:02d}."
+        )
+        snapshot = await interaction.followup.send(
+            file=self.build_match_file(game), wait=True,
+        )
+        await add_full_image_button(snapshot)
 
         try:
             await self.send_turn_prompt(interaction, game)
