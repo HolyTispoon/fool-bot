@@ -37,6 +37,7 @@ from d12ball.render import (
     render_dice_row,
     render_maneuver_reference_image,
     render_match_image,
+    render_skill_test_dice,
 )
 
 from gamesaves.d12ball.storage import (
@@ -1919,24 +1920,29 @@ class SkillTestView(SafeView):
         # test; Playmaker: +3 on either pass's skill test. Both are
         # offense-only since those maneuvers only exist on that side.
         offense_ability_note = ""
+        offense_ability_detail = ""
         if (
             offense_player.role == PlayerRole.MIDFIELDER
             and match.offense_maneuver == "Dribble Advance"
         ):
             offense_total += 3
             offense_ability_note = " + 3 (Midfielder ability)"
+            offense_ability_detail = "+3 Midfielder ability"
         elif (
             offense_player.role == PlayerRole.PLAYMAKER
             and match.offense_maneuver in ("Low Pass", "High Pass")
         ):
             offense_total += 3
             offense_ability_note = " + 3 (Playmaker ability)"
+            offense_ability_detail = "+3 Playmaker ability"
 
         modifier_note = ""
+        modifier_detail = ""
         if match.defense_maneuver == "Steal Intercept":
             modifier = match.ball.speed // 2
             defense_total += modifier
             modifier_note = f" + {modifier} (ball speed modifier)"
+            modifier_detail = f"+{modifier} ball speed modifier"
 
         breakdown = (
             f"**{format_role_bracket(offense_player, self.cog.team_emojis)}** (offense): "
@@ -1946,18 +1952,32 @@ class SkillTestView(SafeView):
             f"rolled {defense_roll} + {defense_skill} (defensive skill "
             f"modifier){modifier_note} = {defense_total}"
         )
+        offense_detail = [
+            f"{offense_player.name} [{ROLE_INITIALS[offense_player.role.value]}]",
+            f"Offensive skill +{offense_skill}",
+        ]
+        if offense_ability_detail:
+            offense_detail.append(offense_ability_detail)
+        defense_detail = [
+            f"{defense_player.name} [{ROLE_INITIALS[defense_player.role.value]}]",
+            f"Defensive skill +{defense_skill}",
+        ]
+        if modifier_detail:
+            defense_detail.append(modifier_detail)
         dice_file = discord.File(
-            render_dice_row(
+            render_skill_test_dice(
                 [
                     (
                         offense_roll,
                         TEAM_COLORS[offense_player.team],
                         offense_player.team.value.title(),
+                        offense_detail,
                     ),
                     (
                         defense_roll,
                         TEAM_COLORS[defense_player.team],
                         defense_player.team.value.title(),
+                        defense_detail,
                     ),
                 ]
             ),
@@ -2129,18 +2149,41 @@ class ScoreAttemptView(SafeView):
             f"**{format_team_side_label(defending_setup)}** (defense): "
             f"rolled {defense_roll} + {defense_source} = {defense_total}"
         )
+        attack_detail = [
+            f"{shooter.name} [{ROLE_INITIALS[shooter.role.value]}]",
+            f"Offensive skill +{offense_skill}",
+        ]
+        if speed_modifier:
+            attack_detail.append(f"+{speed_modifier} ball speed modifier")
+        if striker_note:
+            attack_detail.append("+3 Striker ability")
+
+        if defenders:
+            defense_detail = [
+                f"{player.name} [{ROLE_INITIALS[player.role.value]}] +{skill}"
+                for player, skill in defenders
+            ]
+            if len(defenders) > 1:
+                defense_detail.append(
+                    f"Total defensive skill +{defense_skill_total}"
+                )
+        else:
+            defense_detail = ["No one in the way"]
+
         dice_file = discord.File(
-            render_dice_row(
+            render_skill_test_dice(
                 [
                     (
                         attack_roll,
                         TEAM_COLORS[attacking_setup.team],
                         attacking_setup.team.value.title(),
+                        attack_detail,
                     ),
                     (
                         defense_roll,
                         TEAM_COLORS[defending_setup.team],
                         defending_setup.team.value.title(),
+                        defense_detail,
                     ),
                 ]
             ),
@@ -2756,17 +2799,27 @@ class LooseBallSkillTestView(SafeView):
             f"(defensive skill modifier) = {defense_total}"
         )
         dice_file = discord.File(
-            render_dice_row(
+            render_skill_test_dice(
                 [
                     (
                         offense_roll,
                         TEAM_COLORS[offense_player.team],
                         offense_player.team.value.title(),
+                        [
+                            f"{offense_player.name} "
+                            f"[{ROLE_INITIALS[offense_player.role.value]}]",
+                            f"Offensive skill +{offense_skill}",
+                        ],
                     ),
                     (
                         defense_roll,
                         TEAM_COLORS[defense_player.team],
                         defense_player.team.value.title(),
+                        [
+                            f"{defense_player.name} "
+                            f"[{ROLE_INITIALS[defense_player.role.value]}]",
+                            f"Defensive skill +{defense_skill}",
+                        ],
                     ),
                 ]
             ),
