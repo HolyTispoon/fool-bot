@@ -1973,12 +1973,14 @@ class SkillTestView(SafeView):
                         TEAM_COLORS[offense_player.team],
                         offense_player.team.value.title(),
                         offense_detail,
+                        offense_total,
                     ),
                     (
                         defense_roll,
                         TEAM_COLORS[defense_player.team],
                         defense_player.team.value.title(),
                         defense_detail,
+                        defense_total,
                     ),
                 ]
             ),
@@ -2008,7 +2010,9 @@ class SkillTestView(SafeView):
             await interaction.response.edit_message(
                 content=(
                     f"{breakdown}\n\n"
-                    f"Another tie!\n{exhaustion_text}\n\nRoll again:"
+                    f"**It's a tie ({offense_total}-{defense_total})!** "
+                    f"The skill test must be rolled again.\n"
+                    f"{exhaustion_text}\n\nRoll again:"
                 ),
                 attachments=[dice_file],
                 view=SkillTestView(self.cog, self.game_id),
@@ -2173,12 +2177,14 @@ class ScoreAttemptView(SafeView):
                         TEAM_COLORS[attacking_setup.team],
                         attacking_setup.team.value.title(),
                         attack_detail,
+                        attack_total,
                     ),
                     (
                         defense_roll,
                         TEAM_COLORS[defending_setup.team],
                         defending_setup.team.value.title(),
                         defense_detail,
+                        defense_total,
                     ),
                 ]
             ),
@@ -2842,6 +2848,7 @@ class LooseBallSkillTestView(SafeView):
                             f"[{ROLE_INITIALS[offense_player.role.value]}]",
                             f"Offensive skill +{offense_skill}",
                         ],
+                        offense_total,
                     ),
                     (
                         defense_roll,
@@ -2852,6 +2859,7 @@ class LooseBallSkillTestView(SafeView):
                             f"[{ROLE_INITIALS[defense_player.role.value]}]",
                             f"Defensive skill +{defense_skill}",
                         ],
+                        defense_total,
                     ),
                 ]
             ),
@@ -2877,7 +2885,9 @@ class LooseBallSkillTestView(SafeView):
             await interaction.response.edit_message(
                 content=(
                     f"{breakdown}\n\n"
-                    f"Another tie!\n{exhaustion_text}\n\nRoll again:"
+                    f"**It's a tie ({offense_total}-{defense_total})!** "
+                    f"The skill test must be rolled again.\n"
+                    f"{exhaustion_text}\n\nRoll again:"
                 ),
                 attachments=[dice_file],
                 view=LooseBallSkillTestView(self.cog, self.game_id),
