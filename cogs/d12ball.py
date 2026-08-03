@@ -2998,7 +2998,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 game.turn_message_id is not None
                 and game.match_state is not None
             ):
-                match = self.load_match_state(game)
+                try:
+                    match = self.load_match_state(game)
+                except ValueError as error:
+                    # Saved state that no longer passes validate() (e.g.
+                    # a crash that saved state mid-effect, before the
+                    # rest of the pipeline could finish) shouldn't take
+                    # every other game's button views down with it on
+                    # startup -- log it so it reaches #logs and needs
+                    # fixing, and move on to the next game.
+                    LOGGER.error(
+                        "Could not restore views for game %s: %s",
+                        game.game_id, error,
+                    )
+                    continue
                 if match.active_player_id is None:
                     turn_view = BallHandlerSelectionView(self, game.game_id)
                 elif match.pending_run_back:
