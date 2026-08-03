@@ -5,6 +5,7 @@ import re
 import uuid
 from typing import Optional
 
+import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -612,9 +613,13 @@ async def add_full_image_button(
 
     try:
         await message.edit(view=view)
-    except discord.HTTPException:
+    except (discord.HTTPException, aiohttp.ClientError):
         # The image itself is already posted, so a missing link is
         # worth less than the game action it would take down with it.
+        # aiohttp.ClientError (connection reset, a bad SSL record, a
+        # timeout) covers a dropped connection below discord.py's own
+        # exception types -- equally not worth losing the rest of the
+        # turn over.
         pass
 
 
@@ -628,7 +633,7 @@ async def add_full_image_button_to_response(
     """
     try:
         message = await interaction.original_response()
-    except discord.HTTPException:
+    except (discord.HTTPException, aiohttp.ClientError):
         return
 
     await add_full_image_button(message, view)
@@ -5108,6 +5113,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         Re-render the persistent board image after the match state
         changes outside of the interaction that owns that message.
+
+        This is a nicety layered on top of state that has already been
+        saved, not the thing carrying the turn forward -- a dropped
+        connection here (aiohttp.ClientError, e.g. a reset or a bad SSL
+        record on a flaky link) shouldn't abort the caller and strand
+        the turn before it reaches the next prompt, any more than a 404
+        or a Discord-side HTTP error already doesn't.
         """
         if game.message_id is None or interaction.channel is None:
             return
@@ -5119,7 +5131,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             updated_message = await board_message.edit(
                 attachments=[self.build_match_file(game)],
             )
-        except (discord.NotFound, discord.HTTPException):
+        except (discord.NotFound, discord.HTTPException, aiohttp.ClientError):
             return
 
         # The link has to be re-cut because the edit above uploaded a
