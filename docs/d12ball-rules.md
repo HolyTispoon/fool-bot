@@ -1,6 +1,6 @@
 # D12 Ball -- rules
 
-**Retrieved:** 2026-08-01 (first copied 2026-07-25)
+**Retrieved:** 2026-08-02 (first copied 2026-07-25)
 
 D12 Ball's rules live in **two** upstream places, and neither one is complete on its own:
 
@@ -27,6 +27,13 @@ The upstream page carries this note from the author:
 > of play as 'players'. This ambiguity will be cleared up once proper terminology is picked.
 
 ### Changelog
+
+**2026-08-02.** The `maneuvers` tab changed: **Steal Intercept**'s effect now reads "Turnover.
+**Defender** and ball move back 1 space. Manipulate ball speed up to defensive skill." -- it
+previously said only "Ball moves back 1 space", with the interceptor's own meeple left in
+place. This confirms the author's clarification below; the clarification bullet is kept
+because the sheet still doesn't spell out that the fallback happens *after* the turnover, in
+the new possessing side's direction.
 
 **2026-08-01.** The author pushed most of his PR #10 answers into Notion. Changed upstream:
 
@@ -126,12 +133,15 @@ transcription itself. What remains below is what upstream still does not say.
 
 - The ball-speed modifier applies to **Steal Intercept only**.
 - **Steal Intercept's fallback happens after the turnover, and moves both the
-  interceptor and the ball.** Possession flips first; then the intercepting player's
-  meeple and the ball each fall back 1 space toward the new possessing team's *own*
-  goal (not the old possessing team's goal, and not just the ball). Earlier phrasing of
-  "ball moves back 1 space" read as backward relative to whoever just lost the ball,
-  which sends the ball toward the new team's attacking goal instead -- the opposite of
-  what's intended.
+  interceptor and the ball.** The `maneuvers` tab now says "Defender and ball move back
+  1 space" (previously just "Ball moves back 1 space"), confirming the interceptor's own
+  meeple moves too -- see [Changelog](#changelog), 2026-08-02. The sheet still doesn't
+  say so explicitly, but the fallback is relative to the *new* possessing side's
+  direction, applied after the turnover: possession flips first, then the intercepting
+  player's meeple and the ball each fall back 1 space toward the new possessing team's
+  *own* goal (not the old possessing team's goal). Read literally against the old side's
+  direction, "back" would send the ball toward the new team's attacking goal instead --
+  the opposite of what's intended.
 - A **backward low pass** still increases ball speed by 1, and if it reaches the passing
   team's own goal it does trigger an own-goal attempt.
 - **Defender role ability, "Steals the ball when wins a maneuver with Pressure":** Pressure's
@@ -406,13 +416,14 @@ Two actions of the same rank tie, which is what sends a maneuver to a clash roll
 | Dribble Advance | offense | 2 | 3-4 | Block Deflect | Player and ball move forward 1 space. Manipulate ball speed up to player's offensive skill. | 1 space minute |
 | High Pass | offense | 3 | 5-6 | Steal Intercept | Ball moves forward 2-3 spaces. If ball reaches goal, set up a scoring opportunity. | distance traveled (2-3 space minutes) |
 | Block Deflect | defense | 1 | 1-2 | High Pass | Ball moves back 2 spaces. If reaches offense's goal, chance for own goal. Ball speed decreases by 1. | 2 space minutes |
-| Steal Intercept | defense | 2 | 3-4 | Low Pass | Turnover. Ball moves back 1 space. Manipulate ball speed up to defensive skill. | 1 space minute |
+| Steal Intercept | defense | 2 | 3-4 | Low Pass | Turnover. Defender and ball move back 1 space. Manipulate ball speed up to defensive skill. | 1 space minute |
 | Pressure | defense | 3 | 5-6 | Dribble Advance | Player and ball go back 1 space. Defender moves 1 forward. | 1 space minute |
 
-> **Steal Intercept superseded** -- see [Author clarifications](#author-clarifications).
-> "Ball moves back 1 space" reads as backward for whoever just lost the ball; it's
-> actually the interceptor's player *and* the ball, moving back 1 space after the
-> turnover, relative to the new possessing team's direction.
+> **Steal Intercept still ambiguous** -- see [Author clarifications](#author-clarifications).
+> "Defender and ball move back 1 space" doesn't say *when* relative to the turnover, or in
+> which direction. Both moves happen after possession flips, relative to the new
+> possessing team's direction -- i.e. back toward that team's own goal, not the old
+> possessing team's.
 
 ### Own goal
 
