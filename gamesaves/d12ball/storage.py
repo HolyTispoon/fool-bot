@@ -1,9 +1,12 @@
 import json
+import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
 from d12ball.game import D12BallGame
 
+
+LOGGER = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_FOLDER = PROJECT_ROOT / "data"
@@ -19,7 +22,10 @@ def load_games() -> dict[str, D12BallGame]:
         with GAMES_FILE.open("r", encoding="utf-8") as file:
             raw_data = json.load(file)
     except (json.JSONDecodeError, OSError) as error:
-        print(f"Could not load D12 Ball games: {error}")
+        # Errors, not warnings: every game the bot knows about has just
+        # vanished from its view, and the players will see that as the
+        # bot forgetting their match.
+        LOGGER.error("Could not load D12 Ball games: %s", error)
         return {}
 
     games: dict[str, D12BallGame] = {}
@@ -28,7 +34,7 @@ def load_games() -> dict[str, D12BallGame]:
         try:
             games[game_id] = D12BallGame(**game_data)
         except TypeError as error:
-            print(f"Skipping invalid saved game {game_id}: {error}")
+            LOGGER.error("Skipping invalid saved game %s: %s", game_id, error)
 
     return games
 

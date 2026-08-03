@@ -20,6 +20,7 @@ python3 -m unittest discover -s tests
 | Path | What it is |
 | --- | --- |
 | `foolbot.py` | Bot entry point; generic deck/dice commands. Loads the cogs. |
+| `botlog/` | Console logging setup, and the #logs channel mirror — see below |
 | `cogs/d12ball.py` | All D12 Ball slash commands and Discord interaction flow |
 | `d12ball/components.py` | Game state model — `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog` |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode` |
@@ -60,6 +61,53 @@ and the work the answers unblock. **Take rules questions to the author rather th
 them from the code** -- several mechanics exist only in the code, so there a bug and a
 deliberate decision look identical. Asking as inline comments on a docs PR has worked far
 better than asking in chat, and it leaves the answers versioned.
+
+## Logging and the #logs channel
+
+**Use `logging`, not `print`.** Every module gets its own logger
+(`LOGGER = logging.getLogger(__name__)`) and `botlog.configure_logging()`
+in `foolbot.py` sets the root logger up once, before anything logs. That is
+also why `bot.run` is called with `log_handler=None`: discord.py otherwise
+configures its own logger inside `run`, and with a root handler already
+attached every library line would print twice.
+
+Records at ERROR and above are mirrored into a Discord channel, so a crash
+shows up in the server instead of only on the console of whoever is hosting
+the bot. The bot finds or creates a channel called `#logs` on startup, posts
+the record with its traceback in a code fence, and posts a one-line notice
+naming the build it is running whenever that build changes.
+
+Everything is optional and lives in `.env` next to `DISCORD_TOKEN`:
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `FOOLBOT_LOG_LEVEL` | `INFO` | Console threshold |
+| `FOOLBOT_LOG_CHANNEL_LEVEL` | `ERROR` | Discord threshold; `off` disables the mirror |
+| `FOOLBOT_LOG_CHANNEL_ID` | — | Mirror into exactly this channel |
+| `FOOLBOT_LOG_CHANNEL_NAME` | `logs` | Channel to find or create, when no id is set |
+| `FOOLBOT_LOG_GUILD_ID` | first server | Which server hosts the channel |
+| `FOOLBOT_DEPLOY_NOTICE` | on | `off` stops the "now running this build" notice |
+
+Three things to know before changing any of it:
+
+- **The level you log at decides who sees it.** ERROR reaches the server;
+  WARNING and INFO are console-only. So an error means "someone needs to
+  fix this", not "something unexpected happened" — a missing application
+  emoji is an INFO, a game whose channel could not be archived is an ERROR.
+- **The sink must never log its own failures.** A failed send that logged
+  would hand itself the record it just failed to send. `botlog/handler.py`
+  prints those to stderr, deliberately.
+- **The build notice is keyed on the commit sha**, remembered in the
+  untracked `data/bot_state.json`. `on_ready` fires again on every gateway
+  reconnect and either of us restarts the bot constantly while testing;
+  keying on the commit is what keeps that from being a stream of identical
+  "restarted" posts. It reads HEAD out of the checkout with `git log`, so
+  the notice is only as accurate as the deployed tree — and degrades to
+  saying nothing at all if git is not on PATH.
+
+The channel is created with whatever permissions the server's defaults give
+it. Tracebacks name game ids, channel names and command arguments, so lock
+the channel down server-side if that matters.
 
 ## Working on the board image
 
