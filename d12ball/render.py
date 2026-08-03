@@ -716,6 +716,72 @@ def render_dice_row(dice: list[tuple[int, str, str]]) -> BytesIO:
     return output
 
 
+SKILL_TEST_CELL_WIDTH = 340
+SKILL_TEST_DETAIL_LINE_HEIGHT = 28
+SKILL_TEST_DETAIL_TOP_GAP = 60
+
+
+def render_skill_test_dice(
+    dice: list[tuple[int, str, str, list[str]]],
+) -> BytesIO:
+    """
+    Render one or more d12 results side by side, each annotated with the
+    team, the player(s) behind that side of the roll, and the skill and
+    modifiers that built the total -- used for skill tests and score
+    (shooting) attempts, where a bare team-colored die isn't enough to
+    show who rolled it or why.
+
+    Each entry is (rolled value, team color, team label, detail lines),
+    where detail lines are pre-formatted strings -- player name and
+    role, skill applied, any other modifiers -- stacked one per line
+    under the team label.
+    """
+    max_lines = max((len(detail) for _, _, _, detail in dice), default=0)
+    height = DICE_IMAGE_HEIGHT + max_lines * SKILL_TEST_DETAIL_LINE_HEIGHT
+    width = SKILL_TEST_CELL_WIDTH * len(dice)
+    canvas = Image.new("RGBA", (width, height), "#111820")
+    draw = ImageDraw.Draw(canvas)
+    center_y = DICE_IMAGE_HEIGHT // 2 - 15
+
+    for index, (value, color, label, detail_lines) in enumerate(dice):
+        center_x = index * SKILL_TEST_CELL_WIDTH + SKILL_TEST_CELL_WIDTH // 2
+        draw_d12_polygon(
+            draw,
+            center_x,
+            center_y,
+            DICE_IMAGE_DIE_RADIUS,
+            color,
+            str(value),
+            font=FONT_SCORE,
+        )
+        label_width = draw.textlength(label, font=FONT_BODY)
+        draw.text(
+            (
+                center_x - label_width / 2,
+                center_y + DICE_IMAGE_DIE_RADIUS + 20,
+            ),
+            label,
+            font=FONT_BODY,
+            fill="#ffffff",
+        )
+
+        detail_y = center_y + DICE_IMAGE_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
+        for line in detail_lines:
+            line_width = draw.textlength(line, font=FONT_SMALL)
+            draw.text(
+                (center_x - line_width / 2, detail_y),
+                line,
+                font=FONT_SMALL,
+                fill="#c7ced6",
+            )
+            detail_y += SKILL_TEST_DETAIL_LINE_HEIGHT
+
+    output = BytesIO()
+    canvas.convert("RGB").save(output, format="PNG", optimize=True)
+    output.seek(0)
+    return output
+
+
 MANEUVER_DIAGRAM_WIDTH = 1360
 MANEUVER_DIAGRAM_HEIGHT = 1410
 MANEUVER_DIAGRAM_CENTER = (680, 680)
