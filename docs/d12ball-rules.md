@@ -125,6 +125,13 @@ transcription itself. What remains below is what upstream still does not say.
 ### Maneuvers
 
 - The ball-speed modifier applies to **Steal Intercept only**.
+- **Steal Intercept's fallback happens after the turnover, and moves both the
+  interceptor and the ball.** Possession flips first; then the intercepting player's
+  meeple and the ball each fall back 1 space toward the new possessing team's *own*
+  goal (not the old possessing team's goal, and not just the ball). Earlier phrasing of
+  "ball moves back 1 space" read as backward relative to whoever just lost the ball,
+  which sends the ball toward the new team's attacking goal instead -- the opposite of
+  what's intended.
 - A **backward low pass** still increases ball speed by 1, and if it reaches the passing
   team's own goal it does trigger an own-goal attempt.
 - **Defender role ability, "Steals the ball when wins a maneuver with Pressure":** Pressure's
@@ -401,6 +408,11 @@ Two actions of the same rank tie, which is what sends a maneuver to a clash roll
 | Block Deflect | defense | 1 | 1-2 | High Pass | Ball moves back 2 spaces. If reaches offense's goal, chance for own goal. Ball speed decreases by 1. | 2 space minutes |
 | Steal Intercept | defense | 2 | 3-4 | Low Pass | Turnover. Ball moves back 1 space. Manipulate ball speed up to defensive skill. | 1 space minute |
 | Pressure | defense | 3 | 5-6 | Dribble Advance | Player and ball go back 1 space. Defender moves 1 forward. | 1 space minute |
+
+> **Steal Intercept superseded** -- see [Author clarifications](#author-clarifications).
+> "Ball moves back 1 space" reads as backward for whoever just lost the ball; it's
+> actually the interceptor's player *and* the ball, moving back 1 space after the
+> turnover, relative to the new possessing team's direction.
 
 ### Own goal
 
