@@ -163,6 +163,19 @@ transcription itself. What remains below is what upstream still does not say.
   just that zone) onto the ball's space -- the coach picks who, and the bot charges the same
   distance-traveled exhaustion as the one-team case above.
 
+### Ball speed on a turnover
+
+- **Every turnover resets the ball's speed to 1.** Neither [Turnover](#turnover) nor the
+  transcription's own "Ball's speed" section says this -- upstream only describes speed
+  changing during Low Pass, Dribble Advance, Block Deflect, and Steal Intercept, never what
+  happens to it when possession changes hands. This applies to every turnover, not just
+  Steal Intercept's: a score attempt (scored or missed), a lost loose ball, and Pressure's
+  Defender-ability steal all reset it too, along with the second-half kickoff.
+- **Steal Intercept's manipulate-speed choice is relative to that reset, not to the speed
+  before the steal.** The turnover happens, speed drops to 1, and only then does the
+  defender manipulate it up or down by their defensive skill -- so the result always lands
+  within defensive skill of 1.
+
 ### Exhaustion
 
 - Halftime recovery is **1** token. Upstream still says "1 (or 2, TBD)".
@@ -404,6 +417,9 @@ to steal the ball (see below, Ball's speed).
 A turnover means the ball changes possession, which means it moves from one player's area
 of the field (either the top or bottom part of a pitch card) to the other team.
 
+> **Missing:** this doesn't say what happens to the ball's speed -- see
+> [Author clarifications](#author-clarifications). Every turnover resets it to 1.
+
 ### Actions display
 
 3 offense actions, 3 defense actions. Rank and die values are from the spreadsheet's
@@ -423,7 +439,9 @@ Two actions of the same rank tie, which is what sends a maneuver to a clash roll
 > "Defender and ball move back 1 space" doesn't say *when* relative to the turnover, or in
 > which direction. Both moves happen after possession flips, relative to the new
 > possessing team's direction -- i.e. back toward that team's own goal, not the old
-> possessing team's.
+> possessing team's. Nor does "Manipulate ball speed up to defensive skill" say relative to
+> what base -- the turnover has already reset speed to 1 by that point, so the manipulation
+> is relative to 1, not to whatever the speed was before the steal.
 
 ### Own goal
 

@@ -2246,6 +2246,7 @@ class ScoreAttemptView(SafeView):
             )
             match.set_ball_space(restart_zone, restart_index)
         match.ball.possession = new_possession_side
+        match.ball.speed = 1
 
         # active_player_id/pending_action stay set -- like a maneuver,
         # reset_maneuver() only happens once finish_maneuver_resolution
@@ -2927,6 +2928,8 @@ class LooseBallSkillTestView(SafeView):
         distance_moved = match.pending_loose_ball_distance
 
         match.ball.possession = winner_side
+        if turnover_occurred:
+            match.ball.speed = 1
         match.pending_loose_ball = False
         match.loose_ball_offense_player = None
         match.loose_ball_defense_player = None
@@ -4278,6 +4281,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             match.add_exhaustion(defense_player_id, recovery_distance)
             match.ball.possession = match.defending_side()
+            match.ball.speed = 1
             match.pending_loose_ball = False
             game.match_state = match.to_dict()
             save_games(self.games)
@@ -4468,6 +4472,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # keeps the two in the same space, so possession can be assigned
         # directly without set_possession's occupancy check.
         match.ball.possession = new_possession_side
+        # Every turnover drops the ball's speed back to 1 -- the
+        # defender's manipulate-speed choice below applies to that
+        # reset value, not whatever the speed was before the steal.
+        match.ball.speed = 1
         actual_distance = match.move_player_relative(
             challenger_id, new_possession_side, -1,
         )
@@ -4533,6 +4541,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         stolen = defender.role == PlayerRole.DEFENDER
         if stolen:
             match.ball.possession = defense_side
+            match.ball.speed = 1
             content += (
                 "\n\n# Turnover!\n"
                 f"{format_role_bracket(defender, self.team_emojis)} "
@@ -4970,6 +4979,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             match.set_ball_space(Zone.MIDFIELD, kickoff_index)
             match.ball.possession = TeamSide.VISITING
+            match.ball.speed = 1
             match.reset_maneuver()
             game.match_state = match.to_dict()
             save_games(self.games)
