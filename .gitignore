@@ -6,6 +6,8 @@ game_state.json
 .DS_Store
 board.png
 data/d12ball_games.json
+data/bot_state.json
+data/bot_state.tmp
 data/foolbot-main.pid
 data/foolbot-main.stdout.log
 data/foolbot-main.stderr.log

@@ -1,3 +1,4 @@
+import logging
 import os, random, json
 from dataclasses import dataclass, field, asdict
 from dotenv import load_dotenv
@@ -5,7 +6,16 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+import botlog
+
 load_dotenv()
+
+# Before anything logs, and before the mirror is attached to the root
+# logger. See botlog/__init__.py for the environment variables involved.
+botlog.configure_logging()
+LOGGER = logging.getLogger(__name__)
+log_mirror = botlog.install_mirror()
+
 TOKEN = os.getenv("DISCORD_TOKEN")
 STATE_FILE = "game_state.json"
 
@@ -42,23 +52,30 @@ class GameBot(commands.Bot):
         )
 
     async def setup_hook(self):
-        print("Loading D12 Ball extension...")
+        LOGGER.info("Loading D12 Ball extension...")
         await self.load_extension("cogs.d12ball")
-        print("Extension loaded.")
+        LOGGER.info("Extension loaded.")
 
-        print("Loading debug extension...")
+        LOGGER.info("Loading debug extension...")
         await self.load_extension("cogs.debug")
-        print("Debug extension loaded.")
+        LOGGER.info("Debug extension loaded.")
 
         synced = await self.tree.sync()
-        print(f"Synced {len(synced)} commands.")
+        LOGGER.info("Synced %d commands.", len(synced))
 
 bot = GameBot()
 
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user}")
-    print(f"Bot user ID: {bot.user.id}")
+    LOGGER.info(
+        "Logged in as %s (bot user ID %s)",
+        bot.user,
+        getattr(bot.user, "id", "unknown"),
+    )
+    # Both of these are guarded internally and run on every reconnect:
+    # binding is idempotent, and a build announces itself once.
+    await botlog.start_mirror(bot, log_mirror)
+    await botlog.announce_startup(bot)
 
 @bot.tree.command(name="newdeck", description="Create and shuffle a 72-card Foolish Style deck")
 async def newdeck(interaction: discord.Interaction):
@@ -124,8 +141,16 @@ async def board(interaction: discord.Interaction):
     lines = [f"**{u}**: ({p['x']}, {p['y']})" for u, p in state.units.items()]
     await interaction.response.send_message("\n".join(lines))
 
-print("Token exists:", TOKEN is not None)
-print("Token length:", len(TOKEN) if TOKEN else 0)
-print("Token start:", TOKEN[:6] if TOKEN else "NONE")
+if TOKEN:
+    LOGGER.info("Discord token loaded (%d characters).", len(TOKEN))
+    # Which token, rather than whether there is one. Kept off the
+    # default level because the log channel is a place in a server, not
+    # a private console.
+    LOGGER.debug("Discord token starts with %s.", TOKEN[:6])
+else:
+    LOGGER.error("No DISCORD_TOKEN in the environment or in .env.")
 
-bot.run(TOKEN)
+# log_handler=None: configure_logging already set the root logger up,
+# and letting discord.py add its own would print every library line
+# twice.
+bot.run(TOKEN, log_handler=None)

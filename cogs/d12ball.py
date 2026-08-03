@@ -1,7 +1,7 @@
 import io
+import logging
 import random
 import re
-import traceback
 import uuid
 from typing import Optional
 
@@ -44,6 +44,8 @@ from gamesaves.d12ball.storage import (
     save_games,
 )
 
+
+LOGGER = logging.getLogger(__name__)
 
 CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)$")
 PBD_GAMES_CATEGORY_NAME = "PBD Games"
@@ -128,7 +130,9 @@ async def load_condition_emojis(
     try:
         emojis = await bot.fetch_application_emojis()
     except Exception as error:
-        print(f"Could not load the D12 Ball condition emoji: {error}")
+        LOGGER.warning(
+            "Could not load the D12 Ball condition emoji: %s", error,
+        )
         return {}
 
     emojis_by_name = {emoji.name: emoji for emoji in emojis}
@@ -144,10 +148,10 @@ async def load_condition_emojis(
             condition_emojis[key] = str(emoji)
 
     if missing:
-        print(
-            "This application has no condition emoji named "
-            f"{', '.join(missing)}; those conditions will show their "
-            "fallback emoji instead."
+        LOGGER.info(
+            "This application has no condition emoji named %s; those "
+            "conditions will show their fallback emoji instead.",
+            ", ".join(missing),
         )
 
     return condition_emojis
@@ -172,7 +176,7 @@ async def load_team_emojis(
     try:
         emojis = await bot.fetch_application_emojis()
     except Exception as error:
-        print(f"Could not load the D12 Ball team emoji: {error}")
+        LOGGER.warning("Could not load the D12 Ball team emoji: %s", error)
         return {}
 
     emojis_by_name = {emoji.name: emoji for emoji in emojis}
@@ -188,10 +192,10 @@ async def load_team_emojis(
             team_emojis[team] = str(emoji)
 
     if missing:
-        print(
-            "This application has no team emoji named "
-            f"{', '.join(missing)}; those teams will show a colored "
-            "circle instead."
+        LOGGER.info(
+            "This application has no team emoji named %s; those teams "
+            "will show a colored circle instead.",
+            ", ".join(missing),
         )
 
     return team_emojis
@@ -432,7 +436,7 @@ async def load_coin_emojis(
     except Exception as error:
         # Deliberately broad: the emoji is decoration, and no failure
         # to fetch it should stop anyone from flipping a coin.
-        print(f"Could not load the D12 Ball coin emoji: {error}")
+        LOGGER.warning("Could not load the D12 Ball coin emoji: %s", error)
         return {}
 
     emojis_by_name = {emoji.name: emoji for emoji in emojis}
@@ -448,10 +452,11 @@ async def load_coin_emojis(
             coin_emojis[face] = str(emoji)
 
     if missing:
-        print(
-            "This application has no coin emoji named "
-            f"{', '.join(missing)}; coin tosses will show "
-            f"{COIN_EMOJI_FALLBACK} instead."
+        LOGGER.info(
+            "This application has no coin emoji named %s; coin tosses "
+            "will show %s instead.",
+            ", ".join(missing),
+            COIN_EMOJI_FALLBACK,
         )
 
     return coin_emojis
@@ -642,8 +647,10 @@ class SafeView(discord.ui.View):
         error: Exception,
         item: discord.ui.Item,
     ) -> None:
-        print(f"Unhandled error in {self!r} for {item!r}: {error!r}")
-        traceback.print_exception(type(error), error, error.__traceback__)
+        LOGGER.error(
+            "Unhandled error in %r for %r: %r",
+            self, item, error, exc_info=error,
+        )
         await send_error_fallback(
             interaction,
             "Something went wrong handling that click. Please try again.",
@@ -2673,9 +2680,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 )
                 restored_views += 1
 
-        print(
-            f"Loaded {len(self.games)} saved D12 Ball games "
-            f"and restored {restored_views} button views."
+        LOGGER.info(
+            "Loaded %d saved D12 Ball games and restored %d button "
+            "views.",
+            len(self.games),
+            restored_views,
         )
 
     async def cog_load(self) -> None:
@@ -2701,9 +2710,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if interaction.command is not None
             else "unknown command"
         )
-        print(f"Unhandled error in /{command_name}: {original!r}")
-        traceback.print_exception(
-            type(original), original, original.__traceback__,
+        LOGGER.error(
+            "Unhandled error in /%s: %r",
+            command_name, original, exc_info=original,
         )
         await send_error_fallback(
             interaction,
@@ -4634,9 +4643,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             try:
                 await self.archive_game_channel(game)
             except (ValueError, discord.Forbidden, discord.HTTPException) as error:
-                print(
-                    f"Could not archive finished D12 Ball game "
-                    f"{game.game_id}: {error}"
+                # An error rather than a warning: a finished game whose
+                # channel stays in the games category is a permission
+                # problem that needs someone to fix it, and nothing else
+                # reports it.
+                LOGGER.error(
+                    "Could not archive finished D12 Ball game %s: %s",
+                    game.game_id,
+                    error,
                 )
 
     @app_commands.command(
