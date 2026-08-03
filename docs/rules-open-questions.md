@@ -88,6 +88,13 @@ A short index so nothing is re-asked. Detail is in the rules file.
 | Run back: which space in the zone, and how many tokens? | One token per space traveled. The coach picks the space, at most one player per space afterwards. |
 | Is that one-per-space limit per team? | Yes. Opposing meeples still share a space. |
 
+### Answered while scoping the loose-ball rule
+
+| Question | Answer |
+|---|---|
+| Loose ball, only one side has a zone-mate | That side gains possession without a skill test; the coach picks who recovers it, distance-traveled exhaustion (not the flat 1 a contested skill test costs). |
+| Loose ball, neither side has a zone-mate ("out of bounds") | The side that last had possession loses it -- a turnover, so it's run-back for everyone, and the new possessor must place one of their fielded players (from anywhere, not just that zone) on the ball's space, same distance-traveled exhaustion. |
+
 ---
 
 ## 3. Decisions recorded

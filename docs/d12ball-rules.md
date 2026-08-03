@@ -130,6 +130,21 @@ transcription itself. What remains below is what upstream still does not say.
 - **Defender role ability, "Steals the ball when wins a maneuver with Pressure":** Pressure's
   normal effect still happens -- player and ball go back one space, the defender moves one
   forward -- **and** possession flips in addition.
+- **A pass landing on an empty space (Low Pass or High Pass) is a contested loose ball, not
+  a clean reception.** It triggers a skill test: starting with the player who last had
+  possession, each side picks a player of their team that is in the space where the ball is
+  landing. That player is moved to that space, gains 1 exhaustion, and participates in a
+  skill test. The player who last had possession is considered the offense and their player
+  uses offensive skill (the other side is defense). The winner of the test gains possession.
+- **If only one team has a player in the landing space's zone, that team gains possession
+  without a skill test.** The coach picks which of their players in that zone makes the
+  recovery; that player moves to the ball's space and gains exhaustion tokens **equal to the
+  number of spaces traveled** (not the flat 1 a contested skill test costs).
+- **"Out of bounds": neither team has a player in the landing zone.** The team that last had
+  possession loses it -- a turnover. All displaced players run back, and the team that just
+  gained possession must get one of their fielded players (from anywhere on the field, not
+  just that zone) onto the ball's space -- the coach picks who, and the bot charges the same
+  distance-traveled exhaustion as the one-team case above.
 
 ### Exhaustion
 
@@ -398,6 +413,12 @@ offensive skill of the player, you need a result of 7 and above to avoid an own 
 > Fullbacks are exempt from the disadvantage on this roll (their role ability), so they roll
 > a single d12. They also have the worst offensive modifier, which leaves them a little
 > better than even overall -- the author flags this balance as needing more playtesting.
+
+> Clarified by the author beyond this text: there is no "goal space" -- the field only has
+> spaces. The risk is triggered by **overshoot**, the same requirement
+> [Setting a scoring opportunity](#setting-a-scoring-opportunity) uses: a deflection that
+> would push the ball past the space closest to the team's own goal, not merely landing on
+> that space.
 
 ### Setting a scoring opportunity
 

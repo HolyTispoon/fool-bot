@@ -465,7 +465,13 @@ class MatchState:
     exhausted: set[str] = field(default_factory=set)
     injured: set[str] = field(default_factory=set)
     pending_run_back: bool = False
+    pending_run_back_distance: int = 1
+    pending_run_back_turnover: bool = True
     pending_shot_is_set_up: bool = False
+    pending_loose_ball: bool = False
+    pending_loose_ball_distance: int = 1
+    loose_ball_offense_player: Optional[str] = None
+    loose_ball_defense_player: Optional[str] = None
 
     @classmethod
     def standard(
@@ -624,24 +630,6 @@ class MatchState:
         )
         return self.ball.space_index == closest_space
 
-    def is_ball_at_own_scoring_space(self) -> bool:
-        """
-        True when the ball sits on the space of its zone that is
-        closest to the goal belonging to the team WITH possession --
-        the own-goal risk a deflected pass can land on.
-        """
-        own_goal_zone = (
-            Zone.HOME_GOAL
-            if self.ball.possession == TeamSide.HOME
-            else Zone.VISITORS_GOAL
-        )
-        if self.ball.zone != own_goal_zone:
-            return False
-
-        final_space = len(self.board.spaces[own_goal_zone]) - 1
-        closest_space = 0 if own_goal_zone == Zone.HOME_GOAL else final_space
-        return self.ball.space_index == closest_space
-
     def defending_side(self) -> TeamSide:
         return (
             TeamSide.VISITING
@@ -700,21 +688,33 @@ class MatchState:
             if player_id in defending_players
         ]
 
+    def fielded_players_in_zone(
+        self,
+        side: TeamSide,
+        zone: Zone,
+    ) -> list[str]:
+        """
+        A side's fielded players anywhere in `zone` -- the pool of
+        nearby candidates who can contest a loose ball landing in an
+        empty space there.
+        """
+        side_players = set(self.setup_for_side(side).field_players)
+        return [
+            player_id
+            for occupants in self.board.spaces[zone]
+            for player_id in occupants
+            if player_id in side_players
+        ]
+
     def eligible_challengers(self) -> list[str]:
         """
         Fielded players belonging to the defending team who share the
         ball's zone, and so can be chosen to maneuver and challenge the
         ball handler.
         """
-        defending_players = set(
-            self.setup_for_side(self.defending_side()).field_players
+        return self.fielded_players_in_zone(
+            self.defending_side(), self.ball.zone,
         )
-        return [
-            player_id
-            for occupants in self.board.spaces[self.ball.zone]
-            for player_id in occupants
-            if player_id in defending_players
-        ]
 
     def award_goal(self) -> None:
         """
@@ -810,6 +810,20 @@ class MatchState:
             raise ValueError("The defense has already chosen a maneuver.")
         self.defense_maneuver = name
 
+    def begin_loose_ball(self, distance_moved: int) -> None:
+        self.pending_loose_ball = True
+        self.pending_loose_ball_distance = distance_moved
+
+    def choose_loose_ball_offense_player(self, player_id: str) -> None:
+        if self.loose_ball_offense_player is not None:
+            raise ValueError("The offense has already picked a player.")
+        self.loose_ball_offense_player = player_id
+
+    def choose_loose_ball_defense_player(self, player_id: str) -> None:
+        if self.loose_ball_defense_player is not None:
+            raise ValueError("The defense has already picked a player.")
+        self.loose_ball_defense_player = player_id
+
     def reset_maneuver(self) -> None:
         """
         Clear the ball-handler and maneuver-selection state once a
@@ -821,7 +835,13 @@ class MatchState:
         self.offense_maneuver = None
         self.defense_maneuver = None
         self.pending_run_back = False
+        self.pending_run_back_distance = 1
+        self.pending_run_back_turnover = True
         self.pending_shot_is_set_up = False
+        self.pending_loose_ball = False
+        self.pending_loose_ball_distance = 1
+        self.loose_ball_offense_player = None
+        self.loose_ball_defense_player = None
 
     def move_meeple(
         self,
@@ -1199,7 +1219,13 @@ class MatchState:
             "exhausted": sorted(self.exhausted),
             "injured": sorted(self.injured),
             "pending_run_back": self.pending_run_back,
+            "pending_run_back_distance": self.pending_run_back_distance,
+            "pending_run_back_turnover": self.pending_run_back_turnover,
             "pending_shot_is_set_up": self.pending_shot_is_set_up,
+            "pending_loose_ball": self.pending_loose_ball,
+            "pending_loose_ball_distance": self.pending_loose_ball_distance,
+            "loose_ball_offense_player": self.loose_ball_offense_player,
+            "loose_ball_defense_player": self.loose_ball_defense_player,
         }
 
     @classmethod
@@ -1248,8 +1274,24 @@ class MatchState:
             exhausted=set(data.get("exhausted", [])),
             injured=set(data.get("injured", [])),
             pending_run_back=data.get("pending_run_back", False),
+            pending_run_back_distance=data.get(
+                "pending_run_back_distance", 1
+            ),
+            pending_run_back_turnover=data.get(
+                "pending_run_back_turnover", True
+            ),
             pending_shot_is_set_up=data.get(
                 "pending_shot_is_set_up", False
+            ),
+            pending_loose_ball=data.get("pending_loose_ball", False),
+            pending_loose_ball_distance=data.get(
+                "pending_loose_ball_distance", 1
+            ),
+            loose_ball_offense_player=data.get(
+                "loose_ball_offense_player"
+            ),
+            loose_ball_defense_player=data.get(
+                "loose_ball_defense_player"
             ),
         )
 
