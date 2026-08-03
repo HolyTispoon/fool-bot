@@ -4411,16 +4411,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
     ) -> None:
-        offense_side = match.ball.possession
         new_possession_side = match.defending_side()
         challenger_id = match.challenger_id
-        actual_distance = match.move_ball_relative(offense_side, -1)
-        # Only the ball moves here, not the challenger's meeple, so it
-        # won't generally end up sharing the ball's new space -- assign
-        # possession directly rather than through set_possession's
-        # occupancy check, which the manual /d12ball ball move command
-        # needs but an automated turnover doesn't.
+
+        # The turnover happens first, then both the interceptor and the
+        # ball fall back 1 space -- toward the *new* possessing side's
+        # own goal, not the old side's. Moving the challenger's meeple
+        # (not just the ball) and re-deriving the ball's space from it
+        # keeps the two in the same space, so possession can be assigned
+        # directly without set_possession's occupancy check.
         match.ball.possession = new_possession_side
+        actual_distance = match.move_player_relative(
+            challenger_id, new_possession_side, -1,
+        )
+        match.set_ball_space(*match.board.meeple_position(challenger_id))
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -4431,9 +4435,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"**Steal Intercept:**\n"
             "# Turnover!\n"
             f"{format_role_bracket(challenger, self.team_emojis)} steals "
-            f"the ball, which moves {actual_distance} {space_word} back. "
-            f"{format_team_side_label(new_possession)} now has "
-            "possession."
+            f"the ball. {format_team_side_label(new_possession)} now has "
+            f"possession, then falls back {actual_distance} {space_word} "
+            "toward their own goal with the ball."
         )
         await self.refresh_match_image(interaction, game)
 
