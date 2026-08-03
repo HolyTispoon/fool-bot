@@ -28,21 +28,7 @@ roll, an injured state, or any use of the `back_bench` the spreadsheet reserves 
 players. Worth confirming that accrual is the intended scope of that PR and the Exhausted /
 Injured layer is a later piece, rather than it being assumed done.
 
-### 1.2 Loose-ball skill test: what happens when only one side (or neither) has a zone-mate?
-
-The loose-ball rule under
-[Author clarifications](d12ball-rules.md#maneuvers) says a pass landing on an empty space
-triggers a skill test between a player each side picks from the ball's zone -- but doesn't
-say what happens if one side (or both) has nobody fielded in that zone to pick.
-
-**What the bot currently does, pending confirmation:** if only one side has an eligible
-player, that player recovers the ball uncontested (moved to the space, gains the flat 1
-exhaustion token, no skill test -- there's no opponent to test against) and possession ends
-up with whichever side that was. If neither side has anyone in the zone, the ball is simply
-left on the empty space and possession doesn't change. This is the bot's own extrapolation
-of the confirmed rule, not something the author has confirmed.
-
-### 1.3 Where do role abilities live in the spreadsheet?
+### 1.2 Where do role abilities live in the spreadsheet?
 
 The author mentioned wanting to "update the spreadsheet so the ability are found somewhere
 else matching the roles" -- currently the ability is repeated on every player row and the
@@ -101,6 +87,13 @@ A short index so nothing is re-asked. Detail is in the rules file.
 | Does an exhausted participant in a score attempt roll an injury check? | No. Injury checks happen after a skill test only. |
 | Run back: which space in the zone, and how many tokens? | One token per space traveled. The coach picks the space, at most one player per space afterwards. |
 | Is that one-per-space limit per team? | Yes. Opposing meeples still share a space. |
+
+### Answered while scoping the loose-ball rule
+
+| Question | Answer |
+|---|---|
+| Loose ball, only one side has a zone-mate | That side gains possession without a skill test; the coach picks who recovers it, distance-traveled exhaustion (not the flat 1 a contested skill test costs). |
+| Loose ball, neither side has a zone-mate ("out of bounds") | The side that last had possession loses it -- a turnover, so it's run-back for everyone, and the new possessor must place one of their fielded players (from anywhere, not just that zone) on the ball's space, same distance-traveled exhaustion. |
 
 ---
 

@@ -136,8 +136,15 @@ transcription itself. What remains below is what upstream still does not say.
   landing. That player is moved to that space, gains 1 exhaustion, and participates in a
   skill test. The player who last had possession is considered the offense and their player
   uses offensive skill (the other side is defense). The winner of the test gains possession.
-  See [rules-open-questions.md](rules-open-questions.md) for how the bot fills the gap this
-  leaves for a side with no eligible player to send.
+- **If only one team has a player in the landing space's zone, that team gains possession
+  without a skill test.** The coach picks which of their players in that zone makes the
+  recovery; that player moves to the ball's space and gains exhaustion tokens **equal to the
+  number of spaces traveled** (not the flat 1 a contested skill test costs).
+- **"Out of bounds": neither team has a player in the landing zone.** The team that last had
+  possession loses it -- a turnover. All displaced players run back, and the team that just
+  gained possession must get one of their fielded players (from anywhere on the field, not
+  just that zone) onto the ball's space -- the coach picks who, and the bot charges the same
+  distance-traveled exhaustion as the one-team case above.
 
 ### Exhaustion
 

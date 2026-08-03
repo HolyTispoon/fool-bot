@@ -3941,7 +3941,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         side: TeamSide,
     ) -> list[str]:
-        return match.fielded_players_in_zone(side, match.ball.zone)
+        zone_candidates = match.fielded_players_in_zone(side, match.ball.zone)
+        if zone_candidates:
+            return zone_candidates
+
+        # "Out of bounds": neither side has anyone in the landing
+        # zone. The defense always gains possession in that case, and
+        # must send a player from anywhere on the field to reach the
+        # ball -- offense never gets this fallback, since they're the
+        # side losing possession.
+        if side == match.defending_side() and not match.fielded_players_in_zone(
+            match.ball.possession, match.ball.zone,
+        ):
+            return match.setup_for_side(side).field_players
+        return []
 
     def loose_ball_sides_ready(
         self,
@@ -4107,6 +4120,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         distance_moved = match.pending_loose_ball_distance
 
         if offense_player_id is None and defense_player_id is None:
+            # Degenerate edge case only: the defense fallback in
+            # loose_ball_candidates() means this shouldn't happen while
+            # the defending side has any fielded players at all.
             match.pending_loose_ball = False
             game.match_state = match.to_dict()
             save_games(self.games)
@@ -4122,10 +4138,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         if defense_player_id is None:
             player = self.get_player_definition(offense_player_id)
+            recovery_distance = match.distance_to_ball(offense_player_id)
             match.move_meeple(
                 offense_player_id, match.ball.zone, match.ball.space_index,
             )
-            match.add_exhaustion(offense_player_id, 1)
+            match.add_exhaustion(offense_player_id, recovery_distance)
             match.pending_loose_ball = False
             game.match_state = match.to_dict()
             save_games(self.games)
@@ -4133,7 +4150,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await interaction.followup.send(
                 f"{format_role_bracket(player, self.team_emojis)} "
                 "recovers the loose ball uncontested.\n"
-                + self.describe_exhaustion_gain(match, offense_player_id, 1)
+                + self.describe_exhaustion_gain(
+                    match, offense_player_id, recovery_distance,
+                )
             )
             await self.refresh_match_image(interaction, game)
             await self.begin_run_back(
@@ -4143,22 +4162,39 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         if offense_player_id is None:
+            # "Out of bounds" if the defense pick came from the
+            # whole-team fallback rather than a real zone-mate -- there
+            # was nobody from either side in the zone at all.
+            out_of_bounds = not match.fielded_players_in_zone(
+                match.ball.possession, match.ball.zone,
+            ) and not match.fielded_players_in_zone(
+                match.defending_side(), match.ball.zone,
+            )
+
             player = self.get_player_definition(defense_player_id)
+            recovery_distance = match.distance_to_ball(defense_player_id)
             match.move_meeple(
                 defense_player_id, match.ball.zone, match.ball.space_index,
             )
-            match.add_exhaustion(defense_player_id, 1)
+            match.add_exhaustion(defense_player_id, recovery_distance)
             match.ball.possession = match.defending_side()
             match.pending_loose_ball = False
             game.match_state = match.to_dict()
             save_games(self.games)
 
+            headline = (
+                "**Out of bounds!**" if out_of_bounds
+                else f"{format_role_bracket(player, self.team_emojis)} "
+                "recovers the loose ball uncontested."
+            )
             await interaction.followup.send(
-                f"{format_role_bracket(player, self.team_emojis)} "
-                "recovers the loose ball uncontested. "
+                f"{headline} "
                 f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
-                "now has possession.\n"
-                + self.describe_exhaustion_gain(match, defense_player_id, 1)
+                f"now has possession -- {format_role_bracket(player, self.team_emojis)} "
+                "gets to the ball.\n"
+                + self.describe_exhaustion_gain(
+                    match, defense_player_id, recovery_distance,
+                )
             )
             await self.refresh_match_image(interaction, game)
             await self.begin_run_back(
