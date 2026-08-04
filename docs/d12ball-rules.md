@@ -1,6 +1,6 @@
 # D12 Ball -- rules
 
-**Retrieved:** 2026-08-02 (first copied 2026-07-25)
+**Retrieved:** 2026-08-04 (first copied 2026-07-25)
 
 D12 Ball's rules live in **two** upstream places, and neither one is complete on its own:
 
@@ -27,6 +27,22 @@ The upstream page carries this note from the author:
 > of play as 'players'. This ambiguity will be cleared up once proper terminology is picked.
 
 ### Changelog
+
+**2026-08-04.** Commit 527a772 ("updated abilities and maneuvers") reworded both the
+`Sheet1` and `maneuvers` tabs:
+
+- The six role abilities. Fullback's is now stated in terms of pass distance rather than the
+  own-goal roll, Defender's and Striker's old wording (flagged as mistakes) is gone,
+  Midfielder's and Playmaker's swapped which maneuver they name, and Winger's changed only
+  its punctuation. See the [role/ability table](#player-cards).
+- Three maneuver effects. **Low Pass** and **High Pass** each dropped their distance range
+  for a fixed number (Low Pass "1-2 spaces" to "1 space", High Pass "2-3 spaces" to "2
+  spaces") -- the Time column's ranges are unchanged, so they no longer describe the same
+  thing the Effect column does. **Block Deflect** no longer risks an own goal at all; it now
+  reads "sets up scoring opportunity" for the defense instead, the same way a High Pass
+  overshoot does for the offense. **Pressure** gained "If reaches offense's goal, triggers
+  own goal" -- so the own-goal trigger has moved from Block Deflect to Pressure. See the
+  [Actions display](#actions-display) table and [Own goal](#own-goal).
 
 **2026-08-02.** The `maneuvers` tab changed: **Steal Intercept**'s effect now reads "Turnover.
 **Defender** and ball move back 1 space. Manipulate ball speed up to defensive skill." -- it
@@ -81,7 +97,9 @@ added at this point, having been unreachable when the file was first written.
 Answers given by the author (@HolyTispoon) reviewing
 [PR #10](https://github.com/HolyTispoon/fool-bot/pull/10) on 2026-07-31 and 2026-08-01,
 plus answers he gave directly while the shoot-to-score work was being scoped, 2026-08-01,
-and while substitutions were being scoped, 2026-08-04.
+while substitutions were being scoped, 2026-08-04, and while reviewing
+[PR #29](https://github.com/HolyTispoon/fool-bot/pull/29)'s own-goal/run-back rework,
+2026-08-04.
 **These are rules, and where they conflict with the transcription below, these win** -- the
 transcription is a faithful copy of a page that is behind in places. They are kept in their
 own section so it stays obvious which text came from upstream and which came from the
@@ -143,11 +161,14 @@ transcription itself. What remains below is what upstream still does not say.
   *own* goal (not the old possessing team's goal). Read literally against the old side's
   direction, "back" would send the ball toward the new team's attacking goal instead --
   the opposite of what's intended.
-- A **backward low pass** still increases ball speed by 1, and if it reaches the passing
-  team's own goal it does trigger an own-goal attempt.
+- A **backward low pass** still increases ball speed by 1. It no longer risks an own goal on
+  reaching the passing team's own goal -- see [Own goal trigger](#own-goal-trigger) below;
+  that trigger moved to Pressure only.
 - **Defender role ability, "Steals the ball when wins a maneuver with Pressure":** Pressure's
   normal effect still happens -- player and ball go back one space, the defender moves one
-  forward -- **and** possession flips in addition.
+  forward -- **and** possession flips in addition. **Unless that same roll concedes an own
+  goal**, in which case the own goal takes priority and the steal doesn't also happen -- see
+  [Own goal trigger](#own-goal-trigger) below.
 - **A pass landing on an empty space (Low Pass or High Pass) is a contested loose ball, not
   a clean reception.** It triggers a skill test: starting with the player who last had
   possession, each side picks a player of their team that is in the space where the ball is
@@ -163,6 +184,19 @@ transcription itself. What remains below is what upstream still does not say.
   gained possession must get one of their fielded players (from anywhere on the field, not
   just that zone) onto the ball's space -- the coach picks who, and the bot charges the same
   distance-traveled exhaustion as the one-team case above.
+
+### Own goal trigger
+
+- **The trigger moved from Block Deflect to Pressure**, matching the `maneuvers` tab's
+  2026-08-04 reword -- see [Changelog](#changelog) and the transcription's
+  [Own goal](#own-goal) section. Block Deflect's own overshoot now sets up a scoring
+  opportunity for the defense instead, and a backward Low Pass no longer risks one either.
+- **The roll is now an advantage, not a disadvantage:** roll 2d12 and take the **higher**
+  result, then add the offensive skill as before, needing 7+ to avoid conceding. Upstream's
+  own-goal paragraph still describes the old disadvantage roll (lower of the two).
+- **An own goal takes priority over the Defender's Pressure-steal ability.** When a won
+  Pressure would trigger both -- the ball reaching the defense's own goal, and the Defender
+  stealing it -- the own goal resolves and ends the point; the steal doesn't also happen.
 
 ### Ball speed on a turnover
 
@@ -196,6 +230,10 @@ transcription itself. What remains below is what upstream still does not say.
   forced.
 - That one-per-space limit is **per team.** Opposing meeples still share a space, the way they
   do at setup, so it only ever constrains a team against its own players.
+- **A steal exempts the stealing player from running back.** On a turnover created by a steal
+  (Steal Intercept, or the Defender's Pressure-ability steal), everyone else displaced by the
+  turnover still runs back as normal; only the player who won the steal stays where they
+  ended up.
 
 ### Substitutions
 
@@ -328,25 +366,35 @@ for example, the better a player is on offense the worse they are on defense and
 versa.
 
 Roles, skills and abilities from the spreadsheet's `Sheet1` tab (offense/defense), re-read
-2026-07-31:
+2026-08-04:
 
 | Role | Off | Def | Ability |
 |---|---|---|---|
-| Fullback | 1 | 6 | No disadvantage on own goal rolls |
-| Defender | 2 | 5 | Steals the ball when wins a maneuver with Pressure |
-| Midfielder | 3 | 4 | +3 for dribble/advance |
-| Playmaker | 4 | 3 | +3 for all passes |
-| Winger | 5 | 2 | Can set up a scoring opportunity with a low pass |
-| Striker | 6 | 1 | +3 for scoring off a set up |
+| Fullback | 1 | 6 | Ball goes 1 space further when passing (low/high). |
+| Defender | 2 | 5 | When resolving Pressure, steals the ball. |
+| Midfielder | 3 | 4 | Gain +3 for skill tests when attempting low pass or pressure. |
+| Playmaker | 4 | 3 | May advance 2 spaces when resolving Dribble advance. |
+| Winger | 5 | 2 | Can set up a scoring opportunity with a low pass. |
+| Striker | 6 | 1 | Gain +3 for scoring attempts off a set up. |
 
-> **`d12ball/data/players.json` is stale against this.** It still carries the Defender's old
-> ability ("Can manipulate the ball when stealing" -- which the author has confirmed was a
-> mistake) and the Striker's old "+3 for scoring off a high pass". Re-run
-> `scripts/import_d12ball_players.py` to pick both up. The importer already skips the
-> `Backside` rows the sheet has gained, so a re-import is safe.
+> **`d12ball/data/players.json` matches this table again**, re-imported in commit 527a772
+> ("updated abilities and maneuvers"). It had carried the Defender's old ability ("Can
+> manipulate the ball when stealing" -- which the author confirmed was a mistake) and the
+> Striker's old "+3 for scoring off a high pass"; both are now current.
+>
+> **`cogs/d12ball.py` was not updated in that commit and, on `main`, still implements three
+> of the six abilities as they read *before* the re-import.** Defender, Winger and Striker
+> match the table above. Fullback, Midfielder and Playmaker instead still run their old
+> behavior: no disadvantage on an own-goal roll, +3 on a Dribble Advance skill test, and +3
+> on either pass's skill test, respectively -- none of which match the wording now in the
+> table. [PR #29](https://github.com/HolyTispoon/fool-bot/pull/29) brings all three in line
+> (Fullback and Playmaker's fixes change movement distance, not a skill-test modifier;
+> Playmaker's "may advance 2 spaces" is implemented as a player choice, not automatic) and is
+> open as of this writing.
 
-The `+3` abilities are modifiers on the skill test (the roll formerly called a clash). None
-of the six abilities is implemented yet.
+The `+3` abilities are modifiers on the skill test (the roll formerly called a clash). All
+six ability slots have code behind them; see the callout above for which ones match the
+current wording.
 
 There are four teams -- Orange, Teal, Purple and Slime -- of nine players each: one of each
 role on the field plus three on the bench.
@@ -464,12 +512,12 @@ Two actions of the same rank tie, which is what sends a maneuver to a clash roll
 
 | Action | Side | Rank | Die | Defeats | Effect | Time |
 |---|---|---|---|---|---|---|
-| Low Pass | offense | 1 | 1-2 | Pressure | Ball moves 1-2 spaces forward or backward. Ball speed increases 1. | distance traveled (1-2 space minutes) |
+| Low Pass | offense | 1 | 1-2 | Pressure | Ball moves 1 space forward or backward. Ball speed increases 1. | distance traveled (1-2 space minutes) |
 | Dribble Advance | offense | 2 | 3-4 | Block Deflect | Player and ball move forward 1 space. Manipulate ball speed up to player's offensive skill. | 1 space minute |
-| High Pass | offense | 3 | 5-6 | Steal Intercept | Ball moves forward 2-3 spaces. If ball reaches goal, set up a scoring opportunity. | distance traveled (2-3 space minutes) |
-| Block Deflect | defense | 1 | 1-2 | High Pass | Ball moves back 2 spaces. If reaches offense's goal, chance for own goal. Ball speed decreases by 1. | 2 space minutes |
+| High Pass | offense | 3 | 5-6 | Steal Intercept | Ball moves forward 2 spaces. If ball reaches goal, set up a scoring opportunity. | distance traveled (2-3 space minutes) |
+| Block Deflect | defense | 1 | 1-2 | High Pass | Ball moves back 1 space. If reaches offense's goal, sets up scoring opportunity. Ball speed decreases by 1. | 2 space minutes |
 | Steal Intercept | defense | 2 | 3-4 | Low Pass | Turnover. Defender and ball move back 1 space. Manipulate ball speed up to defensive skill. | 1 space minute |
-| Pressure | defense | 3 | 5-6 | Dribble Advance | Player and ball go back 1 space. Defender moves 1 forward. | 1 space minute |
+| Pressure | defense | 3 | 5-6 | Dribble Advance | Player and ball go back 1 space. Defender moves 1 forward. If reaches offense's goal, triggers own goal. | 1 space minute |
 
 > **Steal Intercept still ambiguous** -- see [Author clarifications](#author-clarifications).
 > "Defender and ball move back 1 space" doesn't say *when* relative to the turnover, or in
@@ -487,9 +535,15 @@ adds their offense skill to a d12 roll that is rolled at a disadvantage, meaning
 roll two dice and take the lower result. After you pick the lower result, and add the
 offensive skill of the player, you need a result of 7 and above to avoid an own goal.
 
-> Fullbacks are exempt from the disadvantage on this roll (their role ability), so they roll
-> a single d12. They also have the worst offensive modifier, which leaves them a little
-> better than even overall -- the author flags this balance as needing more playtesting.
+> **Superseded** -- see [Own goal trigger](#own-goal-trigger) under
+> [Author clarifications](#author-clarifications). Upstream hasn't caught up on any of this:
+> the trigger above is no longer "a low or high pass was deflected" (the `maneuvers` tab now
+> ties it to a won **Pressure** instead, and Block Deflect's own overshoot sets up a scoring
+> opportunity for the defense rather than risking an own goal), and the roll itself is now an
+> **advantage** (take the higher of two dice), not the disadvantage described above. This
+> section previously also noted a Fullback exemption from the disadvantage roll -- that
+> described the role's *old* ability, replaced by the pass-distance bonus in the
+> [role/ability table](#player-cards), so Fullbacks roll this like everyone else now.
 
 > Clarified by the author beyond this text: there is no "goal space" -- the field only has
 > spaces. The risk is triggered by **overshoot**, the same requirement
@@ -511,6 +565,10 @@ do a 'score to shoot' roll to see if they can score a goal.
 > shoot' roll is an **ordinary score attempt**; and the exhaust token is taken **after** the
 > roll. A winger can set one up with a low pass, and a striker's `+3` applies to any scoring
 > attempt off a set-up.
+
+> **Not yet in this section, per the [Changelog](#changelog), 2026-08-04:** a Block Deflect
+> overshoot sets up a scoring opportunity too -- for the defense, since Block Deflect is the
+> defense's own maneuver. Upstream describes only the High Pass/Winger's-Low-Pass case above.
 
 ### Ball's speed
 
