@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import random
@@ -1172,7 +1173,7 @@ class CoinFlipView(GameConfigurationView):
             "wait": True,
         }
         if game.match_state is not None:
-            followup_arguments["file"] = self.cog.build_match_file(game)
+            followup_arguments["file"] = await self.cog.build_match_file(game)
 
         choice_message = await interaction.followup.send(
             build_home_choice_message(game),
@@ -1294,7 +1295,7 @@ class HomeAwaySelectionView(SafeView):
         await interaction.response.edit_message(
             content=build_home_choice_message(game),
             view=refreshed_view,
-            attachments=[self.cog.build_match_file(game)],
+            attachments=[await self.cog.build_match_file(game)],
         )
 
         await add_full_image_button_to_response(interaction, refreshed_view)
@@ -5235,7 +5236,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"has possession. Time has advanced {distance_moved}, now "
                 f"at {match.scoreboard.time:02d}."
             ),
-            file=self.build_match_file(game),
+            file=await self.build_match_file(game),
             wait=True,
         )
         await add_full_image_button(snapshot)
@@ -5438,7 +5439,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 game.message_id,
             )
             updated_message = await board_message.edit(
-                attachments=[self.build_match_file(game)],
+                attachments=[await self.build_match_file(game)],
             )
         except (discord.NotFound, discord.HTTPException, aiohttp.ClientError):
             return
@@ -5665,7 +5666,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = turn_message.id
         save_games(self.games)
 
-    def build_match_file(self, game: D12BallGame) -> discord.File:
+    async def build_match_file(self, game: D12BallGame) -> discord.File:
+        """
+        Render the board to a Discord attachment. The Pillow render is
+        pure CPU work with no awaits in it, so it runs in a worker
+        thread via to_thread -- run inline, it would block the single
+        asyncio event loop for every game and every user for as long as
+        the render takes.
+        """
         match = self.load_match_state(game)
         home_player = format_player_with_team(
             game,
@@ -5684,7 +5692,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"PBD{game.game_number} - {home_player} vs. "
             f"{visiting_player}, {period}"
         )
-        image = render_match_image(
+        image = await asyncio.to_thread(
+            render_match_image,
             match,
             self.player_catalog,
             title=title,
@@ -5708,7 +5717,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         snapshot = await interaction.followup.send(
             message,
-            file=self.build_match_file(game),
+            file=await self.build_match_file(game),
             wait=True,
         )
         await add_full_image_button(snapshot)
@@ -6063,7 +6072,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         await interaction.response.defer()
         snapshot = await interaction.followup.send(
-            file=self.build_match_file(game),
+            file=await self.build_match_file(game),
             wait=True,
         )
         await add_full_image_button(snapshot)
