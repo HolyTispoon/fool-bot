@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import random
@@ -1172,7 +1173,7 @@ class CoinFlipView(GameConfigurationView):
             "wait": True,
         }
         if game.match_state is not None:
-            followup_arguments["file"] = self.cog.build_match_file(game)
+            followup_arguments["file"] = await self.cog.build_match_file(game)
 
         choice_message = await interaction.followup.send(
             build_home_choice_message(game),
@@ -1294,7 +1295,7 @@ class HomeAwaySelectionView(SafeView):
         await interaction.response.edit_message(
             content=build_home_choice_message(game),
             view=refreshed_view,
-            attachments=[self.cog.build_match_file(game)],
+            attachments=[await self.cog.build_match_file(game)],
         )
 
         await add_full_image_button_to_response(interaction, refreshed_view)
@@ -1509,13 +1510,21 @@ class PlayerActionView(SafeView):
         defender_number = self.cog.defending_player_number(game, match)
         offense_number = self.cog.possession_player_number(game, match)
 
-        if game.is_solo_game and defender_number == 2:
-            challenger_id = self.cog.get_ai_strategy(game).choose_challenger(
-                match
+        # A defender already sharing the ball's exact space leaves
+        # nothing to choose -- the 1-per-team-per-space rule means
+        # there's at most one, so it's automatic, the same way it's
+        # automatic when the AI is the one picking.
+        on_ball_space = [
+            player_id
+            for player_id in eligible_challengers
+            if match.distance_to_ball(player_id) == 0
+        ]
+        if on_ball_space or (game.is_solo_game and defender_number == 2):
+            challenger_id = (
+                on_ball_space[0]
+                if on_ball_space
+                else self.cog.get_ai_strategy(game).choose_challenger(match)
             )
-            distance = match.choose_challenger(challenger_id)
-            game.match_state = match.to_dict()
-            save_games(self.cog.games)
 
             refresh_player_names(game, interaction.guild)
             offense_display = format_player_with_team(game, offense_number)
@@ -1527,24 +1536,8 @@ class PlayerActionView(SafeView):
                 ),
                 view=None,
             )
-            await interaction.followup.send(
-                self.cog.build_challenge_announcement(
-                    game,
-                    match,
-                    challenger_id,
-                    distance,
-                ),
-                allowed_mentions=discord.AllowedMentions(
-                    users=False,
-                    roles=False,
-                    everyone=False,
-                ),
-            )
-            await self.cog.refresh_match_image(interaction, game)
-            await self.cog.begin_maneuver_action_selection(
-                interaction,
-                game,
-                match,
+            await self.cog.auto_resolve_challenger(
+                interaction, game, match, challenger_id,
             )
             return
 
@@ -2360,58 +2353,6 @@ class LowPassChoiceView(SafeView):
         await self.cog.apply_low_pass(
             interaction, game, match, direction, distance=1,
         )
-
-
-class HighPassChoiceView(SafeView):
-    def __init__(self, cog: "D12Ball", game_id: str):
-        super().__init__(timeout=None)
-        self.cog = cog
-        self.game_id = game_id
-
-        for distance in (2, 3):
-            button = discord.ui.Button(
-                label=f"{distance} spaces",
-                style=discord.ButtonStyle.primary,
-                custom_id=f"d12ball:high_pass:{game_id}:{distance}",
-            )
-
-            async def callback(
-                interaction: discord.Interaction,
-                chosen_distance: int = distance,
-            ) -> None:
-                await self.choose(interaction, chosen_distance)
-
-            button.callback = callback
-            self.add_item(button)
-
-    async def choose(
-        self,
-        interaction: discord.Interaction,
-        distance: int,
-    ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
-            return
-        match = self.cog.load_match_state(game)
-
-        if not self.cog.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
-            await interaction.response.send_message(
-                "Only the player resolving this effect can choose.",
-                ephemeral=True,
-            )
-            return
-
-        await interaction.response.edit_message(
-            content=f"Chose **{distance} spaces**.",
-            view=None,
-        )
-        await self.cog.apply_high_pass(interaction, game, match, distance)
 
 
 class DribbleAdvanceChoiceView(SafeView):
@@ -3867,6 +3808,35 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 
+    async def auto_resolve_challenger(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        challenger_id: str,
+    ) -> None:
+        """
+        Apply an already-decided challenger pick and move straight on
+        to maneuver-action selection -- no human choice involved,
+        either because the AI made the pick or because a defender
+        already shares the ball's space, leaving nothing to choose
+        (see PlayerActionView.choose_action).
+        """
+        distance = match.choose_challenger(challenger_id)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await interaction.followup.send(
+            self.build_challenge_announcement(
+                game, match, challenger_id, distance,
+            ),
+            allowed_mentions=discord.AllowedMentions(
+                users=False, roles=False, everyone=False,
+            ),
+        )
+        await self.refresh_match_image(interaction, game)
+        await self.begin_maneuver_action_selection(interaction, game, match)
+
     async def begin_maneuver_action_selection(
         self,
         interaction: discord.Interaction,
@@ -4146,10 +4116,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         for a decisively-won maneuver, purely from match state -- used
         both to restore it on a bot restart and (implicitly, by the
         same logic) to post it the first time. Returns None for a
-        maneuver that needs no choice (Block Deflect, Pressure) or an
-        unrecognized winner -- those resolve synchronously and should
-        never actually leave this state persisted except in a narrow
-        crash window, which falls back to PlayerActionView.
+        maneuver that needs no choice (High Pass, Block Deflect,
+        Pressure) or an unrecognized winner -- those resolve
+        synchronously and should never actually leave this state
+        persisted except in a narrow crash window, which falls back to
+        PlayerActionView.
 
         A Playmaker's Dribble Advance has two possible pending prompts
         (distance, then speed) with nothing in match state to tell
@@ -4169,8 +4140,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         if winner_name == "Low Pass":
             return LowPassChoiceView(self, game_id)
-        if winner_name == "High Pass":
-            return HighPassChoiceView(self, game_id)
         if winner_name == "Dribble Advance":
             handler = self.get_player_definition(match.active_player_id)
             if handler.role == PlayerRole.PLAYMAKER:
@@ -4444,28 +4413,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
     ) -> None:
-        if self.side_controlled_by_ai(game, match, "offense"):
-            distance = self.get_ai_strategy(game).choose_high_pass_distance(
-                match
-            )
-            await self.apply_high_pass(interaction, game, match, distance)
-            return
-
-        mention = format_player_with_team(
-            game,
-            self.possession_player_number(game, match),
-            mention=True,
-        )
-        prompt_message = await interaction.followup.send(
-            f"{mention}, choose your High Pass distance:",
-            view=HighPassChoiceView(self, game.game_id),
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
+        """
+        No choice to make -- High Pass is a fixed 2 spaces (Fullback's
+        +1 ability still applies automatically inside apply_high_pass),
+        the same fixed-distance pattern Low Pass follows.
+        """
+        await self.apply_high_pass(interaction, game, match, distance=2)
 
     async def apply_high_pass(
         self,
@@ -4837,14 +4790,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        # Both sides have a candidate -- move them both in and run the
-        # actual skill test.
+        # Both sides have a candidate -- move them both in, charge each
+        # their own recovery distance in exhaustion, and run the actual
+        # skill test.
+        offense_recovery_distance = match.distance_to_ball(offense_player_id)
+        defense_recovery_distance = match.distance_to_ball(defense_player_id)
         match.move_meeple(
             offense_player_id, match.ball.zone, match.ball.space_index,
         )
         match.move_meeple(
             defense_player_id, match.ball.zone, match.ball.space_index,
         )
+        match.add_exhaustion(offense_player_id, offense_recovery_distance)
+        match.add_exhaustion(defense_player_id, defense_recovery_distance)
         game.match_state = match.to_dict()
         save_games(self.games)
         await self.refresh_match_image(interaction, game)
@@ -4858,12 +4816,23 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             defense_player,
         ).defense
 
+        exhaustion_text = "\n".join(
+            [
+                self.describe_exhaustion_gain(
+                    match, offense_player_id, offense_recovery_distance,
+                ),
+                self.describe_exhaustion_gain(
+                    match, defense_player_id, defense_recovery_distance,
+                ),
+            ]
+        )
         test_message = await interaction.followup.send(
             f"{format_role_bracket(offense_player, self.team_emojis)} "
             f"(offense skill {offense_skill}) and "
             f"{format_role_bracket(defense_player, self.team_emojis)} "
             f"(defense skill {defense_skill}) both reach the loose "
-            "ball -- skill test!\n\nEither player can roll:",
+            f"ball -- skill test!\n{exhaustion_text}\n\nEither player can "
+            "roll:",
             view=LooseBallSkillTestView(self, game.game_id),
             wait=True,
         )
@@ -5714,13 +5683,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side: TeamSide,
     ) -> list[str]:
         """
-        `match.displaced_players(side)`, minus the player who stole
-        the ball this run-back (if any) -- see begin_run_back.
+        `match.displaced_players(side)` (outside their zone) plus
+        `match.crowded_players(side)` (doubled up with a same-zone
+        teammate, when the zone has room to spread out), minus the
+        player who stole the ball this run-back (if any) -- see
+        begin_run_back.
         """
         stays_player_id = match.pending_run_back_stays_player_id
+        combined = match.displaced_players(side) + match.crowded_players(side)
         return [
             player_id
-            for player_id in match.displaced_players(side)
+            for player_id in combined
             if player_id != stays_player_id
         ]
 
@@ -5921,7 +5894,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"has possession. Time has advanced {distance_moved}, now "
                 f"at {match.scoreboard.time:02d}."
             ),
-            file=self.build_match_file(game),
+            file=await self.build_match_file(game),
             wait=True,
         )
         await add_full_image_button(snapshot)
@@ -6131,7 +6104,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 game.message_id,
             )
             updated_message = await board_message.edit(
-                attachments=[self.build_match_file(game)],
+                attachments=[await self.build_match_file(game)],
             )
         except (discord.NotFound, discord.HTTPException, aiohttp.ClientError):
             return
@@ -6287,6 +6260,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         match.pending_action = "maneuver"
+
+        # A defender already sharing the ball's exact space leaves
+        # nothing to choose -- see PlayerActionView.choose_action.
+        on_ball_space = [
+            player_id
+            for player_id in eligible_challengers
+            if match.distance_to_ball(player_id) == 0
+        ]
+        if on_ball_space:
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            await interaction.followup.send(
+                f"{ai_name} has chosen to maneuver with "
+                f"{format_role_bracket(handler, self.team_emojis)}."
+            )
+            await self.auto_resolve_challenger(
+                interaction, game, match, on_ball_space[0],
+            )
+            return
+
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -6358,7 +6352,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = turn_message.id
         save_games(self.games)
 
-    def build_match_file(self, game: D12BallGame) -> discord.File:
+    async def build_match_file(self, game: D12BallGame) -> discord.File:
+        """
+        Render the board to a Discord attachment. The Pillow render is
+        pure CPU work with no awaits in it, so it runs in a worker
+        thread via to_thread -- run inline, it would block the single
+        asyncio event loop for every game and every user for as long as
+        the render takes.
+        """
         match = self.load_match_state(game)
         home_player = format_player_with_team(
             game,
@@ -6377,7 +6378,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"PBD{game.game_number} - {home_player} vs. "
             f"{visiting_player}, {period}"
         )
-        image = render_match_image(
+        image = await asyncio.to_thread(
+            render_match_image,
             match,
             self.player_catalog,
             title=title,
@@ -6401,7 +6403,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         snapshot = await interaction.followup.send(
             message,
-            file=self.build_match_file(game),
+            file=await self.build_match_file(game),
             wait=True,
         )
         await add_full_image_button(snapshot)
@@ -6756,7 +6758,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         await interaction.response.defer()
         snapshot = await interaction.followup.send(
-            file=self.build_match_file(game),
+            file=await self.build_match_file(game),
             wait=True,
         )
         await add_full_image_button(snapshot)

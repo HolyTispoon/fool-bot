@@ -1159,6 +1159,62 @@ class D12BallScoreAttemptTests(unittest.TestCase):
                 home_midfielder, Zone.MIDFIELD, occupied_space
             )
 
+    def test_crowded_players_flags_a_same_zone_double_up(self) -> None:
+        match = self.build_match(7)
+        home_midfielder, other_home_midfielder = match.home.zones[
+            Zone.MIDFIELD
+        ][:2]
+        # Double them up on the same space -- both are still in their
+        # own zone, so displaced_players sees nothing wrong.
+        other_position = match.board.meeple_position(other_home_midfielder)
+        match.move_meeple(home_midfielder, *other_position)
+
+        self.assertNotIn(
+            home_midfielder, match.displaced_players(TeamSide.HOME)
+        )
+        crowded = match.crowded_players(TeamSide.HOME)
+        self.assertEqual(len(crowded), 1)
+        self.assertIn(crowded[0], (home_midfielder, other_home_midfielder))
+
+    def test_crowded_players_prefers_the_ball_stealer_to_stay(self) -> None:
+        match = self.build_match(7)
+        home_midfielder, other_home_midfielder = match.home.zones[
+            Zone.MIDFIELD
+        ][:2]
+        other_position = match.board.meeple_position(other_home_midfielder)
+        match.move_meeple(home_midfielder, *other_position)
+
+        match.pending_run_back_stays_player_id = other_home_midfielder
+        self.assertEqual(
+            match.crowded_players(TeamSide.HOME), [home_midfielder]
+        )
+
+    def test_crowded_players_caps_at_the_zone_s_open_spaces(self) -> None:
+        match = self.build_match(7)
+        home_midfielder, other_home_midfielder = match.home.zones[
+            Zone.MIDFIELD
+        ][:2]
+        other_position = match.board.meeple_position(other_home_midfielder)
+        match.move_meeple(home_midfielder, *other_position)
+        # Fill every other home-open space in the zone (borrowing two
+        # other home fielded players) so there is nowhere left for the
+        # doubled-up pair to spread out to.
+        borrowed = [
+            player_id
+            for player_id in match.home.field_players
+            if player_id not in (home_midfielder, other_home_midfielder)
+        ]
+        for player_id, space_index in zip(
+            borrowed,
+            match.open_spaces_in_zone(TeamSide.HOME, Zone.MIDFIELD),
+        ):
+            match.move_meeple(player_id, Zone.MIDFIELD, space_index)
+
+        self.assertEqual(
+            match.open_spaces_in_zone(TeamSide.HOME, Zone.MIDFIELD), []
+        )
+        self.assertEqual(match.crowded_players(TeamSide.HOME), [])
+
     def test_move_ball_relative_respects_attack_direction(self) -> None:
         match = self.build_match(7)
         match.ball.zone = Zone.MIDFIELD
