@@ -36,30 +36,6 @@ else matching the roles" -- currently the ability is repeated on every player ro
 importer asserts all players of a role agree. Worth knowing before re-importing, since a
 restructure would change the importer.
 
-### 1.3 Do 4-1-1 and 2-1-3 fit on any board?
-
-Basic mode's formations are 2-2-2, 4-1-1 and 2-1-3, but no zone in `basic_rules.json` has
-more than three spaces -- the 6-board is 2/2/2, the 7-board 2/3/2, the 9-board 3/3/3 -- and
-at most one player per team may occupy a space. So **4-1-1 does not fit on any board size**,
-and **2-1-3 fits only on the 9-board**. Three readings, and they want different code:
-
-- the one-per-space limit is a run-back rule only, and teammates may otherwise share a space
-  (the renderer already stacks two meeples on a space, though their labels collide);
-- the formations are meant for a board that is not in the ruleset yet;
-- or the two extra formations are simply not available at every board size, and the bot
-  should offer whichever ones fit.
-
-`run_back_player` enforces one-per-team-per-space today, so whichever answer holds also
-decides whether that check stays as it is.
-
-### 1.4 Does rearranging during a substitution cost exhaustion?
-
-Every other way a meeple moves costs one token per space traveled: walking in to challenge,
-running back, recovering a loose ball. A declaring team may move its cards between zones
-freely -- is that free of exhaustion too, or charged at the same rate? Free rearrangement
-makes declaring a substitution the cheapest way to reposition in the game, which may well be
-the intent, since the window is capped at once per half.
-
 ---
 
 ## 2. Answered
@@ -125,7 +101,9 @@ A short index so nothing is re-asked. Detail is in the rules file.
 | Question | Answer |
 |---|---|
 | Must one of each role stay on the field, given no bench can replace a striker, fullback or midfielder? | No. That belongs to the standard setup basic mode deals out; advanced mode will allow other arrangements. |
-| What are the limits on "move around player assignments"? | Cards change zones freely. Basic mode's formations are 2-2-2, 4-1-1 and 2-1-3. (Whether the last two fit on a board is 1.3; whether moving costs exhaustion is 1.4.) |
+| What are the limits on "move around player assignments"? | Cards change zones freely, but basic mode allows 2-2-2 only, so a rearrangement must leave two per zone. |
+| Does rearranging cost exhaustion? | No -- the only meeple movement in the game that doesn't. |
+| Do 4-1-1 and 2-1-3 fit on any board? | Moot for now: basic mode is 2-2-2 only, and they belong to advanced mode. Neither fits the current boards (largest zone is three spaces, at most one player per team per space), so whoever builds advanced mode inherits the question. |
 | Which turnovers open a window? | All of them. |
 | Substitute before or after the run back? | Before. |
 | What does "all the players on the bench were subbed out" mean? | Reframed: anyone subbed out goes to the back bench, and a team subs from the bench while it has anyone. The back bench is drawn from only when the bench is empty and the sub is for an injured player. Injured players go to the back bench and never return. |
@@ -195,8 +173,8 @@ since gained. Gated on 1.2 if the sheet is about to be restructured.
   score attempt, exhaust token after the roll.
 - The six **role abilities** -- the `+3` modifiers apply to the skill test. (The skill test
   itself, the roll formerly called a clash, is built.)
-- **Substitutions.** The policy is specified now, bar 1.3 and 1.4, and neither blocks the
-  swap itself. `MatchState.substitute` is the only piece that exists, it is reachable from no
+- **Substitutions.** The policy is fully specified now.
+  `MatchState.substitute` is the only piece that exists, it is reachable from no
   command, and it implements the wrong pool -- it puts the outgoing player back on `bench`,
   where the rule wants `back_bench`, and always draws from `bench`, where the injury
   exception wants `back_bench` once the bench is empty. What it does not model at all is the
