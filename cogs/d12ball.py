@@ -2577,6 +2577,7 @@ class SpeedDeltaChoiceView(SafeView):
         )
         await self.cog.apply_speed_choice(
             interaction, game, match, target_speed, after_turnover,
+            player_id=self.player_id,
         )
 
 
@@ -3827,7 +3828,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         called needs an actual choice.
         """
         for side in (TeamSide.HOME, TeamSide.VISITING):
-            displaced = match.displaced_players(side)
+            displaced = self.run_back_displaced(match, side)
             if displaced:
                 return RunBackChoiceView(self, game_id, displaced[0])
         return None
@@ -3940,22 +3941,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{direction}{ability_note}. Ball speed is now {match.ball.speed}."
         )
 
-        if direction == "backward" and overshot:
-            await interaction.followup.send(
-                f"{content}\n\nThat overshoots toward their own goal!",
-            )
-            await self.refresh_match_image(interaction, game)
-            await self.run_own_goal_roll(
-                interaction,
-                game,
-                match,
-                distance_moved=max(1, actual_distance),
-            )
-            return
-
         # Role ability -- Winger: can also set up a scoring opportunity
-        # with a Low Pass, same overshoot-and-occupied-space rule as a
-        # High Pass normally uses.
+        # with a forward Low Pass, same overshoot-and-occupied-space
+        # rule as a High Pass normally uses. A backward overshoot has
+        # no special consequence of its own -- own-goal risk no longer
+        # applies to Low Pass at all, only Pressure triggers it now.
         candidates = []
         if direction == "forward" and overshot and handler.role == PlayerRole.WINGER:
             candidates = self.scoring_opportunity_candidates(
@@ -4588,11 +4578,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         offense_side = match.ball.possession
+        defense_side = match.defending_side()
 
         # Overshoot: the deflection is clamped short of the full 2
         # spaces, i.e. it would have pushed the ball past the space
-        # closest to the offense's own goal -- that's the own-goal
-        # risk, not merely landing on that space.
+        # closest to the offense's own goal. That no longer risks an
+        # own goal -- only Pressure does -- it sets up a scoring
+        # opportunity for the defense instead, who are now the side
+        # standing next to the goal the ball just reached.
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
@@ -4610,22 +4603,40 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{space_word} back. Ball speed is now {match.ball.speed}."
         )
 
+        candidates = []
         if overshot:
-            await interaction.followup.send(
-                f"{content}\n\nThat overshoots toward their own goal!",
+            candidates = self.scoring_opportunity_candidates(
+                match, defense_side,
             )
+
+        if not candidates:
             await self.refresh_match_image(interaction, game)
-            await self.run_own_goal_roll(
-                interaction, game, match, distance_moved=2,
+            # Block Deflect's time cost is a fixed 2 space minutes per
+            # the rules table, not "distance traveled" like Low/High
+            # Pass, so this doesn't shrink if the move was clamped at
+            # the edge.
+            await self.finish_maneuver_resolution(
+                interaction, game, match, distance_moved=2, lead_in=content,
             )
             return
 
+        # A defender standing right where the ball ends up gets a shot
+        # at the goal it's now next to -- that's a turnover before the
+        # shot, same as any other change of possession, so the score
+        # attempt reads the correct attacking/defending sides.
+        match.ball.possession = defense_side
+        match.ball.speed = 1
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
         await self.refresh_match_image(interaction, game)
-        # Block Deflect's time cost is a fixed 2 space minutes per the
-        # rules table, not "distance traveled" like Low/High Pass, so
-        # this doesn't shrink if the move was clamped at the edge.
-        await self.finish_maneuver_resolution(
-            interaction, game, match, distance_moved=2, lead_in=content,
+        await self.begin_shooter_choice(
+            interaction,
+            game,
+            match,
+            candidates,
+            lead_in=f"{content} That overshoots the field -- a turnover, "
+            "and a scoring opportunity!",
         )
 
     # -- Steal Intercept -------------------------------------------------
@@ -4691,6 +4702,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         offense_side = match.ball.possession
         defense_side = match.defending_side()
 
+        # Own-goal risk: Pressure is the only maneuver that threatens
+        # one now, and only when the ball-holder is already at the
+        # space closest to their own goal, i.e. pushing them back
+        # further isn't possible.
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        target_flat = match.relative_flat_index(origin_flat, offense_side, -1)
+        overshot = abs(target_flat - origin_flat) < 1
+
         actual_distance = match.move_player_relative(
             match.active_player_id, offense_side, -1,
         )
@@ -4709,6 +4730,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{format_role_bracket(defender, self.team_emojis)} moves "
             "forward."
         )
+
+        if overshot:
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await interaction.followup.send(
+                f"{content}\n\nThat overshoots toward their own goal!",
+            )
+            await self.refresh_match_image(interaction, game)
+            # An own goal takes priority over the Defender's steal
+            # ability below: if it's conceded, the point is already
+            # over, and stealing a ball that was just kicked off from
+            # the restart wouldn't mean anything.
+            await self.run_own_goal_roll(
+                interaction, game, match, distance_moved=1,
+            )
+            return
 
         # Role ability -- Defender: also steals the ball on a Pressure
         # win, on top of the normal effect above.
@@ -4732,7 +4769,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # Fixed 1 space minute per the rules table, independent of
         # clamping, same reasoning as Block Deflect above.
         if stolen:
-            await self.begin_run_back(interaction, game, match, lead_in=content)
+            # The stealing player keeps the ball and stays put --
+            # everyone else who's out of position runs back.
+            await self.begin_run_back(
+                interaction,
+                game,
+                match,
+                lead_in=content,
+                stays_player_id=match.challenger_id,
+            )
         else:
             await self.finish_maneuver_resolution(
                 interaction, game, match, distance_moved=1, lead_in=content,
@@ -4773,6 +4818,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 match,
                 target_speed,
                 after_turnover,
+                player_id=player_id,
                 lead_in=lead_in,
             )
             return
@@ -4800,6 +4846,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         target_speed: int,
         after_turnover: bool,
+        player_id: str,
         lead_in: str = "",
     ) -> None:
         match.ball.speed = target_speed
@@ -4813,7 +4860,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.refresh_match_image(interaction, game)
 
         if after_turnover:
-            await self.begin_run_back(interaction, game, match)
+            # `after_turnover` only ever means Steal Intercept here (see
+            # SpeedDeltaChoiceView), so `player_id` -- the intercepting
+            # defender who was offered this speed choice -- is the
+            # player who stole the ball and stays put during run-back.
+            await self.begin_run_back(
+                interaction, game, match, stays_player_id=player_id,
+            )
         else:
             await self.finish_maneuver_resolution(
                 interaction, game, match, distance_moved=1,
@@ -4829,7 +4882,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         distance_moved: int,
     ) -> None:
         """
-        Automatic: 2d12 at a disadvantage (take the lower), plus the
+        Automatic: 2d12 at an advantage (take the higher), plus the
         ball-handler's offensive skill, safe on 7+. No button -- there's
         no opposing roll to wait for.
         """
@@ -4839,7 +4892,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         ).offense
 
         rolls = (random.randint(1, 12), random.randint(1, 12))
-        taken = min(rolls)
+        taken = max(rolls)
         total = taken + offense_skill
 
         offense_setup = match.setup_for_side(match.ball.possession)
@@ -4854,7 +4907,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
 
         roll_description = (
-            f"rolls at a disadvantage: lower of {rolls[0]}/{rolls[1]} "
+            f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
             f"is {taken}"
         )
 
@@ -4930,6 +4983,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         distance_moved: int = 1,
         turnover_occurred: bool = True,
+        stays_player_id: Optional[str] = None,
         lead_in: str = "",
     ) -> None:
         """
@@ -4939,6 +4993,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         correctly once run-back itself (which only ever costs
         exhaustion, never time) is done.
 
+        `stays_player_id` is set only for a turnover created by a
+        steal (Steal Intercept, or the Defender's Pressure-ability
+        steal) -- that player keeps the ball and is exempt from
+        running back, unlike every other turnover (a goal, a missed
+        shot, Block Deflect's scoring opportunity), where nobody gets
+        that exemption.
+
         `lead_in` is narration from the triggering effect that hasn't
         been posted yet -- it rides along on whichever message this
         run-back sends first (see continue_run_back).
@@ -4946,6 +5007,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.pending_run_back = True
         match.pending_run_back_distance = distance_moved
         match.pending_run_back_turnover = turnover_occurred
+        match.pending_run_back_stays_player_id = stays_player_id
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -4967,6 +5029,38 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"the coach will be prompted to pick a location.{speed_note}"
         )
         await self.continue_run_back(interaction, game, match)
+
+    def run_back_displaced(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> list[str]:
+        """
+        `match.displaced_players(side)`, minus the player who stole
+        the ball this run-back (if any) -- see begin_run_back.
+        """
+        stays_player_id = match.pending_run_back_stays_player_id
+        return [
+            player_id
+            for player_id in match.displaced_players(side)
+            if player_id != stays_player_id
+        ]
+
+    def describe_run_back_options(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        player_id: str,
+    ) -> str:
+        """The open spaces in `player_id`'s own zone, for the
+        run-back prompt -- so the coach sees every option up front,
+        alongside the buttons that offer the same choice."""
+        zone = match.setup_for_side(side).assigned_zone(player_id)
+        open_spaces = match.open_spaces_in_zone(side, zone)
+        if not open_spaces:
+            return "No open space in their zone."
+        options = ", ".join(space_label(zone, index) for index in open_spaces)
+        return f"Options: {options}"
 
     async def continue_run_back(
         self,
@@ -4992,7 +5086,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             applied_forced = False
             for side in (TeamSide.HOME, TeamSide.VISITING):
                 by_zone: dict[Zone, list[str]] = {}
-                for player_id in match.displaced_players(side):
+                for player_id in self.run_back_displaced(match, side):
                     zone = match.setup_for_side(side).assigned_zone(
                         player_id
                     )
@@ -5013,7 +5107,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         for side in (TeamSide.HOME, TeamSide.VISITING):
-            displaced = match.displaced_players(side)
+            displaced = self.run_back_displaced(match, side)
             if not displaced:
                 continue
 
@@ -5056,10 +5150,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             mention = f"<@{controller_id}>" if controller_id else "Someone"
             prefix = f"{lead_in}\n\n" if lead_in else ""
+            options_note = self.describe_run_back_options(match, side, player_id)
+
+            await self.refresh_match_image(interaction, game)
+
             prompt_message = await interaction.followup.send(
                 f"{prefix}{mention}, choose where "
                 f"{format_role_bracket(player, self.team_emojis)} runs "
-                "back to:",
+                f"back to:\n{options_note}",
                 view=RunBackChoiceView(self, game.game_id, player_id),
                 wait=True,
                 allowed_mentions=discord.AllowedMentions(
