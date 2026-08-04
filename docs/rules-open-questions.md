@@ -158,6 +158,24 @@ since gained. Gated on 1.2 if the sheet is about to be restructured.
   not applied**: the clock, the restart and the run back are hand applied, the same way
   maneuver effects are. The run back below and the clock in "Still unspecified enough to
   block" are what stand between this and an automatic cleanup.
+- **Substitutions.** The window is enforced end to end. Every turnover offers it to the side
+  that won possession, before the run back, and only if they still have their once-a-half
+  declaration. Declaring allows two swaps and any number of position exchanges, after which
+  the other team is offered one swap and its own rearrangement -- a reply that costs the
+  answering side nothing, so a team can still substitute twice in a half. Passing takes the
+  opposing reply down with it, since the reply exists only to answer a declaration. An
+  injured player forces the declaration and removes the Pass button, unless that side has
+  already declared this half. Both declarations come back at halftime.
+
+  The pools are the rule rather than one list: `bench` only ever drains, everyone subbed out
+  lands on `back_bench`, and `back_bench` is offered only once the bench is empty and the
+  player going off is injured -- never offering an injured player back. A returning player
+  keeps half their tokens and is re-tested against their defensive skill rather than assumed
+  recovered. Rearranging is free and implemented as exchanging two players, which is the
+  largest move that cannot break basic mode's 2-2-2.
+
+  Dinky substitutes only to get an injured player off -- the one case the rules compel -- and
+  never rearranges.
 
 ### Newly specified, not yet built
 
@@ -173,19 +191,6 @@ since gained. Gated on 1.2 if the sheet is about to be restructured.
   score attempt, exhaust token after the roll.
 - The six **role abilities** -- the `+3` modifiers apply to the skill test. (The skill test
   itself, the roll formerly called a clash, is built.)
-- **Substitutions.** The policy is fully specified now.
-  `MatchState.substitute` is the only piece that exists, it is reachable from no
-  command, and it implements the wrong pool -- it puts the outgoing player back on `bench`,
-  where the rule wants `back_bench`, and always draws from `bench`, where the injury
-  exception wants `back_bench` once the bench is empty. What it does not model at all is the
-  policy: a per-team, per-half declaration counter that survives `to_dict`/`from_dict` and
-  defaults sensibly for saved games; a window on every turnover, opening before
-  `begin_run_back`; the two-sided sequence of declarer subbing up to 2 and rearranging, then
-  the other team subbing 1 and rearranging; the forced declaration when a player is injured
-  and the team has not declared that half; and halving a returning player's tokens. The
-  rearrangement step is the substantial half of this and has no equivalent anywhere in the
-  cog -- the closest thing is `/coach`, one card at a time, which is how both of us do it by
-  hand today.
 
 ### Still unspecified enough to block
 

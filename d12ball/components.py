@@ -472,6 +472,11 @@ class MatchState:
     pending_loose_ball_distance: int = 1
     loose_ball_offense_player: Optional[str] = None
     loose_ball_defense_player: Optional[str] = None
+    declared_substitution: set[str] = field(default_factory=set)
+    pending_substitution_side: Optional[str] = None
+    pending_substitution_used: int = 0
+    pending_substitution_is_response: bool = False
+    pending_substitution_declared: bool = False
 
     @classmethod
     def standard(
@@ -1130,31 +1135,219 @@ class MatchState:
         self.board.place_meeple(player_id, zone, space_index)
         return distance
 
+    def injured_field_players(self, side: TeamSide) -> list[str]:
+        setup = self.setup_for_side(side)
+        return [
+            player_id
+            for player_id in setup.field_players
+            if player_id in self.injured
+        ]
+
+    def may_declare_substitution(self, side: TeamSide) -> bool:
+        """A side declares at most once per half."""
+        return TeamSide(side).value not in self.declared_substitution
+
+    def must_declare_substitution(self, side: TeamSide) -> bool:
+        """
+        An injured player's team has to declare at their next
+        opportunity and sub them off -- "if they can", which means
+        they have not already declared this half and somebody is
+        available to come on.
+        """
+        side = TeamSide(side)
+        if not self.may_declare_substitution(side):
+            return False
+        return any(
+            self.substitution_pool(side, player_id)
+            for player_id in self.injured_field_players(side)
+        )
+
+    def open_substitution_window(
+        self,
+        side: TeamSide,
+        is_response: bool = False,
+    ) -> None:
+        """
+        Offer the window to `side`, who has not taken it up yet. Kept
+        distinct from `declare_substitution` so that a bot restart
+        mid-offer knows whether it is still asking or already
+        substituting.
+        """
+        self.pending_substitution_side = TeamSide(side).value
+        self.pending_substitution_used = 0
+        self.pending_substitution_is_response = is_response
+        self.pending_substitution_declared = False
+
+    def declare_substitution(self) -> None:
+        """
+        Take up the offered window. Declaring spends that side's
+        once-per-half; answering the other team's declaration does
+        not, which is how a side can end up substituting twice in a
+        half.
+        """
+        if self.pending_substitution_side is None:
+            raise ValueError("No substitution window is open.")
+        self.pending_substitution_declared = True
+        if not self.pending_substitution_is_response:
+            self.declared_substitution.add(self.pending_substitution_side)
+
+    def close_substitution_window(self) -> None:
+        self.pending_substitution_side = None
+        self.pending_substitution_used = 0
+        self.pending_substitution_is_response = False
+        self.pending_substitution_declared = False
+
+    def substitutions_remaining(self) -> int:
+        """
+        How many more swaps the side holding the window may make: two
+        for the team that declared, one for the team answering.
+        """
+        if self.pending_substitution_side is None:
+            return 0
+        allowance = 1 if self.pending_substitution_is_response else 2
+        return max(0, allowance - self.pending_substitution_used)
+
+    def substitution_pool(
+        self,
+        side: TeamSide,
+        outgoing_player_id: Optional[str] = None,
+    ) -> list[str]:
+        """
+        Who `side` may bring on, given who is going off.
+
+        The bench is the only pool while anyone is still sitting on it.
+        The back bench -- where everyone subbed out ends up -- opens
+        only once the bench is empty *and* the player going off is
+        injured, and it never offers an injured player back: leaving
+        the field injured is one way.
+        """
+        setup = self.setup_for_side(side)
+        if setup.player_board.bench:
+            return list(setup.player_board.bench)
+        if outgoing_player_id is None:
+            return []
+        if outgoing_player_id not in self.injured:
+            return []
+        return [
+            player_id
+            for player_id in setup.player_board.back_bench
+            if player_id not in self.injured
+        ]
+
     def substitute(
         self,
         side: TeamSide,
         fielded_player_id: str,
-        bench_player_id: str,
-        zone: Zone,
-        space_index: int,
+        incoming_player_id: str,
     ) -> None:
+        """
+        Swap a fielded player for one off the bench, in place: whoever
+        comes on inherits the outgoing player's zone assignment and
+        stands where they stood, and the outgoing player goes to the
+        back bench.
+
+        Standing where they stood matters because the substitution
+        window opens *before* the run back, so the outgoing player may
+        well be displaced -- in which case the player coming on
+        inherits the run back too, and pays for the distance like
+        anyone else.
+
+        A player returning from the back bench loses half their
+        exhaustion tokens, rounded up. Their Exhausted flag is cleared
+        here but not recomputed: the threshold is a defensive skill
+        this module deliberately does not carry, so callers put the
+        remaining count back through `mark_exhausted_if_needed`.
+        """
+        side = TeamSide(side)
         setup = self.setup_for_side(side)
-        zone = Zone(zone)
 
-        if fielded_player_id not in setup.zones[zone]:
+        if fielded_player_id not in setup.field_players:
+            raise ValueError("The outgoing player is not on the field.")
+
+        if incoming_player_id not in self.substitution_pool(
+            side, fielded_player_id
+        ):
+            if incoming_player_id in self.injured:
+                raise ValueError(
+                    "An injured player can never be subbed back in."
+                )
+            if setup.player_board.bench:
+                raise ValueError(
+                    "The incoming player card is not on the bench."
+                )
             raise ValueError(
-                "The outgoing player card is not assigned to that zone."
+                "With the bench empty, the back bench can only be drawn "
+                "from to replace an injured player."
             )
-        if bench_player_id not in setup.player_board.bench:
-            raise ValueError("The incoming player card is not on the bench.")
 
-        player_index = setup.zones[zone].index(fielded_player_id)
-        setup.zones[zone][player_index] = bench_player_id
-        bench_index = setup.player_board.bench.index(bench_player_id)
-        setup.player_board.bench[bench_index] = fielded_player_id
+        position = self.board.meeple_position(fielded_player_id)
+        if position is None:
+            raise ValueError(
+                f"{fielded_player_id} has no meeple on the board."
+            )
+        _, space_index = position
+        zone = setup.assigned_zone(fielded_player_id)
+
+        zone_index = setup.zones[zone].index(fielded_player_id)
+        setup.zones[zone][zone_index] = incoming_player_id
+
+        if incoming_player_id in setup.player_board.bench:
+            setup.player_board.bench.remove(incoming_player_id)
+        else:
+            setup.player_board.back_bench.remove(incoming_player_id)
+            tokens = self.exhaustion.get(incoming_player_id, 0)
+            if tokens:
+                self.exhaustion[incoming_player_id] = tokens // 2
+            self.exhausted.discard(incoming_player_id)
+        setup.player_board.back_bench.append(fielded_player_id)
 
         self.board.remove_meeple(fielded_player_id)
-        self.board.place_meeple(bench_player_id, zone, space_index)
+        self.board.place_meeple(incoming_player_id, position[0], space_index)
+
+    def swap_field_positions(
+        self,
+        side: TeamSide,
+        player_id: str,
+        other_player_id: str,
+    ) -> None:
+        """
+        Exchange two of a side's fielded players -- both their zone
+        assignments and the spaces their meeples stand on. This is the
+        whole of "move around player assignments": basic mode allows
+        the 2-2-2 formation only, and a swap is the largest
+        rearrangement that cannot break it, so no formation check is
+        needed. Repeated swaps reach any arrangement.
+
+        Rearranging costs no exhaustion -- the one way a meeple moves
+        in this game without paying a token per space.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+
+        if player_id == other_player_id:
+            raise ValueError("Pick two different players to swap.")
+        for candidate in (player_id, other_player_id):
+            if candidate not in setup.field_players:
+                raise ValueError(f"{candidate} is not on the field.")
+
+        zone = setup.assigned_zone(player_id)
+        other_zone = setup.assigned_zone(other_player_id)
+        position = self.board.meeple_position(player_id)
+        other_position = self.board.meeple_position(other_player_id)
+        if position is None or other_position is None:
+            raise ValueError("Both players need a meeple on the board.")
+
+        setup.zones[zone][setup.zones[zone].index(player_id)] = (
+            other_player_id
+        )
+        setup.zones[other_zone][
+            setup.zones[other_zone].index(other_player_id)
+        ] = player_id
+
+        self.board.remove_meeple(player_id)
+        self.board.remove_meeple(other_player_id)
+        self.board.place_meeple(player_id, *other_position)
+        self.board.place_meeple(other_player_id, *position)
 
     def validate(self, catalog: PlayerCatalog) -> None:
         self.home.validate(catalog.teams[self.home.team])
@@ -1263,6 +1456,15 @@ class MatchState:
             "pending_loose_ball_distance": self.pending_loose_ball_distance,
             "loose_ball_offense_player": self.loose_ball_offense_player,
             "loose_ball_defense_player": self.loose_ball_defense_player,
+            "declared_substitution": sorted(self.declared_substitution),
+            "pending_substitution_side": self.pending_substitution_side,
+            "pending_substitution_used": self.pending_substitution_used,
+            "pending_substitution_is_response": (
+                self.pending_substitution_is_response
+            ),
+            "pending_substitution_declared": (
+                self.pending_substitution_declared
+            ),
         }
 
     @classmethod
@@ -1336,6 +1538,21 @@ class MatchState:
             ),
             loose_ball_defense_player=data.get(
                 "loose_ball_defense_player"
+            ),
+            declared_substitution=set(
+                data.get("declared_substitution", [])
+            ),
+            pending_substitution_side=data.get(
+                "pending_substitution_side"
+            ),
+            pending_substitution_used=data.get(
+                "pending_substitution_used", 0
+            ),
+            pending_substitution_is_response=data.get(
+                "pending_substitution_is_response", False
+            ),
+            pending_substitution_declared=data.get(
+                "pending_substitution_declared", False
             ),
         )
 

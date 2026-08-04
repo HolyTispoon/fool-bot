@@ -317,39 +317,234 @@ class D12BallComponentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             match.validate(self.catalog)
 
-    def test_substitution_swaps_card_and_meeple_state(self) -> None:
-        match = MatchState.standard(
+    def standard_match(self, board_size: int = 6) -> MatchState:
+        return MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
-            board_size=6,
+            board_size=board_size,
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
 
+    def test_substitution_swaps_card_and_meeple_state(self) -> None:
+        match = self.standard_match()
+        outgoing = "orange_blazebulk"
+        incoming = match.home.player_board.bench[0]
+        position = match.board.meeple_position(outgoing)
+
         match.substitute(
             side=TeamSide.HOME,
-            fielded_player_id="orange_blazebulk",
-            bench_player_id="orange_inferno",
-            zone=Zone.HOME_GOAL,
-            space_index=1,
+            fielded_player_id=outgoing,
+            incoming_player_id=incoming,
         )
 
-        self.assertIn(
-            "orange_inferno",
-            match.home.zones[Zone.HOME_GOAL],
+        # The player coming on inherits both the zone assignment and
+        # the space, so a substitution never moves anyone by itself.
+        self.assertIn(incoming, match.home.zones[Zone.HOME_GOAL])
+        self.assertEqual(match.board.meeple_position(incoming), position)
+        self.assertIsNone(match.board.meeple_position(outgoing))
+        match.validate(self.catalog)
+
+    def test_subbed_out_player_goes_to_the_back_bench(self) -> None:
+        match = self.standard_match()
+        outgoing = "orange_blazebulk"
+        incoming = match.home.player_board.bench[0]
+
+        match.substitute(TeamSide.HOME, outgoing, incoming)
+
+        self.assertIn(outgoing, match.home.player_board.back_bench)
+        self.assertNotIn(outgoing, match.home.player_board.bench)
+        self.assertNotIn(incoming, match.home.player_board.bench)
+
+        # The bench only ever drains, so it can never be the route
+        # back on for someone who has already been subbed out.
+        self.assertNotIn(
+            outgoing,
+            match.substitution_pool(TeamSide.HOME, "orange_kindlefoot"),
         )
-        self.assertIn(
-            "orange_blazebulk",
+
+    def test_back_bench_is_closed_until_the_bench_empties(self) -> None:
+        match = self.standard_match()
+        injured = "orange_kindlefoot"
+        match.mark_injured(injured)
+
+        # The bench still has people on it, so it is the only pool --
+        # even for an injured player's replacement.
+        self.assertEqual(
+            match.substitution_pool(TeamSide.HOME, injured),
             match.home.player_board.bench,
         )
-        self.assertIsNone(
-            match.board.meeple_position("orange_blazebulk")
+
+        for outgoing in ("orange_hellguard", "orange_sizzik", "orange_scorchit"):
+            match.substitute(
+                TeamSide.HOME,
+                outgoing,
+                match.home.player_board.bench[0],
+            )
+        self.assertEqual(match.home.player_board.bench, [])
+
+        # Empty bench: a healthy player has nobody to bring on, but an
+        # injured one reopens the back bench.
+        self.assertEqual(
+            match.substitution_pool(TeamSide.HOME, "orange_flickerwing"),
+            [],
         )
         self.assertEqual(
-            match.board.meeple_position("orange_inferno"),
-            (Zone.HOME_GOAL, 1),
+            sorted(match.substitution_pool(TeamSide.HOME, injured)),
+            sorted(match.home.player_board.back_bench),
         )
+
+    def test_injured_players_never_come_back(self) -> None:
+        match = self.standard_match()
+        injured = "orange_kindlefoot"
+        match.mark_injured(injured)
+        match.substitute(
+            TeamSide.HOME, injured, match.home.player_board.bench[0],
+        )
+        for outgoing in ("orange_hellguard", "orange_sizzik"):
+            match.substitute(
+                TeamSide.HOME,
+                outgoing,
+                match.home.player_board.bench[0],
+            )
+
+        self.assertEqual(match.home.player_board.bench, [])
+        self.assertIn(injured, match.home.player_board.back_bench)
+
+        # A second injury opens the back bench, but not to the player
+        # who limped off it.
+        match.mark_injured("orange_scorchit")
+        pool = match.substitution_pool(TeamSide.HOME, "orange_scorchit")
+        self.assertNotIn(injured, pool)
+        with self.assertRaises(ValueError):
+            match.substitute(TeamSide.HOME, "orange_scorchit", injured)
+
+    def test_returning_player_loses_half_their_tokens(self) -> None:
+        match = self.standard_match()
+        returning = "orange_hellguard"
+        match.add_exhaustion(returning, 5)
+        match.mark_exhausted_if_needed(returning, defense_skill=2)
+        self.assertIn(returning, match.exhausted)
+
+        match.substitute(
+            TeamSide.HOME, returning, match.home.player_board.bench[0],
+        )
+        for outgoing in ("orange_sizzik", "orange_scorchit"):
+            match.substitute(
+                TeamSide.HOME,
+                outgoing,
+                match.home.player_board.bench[0],
+            )
+
+        injured = "orange_kindlefoot"
+        match.mark_injured(injured)
+        match.substitute(TeamSide.HOME, injured, returning)
+
+        # Half of 5 rounded up is 3 removed, leaving 2 -- and 2 is
+        # still over a defensive skill of 1, so coming back does not
+        # by itself clear Exhausted.
+        self.assertEqual(match.exhaustion[returning], 2)
+        self.assertNotIn(returning, match.exhausted)
+        self.assertTrue(
+            match.mark_exhausted_if_needed(returning, defense_skill=1)
+        )
+
+    def test_swapping_two_players_keeps_the_formation(self) -> None:
+        match = self.standard_match()
+        first, second = "orange_hellguard", "orange_kindlefoot"
+        first_position = match.board.meeple_position(first)
+        second_position = match.board.meeple_position(second)
+        self.assertNotEqual(first_position, second_position)
+
+        match.swap_field_positions(TeamSide.HOME, first, second)
+
+        self.assertEqual(match.board.meeple_position(first), second_position)
+        self.assertEqual(match.board.meeple_position(second), first_position)
+        self.assertEqual(
+            match.home.assigned_zone(first), Zone.VISITORS_GOAL,
+        )
+        self.assertEqual(match.home.assigned_zone(second), Zone.HOME_GOAL)
+        self.assertTrue(
+            all(len(match.home.zones[zone]) == 2 for zone in Zone)
+        )
+        self.assertEqual(match.exhaustion, {})
         match.validate(self.catalog)
+
+    def test_declaration_is_once_a_half_but_a_reply_is_free(self) -> None:
+        match = self.standard_match()
+        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+
+        # Being offered the window spends nothing; passing on it
+        # leaves the declaration in hand for a later turnover.
+        match.open_substitution_window(TeamSide.HOME)
+        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+        match.close_substitution_window()
+        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+
+        match.open_substitution_window(TeamSide.HOME)
+        match.declare_substitution()
+        self.assertEqual(match.substitutions_remaining(), 2)
+        match.pending_substitution_used = 2
+        self.assertEqual(match.substitutions_remaining(), 0)
+        match.close_substitution_window()
+
+        self.assertFalse(match.may_declare_substitution(TeamSide.HOME))
+
+        # Answering the other team's declaration is one sub and costs
+        # the answering team nothing, so the visitors can still
+        # declare their own later in the half.
+        match.open_substitution_window(TeamSide.VISITING, is_response=True)
+        match.declare_substitution()
+        self.assertEqual(match.substitutions_remaining(), 1)
+        match.close_substitution_window()
+        self.assertTrue(match.may_declare_substitution(TeamSide.VISITING))
+
+    def test_an_injury_forces_a_declaration_only_while_possible(
+        self,
+    ) -> None:
+        match = self.standard_match()
+        self.assertFalse(match.must_declare_substitution(TeamSide.HOME))
+
+        match.mark_injured("orange_kindlefoot")
+        self.assertTrue(match.must_declare_substitution(TeamSide.HOME))
+
+        # Already declared this half -- the injured player stays on,
+        # disadvantaged, until the next one.
+        match.declared_substitution.add(TeamSide.HOME.value)
+        self.assertFalse(match.must_declare_substitution(TeamSide.HOME))
+
+    def test_substitution_state_round_trips(self) -> None:
+        match = self.standard_match()
+        match.declared_substitution.add(TeamSide.HOME.value)
+        match.open_substitution_window(TeamSide.VISITING, is_response=True)
+        match.declare_substitution()
+        match.pending_substitution_used = 1
+
+        restored = MatchState.from_dict(match.to_dict(), self.rules)
+
+        self.assertEqual(
+            restored.declared_substitution, {TeamSide.HOME.value},
+        )
+        self.assertEqual(
+            restored.pending_substitution_side, TeamSide.VISITING.value,
+        )
+        self.assertTrue(restored.pending_substitution_is_response)
+        self.assertEqual(restored.substitutions_remaining(), 0)
+
+    def test_saved_games_without_substitution_state_still_load(
+        self,
+    ) -> None:
+        match = self.standard_match()
+        data = match.to_dict()
+        for key in list(data):
+            if "substitution" in key:
+                del data[key]
+
+        restored = MatchState.from_dict(data, self.rules)
+
+        self.assertEqual(restored.declared_substitution, set())
+        self.assertIsNone(restored.pending_substitution_side)
+        self.assertTrue(restored.may_declare_substitution(TeamSide.HOME))
 
     def test_match_state_round_trip(self) -> None:
         match = MatchState.standard(
