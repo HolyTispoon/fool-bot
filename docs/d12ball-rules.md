@@ -28,6 +28,21 @@ The upstream page carries this note from the author:
 
 ### Changelog
 
+**2026-08-04 (later same day).** Re-pulled the `maneuvers` tab again, Time column only.
+Net change: **Block Deflect**'s Time went from "2 space minutes" to "1 space minute",
+matching its own Effect column's fixed "1 space" instead of overstating it.
+
+An in-between pull briefly saw Low Pass's and Steal Intercept's Time values swap
+("distance traveled (1-2 space minutes)" and "1 space minute" trading places) -- the
+author was mid-edit on the sheet and fixed it before this was committed, so that state
+never landed here. The settled reading, confirmed by the author: **Low Pass**'s Time
+staying "distance traveled (1-2 space minutes)" despite its Effect's fixed "1 space" is
+correct, not a leftover -- the Fullback ability extends *any* pass, low or high, by 1
+space, so the actual distance travelled still varies. Same reasoning as High Pass's
+unchanged "distance traveled (2-3 space minutes)" below. **Steal Intercept**'s Time is a
+plain fixed "1 space minute", matching its Effect -- Steal Intercept has no equivalent
+distance-extending ability.
+
 **2026-08-04.** Commit 527a772 ("updated abilities and maneuvers") reworded both the
 `Sheet1` and `maneuvers` tabs:
 
@@ -515,9 +530,14 @@ Two actions of the same rank tie, which is what sends a maneuver to a clash roll
 | Low Pass | offense | 1 | 1-2 | Pressure | Ball moves 1 space forward or backward. Ball speed increases 1. | distance traveled (1-2 space minutes) |
 | Dribble Advance | offense | 2 | 3-4 | Block Deflect | Player and ball move forward 1 space. Manipulate ball speed up to player's offensive skill. | 1 space minute |
 | High Pass | offense | 3 | 5-6 | Steal Intercept | Ball moves forward 2 spaces. If ball reaches goal, set up a scoring opportunity. | distance traveled (2-3 space minutes) |
-| Block Deflect | defense | 1 | 1-2 | High Pass | Ball moves back 1 space. If reaches offense's goal, sets up scoring opportunity. Ball speed decreases by 1. | 2 space minutes |
+| Block Deflect | defense | 1 | 1-2 | High Pass | Ball moves back 1 space. If reaches offense's goal, sets up scoring opportunity. Ball speed decreases by 1. | 1 space minute |
 | Steal Intercept | defense | 2 | 3-4 | Low Pass | Turnover. Defender and ball move back 1 space. Manipulate ball speed up to defensive skill. | 1 space minute |
 | Pressure | defense | 3 | 5-6 | Dribble Advance | Player and ball go back 1 space. Defender moves 1 forward. If reaches offense's goal, triggers own goal. | 1 space minute |
+
+> **Low Pass and High Pass's Time column is wider than their Effect column's fixed
+> distance** -- confirmed by the author, see the [Changelog](#changelog)'s 2026-08-04
+> later entry: the Fullback role ability extends any pass, low or high, by 1 space, so the
+> distance actually travelled still varies even though the Effect text names one number.
 
 > **Steal Intercept still ambiguous** -- see [Author clarifications](#author-clarifications).
 > "Defender and ball move back 1 space" doesn't say *when* relative to the turnover, or in

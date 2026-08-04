@@ -2302,8 +2302,9 @@ class ScoreAttemptView(SafeView):
 
 class LowPassChoiceView(SafeView):
     """
-    Direction x distance for a won Low Pass, chosen together as one
-    prompt. Reconstructible on restart purely from match state (see
+    Direction for a won Low Pass -- distance is a fixed 1 space per
+    the rules table, so only direction is a choice. Reconstructible on
+    restart purely from match state (see
     D12Ball.build_effect_choice_view), the same pattern every other
     persistent view in this cog follows.
     """
@@ -2314,32 +2315,25 @@ class LowPassChoiceView(SafeView):
         self.game_id = game_id
 
         for direction in ("forward", "backward"):
-            for distance in (1, 2):
-                button = discord.ui.Button(
-                    label=f"{direction.title()} {distance}",
-                    style=discord.ButtonStyle.primary,
-                    custom_id=(
-                        f"d12ball:low_pass:{game_id}:{direction}:{distance}"
-                    ),
-                )
+            button = discord.ui.Button(
+                label=direction.title(),
+                style=discord.ButtonStyle.primary,
+                custom_id=f"d12ball:low_pass:{game_id}:{direction}",
+            )
 
-                async def callback(
-                    interaction: discord.Interaction,
-                    chosen_direction: str = direction,
-                    chosen_distance: int = distance,
-                ) -> None:
-                    await self.choose(
-                        interaction, chosen_direction, chosen_distance,
-                    )
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_direction: str = direction,
+            ) -> None:
+                await self.choose(interaction, chosen_direction)
 
-                button.callback = callback
-                self.add_item(button)
+            button.callback = callback
+            self.add_item(button)
 
     async def choose(
         self,
         interaction: discord.Interaction,
         direction: str,
-        distance: int,
     ) -> None:
         game = self.cog.games.get(self.game_id)
         if game is None or game.match_state is None:
@@ -2360,11 +2354,11 @@ class LowPassChoiceView(SafeView):
             return
 
         await interaction.response.edit_message(
-            content=f"Chose **{direction} {distance}**.",
+            content=f"Chose **{direction}**.",
             view=None,
         )
         await self.cog.apply_low_pass(
-            interaction, game, match, direction, distance,
+            interaction, game, match, direction, distance=1,
         )
 
 
@@ -3874,11 +3868,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         if self.side_controlled_by_ai(game, match, "offense"):
-            direction, distance = self.get_ai_strategy(
-                game
-            ).choose_low_pass(match)
+            direction = self.get_ai_strategy(game).choose_low_pass(match)
             await self.apply_low_pass(
-                interaction, game, match, direction, distance
+                interaction, game, match, direction, distance=1
             )
             return
 
@@ -4580,19 +4572,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         offense_side = match.ball.possession
         defense_side = match.defending_side()
 
-        # Overshoot: the deflection is clamped short of the full 2
-        # spaces, i.e. it would have pushed the ball past the space
-        # closest to the offense's own goal. That no longer risks an
-        # own goal -- only Pressure does -- it sets up a scoring
-        # opportunity for the defense instead, who are now the side
-        # standing next to the goal the ball just reached.
+        # Overshoot: the deflection is clamped short of the full 1
+        # space, i.e. the ball was already on the space closest to the
+        # offense's own goal, so there was nowhere to put it. That no
+        # longer risks an own goal -- only Pressure does -- it sets up
+        # a scoring opportunity for the defense instead, who are now
+        # the side standing next to the goal the ball just reached.
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
-        target_flat = match.relative_flat_index(origin_flat, offense_side, -2)
-        overshot = abs(target_flat - origin_flat) < 2
+        target_flat = match.relative_flat_index(origin_flat, offense_side, -1)
+        overshot = abs(target_flat - origin_flat) < 1
 
-        actual_distance = match.move_ball_relative(offense_side, -2)
+        actual_distance = match.move_ball_relative(offense_side, -1)
         match.ball.speed = max(1, match.ball.speed - 1)
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -4611,12 +4603,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         if not candidates:
             await self.refresh_match_image(interaction, game)
-            # Block Deflect's time cost is a fixed 2 space minutes per
+            # Block Deflect's time cost is a fixed 1 space minute per
             # the rules table, not "distance traveled" like Low/High
             # Pass, so this doesn't shrink if the move was clamped at
             # the edge.
             await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=2, lead_in=content,
+                interaction, game, match, distance_moved=1, lead_in=content,
             )
             return
 
