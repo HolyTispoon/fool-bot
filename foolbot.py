@@ -52,6 +52,10 @@ class GameBot(commands.Bot):
         )
 
     async def setup_hook(self):
+        LOGGER.info("Loading coins extension...")
+        await self.load_extension("cogs.coins")
+        LOGGER.info("Coins extension loaded.")
+
         LOGGER.info("Loading D12 Ball extension...")
         await self.load_extension("cogs.d12ball")
         LOGGER.info("Extension loaded.")
