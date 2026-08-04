@@ -54,6 +54,12 @@ class AIStrategy(ABC):
         ...
 
     @abstractmethod
+    def choose_dribble_advance_distance(self, match: MatchState) -> int:
+        """1 or 2 -- only ever asked of a Playmaker, everyone else
+        advances a fixed 1 space with no choice to make."""
+        ...
+
+    @abstractmethod
     def choose_speed_delta(self, skill: int) -> int:
         """A change to apply to the ball's speed, magnitude at most
         `skill` in either direction. The caller clamps the result to a
@@ -199,6 +205,11 @@ class DinkyAI(AIStrategy):
             if self._has_teammate_at_pass_distance(match, distance):
                 return distance
         return 3
+
+    def choose_dribble_advance_distance(self, match: MatchState) -> int:
+        """Always take the full 2 spaces -- same maximizing spirit as
+        choose_speed_delta."""
+        return 2
 
     def choose_speed_delta(self, skill: int) -> int:
         """
