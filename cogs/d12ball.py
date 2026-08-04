@@ -2245,8 +2245,7 @@ class ScoreAttemptView(SafeView):
         else:
             verdict = (
                 "**Missed attempt.** "
-                f"{format_team_side_label(defending_setup)} keeps the goal "
-                "intact."
+                f"{format_team_side_label(defending_setup)} manages to avoid a goal! (phew)"
             )
 
         # A plain score attempt costs no exhaustion and owes no injury
@@ -2269,31 +2268,13 @@ class ScoreAttemptView(SafeView):
         space_minutes = match.spaces_to_goal()
         new_possession_side = defending_setup.side
         if scored:
-            kickoff_index = kickoff_space_index(
-                len(match.board.spaces[Zone.MIDFIELD]),
-                new_possession_side,
-            )
-            match.set_ball_space(Zone.MIDFIELD, kickoff_index)
+            match.restart_after_goal(new_possession_side)
         else:
-            restart_zone, restart_index = match.own_goal_restart_space(
-                new_possession_side,
-            )
-            match.set_ball_space(restart_zone, restart_index)
-        match.ball.possession = new_possession_side
-        match.ball.speed = 1
+            match.restart_after_missed_score(new_possession_side)
 
-        # active_player_id/pending_action stay set -- like a maneuver,
-        # reset_maneuver() only happens once finish_maneuver_resolution
-        # is reached, so a bot restart mid-run-back reconstructs
-        # correctly (build_run_back_view is checked before
-        # pending_action == "shoot" in the view-rebuild cascade).
-        #
-        # pending_run_back has to be set (matching begin_run_back)
-        # before the state is saved, not after: the shooter no longer
-        # shares the restarted ball's space or side, and validate()
-        # only allows a stale active_player_id while a maneuver effect
-        # is in progress or pending_run_back is set -- a score attempt
-        # has neither until this line.
+        # Save a reconstructible run-back state before refreshing the
+        # persistent board. begin_run_back repeats this assignment
+        # idempotently when it posts the run-back announcement below.
         match.pending_run_back = True
         match.pending_run_back_distance = space_minutes
         match.pending_run_back_turnover = True
@@ -2306,7 +2287,13 @@ class ScoreAttemptView(SafeView):
             view=None,
         )
         await self.cog.refresh_match_image(interaction, game)
-        await self.cog.continue_run_back(interaction, game, match)
+        await self.cog.begin_run_back(
+            interaction,
+            game,
+            match,
+            distance_moved=space_minutes,
+            turnover_occurred=True,
+        )
 
 
 class LowPassChoiceView(SafeView):
@@ -3630,6 +3617,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         and if it doesn't beat their current exhaustion token count,
         they become injured.
         """
+        if player.player_id in match.injured:
+            return
+
         roll = random.randint(1, 12)
         current_tokens = match.exhaustion.get(player.player_id, 0)
         dice_file = discord.File(
@@ -3661,7 +3651,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"an injury test: {roll} does not beat their "
                 f"{current_tokens} exhaustion tokens — injury! "
                 f"{format_role_bracket(player, self.team_emojis)} now has the condition "
-                f"**injured** {INJURED_EMOJI_FALLBACK}."
+                f"**injured** {INJURED_EMOJI_FALLBACK}. Their exhaustion "
+                "tokens are removed; they are no longer exhausted and "
+                "cannot gain more exhaustion tokens or make another "
+                "injury check."
             )
             await self.refresh_match_image(interaction, game)
 
@@ -3871,7 +3864,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{content}\n\nThat overshoots toward their own goal!",
             )
             await self.refresh_match_image(interaction, game)
-            await self.run_own_goal_roll(interaction, game, match)
+            await self.run_own_goal_roll(
+                interaction,
+                game,
+                match,
+                distance_moved=max(1, actual_distance),
+            )
             return
 
         # Role ability -- Winger: can also set up a scoring opportunity
@@ -4477,7 +4475,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{content}\n\nThat overshoots toward their own goal!",
             )
             await self.refresh_match_image(interaction, game)
-            await self.run_own_goal_roll(interaction, game, match)
+            await self.run_own_goal_roll(
+                interaction, game, match, distance_moved=2,
+            )
             return
 
         await self.refresh_match_image(interaction, game)
@@ -4686,6 +4686,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        distance_moved: int,
     ) -> None:
         """
         Automatic: 2d12 at a disadvantage (take the lower), plus the
@@ -4739,7 +4740,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"## Avoided own goal! (phew)"
             )
         else:
+            conceding_side = match.ball.possession
             match.concede_own_goal()
+            match.restart_after_goal(conceding_side)
+            match.pending_run_back = True
+            match.pending_run_back_distance = distance_moved
+            match.pending_run_back_turnover = True
+            game.match_state = match.to_dict()
+            save_games(self.games)
             content = (
                 f"**Own goal risk!** "
                 f"{format_role_bracket(offense_player, self.team_emojis)} "
@@ -4751,12 +4759,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{match.visiting.team.value.title()}"
             )
 
-        game.match_state = match.to_dict()
-        save_games(self.games)
-
         await interaction.followup.send(content, file=dice_file)
         await self.refresh_match_image(interaction, game)
-        await self.finish_maneuver_resolution(interaction, game, match)
+        if safe:
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await self.finish_maneuver_resolution(
+                interaction,
+                game,
+                match,
+                distance_moved=distance_moved,
+            )
+        else:
+            await self.begin_run_back(
+                interaction,
+                game,
+                match,
+                distance_moved=distance_moved,
+                turnover_occurred=True,
+            )
 
     # -- Run-back (after a turnover) ----------------------------------
 
@@ -4799,7 +4820,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.pending_run_back_turnover = turnover_occurred
         game.match_state = match.to_dict()
         save_games(self.games)
-        await self.continue_run_back(interaction, game, match, lead_in=lead_in)
+
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+        speed_note = ""
+        if turnover_occurred:
+            if match.ball.speed == 1:
+                speed_note = " The ball speed goes down to **1**."
+            else:
+                speed_note = (
+                    " The turnover reset the ball speed to **1** before "
+                    f"its permitted adjustment; it is now **{match.ball.speed}**."
+                )
+        await interaction.followup.send(
+            f"{prefix}# Players run back!\n"
+            "Players return to an open space in their assigned zone and "
+            "gain 1 exhaustion token for every space traveled. Forced "
+            "locations are handled automatically; when there is a choice, "
+            f"the coach will be prompted to pick a location.{speed_note}"
+        )
+        await self.continue_run_back(interaction, game, match)
 
     async def continue_run_back(
         self,
@@ -5053,7 +5092,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "It's a tie! This would go to an extreme shootout, which "
             "isn't implemented yet."
             if home_score == visiting_score
-            else "Full time."
+            else "Game over!"
         )
         await interaction.followup.send(
             f"{prefix}**Full time!** The clock reaches 15 and the ball "
@@ -5105,6 +5144,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         it pushes the player's token count past their defense skill.
         """
         player = self.get_player_definition(player_id)
+        if player_id in match.injured:
+            return (
+                f"{format_role_bracket(player, self.team_emojis)} is injured "
+                f"{INJURED_EMOJI_FALLBACK} and gains no exhaustion tokens."
+            )
+
         exhaust_emoji = get_exhaust_emoji(self.condition_emojis)
         total = match.exhaustion.get(player_id, 0)
         token_word = "token" if amount == 1 else "tokens"

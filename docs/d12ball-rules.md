@@ -181,6 +181,9 @@ transcription itself. What remains below is what upstream still does not say.
 - Halftime recovery is **1** token. Upstream still says "1 (or 2, TBD)".
 - **The injury check belongs to skill tests only.** Taking part in a score attempt never
   triggers one, however exhausted the players involved are.
+- **An injured player removes all exhaustion tokens immediately and is no longer
+  exhausted.** Injured players cannot gain more exhaustion tokens and do not make further
+  injury checks.
 
 ### Running back
 
