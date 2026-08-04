@@ -40,63 +40,54 @@
           "id": "orange_hellguard",
           "name": "Hellguard",
           "role": "fullback",
-          "card_image": "images/player_cards/orange_hellguard.png",
           "stat_overrides": {}
         },
         {
           "id": "orange_blazebulk",
           "name": "Blazebulk",
           "role": "defender",
-          "card_image": "images/player_cards/orange_blazebulk.png",
           "stat_overrides": {}
         },
         {
           "id": "orange_sizzik",
           "name": "Sizzik",
           "role": "midfielder",
-          "card_image": "images/player_cards/orange_sizzik.png",
           "stat_overrides": {}
         },
         {
           "id": "orange_scorchit",
           "name": "Scorchit",
           "role": "playmaker",
-          "card_image": "images/player_cards/orange_scorchit.png",
           "stat_overrides": {}
         },
         {
           "id": "orange_flickerwing",
           "name": "Flickerwing",
           "role": "winger",
-          "card_image": "images/player_cards/orange_flickerwing.png",
           "stat_overrides": {}
         },
         {
           "id": "orange_kindlefoot",
           "name": "Kindlefoot",
           "role": "striker",
-          "card_image": "images/player_cards/orange_kindlefoot.png",
           "stat_overrides": {}
         },
         {
           "id": "orange_blazekick",
           "name": "Blazekick",
           "role": "playmaker",
-          "card_image": "images/player_cards/orange_blazekick.png",
           "stat_overrides": {}
         },
         {
           "id": "orange_inferno",
           "name": "Inferno",
           "role": "defender",
-          "card_image": "images/player_cards/orange_inferno.png",
           "stat_overrides": {}
         },
         {
           "id": "orange_emberdash",
           "name": "Emberdash",
           "role": "winger",
-          "card_image": "images/player_cards/orange_emberdash.png",
           "stat_overrides": {}
         }
       ]
@@ -107,63 +98,54 @@
           "id": "teal_bulwark",
           "name": "Bulwark",
           "role": "fullback",
-          "card_image": "images/player_cards/teal_bulwark.png",
           "stat_overrides": {}
         },
         {
           "id": "teal_voltus",
           "name": "Voltus",
           "role": "defender",
-          "card_image": "images/player_cards/teal_voltus.png",
           "stat_overrides": {}
         },
         {
           "id": "teal_strider",
           "name": "Strider",
           "role": "midfielder",
-          "card_image": "images/player_cards/teal_strider.png",
           "stat_overrides": {}
         },
         {
           "id": "teal_synapse",
           "name": "Synapse",
           "role": "playmaker",
-          "card_image": "images/player_cards/teal_synapse.png",
           "stat_overrides": {}
         },
         {
           "id": "teal_quantor",
           "name": "Quantor",
           "role": "winger",
-          "card_image": "images/player_cards/teal_quantor.png",
           "stat_overrides": {}
         },
         {
           "id": "teal_pulsar",
           "name": "Pulsar",
           "role": "striker",
-          "card_image": "images/player_cards/teal_pulsar.png",
           "stat_overrides": {}
         },
         {
           "id": "teal_gearclaw",
           "name": "Gearclaw",
           "role": "playmaker",
-          "card_image": "images/player_cards/teal_gearclaw.png",
           "stat_overrides": {}
         },
         {
           "id": "teal_tachyon",
           "name": "Tachyon",
           "role": "winger",
-          "card_image": "images/player_cards/teal_tachyon.png",
           "stat_overrides": {}
         },
         {
           "id": "teal_flux",
           "name": "Flux",
           "role": "defender",
-          "card_image": "images/player_cards/teal_flux.png",
           "stat_overrides": {}
         }
       ]
@@ -174,63 +156,54 @@
           "id": "purple_umbrik",
           "name": "Umbrik",
           "role": "fullback",
-          "card_image": "images/player_cards/purple_umbrik.png",
           "stat_overrides": {}
         },
         {
           "id": "purple_vorix",
           "name": "Vorix",
           "role": "defender",
-          "card_image": "images/player_cards/purple_vorix.png",
           "stat_overrides": {}
         },
         {
           "id": "purple_spectra",
           "name": "Spectra",
           "role": "midfielder",
-          "card_image": "images/player_cards/purple_spectra.png",
           "stat_overrides": {}
         },
         {
           "id": "purple_hexis",
           "name": "Hexis",
           "role": "playmaker",
-          "card_image": "images/player_cards/purple_hexis.png",
           "stat_overrides": {}
         },
         {
           "id": "purple_zenith",
           "name": "Zenith",
           "role": "winger",
-          "card_image": "images/player_cards/purple_zenith.png",
           "stat_overrides": {}
         },
         {
           "id": "purple_noxar",
           "name": "Noxar",
           "role": "striker",
-          "card_image": "images/player_cards/purple_noxar.png",
           "stat_overrides": {}
         },
         {
           "id": "purple_quillon",
           "name": "Quillon",
           "role": "playmaker",
-          "card_image": "images/player_cards/purple_quillon.png",
           "stat_overrides": {}
         },
         {
           "id": "purple_zytheris",
           "name": "Zytheris",
           "role": "winger",
-          "card_image": "images/player_cards/purple_zytheris.png",
           "stat_overrides": {}
         },
         {
           "id": "purple_dravox",
           "name": "Dravox",
           "role": "defender",
-          "card_image": "images/player_cards/purple_dravox.png",
           "stat_overrides": {}
         }
       ]
@@ -241,63 +214,54 @@
           "id": "slime_goopkeeper",
           "name": "Goopkeeper",
           "role": "fullback",
-          "card_image": "images/player_cards/slime_goopkeeper.png",
           "stat_overrides": {}
         },
         {
           "id": "slime_gurgoth",
           "name": "Gurgoth",
           "role": "defender",
-          "card_image": "images/player_cards/slime_gurgoth.png",
           "stat_overrides": {}
         },
         {
           "id": "slime_glompex",
           "name": "Glompex",
           "role": "midfielder",
-          "card_image": "images/player_cards/slime_glompex.png",
           "stat_overrides": {}
         },
         {
           "id": "slime_ozul",
           "name": "Ozul",
           "role": "playmaker",
-          "card_image": "images/player_cards/slime_ozul.png",
           "stat_overrides": {}
         },
         {
           "id": "slime_spritz",
           "name": "Spritz",
           "role": "winger",
-          "card_image": "images/player_cards/slime_spritz.png",
           "stat_overrides": {}
         },
         {
           "id": "slime_slitheron",
           "name": "Slitheron",
           "role": "striker",
-          "card_image": "images/player_cards/slime_slitheron.png",
           "stat_overrides": {}
         },
         {
           "id": "slime_zorch",
           "name": "Zorch",
           "role": "playmaker",
-          "card_image": "images/player_cards/slime_zorch.png",
           "stat_overrides": {}
         },
         {
           "id": "slime_acidel",
           "name": "Acidel",
           "role": "winger",
-          "card_image": "images/player_cards/slime_acidel.png",
           "stat_overrides": {}
         },
         {
           "id": "slime_viscor",
           "name": "Viscor",
           "role": "defender",
-          "card_image": "images/player_cards/slime_viscor.png",
           "stat_overrides": {}
         }
       ]
