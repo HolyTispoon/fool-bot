@@ -53,10 +53,16 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertEqual(len(all_ids), 36)
         self.assertEqual(len(set(all_ids)), 36)
 
-    def test_every_player_has_a_card_image(self) -> None:
+    def test_every_player_has_a_portrait_image(self) -> None:
         for roster in self.catalog.teams.values():
             for player in roster.players:
-                image_path = PROJECT_ROOT / "d12ball" / player.card_image
+                image_path = (
+                    PROJECT_ROOT
+                    / "d12ball"
+                    / "images"
+                    / "player_images"
+                    / f"{player.name}.png"
+                )
                 self.assertTrue(
                     image_path.is_file(),
                     f"Missing {image_path}",

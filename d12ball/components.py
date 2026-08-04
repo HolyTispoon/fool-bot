@@ -70,7 +70,6 @@ class PlayerDefinition:
     name: str
     team: Team
     role: PlayerRole
-    card_image: str
     stat_overrides: dict
 
 
@@ -1368,7 +1367,6 @@ def load_player_catalog(
                 name=player["name"],
                 team=team,
                 role=PlayerRole(player["role"]),
-                card_image=player["card_image"],
                 stat_overrides=player.get("stat_overrides", {}),
             )
             for player in team_data["players"]
