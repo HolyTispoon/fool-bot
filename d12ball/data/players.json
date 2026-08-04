@@ -5,32 +5,32 @@
     "fullback": {
       "offense": 1,
       "defense": 6,
-      "ability": "No disadvantage on own goal rolls"
+      "ability": "Ball goes 1 space further when passing (low/high)."
     },
     "defender": {
       "offense": 2,
       "defense": 5,
-      "ability": "Can manipulate the ball when stealing"
+      "ability": "When resolving Pressure, steals the ball."
     },
     "midfielder": {
       "offense": 3,
       "defense": 4,
-      "ability": "+3 for dribble/advance"
+      "ability": "Gain +3 for skill tests when attempting low pass or pressure."
     },
     "playmaker": {
       "offense": 4,
       "defense": 3,
-      "ability": "+3 for all passes"
+      "ability": "May advance 2 spaces when resolving Dribble advance."
     },
     "winger": {
       "offense": 5,
       "defense": 2,
-      "ability": "Can set up a scoring opportunity with a low pass"
+      "ability": "Can set up a scoring opportunity with a low pass."
     },
     "striker": {
       "offense": 6,
       "defense": 1,
-      "ability": "+3 for scoring off a high pass"
+      "ability": "Gain +3 for scoring attempts off a set up."
     }
   },
   "teams": {

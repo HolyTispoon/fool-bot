@@ -4736,7 +4736,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"**Own goal risk!** "
                 f"{format_role_bracket(offense_player, self.team_emojis)} "
                 f"{roll_description}, + {offense_skill} (offensive skill) "
-                f"= {total} \n."
+                f"= {total} \n"
                 f"## Avoided own goal! (phew)"
             )
         else:

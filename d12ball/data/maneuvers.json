@@ -11,7 +11,7 @@
           2
         ],
         "defeats": "Pressure",
-        "effect": "Ball moves 1-2 spaces forward or backward. Ball speed increases 1.",
+        "effect": "Ball moves 1 space forward or backward. Ball speed increases 1.",
         "time": "distance traveled (1-2 space minutes)"
       },
       {
@@ -33,7 +33,7 @@
           6
         ],
         "defeats": "Steal Intercept",
-        "effect": "Ball moves forward 2-3 spaces. If ball reaches goal, set up a scoring opportunity.",
+        "effect": "Ball moves forward 2 spaces. If ball reaches goal, set up a scoring opportunity.",
         "time": "distance traveled (2-3 space minutes)"
       }
     ],
@@ -46,7 +46,7 @@
           2
         ],
         "defeats": "High Pass",
-        "effect": "Ball moves back 2 spaces. If reaches offense\u2019s goal, chance for own goal. Ball speed decreases by 1.",
+        "effect": "Ball moves back 1 space. If reaches offense\u2019s goal, sets up scoring opportunity. Ball speed decreases by 1.",
         "time": "2 space minutes"
       },
       {
@@ -68,7 +68,7 @@
           6
         ],
         "defeats": "Dribble Advance",
-        "effect": "Player and ball go back 1 space. Defender moves 1 forward.",
+        "effect": "Player and ball go back 1 space. Defender moves 1 forward. If reaches offense's goal, triggers own goal.",
         "time": "1 space minute"
       }
     ]
