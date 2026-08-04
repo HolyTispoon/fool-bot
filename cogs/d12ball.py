@@ -4414,14 +4414,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        # Both sides have a candidate -- move them both in and run the
-        # actual skill test.
+        # Both sides have a candidate -- move them both in, charge each
+        # their own recovery distance in exhaustion, and run the actual
+        # skill test.
+        offense_recovery_distance = match.distance_to_ball(offense_player_id)
+        defense_recovery_distance = match.distance_to_ball(defense_player_id)
         match.move_meeple(
             offense_player_id, match.ball.zone, match.ball.space_index,
         )
         match.move_meeple(
             defense_player_id, match.ball.zone, match.ball.space_index,
         )
+        match.add_exhaustion(offense_player_id, offense_recovery_distance)
+        match.add_exhaustion(defense_player_id, defense_recovery_distance)
         game.match_state = match.to_dict()
         save_games(self.games)
         await self.refresh_match_image(interaction, game)
@@ -4435,12 +4440,23 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             defense_player,
         ).defense
 
+        exhaustion_text = "\n".join(
+            [
+                self.describe_exhaustion_gain(
+                    match, offense_player_id, offense_recovery_distance,
+                ),
+                self.describe_exhaustion_gain(
+                    match, defense_player_id, defense_recovery_distance,
+                ),
+            ]
+        )
         test_message = await interaction.followup.send(
             f"{format_role_bracket(offense_player, self.team_emojis)} "
             f"(offense skill {offense_skill}) and "
             f"{format_role_bracket(defense_player, self.team_emojis)} "
             f"(defense skill {defense_skill}) both reach the loose "
-            "ball -- skill test!\n\nEither player can roll:",
+            f"ball -- skill test!\n{exhaustion_text}\n\nEither player can "
+            "roll:",
             view=LooseBallSkillTestView(self, game.game_id),
             wait=True,
         )

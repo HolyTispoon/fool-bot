@@ -187,13 +187,20 @@ transcription itself. What remains below is what upstream still does not say.
 - **A pass landing on an empty space (Low Pass or High Pass) is a contested loose ball, not
   a clean reception.** It triggers a skill test: starting with the player who last had
   possession, each side picks a player of their team that is in the space where the ball is
-  landing. That player is moved to that space, gains 1 exhaustion, and participates in a
-  skill test. The player who last had possession is considered the offense and their player
-  uses offensive skill (the other side is defense). The winner of the test gains possession.
+  landing. That player is moved to that space, gains exhaustion tokens **equal to the
+  number of spaces traveled** to get there, and participates in a skill test. The player who
+  last had possession is considered the offense and their player uses offensive skill (the
+  other side is defense). Both players remain in the landing space regardless of who wins;
+  the winner of the test gains possession.
+
+  > Superseded -- upstream's own text (not yet re-pulled) says this player "gains 1
+  > exhaustion", a flat token rather than one per space traveled. Confirmed by the author:
+  > it's distance-traveled, the same rate the one-team recovery below and a maneuver's
+  > walked-in challenger both use.
 - **If only one team has a player in the landing space's zone, that team gains possession
   without a skill test.** The coach picks which of their players in that zone makes the
-  recovery; that player moves to the ball's space and gains exhaustion tokens **equal to the
-  number of spaces traveled** (not the flat 1 a contested skill test costs).
+  recovery; that player moves to the ball's space and gains exhaustion tokens equal to the
+  number of spaces traveled -- the same rate as the contested case above.
 - **"Out of bounds": neither team has a player in the landing zone.** The team that last had
   possession loses it -- a turnover. All displaced players run back, and the team that just
   gained possession must get one of their fielded players (from anywhere on the field, not
