@@ -25,6 +25,7 @@ swallowed.
 import json
 import os
 import re
+import socket
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,6 +51,8 @@ GIT_TIMEOUT = 10.0
 MAX_LISTED_COMMITS = 10
 # Per-line clip, so one long subject cannot crowd out the rest.
 MAX_SUBJECT_LENGTH = 120
+# Enough for a machine name; the override is not a place for prose.
+MAX_HOST_LENGTH = 40
 # Discord's limit is 2000; leave room rather than lose the tail.
 MAX_MESSAGE_LENGTH = 1900
 
@@ -158,6 +161,35 @@ def display_subject(subject: str, body: str) -> str:
             return line.strip()
 
     return subject
+
+
+def host_name() -> str:
+    """
+    The machine this build is running on, raw -- deploy_message is what
+    makes it fit for Discord, the way it is what cleans a subject.
+
+    Both of us deploy the same repository from our own machines into the
+    same #logs channel, so the notices there are two independent streams
+    rather than one history: each machine keeps its own record of what
+    it has announced, and the same commit gets a post from each. Naming
+    the host is what makes that readable instead of looking like a
+    changelog that repeats itself and skips things.
+
+    FOOLBOT_HOST_NAME overrides, because the name a Windows box gives
+    itself ("DESKTOP-4F8K2L1") identifies nothing to a reader.
+
+    Empty string, never a raise, if the host cannot be named: the notice
+    goes without it.
+    """
+    override = os.environ.get("FOOLBOT_HOST_NAME", "").strip()
+
+    if override:
+        return override
+
+    try:
+        return socket.gethostname()
+    except OSError:
+        return ""
 
 
 def pull_request_number(subject: str) -> Optional[int]:
@@ -336,18 +368,22 @@ def commits_since(
     )
 
 
+def _inline(text: str, limit: int) -> str:
+    """
+    Text safe to drop into a Discord message: backticks stripped, since
+    they would break the code span around it, and clipped to `limit`.
+    """
+    text = text.replace("`", "'").strip()
+
+    if len(text) > limit:
+        text = text[:limit - 3].rstrip() + "..."
+
+    return text
+
+
 def _clean(subject: str) -> str:
-    """
-    A commit subject safe to drop into a Discord message: backticks
-    stripped, since they would break the code span around the sha, and
-    clipped to a sane length.
-    """
-    text = subject.replace("`", "'").strip()
-
-    if len(text) > MAX_SUBJECT_LENGTH:
-        text = text[:MAX_SUBJECT_LENGTH - 3].rstrip() + "..."
-
-    return text or "(no subject)"
+    """A commit subject fit for the notice, never empty."""
+    return _inline(subject, MAX_SUBJECT_LENGTH) or "(no subject)"
 
 
 def _heading(changes: Changes) -> str:
@@ -374,6 +410,7 @@ def deploy_message(
     build: Build,
     changes: Optional[Changes],
     first_run: bool = False,
+    host: str = "",
 ) -> str:
     """
     The posted text: what is running now, then what changed.
@@ -383,11 +420,12 @@ def deploy_message(
     rollback, a force-push). Both say so rather than implying an empty
     deploy. first_run is the no-previous-build case -- the very deploy
     that ships this feature -- where a change list would be the whole
-    history.
+    history. host names the machine, and is left out when empty.
     """
+    where = _inline(host, MAX_HOST_LENGTH)
     lines = [
-        f"**Bot restarted** -- now running `{build.short}` "
-        f"{_clean(build.subject)}"
+        f"**Bot restarted**{f' on `{where}`' if where else ''} -- now "
+        f"running `{build.short}` {_clean(build.subject)}"
     ]
 
     if first_run:
@@ -456,7 +494,7 @@ def notice_for(
     changes = None if previous is None else commits_since(previous, repo_dir)
 
     return build.sha, deploy_message(
-        build, changes, first_run=previous is None,
+        build, changes, first_run=previous is None, host=host_name(),
     )
 
 

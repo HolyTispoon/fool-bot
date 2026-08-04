@@ -87,6 +87,7 @@ Everything is optional and lives in `.env` next to `DISCORD_TOKEN`:
 | `FOOLBOT_LOG_CHANNEL_NAME` | `logs` | Channel to find or create, when no id is set |
 | `FOOLBOT_LOG_GUILD_ID` | first server | Which server hosts the channel |
 | `FOOLBOT_DEPLOY_NOTICE` | on | `off` stops the "now running this build" notice |
+| `FOOLBOT_HOST_NAME` | machine name | What the deploy notice calls this host |
 
 Three things to know before changing any of it:
 
@@ -104,6 +105,18 @@ Three things to know before changing any of it:
   "restarted" posts. It reads HEAD out of the checkout with `git log`, so
   the notice is only as accurate as the deployed tree — and degrades to
   saying nothing at all if git is not on PATH.
+- **The notices are one stream per machine, not one per repository.** That
+  state file is local, so when we both deploy into the same `#logs` the
+  posts interleave: the same commit gets announced once by each host, and
+  neither stream is the repository's history. Each notice names its host so
+  they can be told apart. Don't read the channel as a changelog.
+- **A merge is listed only when it resolved a conflict.** A clean merge
+  repeats commits the notice already lists, so it is dropped and its pull
+  request named in the heading instead; a conflict resolution exists in the
+  merge commit and nowhere else, so dropping it would drop work. The test
+  for which is an empty combined diff — `--name-only` and `--stat` both
+  report a clean merge of two branches that touched one file as if it
+  carried changes, so `merges_with_content` reads the patch.
 
 The channel is created with whatever permissions the server's defaults give
 it. Tracebacks name game ids, channel names and command arguments, so lock

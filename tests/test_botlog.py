@@ -32,6 +32,7 @@ LOG_ENVIRONMENT_KEYS = (
     "FOOLBOT_LOG_CHANNEL_NAME",
     "FOOLBOT_LOG_GUILD_ID",
     "FOOLBOT_DEPLOY_NOTICE",
+    "FOOLBOT_HOST_NAME",
 )
 
 
@@ -552,6 +553,60 @@ class DeployNoticeTextTests(unittest.TestCase):
         )
 
         self.assertIn("rollback or a force-push", message)
+
+    def test_the_notice_names_the_host_it_is_running_on(self) -> None:
+        # Two machines deploy the same repository into one channel, so
+        # without this the posts read as one changelog that repeats
+        # itself and skips things.
+        message = deploy_notice.deploy_message(
+            deploy_notice.Build("f" * 40, "f50e0fe", "Head"),
+            deploy_notice.Changes(()),
+            host="foolbot-pc",
+        )
+
+        self.assertIn(
+            "**Bot restarted** on `foolbot-pc` -- now running", message,
+        )
+
+    def test_an_unnamed_host_is_left_out_rather_than_shown_empty(
+        self,
+    ) -> None:
+        message = deploy_notice.deploy_message(
+            deploy_notice.Build("f" * 40, "f50e0fe", "Head"),
+            deploy_notice.Changes(()),
+        )
+
+        self.assertIn("**Bot restarted** -- now running", message)
+        self.assertNotIn("``", message)
+
+    def test_backticks_in_a_host_cannot_break_the_code_span(self) -> None:
+        message = deploy_notice.deploy_message(
+            deploy_notice.Build("f" * 40, "f50e0fe", "Head"),
+            deploy_notice.Changes(()),
+            host="foolbot`pc",
+        )
+
+        self.assertIn("`foolbot'pc`", message)
+
+    def test_the_host_name_can_be_overridden(self) -> None:
+        # A Windows box names itself DESKTOP-4F8K2L1, which tells a
+        # reader nothing about whose machine it is.
+        with environment(FOOLBOT_HOST_NAME="tispoon-pc"):
+            self.assertEqual(deploy_notice.host_name(), "tispoon-pc")
+
+    def test_the_host_name_falls_back_to_the_machine(self) -> None:
+        with environment():
+            with mock.patch.object(
+                deploy_notice.socket, "gethostname", return_value="foolbox",
+            ):
+                self.assertEqual(deploy_notice.host_name(), "foolbox")
+
+    def test_an_unnameable_host_is_empty_rather_than_a_raise(self) -> None:
+        with environment():
+            with mock.patch.object(
+                deploy_notice.socket, "gethostname", side_effect=OSError,
+            ):
+                self.assertEqual(deploy_notice.host_name(), "")
 
     def test_a_pull_request_merge_subject_gives_up_its_number(self) -> None:
         self.assertEqual(
