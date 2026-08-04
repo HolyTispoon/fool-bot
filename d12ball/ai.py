@@ -43,9 +43,9 @@ class AIStrategy(ABC):
         ...
 
     @abstractmethod
-    def choose_low_pass(self, match: MatchState) -> tuple[str, int]:
-        """(direction, distance) -- direction is "forward"/"backward",
-        distance is 1 or 2."""
+    def choose_low_pass(self, match: MatchState) -> str:
+        """"forward" or "backward" -- distance is a fixed 1 space, so
+        direction is the only choice."""
         ...
 
     @abstractmethod
@@ -182,24 +182,16 @@ class DinkyAI(AIStrategy):
             for player_id in occupants
         )
 
-    def choose_low_pass(self, match: MatchState) -> tuple[str, int]:
-        """
-        Always forward -- backward risks an own goal for no advancing
-        benefit. Prefers the farthest distance that still lands on a
-        teammate, since passing into an empty space triggers a
-        contested loose-ball skill test instead of a clean reception;
-        only passes into empty space if no distance has a teammate.
-        """
-        for distance in (2, 1):
-            if self._has_teammate_at_pass_distance(match, distance):
-                return "forward", distance
-        return "forward", 2
+    def choose_low_pass(self, match: MatchState) -> str:
+        """Always forward -- backward has no advancing benefit."""
+        return "forward"
 
     def choose_high_pass_distance(self, match: MatchState) -> int:
         """
         Prefers the farthest distance (most likely to overshoot into a
-        scoring opportunity) that still lands on a teammate; same
-        loose-ball reasoning as choose_low_pass.
+        scoring opportunity) that still lands on a teammate -- passing
+        into an empty space triggers a contested loose-ball skill test
+        instead of a clean reception, so this avoids that when it can.
         """
         for distance in (3, 2):
             if self._has_teammate_at_pass_distance(match, distance):
