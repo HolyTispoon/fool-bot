@@ -21,15 +21,23 @@ from d12ball.game import Team
 
 IMAGE_WIDTH = 2200
 IMAGE_HEIGHT = 1280
-MARGIN = 70
+OUTPUT_SCALE = 1.5
+OUTPUT_SIZE = (
+    round(IMAGE_WIDTH * OUTPUT_SCALE),
+    round(IMAGE_HEIGHT * OUTPUT_SCALE),
+)
 BOARD_LEFT = 100
-BOARD_RIGHT = 1710
-CONTENT_RIGHT = 1750
-JUMBOTRON_LEFT = 1800
-JUMBOTRON_RIGHT = IMAGE_WIDTH - 55
-BOARD_TOP = 440
-BOARD_BOTTOM = 825
-CARD_SIZE = (76, 106)
+BOARD_RIGHT = IMAGE_WIDTH - 100
+JUMBOTRON_LEFT = BOARD_LEFT
+JUMBOTRON_RIGHT = BOARD_RIGHT
+JUMBOTRON_TOP = 78
+JUMBOTRON_BOTTOM = 238
+BOARD_TOP = 430
+BOARD_BOTTOM = 805
+CARD_SIZE = (110, 154)
+PLAYER_BOARD_TOP = 1030
+PLAYER_BOARD_BOTTOM = IMAGE_HEIGHT - 25
+PLAYER_BOARD_GAP = 30
 
 TEAM_COLORS = {
     Team.ORANGE: "#f28c28",
@@ -93,20 +101,20 @@ def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
-FONT_TITLE = load_font(44, bold=True)
-FONT_HEADING = load_font(34, bold=True)
-FONT_BODY = load_font(28)
-FONT_SMALL = load_font(14)
-FONT_MEEPLE = load_font(24, bold=True)
-FONT_TOKEN = load_font(16, bold=True)
+FONT_TITLE = load_font(50, bold=True)
+FONT_HEADING = load_font(40, bold=True)
+FONT_BODY = load_font(32)
+FONT_SMALL = load_font(19)
+FONT_MEEPLE = load_font(27, bold=True)
+FONT_TOKEN = load_font(19, bold=True)
 FONT_MANEUVER_TITLE = load_font(30, bold=True)
 FONT_MANEUVER_BODY = load_font(22)
 FONT_MANEUVER_LEGEND = load_font(22)
 FONT_DICE_TOTAL = load_font(38, bold=True)
 FONT_DICE_VALUE = load_font(32, bold=True)
-FONT_SCORE = load_font(52, bold=True)
-MEEPLE_SIZE = 52
-BALL_RADIUS = 25
+FONT_SCORE = load_font(64, bold=True)
+MEEPLE_SIZE = 56
+BALL_RADIUS = 27
 
 ROLE_INITIALS = {
     "fullback": "FB",
@@ -120,21 +128,21 @@ ROLE_INITIALS = {
 EXHAUST_ICON_PATH = (
     Path(__file__).resolve().parent / "images" / "emoji" / "exhaust.png"
 )
-EXHAUST_ICON_SIZE = 20
+EXHAUST_ICON_SIZE = 26
 _EXHAUST_ICON_CACHE: Optional[Image.Image] = None
 _EXHAUST_ICON_LOAD_ATTEMPTED = False
 
 EXHAUSTED_ICON_PATH = (
     Path(__file__).resolve().parent / "images" / "emoji" / "exhausted.png"
 )
-EXHAUSTED_ICON_SIZE = 20
+EXHAUSTED_ICON_SIZE = 26
 _EXHAUSTED_ICON_CACHE: Optional[Image.Image] = None
 _EXHAUSTED_ICON_LOAD_ATTEMPTED = False
 
 INJURED_ICON_PATH = (
     Path(__file__).resolve().parent / "images" / "emoji" / "injured.png"
 )
-INJURED_ICON_SIZE = 20
+INJURED_ICON_SIZE = 26
 _INJURED_ICON_CACHE: Optional[Image.Image] = None
 _INJURED_ICON_LOAD_ATTEMPTED = False
 
@@ -605,30 +613,6 @@ def draw_meeple_group(
         token_x += token_size + gap
 
     return group_left, group_left + total_width
-
-
-def draw_die(
-    draw: ImageDraw.ImageDraw,
-    x: int,
-    y: int,
-    size: int,
-    color: str,
-    label: str,
-) -> None:
-    draw.rounded_rectangle(
-        (x, y, x + size, y + size),
-        radius=10,
-        fill=color,
-        outline="#ffffff",
-        width=2,
-    )
-    label_width = draw.textlength(label, font=FONT_BODY)
-    draw.text(
-        (x + (size - label_width) / 2, y + size / 2 - 12),
-        label,
-        font=FONT_BODY,
-        fill="#ffffff",
-    )
 
 
 def polygon_points(
@@ -1127,97 +1111,83 @@ def draw_jumbotron(
     draw: ImageDraw.ImageDraw,
     match: MatchState,
 ) -> None:
-    top = 250
-    bottom = BOARD_BOTTOM
     draw.rounded_rectangle(
-        (JUMBOTRON_LEFT, top, JUMBOTRON_RIGHT, bottom),
+        (
+            JUMBOTRON_LEFT,
+            JUMBOTRON_TOP,
+            JUMBOTRON_RIGHT,
+            JUMBOTRON_BOTTOM,
+        ),
         radius=22,
         fill="#161d26",
         outline="#c7d0da",
         width=5,
     )
 
-    jumbotron_title = "D12 BALL!"
-    jumbotron_title_width = draw.textlength(
-        jumbotron_title,
-        font=FONT_TITLE,
-    )
-    draw.text(
-        (
-            JUMBOTRON_LEFT
-            + (
-                JUMBOTRON_RIGHT
-                - JUMBOTRON_LEFT
-                - jumbotron_title_width
-            )
-            / 2,
-            top + 32,
-        ),
-        jumbotron_title,
-        font=FONT_TITLE,
-        fill="#ffffff",
+    title_center = JUMBOTRON_LEFT + 225
+    draw_centered_text(
+        draw,
+        title_center,
+        JUMBOTRON_TOP + 48,
+        "D12 BALL!",
+        FONT_TITLE,
+        "#ffffff",
     )
 
-    draw.text(
-        (JUMBOTRON_LEFT + 30, top + 115),
+    match_left = JUMBOTRON_LEFT + 450
+    match_right = JUMBOTRON_RIGHT - 480
+    match_center = (match_left + match_right) / 2
+    home_center = match_center - 320
+    visiting_center = match_center + 320
+    draw_centered_text(
+        draw,
+        home_center,
+        JUMBOTRON_TOP + 20,
         match.home.team.value.title(),
-        font=FONT_HEADING,
-        fill=TEAM_COLORS[match.home.team],
+        FONT_HEADING,
+        TEAM_COLORS[match.home.team],
     )
-    visiting_label = match.visiting.team.value.title()
-    visiting_width = draw.textlength(
-        visiting_label,
-        font=FONT_HEADING,
+    draw_centered_text(
+        draw,
+        visiting_center,
+        JUMBOTRON_TOP + 20,
+        match.visiting.team.value.title(),
+        FONT_HEADING,
+        TEAM_COLORS[match.visiting.team],
     )
-    draw.text(
-        (JUMBOTRON_RIGHT - 30 - visiting_width, top + 115),
-        visiting_label,
-        font=FONT_HEADING,
-        fill=TEAM_COLORS[match.visiting.team],
-    )
-    score = (
-        f"{match.scoreboard.home_score}:"
-        f"{match.scoreboard.visiting_score}"
-    )
-    score_width = draw.textlength(score, font=FONT_SCORE)
-    draw.text(
+    draw_centered_text(
+        draw,
+        match_center,
+        JUMBOTRON_TOP + 66,
         (
-            JUMBOTRON_LEFT
-            + (JUMBOTRON_RIGHT - JUMBOTRON_LEFT - score_width) / 2,
-            top + 175,
+            f"{match.scoreboard.home_score}  :  "
+            f"{match.scoreboard.visiting_score}"
         ),
-        score,
-        font=FONT_SCORE,
-        fill="#ffffff",
+        FONT_SCORE,
+        "#ffffff",
     )
 
-    time_text = f"{match.scoreboard.time:02d}"
-    time_width = draw.textlength(time_text, font=FONT_SCORE)
-    draw.text(
-        (
-            JUMBOTRON_LEFT
-            + (JUMBOTRON_RIGHT - JUMBOTRON_LEFT - time_width) / 2,
-            top + 290,
-        ),
-        time_text,
-        font=FONT_SCORE,
-        fill="#f5d76e",
+    clock_center = JUMBOTRON_RIGHT - 240
+    draw_centered_text(
+        draw,
+        clock_center,
+        JUMBOTRON_TOP + 12,
+        f"{match.scoreboard.time:02d}",
+        FONT_SCORE,
+        "#f5d76e",
     )
     period = (
         "First Half"
         if match.scoreboard.period == MatchPeriod.FIRST_HALF
         else "Second Half"
     )
-    period_width = draw.textlength(period, font=FONT_HEADING)
-    draw.text(
-        (
-            JUMBOTRON_LEFT
-            + (JUMBOTRON_RIGHT - JUMBOTRON_LEFT - period_width) / 2,
-            top + 410,
-        ),
+    draw_centered_text(
+        draw,
+        clock_center,
+        JUMBOTRON_TOP + 100,
         period,
-        font=FONT_HEADING,
-        fill="#ffffff",
+        FONT_BODY,
+        "#ffffff",
     )
 
 
@@ -1226,30 +1196,31 @@ def draw_player_board(
     draw: ImageDraw.ImageDraw,
     setup: TeamSetup,
     players: dict[str, PlayerDefinition],
+    x: int,
     y: int,
+    width: int,
     exhaustion: dict[str, int],
     exhausted: set[str] = frozenset(),
     injured: set[str] = frozenset(),
 ) -> None:
     color = TEAM_COLORS[setup.team]
     draw.rounded_rectangle(
-        (MARGIN, y, CONTENT_RIGHT, y + 190),
+        (x, y, x + width, PLAYER_BOARD_BOTTOM),
         radius=18,
         fill="#202a35",
         outline=color,
         width=5,
     )
     draw.text(
-        (MARGIN + 20, y + 14),
-        f"{setup.side.value.title()} Player Board — "
-        f"{setup.team.value.title()}",
-        font=FONT_BODY,
-        fill="#ffffff",
+        (x + 22, y + 16),
+        setup.team.value.title(),
+        font=FONT_HEADING,
+        fill=color,
     )
 
-    bench_x = MARGIN + 500
+    bench_x = x + 220
     draw.text(
-        (bench_x, y + 14),
+        (bench_x, y + 20),
         "BENCH",
         font=FONT_BODY,
         fill="#ffffff",
@@ -1261,45 +1232,41 @@ def draw_player_board(
             draw,
             players[player_id],
             card_x,
-            y + 48,
+            y + 68,
             exhaustion=exhaustion.get(player_id, 0),
             exhausted=player_id in exhausted,
             injured=player_id in injured,
         )
-        card_x += CARD_SIZE[0] + 12
+        card_x += CARD_SIZE[0] + 14
 
-    back_bench_x = MARGIN + 850
+    back_bench_x = x + 620
     draw.text(
-        (back_bench_x, y + 14),
+        (back_bench_x, y + 20),
         "BACK BENCH",
         font=FONT_BODY,
         fill="#ffffff",
     )
     if not setup.player_board.back_bench:
         draw.text(
-            (back_bench_x, y + 75),
+            (back_bench_x, y + 105),
             "Empty",
             font=FONT_BODY,
             fill="#9eabb8",
         )
-
-    coach_x = CONTENT_RIGHT - 390
-    draw.text(
-        (coach_x, y + 14),
-        "HEAD COACH",
-        font=FONT_BODY,
-        fill="#ffffff",
-    )
-    draw_die(draw, coach_x, y + 55, 66, "#9f2637", "d6")
-    draw_die(draw, coach_x + 86, y + 55, 66, "#2d8b57", "d6")
-    draw_d12_polygon(
-        draw,
-        coach_x + 211,
-        y + 88,
-        48,
-        color,
-        "d12",
-    )
+    else:
+        card_x = back_bench_x
+        for player_id in setup.player_board.back_bench:
+            draw_card(
+                canvas,
+                draw,
+                players[player_id],
+                card_x,
+                y + 68,
+                exhaustion=exhaustion.get(player_id, 0),
+                exhausted=player_id in exhausted,
+                injured=player_id in injured,
+            )
+            card_x += CARD_SIZE[0] + 14
 
 
 def render_match_image(
@@ -1333,10 +1300,7 @@ def render_match_image(
         fill="#ffffff",
     )
 
-    draw_player_board(
-        canvas, draw, match.visiting, players, 65, match.exhaustion,
-        match.exhausted, match.injured,
-    )
+    draw_jumbotron(draw, match)
     bounds = zone_bounds(match)
     draw_assignment_cards(
         canvas,
@@ -1344,7 +1308,7 @@ def render_match_image(
         match.visiting,
         players,
         bounds,
-        290,
+        260,
         match.exhaustion,
         match.exhausted,
         match.injured,
@@ -1356,18 +1320,41 @@ def render_match_image(
         match.home,
         players,
         bounds,
-        850,
+        835,
+        match.exhaustion,
+        match.exhausted,
+        match.injured,
+    )
+    player_board_width = (
+        BOARD_RIGHT - BOARD_LEFT - PLAYER_BOARD_GAP
+    ) // 2
+    draw_player_board(
+        canvas,
+        draw,
+        match.home,
+        players,
+        BOARD_LEFT,
+        PLAYER_BOARD_TOP,
+        player_board_width,
         match.exhaustion,
         match.exhausted,
         match.injured,
     )
     draw_player_board(
-        canvas, draw, match.home, players, 1080, match.exhaustion,
-        match.exhausted, match.injured,
+        canvas,
+        draw,
+        match.visiting,
+        players,
+        BOARD_LEFT + player_board_width + PLAYER_BOARD_GAP,
+        PLAYER_BOARD_TOP,
+        player_board_width,
+        match.exhaustion,
+        match.exhausted,
+        match.injured,
     )
-    draw_jumbotron(draw, match)
 
     output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG", optimize=True)
+    enlarged = canvas.resize(OUTPUT_SIZE, Image.Resampling.LANCZOS)
+    enlarged.convert("RGB").save(output, format="PNG", optimize=True)
     output.seek(0)
     return output
