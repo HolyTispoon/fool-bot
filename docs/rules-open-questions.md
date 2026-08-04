@@ -1,6 +1,6 @@
 # D12 Ball -- rules questions
 
-**As of:** 2026-08-04, against `main` at `9b0129d`.
+**As of:** 2026-08-04, against `main` at `2455af9`.
 **Companion to:** [d12ball-rules.md](d12ball-rules.md).
 
 Questions that cannot be answered from either upstream source and need the author. Two
@@ -109,6 +109,17 @@ A short index so nothing is re-asked. Detail is in the rules file.
 | What does "all the players on the bench were subbed out" mean? | Reframed: anyone subbed out goes to the back bench, and a team subs from the bench while it has anyone. The back bench is drawn from only when the bench is empty and the sub is for an injured player. Injured players go to the back bench and never return. |
 | Does a returning player clear Exhausted, or just lose tokens? | Just lose the tokens. Exhausted follows from what remains. |
 
+### Answered while reviewing PR #29's own-goal/run-back rework
+
+| Question | Answer |
+|---|---|
+| Is the own-goal roll an advantage now, not a disadvantage? | Yes -- 2d12, take the higher. |
+| Does an own goal take priority over the Defender's Pressure-steal ability? | Yes -- if a won Pressure would trigger both, the own goal resolves and the steal doesn't also happen. |
+| Does a steal exempt the stealing player from running back? | Yes -- Steal Intercept and the Defender's Pressure-ability steal both exempt just that player; everyone else displaced by the turnover still runs back. |
+
+See [Own goal trigger](d12ball-rules.md#own-goal-trigger) and
+[Running back](d12ball-rules.md#running-back) under Author clarifications.
+
 ---
 
 ## 3. Decisions recorded
@@ -144,13 +155,23 @@ zone, `eligible_challengers()` returns empty and the cog replies "The defending 
 player in the ball's zone to challenge" and stops. The maneuver should automatically
 succeed for the offence.
 
-**Stale player data.** `d12ball/data/players.json` predates two ability changes in the
-spreadsheet -- the Defender's (a confirmed mistake in the old data) and the Striker's. A
-re-import picks both up, and the importer already skips the `Backside` rows the sheet has
-since gained. Gated on 1.2 if the sheet is about to be restructured.
-
 ### Built
 
+- **The six role abilities**, including the three ([Fullback](d12ball-rules.md#player-cards),
+  Midfielder, Playmaker) whose wording changed in the 2026-08-04 re-import (commit 527a772)
+  without a matching code update at the time. [PR #29](https://github.com/HolyTispoon/fool-bot/pull/29)
+  brings all three in line with the current table and is open, not yet merged into `main`.
+  Defender, Winger and Striker already matched and are untouched.
+- **Own goal trigger moved from Block Deflect to Pressure**, matching the same 2026-08-04
+  `maneuvers` reword: Block Deflect's overshoot now sets up a scoring opportunity for the
+  defense instead, mirroring how a High Pass overshoot works for the offense. The roll is
+  now an advantage rather than a disadvantage, an own goal takes priority over the Defender's
+  Pressure-steal ability, and a steal turnover exempts the stealing player from running back
+  -- all confirmed by the author. Also in
+  [PR #29](https://github.com/HolyTispoon/fool-bot/pull/29), alongside the ability fixes
+  above -- see [Own goal trigger](d12ball-rules.md#own-goal-trigger) and
+  [Running back](d12ball-rules.md#running-back) under Author clarifications, and
+  [Setting a scoring opportunity](d12ball-rules.md#setting-a-scoring-opportunity).
 - **Score attempts.** "Shoot to score" now rolls: two dice, defence sums the skills of every
   meeple between ball and goal, attacker total `>=` defence total scores, ball-speed modifier
   on the attacker, and no exhaustion either side. A goal **applies** to the scoreboard -- a
@@ -179,8 +200,6 @@ since gained. Gated on 1.2 if the sheet is about to be restructured.
 
 ### Newly specified, not yet built
 
-- **Own goals.** Trigger (a deflected low or high pass), roll (2d12 take lower, add
-  offensive skill, need 7+), and the fullback exemption are all specified.
 - **Players run back.** Fully specified now: one exhaust token per space traveled, the coach
   picks each player's space within their assigned zone, at most one player per space
   afterwards, counted per team. Wants a per-turnover placement step, and `move_ball` refuses a
@@ -189,8 +208,6 @@ since gained. Gated on 1.2 if the sheet is about to be restructured.
   words.
 - **Scoring opportunities.** Overshoot required, shooter must be in the last space, ordinary
   score attempt, exhaust token after the roll.
-- The six **role abilities** -- the `+3` modifiers apply to the skill test. (The skill test
-  itself, the roll formerly called a clash, is built.)
 
 ### Still unspecified enough to block
 

@@ -44,14 +44,20 @@ class AIStrategy(ABC):
         ...
 
     @abstractmethod
-    def choose_low_pass(self, match: MatchState) -> tuple[str, int]:
-        """(direction, distance) -- direction is "forward"/"backward",
-        distance is 1 or 2."""
+    def choose_low_pass(self, match: MatchState) -> str:
+        """"forward" or "backward" -- distance is a fixed 1 space, so
+        direction is the only choice."""
         ...
 
     @abstractmethod
     def choose_high_pass_distance(self, match: MatchState) -> int:
         """2 or 3."""
+        ...
+
+    @abstractmethod
+    def choose_dribble_advance_distance(self, match: MatchState) -> int:
+        """1 or 2 -- only ever asked of a Playmaker, everyone else
+        advances a fixed 1 space with no choice to make."""
         ...
 
     @abstractmethod
@@ -189,29 +195,26 @@ class DinkyAI(AIStrategy):
             for player_id in occupants
         )
 
-    def choose_low_pass(self, match: MatchState) -> tuple[str, int]:
-        """
-        Always forward -- backward risks an own goal for no advancing
-        benefit. Prefers the farthest distance that still lands on a
-        teammate, since passing into an empty space triggers a
-        contested loose-ball skill test instead of a clean reception;
-        only passes into empty space if no distance has a teammate.
-        """
-        for distance in (2, 1):
-            if self._has_teammate_at_pass_distance(match, distance):
-                return "forward", distance
-        return "forward", 2
+    def choose_low_pass(self, match: MatchState) -> str:
+        """Always forward -- backward has no advancing benefit."""
+        return "forward"
 
     def choose_high_pass_distance(self, match: MatchState) -> int:
         """
         Prefers the farthest distance (most likely to overshoot into a
-        scoring opportunity) that still lands on a teammate; same
-        loose-ball reasoning as choose_low_pass.
+        scoring opportunity) that still lands on a teammate -- passing
+        into an empty space triggers a contested loose-ball skill test
+        instead of a clean reception, so this avoids that when it can.
         """
         for distance in (3, 2):
             if self._has_teammate_at_pass_distance(match, distance):
                 return distance
         return 3
+
+    def choose_dribble_advance_distance(self, match: MatchState) -> int:
+        """Always take the full 2 spaces -- same maximizing spirit as
+        choose_speed_delta."""
+        return 2
 
     def choose_speed_delta(self, skill: int) -> int:
         """

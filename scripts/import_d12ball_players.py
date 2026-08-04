@@ -17,7 +17,7 @@ DEFAULT_SOURCE = (
 )
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = PROJECT_ROOT / "d12ball" / "data" / "players.json"
-DEFAULT_IMAGES = PROJECT_ROOT / "d12ball" / "images" / "player_cards"
+DEFAULT_IMAGES = PROJECT_ROOT / "d12ball" / "images" / "player_images"
 
 EXPECTED_TEAMS = {"orange", "teal", "purple", "slime"}
 EXPECTED_ROLE_COUNTS = {
@@ -72,6 +72,7 @@ def import_players(
     players_by_team: dict[str, list[dict]] = defaultdict(list)
     role_profiles: dict[str, dict] = {}
     player_ids: set[str] = set()
+    player_names: set[str] = set()
 
     for row_number, row in enumerate(rows, start=2):
         role = (row.get("Role") or "").strip().lower()
@@ -121,21 +122,19 @@ def import_players(
             )
         role_profiles[role] = profile
 
-        image_path = images_folder / f"{player_id}.png"
+        image_path = images_folder / f"{name}.png"
         if not image_path.is_file():
             raise ValueError(
-                f"{player_id}: missing card image {image_path.name}."
+                f"{player_id}: missing player image {image_path.name}."
             )
 
         player_ids.add(player_id)
+        player_names.add(name)
         players_by_team[team].append(
             {
                 "id": player_id,
                 "name": name,
                 "role": role,
-                "card_image": (
-                    f"images/player_cards/{player_id}.png"
-                ),
                 "stat_overrides": {},
             }
         )
@@ -159,14 +158,14 @@ def import_players(
                 f"{dict(role_counts)}."
             )
 
-    image_ids = {
+    image_names = {
         path.stem
         for path in images_folder.glob("*.png")
     }
-    extra_images = sorted(image_ids - player_ids)
+    extra_images = sorted(image_names - player_names)
     if extra_images:
         raise ValueError(
-            "Player-card images without spreadsheet players: "
+            "Player images without spreadsheet players: "
             + ", ".join(extra_images)
         )
 

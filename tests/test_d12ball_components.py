@@ -53,10 +53,16 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertEqual(len(all_ids), 36)
         self.assertEqual(len(set(all_ids)), 36)
 
-    def test_every_player_has_a_card_image(self) -> None:
+    def test_every_player_has_a_portrait_image(self) -> None:
         for roster in self.catalog.teams.values():
             for player in roster.players:
-                image_path = PROJECT_ROOT / "d12ball" / player.card_image
+                image_path = (
+                    PROJECT_ROOT
+                    / "d12ball"
+                    / "images"
+                    / "player_images"
+                    / f"{player.name}.png"
+                )
                 self.assertTrue(
                     image_path.is_file(),
                     f"Missing {image_path}",
@@ -469,6 +475,43 @@ class D12BallComponentTests(unittest.TestCase):
         )
         self.assertEqual(match.exhaustion, {})
         match.validate(self.catalog)
+
+    def test_a_steals_run_back_exemption_follows_the_position(self) -> None:
+        match = self.standard_match()
+        stealer = "orange_blazebulk"
+        match.pending_run_back_stays_player_id = stealer
+
+        # Subbed off: whoever comes on is standing on the ball now, so
+        # running them back would take the ball carrier off the ball.
+        incoming = match.home.player_board.bench[0]
+        match.substitute(TeamSide.HOME, stealer, incoming)
+        self.assertEqual(match.pending_run_back_stays_player_id, incoming)
+
+        # Swapped: the exemption goes to whoever took their place, in
+        # either argument order.
+        match.swap_field_positions(TeamSide.HOME, incoming, "orange_sizzik")
+        self.assertEqual(
+            match.pending_run_back_stays_player_id, "orange_sizzik",
+        )
+        match.swap_field_positions(TeamSide.HOME, incoming, "orange_sizzik")
+        self.assertEqual(match.pending_run_back_stays_player_id, incoming)
+
+    def test_an_untouched_exemption_stays_put(self) -> None:
+        match = self.standard_match()
+        match.pending_run_back_stays_player_id = "orange_blazebulk"
+
+        match.substitute(
+            TeamSide.HOME,
+            "orange_kindlefoot",
+            match.home.player_board.bench[0],
+        )
+        match.swap_field_positions(
+            TeamSide.HOME, "orange_hellguard", "orange_sizzik",
+        )
+
+        self.assertEqual(
+            match.pending_run_back_stays_player_id, "orange_blazebulk",
+        )
 
     def test_declaration_is_once_a_half_but_a_reply_is_free(self) -> None:
         match = self.standard_match()

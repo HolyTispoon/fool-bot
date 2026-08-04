@@ -13,6 +13,7 @@ from d12ball.components import (
     MatchPeriod,
     PlayerCatalog,
     PlayerDefinition,
+    RoleProfile,
     TeamSetup,
     Zone,
 )
@@ -35,6 +36,13 @@ JUMBOTRON_BOTTOM = 238
 BOARD_TOP = 430
 BOARD_BOTTOM = 805
 CARD_SIZE = (110, 154)
+CARD_INTERNAL_SCALE = 3
+CARD_INTERNAL_SIZE = (
+    CARD_SIZE[0] * CARD_INTERNAL_SCALE,
+    CARD_SIZE[1] * CARD_INTERNAL_SCALE,
+)
+CARD_OFFENSE_COLOR = "#dc143c"
+CARD_DEFENSE_COLOR = "#0f7a35"
 PLAYER_BOARD_TOP = 1030
 PLAYER_BOARD_BOTTOM = IMAGE_HEIGHT - 25
 PLAYER_BOARD_GAP = 30
@@ -113,6 +121,11 @@ FONT_MANEUVER_LEGEND = load_font(22)
 FONT_DICE_TOTAL = load_font(38, bold=True)
 FONT_DICE_VALUE = load_font(32, bold=True)
 FONT_SCORE = load_font(64, bold=True)
+FONT_CARD_STAT = load_font(46, bold=True)
+FONT_CARD_ROLE = load_font(46, bold=True)
+CARD_NAME_MIN_SIZE = 28
+CARD_NAME_MAX_SIZE = 60
+_CARD_NAME_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
 MEEPLE_SIZE = 56
 BALL_RADIUS = 27
 
@@ -145,6 +158,9 @@ INJURED_ICON_PATH = (
 INJURED_ICON_SIZE = 26
 _INJURED_ICON_CACHE: Optional[Image.Image] = None
 _INJURED_ICON_LOAD_ATTEMPTED = False
+
+PLAYER_IMAGES_DIR = Path(__file__).resolve().parent / "images" / "player_images"
+_PLAYER_PORTRAIT_CACHE: dict[str, Optional[Image.Image]] = {}
 
 
 def load_exhaust_icon() -> Optional[Image.Image]:
@@ -222,6 +238,132 @@ def load_injured_icon() -> Optional[Image.Image]:
     return _INJURED_ICON_CACHE
 
 
+def load_player_portrait(name: str) -> Optional[Image.Image]:
+    """
+    Load (and cache) a player's portrait. Returns None if the image is
+    not available so card rendering can gracefully skip it.
+    """
+    if name in _PLAYER_PORTRAIT_CACHE:
+        return _PLAYER_PORTRAIT_CACHE[name]
+
+    try:
+        with Image.open(PLAYER_IMAGES_DIR / f"{name}.png") as source:
+            portrait = source.convert("RGBA")
+            portrait.load()
+    except OSError:
+        portrait = None
+
+    _PLAYER_PORTRAIT_CACHE[name] = portrait
+    return portrait
+
+
+def card_name_font(size: int) -> ImageFont.ImageFont:
+    font = _CARD_NAME_FONT_CACHE.get(size)
+    if font is None:
+        font = load_font(size, bold=True)
+        _CARD_NAME_FONT_CACHE[size] = font
+    return font
+
+
+def fit_card_name(
+    draw: ImageDraw.ImageDraw,
+    name: str,
+    max_width: int,
+) -> tuple[ImageFont.ImageFont, tuple[int, int, int, int]]:
+    """
+    Binary-search the largest bold size in [CARD_NAME_MIN_SIZE,
+    CARD_NAME_MAX_SIZE] whose rendered width fits max_width, so each
+    card's name is as large as the card allows.
+    """
+    best_size = CARD_NAME_MIN_SIZE
+    low, high = CARD_NAME_MIN_SIZE, CARD_NAME_MAX_SIZE
+    while low <= high:
+        mid = (low + high) // 2
+        width = draw.textlength(name, font=card_name_font(mid))
+        if width <= max_width:
+            best_size = mid
+            low = mid + 1
+        else:
+            high = mid - 1
+
+    font = card_name_font(best_size)
+    return font, draw.textbbox((0, 0), name, font=font)
+
+
+def build_player_card(
+    player: PlayerDefinition,
+    profile: RoleProfile,
+) -> Image.Image:
+    """
+    Compose a player's card at CARD_INTERNAL_SIZE: a white rectangle
+    (the surrounding team-colored frame is drawn by the caller) holding
+    the offense/defense skills, abbreviated role, and portrait. Callers
+    scale the result down to CARD_SIZE, which is why this renders at
+    CARD_INTERNAL_SCALE.
+    """
+    width, height = CARD_INTERNAL_SIZE
+
+    card = Image.new("RGBA", (width, height), "#ffffff")
+    draw = ImageDraw.Draw(card)
+
+    name_font, name_bbox = fit_card_name(draw, player.name, width - 16)
+    name_width = name_bbox[2] - name_bbox[0]
+    name_height = name_bbox[3] - name_bbox[1]
+    name_top_pad = 8
+    draw.text(
+        ((width - name_width) / 2, name_top_pad - name_bbox[1]),
+        player.name,
+        font=name_font,
+        fill="#111111",
+    )
+    name_zone_height = name_top_pad + name_height + 10
+
+    stats_row_height = 116
+    draw.text(
+        (12, name_zone_height + 4),
+        str(profile.offense),
+        font=FONT_CARD_STAT,
+        fill=CARD_OFFENSE_COLOR,
+    )
+    draw.text(
+        (12, name_zone_height + 60),
+        str(profile.defense),
+        font=FONT_CARD_STAT,
+        fill=CARD_DEFENSE_COLOR,
+    )
+
+    role_label = ROLE_INITIALS[player.role.value]
+    role_bbox = draw.textbbox((0, 0), role_label, font=FONT_CARD_ROLE)
+    role_width = role_bbox[2] - role_bbox[0]
+    role_height = role_bbox[3] - role_bbox[1]
+    draw.text(
+        (
+            (width - role_width) / 2,
+            name_zone_height
+            + (stats_row_height - role_height) / 2
+            - role_bbox[1],
+        ),
+        role_label,
+        font=FONT_CARD_ROLE,
+        fill="#111111",
+    )
+
+    portrait_zone_top = name_zone_height + stats_row_height
+    portrait = load_player_portrait(player.name)
+    if portrait is not None:
+        max_portrait_size = (
+            width - 20,
+            height - portrait_zone_top - 10,
+        )
+        sized = portrait.copy()
+        sized.thumbnail(max_portrait_size, Image.Resampling.LANCZOS)
+        portrait_x = (width - sized.width) // 2
+        portrait_y = height - 10 - sized.height
+        card.alpha_composite(sized, (portrait_x, portrait_y))
+
+    return card
+
+
 def player_index(
     catalog: PlayerCatalog,
 ) -> dict[str, PlayerDefinition]:
@@ -252,16 +394,15 @@ def draw_card(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
     player: PlayerDefinition,
+    profile: RoleProfile,
     x: int,
     y: int,
     exhaustion: int = 0,
     exhausted: bool = False,
     injured: bool = False,
 ) -> None:
-    image_path = Path(__file__).resolve().parent / player.card_image
-    with Image.open(image_path) as source:
-        card = source.convert("RGBA")
-        card.thumbnail(CARD_SIZE, Image.Resampling.LANCZOS)
+    card = build_player_card(player, profile)
+    card = card.resize(CARD_SIZE, Image.Resampling.LANCZOS)
 
     border = TEAM_COLORS[player.team]
     draw.rounded_rectangle(
@@ -381,6 +522,7 @@ def draw_assignment_cards(
     draw: ImageDraw.ImageDraw,
     setup: TeamSetup,
     players: dict[str, PlayerDefinition],
+    catalog: PlayerCatalog,
     bounds: dict[Zone, tuple[int, int]],
     y: int,
     exhaustion: dict[str, int],
@@ -396,10 +538,12 @@ def draw_assignment_cards(
         x = left + (right - left - total_width) // 2
 
         for player_id in player_ids:
+            player = players[player_id]
             draw_card(
                 canvas,
                 draw,
-                players[player_id],
+                player,
+                catalog.effective_profile(player),
                 x,
                 y,
                 exhaustion=exhaustion.get(player_id, 0),
@@ -1190,6 +1334,7 @@ def draw_player_board(
     draw: ImageDraw.ImageDraw,
     setup: TeamSetup,
     players: dict[str, PlayerDefinition],
+    catalog: PlayerCatalog,
     x: int,
     y: int,
     width: int,
@@ -1221,10 +1366,12 @@ def draw_player_board(
     )
     card_x = bench_x
     for player_id in setup.player_board.bench:
+        player = players[player_id]
         draw_card(
             canvas,
             draw,
-            players[player_id],
+            player,
+            catalog.effective_profile(player),
             card_x,
             y + 68,
             exhaustion=exhaustion.get(player_id, 0),
@@ -1250,10 +1397,12 @@ def draw_player_board(
     else:
         card_x = back_bench_x
         for player_id in setup.player_board.back_bench:
+            player = players[player_id]
             draw_card(
                 canvas,
                 draw,
-                players[player_id],
+                player,
+                catalog.effective_profile(player),
                 card_x,
                 y + 68,
                 exhaustion=exhaustion.get(player_id, 0),
@@ -1301,6 +1450,7 @@ def render_match_image(
         draw,
         match.visiting,
         players,
+        catalog,
         bounds,
         260,
         match.exhaustion,
@@ -1313,6 +1463,7 @@ def render_match_image(
         draw,
         match.home,
         players,
+        catalog,
         bounds,
         835,
         match.exhaustion,
@@ -1327,6 +1478,7 @@ def render_match_image(
         draw,
         match.home,
         players,
+        catalog,
         BOARD_LEFT,
         PLAYER_BOARD_TOP,
         player_board_width,
@@ -1339,6 +1491,7 @@ def render_match_image(
         draw,
         match.visiting,
         players,
+        catalog,
         BOARD_LEFT + player_board_width + PLAYER_BOARD_GAP,
         PLAYER_BOARD_TOP,
         player_board_width,

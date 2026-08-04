@@ -70,7 +70,6 @@ class PlayerDefinition:
     name: str
     team: Team
     role: PlayerRole
-    card_image: str
     stat_overrides: dict
 
 
@@ -467,6 +466,7 @@ class MatchState:
     pending_run_back: bool = False
     pending_run_back_distance: int = 1
     pending_run_back_turnover: bool = True
+    pending_run_back_stays_player_id: Optional[str] = None
     pending_shot_is_set_up: bool = False
     pending_loose_ball: bool = False
     pending_loose_ball_distance: int = 1
@@ -879,6 +879,7 @@ class MatchState:
         self.pending_run_back = False
         self.pending_run_back_distance = 1
         self.pending_run_back_turnover = True
+        self.pending_run_back_stays_player_id = None
         self.pending_shot_is_set_up = False
         self.pending_loose_ball = False
         self.pending_loose_ball_distance = 1
@@ -1303,6 +1304,24 @@ class MatchState:
 
         self.board.remove_meeple(fielded_player_id)
         self.board.place_meeple(incoming_player_id, position[0], space_index)
+        self.inherit_run_back_exemption(
+            fielded_player_id, incoming_player_id,
+        )
+
+    def inherit_run_back_exemption(
+        self,
+        leaving_player_id: str,
+        arriving_player_id: str,
+    ) -> None:
+        """
+        Move a steal's run-back exemption to whoever took that
+        player's place. The exemption belongs to the position, not the
+        player: it exists because that meeple is standing on the ball,
+        so leaving it behind would run the new ball carrier away from
+        the ball and charge them for it.
+        """
+        if self.pending_run_back_stays_player_id == leaving_player_id:
+            self.pending_run_back_stays_player_id = arriving_player_id
 
     def swap_field_positions(
         self,
@@ -1348,6 +1367,12 @@ class MatchState:
         self.board.remove_meeple(other_player_id)
         self.board.place_meeple(player_id, *other_position)
         self.board.place_meeple(other_player_id, *position)
+
+        stays_player_id = self.pending_run_back_stays_player_id
+        if stays_player_id == player_id:
+            self.pending_run_back_stays_player_id = other_player_id
+        elif stays_player_id == other_player_id:
+            self.pending_run_back_stays_player_id = player_id
 
     def validate(self, catalog: PlayerCatalog) -> None:
         self.home.validate(catalog.teams[self.home.team])
@@ -1451,6 +1476,9 @@ class MatchState:
             "pending_run_back": self.pending_run_back,
             "pending_run_back_distance": self.pending_run_back_distance,
             "pending_run_back_turnover": self.pending_run_back_turnover,
+            "pending_run_back_stays_player_id": (
+                self.pending_run_back_stays_player_id
+            ),
             "pending_shot_is_set_up": self.pending_shot_is_set_up,
             "pending_loose_ball": self.pending_loose_ball,
             "pending_loose_ball_distance": self.pending_loose_ball_distance,
@@ -1526,6 +1554,9 @@ class MatchState:
             pending_run_back_turnover=data.get(
                 "pending_run_back_turnover", True
             ),
+            pending_run_back_stays_player_id=data.get(
+                "pending_run_back_stays_player_id"
+            ),
             pending_shot_is_set_up=data.get(
                 "pending_shot_is_set_up", False
             ),
@@ -1577,7 +1608,6 @@ def load_player_catalog(
                 name=player["name"],
                 team=team,
                 role=PlayerRole(player["role"]),
-                card_image=player["card_image"],
                 stat_overrides=player.get("stat_overrides", {}),
             )
             for player in team_data["players"]
