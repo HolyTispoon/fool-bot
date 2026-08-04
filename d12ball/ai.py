@@ -49,11 +49,6 @@ class AIStrategy(ABC):
         ...
 
     @abstractmethod
-    def choose_high_pass_distance(self, match: MatchState) -> int:
-        """2 or 3."""
-        ...
-
-    @abstractmethod
     def choose_dribble_advance_distance(self, match: MatchState) -> int:
         """1 or 2 -- only ever asked of a Playmaker, everyone else
         advances a fixed 1 space with no choice to make."""
@@ -157,46 +152,9 @@ class DinkyAI(AIStrategy):
             return self.maneuver_catalog.offense_for_die(roll).name
         return self.maneuver_catalog.defense_for_die(roll).name
 
-    def _has_teammate_at_pass_distance(
-        self,
-        match: MatchState,
-        distance: int,
-    ) -> bool:
-        """
-        Whether a fielded teammate already occupies the space the ball
-        would land on (clamped to the board edge) at this pass
-        distance in the current attack direction.
-        """
-        offense_side = match.ball.possession
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
-        target_flat = match.relative_flat_index(
-            origin_flat, offense_side, distance,
-        )
-        zone, space_index = match.board.position_at_flat_index(target_flat)
-        offense_setup = match.setup_for_side(offense_side)
-        occupants = match.board.spaces[zone][space_index]
-        return any(
-            player_id in offense_setup.field_players
-            for player_id in occupants
-        )
-
     def choose_low_pass(self, match: MatchState) -> str:
         """Always forward -- backward has no advancing benefit."""
         return "forward"
-
-    def choose_high_pass_distance(self, match: MatchState) -> int:
-        """
-        Prefers the farthest distance (most likely to overshoot into a
-        scoring opportunity) that still lands on a teammate -- passing
-        into an empty space triggers a contested loose-ball skill test
-        instead of a clean reception, so this avoids that when it can.
-        """
-        for distance in (3, 2):
-            if self._has_teammate_at_pass_distance(match, distance):
-                return distance
-        return 3
 
     def choose_dribble_advance_distance(self, match: MatchState) -> int:
         """Always take the full 2 spaces -- same maximizing spirit as

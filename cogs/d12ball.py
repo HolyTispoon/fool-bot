@@ -2354,58 +2354,6 @@ class LowPassChoiceView(SafeView):
         )
 
 
-class HighPassChoiceView(SafeView):
-    def __init__(self, cog: "D12Ball", game_id: str):
-        super().__init__(timeout=None)
-        self.cog = cog
-        self.game_id = game_id
-
-        for distance in (2, 3):
-            button = discord.ui.Button(
-                label=f"{distance} spaces",
-                style=discord.ButtonStyle.primary,
-                custom_id=f"d12ball:high_pass:{game_id}:{distance}",
-            )
-
-            async def callback(
-                interaction: discord.Interaction,
-                chosen_distance: int = distance,
-            ) -> None:
-                await self.choose(interaction, chosen_distance)
-
-            button.callback = callback
-            self.add_item(button)
-
-    async def choose(
-        self,
-        interaction: discord.Interaction,
-        distance: int,
-    ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
-            return
-        match = self.cog.load_match_state(game)
-
-        if not self.cog.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
-            await interaction.response.send_message(
-                "Only the player resolving this effect can choose.",
-                ephemeral=True,
-            )
-            return
-
-        await interaction.response.edit_message(
-            content=f"Chose **{distance} spaces**.",
-            view=None,
-        )
-        await self.cog.apply_high_pass(interaction, game, match, distance)
-
-
 class DribbleAdvanceChoiceView(SafeView):
     """
     Playmaker-only: may advance 1 or 2 spaces on a won Dribble
@@ -3792,10 +3740,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         for a decisively-won maneuver, purely from match state -- used
         both to restore it on a bot restart and (implicitly, by the
         same logic) to post it the first time. Returns None for a
-        maneuver that needs no choice (Block Deflect, Pressure) or an
-        unrecognized winner -- those resolve synchronously and should
-        never actually leave this state persisted except in a narrow
-        crash window, which falls back to PlayerActionView.
+        maneuver that needs no choice (High Pass, Block Deflect,
+        Pressure) or an unrecognized winner -- those resolve
+        synchronously and should never actually leave this state
+        persisted except in a narrow crash window, which falls back to
+        PlayerActionView.
 
         A Playmaker's Dribble Advance has two possible pending prompts
         (distance, then speed) with nothing in match state to tell
@@ -3815,8 +3764,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         if winner_name == "Low Pass":
             return LowPassChoiceView(self, game_id)
-        if winner_name == "High Pass":
-            return HighPassChoiceView(self, game_id)
         if winner_name == "Dribble Advance":
             handler = self.get_player_definition(match.active_player_id)
             if handler.role == PlayerRole.PLAYMAKER:
@@ -4090,28 +4037,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
     ) -> None:
-        if self.side_controlled_by_ai(game, match, "offense"):
-            distance = self.get_ai_strategy(game).choose_high_pass_distance(
-                match
-            )
-            await self.apply_high_pass(interaction, game, match, distance)
-            return
-
-        mention = format_player_with_team(
-            game,
-            self.possession_player_number(game, match),
-            mention=True,
-        )
-        prompt_message = await interaction.followup.send(
-            f"{mention}, choose your High Pass distance:",
-            view=HighPassChoiceView(self, game.game_id),
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
+        """
+        No choice to make -- High Pass is a fixed 2 spaces (Fullback's
+        +1 ability still applies automatically inside apply_high_pass),
+        the same fixed-distance pattern Low Pass follows.
+        """
+        await self.apply_high_pass(interaction, game, match, distance=2)
 
     async def apply_high_pass(
         self,
