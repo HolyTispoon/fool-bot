@@ -57,6 +57,7 @@ class D12BallGame:
     player_2_name: Optional[str] = None
     player_1_team: Optional[Team] = None
     player_2_team: Optional[Team] = None
+    test_game: bool = False
 
     # Which AI template controls Player 2. Only meaningful when
     # player_2_id is None; unused (and left None) in two-player games.
@@ -148,9 +149,15 @@ class D12BallGame:
         if (
             self.player_2_id is not None
             and self.player_1_id == self.player_2_id
+            and not self.test_game
         ):
             raise ValueError(
                 "Player 1 and Player 2 must be different users."
+            )
+
+        if self.test_game and self.player_1_id != self.player_2_id:
+            raise ValueError(
+                "A test game must use the same user for both players."
             )
 
     @property

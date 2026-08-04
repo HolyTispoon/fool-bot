@@ -373,11 +373,15 @@ def format_player(
     mention: bool = False,
 ) -> str:
     if player_number == 1:
+        if game.test_game:
+            return "Player 1"
         if mention:
             return f"<@{game.player_1_id}>"
         return game.player_1_name or "Player 1"
 
     if player_number == 2:
+        if game.test_game:
+            return "Player 2"
         if game.player_2_id is None:
             return format_ai_name(game.ai_opponent)
         if mention:
@@ -406,7 +410,7 @@ def refresh_player_names(
     game: D12BallGame,
     guild: Optional[discord.Guild],
 ) -> None:
-    if guild is None:
+    if guild is None or game.test_game:
         return
 
     player_1 = guild.get_member(game.player_1_id)
@@ -671,6 +675,7 @@ class GameConfigurationView(SafeView):
         configuration_closed = bool(
             game and game.status != GameStatus.SETUP
         )
+        row_offset = 1 if game and game.test_game else 0
 
         for label, mode in (
             ("Basic", GameMode.BASIC),
@@ -685,7 +690,7 @@ class GameConfigurationView(SafeView):
                 ),
                 custom_id=f"d12ball:mode:{self.game_id}:{mode.value}",
                 disabled=configuration_closed or mode == selected_mode,
-                row=1,
+                row=1 + row_offset,
             )
 
             async def mode_callback(
@@ -712,7 +717,7 @@ class GameConfigurationView(SafeView):
                     configuration_closed
                     or board_size == selected_board_size
                 ),
-                row=2,
+                row=2 + row_offset,
             )
 
             async def board_size_callback(
@@ -879,12 +884,6 @@ class TeamSelectionView(GameConfigurationView):
         self.game_id = game_id
 
         game = self.cog.games.get(game_id)
-        selected_teams = (
-            {game.player_1_team, game.player_2_team}
-            if game
-            else set()
-        )
-
         teams = [
             ("Orange", Team.ORANGE, discord.ButtonStyle.primary),
             ("Teal", Team.TEAL, discord.ButtonStyle.primary),
@@ -892,29 +891,53 @@ class TeamSelectionView(GameConfigurationView):
             ("Slime", Team.SLIME, discord.ButtonStyle.primary),
         ]
 
-        for label, team, style in teams:
-            button = discord.ui.Button(
-                label=label,
-                style=(
-                    discord.ButtonStyle.secondary
-                    if team in selected_teams
-                    else style
-                ),
-                custom_id=f"d12ball:team:{game_id}:{team.value}",
-                disabled=team in selected_teams,
-            )
+        player_rows = (1, 2) if game and game.test_game else (None,)
+        for player_number in player_rows:
+            for label, team, style in teams:
+                selected_team = None
+                other_team = None
+                if game is not None:
+                    if player_number == 2:
+                        selected_team = game.player_2_team
+                        other_team = game.player_1_team
+                    else:
+                        selected_team = game.player_1_team
+                        other_team = game.player_2_team
 
-            async def callback(
-                interaction: discord.Interaction,
-                selected_team: Team = team,
-            ) -> None:
-                await self.select_team(
-                    interaction,
-                    selected_team,
+                unavailable = team in {selected_team, other_team}
+                button = discord.ui.Button(
+                    label=(
+                        f"Player {player_number}: {label}"
+                        if player_number is not None
+                        else label
+                    ),
+                    style=(
+                        discord.ButtonStyle.secondary
+                        if unavailable
+                        else style
+                    ),
+                    custom_id=(
+                        f"d12ball:team:{game_id}:{player_number}:{team.value}"
+                        if player_number is not None
+                        else f"d12ball:team:{game_id}:{team.value}"
+                    ),
+                    disabled=unavailable,
+                    row=(player_number - 1 if player_number else 0),
                 )
 
-            button.callback = callback
-            self.add_item(button)
+                async def callback(
+                    interaction: discord.Interaction,
+                    chosen_team: Team = team,
+                    chosen_player_number: Optional[int] = player_number,
+                ) -> None:
+                    await self.select_team(
+                        interaction,
+                        chosen_team,
+                        chosen_player_number,
+                    )
+
+                button.callback = callback
+                self.add_item(button)
 
         self.add_configuration_buttons()
 
@@ -922,6 +945,7 @@ class TeamSelectionView(GameConfigurationView):
         self,
         interaction: discord.Interaction,
         selected_team: Team,
+        selected_player_number: Optional[int] = None,
     ) -> None:
         game = self.cog.games.get(self.game_id)
 
@@ -939,11 +963,21 @@ class TeamSelectionView(GameConfigurationView):
             )
             return
 
-        is_player_1 = interaction.user.id == game.player_1_id
-        is_player_2 = (
-            game.player_2_id is not None
-            and interaction.user.id == game.player_2_id
-        )
+        if game.test_game:
+            is_player_1 = (
+                interaction.user.id == game.player_1_id
+                and selected_player_number == 1
+            )
+            is_player_2 = (
+                interaction.user.id == game.player_2_id
+                and selected_player_number == 2
+            )
+        else:
+            is_player_1 = interaction.user.id == game.player_1_id
+            is_player_2 = (
+                game.player_2_id is not None
+                and interaction.user.id == game.player_2_id
+            )
 
         if not is_player_1 and not is_player_2:
             await interaction.response.send_message(
@@ -1041,7 +1075,7 @@ class CoinFlipView(GameConfigurationView):
             ),
             custom_id=f"d12ball:flip_coin:{game_id}",
             disabled=game.coin_flipped if game else False,
-            row=3,
+            row=4 if game and game.test_game else 3,
         )
 
         self.flip_button.callback = self.flip_coin
@@ -4701,7 +4735,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"**Own goal risk!** "
                 f"{format_role_bracket(offense_player, self.team_emojis)} "
                 f"{roll_description}, + {offense_skill} (offensive skill) "
-                f"= {total} -- safe."
+                f"= {total} \n."
+                f"## Avoided own goal! (phew)"
             )
         else:
             match.concede_own_goal()
@@ -4709,7 +4744,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"**Own goal risk!** "
                 f"{format_role_bracket(offense_player, self.team_emojis)} "
                 f"{roll_description}, + {offense_skill} (offensive skill) "
-                f"= {total} -- **OWN GOAL!**\n"
+                f"= {total} \n"
+                f"# **OWN GOAL!**\n"
                 f"{match.home.team.value.title()} {match.scoreboard.home_score}:"
                 f"{match.scoreboard.visiting_score} "
                 f"{match.visiting.team.value.title()}"
@@ -5486,6 +5522,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     @app_commands.describe(
         p1="Player 1. Leave blank to make yourself Player 1.",
         p2="Player 2. Leave blank to play against the AI.",
+        test_game=(
+            "Create a test game where you control Player 1 and Player 2."
+        ),
     )
     @app_commands.guild_only()
     async def create_game(
@@ -5493,6 +5532,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         p1: Optional[discord.Member] = None,
         p2: Optional[discord.Member] = None,
+        test_game: bool = False,
     ) -> None:
         guild = interaction.guild
 
@@ -5510,8 +5550,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
+        if test_game and (p1 is not None or p2 is not None):
+            await interaction.response.send_message(
+                "A test game cannot specify p1 or p2; you control both sides.",
+                ephemeral=True,
+            )
+            return
+
         # Work out which members are Player 1 and Player 2.
-        if p1 is None and p2 is None:
+        if test_game:
+            player_1 = interaction.user
+            player_2 = interaction.user
+        elif p1 is None and p2 is None:
             player_1 = interaction.user
             player_2 = None
 
@@ -5548,7 +5598,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        if player_2 is not None and player_1.id == player_2.id:
+        if (
+            not test_game
+            and player_2 is not None
+            and player_1.id == player_2.id
+        ):
             await interaction.response.send_message(
                 "Player 1 and Player 2 must be different people.",
                 ephemeral=True,
@@ -5666,8 +5720,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             message_id=None,
             player_1_id=player_1.id,
             player_2_id=player_2.id if player_2 else None,
-            player_1_name=player_1.display_name,
-            player_2_name=player_2.display_name if player_2 else None,
+            player_1_name=(
+                "Player 1" if test_game else player_1.display_name
+            ),
+            player_2_name=(
+                "Player 2"
+                if test_game
+                else player_2.display_name if player_2 else None
+            ),
+            test_game=test_game,
             mode=GameMode.BASIC,
             status=GameStatus.SETUP,
             board_size=7,
@@ -5761,7 +5822,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
         game, match = result
 
-        if all_teams:
+        if all_teams or (
+            game.test_game and interaction.user.id == game.player_1_id
+        ):
             setups = [match.home, match.visiting]
         else:
             side = self.side_for_user(game, interaction.user.id)
@@ -5865,6 +5928,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game, match = result
 
         side = self.side_for_user(game, interaction.user.id)
+        if game.test_game and interaction.user.id == game.player_1_id:
+            for candidate_side in (TeamSide.HOME, TeamSide.VISITING):
+                setup = match.setup_for_side(candidate_side)
+                roster_ids = (
+                    setup.field_players
+                    + setup.player_board.bench
+                    + setup.player_board.back_bench
+                )
+                if player_card in roster_ids:
+                    side = candidate_side
+                    break
         if side is None:
             await interaction.followup.send(
                 "You are not one of the players in this game. Use "
@@ -5903,12 +5977,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if side is None:
             return []
         match = self.load_match_state(game)
-        setup = match.setup_for_side(side)
-        roster_ids = (
-            setup.field_players
-            + setup.player_board.bench
-            + setup.player_board.back_bench
+        setups = (
+            [match.home, match.visiting]
+            if game.test_game and interaction.user.id == game.player_1_id
+            else [match.setup_for_side(side)]
         )
+        roster_ids = [
+            player_id
+            for setup in setups
+            for player_id in (
+                setup.field_players
+                + setup.player_board.bench
+                + setup.player_board.back_bench
+            )
+        ]
         options = [
             (player_id, self.format_roster_player(player_id))
             for player_id in roster_ids

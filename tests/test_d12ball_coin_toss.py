@@ -1,6 +1,7 @@
 import asyncio
 import json
 import unittest
+from types import SimpleNamespace
 
 import discord
 
@@ -12,6 +13,9 @@ from cogs.d12ball import (
     TEAM_EMOJI_FALLBACKS,
     TEAM_EMOJI_NAMES,
     CoinFlipView,
+    D12Ball,
+    TeamSelectionView,
+    build_setup_message,
     build_home_choice_message,
     format_coin_emoji,
     get_exhaust_emoji,
@@ -26,6 +30,7 @@ from d12ball.game import (
     D12BallGame,
     Team,
 )
+from d12ball.components import TeamSide
 
 
 def build_game(player_2_id: int = 222) -> D12BallGame:
@@ -86,6 +91,93 @@ def build_coin_emojis() -> dict:
 
 
 class D12BallCoinTossTests(unittest.TestCase):
+    def test_test_game_allows_one_user_to_be_both_players(self) -> None:
+        game = D12BallGame(
+            game_id="test-game",
+            game_number=1,
+            guild_id=1,
+            channel_id=2,
+            message_id=None,
+            player_1_id=111,
+            player_2_id=111,
+            test_game=True,
+        )
+
+        reloaded = D12BallGame.from_dict(
+            json.loads(json.dumps(game.to_dict()))
+        )
+
+        self.assertTrue(reloaded.test_game)
+        self.assertEqual(reloaded.player_1_id, reloaded.player_2_id)
+
+    def test_regular_game_still_rejects_the_same_user_twice(self) -> None:
+        with self.assertRaises(ValueError):
+            D12BallGame(
+                game_id="regular-game",
+                game_number=1,
+                guild_id=1,
+                channel_id=2,
+                message_id=None,
+                player_1_id=111,
+                player_2_id=111,
+            )
+
+    def test_test_game_setup_has_a_team_row_for_each_player(self) -> None:
+        game = D12BallGame(
+            game_id="test-game",
+            game_number=1,
+            guild_id=1,
+            channel_id=2,
+            message_id=None,
+            player_1_id=111,
+            player_2_id=111,
+            player_1_name="Player 1",
+            player_2_name="Player 2",
+            test_game=True,
+        )
+        view = TeamSelectionView(FakeCog(game, {}), game.game_id)
+        team_buttons = [
+            item for item in view.children
+            if item.custom_id and item.custom_id.startswith("d12ball:team:")
+        ]
+
+        self.assertEqual(len(team_buttons), 8)
+        self.assertEqual({item.row for item in team_buttons}, {0, 1})
+        self.assertEqual(
+            {item.label.split(":", 1)[0] for item in team_buttons},
+            {"Player 1", "Player 2"},
+        )
+        setup_message = build_setup_message(game)
+        self.assertIn("**Player 1:** Player 1", setup_message)
+        self.assertIn("**Player 2:** Player 2", setup_message)
+
+    def test_test_game_user_controls_offense_and_defense(self) -> None:
+        game = D12BallGame(
+            game_id="test-game",
+            game_number=1,
+            guild_id=1,
+            channel_id=2,
+            message_id=None,
+            player_1_id=111,
+            player_2_id=111,
+            test_game=True,
+            home_player_number=1,
+            visiting_player_number=2,
+        )
+        cog = object.__new__(D12Ball)
+
+        for possession in TeamSide:
+            with self.subTest(possession=possession):
+                match = SimpleNamespace(
+                    ball=SimpleNamespace(possession=possession)
+                )
+                self.assertTrue(
+                    cog.user_controls_possession(111, game, match)
+                )
+                self.assertTrue(
+                    cog.user_controls_defense(111, game, match)
+                )
+
     def test_fortune_wins_the_toss_for_whoever_flipped(self) -> None:
         for flipping_player_number in (1, 2):
             with self.subTest(player=flipping_player_number):
