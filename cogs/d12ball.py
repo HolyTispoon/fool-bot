@@ -1956,25 +1956,27 @@ class SkillTestView(SafeView):
         offense_total = offense_roll + offense_skill
         defense_total = defense_roll + defense_skill
 
-        # Role abilities -- Midfielder: +3 on a Dribble Advance skill
-        # test; Playmaker: +3 on either pass's skill test. Both are
-        # offense-only since those maneuvers only exist on that side.
+        # Role ability -- Midfielder: +3 on a skill test when
+        # attempting Low Pass (offense) or Pressure (defense).
         offense_ability_note = ""
         offense_ability_detail = ""
         if (
             offense_player.role == PlayerRole.MIDFIELDER
-            and match.offense_maneuver == "Dribble Advance"
+            and match.offense_maneuver == "Low Pass"
         ):
             offense_total += 3
             offense_ability_note = " + 3 (Midfielder ability)"
             offense_ability_detail = "+3 Midfielder ability"
-        elif (
-            offense_player.role == PlayerRole.PLAYMAKER
-            and match.offense_maneuver in ("Low Pass", "High Pass")
+
+        defense_ability_note = ""
+        defense_ability_detail = ""
+        if (
+            defense_player.role == PlayerRole.MIDFIELDER
+            and match.defense_maneuver == "Pressure"
         ):
-            offense_total += 3
-            offense_ability_note = " + 3 (Playmaker ability)"
-            offense_ability_detail = "+3 Playmaker ability"
+            defense_total += 3
+            defense_ability_note = " + 3 (Midfielder ability)"
+            defense_ability_detail = "+3 Midfielder ability"
 
         modifier_note = ""
         modifier_detail = ""
@@ -1990,7 +1992,7 @@ class SkillTestView(SafeView):
             f"modifier){offense_ability_note} = {offense_total}\n"
             f"**{format_role_bracket(defense_player, self.cog.team_emojis)}** (defense): "
             f"rolled {defense_roll} + {defense_skill} (defensive skill "
-            f"modifier){modifier_note} = {defense_total}"
+            f"modifier){defense_ability_note}{modifier_note} = {defense_total}"
         )
         offense_detail = [
             f"{offense_player.name} [{ROLE_INITIALS[offense_player.role.value]}]",
@@ -2002,6 +2004,8 @@ class SkillTestView(SafeView):
             f"{defense_player.name} [{ROLE_INITIALS[defense_player.role.value]}]",
             f"Defensive skill +{defense_skill}",
         ]
+        if defense_ability_detail:
+            defense_detail.append(defense_ability_detail)
         if modifier_detail:
             defense_detail.append(modifier_detail)
         dice_file = discord.File(
@@ -2414,6 +2418,66 @@ class HighPassChoiceView(SafeView):
             view=None,
         )
         await self.cog.apply_high_pass(interaction, game, match, distance)
+
+
+class DribbleAdvanceChoiceView(SafeView):
+    """
+    Playmaker-only: may advance 1 or 2 spaces on a won Dribble
+    Advance. Every other role has no choice to make, so
+    D12Ball.resolve_dribble_advance never even shows this.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+        for distance in (1, 2):
+            space_word = "space" if distance == 1 else "spaces"
+            button = discord.ui.Button(
+                label=f"Advance {distance} {space_word}",
+                style=discord.ButtonStyle.primary,
+                custom_id=f"d12ball:dribble_advance:{game_id}:{distance}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_distance: int = distance,
+            ) -> None:
+                await self.choose(interaction, chosen_distance)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        distance: int,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+        match = self.cog.load_match_state(game)
+
+        if not self.cog.user_controls_possession(
+            interaction.user.id, game, match,
+        ):
+            await interaction.response.send_message(
+                "Only the player resolving this effect can choose.",
+                ephemeral=True,
+            )
+            return
+
+        space_word = "space" if distance == 1 else "spaces"
+        await interaction.response.edit_message(
+            content=f"Chose **{distance} {space_word}**.",
+            view=None,
+        )
+        await self.cog.apply_dribble_advance(interaction, game, match, distance)
 
 
 class SpeedDeltaChoiceView(SafeView):
@@ -3716,6 +3780,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         unrecognized winner -- those resolve synchronously and should
         never actually leave this state persisted except in a narrow
         crash window, which falls back to PlayerActionView.
+
+        A Playmaker's Dribble Advance has two possible pending prompts
+        (distance, then speed) with nothing in match state to tell
+        them apart, so a restart in that narrow window guesses the
+        first one -- the same class of crash-window gap as the
+        unrecognized-winner case above.
         """
         outcome = self.maneuver_catalog.resolve(
             match.offense_maneuver, match.defense_maneuver,
@@ -3732,6 +3802,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if winner_name == "High Pass":
             return HighPassChoiceView(self, game_id)
         if winner_name == "Dribble Advance":
+            handler = self.get_player_definition(match.active_player_id)
+            if handler.role == PlayerRole.PLAYMAKER:
+                return DribbleAdvanceChoiceView(self, game_id)
             return SpeedDeltaChoiceView(
                 self, game_id, match.active_player_id, "offense",
             )
@@ -3833,6 +3906,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         distance: int,
     ) -> None:
         offense_side = match.ball.possession
+        handler = self.get_player_definition(match.active_player_id)
+
+        # Role ability -- Fullback: the ball goes 1 space further on
+        # any pass they make, low or high.
+        fullback_bonus = handler.role == PlayerRole.FULLBACK
+        if fullback_bonus:
+            distance += 1
         signed_distance = distance if direction == "forward" else -distance
 
         # An "overshoot" is the deflection/pass being clamped short of
@@ -3854,9 +3934,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         space_word = "space" if actual_distance == 1 else "spaces"
+        ability_note = " (+1 space, Fullback ability)" if fullback_bonus else ""
         content = (
             f"**Low Pass:** the ball moves {actual_distance} {space_word} "
-            f"{direction}. Ball speed is now {match.ball.speed}."
+            f"{direction}{ability_note}. Ball speed is now {match.ball.speed}."
         )
 
         if direction == "backward" and overshot:
@@ -3875,7 +3956,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # Role ability -- Winger: can also set up a scoring opportunity
         # with a Low Pass, same overshoot-and-occupied-space rule as a
         # High Pass normally uses.
-        handler = self.get_player_definition(match.active_player_id)
         candidates = []
         if direction == "forward" and overshot and handler.role == PlayerRole.WINGER:
             candidates = self.scoring_opportunity_candidates(
@@ -3923,8 +4003,51 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
     ) -> None:
+        # Role ability -- Playmaker: may advance 2 spaces instead of
+        # the usual 1. Everyone else has no choice to make here, so
+        # they skip straight to applying the fixed 1-space advance.
+        handler = self.get_player_definition(match.active_player_id)
+        if handler.role != PlayerRole.PLAYMAKER:
+            await self.apply_dribble_advance(interaction, game, match, 1)
+            return
+
+        if self.side_controlled_by_ai(game, match, "offense"):
+            distance = self.get_ai_strategy(
+                game
+            ).choose_dribble_advance_distance(match)
+            await self.apply_dribble_advance(
+                interaction, game, match, distance
+            )
+            return
+
+        mention = format_player_with_team(
+            game,
+            self.possession_player_number(game, match),
+            mention=True,
+        )
+        prompt_message = await interaction.followup.send(
+            f"{mention}, choose your Dribble Advance distance "
+            "(Playmaker ability):",
+            view=DribbleAdvanceChoiceView(self, game.game_id),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
+
+    async def apply_dribble_advance(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        distance: int,
+    ) -> None:
         offense_side = match.ball.possession
-        match.move_player_relative(match.active_player_id, offense_side, 1)
+        actual_distance = match.move_player_relative(
+            match.active_player_id, offense_side, distance,
+        )
         match.set_ball_space(
             *match.board.meeple_position(match.active_player_id)
         )
@@ -3933,6 +4056,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         handler = self.get_player_definition(match.active_player_id)
         await self.refresh_match_image(interaction, game)
+
+        space_word = "space" if actual_distance == 1 else "spaces"
+        ability_note = (
+            " (Playmaker ability)"
+            if handler.role == PlayerRole.PLAYMAKER and distance > 1
+            else ""
+        )
 
         await self.offer_speed_choice(
             interaction,
@@ -3944,7 +4074,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             lead_in=(
                 f"**Dribble Advance:** "
                 f"{format_role_bracket(handler, self.team_emojis)} and the "
-                "ball move forward 1 space."
+                f"ball move forward {actual_distance} {space_word}"
+                f"{ability_note}."
             ),
         )
 
@@ -3987,6 +4118,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         distance: int,
     ) -> None:
         offense_side = match.ball.possession
+        handler = self.get_player_definition(match.active_player_id)
+
+        # Role ability -- Fullback: the ball goes 1 space further on
+        # any pass they make, low or high.
+        fullback_bonus = handler.role == PlayerRole.FULLBACK
+        if fullback_bonus:
+            distance += 1
+
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index
         )
@@ -4000,9 +4139,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         space_word = "space" if actual_distance == 1 else "spaces"
+        ability_note = " (+1 space, Fullback ability)" if fullback_bonus else ""
         content = (
             f"**High Pass:** the ball moves {actual_distance} {space_word} "
-            "forward."
+            f"forward{ability_note}."
         )
 
         candidates = []
@@ -4692,20 +4832,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         Automatic: 2d12 at a disadvantage (take the lower), plus the
         ball-handler's offensive skill, safe on 7+. No button -- there's
         no opposing roll to wait for.
-
-        Role ability -- Fullback: exempt from the disadvantage, so they
-        roll a single d12 instead.
         """
         offense_player = self.get_player_definition(match.active_player_id)
         offense_skill = self.player_catalog.effective_profile(
             offense_player,
         ).offense
-        is_fullback = offense_player.role == PlayerRole.FULLBACK
 
-        if is_fullback:
-            rolls = (random.randint(1, 12),)
-        else:
-            rolls = (random.randint(1, 12), random.randint(1, 12))
+        rolls = (random.randint(1, 12), random.randint(1, 12))
         taken = min(rolls)
         total = taken + offense_skill
 
@@ -4720,15 +4853,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             filename="own_goal_dice.png",
         )
 
-        if is_fullback:
-            roll_description = (
-                f"rolls without disadvantage (Fullback ability): {taken}"
-            )
-        else:
-            roll_description = (
-                f"rolls at a disadvantage: lower of {rolls[0]}/{rolls[1]} "
-                f"is {taken}"
-            )
+        roll_description = (
+            f"rolls at a disadvantage: lower of {rolls[0]}/{rolls[1]} "
+            f"is {taken}"
+        )
 
         safe = total >= 7
         if safe:
