@@ -1079,6 +1079,42 @@ class MatchState:
                 displaced.append(player_id)
         return displaced
 
+    def crowded_players(self, side: TeamSide) -> list[str]:
+        """
+        That side's zone-native fielded players sharing a space with a
+        teammate assigned to the same zone, beyond the first such
+        player at each space -- run-back has to spread these out too,
+        not just the players displaced_players() finds outside their
+        zone, so a zone's spaces stay covered as fully as possible.
+        `pending_run_back_stays_player_id`, if one of the pair, is
+        preferred as the one who stays (see begin_run_back). Capped to
+        each zone's currently open spaces, so a zone with more
+        zone-native players than spaces is left doubled up rather than
+        handed movers with nowhere to go.
+        """
+        stays_player_id = self.pending_run_back_stays_player_id
+        setup = self.setup_for_side(side)
+        team_players = set(setup.field_players)
+        movers: list[str] = []
+        for zone in Zone:
+            extra: list[str] = []
+            for occupants in self.board.spaces[zone]:
+                zone_native = [
+                    player_id
+                    for player_id in occupants
+                    if player_id in team_players
+                    and setup.assigned_zone(player_id) == zone
+                ]
+                if len(zone_native) < 2:
+                    continue
+                if stays_player_id in zone_native:
+                    zone_native.remove(stays_player_id)
+                    zone_native.insert(0, stays_player_id)
+                extra.extend(zone_native[1:])
+            open_spaces = len(self.open_spaces_in_zone(side, zone))
+            movers.extend(extra[:open_spaces])
+        return movers
+
     def open_spaces_in_zone(self, side: TeamSide, zone: Zone) -> list[int]:
         """
         Space indices in `zone` not already holding a meeple belonging

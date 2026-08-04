@@ -187,13 +187,20 @@ transcription itself. What remains below is what upstream still does not say.
 - **A pass landing on an empty space (Low Pass or High Pass) is a contested loose ball, not
   a clean reception.** It triggers a skill test: starting with the player who last had
   possession, each side picks a player of their team that is in the space where the ball is
-  landing. That player is moved to that space, gains 1 exhaustion, and participates in a
-  skill test. The player who last had possession is considered the offense and their player
-  uses offensive skill (the other side is defense). The winner of the test gains possession.
+  landing. That player is moved to that space, gains exhaustion tokens **equal to the
+  number of spaces traveled** to get there, and participates in a skill test. The player who
+  last had possession is considered the offense and their player uses offensive skill (the
+  other side is defense). Both players remain in the landing space regardless of who wins;
+  the winner of the test gains possession.
+
+  > Superseded -- upstream's own text (not yet re-pulled) says this player "gains 1
+  > exhaustion", a flat token rather than one per space traveled. Confirmed by the author:
+  > it's distance-traveled, the same rate the one-team recovery below and a maneuver's
+  > walked-in challenger both use.
 - **If only one team has a player in the landing space's zone, that team gains possession
   without a skill test.** The coach picks which of their players in that zone makes the
-  recovery; that player moves to the ball's space and gains exhaustion tokens **equal to the
-  number of spaces traveled** (not the flat 1 a contested skill test costs).
+  recovery; that player moves to the ball's space and gains exhaustion tokens equal to the
+  number of spaces traveled -- the same rate as the contested case above.
 - **"Out of bounds": neither team has a player in the landing zone.** The team that last had
   possession loses it -- a turnover. All displaced players run back, and the team that just
   gained possession must get one of their fielded players (from anywhere on the field, not
@@ -249,6 +256,15 @@ transcription itself. What remains below is what upstream still does not say.
   (Steal Intercept, or the Defender's Pressure-ability steal), everyone else displaced by the
   turnover still runs back as normal; only the player who won the steal stays where they
   ended up.
+- **Running back also spreads out same-zone teammates who ended up sharing a space, not
+  just players outside their zone.** Confirmed by the author: if two of a team's own
+  zone-native players are doubled up on one space (from ordinary maneuver movement, e.g.
+  Pressure or Dribble Advance landing one player on a teammate) while another space in that
+  zone is open, one of them has to move to it -- the same "at most one player per space"
+  goal the bullet above already applies to players outside their zone. If the zone's spaces
+  are all already spoken for, the double-up stands; nobody is moved somewhere that doesn't
+  help. A player exempted from running back by a steal is preferred as the one who stays
+  put in this case too.
 
 ### Substitutions
 
@@ -474,6 +490,14 @@ automatically succeeds.
 > The third sentence repeats the second -- an editing leftover from the rewrite, not two
 > separate costs. A challenger walked in from elsewhere in the zone pays one exhaust token
 > per space, once.
+
+> **Confirmed by the author: picking a challenger is only a real choice when nobody's
+> already there.** If a defender is already standing in the ball's exact space (not just
+> the zone), they're the challenger automatically -- no prompt, no walk-in, no exhaust
+> token. The "pick a player in the same zone" choice only comes up when that isn't the
+> case, same as today for the rare no-challenger-in-the-zone case above. The one-player-
+> per-space limit (see [Running back](#running-back)) means at most one defender can ever
+> be standing there, so this is never itself a choice between two.
 
 **Select a maneuver.** Both players now use their dice to secretly select an action for
 their fielded player to attempt, using their six sided action-selection die. The attacker
