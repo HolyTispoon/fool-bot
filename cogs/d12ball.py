@@ -1509,13 +1509,21 @@ class PlayerActionView(SafeView):
         defender_number = self.cog.defending_player_number(game, match)
         offense_number = self.cog.possession_player_number(game, match)
 
-        if game.is_solo_game and defender_number == 2:
-            challenger_id = self.cog.get_ai_strategy(game).choose_challenger(
-                match
+        # A defender already sharing the ball's exact space leaves
+        # nothing to choose -- the 1-per-team-per-space rule means
+        # there's at most one, so it's automatic, the same way it's
+        # automatic when the AI is the one picking.
+        on_ball_space = [
+            player_id
+            for player_id in eligible_challengers
+            if match.distance_to_ball(player_id) == 0
+        ]
+        if on_ball_space or (game.is_solo_game and defender_number == 2):
+            challenger_id = (
+                on_ball_space[0]
+                if on_ball_space
+                else self.cog.get_ai_strategy(game).choose_challenger(match)
             )
-            distance = match.choose_challenger(challenger_id)
-            game.match_state = match.to_dict()
-            save_games(self.cog.games)
 
             refresh_player_names(game, interaction.guild)
             offense_display = format_player_with_team(game, offense_number)
@@ -1527,24 +1535,8 @@ class PlayerActionView(SafeView):
                 ),
                 view=None,
             )
-            await interaction.followup.send(
-                self.cog.build_challenge_announcement(
-                    game,
-                    match,
-                    challenger_id,
-                    distance,
-                ),
-                allowed_mentions=discord.AllowedMentions(
-                    users=False,
-                    roles=False,
-                    everyone=False,
-                ),
-            )
-            await self.cog.refresh_match_image(interaction, game)
-            await self.cog.begin_maneuver_action_selection(
-                interaction,
-                game,
-                match,
+            await self.cog.auto_resolve_challenger(
+                interaction, game, match, challenger_id,
             )
             return
 
@@ -3491,6 +3483,35 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         game.turn_message_id = prompt_message.id
         save_games(self.games)
+
+    async def auto_resolve_challenger(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        challenger_id: str,
+    ) -> None:
+        """
+        Apply an already-decided challenger pick and move straight on
+        to maneuver-action selection -- no human choice involved,
+        either because the AI made the pick or because a defender
+        already shares the ball's space, leaving nothing to choose
+        (see PlayerActionView.choose_action).
+        """
+        distance = match.choose_challenger(challenger_id)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await interaction.followup.send(
+            self.build_challenge_announcement(
+                game, match, challenger_id, distance,
+            ),
+            allowed_mentions=discord.AllowedMentions(
+                users=False, roles=False, everyone=False,
+            ),
+        )
+        await self.refresh_match_image(interaction, game)
+        await self.begin_maneuver_action_selection(interaction, game, match)
 
     async def begin_maneuver_action_selection(
         self,
@@ -5594,6 +5615,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         match.pending_action = "maneuver"
+
+        # A defender already sharing the ball's exact space leaves
+        # nothing to choose -- see PlayerActionView.choose_action.
+        on_ball_space = [
+            player_id
+            for player_id in eligible_challengers
+            if match.distance_to_ball(player_id) == 0
+        ]
+        if on_ball_space:
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            await interaction.followup.send(
+                f"{ai_name} has chosen to maneuver with "
+                f"{format_role_bracket(handler, self.team_emojis)}."
+            )
+            await self.auto_resolve_challenger(
+                interaction, game, match, on_ball_space[0],
+            )
+            return
+
         game.match_state = match.to_dict()
         save_games(self.games)
 

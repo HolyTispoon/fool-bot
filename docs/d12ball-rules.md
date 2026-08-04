@@ -475,6 +475,14 @@ automatically succeeds.
 > separate costs. A challenger walked in from elsewhere in the zone pays one exhaust token
 > per space, once.
 
+> **Confirmed by the author: picking a challenger is only a real choice when nobody's
+> already there.** If a defender is already standing in the ball's exact space (not just
+> the zone), they're the challenger automatically -- no prompt, no walk-in, no exhaust
+> token. The "pick a player in the same zone" choice only comes up when that isn't the
+> case, same as today for the rare no-challenger-in-the-zone case above. The one-player-
+> per-space limit (see [Running back](#running-back)) means at most one defender can ever
+> be standing there, so this is never itself a choice between two.
+
 **Select a maneuver.** Both players now use their dice to secretly select an action for
 their fielded player to attempt, using their six sided action-selection die. The attacker
 chooses an offensive maneuver while the defender chooses a defensive maneuver. After both
