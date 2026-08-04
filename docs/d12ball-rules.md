@@ -256,6 +256,15 @@ transcription itself. What remains below is what upstream still does not say.
   (Steal Intercept, or the Defender's Pressure-ability steal), everyone else displaced by the
   turnover still runs back as normal; only the player who won the steal stays where they
   ended up.
+- **Running back also spreads out same-zone teammates who ended up sharing a space, not
+  just players outside their zone.** Confirmed by the author: if two of a team's own
+  zone-native players are doubled up on one space (from ordinary maneuver movement, e.g.
+  Pressure or Dribble Advance landing one player on a teammate) while another space in that
+  zone is open, one of them has to move to it -- the same "at most one player per space"
+  goal the bullet above already applies to players outside their zone. If the zone's spaces
+  are all already spoken for, the double-up stands; nobody is moved somewhere that doesn't
+  help. A player exempted from running back by a steal is preferred as the one who stays
+  put in this case too.
 
 ### Substitutions
 

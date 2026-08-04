@@ -4996,13 +4996,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side: TeamSide,
     ) -> list[str]:
         """
-        `match.displaced_players(side)`, minus the player who stole
-        the ball this run-back (if any) -- see begin_run_back.
+        `match.displaced_players(side)` (outside their zone) plus
+        `match.crowded_players(side)` (doubled up with a same-zone
+        teammate, when the zone has room to spread out), minus the
+        player who stole the ball this run-back (if any) -- see
+        begin_run_back.
         """
         stays_player_id = match.pending_run_back_stays_player_id
+        combined = match.displaced_players(side) + match.crowded_players(side)
         return [
             player_id
-            for player_id in match.displaced_players(side)
+            for player_id in combined
             if player_id != stays_player_id
         ]
 
