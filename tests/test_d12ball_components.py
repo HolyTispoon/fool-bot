@@ -545,7 +545,7 @@ class D12BallComponentTests(unittest.TestCase):
 
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
-            self.assertEqual(image.size, (2200, 1280))
+            self.assertEqual(image.size, (3300, 1920))
 
 
 class D12BallScoreAttemptTests(unittest.TestCase):
