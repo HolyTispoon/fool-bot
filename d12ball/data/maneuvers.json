@@ -1,5 +1,5 @@
 {
-  "data_version": 1,
+  "data_version": 3,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1487033386",
   "maneuvers": {
     "offense": [
@@ -47,7 +47,7 @@
         ],
         "defeats": "High Pass",
         "effect": "Ball moves back 1 space. If reaches offense\u2019s goal, sets up scoring opportunity. Ball speed decreases by 1.",
-        "time": "2 space minutes"
+        "time": "1 space minute"
       },
       {
         "name": "Steal Intercept",

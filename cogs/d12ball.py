@@ -4603,12 +4603,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         if not candidates:
             await self.refresh_match_image(interaction, game)
-            # Block Deflect's time cost is a fixed 2 space minutes per
+            # Block Deflect's time cost is a fixed 1 space minute per
             # the rules table, not "distance traveled" like Low/High
             # Pass, so this doesn't shrink if the move was clamped at
             # the edge.
             await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=2, lead_in=content,
+                interaction, game, match, distance_moved=1, lead_in=content,
             )
             return
 
