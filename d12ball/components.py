@@ -748,6 +748,30 @@ class MatchState:
         else:
             self.scoreboard.home_score += 1
 
+    def restart_after_goal(self, conceding_side: TeamSide) -> None:
+        """
+        Restart from midfield with the conceding side in possession.
+        This is shared by ordinary goals and own goals.
+        """
+        conceding_side = TeamSide(conceding_side)
+        kickoff_index = kickoff_space_index(
+            len(self.board.spaces[Zone.MIDFIELD]),
+            conceding_side,
+        )
+        self.set_ball_space(Zone.MIDFIELD, kickoff_index)
+        self.ball.possession = conceding_side
+        self.ball.speed = 1
+
+    def restart_after_missed_score(self, defending_side: TeamSide) -> None:
+        """Restart beside the defending side's goal after a missed shot."""
+        defending_side = TeamSide(defending_side)
+        restart_zone, restart_index = self.own_goal_restart_space(
+            defending_side
+        )
+        self.set_ball_space(restart_zone, restart_index)
+        self.ball.possession = defending_side
+        self.ball.speed = 1
+
     def advance_time(self, minutes: int) -> bool:
         """
         Advance the clock by `minutes` space minutes, clamped at 15.
@@ -763,7 +787,7 @@ class MatchState:
         return False
 
     def add_exhaustion(self, player_id: str, amount: int) -> None:
-        if amount <= 0:
+        if amount <= 0 or player_id in self.injured:
             return
         self.exhaustion[player_id] = (
             self.exhaustion.get(player_id, 0) + amount
@@ -779,7 +803,7 @@ class MatchState:
         exceeds their defense skill. Returns True only on that
         transition, so callers can announce it once.
         """
-        if player_id in self.exhausted:
+        if player_id in self.injured or player_id in self.exhausted:
             return False
         if self.exhaustion.get(player_id, 0) > defense_skill:
             self.exhausted.add(player_id)
@@ -788,6 +812,8 @@ class MatchState:
 
     def mark_injured(self, player_id: str) -> None:
         self.injured.add(player_id)
+        self.exhaustion.pop(player_id, None)
+        self.exhausted.discard(player_id)
 
     def choose_challenger(self, player_id: str) -> int:
         """
@@ -1256,6 +1282,13 @@ class MatchState:
                 for zone, spaces in data["board"]["spaces"].items()
             },
         )
+        injured = set(data.get("injured", []))
+        exhaustion = {
+            player_id: amount
+            for player_id, amount in data.get("exhaustion", {}).items()
+            if player_id not in injured
+        }
+        exhausted = set(data.get("exhausted", [])) - injured
         return cls(
             ruleset_id=data["ruleset_id"],
             player_data_version=data["player_data_version"],
@@ -1281,9 +1314,9 @@ class MatchState:
             challenger_id=data.get("challenger_id"),
             offense_maneuver=data.get("offense_maneuver"),
             defense_maneuver=data.get("defense_maneuver"),
-            exhaustion=dict(data.get("exhaustion", {})),
-            exhausted=set(data.get("exhausted", [])),
-            injured=set(data.get("injured", [])),
+            exhaustion=exhaustion,
+            exhausted=exhausted,
+            injured=injured,
             pending_run_back=data.get("pending_run_back", False),
             pending_run_back_distance=data.get(
                 "pending_run_back_distance", 1

@@ -2,6 +2,7 @@ import asyncio
 import json
 import unittest
 from types import SimpleNamespace
+from unittest import mock
 
 import discord
 
@@ -264,6 +265,43 @@ class D12BallCoinTossTests(unittest.TestCase):
         self.assertIsNone(reloaded.coin_face)
         self.assertIsNone(reloaded.coin_flipped_by_player_number)
         self.assertEqual(reloaded.coin_winner_player_number, 1)
+
+
+class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
+    async def test_begin_run_back_explains_choices_cost_and_speed(self) -> None:
+        cog = object.__new__(D12Ball)
+        cog.games = {}
+        cog.continue_run_back = mock.AsyncMock()
+        interaction = SimpleNamespace(
+            followup=SimpleNamespace(send=mock.AsyncMock())
+        )
+        game = SimpleNamespace(match_state=None)
+        match = SimpleNamespace(
+            ball=SimpleNamespace(speed=1),
+            pending_run_back=False,
+            pending_run_back_distance=1,
+            pending_run_back_turnover=False,
+            to_dict=lambda: {"pending_run_back": True},
+        )
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_run_back(
+                interaction,
+                game,
+                match,
+                distance_moved=3,
+                turnover_occurred=True,
+            )
+
+        announcement = interaction.followup.send.await_args.args[0]
+        self.assertIn("# Players run back!", announcement)
+        self.assertIn("assigned zone", announcement)
+        self.assertIn("1 exhaustion token for every space", announcement)
+        self.assertIn("prompted to pick a location", announcement)
+        self.assertIn("ball speed goes down to **1**", announcement)
+        cog.continue_run_back.assert_awaited_once_with(
+            interaction, game, match,
+        )
 
 
 class D12BallCoinEmojiTests(unittest.TestCase):

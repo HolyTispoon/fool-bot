@@ -424,9 +424,38 @@ class D12BallComponentTests(unittest.TestCase):
         match.mark_exhausted_if_needed("teal_bulwark", 2)
         match.mark_injured("teal_bulwark")
 
+        self.assertEqual(match.exhaustion.get("teal_bulwark", 0), 0)
+        self.assertNotIn("teal_bulwark", match.exhausted)
+
+        match.add_exhaustion("teal_bulwark", 5)
+        self.assertEqual(match.exhaustion.get("teal_bulwark", 0), 0)
+        self.assertFalse(
+            match.mark_exhausted_if_needed("teal_bulwark", 2)
+        )
+
         restored = MatchState.from_dict(match.to_dict(), self.rules)
-        self.assertEqual(restored.exhausted, {"teal_bulwark"})
+        self.assertEqual(restored.exhaustion.get("teal_bulwark", 0), 0)
+        self.assertNotIn("teal_bulwark", restored.exhausted)
         self.assertEqual(restored.injured, {"teal_bulwark"})
+
+    def test_old_injured_save_is_normalized_on_load(self) -> None:
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.SLIME,
+            visiting_team=Team.TEAL,
+        )
+        saved = match.to_dict()
+        saved["injured"] = ["teal_bulwark"]
+        saved["exhausted"] = ["teal_bulwark"]
+        saved["exhaustion"] = {"teal_bulwark": 6}
+
+        restored = MatchState.from_dict(saved, self.rules)
+
+        self.assertEqual(restored.injured, {"teal_bulwark"})
+        self.assertNotIn("teal_bulwark", restored.exhausted)
+        self.assertNotIn("teal_bulwark", restored.exhaustion)
 
     def test_fielded_players_in_zone(self) -> None:
         match = MatchState.standard(
@@ -763,6 +792,39 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         match.concede_own_goal()
         self.assertEqual(match.scoreboard.home_score, 1)
         self.assertEqual(match.scoreboard.visiting_score, 1)
+
+    def test_goal_restart_gives_conceding_team_midfield_and_speed_one(
+        self,
+    ) -> None:
+        for side in TeamSide:
+            with self.subTest(side=side):
+                match = self.build_match(6)
+                match.ball.speed = 9
+
+                match.restart_after_goal(side)
+
+                self.assertEqual(match.ball.possession, side)
+                self.assertEqual(match.ball.zone, Zone.MIDFIELD)
+                self.assertEqual(
+                    match.ball.space_index,
+                    kickoff_space_index(
+                        len(match.board.spaces[Zone.MIDFIELD]), side,
+                    ),
+                )
+                self.assertEqual(match.ball.speed, 1)
+
+    def test_missed_score_restart_is_a_turnover_at_speed_one(self) -> None:
+        match = self.build_match(7)
+        match.ball.speed = 8
+
+        match.restart_after_missed_score(TeamSide.VISITING)
+
+        self.assertEqual(match.ball.possession, TeamSide.VISITING)
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index),
+            match.own_goal_restart_space(TeamSide.VISITING),
+        )
+        self.assertEqual(match.ball.speed, 1)
 
     def test_advance_time_clamps_and_flags_last_possession_once(
         self,
