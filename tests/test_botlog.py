@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import subprocess
 import tempfile
 import unittest
 from contextlib import contextmanager
@@ -457,25 +458,74 @@ class DeployNoticeTextTests(unittest.TestCase):
     def test_the_notice_names_the_running_build(self) -> None:
         message = deploy_notice.deploy_message(
             deploy_notice.Build("f" * 40, "f50e0fe", "Resolve maneuvers"),
-            [deploy_notice.Commit("434cf5f", "Implement the role abilities")],
+            deploy_notice.Changes(
+                (deploy_notice.Commit(
+                    "434cf5f", "Implement the role abilities",
+                ),),
+            ),
         )
 
         self.assertIn("`f50e0fe` Resolve maneuvers", message)
         self.assertIn("Changes in this deploy (1 commit):", message)
         self.assertIn("- `434cf5f` Implement the role abilities", message)
 
-    def test_a_long_change_list_is_clipped(self) -> None:
-        commits = [
-            deploy_notice.Commit(f"sha{number}", f"change {number}")
-            for number in range(deploy_notice.MAX_LISTED_COMMITS + 4)
-        ]
-
+    def test_the_heading_names_the_pull_requests_that_landed(self) -> None:
+        # Several merging between one restart and the next is the normal
+        # case here, and their merge commits are not listed, so without
+        # this the notice never says a pull request was involved.
         message = deploy_notice.deploy_message(
-            deploy_notice.Build("f" * 40, "f50e0fe", "Head"), commits,
+            deploy_notice.Build("f" * 40, "f50e0fe", "Head"),
+            deploy_notice.Changes(
+                (deploy_notice.Commit("434cf5f", "Implement roles"),),
+                pull_requests=(23, 24, 25),
+            ),
         )
 
-        self.assertIn("...and 4 more.", message)
+        self.assertIn(
+            "Changes in this deploy (1 commit, from pull requests "
+            "#23, #24, #25):",
+            message,
+        )
+
+    def test_one_pull_request_is_not_called_pull_requests(self) -> None:
+        message = deploy_notice.deploy_message(
+            deploy_notice.Build("f" * 40, "f50e0fe", "Head"),
+            deploy_notice.Changes(
+                (deploy_notice.Commit("434cf5f", "Implement roles"),),
+                pull_requests=(23,),
+            ),
+        )
+
+        self.assertIn("from pull request #23):", message)
+
+    def test_a_long_change_list_is_clipped(self) -> None:
+        commits = tuple(
+            deploy_notice.Commit(f"sha{number}", f"change {number}")
+            for number in range(deploy_notice.MAX_LISTED_COMMITS + 4)
+        )
+
+        message = deploy_notice.deploy_message(
+            deploy_notice.Build("f" * 40, "f50e0fe", "Head"),
+            deploy_notice.Changes(commits, previous_short="1dfe373"),
+        )
+
+        self.assertIn("...and 4 more", message)
         self.assertLessEqual(len(message), deploy_notice.MAX_MESSAGE_LENGTH)
+
+    def test_a_clipped_change_list_says_where_the_rest_is(self) -> None:
+        # A deploy this far behind is exactly when someone wants the
+        # commits the cap hid, so the notice hands over the range.
+        commits = tuple(
+            deploy_notice.Commit(f"sha{number}", f"change {number}")
+            for number in range(deploy_notice.MAX_LISTED_COMMITS + 4)
+        )
+
+        message = deploy_notice.deploy_message(
+            deploy_notice.Build("f" * 40, "f50e0fe", "Head"),
+            deploy_notice.Changes(commits, previous_short="1dfe373"),
+        )
+
+        self.assertIn("`git log 1dfe373..f50e0fe`", message)
 
     def test_the_first_build_says_so_instead_of_listing_history(
         self,
@@ -497,19 +547,192 @@ class DeployNoticeTextTests(unittest.TestCase):
 
     def test_an_empty_range_says_so(self) -> None:
         message = deploy_notice.deploy_message(
-            deploy_notice.Build("f" * 40, "f50e0fe", "Head"), [],
+            deploy_notice.Build("f" * 40, "f50e0fe", "Head"),
+            deploy_notice.Changes(()),
         )
 
         self.assertIn("rollback or a force-push", message)
+
+    def test_a_pull_request_merge_subject_gives_up_its_number(self) -> None:
+        self.assertEqual(
+            deploy_notice.pull_request_number(
+                "Merge pull request #25 from HolyTispoon/additional-tweaks",
+            ),
+            25,
+        )
+
+    def test_other_subjects_have_no_pull_request_number(self) -> None:
+        for subject in (
+            "Reset ball speed to 1 on every turnover",
+            "Merge remote-tracking branch 'origin/main' into claude/thing",
+            "Merge pull request from HolyTispoon/no-number",
+        ):
+            with self.subTest(subject=subject):
+                self.assertIsNone(deploy_notice.pull_request_number(subject))
 
     def test_backticks_in_a_subject_cannot_break_the_code_span(
         self,
     ) -> None:
         message = deploy_notice.deploy_message(
-            deploy_notice.Build("f" * 40, "f50e0fe", "Fix `render.py`"), [],
+            deploy_notice.Build("f" * 40, "f50e0fe", "Fix `render.py`"),
+            deploy_notice.Changes(()),
         )
 
         self.assertIn("Fix 'render.py'", message)
+
+
+class DeployNoticeRangeTests(unittest.TestCase):
+    """
+    commits_since and merges_with_content against a real repository.
+
+    Both parse git output, and the thing they have to tell apart -- a
+    merge that only joined two branches from one that resolved a
+    conflict -- cannot be faked convincingly with a stub. So this builds
+    the history instead.
+    """
+
+    def git(self, *args: str) -> str:
+        completed = subprocess.run(
+            [
+                "git",
+                "-c", "user.name=Test",
+                "-c", "user.email=test@example.com",
+                "-c", "commit.gpgsign=false",
+                "-C", str(self.repo),
+                *args,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        return completed.stdout.strip()
+
+    def commit(self, name: str, text: str, message: str) -> str:
+        (self.repo / name).write_text(text, encoding="utf-8")
+        self.git("add", name)
+        self.git("commit", "-m", message)
+
+        return self.git("rev-parse", "HEAD")
+
+    def setUp(self) -> None:
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.repo = Path(self.directory.name)
+
+        self.git("init", "--quiet", "--initial-branch=main")
+        self.base = self.commit("a.txt", "base\n", "Base")
+        self.commit("shared.txt", "base\n", "Add the shared file")
+        self.base = self.git("rev-parse", "HEAD")
+
+        # A pull request that touches its own file, so merging it back
+        # is clean and its merge commit holds nothing of its own.
+        self.git("checkout", "--quiet", "-b", "tidy")
+        self.commit("b.txt", "tidy\n", "Tidy the board labels")
+        self.git("checkout", "--quiet", "main")
+        self.commit("a.txt", "main\n", "Adjust the main file")
+        self.git(
+            "merge", "--no-ff", "tidy",
+            "-m", "Merge pull request #7 from tester/tidy",
+            "-m", "Tidy up the board labels",
+        )
+
+        # A branch that edits the same line as main, so merging it needs
+        # a resolution -- work that exists only in the merge commit.
+        self.git("checkout", "--quiet", "-b", "rework")
+        self.commit("shared.txt", "rework\n", "Rework the shared file")
+        self.git("checkout", "--quiet", "main")
+        self.commit("shared.txt", "main edit\n", "Edit the shared file")
+        self.git("merge", "--no-ff", "rework")
+        (self.repo / "shared.txt").write_text("resolved\n", encoding="utf-8")
+        self.git("add", "shared.txt")
+        self.git("commit", "-m", "Merge branch 'rework'")
+
+        self.conflict_merge = self.git("rev-parse", "--short", "HEAD")
+
+    def changes(self) -> deploy_notice.Changes:
+        result = deploy_notice.commits_since(self.base, self.repo)
+        self.assertIsNotNone(result)
+
+        return result
+
+    def test_a_conflict_resolving_merge_is_listed(self) -> None:
+        # The resolution is written while merging and is in no other
+        # commit, so dropping this merge drops work outright.
+        listed = [commit.short for commit in self.changes().commits]
+
+        self.assertIn(self.conflict_merge, listed)
+
+    def test_a_clean_pull_request_merge_is_not_listed(self) -> None:
+        subjects = [commit.subject for commit in self.changes().commits]
+
+        self.assertNotIn("Tidy up the board labels", subjects)
+        for subject in subjects:
+            self.assertNotIn("Merge pull request", subject)
+
+    def test_the_dropped_pull_request_is_still_named(self) -> None:
+        self.assertEqual(self.changes().pull_requests, (7,))
+
+    def test_every_ordinary_commit_is_listed(self) -> None:
+        subjects = [commit.subject for commit in self.changes().commits]
+
+        for expected in (
+            "Tidy the board labels",
+            "Adjust the main file",
+            "Rework the shared file",
+            "Edit the shared file",
+        ):
+            self.assertIn(expected, subjects)
+
+    def test_only_the_conflict_resolving_merge_carries_content(self) -> None:
+        carrying = deploy_notice.merges_with_content(self.base, self.repo)
+
+        self.assertEqual(carrying, frozenset({self.conflict_merge}))
+
+    def test_an_unreadable_range_is_none(self) -> None:
+        self.assertIsNone(deploy_notice.commits_since("f" * 40, self.repo))
+
+    def test_a_range_of_nothing_is_empty_rather_than_none(self) -> None:
+        head = self.git("rev-parse", "HEAD")
+        result = deploy_notice.commits_since(head, self.repo)
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.commits, ())
+
+    def test_a_range_of_only_clean_merges_keeps_them(self) -> None:
+        # Deploying the merge of a branch whose commits were already
+        # announced. Dropping the merge would leave the notice claiming
+        # an empty deploy, so the merge is the list.
+        self.git("checkout", "--quiet", "-b", "later")
+        self.commit("c.txt", "later\n", "Work on a later branch")
+        branch_tip = self.git("rev-parse", "HEAD")
+        self.git("checkout", "--quiet", "main")
+        self.git(
+            "merge", "--no-ff", "later",
+            "-m", "Merge pull request #8 from tester/later",
+            "-m", "Later branch work",
+        )
+
+        result = deploy_notice.commits_since(branch_tip, self.repo)
+
+        self.assertEqual(len(result.commits), 1)
+        self.assertEqual(result.commits[0].subject, "Later branch work")
+        self.assertEqual(result.pull_requests, ())
+
+    def test_a_multi_line_body_does_not_break_the_records(self) -> None:
+        # %b spans lines, which is why the records carry a separator of
+        # their own. A body that looks like another record must not be
+        # able to invent one.
+        self.git("checkout", "--quiet", "main")
+        self.commit(
+            "d.txt", "body\n",
+            "Add a described commit\n\nFirst line.\nSecond line.\n",
+        )
+
+        subjects = [commit.subject for commit in self.changes().commits]
+
+        self.assertIn("Add a described commit", subjects)
+        self.assertNotIn("First line.", subjects)
 
 
 class DeployNoticeDedupTests(unittest.TestCase):
@@ -531,7 +754,9 @@ class DeployNoticeDedupTests(unittest.TestCase):
                 deploy_notice, "head_build", return_value=self.build(),
             ):
                 with mock.patch.object(
-                    deploy_notice, "commits_since", return_value=[],
+                    deploy_notice,
+                    "commits_since",
+                    return_value=deploy_notice.Changes(()),
                 ):
                     pending = deploy_notice.notice_for("b" * 40)
 
