@@ -5478,6 +5478,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         setup: TeamSetup,
         player_id: str,
+        show_abilities: bool = False,
     ) -> str:
         player = self.get_player_definition(player_id)
         position = match.board.meeple_position(player_id)
@@ -5493,7 +5494,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             location = destination_display_name("back_bench")
 
         tokens = match.exhaustion.get(player_id, 0)
-        token_word = "token" if tokens == 1 else "tokens"
 
         conditions = []
         if player_id in match.exhausted:
@@ -5505,22 +5505,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         entry = (
             f"{format_role_bracket(player, self.team_emojis)} — {location} — "
-            f"{tokens} exhaustion {token_word} "
-            f"{get_exhaust_emoji(self.condition_emojis)}"
+            f"{tokens} {get_exhaust_emoji(self.condition_emojis)}"
         )
         if conditions:
             entry += f" — {', '.join(conditions)}"
+        if show_abilities:
+            ability = self.player_catalog.effective_profile(player).ability
+            entry += f"\n     *{ability}*"
         return entry
 
     def build_team_roster_section(
         self,
         match: MatchState,
         setup: TeamSetup,
+        show_abilities: bool = False,
     ) -> str:
         roster = self.player_catalog.teams[setup.team].players
         lines = [
             self.format_team_roster_entry(
-                match, setup, player.player_id,
+                match, setup, player.player_id, show_abilities=show_abilities,
             )
             for player in roster
         ]
@@ -6081,12 +6084,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     )
     @app_commands.describe(
         all_teams="Show both teams' rosters instead of just your own.",
+        abilities="Include each player's role ability.",
     )
     @app_commands.guild_only()
     async def team_roster(
         self,
         interaction: discord.Interaction,
         all_teams: bool = False,
+        abilities: bool = False,
     ) -> None:
         result = await self.defer_and_get_match(interaction)
         if result is None:
@@ -6110,7 +6115,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         for setup in setups:
             await interaction.followup.send(
-                self.build_team_roster_section(match, setup)
+                self.build_team_roster_section(
+                    match, setup, show_abilities=abilities,
+                )
             )
 
     @app_commands.command(
@@ -6128,6 +6135,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             file=self.build_maneuver_reference_file(),
         )
         await add_full_image_button_to_response(interaction)
+
+    @app_commands.command(
+        name="role_abilities",
+        description="List each role's ability.",
+    )
+    @app_commands.guild_only()
+    async def role_abilities(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        lines = [
+            f"**{role.value.title()}** — "
+            f"{self.player_catalog.role_profiles[role].ability}"
+            for role in PlayerRole
+        ]
+        await interaction.response.send_message("\n".join(lines))
 
     @app_commands.command(
         name="offensive_choice",
