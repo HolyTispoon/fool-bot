@@ -307,26 +307,20 @@ def draw_exhaustion_badge(
 
     if exhaustion > 1:
         count_label = str(exhaustion)
-        count_width = draw.textlength(count_label, font=FONT_SMALL)
-        label_x = badge_x - count_width / 2 - 1
-        label_y = badge_y - 2
-        draw.rounded_rectangle(
-            (
-                label_x - 3,
-                label_y - 1,
-                label_x + count_width + 3,
-                label_y + 15,
-            ),
-            radius=5,
-            fill="#161d26",
-            outline="#ffffff",
-            width=1,
+        count_bbox = draw.textbbox((0, 0), count_label, font=FONT_SMALL)
+        count_width = count_bbox[2] - count_bbox[0]
+        count_height = count_bbox[3] - count_bbox[1]
+        label_x = max(card_x + 2, badge_x - count_width - 5)
+        label_y = (
+            badge_y
+            + (EXHAUST_ICON_SIZE - count_height) / 2
+            - count_bbox[1]
         )
         draw.text(
             (label_x, label_y),
             count_label,
             font=FONT_SMALL,
-            fill="#ffffff",
+            fill="#111111",
         )
 
 
