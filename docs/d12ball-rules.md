@@ -80,7 +80,8 @@ added at this point, having been unreachable when the file was first written.
 
 Answers given by the author (@HolyTispoon) reviewing
 [PR #10](https://github.com/HolyTispoon/fool-bot/pull/10) on 2026-07-31 and 2026-08-01,
-plus answers he gave directly while the shoot-to-score work was being scoped, 2026-08-01.
+plus answers he gave directly while the shoot-to-score work was being scoped, 2026-08-01,
+and while substitutions were being scoped, 2026-08-04.
 **These are rules, and where they conflict with the transcription below, these win** -- the
 transcription is a faithful copy of a page that is behind in places. They are kept in their
 own section so it stays obvious which text came from upstream and which came from the
@@ -195,6 +196,38 @@ transcription itself. What remains below is what upstream still does not say.
   forced.
 - That one-per-space limit is **per team.** Opposing meeples still share a space, the way they
   do at setup, so it only ever constrains a team against its own players.
+
+### Substitutions
+
+- **One player of each role is a property of the standard setup, not a standing rule.** It is
+  what basic mode's automatic setup deals out; advanced mode will allow teams to set up other
+  ways. Nothing requires a team to keep one of each role on the field afterwards, so a
+  substitution may leave a role unfielded -- which it has to be able to do, given every bench
+  is a playmaker, a winger and a defender and so could never replace a striker, fullback or
+  midfielder in kind.
+- **A declaring team's cards may change zones freely.**
+- **Basic mode's formations are 2-2-2, 4-1-1 and 2-1-3** (own goal zone first). Advanced mode
+  adds more.
+- **Every turnover opens a substitution window**, not only a steal or a score attempt. The
+  parenthetical upstream is illustrative, not a list.
+- **The window opens before the run back.** The declaring team substitutes and rearranges
+  first; the run back then places whoever ended up on the field.
+- **The bench and the back bench are two separate pools**, which is what upstream's "if and
+  only if all the players on the bench were subbed out" is reaching for:
+  - Anyone subbed out goes to the **back bench**, injured or not. The bench only ever drains.
+  - While anyone is on the bench, a team may sub in **only** from the bench.
+  - The back bench may be drawn from **only** when the bench is empty **and** the team is
+    subbing for an injured player.
+  - **Injured players go to the back bench and can never be subbed in**, whatever the bench
+    looks like.
+
+  So "players who are subbed out cannot be subbed back in" needs no separate bookkeeping --
+  it follows from which pool a team is allowed to draw from.
+- **A player returning from the back bench just loses the tokens:** half their exhaustion,
+  rounded up. Exhausted is then whatever the remaining count says it is, so a player with
+  enough tokens returns still exhausted. Upstream's "so if they were subbed while exhausted
+  they are no longer exhausted" does not hold in general -- 10 tokens on a defensive skill of
+  1 leaves 5.
 
 ### Coins
 
