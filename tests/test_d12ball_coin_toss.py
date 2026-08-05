@@ -6,16 +6,14 @@ from unittest import mock
 
 import discord
 
-from cogs.d12ball import (
+from cogs.d12ball import D12Ball
+from cogs.d12ball_helpers import (
     COIN_EMOJI_FALLBACK,
     COIN_EMOJI_NAMES,
     EXHAUST_EMOJI_FALLBACK,
     EXHAUSTED_EMOJI_FALLBACK,
     TEAM_EMOJI_FALLBACKS,
     TEAM_EMOJI_NAMES,
-    CoinFlipView,
-    D12Ball,
-    TeamSelectionView,
     build_setup_message,
     build_home_choice_message,
     format_coin_emoji,
@@ -26,6 +24,7 @@ from cogs.d12ball import (
     load_condition_emojis,
     load_team_emojis,
 )
+from cogs.d12ball_views import CoinFlipView, TeamSelectionView
 from d12ball.game import (
     CoinFace,
     D12BallGame,
