@@ -39,10 +39,11 @@ tabs:
 - **High Pass** replaced its fixed 2-space distance with a 2-3 space choice: "Ball moves
   forward 2-3 spaces. May set up a scoring opportunity if it moved 2, else reciving player
   must win a skill test to keep posession (as with loose ball)." [sic] Only an exact 2-space
-  pass that overshoots the field can set up a scoring opportunity, and even then it's a
-  choice, not automatic -- declining it, or having gone 3, sends it to the same skill-test
-  contest a loose ball uses, regardless of whether a teammate is standing where it landed.
-  See [Setting a scoring opportunity](#setting-a-scoring-opportunity).
+  pass can set up a scoring opportunity, and even then it's a choice, not automatic --
+  declining it, or having gone 3, sends it to the same skill-test contest a loose ball uses.
+  Unlike the old fixed-2 High Pass, this no longer requires the pass to overshoot the field;
+  it still requires a teammate to be standing on the landing space, same as a Winger's Low
+  Pass below. See [Setting a scoring opportunity](#setting-a-scoring-opportunity).
 - **Fullback's ability** changed from a flat "+1 space on any pass, low or high" to "Can pass
   up to 4 with a high pass. When resolving block deflect, ball goes back 2 spaces." The bonus
   no longer touches Low Pass at all; High Pass's bonus is now the player's choice of a 4th
@@ -52,10 +53,9 @@ tabs:
   "Steals the ball when resolving Pressure.") with no change in meaning.
 - **Winger's ability** ("Can set up a scoring opportunity with a low pass") is unchanged in
   the sheet, but the author clarified directly (see
-  [Author clarifications](#author-clarifications)) that it no longer needs the
-  overshoot-onto-the-last-space condition High Pass's set-up requires: a Winger's Low Pass
-  always offers the choice to send the receiving player straight into an ordinary score
-  attempt, wherever the pass landed.
+  [Author clarifications](#author-clarifications)) that it works from wherever the Low Pass
+  lands, not just the last space near the goal: a Winger's Low Pass always offers the choice
+  to send the receiving player straight into an ordinary score attempt.
 - **Steal Intercept's** effect gained a trailing "after turnover" ("Manipulate ball speed up
   to defensive skill after turnover."), confirming in the primary text what was already
   covered under [Author clarifications](#author-clarifications).
@@ -218,20 +218,28 @@ transcription itself. What remains below is what upstream still does not say.
   Because the destination must already have a teammate on it, a Low Pass itself can never
   produce a loose ball or an overshoot.
 - **High Pass (post-2026-08-05 revision) is a 2-3 space choice (2-4 for a Fullback), and only
-  an exact 2 that overshoots can ever offer a scoring opportunity.** Declining that choice,
-  or having gone 3 (or 4), always sends the ball to the same skill-test contest a loose ball
-  uses to decide who keeps it -- see [Setting a scoring opportunity](#setting-a-scoring-opportunity)
-  and [Actions display](#actions-display). This applies **even when a teammate is already
-  standing on the space the pass landed on** -- unlike every other maneuver, a High Pass's
-  landing space having a teammate on it does not exempt it from the contest. Distances of 3
-  or 4 never offer the scoring-opportunity choice, whether or not they happen to overshoot.
-- **A Winger's Low Pass ability needs neither an overshoot nor the last space, unlike a High
-  Pass's set-up.** Confirmed by the author: whenever a Winger completes a Low Pass (any
-  distance, including 0), the offense may choose to send the receiving player straight into
-  an ordinary score attempt from wherever the ball landed -- treated as a set-up (exhaust
-  token taken after the roll, no restriction on the shooter's position). Declining resolves
-  the Low Pass normally. This is a different mechanic from a High Pass's or a Block Deflect's
-  set-up, which both still require the ball to overshoot onto the space nearest the goal.
+  an exact 2 can ever offer a scoring opportunity -- unlike the old fixed-2 High Pass, this no
+  longer requires the pass to overshoot the field.** It still requires a teammate to be
+  standing on the landing space, exactly like a Winger's Low Pass below: a 2-space pass that
+  lands on an empty or opponent-held space skips the choice and goes straight to the mandatory
+  skill test. Declining the choice, or having gone 3 (or 4), always sends the ball to the same
+  skill-test contest a loose ball uses to decide who keeps it -- see
+  [Setting a scoring opportunity](#setting-a-scoring-opportunity) and
+  [Actions display](#actions-display). This applies **even when a teammate is already standing
+  on the space the pass landed on** -- unlike every other maneuver, a High Pass's landing
+  space having a teammate on it does not exempt it from the contest; it only ever avoids the
+  contest by taking (and winning) the scoring-opportunity shot instead. Distances of 3 or 4
+  never offer the scoring-opportunity choice, whether or not they happen to overshoot.
+- **A Winger's Low Pass ability needs no overshoot or last-space requirement either, the same
+  as High Pass's own set-up above -- but it needs even less.** Confirmed by the author:
+  whenever a Winger completes a Low Pass (any distance, including 0), the offense may choose
+  to send the receiving player straight into an ordinary score attempt from wherever the ball
+  landed -- treated as a set-up (exhaust token taken after the roll, no restriction on the
+  shooter's position). Declining resolves the Low Pass normally. Unlike High Pass's set-up,
+  this doesn't even need a teammate to be standing anywhere in particular -- the receiving
+  player already is the one taking the shot, by construction of how a Low Pass picks its
+  destination. A Block Deflect's set-up is the one that still requires the ball to overshoot
+  onto the space nearest the goal (see the next bullet).
 - **A Fullback's Block Deflect bonus (ball goes back 2 spaces instead of 1) changes the
   overshoot threshold too.** A Fullback's deflect only sets up a defensive scoring
   opportunity when the full 2-space deflect is what overshoots the field, the same
@@ -674,27 +682,35 @@ last space closest to the opponent's goal, that sets up a scoring opportunity. T
 player may choose one of the players in the zone near the goal to gain an exhaust token and
 do a 'score to shoot' roll to see if they can score a goal.
 
-> Clarified by the author beyond this text: the overshoot is **required** for a High Pass
-> (landing exactly on the last space does not set one up); the shooter must be **in the last
-> space**, so "in the zone near the goal" above should read "in the space near the goal"; the
-> 'score to shoot' roll is an **ordinary score attempt**; and the exhaust token is taken
-> **after** the roll. A striker's `+3` applies to any scoring attempt off a set-up.
+> Clarified by the author beyond this text, for the **original fixed-2 High Pass**: the
+> overshoot was **required** (landing exactly on the last space did not set one up), so the
+> shooter had to be **in the last space** -- "in the zone near the goal" above should read
+> "in the space near the goal". Both of those are specific to that overshoot mechanic; see
+> the 2026-08-05 revision below for how High Pass's set-up works now. Regardless of any of
+> that, the 'score to shoot' roll is an **ordinary score attempt**, the exhaust token is
+> taken **after** the roll, and a striker's `+3` applies to any scoring attempt off a set-up.
 
 > **Not yet in this section, per the [Changelog](#changelog), 2026-08-04:** a Block Deflect
 > overshoot sets up a scoring opportunity too -- for the defense, since Block Deflect is the
-> defense's own maneuver. Upstream describes only the High Pass case above.
+> defense's own maneuver. Upstream describes only the High Pass case above. Block Deflect
+> still keeps the overshoot-and-last-space mechanic High Pass had before the 2026-08-05
+> revision below.
 
 > **Post-2026-08-05 revision, per the [Changelog](#changelog):** neither a High Pass's nor a
 > Winger's Low Pass's set-up is automatic anymore -- both are now offered as a choice the
-> offense can decline. A **High Pass** only ever offers the choice on an exact 2-space pass
-> that overshoots, same requirements as above; declining, or a pass that went 3 (or 4, for a
-> Fullback), sends the ball straight to the mandatory skill-test contest described in
-> [Actions display](#actions-display), whether or not a teammate is standing where it landed.
-> A **Winger's Low Pass** works differently from the High Pass case above: the author
-> confirmed (see [Author clarifications](#author-clarifications)) that it needs **neither**
-> the overshoot **nor** the last-space requirement -- a Winger's Low Pass always offers the
-> choice to send the receiving player into an ordinary score attempt from wherever the pass
-> landed, and declining just resolves the Low Pass as normal.
+> offense can decline. A **High Pass** only ever offers the choice on an exact 2-space pass,
+> and it drops the overshoot-onto-the-last-space mechanic described above entirely: whoever
+> from the offense is standing on the landing space (wherever the 2 spaces reach) is the
+> shooter. A 2-space pass landing on an empty or opponent-held space has nobody to offer the
+> choice to, so it skips straight to the mandatory skill-test contest everything else in this
+> paragraph eventually reaches too -- declining the offered choice, or having gone 3 (or 4,
+> for a Fullback), sends the ball to that same contest (see
+> [Actions display](#actions-display)), whether or not a teammate is standing where it
+> landed. A **Winger's Low Pass** goes further still: the author confirmed (see
+> [Author clarifications](#author-clarifications)) it needs no landing-space requirement at
+> all -- the receiving player already is wherever the Low Pass sends them, by construction of
+> how its destination is picked, so the choice is always on offer; declining just resolves
+> the Low Pass as normal.
 
 ### Ball's speed
 

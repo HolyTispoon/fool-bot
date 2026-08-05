@@ -1672,7 +1672,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kwargs["decline_kind"], "skill_test")
         cog.begin_loose_ball.assert_not_awaited()
 
-    async def test_apply_high_pass_distance_two_without_overshoot_forces_skill_test(
+    async def test_apply_high_pass_distance_two_without_a_teammate_forces_skill_test(
         self,
     ) -> None:
         cog = self.build_cog()
@@ -1682,7 +1682,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.HOME_GOAL, 0)  # flat 0, plenty of room
+        match.set_ball_space(Zone.HOME_GOAL, 0)  # flat 0, plenty of room,
+        # and nobody is standing on the landing space (flat 2).
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
@@ -1696,6 +1697,40 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball.assert_awaited_once()
         _, kwargs = cog.begin_loose_ball.await_args
         self.assertEqual(kwargs["headline"], HIGH_PASS_CONTEST_HEADLINE)
+
+    async def test_apply_high_pass_distance_two_offers_setup_without_overshoot(
+        self,
+    ) -> None:
+        """
+        The scoring-opportunity offer no longer requires the pass to
+        overshoot the field -- an exact 2-space pass that lands on a
+        teammate mid-board offers it too, same as one that reaches the
+        edge.
+        """
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.HOME_GOAL, 0)  # flat 0, plenty of room
+        shooter = match.home.field_players[0]
+        match.move_meeple(shooter, Zone.HOME_GOAL, 2)  # flat 2, landing space
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_high_pass(interaction, game, match, 2)
+
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
+        )
+        cog.begin_loose_ball.assert_not_awaited()
+        cog.offer_scoring_attempt_choice.assert_awaited_once()
+        _, kwargs = cog.offer_scoring_attempt_choice.await_args
+        self.assertEqual(kwargs["shooter_id"], shooter)
+        self.assertEqual(kwargs["decline_kind"], "skill_test")
 
     async def test_apply_high_pass_distance_three_never_offers_setup(
         self,

@@ -4673,14 +4673,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # instead of the usual 2-3 max (see HighPassChoiceView).
         fullback_bonus = handler.role == PlayerRole.FULLBACK and distance == 4
 
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index
-        )
-        target_flat = match.relative_flat_index(
-            origin_flat, offense_side, distance
-        )
-        overshot = abs(target_flat - origin_flat) < distance
-
         actual_distance = match.move_ball_relative(offense_side, distance)
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -4692,11 +4684,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"forward{ability_note}."
         )
 
-        # A 2-space pass that overshoots the field may set up a
-        # scoring opportunity -- a longer pass never does, whether or
-        # not it overshoots.
+        # An exact 2-space pass may set up a scoring opportunity for
+        # whoever it lands on -- unlike the old fixed-2 High Pass,
+        # this no longer requires overshooting the field. A longer
+        # pass never offers it, whether or not it happens to overshoot.
         setup_candidates = []
-        if distance == 2 and overshot:
+        if distance == 2:
             setup_candidates = self.scoring_opportunity_candidates(
                 match, offense_side,
             )
@@ -4709,7 +4702,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 match,
                 shooter_id=setup_candidates[0],
                 distance_moved=actual_distance,
-                lead_in=f"{content} That overshoots the field -- a scoring "
+                lead_in=f"{content} That reaches a teammate -- a scoring "
                 "opportunity!",
                 decline_kind="skill_test",
             )
