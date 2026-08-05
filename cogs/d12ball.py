@@ -2327,11 +2327,46 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         first = self.get_player_definition(player_id)
         second = self.get_player_definition(other_player_id)
         return (
-            f"{format_role_bracket(first, self.team_emojis)} moves to "
+            f"{format_role_bracket(first, self.team_emojis)} is now "
+            f"assigned to "
             f"{destination_display_name(setup.assigned_zone(player_id).value)}"
             f" and {format_role_bracket(second, self.team_emojis)} to "
             f"{destination_display_name(setup.assigned_zone(other_player_id).value)}"
-            ". Rearranging costs no exhaustion."
+            ". Rearranging costs no exhaustion -- place their meeples below."
+        )
+
+    def apply_reposition(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        player_id: str,
+        space_index: int,
+    ) -> str:
+        setup = match.setup_for_side(side)
+        zone = setup.assigned_zone(player_id)
+        match.reposition_player(side, player_id, space_index)
+
+        player = self.get_player_definition(player_id)
+        return (
+            f"{format_role_bracket(player, self.team_emojis)} moves to "
+            f"{space_label(zone, space_index)}. No exhaustion cost."
+        )
+
+    def apply_meeple_swap(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        player_id: str,
+        other_player_id: str,
+    ) -> str:
+        match.swap_meeple_positions(side, player_id, other_player_id)
+
+        first = self.get_player_definition(player_id)
+        second = self.get_player_definition(other_player_id)
+        return (
+            f"{format_role_bracket(first, self.team_emojis)} and "
+            f"{format_role_bracket(second, self.team_emojis)} trade "
+            "places. No exhaustion cost."
         )
 
     async def begin_substitution_window(
@@ -2552,7 +2587,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         `lead_in` is narration from the triggering effect that hasn't
         been posted yet -- it rides along on whichever message this
         run-back sends first (see continue_run_back).
+
+        A turnover that happens while last possession is already in
+        force ends the period immediately instead: no run-back, no
+        substitution window, and (for a steal) no run-back or
+        speed-manipulation follow-up either -- the triggering effect's
+        own state change (e.g. Steal Intercept's turnover and 1-space
+        fallback) has already been applied and saved by the caller,
+        this just skips everything downstream of that.
         """
+        if turnover_occurred and match.scoreboard.last_possession:
+            await self.end_period(interaction, game, match, lead_in=lead_in)
+            return
+
         match.pending_run_back = True
         match.pending_run_back_distance = distance_moved
         match.pending_run_back_turnover = turnover_occurred
@@ -2743,6 +2790,41 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.turn_message_id = prompt_message.id
             save_games(self.games)
             return
+
+        if match.pending_kickoff_fill:
+            # A goal (or own goal) restarts play with nobody
+            # necessarily standing on the kickoff space -- the
+            # conceding side's two midfield players could easily both
+            # be elsewhere in the zone from open play. Whoever's
+            # closest drops back to start the kickoff, at the usual
+            # run-back cost, once every other run-back is settled.
+            candidates = match.kickoff_fill_candidates()
+            if candidates:
+                player_id = candidates[0]
+                player = self.get_player_definition(player_id)
+                distance = match.fill_kickoff(player_id)
+                match.add_exhaustion(player_id, distance)
+                game.match_state = match.to_dict()
+                save_games(self.games)
+
+                prefix = f"{lead_in}\n\n" if lead_in else ""
+                await interaction.followup.send(
+                    f"{prefix}"
+                    f"{format_role_bracket(player, self.team_emojis)} drops "
+                    f"back to {space_label(match.ball.zone, match.ball.space_index)} "
+                    "to start the kickoff.\n"
+                    + self.describe_exhaustion_gain(
+                        match, player_id, distance,
+                    )
+                )
+                await self.refresh_match_image(interaction, game)
+                await self.continue_run_back(interaction, game, match)
+                return
+
+            # Nobody fielded in midfield at all (both benched or
+            # injured) -- nothing to place. Clear the flag and let the
+            # loose-ball check downstream handle the empty kickoff.
+            match.pending_kickoff_fill = False
 
         # Nobody is displaced on either side -- run-back is done.
         match.pending_run_back = False

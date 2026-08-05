@@ -144,9 +144,9 @@ added at this point, having been unreachable when the file was first written.
 Answers given by the author (@HolyTispoon) reviewing
 [PR #10](https://github.com/HolyTispoon/fool-bot/pull/10) on 2026-07-31 and 2026-08-01,
 plus answers he gave directly while the shoot-to-score work was being scoped, 2026-08-01,
-while substitutions were being scoped, 2026-08-04, and while reviewing
+while substitutions were being scoped, 2026-08-04, while reviewing
 [PR #29](https://github.com/HolyTispoon/fool-bot/pull/29)'s own-goal/run-back rework,
-2026-08-04.
+2026-08-04, and while reporting a substitution-flow crash, 2026-08-05.
 **These are rules, and where they conflict with the transcription below, these win** -- the
 transcription is a faithful copy of a page that is behind in places. They are kept in their
 own section so it stays obvious which text came from upstream and which came from the
@@ -339,6 +339,24 @@ transcription itself. What remains below is what upstream still does not say.
   are all already spoken for, the double-up stands; nobody is moved somewhere that doesn't
   help. A player exempted from running back by a steal is preferred as the one who stays
   put in this case too.
+- **No role or player is ever tied to a space or zone, except by the run back itself.**
+  Outside of initial setup, nothing constrains where a player's card can sit -- any role can
+  be assigned anywhere by a substitution's rearrangement (see Substitutions below). The only
+  standing constraint is the run back's own: once players have run back, each meeple must be
+  in the zone its player card is currently assigned to.
+- **A goal's conceding team must move a meeple onto the kickoff space to start the restart.**
+  Nothing already guarantees one of their midfield-zone players ends up standing on the exact
+  kickoff space (board sizes 7/9's true middle, or 6's midfield space nearer their own goal)
+  -- open play can easily leave both midfield cards elsewhere in the zone. Whoever is nearest
+  drops back onto it at the usual one-token-per-space run-back cost, the same as any other
+  run-back placement, once every other displaced player is settled.
+- **A turnover that happens while last possession is already in force ends the period
+  immediately** -- no run back, and no resolution of whatever maneuver caused the turnover
+  (e.g. Steal Intercept's own fallback, or its post-run-back ball-speed choice). Play
+  proceeds straight to halftime (or full time) resolution. This only applies once last
+  possession has already been declared by an earlier play; a play that newly reaches 15
+  space minutes *and* is itself the turnover still ends the period the same way, but that
+  case was already handled correctly.
 
 ### Substitutions
 
@@ -374,6 +392,16 @@ transcription itself. What remains below is what upstream still does not say.
   enough tokens returns still exhausted. Upstream's "so if they were subbed while exhausted
   they are no longer exhausted" does not hold in general -- 10 tokens on a defensive skill of
   1 leaves 5.
+- **After swapping two players' zone assignments, the declaring team is free to place meeples
+  anywhere within their (now current) assigned zones**, not pinned to the exact space the
+  other swapped player vacated. "Swap two positions" now only reassigns which zone each
+  card belongs to; the meeples themselves stay put until placed, via a follow-up screen that
+  offers every field player (not just the two just swapped), any number of times, before the
+  coach is done. Costs no exhaustion, same as the swap itself.
+  - A 6-board's zones (and board 7's goal zones) are exactly full under the standard 2-2-2 --
+    after a swap, neither new zone has an open space to step into until the other player
+    vacates it, and neither can vacate first. The follow-up screen falls back to trading two
+    meeples' positions directly in that case, which needs no intermediate open space.
 
 ### Coins
 

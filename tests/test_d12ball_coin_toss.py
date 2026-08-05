@@ -273,12 +273,14 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         cog.games = {}
         cog.continue_run_back = mock.AsyncMock()
         cog.begin_substitution_window = mock.AsyncMock()
+        cog.end_period = mock.AsyncMock()
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock())
         )
         game = SimpleNamespace(match_state=None)
         match = SimpleNamespace(
             ball=SimpleNamespace(speed=1, possession=TeamSide.HOME),
+            scoreboard=SimpleNamespace(last_possession=False),
             pending_run_back=False,
             pending_run_back_distance=1,
             pending_run_back_turnover=False,
@@ -345,6 +347,48 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
             )
 
         cog.begin_substitution_window.assert_not_awaited()
+        cog.continue_run_back.assert_awaited_once()
+
+    async def test_a_turnover_during_last_possession_ends_the_period(
+        self,
+    ) -> None:
+        # No run-back, no substitution window, no steal-intercept
+        # speed-choice follow-up -- possession lost while last
+        # possession is already in force ends the half immediately.
+        cog, interaction, game, match = self.build_stubs(may_declare=True)
+        match.scoreboard.last_possession = True
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_run_back(
+                interaction,
+                game,
+                match,
+                turnover_occurred=True,
+                speed_choice_after=True,
+            )
+
+        cog.end_period.assert_awaited_once_with(
+            interaction, game, match, lead_in="",
+        )
+        cog.begin_substitution_window.assert_not_awaited()
+        cog.continue_run_back.assert_not_awaited()
+        self.assertFalse(match.pending_run_back)
+
+    async def test_a_non_turnover_during_last_possession_still_runs_back(
+        self,
+    ) -> None:
+        # Recovering a loose ball uncontested isn't losing possession,
+        # so play continues normally even once last possession has
+        # been declared.
+        cog, interaction, game, match = self.build_stubs(may_declare=True)
+        match.scoreboard.last_possession = True
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_run_back(
+                interaction, game, match, turnover_occurred=False,
+            )
+
+        cog.end_period.assert_not_awaited()
         cog.continue_run_back.assert_awaited_once()
 
 
