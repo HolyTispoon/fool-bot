@@ -1,0 +1,250 @@
+"""
+The substitution window's flow through the cog: who is offered it,
+what a pass costs the other side, and what the AI does with one.
+
+The engine's own rules -- which pool a player comes from, what a
+returning player keeps -- are covered in test_d12ball_components.
+"""
+
+import unittest
+from types import SimpleNamespace
+from unittest import mock
+
+from cogs.d12ball import D12Ball
+from d12ball.ai import DinkyAI
+from d12ball.components import (
+    MatchState,
+    TeamSide,
+    load_basic_ruleset,
+    load_maneuver_catalog,
+    load_player_catalog,
+)
+from d12ball.game import Team
+
+
+def build_cog() -> D12Ball:
+    cog = object.__new__(D12Ball)
+    cog.games = {}
+    cog.player_catalog = load_player_catalog()
+    cog.team_emojis = {}
+    cog.condition_emojis = {}
+    cog.announce_run_back = mock.AsyncMock()
+    cog.begin_substitution_window = mock.AsyncMock()
+    return cog
+
+
+class SubstitutionHandoffTests(unittest.IsolatedAsyncioTestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=6,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+    async def finish(self, cog, match) -> SimpleNamespace:
+        game = SimpleNamespace(match_state=None, game_id="g")
+        interaction = SimpleNamespace(
+            followup=SimpleNamespace(send=mock.AsyncMock())
+        )
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.finish_substitution_window(interaction, game, match)
+        return game
+
+    async def test_a_declaration_hands_the_other_team_a_reply(self) -> None:
+        cog = build_cog()
+        match = self.build_match()
+        match.open_substitution_window(TeamSide.HOME)
+        match.declare_substitution()
+
+        await self.finish(cog, match)
+
+        cog.begin_substitution_window.assert_awaited_once()
+        self.assertEqual(
+            cog.begin_substitution_window.await_args.args[3],
+            TeamSide.VISITING,
+        )
+        self.assertTrue(
+            cog.begin_substitution_window.await_args.kwargs["is_response"]
+        )
+        cog.announce_run_back.assert_not_awaited()
+
+    async def test_passing_takes_the_other_team_reply_with_it(self) -> None:
+        cog = build_cog()
+        match = self.build_match()
+        match.open_substitution_window(TeamSide.HOME)
+
+        await self.finish(cog, match)
+
+        # No declaration happened, so there is nothing for the other
+        # team to answer -- straight on to the run back.
+        cog.begin_substitution_window.assert_not_awaited()
+        cog.announce_run_back.assert_awaited_once()
+        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+
+    async def test_a_reply_ends_the_window(self) -> None:
+        cog = build_cog()
+        match = self.build_match()
+        match.open_substitution_window(TeamSide.VISITING, is_response=True)
+        match.declare_substitution()
+
+        await self.finish(cog, match)
+
+        # A reply never bounces back for another reply.
+        cog.begin_substitution_window.assert_not_awaited()
+        cog.announce_run_back.assert_awaited_once()
+        self.assertIsNone(match.pending_substitution_side)
+
+
+class SubstitutionSummaryTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=6,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+    def test_a_swap_spends_one_of_the_allowance(self) -> None:
+        cog = build_cog()
+        match = self.build_match()
+        match.open_substitution_window(TeamSide.HOME)
+        match.declare_substitution()
+
+        text = cog.apply_substitution(
+            match,
+            TeamSide.HOME,
+            "orange_blazebulk",
+            match.home.player_board.bench[0],
+        )
+
+        self.assertEqual(match.pending_substitution_used, 1)
+        self.assertEqual(match.substitutions_remaining(), 1)
+        self.assertIn("comes on for", text)
+        self.assertIn("1 substitution left", text)
+
+    def test_an_injured_player_is_named_as_such(self) -> None:
+        cog = build_cog()
+        match = self.build_match()
+        match.open_substitution_window(TeamSide.HOME)
+        match.declare_substitution()
+        match.mark_injured("orange_kindlefoot")
+
+        text = cog.apply_substitution(
+            match,
+            TeamSide.HOME,
+            "orange_kindlefoot",
+            match.home.player_board.bench[0],
+        )
+
+        self.assertIn("(injured)", text)
+
+    def test_a_returning_player_reports_what_is_left(self) -> None:
+        cog = build_cog()
+        match = self.build_match()
+        returning = "orange_hellguard"
+        match.add_exhaustion(returning, 5)
+
+        match.open_substitution_window(TeamSide.HOME)
+        match.declare_substitution()
+        for outgoing in (returning, "orange_sizzik", "orange_scorchit"):
+            match.substitute(
+                TeamSide.HOME, outgoing, match.home.player_board.bench[0],
+            )
+        match.mark_injured("orange_kindlefoot")
+
+        text = cog.apply_substitution(
+            match, TeamSide.HOME, "orange_kindlefoot", returning,
+        )
+
+        # 5 tokens, half rounded up removed, 2 left -- and a fullback
+        # has a defensive skill of 6, so 2 is nowhere near Exhausted.
+        self.assertEqual(match.exhaustion[returning], 2)
+        self.assertIn("back bench", text)
+        self.assertIn("2 exhaustion tokens", text)
+        self.assertNotIn("Still **Exhausted**", text)
+
+    def test_rearranging_is_free(self) -> None:
+        cog = build_cog()
+        match = self.build_match()
+        match.open_substitution_window(TeamSide.HOME)
+        match.declare_substitution()
+
+        text = cog.apply_position_swap(
+            match, TeamSide.HOME, "orange_hellguard", "orange_kindlefoot",
+        )
+
+        self.assertEqual(match.exhaustion, {})
+        self.assertEqual(match.pending_substitution_used, 0)
+        self.assertIn("no exhaustion", text)
+
+
+class DinkySubstitutionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+        cls.ai = DinkyAI(cls.catalog, load_maneuver_catalog())
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=6,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+    def test_dinky_passes_on_a_healthy_team(self) -> None:
+        match = self.build_match()
+        self.assertIsNone(
+            self.ai.choose_substitution(match, TeamSide.HOME)
+        )
+
+    def test_dinky_gets_an_injured_player_off(self) -> None:
+        match = self.build_match()
+        match.mark_injured("orange_kindlefoot")
+
+        choice = self.ai.choose_substitution(match, TeamSide.HOME)
+
+        self.assertIsNotNone(choice)
+        outgoing, incoming = choice
+        self.assertEqual(outgoing, "orange_kindlefoot")
+        self.assertIn(incoming, match.home.player_board.bench)
+
+    def test_dinky_passes_when_there_is_nobody_to_bring_on(self) -> None:
+        match = self.build_match()
+        for outgoing in ("orange_hellguard", "orange_sizzik", "orange_scorchit"):
+            match.substitute(
+                TeamSide.HOME, outgoing, match.home.player_board.bench[0],
+            )
+        match.mark_injured("orange_kindlefoot")
+
+        # The bench is empty, so the back bench opens -- but everyone
+        # on it was subbed out, which is exactly who may come back for
+        # an injury.
+        self.assertIsNotNone(
+            self.ai.choose_substitution(match, TeamSide.HOME)
+        )
+
+        for player_id in list(match.home.player_board.back_bench):
+            match.injured.add(player_id)
+        self.assertIsNone(
+            self.ai.choose_substitution(match, TeamSide.HOME)
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

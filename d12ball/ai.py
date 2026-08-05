@@ -8,6 +8,7 @@ and the AIStrategy interface, never to a specific template.
 
 import random
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from .components import MatchState, ManeuverCatalog, PlayerCatalog
 from .game import AIOpponent, HomeChoice
@@ -72,6 +73,18 @@ class AIStrategy(ABC):
 
     @abstractmethod
     def choose_run_back_space(self, open_spaces: list[int]) -> int:
+        ...
+
+    @abstractmethod
+    def choose_substitution(
+        self,
+        match: MatchState,
+        side: str,
+    ) -> Optional[tuple[str, str]]:
+        """
+        (player going off, player coming on), or None to make no
+        further substitution and close out this side's window.
+        """
         ...
 
     @abstractmethod
@@ -185,6 +198,23 @@ class DinkyAI(AIStrategy):
 
     def choose_run_back_space(self, open_spaces: list[int]) -> int:
         return min(open_spaces)
+
+    def choose_substitution(
+        self,
+        match: MatchState,
+        side: str,
+    ) -> Optional[tuple[str, str]]:
+        """
+        Only ever substitutes to get an injured player off, which is
+        the one case the rules make compulsory. Dinky stays a
+        dice-roller: it never spends a declaration on a tactical swap
+        and never rearranges.
+        """
+        for player_id in match.injured_field_players(side):
+            pool = match.substitution_pool(side, player_id)
+            if pool:
+                return player_id, pool[0]
+        return None
 
     def choose_loose_ball_player(
         self,

@@ -268,21 +268,30 @@ class D12BallCoinTossTests(unittest.TestCase):
 
 
 class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
-    async def test_begin_run_back_explains_choices_cost_and_speed(self) -> None:
+    @staticmethod
+    def build_stubs(may_declare: bool):
         cog = object.__new__(D12Ball)
         cog.games = {}
         cog.continue_run_back = mock.AsyncMock()
+        cog.begin_substitution_window = mock.AsyncMock()
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock())
         )
         game = SimpleNamespace(match_state=None)
         match = SimpleNamespace(
-            ball=SimpleNamespace(speed=1),
+            ball=SimpleNamespace(speed=1, possession=TeamSide.HOME),
             pending_run_back=False,
             pending_run_back_distance=1,
             pending_run_back_turnover=False,
+            may_declare_substitution=lambda side: may_declare,
             to_dict=lambda: {"pending_run_back": True},
         )
+        return cog, interaction, game, match
+
+    async def test_begin_run_back_explains_choices_cost_and_speed(self) -> None:
+        # A side that already declared this half is offered no window,
+        # so the turnover goes straight to the run back.
+        cog, interaction, game, match = self.build_stubs(may_declare=False)
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_run_back(
@@ -302,6 +311,42 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         cog.continue_run_back.assert_awaited_once_with(
             interaction, game, match,
         )
+        cog.begin_substitution_window.assert_not_awaited()
+
+    async def test_a_turnover_offers_the_window_before_the_run_back(
+        self,
+    ) -> None:
+        cog, interaction, game, match = self.build_stubs(may_declare=True)
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_run_back(
+                interaction, game, match, turnover_occurred=True,
+            )
+
+        # Nothing about the run back is announced yet -- the window
+        # has to resolve first, because whoever comes on is the player
+        # who then runs back.
+        cog.begin_substitution_window.assert_awaited_once()
+        self.assertEqual(
+            cog.begin_substitution_window.await_args.args[3],
+            TeamSide.HOME,
+        )
+        interaction.followup.send.assert_not_awaited()
+        cog.continue_run_back.assert_not_awaited()
+        self.assertTrue(match.pending_run_back)
+
+    async def test_a_maneuver_without_a_turnover_skips_the_window(
+        self,
+    ) -> None:
+        cog, interaction, game, match = self.build_stubs(may_declare=True)
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_run_back(
+                interaction, game, match, turnover_occurred=False,
+            )
+
+        cog.begin_substitution_window.assert_not_awaited()
+        cog.continue_run_back.assert_awaited_once()
 
 
 class D12BallCoinEmojiTests(unittest.TestCase):

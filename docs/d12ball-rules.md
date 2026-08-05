@@ -274,9 +274,12 @@ transcription itself. What remains below is what upstream still does not say.
   substitution may leave a role unfielded -- which it has to be able to do, given every bench
   is a playmaker, a winger and a defender and so could never replace a striker, fullback or
   midfielder in kind.
-- **A declaring team's cards may change zones freely.**
-- **Basic mode's formations are 2-2-2, 4-1-1 and 2-1-3** (own goal zone first). Advanced mode
-  adds more.
+- **A declaring team's cards may change zones freely, and rearranging costs no exhaustion.**
+  It is the one way a meeple moves in this game without paying a token per space.
+- **Basic mode allows the 2-2-2 formation only.** A rearrangement may therefore move cards
+  between zones but must leave two in each. 4-1-1 and 2-1-3 were floated and are advanced
+  mode's, once it exists -- neither fits the boards in the ruleset, where the largest zone is
+  three spaces and a team may put at most one player on a space.
 - **Every turnover opens a substitution window**, not only a steal or a score attempt. The
   parenthetical upstream is illustrative, not a list.
 - **The window opens before the run back.** The declaring team substitutes and rearranges

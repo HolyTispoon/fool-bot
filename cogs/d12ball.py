@@ -2680,6 +2680,370 @@ class RunBackChoiceView(SafeView):
         await self.cog.continue_run_back(interaction, game, match)
 
 
+class SubstitutionView(SafeView):
+    """
+    Shared plumbing for the substitution window's prompts: they all
+    belong to whichever side currently holds the window, and they all
+    have to refuse a click from anyone else.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+    def load(self) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            return None, None
+        return game, self.cog.load_match_state(game)
+
+    async def claim(
+        self,
+        interaction: discord.Interaction,
+    ) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
+        """
+        The game and match if this click is allowed to act on the open
+        window, or (None, None) after replying with why it isn't.
+        """
+        game, match = self.load()
+        if game is None or match is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return None, None
+        if match.pending_substitution_side is None:
+            await interaction.response.send_message(
+                "That substitution window has already closed.",
+                ephemeral=True,
+            )
+            return None, None
+
+        side = TeamSide(match.pending_substitution_side)
+        if interaction.user.id != self.cog.side_controller_id(game, side):
+            await interaction.response.send_message(
+                "Only that team's coach can choose this.",
+                ephemeral=True,
+            )
+            return None, None
+        return game, match
+
+
+class SubstitutionOfferView(SubstitutionView):
+    """
+    Declare-or-pass, for the side a turnover has just handed the
+    window to. Pass is missing when an injured player makes the
+    declaration compulsory.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(cog, game_id)
+
+        game, match = self.load()
+        if match is None or match.pending_substitution_side is None:
+            return
+        side = TeamSide(match.pending_substitution_side)
+
+        declare = discord.ui.Button(
+            label=(
+                "Substitute" if match.pending_substitution_is_response
+                else "Declare substitutions"
+            ),
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:sub_declare:{game_id}",
+        )
+        declare.callback = self.declare
+        self.add_item(declare)
+
+        forced = (
+            not match.pending_substitution_is_response
+            and match.must_declare_substitution(side)
+        )
+        if not forced:
+            decline = discord.ui.Button(
+                label="Pass",
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"d12ball:sub_pass:{game_id}",
+            )
+            decline.callback = self.decline
+            self.add_item(decline)
+
+    async def declare(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        match.declare_substitution()
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        await interaction.response.edit_message(
+            content=interaction.message.content + "\n\n**Declared.**",
+            view=None,
+        )
+        await self.cog.prompt_substitution_menu(interaction, game, match)
+
+    async def decline(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        await interaction.response.edit_message(
+            content=interaction.message.content + "\n\n**Passed.**",
+            view=None,
+        )
+        await self.cog.finish_substitution_window(interaction, game, match)
+
+
+class SubstitutionMenuView(SubstitutionView):
+    """
+    What the side holding the window can still do: take a player off
+    (while swaps remain and somebody is available to replace them),
+    exchange two players' positions, or finish.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(cog, game_id)
+
+        game, match = self.load()
+        if match is None or match.pending_substitution_side is None:
+            return
+        side = TeamSide(match.pending_substitution_side)
+        setup = match.setup_for_side(side)
+
+        if match.substitutions_remaining() > 0:
+            for player_id in setup.field_players:
+                if not match.substitution_pool(side, player_id):
+                    continue
+                label = cog.format_roster_player(player_id)
+                button = discord.ui.Button(
+                    label=f"Off: {label}"[:80],
+                    style=(
+                        discord.ButtonStyle.danger
+                        if player_id in match.injured
+                        else discord.ButtonStyle.secondary
+                    ),
+                    custom_id=(
+                        f"d12ball:sub_off:{game_id}:{player_id}"
+                    ),
+                )
+
+                async def callback(
+                    interaction: discord.Interaction,
+                    outgoing: str = player_id,
+                ) -> None:
+                    await self.choose_outgoing(interaction, outgoing)
+
+                button.callback = callback
+                self.add_item(button)
+
+        swap = discord.ui.Button(
+            label="Swap two positions",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:sub_rearrange:{game_id}",
+            row=2,
+        )
+        swap.callback = self.begin_swap
+        self.add_item(swap)
+
+        done = discord.ui.Button(
+            label="Done",
+            style=discord.ButtonStyle.success,
+            custom_id=f"d12ball:sub_done:{game_id}",
+            row=2,
+        )
+        done.callback = self.finish
+        self.add_item(done)
+
+    async def choose_outgoing(
+        self,
+        interaction: discord.Interaction,
+        outgoing_player_id: str,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        player = self.cog.get_player_definition(outgoing_player_id)
+        await interaction.response.edit_message(
+            content=(
+                f"Who comes on for "
+                f"{format_role_bracket(player, self.cog.team_emojis)}?"
+            ),
+            view=SubstitutionIncomingView(
+                self.cog, self.game_id, outgoing_player_id,
+            ),
+        )
+
+    async def begin_swap(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        await interaction.response.edit_message(
+            content="Pick the first of the two players to exchange:",
+            view=SubstitutionSwapView(self.cog, self.game_id),
+        )
+
+    async def finish(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        await interaction.response.edit_message(
+            content=interaction.message.content + "\n\n**Done.**",
+            view=None,
+        )
+        await self.cog.finish_substitution_window(interaction, game, match)
+
+
+class SubstitutionIncomingView(SubstitutionView):
+    """Who comes on for the player just taken off."""
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        outgoing_player_id: str,
+    ):
+        super().__init__(cog, game_id)
+        self.outgoing_player_id = outgoing_player_id
+
+        game, match = self.load()
+        if match is None or match.pending_substitution_side is None:
+            return
+        side = TeamSide(match.pending_substitution_side)
+
+        for player_id in match.substitution_pool(side, outgoing_player_id):
+            button = discord.ui.Button(
+                label=cog.format_roster_player(player_id)[:80],
+                style=discord.ButtonStyle.primary,
+                custom_id=f"d12ball:sub_on:{game_id}:{player_id}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                incoming: str = player_id,
+            ) -> None:
+                await self.choose_incoming(interaction, incoming)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose_incoming(
+        self,
+        interaction: discord.Interaction,
+        incoming_player_id: str,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        side = TeamSide(match.pending_substitution_side)
+        try:
+            summary = self.cog.apply_substitution(
+                match, side, self.outgoing_player_id, incoming_player_id,
+            )
+        except ValueError as error:
+            await interaction.response.send_message(
+                str(error), ephemeral=True,
+            )
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        await interaction.response.edit_message(content=summary, view=None)
+        await self.cog.refresh_match_image(interaction, game)
+        await self.cog.prompt_substitution_menu(interaction, game, match)
+
+
+class SubstitutionSwapView(SubstitutionView):
+    """
+    Exchange two fielded players. Picking the first re-renders with
+    the rest as the second pick, so the whole swap is two clicks.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        first_player_id: Optional[str] = None,
+    ):
+        super().__init__(cog, game_id)
+        self.first_player_id = first_player_id
+
+        game, match = self.load()
+        if match is None or match.pending_substitution_side is None:
+            return
+        side = TeamSide(match.pending_substitution_side)
+        setup = match.setup_for_side(side)
+
+        for player_id in setup.field_players:
+            if player_id == first_player_id:
+                continue
+            zone = setup.assigned_zone(player_id)
+            button = discord.ui.Button(
+                label=(
+                    f"{cog.format_roster_player(player_id)} "
+                    f"- {destination_display_name(zone.value)}"
+                )[:80],
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"d12ball:sub_swap:{game_id}:{player_id}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                picked: str = player_id,
+            ) -> None:
+                await self.pick(interaction, picked)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def pick(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        if self.first_player_id is None:
+            player = self.cog.get_player_definition(player_id)
+            await interaction.response.edit_message(
+                content=(
+                    "Who does "
+                    f"{format_role_bracket(player, self.cog.team_emojis)} "
+                    "change places with?"
+                ),
+                view=SubstitutionSwapView(
+                    self.cog, self.game_id, player_id,
+                ),
+            )
+            return
+
+        side = TeamSide(match.pending_substitution_side)
+        try:
+            summary = self.cog.apply_position_swap(
+                match, side, self.first_player_id, player_id,
+            )
+        except ValueError as error:
+            await interaction.response.send_message(
+                str(error), ephemeral=True,
+            )
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        await interaction.response.edit_message(content=summary, view=None)
+        await self.cog.refresh_match_image(interaction, game)
+        await self.cog.prompt_substitution_menu(interaction, game, match)
+
+
 class LooseBallChoiceView(SafeView):
     """
     One combined prompt for whichever side(s) still need a real human
@@ -3053,6 +3417,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     continue
                 if match.active_player_id is None:
                     turn_view = BallHandlerSelectionView(self, game.game_id)
+                elif match.pending_substitution_side is not None:
+                    # A window mid-flight comes back as either the
+                    # offer or the menu. A part-made choice (picked
+                    # who goes off, not yet who comes on) is not
+                    # persisted and restarts at the menu, the same way
+                    # a run-back choice does.
+                    turn_view = (
+                        SubstitutionMenuView(self, game.game_id)
+                        if match.pending_substitution_declared
+                        else SubstitutionOfferView(self, game.game_id)
+                    )
                 elif match.pending_run_back:
                     turn_view = self.build_run_back_view(
                         game.game_id, match,
@@ -4923,19 +5298,303 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     # -- Run-back (after a turnover) ----------------------------------
 
-    def run_back_side_is_ai(
+    def side_is_ai(
         self,
         game: D12BallGame,
         side: TeamSide,
     ) -> bool:
         if not game.is_solo_game:
             return False
-        number = (
+        return self.side_player_number(game, side) == 2
+
+    def side_player_number(
+        self,
+        game: D12BallGame,
+        side: TeamSide,
+    ) -> int:
+        return (
             game.home_player_number
-            if side == TeamSide.HOME
+            if TeamSide(side) == TeamSide.HOME
             else game.visiting_player_number
         )
-        return number == 2
+
+    def side_controller_id(
+        self,
+        game: D12BallGame,
+        side: TeamSide,
+    ) -> Optional[int]:
+        """
+        The Discord user coaching `side`. Unlike controlling_user_id
+        this needs no player card, so it can be asked about a side
+        that has nobody selected -- which is the case throughout a
+        substitution window.
+        """
+        number = self.side_player_number(game, side)
+        if number == 1:
+            return game.player_1_id
+        if number == 2:
+            return game.player_2_id
+        return None
+
+    def apply_substitution(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        outgoing_player_id: str,
+        incoming_player_id: str,
+    ) -> str:
+        """
+        Make one swap and describe it. Raises ValueError with the
+        rule that refused it if the swap is not allowed.
+        """
+        was_injured = outgoing_player_id in match.injured
+        from_back_bench = (
+            incoming_player_id
+            in match.setup_for_side(side).player_board.back_bench
+        )
+
+        match.substitute(side, outgoing_player_id, incoming_player_id)
+        match.pending_substitution_used += 1
+
+        outgoing = self.get_player_definition(outgoing_player_id)
+        incoming = self.get_player_definition(incoming_player_id)
+        text = (
+            f"{format_role_bracket(incoming, self.team_emojis)} comes on "
+            f"for {format_role_bracket(outgoing, self.team_emojis)}"
+            f"{' (injured)' if was_injured else ''}."
+        )
+
+        if from_back_bench:
+            # Half the tokens, rounded up, come off a returning
+            # player -- but Exhausted is whatever the remainder says,
+            # so it has to be re-tested rather than assumed cleared.
+            defense_skill = self.player_catalog.effective_profile(
+                incoming
+            ).defense
+            remaining = match.exhaustion.get(incoming_player_id, 0)
+            exhaust_emoji = get_exhaust_emoji(self.condition_emojis)
+            text += (
+                f"\nBack on from the back bench, down to {remaining} "
+                f"exhaustion {'token' if remaining == 1 else 'tokens'} "
+                f"{exhaust_emoji * remaining}."
+            )
+            if match.mark_exhausted_if_needed(
+                incoming_player_id, defense_skill,
+            ):
+                text += (
+                    f" Still **Exhausted** -- {remaining} is over a "
+                    f"defensive skill of {defense_skill}."
+                )
+
+        remaining_subs = match.substitutions_remaining()
+        if remaining_subs:
+            text += f"\n{remaining_subs} substitution left."
+        return text
+
+    def apply_position_swap(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        player_id: str,
+        other_player_id: str,
+    ) -> str:
+        match.swap_field_positions(side, player_id, other_player_id)
+
+        setup = match.setup_for_side(side)
+        first = self.get_player_definition(player_id)
+        second = self.get_player_definition(other_player_id)
+        return (
+            f"{format_role_bracket(first, self.team_emojis)} moves to "
+            f"{destination_display_name(setup.assigned_zone(player_id).value)}"
+            f" and {format_role_bracket(second, self.team_emojis)} to "
+            f"{destination_display_name(setup.assigned_zone(other_player_id).value)}"
+            ". Rearranging costs no exhaustion."
+        )
+
+    async def begin_substitution_window(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        is_response: bool = False,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Offer `side` the window. A declaration is once a half, so a
+        side that has already spent theirs is never offered one --
+        which is also why an injured player can be stuck on the field
+        until the next half.
+        """
+        side = TeamSide(side)
+        match.open_substitution_window(side, is_response=is_response)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        if self.side_is_ai(game, side):
+            await self.run_ai_substitution_window(
+                interaction, game, match, lead_in=lead_in,
+            )
+            return
+
+        setup = match.setup_for_side(side)
+        controller_id = self.side_controller_id(game, side)
+        mention = f"<@{controller_id}>" if controller_id else "Someone"
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+
+        if is_response:
+            heading = (
+                f"{format_team_side_label(setup)} may answer with **one** "
+                "substitution and rearrange their formation."
+            )
+        elif match.must_declare_substitution(side):
+            injured = ", ".join(
+                format_role_bracket(
+                    self.get_player_definition(player_id), self.team_emojis,
+                )
+                for player_id in match.injured_field_players(side)
+            )
+            heading = (
+                f"{injured} is injured, so {format_team_side_label(setup)} "
+                "**must** declare substitutions now and get them off."
+            )
+        else:
+            heading = (
+                f"{format_team_side_label(setup)} won possession and may "
+                "declare substitutions -- up to **two** swaps and a "
+                "rearrangement, once a half."
+            )
+
+        prompt = await interaction.followup.send(
+            f"{prefix}# Substitutions\n{mention}, {heading}",
+            view=SubstitutionOfferView(self, game.game_id),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt.id
+        save_games(self.games)
+
+    async def prompt_substitution_menu(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Put the take-off / rearrange / done menu back up after every
+        action, so a side can use its whole allowance without the flow
+        deciding for them when they are finished.
+        """
+        if match.pending_substitution_side is None:
+            return
+        side = TeamSide(match.pending_substitution_side)
+        setup = match.setup_for_side(side)
+        controller_id = self.side_controller_id(game, side)
+        mention = f"<@{controller_id}>" if controller_id else "Someone"
+
+        remaining = match.substitutions_remaining()
+        allowance = (
+            f"{remaining} substitution{'s' if remaining != 1 else ''} left"
+            if remaining
+            else "No substitutions left"
+        )
+        prompt = await interaction.followup.send(
+            f"{mention}, {format_team_side_label(setup)}: {allowance}. "
+            "Take a player off, exchange two positions, or finish.",
+            view=SubstitutionMenuView(self, game.game_id),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt.id
+        save_games(self.games)
+
+    async def run_ai_substitution_window(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        side = TeamSide(match.pending_substitution_side)
+        strategy = self.get_ai_strategy(game)
+        lines: list[str] = []
+
+        while match.substitutions_remaining():
+            choice = strategy.choose_substitution(match, side)
+            if choice is None:
+                break
+            if not match.pending_substitution_declared:
+                match.declare_substitution()
+            outgoing_player_id, incoming_player_id = choice
+            try:
+                lines.append(
+                    self.apply_substitution(
+                        match, side, outgoing_player_id, incoming_player_id,
+                    )
+                )
+            except ValueError as error:
+                LOGGER.error(
+                    "AI substitution refused in game %s: %s",
+                    game.game_id, error,
+                )
+                break
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        setup = match.setup_for_side(side)
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+        if lines:
+            body = "\n".join(lines)
+            await interaction.followup.send(
+                f"{prefix}# Substitutions\n"
+                f"{format_team_side_label(setup)} declares:\n{body}"
+            )
+            await self.refresh_match_image(interaction, game)
+        elif prefix:
+            await interaction.followup.send(lead_in)
+
+        await self.finish_substitution_window(interaction, game, match)
+
+    async def finish_substitution_window(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Hand the window on, or give up on it and let the run back go
+        ahead. The other team only gets its single answering
+        substitution because a declaration actually happened -- a side
+        that passes takes the opposing reply down with it.
+        """
+        declared = match.pending_substitution_declared
+        was_response = match.pending_substitution_is_response
+        side = (
+            TeamSide(match.pending_substitution_side)
+            if match.pending_substitution_side
+            else None
+        )
+        match.close_substitution_window()
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        if declared and not was_response and side is not None:
+            other_side = (
+                TeamSide.VISITING
+                if side == TeamSide.HOME
+                else TeamSide.HOME
+            )
+            await self.begin_substitution_window(
+                interaction, game, match, other_side, is_response=True,
+            )
+            return
+
+        await self.announce_run_back(interaction, game, match)
 
     async def begin_run_back(
         self,
@@ -4972,6 +5631,33 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        # Every turnover opens a substitution window, and it opens
+        # *before* the run back: whoever comes on inherits the
+        # outgoing player's position, so they are the one who runs
+        # back and pays for the distance.
+        if turnover_occurred:
+            winning_side = match.ball.possession
+            if match.may_declare_substitution(winning_side):
+                await self.begin_substitution_window(
+                    interaction, game, match, winning_side, lead_in=lead_in,
+                )
+                return
+
+        await self.announce_run_back(interaction, game, match, lead_in)
+
+    async def announce_run_back(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        """
+        The run back proper, split out of begin_run_back because a
+        turnover's substitution window sits in between and has to
+        resolve before this can start.
+        """
+        turnover_occurred = match.pending_run_back_turnover
         prefix = f"{lead_in}\n\n" if lead_in else ""
         speed_note = ""
         if turnover_occurred:
@@ -5081,7 +5767,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             open_spaces = match.open_spaces_in_zone(side, zone)
             player = self.get_player_definition(player_id)
 
-            if self.run_back_side_is_ai(game, side):
+            if self.side_is_ai(game, side):
                 space_index = self.get_ai_strategy(
                     game
                 ).choose_run_back_space(open_spaces)
@@ -5239,6 +5925,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.scoreboard.period = MatchPeriod.SECOND_HALF
             match.scoreboard.time = 0
             match.scoreboard.last_possession = False
+            # A declaration is once every half, so both sides get
+            # theirs back -- including a side that had to spend the
+            # first half's on an injury.
+            match.declared_substitution.clear()
+            match.close_substitution_window()
             kickoff_index = kickoff_space_index(
                 len(match.board.spaces[Zone.MIDFIELD]),
                 TeamSide.VISITING,
@@ -5259,6 +5950,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "exhaustion token\n"
                 "- Formations may be changed, and players may need "
                 "repositioning to their assigned zones\n\n"
+                "Both teams have their substitution declaration back "
+                "for the second half.\n\n"
                 "The second half kicks off with "
                 f"{format_team_side_label(match.visiting)} in "
                 "possession."
