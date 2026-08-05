@@ -3,7 +3,7 @@ import unittest
 
 import discord
 
-from cogs.d12ball import (
+from cogs.d12ball_helpers import (
     FULL_IMAGE_BUTTON_LABEL,
     add_full_image_button,
     build_full_image_button,
