@@ -468,6 +468,7 @@ class MatchState:
     pending_run_back_turnover: bool = True
     pending_run_back_stays_player_id: Optional[str] = None
     pending_run_back_speed_choice: bool = False
+    pending_kickoff_fill: bool = False
     pending_shot_is_set_up: bool = False
     pending_loose_ball: bool = False
     pending_loose_ball_distance: int = 1
@@ -758,6 +759,14 @@ class MatchState:
         """
         Restart from midfield with the conceding side in possession.
         This is shared by ordinary goals and own goals.
+
+        The conceding side isn't guaranteed to already have a meeple on
+        that exact space -- their two midfield players could easily be
+        standing elsewhere in the zone from open play -- so this flags
+        pending_kickoff_fill whenever nobody's there, the same way a
+        turnover flags pending_run_back. The caller is responsible for
+        resolving that (see D12Ball.continue_run_back) before the ball
+        is treated as live.
         """
         conceding_side = TeamSide(conceding_side)
         kickoff_index = kickoff_space_index(
@@ -767,6 +776,58 @@ class MatchState:
         self.set_ball_space(Zone.MIDFIELD, kickoff_index)
         self.ball.possession = conceding_side
         self.ball.speed = 1
+        self.pending_kickoff_fill = not self.eligible_ball_handlers()
+
+    def kickoff_fill_candidates(self) -> list[str]:
+        """
+        The side in possession's midfield-zone-native fielded players,
+        nearest the kickoff space first. Only zone-native players
+        qualify -- run-back always returns a player to their own
+        assigned zone, so anyone else placed on the kickoff space
+        wouldn't be allowed to stay there.
+        """
+        setup = self.setup_for_side(self.ball.possession)
+        kickoff_flat = self.board.flat_index(
+            self.ball.zone, self.ball.space_index,
+        )
+        candidates = [
+            player_id
+            for player_id in setup.zones[Zone.MIDFIELD]
+            if self.board.meeple_position(player_id) is not None
+        ]
+        return sorted(
+            candidates,
+            key=lambda player_id: abs(
+                self.board.flat_index(
+                    *self.board.meeple_position(player_id)
+                )
+                - kickoff_flat
+            ),
+        )
+
+    def fill_kickoff(self, player_id: str) -> int:
+        """
+        Move `player_id` onto the ball's kickoff space to start play,
+        clearing pending_kickoff_fill. Returns the distance traveled,
+        for the exhaustion token any run-back-style movement costs.
+        """
+        if player_id not in self.kickoff_fill_candidates():
+            raise ValueError(
+                f"{player_id} cannot fill the kickoff -- not a fielded "
+                "midfield player for the side now in possession."
+            )
+        origin_flat = self.board.flat_index(
+            *self.board.meeple_position(player_id)
+        )
+        destination_flat = self.board.flat_index(
+            self.ball.zone, self.ball.space_index,
+        )
+        distance = abs(destination_flat - origin_flat)
+        self.board.place_meeple(
+            player_id, self.ball.zone, self.ball.space_index,
+        )
+        self.pending_kickoff_fill = False
+        return distance
 
     def restart_after_missed_score(self, defending_side: TeamSide) -> None:
         """Restart beside the defending side's goal after a missed shot."""
@@ -882,6 +943,7 @@ class MatchState:
         self.pending_run_back_turnover = True
         self.pending_run_back_stays_player_id = None
         self.pending_run_back_speed_choice = False
+        self.pending_kickoff_fill = False
         self.pending_shot_is_set_up = False
         self.pending_loose_ball = False
         self.pending_loose_ball_distance = 1
@@ -1368,15 +1430,23 @@ class MatchState:
         other_player_id: str,
     ) -> None:
         """
-        Exchange two of a side's fielded players -- both their zone
-        assignments and the spaces their meeples stand on. This is the
-        whole of "move around player assignments": basic mode allows
-        the 2-2-2 formation only, and a swap is the largest
-        rearrangement that cannot break it, so no formation check is
-        needed. Repeated swaps reach any arrangement.
+        Exchange two of a side's fielded players' zone assignments --
+        which zone each player's card belongs to, not where their
+        meeples currently stand. This is the whole of "move around
+        player assignments": basic mode allows the 2-2-2 formation
+        only, and a swap is the largest rearrangement that cannot
+        break it, so no formation check is needed. Repeated swaps
+        reach any arrangement.
 
-        Rearranging costs no exhaustion -- the one way a meeple moves
-        in this game without paying a token per space.
+        No role or player is tied to a space or zone outside of this
+        assignment and the run back's own requirement (see Author
+        clarifications in docs/d12ball-rules.md), so a swapped
+        player's meeple is free to stay right where it is -- it simply
+        now counts as displaced, exactly like a meeple a maneuver
+        pushed out of its zone, until it's moved into the new zone.
+        `reposition_player` (an explicit choice, free of exhaustion)
+        or the ordinary run back (at the usual per-space cost, next
+        time one happens) both resolve that the same way.
         """
         side = TeamSide(side)
         setup = self.setup_for_side(side)
@@ -1389,10 +1459,6 @@ class MatchState:
 
         zone = setup.assigned_zone(player_id)
         other_zone = setup.assigned_zone(other_player_id)
-        position = self.board.meeple_position(player_id)
-        other_position = self.board.meeple_position(other_player_id)
-        if position is None or other_position is None:
-            raise ValueError("Both players need a meeple on the board.")
 
         setup.zones[zone][setup.zones[zone].index(player_id)] = (
             other_player_id
@@ -1400,6 +1466,61 @@ class MatchState:
         setup.zones[other_zone][
             setup.zones[other_zone].index(other_player_id)
         ] = player_id
+
+    def reposition_player(
+        self,
+        side: TeamSide,
+        player_id: str,
+        space_index: int,
+    ) -> int:
+        """
+        Move `player_id`'s meeple to an open space in their own
+        currently-assigned zone -- the free-of-exhaustion counterpart
+        to run_back_player, offered any time a coach wants to place a
+        meeple by hand (typically right after a formation swap)
+        instead of leaving it for the next turnover's run back.
+        Returns the distance traveled, for display only -- unlike an
+        actual run back, this never costs exhaustion.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+        if player_id not in setup.field_players:
+            raise ValueError(f"{player_id} is not on the field.")
+        zone = setup.assigned_zone(player_id)
+        return self.run_back_player(player_id, zone, space_index)
+
+    def swap_meeple_positions(
+        self,
+        side: TeamSide,
+        player_id: str,
+        other_player_id: str,
+    ) -> None:
+        """
+        Exchange two of a side's fielded players' physical board
+        positions, without touching either one's zone assignment.
+
+        This is what actually resolves a formation swap on a
+        fully-packed zone -- typically a 6-board, where the standard
+        2-2-2 leaves no slack. Reassigning two players' zones
+        (swap_field_positions) can leave each one's *new* zone still
+        fully occupied by whoever hasn't moved yet, with no open space
+        for either to step into one at a time: trading their two
+        meeples directly sidesteps that, since an even exchange never
+        needs an intermediate open space.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+
+        if player_id == other_player_id:
+            raise ValueError("Pick two different players to trade with.")
+        for candidate in (player_id, other_player_id):
+            if candidate not in setup.field_players:
+                raise ValueError(f"{candidate} is not on the field.")
+
+        position = self.board.meeple_position(player_id)
+        other_position = self.board.meeple_position(other_player_id)
+        if position is None or other_position is None:
+            raise ValueError("Both players need a meeple on the board.")
 
         self.board.remove_meeple(player_id)
         self.board.remove_meeple(other_player_id)
@@ -1468,6 +1589,7 @@ class MatchState:
             and self.active_player_id not in self.eligible_ball_handlers()
             and not maneuver_effect_in_progress
             and not self.pending_run_back
+            and not self.pending_kickoff_fill
         ):
             raise ValueError(
                 "The active player must share the ball's space and "
@@ -1520,6 +1642,7 @@ class MatchState:
             "pending_run_back_speed_choice": (
                 self.pending_run_back_speed_choice
             ),
+            "pending_kickoff_fill": self.pending_kickoff_fill,
             "pending_shot_is_set_up": self.pending_shot_is_set_up,
             "pending_loose_ball": self.pending_loose_ball,
             "pending_loose_ball_distance": self.pending_loose_ball_distance,
@@ -1601,6 +1724,7 @@ class MatchState:
             pending_run_back_speed_choice=data.get(
                 "pending_run_back_speed_choice", False
             ),
+            pending_kickoff_fill=data.get("pending_kickoff_fill", False),
             pending_shot_is_set_up=data.get(
                 "pending_shot_is_set_up", False
             ),

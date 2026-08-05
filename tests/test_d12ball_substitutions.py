@@ -15,6 +15,7 @@ from d12ball.ai import DinkyAI
 from d12ball.components import (
     MatchState,
     TeamSide,
+    Zone,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -190,6 +191,83 @@ class SubstitutionSummaryTests(unittest.TestCase):
         self.assertEqual(match.pending_substitution_used, 0)
         self.assertIn("no exhaustion", text)
 
+    def test_a_swap_leaves_meeples_in_place_until_repositioned(self) -> None:
+        # A swap alone only reassigns which zone a card belongs to;
+        # the follow-up "shown a map, place them where you like" step
+        # is apply_reposition, exercised below.
+        cog = build_cog()
+        match = self.build_match()
+        match.open_substitution_window(TeamSide.HOME)
+        match.declare_substitution()
+        player_id, other_player_id = "orange_hellguard", "orange_kindlefoot"
+        before = match.board.meeple_position(player_id)
+
+        cog.apply_position_swap(
+            match, TeamSide.HOME, player_id, other_player_id,
+        )
+
+        self.assertEqual(match.board.meeple_position(player_id), before)
+
+    def test_apply_reposition_moves_a_meeple_for_free(self) -> None:
+        # A 6-board's zones are exactly full (2-2-2, no slack), so a
+        # swap alone never leaves an open space to step into -- this
+        # exercises apply_reposition against a player who's simply
+        # wandered out of position, the case it's actually built for.
+        cog = build_cog()
+        match = self.build_match()
+        match.open_substitution_window(TeamSide.HOME)
+        match.declare_substitution()
+        player_id = "orange_blazebulk"
+        zone = match.home.assigned_zone(player_id)
+        # Displace them out of their own zone first, the way a
+        # maneuver would mid-game, so their zone has an open space to
+        # reposition back into.
+        match.board.remove_meeple(player_id)
+        other_zone = next(z for z in Zone if z != zone)
+        match.board.place_meeple(player_id, other_zone, 0)
+        open_space = match.open_spaces_in_zone(TeamSide.HOME, zone)[0]
+
+        text = cog.apply_reposition(
+            match, TeamSide.HOME, player_id, open_space,
+        )
+
+        self.assertEqual(
+            match.board.meeple_position(player_id), (zone, open_space),
+        )
+        self.assertEqual(match.exhaustion, {})
+        self.assertIn("No exhaustion cost", text)
+
+    def test_apply_meeple_swap_resolves_a_fully_packed_zone(self) -> None:
+        # This is the case a straight 6-board formation swap actually
+        # needs: neither player has an open space in their new zone
+        # until the other one vacates, so only a direct trade works.
+        cog = build_cog()
+        match = self.build_match()
+        match.open_substitution_window(TeamSide.HOME)
+        match.declare_substitution()
+        player_id, other_player_id = "orange_hellguard", "orange_kindlefoot"
+        cog.apply_position_swap(
+            match, TeamSide.HOME, player_id, other_player_id,
+        )
+        new_zone = match.home.assigned_zone(player_id)
+        other_new_zone = match.home.assigned_zone(other_player_id)
+        self.assertEqual(
+            match.open_spaces_in_zone(TeamSide.HOME, new_zone), [],
+        )
+
+        text = cog.apply_meeple_swap(
+            match, TeamSide.HOME, player_id, other_player_id,
+        )
+
+        self.assertEqual(
+            match.board.meeple_position(player_id)[0], new_zone,
+        )
+        self.assertEqual(
+            match.board.meeple_position(other_player_id)[0], other_new_zone,
+        )
+        self.assertEqual(match.exhaustion, {})
+        self.assertIn("No exhaustion cost", text)
+
 
 class DinkySubstitutionTests(unittest.TestCase):
     @classmethod
@@ -244,6 +322,70 @@ class DinkySubstitutionTests(unittest.TestCase):
         self.assertIsNone(
             self.ai.choose_substitution(match, TeamSide.HOME)
         )
+
+
+class ContinueRunBackKickoffFillTests(unittest.IsolatedAsyncioTestCase):
+    """
+    continue_run_back's handling of a goal restart that left the
+    kickoff space empty -- the scenario that used to send match state
+    into a loose-ball detour with a stale active_player_id and trip
+    validate() on the next reload.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+    def build_cog(self) -> D12Ball:
+        cog = object.__new__(D12Ball)
+        cog.games = {}
+        cog.player_catalog = self.catalog
+        cog.team_emojis = {}
+        cog.condition_emojis = {}
+        cog.refresh_match_image = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
+        return cog
+
+    async def test_kickoff_is_filled_before_run_back_finishes(self) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        visiting_midfield = match.visiting.zones[Zone.MIDFIELD]
+        for player_id, space_index in zip(visiting_midfield, (0, 2)):
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, space_index)
+
+        match.restart_after_goal(TeamSide.VISITING)
+        self.assertTrue(match.pending_kickoff_fill)
+        self.assertEqual(match.eligible_ball_handlers(), [])
+
+        match.pending_run_back = True
+        match.pending_run_back_distance = 3
+        match.pending_run_back_turnover = True
+
+        game = SimpleNamespace(match_state=match.to_dict(), game_id="g")
+        interaction = SimpleNamespace(
+            followup=SimpleNamespace(send=mock.AsyncMock())
+        )
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.continue_run_back(interaction, game, match)
+
+        self.assertFalse(match.pending_kickoff_fill)
+        self.assertFalse(match.pending_run_back)
+        self.assertNotEqual(match.eligible_ball_handlers(), [])
+        cog.finish_maneuver_resolution.assert_awaited_once()
+        sent = interaction.followup.send.await_args_list[0].args[0]
+        self.assertIn("start the kickoff", sent)
 
 
 if __name__ == "__main__":

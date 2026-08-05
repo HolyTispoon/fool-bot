@@ -466,8 +466,11 @@ class D12BallComponentTests(unittest.TestCase):
 
         match.swap_field_positions(TeamSide.HOME, first, second)
 
-        self.assertEqual(match.board.meeple_position(first), second_position)
-        self.assertEqual(match.board.meeple_position(second), first_position)
+        # Only the card-to-zone assignment moves -- the meeples stay
+        # exactly where they were until repositioned by hand or by the
+        # next run back.
+        self.assertEqual(match.board.meeple_position(first), first_position)
+        self.assertEqual(match.board.meeple_position(second), second_position)
         self.assertEqual(
             match.home.assigned_zone(first), Zone.VISITORS_GOAL,
         )
@@ -478,7 +481,9 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertEqual(match.exhaustion, {})
         match.validate(self.catalog)
 
-    def test_a_steals_run_back_exemption_follows_the_position(self) -> None:
+    def test_a_substitution_moves_a_run_back_exemption_to_the_replacement(
+        self,
+    ) -> None:
         match = self.standard_match()
         stealer = "orange_blazebulk"
         match.pending_run_back_stays_player_id = stealer
@@ -487,32 +492,113 @@ class D12BallComponentTests(unittest.TestCase):
         # running them back would take the ball carrier off the ball.
         incoming = match.home.player_board.bench[0]
         match.substitute(TeamSide.HOME, stealer, incoming)
+
         self.assertEqual(match.pending_run_back_stays_player_id, incoming)
 
-        # Swapped: the exemption goes to whoever took their place, in
-        # either argument order.
-        match.swap_field_positions(TeamSide.HOME, incoming, "orange_sizzik")
-        self.assertEqual(
-            match.pending_run_back_stays_player_id, "orange_sizzik",
-        )
-        match.swap_field_positions(TeamSide.HOME, incoming, "orange_sizzik")
-        self.assertEqual(match.pending_run_back_stays_player_id, incoming)
-
-    def test_an_untouched_exemption_stays_put(self) -> None:
+    def test_swapping_two_players_does_not_move_a_run_back_exemption(
+        self,
+    ) -> None:
+        # The exemption belongs to a meeple's physical position (see
+        # inherit_run_back_exemption); a swap that only changes card
+        # assignments never touches meeples, so it never touches this
+        # either -- unlike substitute(), which does move a meeple.
         match = self.standard_match()
         match.pending_run_back_stays_player_id = "orange_blazebulk"
 
-        match.substitute(
-            TeamSide.HOME,
-            "orange_kindlefoot",
-            match.home.player_board.bench[0],
-        )
         match.swap_field_positions(
             TeamSide.HOME, "orange_hellguard", "orange_sizzik",
         )
 
         self.assertEqual(
             match.pending_run_back_stays_player_id, "orange_blazebulk",
+        )
+
+    def test_reposition_player_moves_within_their_assigned_zone(
+        self,
+    ) -> None:
+        # Board size 9 gives every zone 3 spaces for 2-2-2's 2 native
+        # players, leaving slack to step into -- board 6 (and board
+        # 7's goal zones) are fully packed instead, covered separately
+        # by test_swap_meeple_positions_resolves_a_fully_packed_zone.
+        match = self.standard_match(board_size=9)
+        first, second = "orange_hellguard", "orange_kindlefoot"
+        match.swap_field_positions(TeamSide.HOME, first, second)
+        self.assertEqual(
+            match.home.assigned_zone(first), Zone.VISITORS_GOAL,
+        )
+
+        open_space = match.open_spaces_in_zone(
+            TeamSide.HOME, Zone.VISITORS_GOAL,
+        )[0]
+        match.reposition_player(TeamSide.HOME, first, open_space)
+
+        self.assertEqual(
+            match.board.meeple_position(first),
+            (Zone.VISITORS_GOAL, open_space),
+        )
+        self.assertEqual(match.exhaustion, {})
+        match.validate(self.catalog)
+
+    def test_reposition_player_rejects_the_wrong_zone(self) -> None:
+        match = self.standard_match()
+        # orange_hellguard is a Home Goal native -- Visitors Goal's
+        # spaces are not their assigned zone.
+        with self.assertRaises(ValueError):
+            match.reposition_player(
+                TeamSide.HOME, "orange_hellguard", 0,
+            )
+        # Confirm the rejection actually came from the zone mismatch,
+        # not an out-of-range space index.
+        home_zone = match.home.assigned_zone("orange_hellguard")
+        self.assertNotEqual(home_zone, Zone.VISITORS_GOAL)
+
+    def test_reposition_player_rejects_an_occupied_space(self) -> None:
+        match = self.standard_match()
+        player_id = match.home.zones[Zone.HOME_GOAL][0]
+        occupied = match.board.meeple_position(player_id)[1]
+
+        with self.assertRaises(ValueError):
+            match.reposition_player(TeamSide.HOME, player_id, occupied)
+
+    def test_swap_meeple_positions_resolves_a_fully_packed_zone(
+        self,
+    ) -> None:
+        # On a 6-board, 2-2-2 leaves each zone exactly full: after
+        # swapping two players' zone assignments, neither zone has an
+        # open space for its new member to step into one at a time,
+        # since whoever they swapped with hasn't physically left yet.
+        # Trading positions directly is the only thing that resolves
+        # this without a full run back.
+        match = self.standard_match(board_size=6)
+        first, second = "orange_hellguard", "orange_kindlefoot"
+        match.swap_field_positions(TeamSide.HOME, first, second)
+        first_zone = match.home.assigned_zone(first)
+        second_zone = match.home.assigned_zone(second)
+        self.assertEqual(match.open_spaces_in_zone(TeamSide.HOME, first_zone), [])
+        self.assertEqual(match.open_spaces_in_zone(TeamSide.HOME, second_zone), [])
+
+        match.swap_meeple_positions(TeamSide.HOME, first, second)
+
+        self.assertEqual(
+            match.board.meeple_position(first)[0], first_zone,
+        )
+        self.assertEqual(
+            match.board.meeple_position(second)[0], second_zone,
+        )
+        self.assertEqual(match.exhaustion, {})
+        match.validate(self.catalog)
+
+    def test_swap_meeple_positions_moves_a_run_back_exemption(self) -> None:
+        match = self.standard_match()
+        stealer = "orange_hellguard"
+        match.pending_run_back_stays_player_id = stealer
+
+        match.swap_meeple_positions(
+            TeamSide.HOME, stealer, "orange_kindlefoot",
+        )
+
+        self.assertEqual(
+            match.pending_run_back_stays_player_id, "orange_kindlefoot",
         )
 
     def test_declaration_is_once_a_half_but_a_reply_is_free(self) -> None:
@@ -1052,6 +1138,84 @@ class D12BallScoreAttemptTests(unittest.TestCase):
                     ),
                 )
                 self.assertEqual(match.ball.speed, 1)
+
+    def test_goal_restart_flags_pending_kickoff_fill_when_the_space_is_empty(
+        self,
+    ) -> None:
+        # Board size 7 gives midfield 3 spaces for only 2 native
+        # players per side, so open play can easily leave the kickoff
+        # space (the true middle) uncovered by the time a goal lands.
+        match = self.build_match(7)
+        visiting_midfield = match.visiting.zones[Zone.MIDFIELD]
+        for player_id, space_index in zip(visiting_midfield, (0, 2)):
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, space_index)
+
+        match.restart_after_goal(TeamSide.VISITING)
+
+        self.assertTrue(match.pending_kickoff_fill)
+        self.assertEqual(match.eligible_ball_handlers(), [])
+
+    def test_goal_restart_does_not_flag_pending_kickoff_fill_when_covered(
+        self,
+    ) -> None:
+        match = self.build_match(6)
+
+        match.restart_after_goal(TeamSide.HOME)
+
+        self.assertFalse(match.pending_kickoff_fill)
+        self.assertNotEqual(match.eligible_ball_handlers(), [])
+
+    def test_kickoff_fill_candidates_prefers_the_nearest_midfielder(
+        self,
+    ) -> None:
+        match = self.build_match(7)
+        visiting_midfield = match.visiting.zones[Zone.MIDFIELD]
+        near, far = visiting_midfield
+        match.board.remove_meeple(near)
+        match.board.remove_meeple(far)
+        match.board.place_meeple(near, Zone.MIDFIELD, 0)
+        match.board.place_meeple(far, Zone.MIDFIELD, 2)
+
+        match.restart_after_goal(TeamSide.VISITING)
+        # Kickoff space on a 7-board is the true middle (index 1),
+        # equidistant from 0 and 2 -- move `far` further out so the
+        # ordering is unambiguous.
+        match.board.remove_meeple(far)
+        match.board.place_meeple(far, Zone.HOME_GOAL, 0)
+
+        candidates = match.kickoff_fill_candidates()
+        self.assertEqual(candidates[0], near)
+        self.assertIn(far, candidates)
+
+    def test_fill_kickoff_moves_the_player_and_clears_the_flag(self) -> None:
+        match = self.build_match(7)
+        visiting_midfield = match.visiting.zones[Zone.MIDFIELD]
+        for player_id, space_index in zip(visiting_midfield, (0, 2)):
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, space_index)
+
+        match.restart_after_goal(TeamSide.VISITING)
+        self.assertTrue(match.pending_kickoff_fill)
+
+        mover = match.kickoff_fill_candidates()[0]
+        distance = match.fill_kickoff(mover)
+
+        self.assertGreater(distance, 0)
+        self.assertEqual(
+            match.board.meeple_position(mover),
+            (match.ball.zone, match.ball.space_index),
+        )
+        self.assertFalse(match.pending_kickoff_fill)
+        self.assertIn(mover, match.eligible_ball_handlers())
+
+    def test_fill_kickoff_rejects_a_player_outside_midfield(self) -> None:
+        match = self.build_match(7)
+        match.restart_after_goal(TeamSide.HOME)
+        outsider = match.home.zones[Zone.HOME_GOAL][0]
+
+        with self.assertRaises(ValueError):
+            match.fill_kickoff(outsider)
 
     def test_missed_score_restart_is_a_turnover_at_speed_one(self) -> None:
         match = self.build_match(7)
