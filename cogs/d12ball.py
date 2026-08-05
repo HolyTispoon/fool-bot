@@ -4290,22 +4290,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         if not candidates:
             await self.refresh_match_image(interaction, game)
-            if self.is_landing_space_empty(match):
-                await self.begin_loose_ball(
-                    interaction,
-                    game,
-                    match,
-                    actual_distance,
-                    lead_in=content,
-                )
-            else:
-                await self.finish_maneuver_resolution(
-                    interaction,
-                    game,
-                    match,
-                    distance_moved=actual_distance,
-                    lead_in=content,
-                )
+            await self.finish_maneuver_resolution(
+                interaction,
+                game,
+                match,
+                distance_moved=actual_distance,
+                lead_in=content,
+            )
             return
 
         await self.refresh_match_image(interaction, game)
@@ -4463,22 +4454,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         if not candidates:
             await self.refresh_match_image(interaction, game)
-            if self.is_landing_space_empty(match):
-                await self.begin_loose_ball(
-                    interaction,
-                    game,
-                    match,
-                    actual_distance,
-                    lead_in=content,
-                )
-            else:
-                await self.finish_maneuver_resolution(
-                    interaction,
-                    game,
-                    match,
-                    distance_moved=actual_distance,
-                    lead_in=content,
-                )
+            await self.finish_maneuver_resolution(
+                interaction,
+                game,
+                match,
+                distance_moved=actual_distance,
+                lead_in=content,
+            )
             return
 
         await self.refresh_match_image(interaction, game)
@@ -4515,6 +4497,58 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     def is_landing_space_empty(self, match: MatchState) -> bool:
         return not match.board.spaces[match.ball.zone][match.ball.space_index]
+
+    async def check_for_loose_ball(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        distance_moved: int,
+        lead_in: str = "",
+    ) -> bool:
+        """
+        The one check every maneuver-effect path runs through, via
+        finish_maneuver_resolution: does the possessing team actually
+        have a player on the ball's space? If not, this detours into
+        whatever loose-ball flow applies instead of letting the turn
+        proceed with nobody eligible to act -- returns True when it
+        took that detour, so the caller stops instead of continuing.
+        """
+        if match.eligible_ball_handlers():
+            return False
+
+        if self.is_landing_space_empty(match):
+            await self.begin_loose_ball(
+                interaction, game, match, distance_moved, lead_in=lead_in,
+            )
+            return True
+
+        # Not empty, but nobody from the possessing team is there --
+        # an opposing player is already standing on the ball. Clean,
+        # uncontested turnover: no movement, no skill test.
+        new_side = match.defending_side()
+        recoverer_id = match.board.spaces[match.ball.zone][
+            match.ball.space_index
+        ][0]
+        player = self.get_player_definition(recoverer_id)
+        match.set_possession(new_side)
+        match.ball.speed = 1
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+        await interaction.followup.send(
+            f"{prefix}# Turnover!\n"
+            f"{format_role_bracket(player, self.team_emojis)} is already "
+            f"there -- {format_team_side_label(match.setup_for_side(new_side))} "
+            "wins the loose ball uncontested."
+        )
+        await self.refresh_match_image(interaction, game)
+        await self.begin_run_back(
+            interaction, game, match,
+            distance_moved=distance_moved, turnover_occurred=True,
+        )
+        return True
 
     def loose_ball_candidates(
         self,
@@ -5860,7 +5894,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         function's own first message instead of being sent separately,
         so a deterministic effect (no further human choice in between)
         reads as one message rather than a chain of them.
+
+        Checked first, before the clock moves: does the possessing team
+        actually have a player on the ball's space? If the maneuver left
+        it somewhere they don't -- an empty space, or one only the other
+        team occupies -- this detours into the loose-ball flow instead,
+        which re-enters this function itself once it's settled.
         """
+        if await self.check_for_loose_ball(
+            interaction, game, match, distance_moved, lead_in=lead_in,
+        ):
+            return
+
         entered_last_possession = match.advance_time(distance_moved)
         if entered_last_possession:
             prefix = f"{lead_in}\n\n" if lead_in else ""
