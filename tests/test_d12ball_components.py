@@ -5,7 +5,7 @@ from unittest import mock
 
 from PIL import Image, ImageFont
 
-from cogs.d12ball import D12Ball
+from cogs.d12ball import HIGH_PASS_CONTEST_HEADLINE, D12Ball
 from d12ball.components import (
     AssignmentEdge,
     AttackDirection,
@@ -1462,6 +1462,352 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Block Deflect happened.", announcement)
         self.assertIn("# Turnover!", announcement)
         self.assertIn("uncontested", announcement)
+
+
+class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
+    """
+    Post-playtest revision: Low Pass has no fixed distance (0-2 spaces
+    to a teammate, either direction) and High Pass has a 2-4 space
+    choice instead of a fixed 2. These drive low_pass_candidates(),
+    apply_low_pass(), apply_high_pass() and the Fullback's Block
+    Deflect bonus directly against a real MatchState, mocking out only
+    the Discord-facing/persistence side effects -- the same pattern
+    D12BallCheckForLooseBallTests uses.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_cog(self) -> D12Ball:
+        cog = object.__new__(D12Ball)
+        cog.games = {}
+        cog.player_catalog = self.catalog
+        cog.team_emojis = {}
+        cog.refresh_match_image = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
+        cog.offer_scoring_attempt_choice = mock.AsyncMock()
+        cog.begin_loose_ball = mock.AsyncMock()
+        cog.begin_shooter_choice = mock.AsyncMock()
+        return cog
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.SLIME,
+            visiting_team=Team.TEAL,
+        )
+
+    def clear_board(self, match: MatchState) -> None:
+        for player_id in match.home.field_players + match.visiting.field_players:
+            match.board.remove_meeple(player_id, required=False)
+
+    def player_with_role(
+        self, match: MatchState, side: TeamSide, role: PlayerRole,
+    ) -> str:
+        for player_id in match.setup_for_side(side).field_players:
+            if self.catalog.player_by_id(player_id).role == role:
+                return player_id
+        raise AssertionError(f"no {role} fielded for {side}")
+
+    # -- low_pass_candidates ------------------------------------------
+
+    def test_low_pass_candidates_only_teammate_occupied_spaces(self) -> None:
+        match = self.build_match()
+        self.clear_board(match)
+        home_players = match.home.field_players
+        behind, here, ahead = home_players[0], home_players[1], home_players[2]
+        visitor = match.visiting.field_players[0]
+
+        match.move_meeple(behind, Zone.HOME_GOAL, 2)  # flat 2 (distance -2)
+        match.move_meeple(here, Zone.MIDFIELD, 1)  # flat 4 (distance 0, ball here)
+        # flat 3 (distance -1) and flat 5 (distance +1, opponent only)
+        # are deliberately left without a home teammate.
+        match.move_meeple(visitor, Zone.MIDFIELD, 2)
+        match.move_meeple(ahead, Zone.VISITORS_GOAL, 0)  # flat 6 (distance +2)
+
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+
+        cog = self.build_cog()
+        self.assertEqual(
+            cog.low_pass_candidates(match),
+            [(-2, behind), (0, here), (2, ahead)],
+        )
+
+    def test_low_pass_candidates_excludes_distances_clamped_off_the_board(
+        self,
+    ) -> None:
+        match = self.build_match()
+        self.clear_board(match)
+        handler = match.home.field_players[0]
+        match.move_meeple(handler, Zone.HOME_GOAL, 0)  # the board's own edge
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.HOME_GOAL, 0)
+
+        cog = self.build_cog()
+        # -1 and -2 would go off the left edge and clamp back to the
+        # handler's own space -- not real 1/2-space destinations, so
+        # they must not appear even though a teammate is standing
+        # there (as distance 0).
+        self.assertEqual(cog.low_pass_candidates(match), [(0, handler)])
+
+    # -- apply_low_pass ------------------------------------------------
+
+    async def test_apply_low_pass_moves_ball_for_non_winger(self) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.HOME_GOAL, 0)
+        match.ball.speed = 3
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_low_pass(interaction, game, match, 2)
+
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
+        )
+        self.assertEqual(match.ball.speed, 4)
+        cog.offer_scoring_attempt_choice.assert_not_awaited()
+        cog.finish_maneuver_resolution.assert_awaited_once()
+        _, kwargs = cog.finish_maneuver_resolution.await_args
+        self.assertEqual(kwargs["distance_moved"], 2)
+        self.assertIn("moves 2 spaces forward", kwargs["lead_in"])
+
+    async def test_apply_low_pass_zero_distance_still_costs_minimum_time(
+        self,
+    ) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.ball.speed = 1
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_low_pass(interaction, game, match, 0)
+
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 1),
+        )
+        self.assertEqual(match.ball.speed, 2)
+        _, kwargs = cog.finish_maneuver_resolution.await_args
+        self.assertEqual(kwargs["distance_moved"], 1)
+        self.assertIn("stays with the same player", kwargs["lead_in"])
+
+    async def test_apply_low_pass_offers_scoring_attempt_for_winger(
+        self,
+    ) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.WINGER,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        receiver = next(
+            pid for pid in match.home.field_players if pid != handler
+        )
+        match.move_meeple(receiver, Zone.MIDFIELD, 2)
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_low_pass(interaction, game, match, 1)
+
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 2),
+        )
+        cog.finish_maneuver_resolution.assert_not_awaited()
+        cog.offer_scoring_attempt_choice.assert_awaited_once()
+        _, kwargs = cog.offer_scoring_attempt_choice.await_args
+        self.assertEqual(kwargs["shooter_id"], receiver)
+        self.assertEqual(kwargs["decline_kind"], "regular_pass")
+        self.assertEqual(kwargs["distance_moved"], 1)
+        self.assertIn("Winger ability", kwargs["lead_in"])
+
+    # -- apply_high_pass ------------------------------------------------
+
+    async def test_apply_high_pass_distance_two_overshoot_offers_setup(
+        self,
+    ) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 2 overshoots
+        shooter = match.home.field_players[0]
+        match.move_meeple(shooter, Zone.VISITORS_GOAL, 2)  # flat 8, landing
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_high_pass(interaction, game, match, 2)
+
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index),
+            (Zone.VISITORS_GOAL, 2),
+        )
+        cog.offer_scoring_attempt_choice.assert_awaited_once()
+        _, kwargs = cog.offer_scoring_attempt_choice.await_args
+        self.assertEqual(kwargs["shooter_id"], shooter)
+        self.assertEqual(kwargs["decline_kind"], "skill_test")
+        cog.begin_loose_ball.assert_not_awaited()
+
+    async def test_apply_high_pass_distance_two_without_a_teammate_forces_skill_test(
+        self,
+    ) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.HOME_GOAL, 0)  # flat 0, plenty of room,
+        # and nobody is standing on the landing space (flat 2).
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_high_pass(interaction, game, match, 2)
+
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
+        )
+        cog.offer_scoring_attempt_choice.assert_not_awaited()
+        cog.begin_loose_ball.assert_awaited_once()
+        _, kwargs = cog.begin_loose_ball.await_args
+        self.assertEqual(kwargs["headline"], HIGH_PASS_CONTEST_HEADLINE)
+
+    async def test_apply_high_pass_distance_two_offers_setup_without_overshoot(
+        self,
+    ) -> None:
+        """
+        The scoring-opportunity offer no longer requires the pass to
+        overshoot the field -- an exact 2-space pass that lands on a
+        teammate mid-board offers it too, same as one that reaches the
+        edge.
+        """
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.HOME_GOAL, 0)  # flat 0, plenty of room
+        shooter = match.home.field_players[0]
+        match.move_meeple(shooter, Zone.HOME_GOAL, 2)  # flat 2, landing space
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_high_pass(interaction, game, match, 2)
+
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
+        )
+        cog.begin_loose_ball.assert_not_awaited()
+        cog.offer_scoring_attempt_choice.assert_awaited_once()
+        _, kwargs = cog.offer_scoring_attempt_choice.await_args
+        self.assertEqual(kwargs["shooter_id"], shooter)
+        self.assertEqual(kwargs["decline_kind"], "skill_test")
+
+    async def test_apply_high_pass_distance_three_never_offers_setup(
+        self,
+    ) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7
+        # A shooter candidate is standing right where a 3-space pass
+        # would overshoot to -- still shouldn't matter at distance 3.
+        shooter = match.home.field_players[0]
+        match.move_meeple(shooter, Zone.VISITORS_GOAL, 2)
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_high_pass(interaction, game, match, 3)
+
+        cog.offer_scoring_attempt_choice.assert_not_awaited()
+        cog.begin_loose_ball.assert_awaited_once()
+
+    async def test_apply_high_pass_fullback_ability_note_at_distance_four(
+        self,
+    ) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.FULLBACK,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.HOME_GOAL, 0)  # flat 0, no overshoot at 4
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_high_pass(interaction, game, match, 4)
+
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 1),
+        )
+        cog.begin_loose_ball.assert_awaited_once()
+        _, kwargs = cog.begin_loose_ball.await_args
+        self.assertIn("Fullback ability", kwargs["lead_in"])
+
+    # -- Block Deflect's Fullback bonus ---------------------------------
+
+    async def test_resolve_block_deflect_fullback_deflects_two_spaces(
+        self,
+    ) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)  # flat 4, room to spare
+        defender = self.player_with_role(
+            match, TeamSide.VISITING, PlayerRole.FULLBACK,
+        )
+        match.challenger_id = defender
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_block_deflect(interaction, game, match)
+
+        # HOME attacks left-to-right, so "back" is toward lower flat
+        # indices: flat 4 - 2 = flat 2, HOME_GOAL space 2.
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
+        )
+        cog.finish_maneuver_resolution.assert_awaited_once()
+        _, kwargs = cog.finish_maneuver_resolution.await_args
+        self.assertIn("Fullback ability", kwargs["lead_in"])
+        self.assertIn("2 spaces back", kwargs["lead_in"])
 
 
 class D12BallFontTests(unittest.TestCase):

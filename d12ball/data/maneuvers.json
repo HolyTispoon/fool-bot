@@ -1,5 +1,5 @@
 {
-  "data_version": 3,
+  "data_version": 4,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1487033386",
   "maneuvers": {
     "offense": [
@@ -11,7 +11,7 @@
           2
         ],
         "defeats": "Pressure",
-        "effect": "Ball moves 1 space forward or backward. Ball speed increases 1.",
+        "effect": "Ball moves to a teammates 0-2 spaces away. Ball speed increases 1.",
         "time": "distance traveled (1-2 space minutes)"
       },
       {
@@ -33,8 +33,8 @@
           6
         ],
         "defeats": "Steal Intercept",
-        "effect": "Ball moves forward 2 spaces. If ball reaches goal, set up a scoring opportunity.",
-        "time": "distance traveled (2-3 space minutes)"
+        "effect": "Ball moves forward 2-3 spaces. May set up a scoring opportunity if it moved 2, else reciving player must win a skill test to keep posession (as with loose ball).",
+        "time": "distance traveled (2-4 space minutes)"
       }
     ],
     "defense": [
@@ -57,7 +57,7 @@
           4
         ],
         "defeats": "Low Pass",
-        "effect": "Turnover. Defender and ball move back 1 space. Manipulate ball speed up to defensive skill.",
+        "effect": "Turnover. Defender and ball move back 1 space. Manipulate ball speed up to defensive skill after turnover.",
         "time": "1 space minute"
       },
       {
