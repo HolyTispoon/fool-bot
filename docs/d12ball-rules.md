@@ -184,28 +184,36 @@ transcription itself. What remains below is what upstream still does not say.
   forward -- **and** possession flips in addition. **Unless that same roll concedes an own
   goal**, in which case the own goal takes priority and the steal doesn't also happen -- see
   [Own goal trigger](#own-goal-trigger) below.
-- **A pass landing on an empty space (Low Pass or High Pass) is a contested loose ball, not
-  a clean reception.** It triggers a skill test: starting with the player who last had
-  possession, each side picks a player of their team that is in the space where the ball is
-  landing. That player is moved to that space, gains exhaustion tokens **equal to the
-  number of spaces traveled** to get there, and participates in a skill test. The player who
-  last had possession is considered the offense and their player uses offensive skill (the
-  other side is defense). Both players remain in the landing space regardless of who wins;
-  the winner of the test gains possession.
+- **Loose ball is a general check after every maneuver resolves, not just a pass landing
+  on an empty space.** Once a maneuver settles, check whether the ball's space has a
+  player from the team that has possession. If it doesn't, that triggers a loose ball,
+  resolved one of four ways:
+  - **Only an opposing player is on that exact space:** they win the ball outright -- an
+    immediate, uncontested turnover. No skill test and no movement, since that player
+    was already standing there.
+  - **The space is empty, but both teams have a player in the same zone:** each coach
+    picks one of their players in that zone to contest it. Both move to the ball's
+    space and gain exhaustion tokens **equal to the number of spaces traveled**, then
+    run a skill test: the team that last held possession uses offensive skill, the
+    other team uses defensive skill. Both players remain in the space regardless of who
+    wins; the winner of the test gains possession.
 
-  > Superseded -- upstream's own text (not yet re-pulled) says this player "gains 1
-  > exhaustion", a flat token rather than one per space traveled. Confirmed by the author:
-  > it's distance-traveled, the same rate the one-team recovery below and a maneuver's
-  > walked-in challenger both use.
-- **If only one team has a player in the landing space's zone, that team gains possession
-  without a skill test.** The coach picks which of their players in that zone makes the
-  recovery; that player moves to the ball's space and gains exhaustion tokens equal to the
-  number of spaces traveled -- the same rate as the contested case above.
-- **"Out of bounds": neither team has a player in the landing zone.** The team that last had
-  possession loses it -- a turnover. All displaced players run back, and the team that just
-  gained possession must get one of their fielded players (from anywhere on the field, not
-  just that zone) onto the ball's space -- the coach picks who, and the bot charges the same
-  distance-traveled exhaustion as the one-team case above.
+    > Superseded -- upstream's own text (not yet re-pulled) says this player "gains 1
+    > exhaustion", a flat token rather than one per space traveled. Confirmed by the
+    > author: it's distance-traveled, the same rate the one-team recovery below and a
+    > maneuver's walked-in challenger both use.
+  - **The space is empty and only one team has a player in that zone:** that team gains
+    possession without a skill test. The coach picks which of their players in that
+    zone makes the recovery; that player moves to the ball's space and gains
+    exhaustion tokens equal to the number of spaces traveled. If that's the team that
+    didn't have possession, it's a turnover: players run back, and ball speed resets to
+    1.
+  - **"Out of bounds": neither team has a player in that zone.** The team that last had
+    possession loses it -- a turnover, ball speed resets to 1. All displaced players
+    run back, and the team that just gained possession must get one of their fielded
+    players (from anywhere on the field, not just that zone) onto the ball's space --
+    the coach picks who, and the bot charges the same distance-traveled exhaustion as
+    the one-team case above.
 
 ### Own goal trigger
 

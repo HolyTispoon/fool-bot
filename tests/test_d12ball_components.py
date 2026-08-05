@@ -1,9 +1,11 @@
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 from PIL import Image, ImageFont
 
+from cogs.d12ball import D12Ball
 from d12ball.components import (
     AssignmentEdge,
     AttackDirection,
@@ -1099,6 +1101,135 @@ class D12BallManeuverTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
             self.assertEqual(image.width, 480)
+
+
+class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
+    """
+    check_for_loose_ball is the general post-maneuver check every
+    maneuver funnels through via finish_maneuver_resolution -- these
+    drive it directly against a real MatchState, mocking out only the
+    Discord-facing/persistence side effects, the same way
+    D12BallRunBackAnnouncementTests exercises begin_run_back.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_cog(self) -> D12Ball:
+        cog = object.__new__(D12Ball)
+        cog.games = {}
+        cog.player_catalog = self.catalog
+        cog.team_emojis = {}
+        cog.refresh_match_image = mock.AsyncMock()
+        cog.begin_loose_ball = mock.AsyncMock()
+        cog.begin_run_back = mock.AsyncMock()
+        return cog
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.SLIME,
+            visiting_team=Team.TEAL,
+        )
+
+    async def test_does_nothing_when_the_possessing_team_is_already_there(
+        self,
+    ) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        # Sanity: kickoff drops the ball where a home player already
+        # stands, so this is the ordinary case -- no detour.
+        self.assertTrue(match.eligible_ball_handlers())
+
+        interaction = SimpleNamespace(
+            followup=SimpleNamespace(send=mock.AsyncMock())
+        )
+        game = SimpleNamespace(match_state=None)
+
+        with mock.patch("cogs.d12ball.save_games"):
+            detoured = await cog.check_for_loose_ball(
+                interaction, game, match, distance_moved=1,
+            )
+
+        self.assertFalse(detoured)
+        cog.begin_loose_ball.assert_not_awaited()
+        cog.begin_run_back.assert_not_awaited()
+        interaction.followup.send.assert_not_awaited()
+
+    async def test_detours_into_begin_loose_ball_when_the_space_is_empty(
+        self,
+    ) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        for player_id in list(match.board.spaces[Zone.MIDFIELD][2]):
+            match.board.remove_meeple(player_id)
+        match.set_ball_space(Zone.MIDFIELD, 2)
+        self.assertFalse(match.eligible_ball_handlers())
+
+        interaction = SimpleNamespace(
+            followup=SimpleNamespace(send=mock.AsyncMock())
+        )
+        game = SimpleNamespace(match_state=None)
+
+        with mock.patch("cogs.d12ball.save_games"):
+            detoured = await cog.check_for_loose_ball(
+                interaction, game, match, distance_moved=2, lead_in="Lead-in.",
+            )
+
+        self.assertTrue(detoured)
+        cog.begin_loose_ball.assert_awaited_once_with(
+            interaction, game, match, 2, lead_in="Lead-in.",
+        )
+        cog.begin_run_back.assert_not_awaited()
+
+    async def test_opposing_player_alone_on_the_space_wins_it_uncontested(
+        self,
+    ) -> None:
+        cog = self.build_cog()
+        match = self.build_match()
+        # Index 2 is never a home space under the standard formation
+        # (home only ever occupies index 0 or 1), so clearing it and
+        # placing a single visiting player there leaves the ball on a
+        # space with only an opposing player -- not empty, but not the
+        # possessing team either.
+        for player_id in list(match.board.spaces[Zone.MIDFIELD][2]):
+            match.board.remove_meeple(player_id)
+        visiting_player_id = match.visiting.field_players[0]
+        match.move_meeple(visiting_player_id, Zone.MIDFIELD, 2)
+        match.set_ball_space(Zone.MIDFIELD, 2)
+        self.assertEqual(
+            match.board.spaces[Zone.MIDFIELD][2], [visiting_player_id],
+        )
+        self.assertFalse(match.eligible_ball_handlers())
+        self.assertEqual(match.ball.possession, TeamSide.HOME)
+
+        interaction = SimpleNamespace(
+            followup=SimpleNamespace(send=mock.AsyncMock())
+        )
+        game = SimpleNamespace(match_state=None)
+
+        with mock.patch("cogs.d12ball.save_games"):
+            detoured = await cog.check_for_loose_ball(
+                interaction, game, match, distance_moved=1,
+                lead_in="Block Deflect happened.",
+            )
+
+        self.assertTrue(detoured)
+        self.assertEqual(match.ball.possession, TeamSide.VISITING)
+        self.assertEqual(match.ball.speed, 1)
+        cog.begin_loose_ball.assert_not_awaited()
+        cog.begin_run_back.assert_awaited_once_with(
+            interaction, game, match,
+            distance_moved=1, turnover_occurred=True,
+        )
+        announcement = interaction.followup.send.await_args.args[0]
+        self.assertIn("Block Deflect happened.", announcement)
+        self.assertIn("# Turnover!", announcement)
+        self.assertIn("uncontested", announcement)
 
 
 class D12BallFontTests(unittest.TestCase):
