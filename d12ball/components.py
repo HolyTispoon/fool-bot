@@ -467,6 +467,7 @@ class MatchState:
     pending_run_back_distance: int = 1
     pending_run_back_turnover: bool = True
     pending_run_back_stays_player_id: Optional[str] = None
+    pending_run_back_speed_choice: bool = False
     pending_shot_is_set_up: bool = False
     pending_loose_ball: bool = False
     pending_loose_ball_distance: int = 1
@@ -880,6 +881,7 @@ class MatchState:
         self.pending_run_back_distance = 1
         self.pending_run_back_turnover = True
         self.pending_run_back_stays_player_id = None
+        self.pending_run_back_speed_choice = False
         self.pending_shot_is_set_up = False
         self.pending_loose_ball = False
         self.pending_loose_ball_distance = 1
@@ -1515,6 +1517,9 @@ class MatchState:
             "pending_run_back_stays_player_id": (
                 self.pending_run_back_stays_player_id
             ),
+            "pending_run_back_speed_choice": (
+                self.pending_run_back_speed_choice
+            ),
             "pending_shot_is_set_up": self.pending_shot_is_set_up,
             "pending_loose_ball": self.pending_loose_ball,
             "pending_loose_ball_distance": self.pending_loose_ball_distance,
@@ -1592,6 +1597,9 @@ class MatchState:
             ),
             pending_run_back_stays_player_id=data.get(
                 "pending_run_back_stays_player_id"
+            ),
+            pending_run_back_speed_choice=data.get(
+                "pending_run_back_speed_choice", False
             ),
             pending_shot_is_set_up=data.get(
                 "pending_shot_is_set_up", False

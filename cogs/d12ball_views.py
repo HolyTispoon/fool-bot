@@ -1342,6 +1342,14 @@ class SkillTestView(SafeView):
             )
             return
 
+        # Acknowledge immediately, before the dice image is rendered.
+        # Discord invalidates the interaction token if the first
+        # response doesn't arrive within 3 seconds, which turns into a
+        # NotFound("Unknown interaction") on edit_message farther down
+        # if rendering (or anything else on the way there) is slow --
+        # deferring buys the rest of this method the usual 15 minutes.
+        await interaction.response.defer()
+
         offense_player = self.cog.get_player_definition(
             match.active_player_id,
         )
@@ -1454,7 +1462,7 @@ class SkillTestView(SafeView):
                     ),
                 ]
             )
-            await interaction.response.edit_message(
+            await interaction.edit_original_response(
                 content=(
                     f"{breakdown}\n\n"
                     f"**It's a tie ({offense_total}-{defense_total})!** "
@@ -1490,7 +1498,7 @@ class SkillTestView(SafeView):
             if player.player_id in match.exhausted
         ]
 
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             content=(
                 f"{breakdown}\n\n"
                 f"**{winner_name}** wins the skill test! {winner_mention} "
@@ -2100,19 +2108,20 @@ class SpeedDeltaChoiceView(SafeView):
             )
             return
 
-        # Steal Intercept has already flipped possession by the time
-        # this view is shown; Dribble Advance never flips it.
-        after_turnover = match.defense_maneuver == "Steal Intercept" and (
+        # Steal Intercept has already flipped possession (and run the
+        # defense back) by the time this view is shown; Dribble
+        # Advance never triggers a turnover at all.
+        turnover_occurred = match.defense_maneuver == "Steal Intercept" and (
             self.skill_type == "defense"
         )
 
-        await interaction.response.edit_message(
-            content=f"Chose speed **{target_speed}**.",
-            view=None,
-        )
+        # No separate "chose speed N" confirmation -- apply_speed_choice's
+        # own "Ball speed is now N" message says the same thing, so just
+        # drop the buttons and let that be the one message.
+        await interaction.response.edit_message(view=None)
         await self.cog.apply_speed_choice(
-            interaction, game, match, target_speed, after_turnover,
-            player_id=self.player_id,
+            interaction, game, match, target_speed,
+            turnover_occurred=turnover_occurred,
         )
 
 
