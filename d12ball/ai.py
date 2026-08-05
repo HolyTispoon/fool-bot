@@ -44,15 +44,37 @@ class AIStrategy(ABC):
         ...
 
     @abstractmethod
-    def choose_low_pass(self, match: MatchState) -> str:
-        """"forward" or "backward" -- distance is a fixed 1 space, so
-        direction is the only choice."""
+    def choose_low_pass(
+        self,
+        match: MatchState,
+        candidates: list[tuple[int, str]],
+    ) -> int:
+        """Which destination to pass to, as the signed distance (-2 to
+        2, forward positive) from a (distance, teammate_id) candidate
+        list -- Low Pass has no fixed distance, only a 0-2 space reach
+        that must land on a teammate."""
         ...
 
     @abstractmethod
     def choose_dribble_advance_distance(self, match: MatchState) -> int:
         """1 or 2 -- only ever asked of a Playmaker, everyone else
         advances a fixed 1 space with no choice to make."""
+        ...
+
+    @abstractmethod
+    def choose_high_pass_distance(
+        self,
+        match: MatchState,
+        max_distance: int,
+    ) -> int:
+        """2 up to max_distance (3, or 4 for a Fullback)."""
+        ...
+
+    @abstractmethod
+    def choose_scoring_opportunity_attempt(self, match: MatchState) -> bool:
+        """Whether to take an offered scoring-opportunity shot -- a
+        High Pass's own 2-space overshoot, or a Winger's Low Pass --
+        instead of letting the maneuver resolve normally."""
         ...
 
     @abstractmethod
@@ -165,14 +187,34 @@ class DinkyAI(AIStrategy):
             return self.maneuver_catalog.offense_for_die(roll).name
         return self.maneuver_catalog.defense_for_die(roll).name
 
-    def choose_low_pass(self, match: MatchState) -> str:
-        """Always forward -- backward has no advancing benefit."""
-        return "forward"
+    def choose_low_pass(
+        self,
+        match: MatchState,
+        candidates: list[tuple[int, str]],
+    ) -> int:
+        """Always the most forward teammate-occupied space available
+        -- same maximizing spirit as choose_speed_delta. Distance 0 is
+        always a candidate, so this never has nothing to pick."""
+        return max(distance for distance, _ in candidates)
 
     def choose_dribble_advance_distance(self, match: MatchState) -> int:
         """Always take the full 2 spaces -- same maximizing spirit as
         choose_speed_delta."""
         return 2
+
+    def choose_high_pass_distance(
+        self,
+        match: MatchState,
+        max_distance: int,
+    ) -> int:
+        """Always take the longest pass available -- same maximizing
+        spirit as choose_dribble_advance_distance. This never chases
+        the 2-space scoring-opportunity option in favor of distance."""
+        return max_distance
+
+    def choose_scoring_opportunity_attempt(self, match: MatchState) -> bool:
+        """Always take the shot when offered one."""
+        return True
 
     def choose_speed_delta(self, skill: int) -> int:
         """

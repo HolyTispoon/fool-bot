@@ -75,6 +75,16 @@ COIN_EMOJI_NAMES = {
 COIN_EMOJI_FALLBACK = "🪙"
 FULL_IMAGE_BUTTON_LABEL = "View full image"
 
+# A High Pass reuses the loose-ball contest (see begin_loose_ball) even
+# when the landing space isn't empty -- a 3+ space pass, or a declined
+# 2-space one, always makes the receiver win a skill test to keep the
+# ball. This headline replaces begin_loose_ball's default "lands in an
+# empty space" framing, which wouldn't be true here.
+HIGH_PASS_CONTEST_HEADLINE = (
+    "**High Pass:** the receiving player must win a skill test to keep "
+    "possession -- each side may send a nearby player to contest it."
+)
+
 AI_OPPONENT_NAMES = {
     AIOpponent.DINKY: "Dinky AI",
     AIOpponent.DECENT: "Decent AI",
@@ -2295,9 +2305,10 @@ class ScoreAttemptView(SafeView):
 
 class LowPassChoiceView(SafeView):
     """
-    Direction for a won Low Pass -- distance is a fixed 1 space per
-    the rules table, so only direction is a choice. Reconstructible on
-    restart purely from match state (see
+    Which teammate-occupied space to pass to -- Low Pass has no fixed
+    distance anymore, only a 0-2 space reach in either direction that
+    must land on a teammate, so the destination itself is the choice.
+    Reconstructible on restart purely from match state (see
     D12Ball.build_effect_choice_view), the same pattern every other
     persistent view in this cog follows.
     """
@@ -2307,18 +2318,29 @@ class LowPassChoiceView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
-        for direction in ("forward", "backward"):
+        game = cog.games.get(game_id)
+        if game is None or game.match_state is None:
+            return
+        match = cog.load_match_state(game)
+
+        for distance, teammate_id in cog.low_pass_candidates(match):
+            teammate = cog.get_player_definition(teammate_id)
+            if distance == 0:
+                label = f"Hold -- {teammate.name}"
+            else:
+                direction = "forward" if distance > 0 else "back"
+                label = f"{abs(distance)} {direction} -- {teammate.name}"
             button = discord.ui.Button(
-                label=direction.title(),
+                label=label,
                 style=discord.ButtonStyle.primary,
-                custom_id=f"d12ball:low_pass:{game_id}:{direction}",
+                custom_id=f"d12ball:low_pass:{game_id}:{distance}",
             )
 
             async def callback(
                 interaction: discord.Interaction,
-                chosen_direction: str = direction,
+                chosen_distance: int = distance,
             ) -> None:
-                await self.choose(interaction, chosen_direction)
+                await self.choose(interaction, chosen_distance)
 
             button.callback = callback
             self.add_item(button)
@@ -2326,7 +2348,7 @@ class LowPassChoiceView(SafeView):
     async def choose(
         self,
         interaction: discord.Interaction,
-        direction: str,
+        distance: int,
     ) -> None:
         game = self.cog.games.get(self.game_id)
         if game is None or game.match_state is None:
@@ -2347,11 +2369,188 @@ class LowPassChoiceView(SafeView):
             return
 
         await interaction.response.edit_message(
-            content=f"Chose **{direction}**.",
+            content=f"Chose **{distance}**.",
             view=None,
         )
-        await self.cog.apply_low_pass(
-            interaction, game, match, direction, distance=1,
+        await self.cog.apply_low_pass(interaction, game, match, distance)
+
+
+class HighPassChoiceView(SafeView):
+    """
+    Distance for a won High Pass -- 2 or 3 spaces, or up to 4 for a
+    Fullback (their ability extends the max, not the min).
+    Reconstructible on restart purely from match state, the same
+    pattern every other persistent view in this cog follows.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+        game = cog.games.get(game_id)
+        if game is None or game.match_state is None:
+            return
+        match = cog.load_match_state(game)
+        handler = cog.get_player_definition(match.active_player_id)
+        max_distance = 4 if handler.role == PlayerRole.FULLBACK else 3
+
+        for distance in range(2, max_distance + 1):
+            ability_note = " (Fullback ability)" if distance == 4 else ""
+            button = discord.ui.Button(
+                label=f"{distance} spaces{ability_note}",
+                style=discord.ButtonStyle.primary,
+                custom_id=f"d12ball:high_pass:{game_id}:{distance}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_distance: int = distance,
+            ) -> None:
+                await self.choose(interaction, chosen_distance)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        distance: int,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+        match = self.cog.load_match_state(game)
+
+        if not self.cog.user_controls_possession(
+            interaction.user.id, game, match,
+        ):
+            await interaction.response.send_message(
+                "Only the player resolving this effect can choose.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.edit_message(
+            content=f"Chose **{distance} spaces**.",
+            view=None,
+        )
+        await self.cog.apply_high_pass(interaction, game, match, distance)
+
+
+class SetUpAttemptChoiceView(SafeView):
+    """
+    Whether to take an offered scoring-opportunity shot -- a High
+    Pass's own 2-space overshoot, or a Winger's Low Pass ability --
+    or let the maneuver resolve as normal instead. `decline_kind`
+    says what "normal" means for whichever maneuver offered this:
+    "skill_test" (High Pass, same contest as a loose ball) or
+    "regular_pass" (a Winger's Low Pass).
+
+    Not reconstructible on restart the way the rest of this cog's
+    views are -- match state doesn't record which maneuver offered
+    this choice or who the shooter is, the same narrow crash-window
+    gap D12Ball.build_effect_choice_view already accepts for a
+    Playmaker's Dribble Advance.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        shooter_id: str,
+        decline_kind: str,
+        distance_moved: int,
+    ):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.shooter_id = shooter_id
+        self.decline_kind = decline_kind
+        self.distance_moved = distance_moved
+
+        shooter = cog.get_player_definition(shooter_id)
+        attempt_button = discord.ui.Button(
+            label=f"{shooter.name} takes the shot",
+            style=discord.ButtonStyle.danger,
+            custom_id=f"d12ball:setup_attempt:{game_id}:attempt",
+        )
+        attempt_button.callback = self.attempt
+        self.add_item(attempt_button)
+
+        decline_label = (
+            "Decline -- skill test for possession"
+            if decline_kind == "skill_test"
+            else "Decline -- resolve as a normal pass"
+        )
+        decline_button = discord.ui.Button(
+            label=decline_label,
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:setup_attempt:{game_id}:decline",
+        )
+        decline_button.callback = self.decline
+        self.add_item(decline_button)
+
+    async def attempt(self, interaction: discord.Interaction) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+        match = self.cog.load_match_state(game)
+
+        if not self.cog.user_controls_possession(
+            interaction.user.id, game, match,
+        ):
+            await interaction.response.send_message(
+                "Only the player resolving this effect can choose.",
+                ephemeral=True,
+            )
+            return
+
+        shooter = self.cog.get_player_definition(self.shooter_id)
+        await interaction.response.edit_message(
+            content=(
+                f"{format_role_bracket(shooter, self.cog.team_emojis)} "
+                "takes the shot."
+            ),
+            view=None,
+        )
+        await self.cog.start_set_up_shot(
+            interaction, game, match, self.shooter_id,
+        )
+
+    async def decline(self, interaction: discord.Interaction) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+        match = self.cog.load_match_state(game)
+
+        if not self.cog.user_controls_possession(
+            interaction.user.id, game, match,
+        ):
+            await interaction.response.send_message(
+                "Only the player resolving this effect can choose.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.edit_message(
+            content="Declined the scoring opportunity.",
+            view=None,
+        )
+        await self.cog.decline_scoring_attempt(
+            interaction, game, match, self.distance_moved, self.decline_kind,
         )
 
 
@@ -4116,17 +4315,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         for a decisively-won maneuver, purely from match state -- used
         both to restore it on a bot restart and (implicitly, by the
         same logic) to post it the first time. Returns None for a
-        maneuver that needs no choice (High Pass, Block Deflect,
-        Pressure) or an unrecognized winner -- those resolve
-        synchronously and should never actually leave this state
-        persisted except in a narrow crash window, which falls back to
-        PlayerActionView.
+        maneuver that needs no choice (Block Deflect, Pressure) or an
+        unrecognized winner -- those resolve synchronously and should
+        never actually leave this state persisted except in a narrow
+        crash window, which falls back to PlayerActionView.
 
         A Playmaker's Dribble Advance has two possible pending prompts
         (distance, then speed) with nothing in match state to tell
         them apart, so a restart in that narrow window guesses the
         first one -- the same class of crash-window gap as the
-        unrecognized-winner case above.
+        unrecognized-winner case above. A won Low Pass or High Pass
+        that has moved on to its scoring-opportunity attempt/decline
+        choice (SetUpAttemptChoiceView) has the same gap: this always
+        reconstructs the first-stage distance choice instead.
         """
         outcome = self.maneuver_catalog.resolve(
             match.offense_maneuver, match.defense_maneuver,
@@ -4140,6 +4341,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         if winner_name == "Low Pass":
             return LowPassChoiceView(self, game_id)
+        if winner_name == "High Pass":
+            return HighPassChoiceView(self, game_id)
         if winner_name == "Dribble Advance":
             handler = self.get_player_definition(match.active_player_id)
             if handler.role == PlayerRole.PLAYMAKER:
@@ -4205,6 +4408,50 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     # -- Low Pass --------------------------------------------------
 
+    def low_pass_candidates(
+        self,
+        match: MatchState,
+    ) -> list[tuple[int, str]]:
+        """
+        Valid Low Pass destinations: 0-2 spaces forward or backward
+        from the ball, wherever a teammate is standing -- the ball can
+        only be passed to a space someone is already on. Distance 0
+        (the passer's own space) is always included. At most one
+        teammate can occupy any given space, so this is at most one
+        entry per distance, ordered back-to-front for display.
+        """
+        offense_side = match.ball.possession
+        offense_players = set(match.setup_for_side(offense_side).field_players)
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+
+        candidates: list[tuple[int, str]] = []
+        for distance in range(-2, 3):
+            target_flat = match.relative_flat_index(
+                origin_flat, offense_side, distance,
+            )
+            # relative_flat_index() clamps to the board edge -- if
+            # that shortened the move, this distance doesn't reach an
+            # actual space and isn't a candidate.
+            if abs(target_flat - origin_flat) != abs(distance):
+                continue
+            zone, space_index = match.board.position_at_flat_index(
+                target_flat,
+            )
+            occupants = match.board.spaces[zone][space_index]
+            teammate_id = next(
+                (
+                    player_id
+                    for player_id in occupants
+                    if player_id in offense_players
+                ),
+                None,
+            )
+            if teammate_id is not None:
+                candidates.append((distance, teammate_id))
+        return candidates
+
     async def resolve_low_pass(
         self,
         interaction: discord.Interaction,
@@ -4212,10 +4459,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         if self.side_controlled_by_ai(game, match, "offense"):
-            direction = self.get_ai_strategy(game).choose_low_pass(match)
-            await self.apply_low_pass(
-                interaction, game, match, direction, distance=1
+            candidates = self.low_pass_candidates(match)
+            distance = self.get_ai_strategy(game).choose_low_pass(
+                match, candidates,
             )
+            await self.apply_low_pass(interaction, game, match, distance)
             return
 
         mention = format_player_with_team(
@@ -4239,77 +4487,59 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
-        direction: str,
         distance: int,
     ) -> None:
         offense_side = match.ball.possession
         handler = self.get_player_definition(match.active_player_id)
 
-        # Role ability -- Fullback: the ball goes 1 space further on
-        # any pass they make, low or high.
-        fullback_bonus = handler.role == PlayerRole.FULLBACK
-        if fullback_bonus:
-            distance += 1
-        signed_distance = distance if direction == "forward" else -distance
-
-        # An "overshoot" is the deflection/pass being clamped short of
-        # the requested distance, i.e. it would have pushed the ball
-        # past the space closest to a goal (there's no space beyond
-        # that one to land on) -- own-goal risk backward, a scoring
-        # opportunity forward.
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
-        target_flat = match.relative_flat_index(
-            origin_flat, offense_side, signed_distance,
-        )
-        overshot = abs(target_flat - origin_flat) < distance
-
-        actual_distance = match.move_ball_relative(offense_side, signed_distance)
+        actual_distance = match.move_ball_relative(offense_side, distance)
         match.ball.speed = min(12, match.ball.speed + 1)
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        space_word = "space" if actual_distance == 1 else "spaces"
-        ability_note = " (+1 space, Fullback ability)" if fullback_bonus else ""
+        if distance == 0:
+            movement_note = "stays with the same player"
+        else:
+            direction = "forward" if distance > 0 else "backward"
+            space_word = "space" if actual_distance == 1 else "spaces"
+            movement_note = f"moves {actual_distance} {space_word} {direction}"
         content = (
-            f"**Low Pass:** the ball moves {actual_distance} {space_word} "
-            f"{direction}{ability_note}. Ball speed is now {match.ball.speed}."
+            f"**Low Pass:** the ball {movement_note}. "
+            f"Ball speed is now {match.ball.speed}."
         )
+        # Time always advances at least 1 space minute, even on a
+        # distance-0 hold.
+        distance_moved = max(actual_distance, 1)
 
-        # Role ability -- Winger: can also set up a scoring opportunity
-        # with a forward Low Pass, same overshoot-and-occupied-space
-        # rule as a High Pass normally uses. A backward overshoot has
-        # no special consequence of its own -- own-goal risk no longer
-        # applies to Low Pass at all, only Pressure triggers it now.
-        candidates = []
-        if direction == "forward" and overshot and handler.role == PlayerRole.WINGER:
-            candidates = self.scoring_opportunity_candidates(
-                match, offense_side,
-            )
-
-        if not candidates:
+        # Role ability -- Winger: the receiving player may attempt a
+        # scoring opportunity right where the pass lands, whatever the
+        # distance -- unlike High Pass's set-up, this doesn't require
+        # reaching the space nearest the goal.
+        if handler.role != PlayerRole.WINGER:
             await self.refresh_match_image(interaction, game)
             await self.finish_maneuver_resolution(
                 interaction,
                 game,
                 match,
-                distance_moved=actual_distance,
+                distance_moved=distance_moved,
                 lead_in=content,
             )
             return
 
+        receiver_id = match.eligible_ball_handlers()[0]
         await self.refresh_match_image(interaction, game)
-        await self.begin_shooter_choice(
+        await self.offer_scoring_attempt_choice(
             interaction,
             game,
             match,
-            candidates,
+            shooter_id=receiver_id,
+            distance_moved=distance_moved,
             lead_in=(
-                f"{content} That overshoots the field -- "
+                f"{content} "
                 f"{format_role_bracket(handler, self.team_emojis)}'s Winger "
-                "ability sets up a scoring opportunity!"
+                "ability can turn this into a scoring opportunity!"
             ),
+            decline_kind="regular_pass",
         )
 
     # -- Dribble Advance ---------------------------------------------
@@ -4404,12 +4634,31 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
     ) -> None:
-        """
-        No choice to make -- High Pass is a fixed 2 spaces (Fullback's
-        +1 ability still applies automatically inside apply_high_pass),
-        the same fixed-distance pattern Low Pass follows.
-        """
-        await self.apply_high_pass(interaction, game, match, distance=2)
+        handler = self.get_player_definition(match.active_player_id)
+        max_distance = 4 if handler.role == PlayerRole.FULLBACK else 3
+
+        if self.side_controlled_by_ai(game, match, "offense"):
+            distance = self.get_ai_strategy(game).choose_high_pass_distance(
+                match, max_distance,
+            )
+            await self.apply_high_pass(interaction, game, match, distance)
+            return
+
+        mention = format_player_with_team(
+            game,
+            self.possession_player_number(game, match),
+            mention=True,
+        )
+        prompt_message = await interaction.followup.send(
+            f"{mention}, choose your High Pass distance:",
+            view=HighPassChoiceView(self, game.game_id),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
 
     async def apply_high_pass(
         self,
@@ -4420,12 +4669,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         offense_side = match.ball.possession
         handler = self.get_player_definition(match.active_player_id)
-
-        # Role ability -- Fullback: the ball goes 1 space further on
-        # any pass they make, low or high.
-        fullback_bonus = handler.role == PlayerRole.FULLBACK
-        if fullback_bonus:
-            distance += 1
+        # Role ability -- Fullback: can choose to pass up to 4 spaces
+        # instead of the usual 2-3 max (see HighPassChoiceView).
+        fullback_bonus = handler.role == PlayerRole.FULLBACK and distance == 4
 
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index
@@ -4440,37 +4686,117 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         space_word = "space" if actual_distance == 1 else "spaces"
-        ability_note = " (+1 space, Fullback ability)" if fullback_bonus else ""
+        ability_note = " (Fullback ability)" if fullback_bonus else ""
         content = (
             f"**High Pass:** the ball moves {actual_distance} {space_word} "
             f"forward{ability_note}."
         )
 
-        candidates = []
-        if overshot:
-            candidates = self.scoring_opportunity_candidates(
+        # A 2-space pass that overshoots the field may set up a
+        # scoring opportunity -- a longer pass never does, whether or
+        # not it overshoots.
+        setup_candidates = []
+        if distance == 2 and overshot:
+            setup_candidates = self.scoring_opportunity_candidates(
                 match, offense_side,
             )
 
-        if not candidates:
+        if setup_candidates:
             await self.refresh_match_image(interaction, game)
-            await self.finish_maneuver_resolution(
+            await self.offer_scoring_attempt_choice(
                 interaction,
                 game,
                 match,
+                shooter_id=setup_candidates[0],
                 distance_moved=actual_distance,
-                lead_in=content,
+                lead_in=f"{content} That overshoots the field -- a scoring "
+                "opportunity!",
+                decline_kind="skill_test",
             )
             return
 
+        # No scoring-opportunity option (or the requested distance
+        # wasn't a 2) -- the receiving player must win a skill test to
+        # keep the ball, exactly like a loose ball, whether or not a
+        # teammate happens to be standing where it landed.
         await self.refresh_match_image(interaction, game)
-        await self.begin_shooter_choice(
+        await self.begin_loose_ball(
             interaction,
             game,
             match,
-            candidates,
-            lead_in=f"{content} That overshoots the field -- a scoring "
-            "opportunity!",
+            actual_distance,
+            lead_in=content,
+            headline=HIGH_PASS_CONTEST_HEADLINE,
+        )
+
+    async def offer_scoring_attempt_choice(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        *,
+        shooter_id: str,
+        distance_moved: int,
+        lead_in: str,
+        decline_kind: str,
+    ) -> None:
+        """
+        Offer the offense a chance to attempt a scoring-opportunity
+        shot instead of letting a maneuver resolve normally -- used by
+        a High Pass's 2-space overshoot and a Winger's Low Pass.
+        `decline_kind` is threaded through to decline_scoring_attempt.
+        """
+        if self.side_controlled_by_ai(game, match, "offense"):
+            attempt = self.get_ai_strategy(
+                game
+            ).choose_scoring_opportunity_attempt(match)
+            if lead_in:
+                await interaction.followup.send(lead_in)
+            if attempt:
+                await self.start_set_up_shot(
+                    interaction, game, match, shooter_id,
+                )
+            else:
+                await self.decline_scoring_attempt(
+                    interaction, game, match, distance_moved, decline_kind,
+                )
+            return
+
+        shooter = self.get_player_definition(shooter_id)
+        prompt_message = await interaction.followup.send(
+            f"{lead_in}\n\n"
+            f"{format_role_bracket(shooter, self.team_emojis)} can attempt "
+            "the scoring opportunity, or let it go:",
+            view=SetUpAttemptChoiceView(
+                self, game.game_id, shooter_id, decline_kind, distance_moved,
+            ),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
+
+    async def decline_scoring_attempt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        distance_moved: int,
+        decline_kind: str,
+    ) -> None:
+        if decline_kind == "skill_test":
+            await self.begin_loose_ball(
+                interaction,
+                game,
+                match,
+                distance_moved,
+                headline=HIGH_PASS_CONTEST_HEADLINE,
+            )
+            return
+        await self.finish_maneuver_resolution(
+            interaction, game, match, distance_moved=distance_moved,
         )
 
     def scoring_opportunity_candidates(
@@ -4672,6 +4998,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         distance_moved: int,
         lead_in: str = "",
+        headline: str = (
+            "**Loose ball!** The pass lands in an empty space -- each "
+            "side may send a nearby player to contest it."
+        ),
     ) -> None:
         """
         `distance_moved` (the pass's own clamped travel) is stashed on
@@ -4682,6 +5012,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         `lead_in` is narration from the pass that hasn't been posted
         yet -- it rides along on this function's own first message.
+
+        `headline` overrides the default "lands in an empty space"
+        framing -- a High Pass reuses this same contest even when the
+        landing space isn't empty (a 3+ space pass, or a declined
+        2-space one, always makes the receiver win a skill test to
+        keep the ball), so its own call site passes wording that
+        doesn't claim emptiness.
         """
         match.begin_loose_ball(distance_moved)
         self.auto_resolve_loose_ball_picks(game, match)
@@ -4689,10 +5026,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         prefix = f"{lead_in}\n\n" if lead_in else ""
-        await interaction.followup.send(
-            f"{prefix}**Loose ball!** The pass lands in an empty space -- "
-            "each side may send a nearby player to contest it."
-        )
+        await interaction.followup.send(f"{prefix}{headline}")
 
         offense_ready, defense_ready = self.loose_ball_sides_ready(match)
         if offense_ready and defense_ready:
@@ -4949,28 +5283,40 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         offense_side = match.ball.possession
         defense_side = match.defending_side()
+        defender = self.get_player_definition(match.challenger_id)
 
-        # Overshoot: the deflection is clamped short of the full 1
-        # space, i.e. the ball was already on the space closest to the
-        # offense's own goal, so there was nowhere to put it. That no
+        # Role ability -- Fullback: deflects the ball back 2 spaces
+        # instead of the usual 1.
+        fullback_bonus = defender.role == PlayerRole.FULLBACK
+        deflect_distance = 2 if fullback_bonus else 1
+
+        # Overshoot: the deflection is clamped short of the full
+        # distance, i.e. the ball was already close enough to the
+        # offense's own goal that there was nowhere to put it. That no
         # longer risks an own goal -- only Pressure does -- it sets up
         # a scoring opportunity for the defense instead, who are now
         # the side standing next to the goal the ball just reached.
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
-        target_flat = match.relative_flat_index(origin_flat, offense_side, -1)
-        overshot = abs(target_flat - origin_flat) < 1
+        target_flat = match.relative_flat_index(
+            origin_flat, offense_side, -deflect_distance,
+        )
+        overshot = abs(target_flat - origin_flat) < deflect_distance
 
-        actual_distance = match.move_ball_relative(offense_side, -1)
+        actual_distance = match.move_ball_relative(
+            offense_side, -deflect_distance,
+        )
         match.ball.speed = max(1, match.ball.speed - 1)
         game.match_state = match.to_dict()
         save_games(self.games)
 
         space_word = "space" if actual_distance == 1 else "spaces"
+        ability_note = " (Fullback ability)" if fullback_bonus else ""
         content = (
             f"**Block Deflect:** the ball moves {actual_distance} "
-            f"{space_word} back. Ball speed is now {match.ball.speed}."
+            f"{space_word} back{ability_note}. Ball speed is now "
+            f"{match.ball.speed}."
         )
 
         candidates = []
@@ -4984,7 +5330,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # Block Deflect's time cost is a fixed 1 space minute per
             # the rules table, not "distance traveled" like Low/High
             # Pass, so this doesn't shrink if the move was clamped at
-            # the edge.
+            # the edge (or grow with the Fullback's extra distance).
             await self.finish_maneuver_resolution(
                 interaction, game, match, distance_moved=1, lead_in=content,
             )

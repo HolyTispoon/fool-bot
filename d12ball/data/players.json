@@ -1,16 +1,16 @@
 {
-  "data_version": 1,
+  "data_version": 2,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=0",
   "role_profiles": {
     "fullback": {
       "offense": 1,
       "defense": 6,
-      "ability": "Ball goes 1 space further when passing (low/high)."
+      "ability": "Can pass up to 4 with a high pass. When resolving block deflect, ball goes back 2 spaces."
     },
     "defender": {
       "offense": 2,
       "defense": 5,
-      "ability": "When resolving Pressure, steals the ball."
+      "ability": "Steals the ball when resolving Pressure."
     },
     "midfielder": {
       "offense": 3,
