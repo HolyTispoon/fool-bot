@@ -2500,19 +2500,20 @@ class SpeedDeltaChoiceView(SafeView):
             )
             return
 
-        # Steal Intercept has already flipped possession by the time
-        # this view is shown; Dribble Advance never flips it.
-        after_turnover = match.defense_maneuver == "Steal Intercept" and (
+        # Steal Intercept has already flipped possession (and run the
+        # defense back) by the time this view is shown; Dribble
+        # Advance never triggers a turnover at all.
+        turnover_occurred = match.defense_maneuver == "Steal Intercept" and (
             self.skill_type == "defense"
         )
 
-        await interaction.response.edit_message(
-            content=f"Chose speed **{target_speed}**.",
-            view=None,
-        )
+        # No separate "chose speed N" confirmation -- apply_speed_choice's
+        # own "Ball speed is now N" message says the same thing, so just
+        # drop the buttons and let that be the one message.
+        await interaction.response.edit_message(view=None)
         await self.cog.apply_speed_choice(
-            interaction, game, match, target_speed, after_turnover,
-            player_id=self.player_id,
+            interaction, game, match, target_speed,
+            turnover_occurred=turnover_occurred,
         )
 
 
@@ -3940,17 +3941,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 winner_number,
                 mention=True,
             )
-            catalog_by_name = (
-                self.maneuver_catalog.offense_by_name()
-                if outcome == "offense"
-                else self.maneuver_catalog.defense_by_name()
-            )
-            winner_definition = catalog_by_name[winner_name]
 
             await interaction.followup.send(
                 f"{reveal}\n\n"
-                f"**{winner_name}** wins! {winner_mention}, resolving the "
-                f"effect:\n{winner_definition.effect}",
+                f"**{winner_name}** wins! {winner_mention} resolves the "
+                "effect:",
                 allowed_mentions=discord.AllowedMentions(
                     users=True,
                     roles=False,
@@ -4396,7 +4391,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match,
             player_id=match.active_player_id,
             skill_type="offense",
-            after_turnover=False,
             lead_in=(
                 f"**Dribble Advance:** "
                 f"{format_role_bracket(handler, self.team_emojis)} and the "
@@ -5009,13 +5003,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         new_possession = match.setup_for_side(match.ball.possession)
         await self.refresh_match_image(interaction, game)
 
-        await self.offer_speed_choice(
+        # Ball-speed manipulation is offered after run-back finishes,
+        # not here -- see begin_run_back's speed_choice_after.
+        await self.begin_run_back(
             interaction,
             game,
             match,
-            player_id=challenger_id,
-            skill_type="defense",
-            after_turnover=True,
+            stays_player_id=challenger_id,
+            speed_choice_after=True,
             lead_in=(
                 "**Steal Intercept:**\n"
                 "# Turnover!\n"
@@ -5128,10 +5123,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         player_id: str,
         skill_type: str,
-        after_turnover: bool,
+        turnover_occurred: bool = False,
+        distance_moved: int = 1,
         lead_in: str = "",
     ) -> None:
         """
+        Always the last human choice in a maneuver's effect -- speed is
+        manipulated after any run-back it caused (Steal Intercept), so
+        this leads straight into finish_maneuver_resolution once
+        chosen. `turnover_occurred`/`distance_moved` are just carried
+        through to that call.
+
         `lead_in` is narration from the maneuver that led here -- it
         rides along on the speed-choice prompt when a human picks, or
         gets forwarded to apply_speed_choice to ride along on its own
@@ -5153,8 +5155,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 game,
                 match,
                 target_speed,
-                after_turnover,
-                player_id=player_id,
+                turnover_occurred=turnover_occurred,
+                distance_moved=distance_moved,
                 lead_in=lead_in,
             )
             return
@@ -5181,8 +5183,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
         target_speed: int,
-        after_turnover: bool,
-        player_id: str,
+        turnover_occurred: bool = False,
+        distance_moved: int = 1,
         lead_in: str = "",
     ) -> None:
         match.ball.speed = target_speed
@@ -5195,18 +5197,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         await self.refresh_match_image(interaction, game)
 
-        if after_turnover:
-            # `after_turnover` only ever means Steal Intercept here (see
-            # SpeedDeltaChoiceView), so `player_id` -- the intercepting
-            # defender who was offered this speed choice -- is the
-            # player who stole the ball and stays put during run-back.
-            await self.begin_run_back(
-                interaction, game, match, stays_player_id=player_id,
-            )
-        else:
-            await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=1,
-            )
+        await self.finish_maneuver_resolution(
+            interaction,
+            game,
+            match,
+            distance_moved=distance_moved,
+            turnover_occurred=turnover_occurred,
+        )
 
     # -- Own goal ----------------------------------------------------
 
@@ -5604,6 +5601,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         distance_moved: int = 1,
         turnover_occurred: bool = True,
         stays_player_id: Optional[str] = None,
+        speed_choice_after: bool = False,
         lead_in: str = "",
     ) -> None:
         """
@@ -5620,6 +5618,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         shot, Block Deflect's scoring opportunity), where nobody gets
         that exemption.
 
+        `speed_choice_after` is set only for Steal Intercept -- once
+        run-back finishes, its defender still gets to manipulate the
+        ball's speed, offered only after players are back in position
+        rather than before (see continue_run_back).
+
         `lead_in` is narration from the triggering effect that hasn't
         been posted yet -- it rides along on whichever message this
         run-back sends first (see continue_run_back).
@@ -5628,6 +5631,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.pending_run_back_distance = distance_moved
         match.pending_run_back_turnover = turnover_occurred
         match.pending_run_back_stays_player_id = stays_player_id
+        match.pending_run_back_speed_choice = speed_choice_after
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -5659,15 +5663,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         turnover_occurred = match.pending_run_back_turnover
         prefix = f"{lead_in}\n\n" if lead_in else ""
-        speed_note = ""
-        if turnover_occurred:
-            if match.ball.speed == 1:
-                speed_note = " The ball speed goes down to **1**."
-            else:
-                speed_note = (
-                    " The turnover reset the ball speed to **1** before "
-                    f"its permitted adjustment; it is now **{match.ball.speed}**."
-                )
+        # Speed manipulation (Steal Intercept) always happens after
+        # run-back now, so a turnover's ball speed is still at its
+        # reset value of 1 here.
+        speed_note = " The ball speed goes down to **1**." if turnover_occurred else ""
         await interaction.followup.send(
             f"{prefix}# Players run back!\n"
             "Players return to an open space in their assigned zone and "
@@ -5823,8 +5822,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.pending_run_back = False
         distance_moved = match.pending_run_back_distance
         turnover_occurred = match.pending_run_back_turnover
+        speed_choice_after = match.pending_run_back_speed_choice
+        stays_player_id = match.pending_run_back_stays_player_id
+        match.pending_run_back_speed_choice = False
         game.match_state = match.to_dict()
         save_games(self.games)
+
+        if speed_choice_after:
+            # Steal Intercept: the defender who stole the ball still
+            # gets to manipulate its speed, now that everyone is back
+            # in position.
+            await self.offer_speed_choice(
+                interaction,
+                game,
+                match,
+                player_id=stays_player_id,
+                skill_type="defense",
+                turnover_occurred=turnover_occurred,
+                distance_moved=distance_moved,
+                lead_in=lead_in,
+            )
+            return
+
         # Run-back itself only ever costs exhaustion, not time -- the
         # time cost is whatever the triggering maneuver's own ball
         # movement was, stashed by begin_run_back.
@@ -6061,14 +6080,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> str:
         defender = self.get_player_definition(defender_id)
         handler = self.get_player_definition(match.active_player_id)
-        defender_number = self.defending_player_number(game, match)
-        defender_display = format_player_with_team(game, defender_number)
 
         announcement = (
-            f"{defender_display} has chosen "
-            f"{format_role_bracket(defender, self.team_emojis)} to challenge "
-            f"{format_role_bracket(handler, self.team_emojis)} from the other team "
-            "who is handling the ball."
+            f"{format_role_bracket(defender, self.team_emojis)} from "
+            f"{defender.team.value.title()} will challenge "
+            f"{format_role_bracket(handler, self.team_emojis)} from "
+            f"{handler.team.value.title()}."
         )
 
         if distance > 0:
