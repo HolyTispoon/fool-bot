@@ -1171,15 +1171,6 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
             MANEUVER_CARD_TEXT_COLOR,
         )
         text_y += 42
-        draw_centered_text(
-            draw,
-            center_x,
-            text_y,
-            f"Die {maneuver.die_values[0]}-{maneuver.die_values[-1]}",
-            FONT_MANEUVER_BODY,
-            MANEUVER_CARD_TEXT_COLOR,
-        )
-        text_y += 38
         for line in wrap_text(
             draw, maneuver.effect, FONT_MANEUVER_BODY, box_width - 48
         ):
