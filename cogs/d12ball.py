@@ -1941,6 +1941,14 @@ class SkillTestView(SafeView):
             )
             return
 
+        # Acknowledge immediately, before the dice image is rendered.
+        # Discord invalidates the interaction token if the first
+        # response doesn't arrive within 3 seconds, which turns into a
+        # NotFound("Unknown interaction") on edit_message farther down
+        # if rendering (or anything else on the way there) is slow --
+        # deferring buys the rest of this method the usual 15 minutes.
+        await interaction.response.defer()
+
         offense_player = self.cog.get_player_definition(
             match.active_player_id,
         )
@@ -2053,7 +2061,7 @@ class SkillTestView(SafeView):
                     ),
                 ]
             )
-            await interaction.response.edit_message(
+            await interaction.edit_original_response(
                 content=(
                     f"{breakdown}\n\n"
                     f"**It's a tie ({offense_total}-{defense_total})!** "
@@ -2089,7 +2097,7 @@ class SkillTestView(SafeView):
             if player.player_id in match.exhausted
         ]
 
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             content=(
                 f"{breakdown}\n\n"
                 f"**{winner_name}** wins the skill test! {winner_mention} "
