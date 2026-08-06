@@ -284,12 +284,28 @@ transcription itself. What remains below is what upstream still does not say.
     exhaustion tokens equal to the number of spaces traveled. If that's the team that
     didn't have possession, it's a turnover: players run back, and ball speed resets to
     1.
-  - **"Out of bounds": neither team has a player in that zone.** The team that last had
-    possession loses it -- a turnover, ball speed resets to 1. All displaced players
-    run back, and the team that just gained possession must get one of their fielded
-    players (from anywhere on the field, not just that zone) onto the ball's space --
-    the coach picks who, and the bot charges the same distance-traveled exhaustion as
-    the one-team case above.
+  - **"Out of bounds": neither team has a player in that zone, or neither coach sends
+    one.** The team that last had possession loses it -- a turnover, ball speed resets to
+    1. All displaced players run back, and the team that just gained possession must get
+    one of their fielded players (from anywhere on the field, not just that zone) onto
+    the ball's space -- the coach picks who, and the bot charges the same
+    distance-traveled exhaustion as the one-team case above.
+- **The team that last had possession answers first, and alone.** Where both coaches have
+  someone to send, they are asked one at a time rather than together, starting with the
+  side losing the ball: the ball is theirs to lose, and asking both at once means whoever
+  answers second is answering the first's pick rather than the position.
+- **Sending nobody is always allowed.** A coach with a player in the zone may leave them
+  where they are -- that is what "may choose one of their players" means, and it is a move,
+  not a way out of the prompt. Declining costs nothing and moves nobody. If the side that
+  last had possession declines and the other side sends someone, that side takes the ball
+  (a turnover). If both decline, or one declines and the other had nobody to send, the ball
+  is out of bounds and resolves as above. This applies to a High Pass's contest too: a
+  defence with nobody on the landing space may decline to send anyone from the zone, and
+  the receiver then keeps the ball with no skill test.
+
+  Because declining is always on the table, a side with exactly one candidate is still
+  asked rather than having that player sent automatically -- with one player there are
+  still two outcomes to choose between.
 
 ### Own goal trigger
 

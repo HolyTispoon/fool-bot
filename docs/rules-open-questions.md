@@ -95,6 +95,9 @@ A short index so nothing is re-asked. Detail is in the rules file.
 |---|---|
 | Loose ball, only one side has a zone-mate | That side gains possession without a skill test; the coach picks who recovers it, distance-traveled exhaustion (not the flat 1 a contested skill test costs). |
 | Loose ball, neither side has a zone-mate ("out of bounds") | The side that last had possession loses it -- a turnover, so it's run-back for everyone, and the new possessor must place one of their fielded players (from anywhere, not just that zone) on the ball's space, same distance-traveled exhaustion. |
+| Does the placement happen before or after the run back? | After. Placed first, the run back treats that player as displaced and pulls them straight back off the ball, leaving it loose again. |
+| May a coach send nobody after a loose ball? | Yes, always -- including a High Pass's defence. Both declining (or one declining with the other having nobody) is out of bounds. |
+| Are both coaches asked at once? | No. The side that last had possession answers first and alone, so the other side isn't answering their pick. |
 
 ### Answered while scoping substitutions
 

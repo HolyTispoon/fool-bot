@@ -76,6 +76,7 @@ from cogs.d12ball_helpers import (
 )
 from cogs.d12ball_views import (
     BallHandlerSelectionView,
+    BallRecoveryView,
     CoinFlipView,
     DribbleAdvanceChoiceView,
     HalftimeExtraTokenView,
@@ -239,6 +240,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     turn_view = self.build_run_back_view(
                         game.game_id, match,
                     ) or PlayerActionView(self, game.game_id)
+                elif match.pending_ball_recovery:
+                    # An out-of-bounds ball whose run back has already
+                    # finished, waiting on the winning side to send
+                    # someone to pick it up.
+                    turn_view = BallRecoveryView(self, game.game_id)
                 elif match.pending_loose_ball:
                     if (
                         match.loose_ball_offense_player is not None
@@ -1526,42 +1532,32 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         side: TeamSide,
     ) -> list[str]:
-        zone_candidates = match.fielded_players_in_zone(side, match.ball.zone)
-        if zone_candidates:
-            return zone_candidates
-
-        # "Out of bounds": neither side has anyone in the landing
-        # zone. The defense always gains possession in that case, and
-        # must send a player from anywhere on the field to reach the
-        # ball -- offense never gets this fallback, since they're the
-        # side losing possession.
-        if side == match.defending_side() and not match.fielded_players_in_zone(
-            match.ball.possession, match.ball.zone,
-        ):
-            return match.setup_for_side(side).field_players
-        return []
+        """
+        Who `side` may send after a loose ball: their own fielded
+        players in the ball's zone, and nobody else. A side with none
+        there sends nobody, which is not a failure state -- with
+        neither side able (or willing) to send anyone, the ball is out
+        of bounds, and resolve_loose_ball takes it from there.
+        """
+        return match.fielded_players_in_zone(side, match.ball.zone)
 
     def loose_ball_sides_ready(
         self,
         match: MatchState,
     ) -> tuple[bool, bool]:
         """
-        Whether the offense/defense pick is settled -- either made, or
-        moot because that side has nobody in the zone to send.
+        Whether the offense/defense pick is settled -- made, declined,
+        or moot because that side has nobody in the zone to send.
         """
-        offense_candidates = self.loose_ball_candidates(
-            match, match.ball.possession,
-        )
-        defense_candidates = self.loose_ball_candidates(
-            match, match.defending_side(),
-        )
         offense_ready = (
             match.loose_ball_offense_player is not None
-            or not offense_candidates
+            or match.loose_ball_offense_declined
+            or not self.loose_ball_candidates(match, match.ball.possession)
         )
         defense_ready = (
             match.loose_ball_defense_player is not None
-            or not defense_candidates
+            or match.loose_ball_defense_declined
+            or not self.loose_ball_candidates(match, match.defending_side())
         )
         return offense_ready, defense_ready
 
@@ -1571,10 +1567,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         """
-        Settle whichever side doesn't need (or can't get) a real human
-        choice: AI-controlled, or exactly one candidate. A side with no
-        candidates at all is left unset -- resolve_loose_ball reads
-        that as "nobody available", not "still deciding".
+        Settle whichever side can't get a real human choice, i.e. is
+        AI-controlled. A side with no candidates at all is left unset
+        -- resolve_loose_ball reads that as "nobody available", not
+        "still deciding".
+
+        A lone candidate is *not* auto-picked, unlike a forced run
+        back: sending them is optional, and declining is what puts the
+        ball out of bounds, so one candidate is still a real choice
+        between two outcomes.
         """
         for side, skill_type, choose in (
             (
@@ -1588,25 +1589,56 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 match.choose_loose_ball_defense_player,
             ),
         ):
-            already_picked = (
-                match.loose_ball_offense_player
+            picked, declined = (
+                (match.loose_ball_offense_player,
+                 match.loose_ball_offense_declined)
                 if skill_type == "offense"
-                else match.loose_ball_defense_player
-            ) is not None
-            if already_picked:
+                else (match.loose_ball_defense_player,
+                      match.loose_ball_defense_declined)
+            )
+            if picked is not None or declined:
                 continue
 
             candidates = self.loose_ball_candidates(match, side)
             if not candidates:
                 continue
-            if len(candidates) == 1:
-                choose(candidates[0])
-            elif self.side_controlled_by_ai(game, match, skill_type):
+            if self.side_controlled_by_ai(game, match, skill_type):
+                # The AI always contests -- it has no decline policy,
+                # and going out of bounds by choice is never obviously
+                # right (see d12ball/ai.py).
                 choose(
                     self.get_ai_strategy(game).choose_loose_ball_player(
                         candidates, skill_type,
                     )
                 )
+
+    def loose_ball_side_on_the_clock(
+        self,
+        match: MatchState,
+    ) -> Optional[str]:
+        """
+        Which side still owes a pick, "offense" or "defense" -- or
+        None when the contest is settled either way.
+
+        The side that last held possession chooses first and alone.
+        Both used to be offered at once, which handed whoever clicked
+        second the other's answer to decide against; a loose ball is
+        theirs to lose, so they commit first.
+        """
+        offense_ready, defense_ready = self.loose_ball_sides_ready(match)
+        if not offense_ready:
+            return "offense"
+        if not defense_ready:
+            return "defense"
+        return None
+
+    def loose_ball_prompt_side(self, match: MatchState) -> TeamSide:
+        """The board side whose turn it is to pick."""
+        return (
+            match.ball.possession
+            if self.loose_ball_side_on_the_clock(match) == "offense"
+            else match.defending_side()
+        )
 
     def build_loose_ball_view(
         self,
@@ -1614,27 +1646,45 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> Optional[discord.ui.View]:
         """
-        Reconstruct the loose-ball pick prompt for whichever side(s)
-        still need a real human choice (2+ candidates, not yet picked)
-        -- purely from match state, so a bot restart mid-pick
-        reconstructs correctly, same as build_run_back_view.
+        Reconstruct the loose-ball pick prompt for the one side
+        currently on the clock -- purely from match state, so a bot
+        restart mid-pick reconstructs correctly, same as
+        build_run_back_view.
         """
-        entries: list[tuple[str, list[str]]] = []
-        if match.loose_ball_offense_player is None:
-            candidates = self.loose_ball_candidates(
-                match, match.ball.possession,
-            )
-            if len(candidates) > 1:
-                entries.append(("offense", candidates))
-        if match.loose_ball_defense_player is None:
-            candidates = self.loose_ball_candidates(
-                match, match.defending_side(),
-            )
-            if len(candidates) > 1:
-                entries.append(("defense", candidates))
-        if not entries:
+        skill_type = self.loose_ball_side_on_the_clock(match)
+        if skill_type is None:
             return None
-        return LooseBallChoiceView(self, game_id, entries, match)
+        side = self.loose_ball_prompt_side(match)
+        return LooseBallChoiceView(
+            self,
+            game_id,
+            skill_type,
+            self.loose_ball_candidates(match, side),
+            match,
+        )
+
+    def build_loose_ball_prompt(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> str:
+        """Who is being asked, and for what."""
+        skill_type = self.loose_ball_side_on_the_clock(match)
+        number = (
+            self.possession_player_number(game, match)
+            if skill_type == "offense"
+            else self.defending_player_number(game, match)
+        )
+        mention = format_player_with_team(game, number, mention=True)
+        noun = contest_noun(match)
+        if skill_type == "offense":
+            return (
+                f"{mention}, you had the ball -- send a player from the "
+                f"zone after the {noun}, or send nobody:"
+            )
+        return (
+            f"{mention}, choose who contests the {noun}, or send nobody:"
+        )
 
     async def begin_loose_ball(
         self,
@@ -1686,31 +1736,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         prefix = f"{lead_in}\n\n" if lead_in else ""
         await interaction.followup.send(f"{prefix}{headline}")
 
-        offense_ready, defense_ready = self.loose_ball_sides_ready(match)
-        if offense_ready and defense_ready:
+        if self.loose_ball_side_on_the_clock(match) is None:
             await self.resolve_loose_ball(interaction, game, match)
             return
 
-        waiting_on = []
-        if not offense_ready:
-            waiting_on.append(
-                format_player_with_team(
-                    game,
-                    self.possession_player_number(game, match),
-                    mention=True,
-                )
-            )
-        if not defense_ready:
-            waiting_on.append(
-                format_player_with_team(
-                    game,
-                    self.defending_player_number(game, match),
-                    mention=True,
-                )
-            )
-
         prompt_message = await interaction.followup.send(
-            f"{' and '.join(waiting_on)}, choose who contests it:",
+            self.build_loose_ball_prompt(game, match),
             view=self.build_loose_ball_view(game.game_id, match),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -1733,19 +1764,40 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         ball_noun = contest_noun(match)
 
         if offense_player_id is None and defense_player_id is None:
-            # Degenerate edge case only: the defense fallback in
-            # loose_ball_candidates() means this shouldn't happen while
-            # the defending side has any fielded players at all.
+            # Out of bounds: nobody could be sent, or nobody was. The
+            # side that last held the ball loses it, and the side that
+            # just won it owes a player on the ball's space -- placed
+            # after the run back, not before, or the run back would
+            # pull that player straight back off the ball again.
+            winning_side = match.defending_side()
+            reason = (
+                "Nobody is sent after it"
+                if match.loose_ball_offense_declined
+                or match.loose_ball_defense_declined
+                else "Neither side has a player in the zone"
+            )
+            # Assigned rather than set_possession'd: that insists on a
+            # player of the new side already standing on the ball,
+            # and out of bounds is precisely the case where nobody is
+            # -- pending_ball_recovery is the promise that somebody
+            # will be, once the run back is done.
+            match.ball.possession = winning_side
+            match.ball.speed = 1
             match.pending_loose_ball = False
+            match.pending_ball_recovery = True
             game.match_state = match.to_dict()
             save_games(self.games)
+
             await interaction.followup.send(
-                "Nobody is nearby to contest it -- the ball stays where "
-                "it landed."
+                f"**Out of bounds!** {reason} -- "
+                f"{format_team_side_label(match.setup_for_side(winning_side))} "
+                "take over.\n\n# Turnover!\nOnce everyone has run back, "
+                "they place a player on the ball."
             )
+            await self.refresh_match_image(interaction, game)
             await self.begin_run_back(
                 interaction, game, match,
-                distance_moved=distance_moved, turnover_occurred=False,
+                distance_moved=distance_moved, turnover_occurred=True,
             )
             return
 
@@ -1780,15 +1832,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         if offense_player_id is None:
-            # "Out of bounds" if the defense pick came from the
-            # whole-team fallback rather than a real zone-mate -- there
-            # was nobody from either side in the zone at all.
-            out_of_bounds = not match.fielded_players_in_zone(
-                match.ball.possession, match.ball.zone,
-            ) and not match.fielded_players_in_zone(
-                match.defending_side(), match.ball.zone,
-            )
-
+            # Only the defending side went for it -- because the side
+            # in possession had nobody in the zone, or sent nobody.
+            # Not out of bounds: that is the branch above, where
+            # neither side ends up with a player to send.
             player = self.get_player_definition(defense_player_id)
             recovery_distance = match.distance_to_ball(defense_player_id)
             match.move_meeple(
@@ -1804,14 +1851,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
 
             headline = (
-                "**Out of bounds!**" if out_of_bounds
-                else (
-                    f"{format_role_bracket(player, self.team_emojis)} "
-                    "picks off the high pass, uncontested."
-                    if is_high_pass
-                    else f"{format_role_bracket(player, self.team_emojis)} "
-                    "recovers the loose ball uncontested."
-                )
+                f"{format_role_bracket(player, self.team_emojis)} "
+                "picks off the high pass, uncontested."
+                if is_high_pass
+                else f"{format_role_bracket(player, self.team_emojis)} "
+                "recovers the loose ball uncontested."
             )
             await interaction.followup.send(
                 "# Turnover!\n"
@@ -3014,6 +3058,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        if match.pending_ball_recovery:
+            # An out-of-bounds ball is still lying there with nobody
+            # on it. Now that everyone is back in position, the side
+            # that won it sends someone to pick it up -- from
+            # anywhere on the field, at the usual per-space cost.
+            await self.begin_ball_recovery(
+                interaction, game, match, lead_in=lead_in,
+            )
+            return
+
         if speed_choice_after:
             # Steal Intercept: the defender who stole the ball still
             # gets to manipulate its speed, now that everyone is back
@@ -3040,6 +3094,112 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             distance_moved=distance_moved,
             turnover_occurred=turnover_occurred,
             lead_in=lead_in,
+        )
+
+    # -- Out-of-bounds recovery (after the run back) ------------------
+
+    async def begin_ball_recovery(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Ask the side that won an out-of-bounds ball which of their
+        fielded players goes and stands on it -- any of them, from
+        anywhere on the field, at one exhaustion token per space
+        traveled.
+
+        Deliberately the last thing that happens: run the run back
+        first and this player is placed once and stays, where placing
+        them before it would only have them run back off the ball and
+        leave it loose all over again.
+        """
+        side = match.ball.possession
+        candidates = match.setup_for_side(side).field_players
+        if not candidates:
+            # Nobody fielded at all -- nothing to place. Let the
+            # loose-ball check downstream deal with it, the same way
+            # an empty kickoff is handled.
+            match.pending_ball_recovery = False
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await self.finish_maneuver_resolution(
+                interaction, game, match,
+                distance_moved=match.pending_run_back_distance,
+                turnover_occurred=True,
+                lead_in=lead_in,
+            )
+            return
+
+        if self.side_is_ai(game, side):
+            # Nearest, not best: this walk costs a token per space and
+            # wins nothing, so the only thing worth optimizing is how
+            # much it costs.
+            await self.apply_ball_recovery(
+                interaction,
+                game,
+                match,
+                min(candidates, key=match.distance_to_ball),
+                lead_in=lead_in,
+            )
+            return
+
+        number = (
+            game.home_player_number
+            if side == TeamSide.HOME
+            else game.visiting_player_number
+        )
+        mention = format_player_with_team(game, number, mention=True)
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+        prompt_message = await interaction.followup.send(
+            f"{prefix}{mention}, everyone is back in position -- send a "
+            "player to pick the ball up at "
+            f"{space_label(match.ball.zone, match.ball.space_index)}:",
+            view=BallRecoveryView(self, game.game_id),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
+
+    async def apply_ball_recovery(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+        lead_in: str = "",
+    ) -> None:
+        player = self.get_player_definition(player_id)
+        # The triggering maneuver's own travel, for the clock. It
+        # outlives the run back that just finished (only
+        # reset_maneuver clears it) precisely so this step, which can
+        # span a restart, can still read it back.
+        distance_moved = match.pending_run_back_distance
+        distance = match.recover_out_of_bounds_ball(player_id)
+        exhaustion_text = self.apply_exhaustion(match, player_id, distance)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+        await interaction.followup.send(
+            f"{prefix}"
+            f"{format_role_bracket(player, self.team_emojis)} picks the "
+            f"ball up at "
+            f"{space_label(match.ball.zone, match.ball.space_index)}."
+            f"\n{exhaustion_text}"
+        )
+        await self.refresh_match_image(interaction, game)
+        await self.finish_maneuver_resolution(
+            interaction,
+            game,
+            match,
+            distance_moved=distance_moved,
+            turnover_occurred=True,
         )
 
     # -- Clock, period transitions, and the turn loop -----------------

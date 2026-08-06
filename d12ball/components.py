@@ -496,6 +496,9 @@ class MatchState:
     pending_loose_ball_is_high_pass: bool = False
     loose_ball_offense_player: Optional[str] = None
     loose_ball_defense_player: Optional[str] = None
+    loose_ball_offense_declined: bool = False
+    loose_ball_defense_declined: bool = False
+    pending_ball_recovery: bool = False
     declared_substitution: set[str] = field(default_factory=set)
     pending_substitution_side: Optional[str] = None
     pending_substitution_used: int = 0
@@ -984,6 +987,52 @@ class MatchState:
             raise ValueError("The defense has already picked a player.")
         self.loose_ball_defense_player = player_id
 
+    def decline_loose_ball(self, side: TeamSide) -> None:
+        """
+        Send nobody after the ball. A coach with a player in the zone
+        may always keep them where they are instead -- and if both
+        sides do, or neither had anyone to send, the ball is out of
+        bounds (see resolve_loose_ball).
+        """
+        side = TeamSide(side)
+        if side == self.ball.possession:
+            self.loose_ball_offense_declined = True
+        else:
+            self.loose_ball_defense_declined = True
+
+    def recover_out_of_bounds_ball(self, player_id: str) -> int:
+        """
+        Move `player_id` onto the ball's space after an out-of-bounds
+        turnover, clearing pending_ball_recovery. Returns the distance
+        traveled, for the exhaustion it costs at the usual run-back
+        rate.
+
+        Any fielded player of the side that just won the ball will do,
+        from anywhere on the field -- unlike the kickoff fill, which
+        is limited to the zone's own players. This happens after the
+        run back, not before, so the player placed here is the one who
+        stays on the ball rather than being run back off it.
+        """
+        if player_id not in self.setup_for_side(
+            self.ball.possession
+        ).field_players:
+            raise ValueError(
+                f"{player_id} cannot recover the ball -- not a fielded "
+                "player for the side now in possession."
+            )
+        origin_flat = self.board.flat_index(
+            *self.board.meeple_position(player_id)
+        )
+        destination_flat = self.board.flat_index(
+            self.ball.zone, self.ball.space_index,
+        )
+        distance = abs(destination_flat - origin_flat)
+        self.board.place_meeple(
+            player_id, self.ball.zone, self.ball.space_index,
+        )
+        self.pending_ball_recovery = False
+        return distance
+
     def reset_maneuver(self) -> None:
         """
         Clear the ball-handler and maneuver-selection state once a
@@ -1006,6 +1055,9 @@ class MatchState:
         self.pending_loose_ball_is_high_pass = False
         self.loose_ball_offense_player = None
         self.loose_ball_defense_player = None
+        self.loose_ball_offense_declined = False
+        self.loose_ball_defense_declined = False
+        self.pending_ball_recovery = False
 
     def move_meeple(
         self,
@@ -1687,6 +1739,10 @@ class MatchState:
             and not maneuver_effect_in_progress
             and not self.pending_run_back
             and not self.pending_kickoff_fill
+            # An out-of-bounds ball has nobody on it at all until the
+            # winning side places someone there, which happens after
+            # the run back -- see recover_out_of_bounds_ball.
+            and not self.pending_ball_recovery
         ):
             raise ValueError(
                 "The active player must share the ball's space and "
@@ -1748,6 +1804,9 @@ class MatchState:
             ),
             "loose_ball_offense_player": self.loose_ball_offense_player,
             "loose_ball_defense_player": self.loose_ball_defense_player,
+            "loose_ball_offense_declined": self.loose_ball_offense_declined,
+            "loose_ball_defense_declined": self.loose_ball_defense_declined,
+            "pending_ball_recovery": self.pending_ball_recovery,
             "declared_substitution": sorted(self.declared_substitution),
             "pending_substitution_side": self.pending_substitution_side,
             "pending_substitution_used": self.pending_substitution_used,
@@ -1842,6 +1901,13 @@ class MatchState:
             loose_ball_defense_player=data.get(
                 "loose_ball_defense_player"
             ),
+            loose_ball_offense_declined=data.get(
+                "loose_ball_offense_declined", False
+            ),
+            loose_ball_defense_declined=data.get(
+                "loose_ball_defense_declined", False
+            ),
+            pending_ball_recovery=data.get("pending_ball_recovery", False),
             declared_substitution=set(
                 data.get("declared_substitution", [])
             ),

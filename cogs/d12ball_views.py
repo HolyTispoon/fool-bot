@@ -3363,67 +3363,240 @@ class HalftimeRepositionSpaceView(HalftimeView):
 
 class LooseBallChoiceView(SafeView):
     """
-    One combined prompt for whichever side(s) still need a real human
-    pick of who contests a loose ball -- entries is a list of
-    (side, candidates) for only the sides that still need one.
+    Who one side sends after a loose ball, plus the option of sending
+    nobody.
+
+    One side at a time, the team that last had possession first: they
+    are the ones losing the ball, and offering both at once let
+    whoever clicked second answer the first's pick. Once this side
+    settles, the cog rebuilds the prompt for the other.
+
+    "Send nobody" is a real move, not a way out of the prompt -- with
+    neither side contesting, the ball goes out of bounds and the side
+    that last held it loses it (see resolve_loose_ball). It is
+    offered even when there's only one candidate, which is why a lone
+    candidate isn't auto-picked the way a forced run back is.
     """
 
     def __init__(
         self,
         cog: "D12Ball",
         game_id: str,
-        entries: list[tuple[str, list[str]]],
+        side: str,
+        candidates: list[str],
         match: MatchState,
     ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
+        self.side = side
 
         ball_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
 
-        for side, candidates in entries:
-            for player_id in candidates:
-                player = cog.get_player_definition(player_id)
-                initials = ROLE_INITIALS[player.role.value]
-                zone, space_index = match.board.meeple_position(player_id)
-                distance = abs(
-                    match.board.flat_index(zone, space_index) - ball_flat
-                )
-                space_word = "space" if distance == 1 else "spaces"
-                location_note = (
-                    f"({space_label(zone, space_index)}, {distance} "
-                    f"{space_word} from the ball)"
-                )
-                button = discord.ui.Button(
-                    label=f"{player.name} [{initials}] {location_note}",
-                    style=(
-                        discord.ButtonStyle.primary
-                        if side == "offense"
-                        else discord.ButtonStyle.danger
-                    ),
-                    custom_id=(
-                        f"d12ball:loose_ball:{game_id}:{side}:{player_id}"
-                    ),
-                )
+        for player_id in candidates:
+            player = cog.get_player_definition(player_id)
+            initials = ROLE_INITIALS[player.role.value]
+            zone, space_index = match.board.meeple_position(player_id)
+            distance = abs(
+                match.board.flat_index(zone, space_index) - ball_flat
+            )
+            space_word = "space" if distance == 1 else "spaces"
+            location_note = (
+                f"({space_label(zone, space_index)}, {distance} "
+                f"{space_word} from the ball)"
+            )
+            button = discord.ui.Button(
+                label=f"{player.name} [{initials}] {location_note}",
+                style=(
+                    discord.ButtonStyle.primary
+                    if side == "offense"
+                    else discord.ButtonStyle.danger
+                ),
+                custom_id=(
+                    f"d12ball:loose_ball:{game_id}:{side}:{player_id}"
+                ),
+            )
 
-                async def callback(
-                    interaction: discord.Interaction,
-                    chosen_side: str = side,
-                    chosen_player_id: str = player_id,
-                ) -> None:
-                    await self.choose(
-                        interaction, chosen_side, chosen_player_id,
-                    )
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_player_id: str = player_id,
+            ) -> None:
+                await self.choose(interaction, chosen_player_id)
 
-                button.callback = callback
-                self.add_item(button)
+            button.callback = callback
+            self.add_item(button)
+
+        decline = discord.ui.Button(
+            label="Send nobody",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:loose_ball_decline:{game_id}:{side}",
+            row=4,
+        )
+        decline.callback = self.decline
+        self.add_item(decline)
+
+    async def claim(
+        self,
+        interaction: discord.Interaction,
+    ) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
+        """The game and match if this click may settle this side's
+        pick, or (None, None) after replying with why it may not."""
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return None, None
+        match = self.cog.load_match_state(game)
+
+        if self.cog.loose_ball_side_on_the_clock(match) != self.side:
+            await interaction.response.send_message(
+                "That side has already answered.",
+                ephemeral=True,
+            )
+            return None, None
+
+        authorized = (
+            self.cog.user_controls_possession(
+                interaction.user.id, game, match,
+            )
+            if self.side == "offense"
+            else self.cog.user_controls_defense(
+                interaction.user.id, game, match,
+            )
+        )
+        if not authorized:
+            await interaction.response.send_message(
+                "Only the player on that side can choose.",
+                ephemeral=True,
+            )
+            return None, None
+        return game, match
 
     async def choose(
         self,
         interaction: discord.Interaction,
-        side: str,
+        player_id: str,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        if self.side == "offense":
+            match.choose_loose_ball_offense_player(player_id)
+        else:
+            match.choose_loose_ball_defense_player(player_id)
+
+        player = self.cog.get_player_definition(player_id)
+        await self.settled(
+            interaction,
+            game,
+            match,
+            f"{format_role_bracket(player, self.cog.team_emojis)} "
+            f"contests the {contest_noun(match)} ({self.side}).",
+        )
+
+    async def decline(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        side = (
+            match.ball.possession
+            if self.side == "offense"
+            else match.defending_side()
+        )
+        match.decline_loose_ball(side)
+        await self.settled(
+            interaction,
+            game,
+            match,
+            f"{format_team_side_label(match.setup_for_side(side))} send "
+            f"nobody after the {contest_noun(match)}.",
+        )
+
+    async def settled(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        announcement: str,
+    ) -> None:
+        """Save this side's answer, then either put the prompt up for
+        the other side or resolve."""
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        await interaction.response.edit_message(
+            content=announcement, view=None,
+        )
+
+        if self.cog.loose_ball_side_on_the_clock(match) is None:
+            await self.cog.resolve_loose_ball(interaction, game, match)
+            return
+
+        prompt_message = await interaction.followup.send(
+            self.cog.build_loose_ball_prompt(game, match),
+            view=self.cog.build_loose_ball_view(self.game_id, match),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.cog.games)
+
+
+class BallRecoveryView(SafeView):
+    """
+    Which fielded player goes and picks up an out-of-bounds ball,
+    offered to the side that won it once the run back is done -- any
+    of them, from anywhere on the field, at one exhaustion token per
+    space traveled (see D12Ball.begin_ball_recovery).
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+        game = cog.games.get(game_id)
+        if game is None or game.match_state is None:
+            return
+        match = cog.load_match_state(game)
+        side = match.ball.possession
+
+        for player_id in match.setup_for_side(side).field_players:
+            player = cog.get_player_definition(player_id)
+            initials = ROLE_INITIALS[player.role.value]
+            distance = match.distance_to_ball(player_id)
+            space_word = "space" if distance == 1 else "spaces"
+            button = discord.ui.Button(
+                label=(
+                    f"{player.name} [{initials}] ({distance} {space_word} "
+                    "away)"
+                )[:80],
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:ball_recovery:{game_id}:{player_id}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_player_id: str = player_id,
+            ) -> None:
+                await self.choose(interaction, chosen_player_id)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
         player_id: str,
     ) -> None:
         game = self.cog.games.get(self.game_id)
@@ -3435,52 +3608,25 @@ class LooseBallChoiceView(SafeView):
             return
         match = self.cog.load_match_state(game)
 
-        if side == "offense":
-            authorized = self.cog.user_controls_possession(
-                interaction.user.id, game, match,
-            )
-            already_chosen = match.loose_ball_offense_player is not None
-        else:
-            authorized = self.cog.user_controls_defense(
-                interaction.user.id, game, match,
-            )
-            already_chosen = match.loose_ball_defense_player is not None
-
-        if already_chosen:
+        if not match.pending_ball_recovery:
             await interaction.response.send_message(
-                "A player has already been chosen for that side.",
+                "The ball has already been picked up.",
                 ephemeral=True,
             )
             return
-        if not authorized:
+        if not self.cog.user_controls_possession(
+            interaction.user.id, game, match,
+        ):
             await interaction.response.send_message(
-                "Only the player on that side can choose.",
+                "Only the side that won the ball can choose.",
                 ephemeral=True,
             )
             return
 
-        if side == "offense":
-            match.choose_loose_ball_offense_player(player_id)
-        else:
-            match.choose_loose_ball_defense_player(player_id)
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
-
-        player = self.cog.get_player_definition(player_id)
-        refreshed_view = self.cog.build_loose_ball_view(
-            self.game_id, match,
+        await interaction.response.edit_message(view=None)
+        await self.cog.apply_ball_recovery(
+            interaction, game, match, player_id,
         )
-        await interaction.response.edit_message(view=refreshed_view)
-        await interaction.followup.send(
-            f"{format_role_bracket(player, self.cog.team_emojis)} "
-            f"contests the {contest_noun(match)} ({side})."
-        )
-
-        offense_ready, defense_ready = self.cog.loose_ball_sides_ready(
-            match,
-        )
-        if offense_ready and defense_ready:
-            await self.cog.resolve_loose_ball(interaction, game, match)
 
 
 class LooseBallSkillTestView(SafeView):
