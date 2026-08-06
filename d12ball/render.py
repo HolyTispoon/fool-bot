@@ -290,6 +290,31 @@ def fit_card_name(
     return font, draw.textbbox((0, 0), name, font=font)
 
 
+_PLAYER_CARD_CACHE: dict[tuple[str, int, int], Image.Image] = {}
+
+
+def rendered_player_card(
+    player: PlayerDefinition,
+    profile: RoleProfile,
+) -> Image.Image:
+    """
+    Build (and cache) a player's card at CARD_SIZE. A player's role
+    profile does not change mid-process, so the same player+profile
+    always produces the same pixels; caching skips re-drawing the name,
+    stats and portrait and re-running the LANCZOS downscale on every
+    single board render, which otherwise happens for every card on
+    every render regardless of whether that player's card has changed.
+    """
+    key = (player.player_id, profile.offense, profile.defense)
+    cached = _PLAYER_CARD_CACHE.get(key)
+    if cached is None:
+        cached = build_player_card(player, profile).resize(
+            CARD_SIZE, Image.Resampling.LANCZOS
+        )
+        _PLAYER_CARD_CACHE[key] = cached
+    return cached
+
+
 def build_player_card(
     player: PlayerDefinition,
     profile: RoleProfile,
@@ -401,8 +426,7 @@ def draw_card(
     exhausted: bool = False,
     injured: bool = False,
 ) -> None:
-    card = build_player_card(player, profile)
-    card = card.resize(CARD_SIZE, Image.Resampling.LANCZOS)
+    card = rendered_player_card(player, profile)
 
     border = TEAM_COLORS[player.team]
     draw.rounded_rectangle(
@@ -835,7 +859,7 @@ def render_dice_row(dice: list[tuple[int, str, str]]) -> BytesIO:
         )
 
     output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG", optimize=True)
+    canvas.convert("RGB").save(output, format="PNG")
     output.seek(0)
     return output
 
@@ -926,7 +950,7 @@ def render_skill_test_dice(
         )
 
     output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG", optimize=True)
+    canvas.convert("RGB").save(output, format="PNG")
     output.seek(0)
     return output
 
@@ -1231,7 +1255,7 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
     )
 
     output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG", optimize=True)
+    canvas.convert("RGB").save(output, format="PNG")
     output.seek(0)
     return output
 
@@ -1492,7 +1516,12 @@ def render_match_image(
     )
 
     output = BytesIO()
-    enlarged = canvas.resize(OUTPUT_SIZE, Image.Resampling.LANCZOS)
-    enlarged.convert("RGB").save(output, format="PNG", optimize=True)
+    # BILINEAR here, not LANCZOS: this is a pure 1.5x upscale of an
+    # already-antialiased raster (unlike the card build, which downscales
+    # from a supersampled source and needs LANCZOS's quality), so the
+    # cheaper filter costs no visible sharpness but is significantly
+    # faster.
+    enlarged = canvas.resize(OUTPUT_SIZE, Image.Resampling.BILINEAR)
+    enlarged.convert("RGB").save(output, format="PNG")
     output.seek(0)
     return output
