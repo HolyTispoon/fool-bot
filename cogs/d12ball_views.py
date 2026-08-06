@@ -1111,6 +1111,32 @@ class ManeuverChallengeView(SafeView):
         )
 
 
+def build_maneuver_choice_text(cog: "D12Ball", side: str) -> str:
+    """
+    A text summary of the three maneuvers available to `side`, each
+    with its effect and how it fares against the other side's three --
+    stands in for the full reference image next to the buttons that
+    actually make the pick, so a player doesn't have to cross-reference
+    a separate image to know what they're choosing.
+    """
+    maneuvers = (
+        cog.maneuver_catalog.offense
+        if side == "offense"
+        else cog.maneuver_catalog.defense
+    )
+    lines = []
+    for maneuver in sorted(maneuvers, key=lambda item: item.rank):
+        defeats, defeated_by, ties_with = cog.maneuver_catalog.relationships(
+            maneuver.name, side,
+        )
+        lines.append(
+            f"**{maneuver.name}:** {maneuver.effect} "
+            f"(defeats {defeats}, defeated by {defeated_by}, ties with "
+            f"{ties_with})"
+        )
+    return "\n\n".join(lines)
+
+
 class ManeuverActionPromptView(SafeView):
     def __init__(
         self,
@@ -1177,7 +1203,10 @@ class ManeuverActionPromptView(SafeView):
             return
 
         await interaction.response.send_message(
-            content="Pick your maneuver — see the reference image above.",
+            content=(
+                "Pick your maneuver:\n\n"
+                f"{build_maneuver_choice_text(self.cog, side)}"
+            ),
             view=ManeuverActionSelectView(self.cog, self.game_id, side),
             ephemeral=True,
         )
@@ -1219,6 +1248,21 @@ class ManeuverActionSelectView(SafeView):
 
             button.callback = callback
             self.add_item(button)
+
+        reference_button = discord.ui.Button(
+            label="Maneuver Reference",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:maneuver_reference_button:{game_id}:{side}",
+        )
+        reference_button.callback = self.show_reference
+        self.add_item(reference_button)
+
+    async def show_reference(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message(
+            file=self.cog.build_maneuver_reference_file(),
+            ephemeral=True,
+        )
+        await add_full_image_button_to_response(interaction)
 
     async def pick(
         self,
@@ -1482,16 +1526,6 @@ class SkillTestView(SafeView):
             if outcome == "offense"
             else match.defense_maneuver
         )
-        winner_number = (
-            self.cog.possession_player_number(game, match)
-            if outcome == "offense"
-            else self.cog.defending_player_number(game, match)
-        )
-        winner_mention = format_player_with_team(
-            game,
-            winner_number,
-            mention=True,
-        )
 
         exhausted_participants = [
             player
@@ -1502,8 +1536,7 @@ class SkillTestView(SafeView):
         await interaction.edit_original_response(
             content=(
                 f"{breakdown}\n\n"
-                f"**{winner_name}** wins the skill test! {winner_mention} "
-                "resolves the effect:"
+                f"## **{winner_name}** wins the skill test!"
             ),
             attachments=[dice_file],
             view=None,
@@ -1745,11 +1778,20 @@ class LowPassChoiceView(SafeView):
 
         for distance, teammate_id in cog.low_pass_candidates(match):
             teammate = cog.get_player_definition(teammate_id)
-            if distance == 0:
-                label = f"Hold -- {teammate.name}"
-            else:
-                direction = "forward" if distance > 0 else "back"
-                label = f"{abs(distance)} {direction} -- {teammate.name}"
+            origin_flat = match.board.flat_index(
+                match.ball.zone, match.ball.space_index,
+            )
+            target_flat = match.relative_flat_index(
+                origin_flat, match.ball.possession, distance,
+            )
+            zone, space_index = match.board.position_at_flat_index(
+                target_flat,
+            )
+            role_initial = ROLE_INITIALS[teammate.role.value]
+            label = (
+                f"{teammate.name} [{role_initial}] -- "
+                f"{space_label(zone, space_index)}"
+            )
             button = discord.ui.Button(
                 label=label,
                 style=discord.ButtonStyle.primary,
@@ -1788,8 +1830,31 @@ class LowPassChoiceView(SafeView):
             )
             return
 
+        offense_side = match.ball.possession
+        teammate_id = next(
+            player_id
+            for candidate_distance, player_id in (
+                self.cog.low_pass_candidates(match)
+            )
+            if candidate_distance == distance
+        )
+        teammate = self.cog.get_player_definition(teammate_id)
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        target_flat = match.relative_flat_index(
+            origin_flat, offense_side, distance,
+        )
+        zone, space_index = match.board.position_at_flat_index(target_flat)
+        team_name = match.setup_for_side(offense_side).team.value.title()
+
         await interaction.response.edit_message(
-            content=f"Chose **{distance}**.",
+            content=(
+                f"**{interaction.user.display_name} ({team_name})** chose "
+                "to pass the ball to "
+                f"{format_role_bracket(teammate, self.cog.team_emojis)} at "
+                f"{space_label(zone, space_index)}."
+            ),
             view=None,
         )
         await self.cog.apply_low_pass(interaction, game, match, distance)
@@ -1970,7 +2035,12 @@ class SetUpAttemptChoiceView(SafeView):
             view=None,
         )
         await self.cog.decline_scoring_attempt(
-            interaction, game, match, self.distance_moved, self.decline_kind,
+            interaction,
+            game,
+            match,
+            self.distance_moved,
+            self.decline_kind,
+            shooter_id=self.shooter_id,
         )
 
 
@@ -2409,8 +2479,16 @@ class SubstitutionOfferView(SubstitutionView):
         if game is None or match is None:
             return
 
+        side = TeamSide(match.pending_substitution_side)
+        team_name = match.setup_for_side(side).team.value.title()
+        coach_name = interaction.user.display_name
+
         await interaction.response.edit_message(
-            content=interaction.message.content + "\n\n**Passed.**",
+            content=(
+                interaction.message.content
+                + f"\n\n**{coach_name} ({team_name}) passed on "
+                "substitution.**"
+            ),
             view=None,
         )
         await self.cog.finish_substitution_window(interaction, game, match)
@@ -3290,17 +3368,31 @@ class LooseBallChoiceView(SafeView):
         cog: "D12Ball",
         game_id: str,
         entries: list[tuple[str, list[str]]],
+        match: MatchState,
     ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
 
+        ball_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+
         for side, candidates in entries:
             for player_id in candidates:
                 player = cog.get_player_definition(player_id)
                 initials = ROLE_INITIALS[player.role.value]
+                zone, space_index = match.board.meeple_position(player_id)
+                distance = abs(
+                    match.board.flat_index(zone, space_index) - ball_flat
+                )
+                space_word = "space" if distance == 1 else "spaces"
+                location_note = (
+                    f"({space_label(zone, space_index)}, {distance} "
+                    f"{space_word} from the ball)"
+                )
                 button = discord.ui.Button(
-                    label=f"{player.name} [{initials}] ({side})",
+                    label=f"{player.name} [{initials}] {location_note}",
                     style=(
                         discord.ButtonStyle.primary
                         if side == "offense"
@@ -3545,6 +3637,7 @@ class LooseBallSkillTestView(SafeView):
             if player.player_id in match.exhausted
         ]
         distance_moved = match.pending_loose_ball_distance
+        is_high_pass = match.pending_loose_ball_is_high_pass
 
         match.ball.possession = winner_side
         if turnover_occurred:
@@ -3556,12 +3649,24 @@ class LooseBallSkillTestView(SafeView):
         save_games(self.cog.games)
 
         turnover_line = "\n\n# Turnover!" if turnover_occurred else ""
+        winner_bracket = format_role_bracket(
+            winner_player, self.cog.team_emojis,
+        )
+        if is_high_pass:
+            outcome_line = (
+                f"{winner_bracket} wins possession off the high pass! "
+                f"{winner_mention} has possession."
+                if turnover_occurred
+                else f"{winner_bracket} keeps possession after the high "
+                f"pass! {winner_mention} has possession."
+            )
+        else:
+            outcome_line = (
+                f"{winner_bracket} wins the loose ball! {winner_mention} "
+                "has possession."
+            )
         await interaction.response.edit_message(
-            content=(
-                f"{breakdown}{turnover_line}\n\n"
-                f"{format_role_bracket(winner_player, self.cog.team_emojis)} "
-                f"wins the loose ball! {winner_mention} has possession."
-            ),
+            content=f"{breakdown}{turnover_line}\n\n{outcome_line}",
             attachments=[dice_file],
             view=None,
         )
