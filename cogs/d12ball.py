@@ -54,6 +54,7 @@ from cogs.d12ball_helpers import (
     ROLE_INITIALS,
     add_full_image_button,
     add_full_image_button_to_response,
+    contest_noun,
     destination_display_name,
     filter_choices,
     format_ai_name,
@@ -1729,7 +1730,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         defense_player_id = match.loose_ball_defense_player
         distance_moved = match.pending_loose_ball_distance
         is_high_pass = match.pending_loose_ball_is_high_pass
-        ball_noun = "high pass" if is_high_pass else "loose ball"
+        ball_noun = contest_noun(match)
 
         if offense_player_id is None and defense_player_id is None:
             # Degenerate edge case only: the defense fallback in
@@ -1860,12 +1861,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             defense_player,
         ).defense
 
-        test_message = await interaction.followup.send(
+        # Who is defending what differs between the two: a High Pass's
+        # receiver already has the ball and is being challenged for it,
+        # where a loose ball belongs to nobody yet and both sides are
+        # going for it.
+        contest_line = (
+            f"{format_role_bracket(defense_player, self.team_emojis)} "
+            f"(defense skill {defense_skill}) challenges "
             f"{format_role_bracket(offense_player, self.team_emojis)} "
+            f"(offense skill {offense_skill}) for the high pass -- the "
+            "receiver must win this skill test to keep possession!"
+            if is_high_pass
+            else f"{format_role_bracket(offense_player, self.team_emojis)} "
             f"(offense skill {offense_skill}) and "
             f"{format_role_bracket(defense_player, self.team_emojis)} "
             f"(defense skill {defense_skill}) both contest the "
-            f"{ball_noun} -- skill test!\n{exhaustion_text}\n\nEither "
+            f"{ball_noun} -- skill test!"
+        )
+        test_message = await interaction.followup.send(
+            f"{contest_line}\n{exhaustion_text}\n\nEither "
             "player can roll:",
             view=LooseBallSkillTestView(self, game.game_id),
             wait=True,
@@ -2732,9 +2746,31 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         own state change (e.g. Steal Intercept's turnover and 1-space
         fallback) has already been applied and saved by the caller,
         this just skips everything downstream of that.
+
+        A resolution that left possession where it was doesn't run a
+        run-back at all: "every time there's a turnover for any
+        reason (steal, goal etc.) players have to run back" is the
+        whole of when one happens (Cleanup, docs/d12ball-rules.md).
+        Keeping the ball -- a receiver winning their High Pass, a
+        loose ball the possessing side recovers -- leaves whoever is
+        out of position out of position, and charges nobody, until a
+        turnover does come. This is called with turnover_occurred
+        False anyway so the tail of the flow (the clock, the next
+        offensive choice) stays in one place.
         """
         if turnover_occurred and match.scoreboard.last_possession:
             await self.end_period(interaction, game, match, lead_in=lead_in)
+            return
+
+        if not turnover_occurred:
+            await self.finish_maneuver_resolution(
+                interaction,
+                game,
+                match,
+                distance_moved=distance_moved,
+                turnover_occurred=False,
+                lead_in=lead_in,
+            )
             return
 
         match.pending_run_back = True

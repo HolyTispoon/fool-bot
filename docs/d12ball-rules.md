@@ -251,6 +251,15 @@ transcription itself. What remains below is what upstream still does not say.
   forward -- **and** possession flips in addition. **Unless that same roll concedes an own
   goal**, in which case the own goal takes priority and the steal doesn't also happen -- see
   [Own goal trigger](#own-goal-trigger) below.
+- **A High Pass's skill test is not a loose ball.** The two run the same contest and mean
+  opposite things. A High Pass has been caught: the receiver is standing on the ball's space
+  holding it, and must win a skill test against a defender on that same space -- or, where
+  the defence has nobody there, against whoever that coach sends in from the zone, at the
+  usual distance-traveled exhaustion. Winning keeps possession and changes nothing else;
+  only losing is a turnover. A loose ball is the ball lying where the possessing side has
+  nobody, with possession genuinely up for grabs. A pass that lands in a space with no
+  player from the team that had possession -- High Pass, Block Deflect, or anything else --
+  is a loose ball and follows the rules below instead.
 - **Loose ball is a general check after every maneuver resolves, not just a pass landing
   on an empty space.** Once a maneuver settles, check whether the ball's space has a
   player from the team that has possession. If it doesn't, that triggers a loose ball,
@@ -331,6 +340,12 @@ transcription itself. What remains below is what upstream still does not say.
 
 ### Running back
 
+- **A turnover is the only thing that runs anyone back.** Cleanup's "every time there's a
+  turnover for any reason (steal, goal etc.)" is the whole of it: a resolution that leaves
+  possession where it was runs nobody back and charges nobody, however far out of position
+  the maneuver left them. A receiver who wins their High Pass skill test, and a loose ball
+  the possessing side recovers, both keep the ball and so both skip it. Whoever is displaced
+  stays displaced until a turnover does come.
 - Run-back exhaustion is **one token per space traveled** -- the same rate a challenger pays
   walking in to a maneuver.
 - The coach **chooses** which space in the assigned zone each player runs back to, so long as

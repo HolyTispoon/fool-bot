@@ -67,6 +67,25 @@ HIGH_PASS_CONTEST_HEADLINE = (
     "possession."
 )
 
+
+def contest_noun(match: MatchState) -> str:
+    """
+    What to call the contest currently pending -- "high pass" or
+    "loose ball".
+
+    They share the machinery and nothing else. A loose ball is the
+    ball sitting in a space the possessing side doesn't hold, and
+    whoever wins it takes possession from wherever it lies. A High
+    Pass is a completed pass to a player who is already standing
+    there, defending the ball they just received; losing it is a
+    turnover, winning it changes nothing. Calling one by the other's
+    name in front of a coach who is deciding what to do misreads the
+    position, so every message on the shared path asks for the noun
+    rather than assuming.
+    """
+    return "high pass" if match.pending_loose_ball_is_high_pass else "loose ball"
+
+
 AI_OPPONENT_NAMES = {
     AIOpponent.DINKY: "Dinky AI",
     AIOpponent.DECENT: "Decent AI",

@@ -42,6 +42,7 @@ from cogs.d12ball_helpers import (
     add_full_image_button_to_response,
     build_home_choice_message,
     build_setup_message,
+    contest_noun,
     destination_display_name,
     format_coin_emoji,
     format_player,
@@ -1936,8 +1937,9 @@ class SetUpAttemptChoiceView(SafeView):
     Pass's own 2-space overshoot, or a Winger's Low Pass ability --
     or let the maneuver resolve as normal instead. `decline_kind`
     says what "normal" means for whichever maneuver offered this:
-    "skill_test" (High Pass, same contest as a loose ball) or
-    "regular_pass" (a Winger's Low Pass).
+    "skill_test" (High Pass -- the receiver defends the ball they just
+    caught, which borrows the loose-ball machinery without being one;
+    see contest_noun) or "regular_pass" (a Winger's Low Pass).
 
     Not reconstructible on restart the way the rest of this cog's
     views are -- match state doesn't record which maneuver offered
@@ -3471,7 +3473,7 @@ class LooseBallChoiceView(SafeView):
         await interaction.response.edit_message(view=refreshed_view)
         await interaction.followup.send(
             f"{format_role_bracket(player, self.cog.team_emojis)} "
-            f"contests the loose ball ({side})."
+            f"contests the {contest_noun(match)} ({side})."
         )
 
         offense_ready, defense_ready = self.cog.loose_ball_sides_ready(
@@ -3482,6 +3484,13 @@ class LooseBallChoiceView(SafeView):
 
 
 class LooseBallSkillTestView(SafeView):
+    """
+    The roll that settles a loose ball -- or a High Pass, which runs
+    the same contest for an entirely different reason (see
+    contest_noun). The custom_id stays `loose_ball_test` either way,
+    since it's what already-posted messages are keyed on.
+    """
+
     def __init__(
         self,
         cog: "D12Ball",
@@ -3491,8 +3500,13 @@ class LooseBallSkillTestView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
+        game = cog.games.get(game_id)
+        noun = "loose ball"
+        if game is not None and game.match_state is not None:
+            noun = contest_noun(cog.load_match_state(game))
+
         button = discord.ui.Button(
-            label="Roll for the loose ball",
+            label=f"Roll for the {noun}",
             style=discord.ButtonStyle.primary,
             custom_id=f"d12ball:loose_ball_test:{game_id}",
         )
@@ -3515,7 +3529,7 @@ class LooseBallSkillTestView(SafeView):
             or match.loose_ball_defense_player is None
         ):
             await interaction.response.send_message(
-                "This loose ball is no longer active.",
+                f"This {contest_noun(match)} is no longer active.",
                 ephemeral=True,
             )
             return
@@ -3525,7 +3539,8 @@ class LooseBallSkillTestView(SafeView):
             participant_ids.add(game.player_2_id)
         if interaction.user.id not in participant_ids:
             await interaction.response.send_message(
-                "Only a player in this game can roll for the loose ball.",
+                "Only a player in this game can roll for the "
+                f"{contest_noun(match)}.",
                 ephemeral=True,
             )
             return
