@@ -57,10 +57,14 @@ FULL_IMAGE_BUTTON_LABEL = "View full image"
 # when the landing space isn't empty -- a 3+ space pass, or a declined
 # 2-space one, always makes the receiver win a skill test to keep the
 # ball. This headline replaces begin_loose_ball's default "lands in an
-# empty space" framing, which wouldn't be true here.
+# empty space" framing, which wouldn't be true here. It doesn't mention
+# either side sending someone to contest: the receiver is always
+# already there, and the defense only gets a pick of their own when
+# they don't already have someone on that same space (see
+# apply_high_pass's forced_defense_player).
 HIGH_PASS_CONTEST_HEADLINE = (
     "**High Pass:** the receiving player must win a skill test to keep "
-    "possession -- each side may send a nearby player to contest it."
+    "possession."
 )
 
 AI_OPPONENT_NAMES = {
