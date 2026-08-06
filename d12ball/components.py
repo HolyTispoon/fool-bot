@@ -479,6 +479,7 @@ class MatchState:
     pending_substitution_used: int = 0
     pending_substitution_is_response: bool = False
     pending_substitution_declared: bool = False
+    pending_halftime_stage: Optional[str] = None
 
     @classmethod
     def standard(
@@ -881,6 +882,36 @@ class MatchState:
         self.injured.add(player_id)
         self.exhaustion.pop(player_id, None)
         self.exhausted.discard(player_id)
+
+    def recover_exhaustion(
+        self,
+        player_id: str,
+        amount: int,
+        defense_skill: int,
+    ) -> int:
+        """
+        Remove up to `amount` exhaustion tokens (floored at 0) from a
+        player during halftime recovery, re-testing Exhausted against
+        the given defense skill rather than assuming it clears --
+        mirrors add_exhaustion/mark_exhausted_if_needed's split, since
+        recovery can drop a player back under the threshold that put
+        them there. A no-op for an injured player, who never carries
+        exhaustion. Returns the number of tokens actually removed.
+        """
+        if amount <= 0 or player_id in self.injured:
+            return 0
+        current = self.exhaustion.get(player_id, 0)
+        if current <= 0:
+            return 0
+        removed = min(amount, current)
+        remaining = current - removed
+        if remaining:
+            self.exhaustion[player_id] = remaining
+        else:
+            self.exhaustion.pop(player_id, None)
+        if remaining <= defense_skill:
+            self.exhausted.discard(player_id)
+        return removed
 
     def choose_challenger(self, player_id: str) -> int:
         """
@@ -1489,6 +1520,46 @@ class MatchState:
         zone = setup.assigned_zone(player_id)
         return self.run_back_player(player_id, zone, space_index)
 
+    def reposition_meeple_anywhere(
+        self,
+        side: TeamSide,
+        player_id: str,
+        zone: Zone,
+        space_index: int,
+    ) -> None:
+        """
+        Halftime-only free placement: move a fielded player's meeple
+        to any open board space, not limited to their own
+        currently-assigned zone the way `reposition_player` is --
+        "the coach can change their team's formation and the players'
+        assignment as they please" (End of Time). Costs no exhaustion,
+        same as `reposition_player`. Leaves the player card's zone
+        assignment untouched, so the meeple counts as displaced (same
+        as `swap_field_positions` leaves one) until a future run back
+        or another reposition moves it back into its assigned zone.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+        if player_id not in setup.field_players:
+            raise ValueError(f"{player_id} is not on the field.")
+        zone = Zone(zone)
+        if space_index not in self.open_spaces_in_zone(side, zone):
+            raise ValueError("That space is already occupied by a teammate.")
+        self.board.place_meeple(player_id, zone, space_index)
+
+    def kickoff_space_occupied_by(self, side: TeamSide) -> bool:
+        """
+        Whether one of `side`'s fielded meeples currently stands on
+        the ball's space -- used at halftime to confirm the visiting
+        team has a player on the second-half kickoff space, which
+        `end_period` has already moved the ball onto by the time this
+        is checked.
+        """
+        side = TeamSide(side)
+        occupants = self.board.spaces[self.ball.zone][self.ball.space_index]
+        team_players = set(self.setup_for_side(side).field_players)
+        return bool(team_players.intersection(occupants))
+
     def swap_meeple_positions(
         self,
         side: TeamSide,
@@ -1657,6 +1728,7 @@ class MatchState:
             "pending_substitution_declared": (
                 self.pending_substitution_declared
             ),
+            "pending_halftime_stage": self.pending_halftime_stage,
         }
 
     @classmethod
@@ -1753,6 +1825,7 @@ class MatchState:
             pending_substitution_declared=data.get(
                 "pending_substitution_declared", False
             ),
+            pending_halftime_stage=data.get("pending_halftime_stage"),
         )
 
 

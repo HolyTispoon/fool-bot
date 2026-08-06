@@ -197,6 +197,18 @@ succeed for the offence.
 
   Dinky substitutes only to get an injured player off -- the one case the rules compel -- and
   never rearranges.
+- **Halftime.** `end_period`'s first-half branch now runs the whole cleanup instead of
+  announcing it as hand-apply text: every fielded player recovers 1 exhaustion token, then
+  each side (home before visiting) picks one fielded player to lose an extra token, then each
+  side gets its own full substitution declaration (independent of the other side's, unlike a
+  turnover's declare-then-respond pairing -- see `begin_halftime_substitutions` in
+  `cogs/d12ball.py`), then each side gets a free repositioning pass that -- confirmed directly
+  by the author -- can move any fielded meeple to **any** space on the board, not just their
+  own assigned zone, at no exhaustion cost. The visiting side's repositioning alone is gated
+  on finishing with a player on the second-half kickoff space, since they're the ones who
+  have to kick off. `MatchState.recover_exhaustion`/`reposition_meeple_anywhere`/
+  `kickoff_space_occupied_by` are the new engine-level pieces; `HALFTIME_STAGES` in
+  `cogs/d12ball.py` sequences the rest.
 
 ### Newly specified, not yet built
 
@@ -211,5 +223,4 @@ succeed for the offence.
 
 ### Still unspecified enough to block
 
-- Clock advance, turnover, halftime, last possession, and the extreme shootout are described
-  upstream but not built. Maneuver effects and score-attempt cleanup are applied by hand.
+- The extreme shootout is described upstream but not built.
