@@ -115,6 +115,7 @@ FONT_BODY = load_font(32)
 FONT_SMALL = load_font(19)
 FONT_MEEPLE = load_font(27, bold=True)
 FONT_TOKEN = load_font(19, bold=True)
+FONT_BADGE_COUNT = load_font(16, bold=True)
 FONT_MANEUVER_TITLE = load_font(30, bold=True)
 FONT_MANEUVER_BODY = load_font(22)
 FONT_MANEUVER_LEGEND = load_font(22)
@@ -290,26 +291,31 @@ def fit_card_name(
     return font, draw.textbbox((0, 0), name, font=font)
 
 
-_PLAYER_CARD_CACHE: dict[tuple[str, int, int], Image.Image] = {}
+_PLAYER_CARD_CACHE: dict[tuple[str, int, int], tuple[Image.Image, int, int]] = {}
 
 
 def rendered_player_card(
     player: PlayerDefinition,
     profile: RoleProfile,
-) -> Image.Image:
+) -> tuple[Image.Image, int, int]:
     """
-    Build (and cache) a player's card at CARD_SIZE. A player's role
-    profile does not change mid-process, so the same player+profile
-    always produces the same pixels; caching skips re-drawing the name,
-    stats and portrait and re-running the LANCZOS downscale on every
-    single board render, which otherwise happens for every card on
-    every render regardless of whether that player's card has changed.
+    Build (and cache) a player's card at CARD_SIZE, along with the
+    (top, bottom) of the stats/role row in CARD_SIZE coordinates, so
+    badges can be centered on that row. A player's role profile does
+    not change mid-process, so the same player+profile always produces
+    the same pixels; caching skips re-drawing the name, stats and
+    portrait and re-running the LANCZOS downscale on every single board
+    render, which otherwise happens for every card on every render
+    regardless of whether that player's card has changed.
     """
     key = (player.player_id, profile.offense, profile.defense)
     cached = _PLAYER_CARD_CACHE.get(key)
     if cached is None:
-        cached = build_player_card(player, profile).resize(
-            CARD_SIZE, Image.Resampling.LANCZOS
+        card, row_top, row_bottom = build_player_card(player, profile)
+        cached = (
+            card.resize(CARD_SIZE, Image.Resampling.LANCZOS),
+            round(row_top / CARD_INTERNAL_SCALE),
+            round(row_bottom / CARD_INTERNAL_SCALE),
         )
         _PLAYER_CARD_CACHE[key] = cached
     return cached
@@ -318,13 +324,14 @@ def rendered_player_card(
 def build_player_card(
     player: PlayerDefinition,
     profile: RoleProfile,
-) -> Image.Image:
+) -> tuple[Image.Image, int, int]:
     """
     Compose a player's card at CARD_INTERNAL_SIZE: a white rectangle
     (the surrounding team-colored frame is drawn by the caller) holding
     the offense/defense skills, abbreviated role, and portrait. Callers
     scale the result down to CARD_SIZE, which is why this renders at
-    CARD_INTERNAL_SCALE.
+    CARD_INTERNAL_SCALE. Also returns the (top, bottom) of the stats/role
+    row in CARD_INTERNAL_SIZE coordinates.
     """
     width, height = CARD_INTERNAL_SIZE
 
@@ -386,7 +393,7 @@ def build_player_card(
         portrait_y = height - 10 - sized.height
         card.alpha_composite(sized, (portrait_x, portrait_y))
 
-    return card
+    return card, name_zone_height, portrait_zone_top
 
 
 def player_index(
@@ -426,7 +433,7 @@ def draw_card(
     exhausted: bool = False,
     injured: bool = False,
 ) -> None:
-    card = rendered_player_card(player, profile)
+    card, row_top, row_bottom = rendered_player_card(player, profile)
 
     border = TEAM_COLORS[player.team]
     draw.rounded_rectangle(
@@ -437,11 +444,13 @@ def draw_card(
     canvas.alpha_composite(card, (x, y))
 
     if exhaustion > 0:
-        draw_exhaustion_badge(canvas, draw, x, y, exhaustion)
+        draw_exhaustion_badge(
+            canvas, draw, x, y, exhaustion, player, profile, row_top, row_bottom
+        )
     if injured:
         draw_injured_badge(canvas, draw, x, y)
     if exhausted:
-        draw_exhausted_badge(canvas, draw, x, y)
+        draw_exhausted_badge(canvas, draw, x, y, row_top, row_bottom)
 
 
 def draw_exhaustion_badge(
@@ -450,10 +459,33 @@ def draw_exhaustion_badge(
     card_x: int,
     card_y: int,
     exhaustion: int,
+    player: PlayerDefinition,
+    profile: RoleProfile,
+    row_top: int,
+    row_bottom: int,
 ) -> None:
+    """
+    Draws the exhaust-token badge between the skill numbers and the role
+    acronym, on the same row as the role, rather than over the portrait.
+    The gap between those two is narrower than the icon on some cards, so
+    the horizontal center is computed per-card (from the actual offense
+    digit width and role label width) to keep the overlap as small as
+    possible instead of guessing a fixed position.
+    """
     icon = load_exhaust_icon()
-    badge_x = card_x + CARD_SIZE[0] - EXHAUST_ICON_SIZE - 1
-    badge_y = card_y + CARD_SIZE[1] - EXHAUST_ICON_SIZE - 1
+
+    offense_bbox = draw.textbbox(
+        (0, 0), str(profile.offense), font=FONT_CARD_STAT
+    )
+    stats_right = 12 + (offense_bbox[2] - offense_bbox[0])
+
+    role_label = ROLE_INITIALS[player.role.value]
+    role_bbox = draw.textbbox((0, 0), role_label, font=FONT_CARD_ROLE)
+    role_left = (CARD_INTERNAL_SIZE[0] - (role_bbox[2] - role_bbox[0])) / 2
+
+    gap_center = (stats_right + role_left) / 2 / CARD_INTERNAL_SCALE
+    badge_x = round(card_x + gap_center - EXHAUST_ICON_SIZE / 2)
+    badge_y = card_y + row_top + (row_bottom - row_top - EXHAUST_ICON_SIZE) // 2
 
     if icon is not None:
         canvas.alpha_composite(icon, (badge_x, badge_y))
@@ -471,21 +503,36 @@ def draw_exhaustion_badge(
         )
 
     if exhaustion > 1:
+        # The icon sits in a narrow gap between the stats and the role
+        # label, with no room to print the count beside it, so the count
+        # is a small bubble on the bottom of the icon instead -- the
+        # same pattern a notification-count badge uses.
         count_label = str(exhaustion)
-        count_bbox = draw.textbbox((0, 0), count_label, font=FONT_SMALL)
+        count_bbox = draw.textbbox((0, 0), count_label, font=FONT_BADGE_COUNT)
         count_width = count_bbox[2] - count_bbox[0]
         count_height = count_bbox[3] - count_bbox[1]
-        label_x = max(card_x + 2, badge_x - count_width - 5)
-        label_y = (
-            badge_y
-            + (EXHAUST_ICON_SIZE - count_height) / 2
-            - count_bbox[1]
+        bubble_radius = max(count_width, count_height) / 2 + 2
+        bubble_cx = badge_x + EXHAUST_ICON_SIZE / 2
+        bubble_cy = badge_y + EXHAUST_ICON_SIZE - 4
+        draw.ellipse(
+            (
+                bubble_cx - bubble_radius,
+                bubble_cy - bubble_radius,
+                bubble_cx + bubble_radius,
+                bubble_cy + bubble_radius,
+            ),
+            fill="#1a1a1a",
+            outline="#e8b923",
+            width=1,
         )
         draw.text(
-            (label_x, label_y),
+            (
+                bubble_cx - count_width / 2 - count_bbox[0],
+                bubble_cy - count_height / 2 - count_bbox[1],
+            ),
             count_label,
-            font=FONT_SMALL,
-            fill="#111111",
+            font=FONT_BADGE_COUNT,
+            fill="#ffffff",
         )
 
 
@@ -494,10 +541,12 @@ def draw_exhausted_badge(
     draw: ImageDraw.ImageDraw,
     card_x: int,
     card_y: int,
+    row_top: int,
+    row_bottom: int,
 ) -> None:
     icon = load_exhausted_icon()
     badge_x = card_x + CARD_SIZE[0] - EXHAUSTED_ICON_SIZE - 1
-    badge_y = card_y + 1
+    badge_y = card_y + row_top + (row_bottom - row_top - EXHAUSTED_ICON_SIZE) // 2
 
     if icon is not None:
         canvas.alpha_composite(icon, (badge_x, badge_y))
