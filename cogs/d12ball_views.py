@@ -1076,19 +1076,21 @@ class ManeuverChallengeView(SafeView):
             )
             return
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
-
         refresh_player_names(game, interaction.guild)
         defender_number = self.cog.defending_player_number(game, match)
         defender_display = format_player_with_team(game, defender_number)
 
+        # Built before the save: a walk-in's tokens can cross the
+        # Exhausted threshold, and the announcement is what tests it.
         announcement = self.cog.build_challenge_announcement(
             game,
             match,
             player_id,
             distance,
         )
+
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
 
         await interaction.response.edit_message(
             content=f"{defender_display} has chosen their challenger.",
@@ -1488,25 +1490,27 @@ class SkillTestView(SafeView):
         )
 
         if offense_total == defense_total:
-            match.add_exhaustion(match.active_player_id, 1)
-            match.add_exhaustion(match.challenger_id, 1)
-            game.match_state = match.to_dict()
-            save_games(self.cog.games)
-
+            # The token each side pays for the re-roll counts towards
+            # Exhausted straight away, so whoever it pushes over is
+            # already flagged when this test finally resolves and the
+            # injury checks below are handed out.
             exhaustion_text = "\n".join(
                 [
-                    self.cog.describe_exhaustion_gain(
+                    self.cog.apply_exhaustion(
                         match,
                         match.active_player_id,
                         1,
                     ),
-                    self.cog.describe_exhaustion_gain(
+                    self.cog.apply_exhaustion(
                         match,
                         match.challenger_id,
                         1,
                     ),
                 ]
             )
+            game.match_state = match.to_dict()
+            save_games(self.cog.games)
+
             await interaction.edit_original_response(
                 content=(
                     f"{breakdown}\n\n"
@@ -1704,8 +1708,7 @@ class ScoreAttemptView(SafeView):
         # exclusive to skill tests either way.
         set_up_note = ""
         if match.pending_shot_is_set_up:
-            match.add_exhaustion(shooter.player_id, 1)
-            set_up_note = "\n\n" + self.cog.describe_exhaustion_gain(
+            set_up_note = "\n\n" + self.cog.apply_exhaustion(
                 match, shooter.player_id, 1,
             )
 
@@ -2351,7 +2354,9 @@ class RunBackChoiceView(SafeView):
             )
             return
 
-        match.add_exhaustion(self.player_id, distance)
+        exhaustion_text = self.cog.apply_exhaustion(
+            match, self.player_id, distance,
+        )
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
@@ -2359,10 +2364,8 @@ class RunBackChoiceView(SafeView):
         await interaction.response.edit_message(
             content=(
                 f"{format_role_bracket(player, self.cog.team_emojis)} "
-                f"runs back to {space_label(zone, space_index)}.\n"
-                + self.cog.describe_exhaustion_gain(
-                    match, self.player_id, distance,
-                )
+                f"runs back to {space_label(zone, space_index)}."
+                f"\n{exhaustion_text}"
             ),
             view=None,
         )
@@ -3584,21 +3587,22 @@ class LooseBallSkillTestView(SafeView):
         )
 
         if offense_total == defense_total:
-            match.add_exhaustion(match.loose_ball_offense_player, 1)
-            match.add_exhaustion(match.loose_ball_defense_player, 1)
-            game.match_state = match.to_dict()
-            save_games(self.cog.games)
-
+            # As in SkillTestView: the re-roll's token counts towards
+            # Exhausted now, so it is in force for the injury checks
+            # this contest hands out once it resolves.
             exhaustion_text = "\n".join(
                 [
-                    self.cog.describe_exhaustion_gain(
+                    self.cog.apply_exhaustion(
                         match, match.loose_ball_offense_player, 1,
                     ),
-                    self.cog.describe_exhaustion_gain(
+                    self.cog.apply_exhaustion(
                         match, match.loose_ball_defense_player, 1,
                     ),
                 ]
             )
+            game.match_state = match.to_dict()
+            save_games(self.cog.games)
+
             await interaction.response.edit_message(
                 content=(
                     f"{breakdown}\n\n"

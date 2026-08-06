@@ -313,6 +313,11 @@ transcription itself. What remains below is what upstream still does not say.
 - Halftime recovery is **1** token. Upstream still says "1 (or 2, TBD)".
 - **The injury check belongs to skill tests only.** Taking part in a score attempt never
   triggers one, however exhausted the players involved are.
+- **Exhausted is judged when a skill test resolves, against every token the player holds by
+  then** -- including the ones the test itself charged: the token each participant pays to
+  enter it, and one more each for every tie that sent it back to be rolled again. A player
+  the test pushed over their own defensive skill is exhausted for that same test, and rolls
+  its injury check. There is no snapshot of who was exhausted going in.
 - **An injured player removes all exhaustion tokens immediately and is no longer
   exhausted.** Injured players cannot gain more exhaustion tokens and do not make further
   injury checks.

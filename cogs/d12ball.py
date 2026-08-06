@@ -629,13 +629,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         (see PlayerActionView.choose_action).
         """
         distance = match.choose_challenger(challenger_id)
+        # Built before the save: the walk-in's tokens can cross the
+        # Exhausted threshold, and that flag is set while the
+        # announcement is put together. See apply_exhaustion.
+        announcement = self.build_challenge_announcement(
+            game, match, challenger_id, distance,
+        )
         game.match_state = match.to_dict()
         save_games(self.games)
 
         await interaction.followup.send(
-            self.build_challenge_announcement(
-                game, match, challenger_id, distance,
-            ),
+            announcement,
             allowed_mentions=discord.AllowedMentions(
                 users=False, roles=False, everyone=False,
             ),
@@ -755,8 +759,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.begin_effect_resolution(interaction, game, match, winner_name)
             return
 
-        match.add_exhaustion(match.active_player_id, 1)
-        match.add_exhaustion(match.challenger_id, 1)
+        exhaustion_text = (
+            self.apply_exhaustion(match, match.active_player_id, 1)
+            + "\n"
+            + self.apply_exhaustion(match, match.challenger_id, 1)
+        )
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -780,13 +787,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{offense_skill}\n"
             f"{format_role_bracket(defense_player, self.team_emojis)}: defense skill "
             f"{defense_skill}\n\n"
-            + self.describe_exhaustion_gain(
-                match, match.active_player_id, 1,
-            )
-            + "\n"
-            + self.describe_exhaustion_gain(
-                match, match.challenger_id, 1,
-            ),
+            + exhaustion_text,
             allowed_mentions=discord.AllowedMentions(
                 users=False,
                 roles=False,
@@ -811,10 +812,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player: PlayerDefinition,
     ) -> None:
         """
-        Automatic injury test for a player who was already exhausted
-        going into a skill test they just took part in: roll a d12,
-        and if it doesn't beat their current exhaustion token count,
-        they become injured.
+        Automatic injury test for an exhausted player who has just
+        taken part in a skill test: roll a d12, and if it doesn't beat
+        their current exhaustion token count, they become injured.
+
+        Exhausted is judged when the test resolves, not when it
+        started, and against every token they hold by then -- the one
+        each participant pays to enter the test and one more each time
+        a tie sends it back to be rolled again, all of which count. A
+        player the test itself pushed over their defensive skill rolls
+        this check for that same test.
         """
         if player.player_id in match.injured:
             return
@@ -1747,7 +1754,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.move_meeple(
                 offense_player_id, match.ball.zone, match.ball.space_index,
             )
-            match.add_exhaustion(offense_player_id, recovery_distance)
+            exhaustion_text = self.apply_exhaustion(
+                match, offense_player_id, recovery_distance,
+            )
             match.pending_loose_ball = False
             game.match_state = match.to_dict()
             save_games(self.games)
@@ -1760,10 +1769,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "recovers the loose ball uncontested."
             )
             await interaction.followup.send(
-                f"{recovery_line}\n"
-                + self.describe_exhaustion_gain(
-                    match, offense_player_id, recovery_distance,
-                )
+                f"{recovery_line}\n{exhaustion_text}"
             )
             await self.refresh_match_image(interaction, game)
             await self.begin_run_back(
@@ -1787,7 +1793,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.move_meeple(
                 defense_player_id, match.ball.zone, match.ball.space_index,
             )
-            match.add_exhaustion(defense_player_id, recovery_distance)
+            exhaustion_text = self.apply_exhaustion(
+                match, defense_player_id, recovery_distance,
+            )
             match.ball.possession = match.defending_side()
             match.ball.speed = 1
             match.pending_loose_ball = False
@@ -1809,10 +1817,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{headline} "
                 f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
                 f"now has possession -- {format_role_bracket(player, self.team_emojis)} "
-                "gets to the ball.\n"
-                + self.describe_exhaustion_gain(
-                    match, defense_player_id, recovery_distance,
-                )
+                f"gets to the ball.\n{exhaustion_text}"
             )
             await self.refresh_match_image(interaction, game)
             await self.begin_run_back(
@@ -1832,8 +1837,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.move_meeple(
             defense_player_id, match.ball.zone, match.ball.space_index,
         )
-        match.add_exhaustion(offense_player_id, offense_recovery_distance)
-        match.add_exhaustion(defense_player_id, defense_recovery_distance)
+        exhaustion_text = "\n".join(
+            [
+                self.apply_exhaustion(
+                    match, offense_player_id, offense_recovery_distance,
+                ),
+                self.apply_exhaustion(
+                    match, defense_player_id, defense_recovery_distance,
+                ),
+            ]
+        )
         game.match_state = match.to_dict()
         save_games(self.games)
         await self.refresh_match_image(interaction, game)
@@ -1847,16 +1860,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             defense_player,
         ).defense
 
-        exhaustion_text = "\n".join(
-            [
-                self.describe_exhaustion_gain(
-                    match, offense_player_id, offense_recovery_distance,
-                ),
-                self.describe_exhaustion_gain(
-                    match, defense_player_id, defense_recovery_distance,
-                ),
-            ]
-        )
         test_message = await interaction.followup.send(
             f"{format_role_bracket(offense_player, self.team_emojis)} "
             f"(offense skill {offense_skill}) and "
@@ -2858,6 +2861,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                             player_id, zone, space_index,
                         )
                         match.add_exhaustion(player_id, distance)
+                        # A forced run back is applied silently, so
+                        # there is no message here to carry the
+                        # threshold test the way apply_exhaustion's
+                        # does -- but the flag still has to be set
+                        # before the save below.
+                        self.retest_exhausted(match, player_id)
                     applied_forced = True
 
         game.match_state = match.to_dict()
@@ -2878,7 +2887,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     game
                 ).choose_run_back_space(open_spaces)
                 distance = match.run_back_player(player_id, zone, space_index)
-                match.add_exhaustion(player_id, distance)
+                exhaustion_text = self.apply_exhaustion(
+                    match, player_id, distance,
+                )
                 game.match_state = match.to_dict()
                 save_games(self.games)
 
@@ -2886,10 +2897,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 await interaction.followup.send(
                     f"{prefix}"
                     f"{format_role_bracket(player, self.team_emojis)} runs "
-                    f"back to {space_label(zone, space_index)}.\n"
-                    + self.describe_exhaustion_gain(
-                        match, player_id, distance,
-                    )
+                    f"back to {space_label(zone, space_index)}."
+                    f"\n{exhaustion_text}"
                 )
                 await self.refresh_match_image(interaction, game)
                 await self.continue_run_back(interaction, game, match)
@@ -2937,7 +2946,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 player_id = candidates[0]
                 player = self.get_player_definition(player_id)
                 distance = match.fill_kickoff(player_id)
-                match.add_exhaustion(player_id, distance)
+                exhaustion_text = self.apply_exhaustion(
+                    match, player_id, distance,
+                )
                 game.match_state = match.to_dict()
                 save_games(self.games)
 
@@ -2946,10 +2957,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     f"{prefix}"
                     f"{format_role_bracket(player, self.team_emojis)} drops "
                     f"back to {space_label(match.ball.zone, match.ball.space_index)} "
-                    "to start the kickoff.\n"
-                    + self.describe_exhaustion_gain(
-                        match, player_id, distance,
-                    )
+                    f"to start the kickoff.\n{exhaustion_text}"
                 )
                 await self.refresh_match_image(interaction, game)
                 await self.continue_run_back(interaction, game, match)
@@ -3473,6 +3481,46 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         except (discord.NotFound, discord.HTTPException):
             pass
 
+    def retest_exhausted(self, match: MatchState, player_id: str) -> bool:
+        """
+        Re-test a player's Exhausted flag against their own defensive
+        skill. True only on the transition, so callers can announce it
+        once.
+
+        `MatchState` deliberately does not carry the skill the
+        threshold is measured against, so this test can only happen up
+        here -- which is exactly why it has to run before the state is
+        written out. See `apply_exhaustion`.
+        """
+        player = self.get_player_definition(player_id)
+        return match.mark_exhausted_if_needed(
+            player_id,
+            self.player_catalog.effective_profile(player).defense,
+        )
+
+    def apply_exhaustion(
+        self,
+        match: MatchState,
+        player_id: str,
+        amount: int,
+    ) -> str:
+        """
+        Charge `amount` exhaustion tokens, re-test Exhausted, and
+        describe both.
+
+        Charging and testing belong in one step. They used to be two:
+        callers added the tokens, saved the match, and only then built
+        the message that ran the threshold test -- so the flag the
+        test set was never written out. The next interaction reloaded
+        the saved state and saw a player over their defensive skill
+        who was not marked Exhausted, which cost a skill test the
+        injury check for anyone the test's own tokens pushed over.
+        Anything that charges exhaustion should call this and save
+        afterwards.
+        """
+        match.add_exhaustion(player_id, amount)
+        return self.describe_exhaustion_gain(match, player_id, amount)
+
     def describe_exhaustion_gain(
         self,
         match: MatchState,
@@ -3483,6 +3531,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         Text describing an exhaustion-token gain that has already been
         applied to `match` — the running total, plus a line the moment
         it pushes the player's token count past their defense skill.
+
+        Testing the threshold is a state change, so this has to be
+        called before `match` is saved -- prefer `apply_exhaustion`,
+        which keeps the two together, wherever the tokens are being
+        charged here rather than inside `MatchState`.
         """
         player = self.get_player_definition(player_id)
         if player_id in match.injured:
@@ -3505,7 +3558,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
 
         defense_skill = self.player_catalog.effective_profile(player).defense
-        if match.mark_exhausted_if_needed(player_id, defense_skill):
+        if self.retest_exhausted(match, player_id):
             exhausted_emoji = get_exhausted_emoji(self.condition_emojis)
             text += (
                 f"\n{format_role_bracket(player, self.team_emojis)} now has the condition "
