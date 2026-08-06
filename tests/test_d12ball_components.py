@@ -1836,9 +1836,16 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kwargs["decline_kind"], "skill_test")
         cog.begin_loose_ball.assert_not_awaited()
 
-    async def test_apply_high_pass_distance_two_without_a_teammate_forces_skill_test(
+    async def test_apply_high_pass_distance_two_without_a_teammate_becomes_a_loose_ball(
         self,
     ) -> None:
+        """
+        No offense player standing where the pass lands means there's
+        no receiver to force a High Pass skill test for -- this isn't
+        the High Pass contest at all, just an ordinary overshoot that
+        finish_maneuver_resolution's own loose-ball detour handles,
+        same as any other maneuver.
+        """
         cog = self.build_cog()
         match = self.build_match()
         handler = self.player_with_role(
@@ -1858,9 +1865,46 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
         )
         cog.offer_scoring_attempt_choice.assert_not_awaited()
+        cog.begin_loose_ball.assert_not_awaited()
+        cog.finish_maneuver_resolution.assert_awaited_once()
+
+    async def test_apply_high_pass_with_a_teammate_forces_skill_test(
+        self,
+    ) -> None:
+        """
+        A receiver already standing on the landing space still has to
+        win a skill test to keep the ball -- unlike any other
+        maneuver -- but they're the automatic offense contestant, no
+        pick required. The standard formation also has a visiting
+        defender already on that same space (spaces are shared
+        between both sides), which is likewise automatic rather than
+        a zone-wide pick. Distance 3 never offers a scoring-
+        opportunity setup, so this isolates the forced-contest branch
+        from that earlier one.
+        """
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7
+        receiver = match.home.field_players[0]
+        match.move_meeple(receiver, Zone.VISITORS_GOAL, 2)  # flat 8, landing
+        defender_on_space = match.board.spaces[Zone.VISITORS_GOAL][2][0]
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_high_pass(interaction, game, match, 3)
+
+        cog.offer_scoring_attempt_choice.assert_not_awaited()
         cog.begin_loose_ball.assert_awaited_once()
         _, kwargs = cog.begin_loose_ball.await_args
         self.assertEqual(kwargs["headline"], HIGH_PASS_CONTEST_HEADLINE)
+        self.assertEqual(kwargs["forced_offense_player"], receiver)
+        self.assertEqual(kwargs["forced_defense_player"], defender_on_space)
 
     async def test_apply_high_pass_distance_two_offers_setup_without_overshoot(
         self,

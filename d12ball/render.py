@@ -121,6 +121,7 @@ FONT_MANEUVER_BODY = load_font(22)
 FONT_MANEUVER_LEGEND = load_font(22)
 FONT_DICE_TOTAL = load_font(38, bold=True)
 FONT_DICE_VALUE = load_font(32, bold=True)
+FONT_DICE_LABEL = load_font(24, bold=True)
 FONT_SCORE = load_font(64, bold=True)
 FONT_CARD_STAT = load_font(46, bold=True)
 FONT_CARD_ROLE = load_font(46, bold=True)
@@ -913,14 +914,15 @@ def render_dice_row(dice: list[tuple[int, str, str]]) -> BytesIO:
     return output
 
 
-SKILL_TEST_CELL_WIDTH = 280
-SKILL_TEST_DIE_RADIUS = 52
-SKILL_TEST_CENTER_Y = SKILL_TEST_DIE_RADIUS + 35
-SKILL_TEST_DETAIL_LINE_HEIGHT = 28
-SKILL_TEST_DETAIL_TOP_GAP = 55
-SKILL_TEST_TOTAL_GAP = 20
-SKILL_TEST_TOTAL_LINE_HEIGHT = 50
-SKILL_TEST_BOTTOM_PADDING = 20
+SKILL_TEST_CELL_WIDTH = 240
+SKILL_TEST_DIE_RADIUS = 44
+SKILL_TEST_CENTER_Y = SKILL_TEST_DIE_RADIUS + 26
+SKILL_TEST_LABEL_GAP = 14
+SKILL_TEST_DETAIL_LINE_HEIGHT = 24
+SKILL_TEST_DETAIL_TOP_GAP = 46
+SKILL_TEST_TOTAL_GAP = 14
+SKILL_TEST_TOTAL_LINE_HEIGHT = 42
+SKILL_TEST_BOTTOM_PADDING = 15
 
 
 def render_skill_test_dice(
@@ -964,14 +966,14 @@ def render_skill_test_dice(
             str(value),
             font=FONT_DICE_VALUE,
         )
-        label_width = draw.textlength(label, font=FONT_BODY)
+        label_width = draw.textlength(label, font=FONT_DICE_LABEL)
         draw.text(
             (
                 center_x - label_width / 2,
-                center_y + SKILL_TEST_DIE_RADIUS + 20,
+                center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_LABEL_GAP,
             ),
             label,
-            font=FONT_BODY,
+            font=FONT_DICE_LABEL,
             fill="#ffffff",
         )
 

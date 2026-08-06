@@ -698,9 +698,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         prompt_view = ManeuverActionPromptView(self, game.game_id)
         prompt_message = await interaction.followup.send(
             f"{' and '.join(waiting_on)}, both sides will now choose a "
-            "maneuver privately. See the reference below for all six "
-            "maneuvers, then use the button to make your pick.",
-            file=self.build_maneuver_reference_file(),
+            "maneuver privately. Use the button to make your pick.",
             view=prompt_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -711,8 +709,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         game.turn_message_id = prompt_message.id
         save_games(self.games)
-
-        await add_full_image_button(prompt_message, prompt_view)
 
     async def resolve_maneuver(
         self,
@@ -1308,9 +1304,33 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         # No scoring-opportunity option (or the requested distance
-        # wasn't a 2) -- the receiving player must win a skill test to
-        # keep the ball, exactly like a loose ball, whether or not a
-        # teammate happens to be standing where it landed.
+        # wasn't a 2). If nobody from the offense is standing where the
+        # pass landed, this isn't the High Pass "receiver must win a
+        # skill test" contest at all -- it's a plain loose ball (or an
+        # uncontested turnover), exactly like any other maneuver that
+        # overshoots into empty or enemy territory.
+        receiver_candidates = self.scoring_opportunity_candidates(
+            match, offense_side,
+        )
+        if not receiver_candidates:
+            await self.refresh_match_image(interaction, game)
+            await self.finish_maneuver_resolution(
+                interaction, game, match, distance_moved=actual_distance,
+                lead_in=content,
+            )
+            return
+
+        # A teammate is standing right where the pass landed -- a High
+        # Pass still forces a skill test to keep the ball, unlike any
+        # other maneuver. That receiver is the automatic offense
+        # contestant, and a defender already sharing the same space
+        # (spaces are shared between both sides -- see
+        # defenders_between_ball_and_goal) is likewise automatic; only
+        # a side with nobody exactly there still has to pick someone
+        # nearby to send.
+        defender_on_space = self.scoring_opportunity_candidates(
+            match, match.defending_side(),
+        )
         await self.refresh_match_image(interaction, game)
         await self.begin_loose_ball(
             interaction,
@@ -1319,6 +1339,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             actual_distance,
             lead_in=content,
             headline=HIGH_PASS_CONTEST_HEADLINE,
+            is_high_pass=True,
+            forced_offense_player=receiver_candidates[0],
+            forced_defense_player=(
+                defender_on_space[0] if defender_on_space else None
+            ),
         )
 
     async def offer_scoring_attempt_choice(
@@ -1350,7 +1375,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 )
             else:
                 await self.decline_scoring_attempt(
-                    interaction, game, match, distance_moved, decline_kind,
+                    interaction,
+                    game,
+                    match,
+                    distance_moved,
+                    decline_kind,
+                    shooter_id=shooter_id,
                 )
             return
 
@@ -1377,14 +1407,29 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         distance_moved: int,
         decline_kind: str,
+        shooter_id: Optional[str] = None,
     ) -> None:
         if decline_kind == "skill_test":
+            # The offer only exists because `shooter_id` is already
+            # standing on the ball's space (see scoring_opportunity_
+            # candidates), so declining still forces the same High
+            # Pass contest apply_high_pass would have -- with that
+            # player as the automatic offense contestant, and any
+            # defender already sharing the space likewise automatic.
+            defender_on_space = self.scoring_opportunity_candidates(
+                match, match.defending_side(),
+            )
             await self.begin_loose_ball(
                 interaction,
                 game,
                 match,
                 distance_moved,
                 headline=HIGH_PASS_CONTEST_HEADLINE,
+                is_high_pass=True,
+                forced_offense_player=shooter_id,
+                forced_defense_player=(
+                    defender_on_space[0] if defender_on_space else None
+                ),
             )
             return
         await self.finish_maneuver_resolution(
@@ -1581,7 +1626,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 entries.append(("defense", candidates))
         if not entries:
             return None
-        return LooseBallChoiceView(self, game_id, entries)
+        return LooseBallChoiceView(self, game_id, entries, match)
 
     async def begin_loose_ball(
         self,
@@ -1594,6 +1639,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "**Loose ball!** The pass lands in an empty space -- each "
             "side may send a nearby player to contest it."
         ),
+        is_high_pass: bool = False,
+        forced_offense_player: Optional[str] = None,
+        forced_defense_player: Optional[str] = None,
     ) -> None:
         """
         `distance_moved` (the pass's own clamped travel) is stashed on
@@ -1611,8 +1659,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         2-space one, always makes the receiver win a skill test to
         keep the ball), so its own call site passes wording that
         doesn't claim emptiness.
+
+        `forced_offense_player`/`forced_defense_player` skip that
+        side's pick entirely -- a High Pass forces the contest even
+        when a side is already standing right on the landing space,
+        and that occupant is the only sensible contestant for their
+        side, not a fresh pick from the whole zone.
         """
-        match.begin_loose_ball(distance_moved)
+        match.begin_loose_ball(distance_moved, is_high_pass=is_high_pass)
+        if forced_offense_player is not None:
+            match.choose_loose_ball_offense_player(forced_offense_player)
+        if forced_defense_player is not None:
+            match.choose_loose_ball_defense_player(forced_defense_player)
         self.auto_resolve_loose_ball_picks(game, match)
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -1663,6 +1721,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         offense_player_id = match.loose_ball_offense_player
         defense_player_id = match.loose_ball_defense_player
         distance_moved = match.pending_loose_ball_distance
+        is_high_pass = match.pending_loose_ball_is_high_pass
+        ball_noun = "high pass" if is_high_pass else "loose ball"
 
         if offense_player_id is None and defense_player_id is None:
             # Degenerate edge case only: the defense fallback in
@@ -1692,9 +1752,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.match_state = match.to_dict()
             save_games(self.games)
 
+            recovery_line = (
+                f"{format_role_bracket(player, self.team_emojis)} keeps "
+                "possession after the high pass, uncontested."
+                if is_high_pass
+                else f"{format_role_bracket(player, self.team_emojis)} "
+                "recovers the loose ball uncontested."
+            )
             await interaction.followup.send(
-                f"{format_role_bracket(player, self.team_emojis)} "
-                "recovers the loose ball uncontested.\n"
+                f"{recovery_line}\n"
                 + self.describe_exhaustion_gain(
                     match, offense_player_id, recovery_distance,
                 )
@@ -1730,8 +1796,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
             headline = (
                 "**Out of bounds!**" if out_of_bounds
-                else f"{format_role_bracket(player, self.team_emojis)} "
-                "recovers the loose ball uncontested."
+                else (
+                    f"{format_role_bracket(player, self.team_emojis)} "
+                    "picks off the high pass, uncontested."
+                    if is_high_pass
+                    else f"{format_role_bracket(player, self.team_emojis)} "
+                    "recovers the loose ball uncontested."
+                )
             )
             await interaction.followup.send(
                 "# Turnover!\n"
@@ -1790,9 +1861,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{format_role_bracket(offense_player, self.team_emojis)} "
             f"(offense skill {offense_skill}) and "
             f"{format_role_bracket(defense_player, self.team_emojis)} "
-            f"(defense skill {defense_skill}) both reach the loose "
-            f"ball -- skill test!\n{exhaustion_text}\n\nEither player can "
-            "roll:",
+            f"(defense skill {defense_skill}) both contest the "
+            f"{ball_noun} -- skill test!\n{exhaustion_text}\n\nEither "
+            "player can roll:",
             view=LooseBallSkillTestView(self, game.game_id),
             wait=True,
         )
@@ -1943,8 +2014,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game,
             match,
             candidates,
-            lead_in=f"{content} That overshoots the field -- a turnover, "
-            "and a scoring opportunity!",
+            lead_in=f"{content} That overshoots the field -- a scoring "
+            "opportunity!",
         )
 
     # -- Steal Intercept -------------------------------------------------
@@ -3398,10 +3469,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if refreshed_view.children:
                 await prompt_message.edit(view=refreshed_view)
             else:
-                await prompt_message.edit(
-                    content="Both sides have chosen their maneuvers.",
-                    view=None,
-                )
+                await prompt_message.delete()
         except (discord.NotFound, discord.HTTPException):
             pass
 
@@ -3421,6 +3489,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return (
                 f"{format_role_bracket(player, self.team_emojis)} is injured "
                 f"{INJURED_EMOJI_FALLBACK} and gains no exhaustion tokens."
+            )
+        if amount <= 0:
+            return (
+                f"{format_role_bracket(player, self.team_emojis)} was "
+                "already there -- no exhaustion cost."
             )
 
         exhaust_emoji = get_exhaust_emoji(self.condition_emojis)

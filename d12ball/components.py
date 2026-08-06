@@ -398,6 +398,27 @@ class ManeuverCatalog:
             return "defense"
         return "tie"
 
+    def relationships(self, name: str, side: str) -> tuple[str, str, str]:
+        """
+        The opposing-side maneuver `name` defeats, is defeated by, and
+        ties with -- each offense maneuver beats exactly one defense
+        maneuver and loses to exactly one other, so the third is
+        always a tie.
+        """
+        if side == "offense":
+            own = self.offense_by_name()[name]
+            opposing = self.defense
+        else:
+            own = self.defense_by_name()[name]
+            opposing = self.offense
+
+        defeats = own.defeats
+        defeated_by = next(m.name for m in opposing if m.defeats == name)
+        ties_with = next(
+            m.name for m in opposing if m.name not in (defeats, defeated_by)
+        )
+        return defeats, defeated_by, ties_with
+
 
 @dataclass
 class BallState:
@@ -472,6 +493,7 @@ class MatchState:
     pending_shot_is_set_up: bool = False
     pending_loose_ball: bool = False
     pending_loose_ball_distance: int = 1
+    pending_loose_ball_is_high_pass: bool = False
     loose_ball_offense_player: Optional[str] = None
     loose_ball_defense_player: Optional[str] = None
     declared_substitution: set[str] = field(default_factory=set)
@@ -945,9 +967,12 @@ class MatchState:
             raise ValueError("The defense has already chosen a maneuver.")
         self.defense_maneuver = name
 
-    def begin_loose_ball(self, distance_moved: int) -> None:
+    def begin_loose_ball(
+        self, distance_moved: int, is_high_pass: bool = False,
+    ) -> None:
         self.pending_loose_ball = True
         self.pending_loose_ball_distance = distance_moved
+        self.pending_loose_ball_is_high_pass = is_high_pass
 
     def choose_loose_ball_offense_player(self, player_id: str) -> None:
         if self.loose_ball_offense_player is not None:
@@ -978,6 +1003,7 @@ class MatchState:
         self.pending_shot_is_set_up = False
         self.pending_loose_ball = False
         self.pending_loose_ball_distance = 1
+        self.pending_loose_ball_is_high_pass = False
         self.loose_ball_offense_player = None
         self.loose_ball_defense_player = None
 
@@ -1717,6 +1743,9 @@ class MatchState:
             "pending_shot_is_set_up": self.pending_shot_is_set_up,
             "pending_loose_ball": self.pending_loose_ball,
             "pending_loose_ball_distance": self.pending_loose_ball_distance,
+            "pending_loose_ball_is_high_pass": (
+                self.pending_loose_ball_is_high_pass
+            ),
             "loose_ball_offense_player": self.loose_ball_offense_player,
             "loose_ball_defense_player": self.loose_ball_defense_player,
             "declared_substitution": sorted(self.declared_substitution),
@@ -1803,6 +1832,9 @@ class MatchState:
             pending_loose_ball=data.get("pending_loose_ball", False),
             pending_loose_ball_distance=data.get(
                 "pending_loose_ball_distance", 1
+            ),
+            pending_loose_ball_is_high_pass=data.get(
+                "pending_loose_ball_is_high_pass", False
             ),
             loose_ball_offense_player=data.get(
                 "loose_ball_offense_player"
