@@ -16,6 +16,7 @@ from d12ball.components import (
     MatchState,
     PlayerRole,
     TeamSide,
+    Zone,
 )
 from d12ball.game import (
     AIOpponent,
@@ -2919,6 +2920,361 @@ class SubstitutionMeepleSwapView(SubstitutionView):
         await interaction.followup.send(
             "Move another meeple, or finish:",
             view=SubstitutionRepositionView(self.cog, self.game_id),
+        )
+
+
+class HalftimeView(SafeView):
+    """
+    Shared plumbing for the halftime flow's per-side prompts: they
+    only accept a click from the side currently on the clock, at
+    the stage that offered them -- see D12Ball.advance_halftime_stage.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        side: TeamSide,
+        stage: str,
+    ):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.side = side
+        self.stage = stage
+
+    def load(self) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            return None, None
+        return game, self.cog.load_match_state(game)
+
+    async def claim(
+        self,
+        interaction: discord.Interaction,
+    ) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
+        game, match = self.load()
+        if game is None or match is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return None, None
+        if match.pending_halftime_stage != self.stage:
+            await interaction.response.send_message(
+                "That halftime step has already finished.",
+                ephemeral=True,
+            )
+            return None, None
+        if interaction.user.id != self.cog.side_controller_id(game, self.side):
+            await interaction.response.send_message(
+                "Only that team's coach can choose this.",
+                ephemeral=True,
+            )
+            return None, None
+        return game, match
+
+
+class HalftimeExtraTokenView(HalftimeView):
+    """
+    Halftime: each side picks one of their own fielded players to lose
+    an extra exhaustion token, on top of the automatic recovery every
+    fielded player already got in begin_halftime.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, side: TeamSide):
+        super().__init__(cog, game_id, side, f"extra_token_{side.value}")
+
+        game, match = self.load()
+        if match is None or match.pending_halftime_stage != self.stage:
+            return
+        setup = match.setup_for_side(side)
+
+        for player_id in setup.field_players:
+            if player_id in match.injured:
+                continue
+            tokens = match.exhaustion.get(player_id, 0)
+            label = f"{cog.format_roster_player(player_id)} ({tokens})"
+            button = discord.ui.Button(
+                label=label[:80],
+                style=discord.ButtonStyle.secondary,
+                custom_id=(
+                    f"d12ball:halftime_extra_token:{game_id}:{player_id}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                picked: str = player_id,
+            ) -> None:
+                await self.choose(interaction, picked)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        player = self.cog.get_player_definition(player_id)
+        defense_skill = self.cog.player_catalog.effective_profile(
+            player
+        ).defense
+        removed = match.recover_exhaustion(player_id, 1, defense_skill)
+        self.cog.next_halftime_stage(match)
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        remaining = match.exhaustion.get(player_id, 0)
+        text = (
+            f"{format_role_bracket(player, self.cog.team_emojis)} loses "
+            f"an extra exhaustion token (now {remaining})."
+            if removed
+            else (
+                f"{format_role_bracket(player, self.cog.team_emojis)} "
+                "had no tokens to lose."
+            )
+        )
+        await interaction.response.edit_message(content=text, view=None)
+        await self.cog.refresh_match_image(interaction, game)
+        await self.cog.advance_halftime_stage(interaction, game, match)
+
+
+class HalftimeRepositionView(HalftimeView):
+    """
+    Halftime-only free placement: move any of a side's fielded meeples
+    to any open space on the board, not just their own assigned zone
+    the way SubstitutionRepositionView stays -- "the coach can
+    change... the players' assignment as they please" (End of Time).
+    No exhaustion cost. The visiting side alone is gated on finishing
+    with a player on the kickoff space, since they kick off the second
+    half.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, side: TeamSide):
+        super().__init__(cog, game_id, side, f"reposition_{side.value}")
+
+        game, match = self.load()
+        if match is None or match.pending_halftime_stage != self.stage:
+            return
+        setup = match.setup_for_side(side)
+
+        for player_id in setup.field_players:
+            position = match.board.meeple_position(player_id)
+            location = space_label(*position) if position else "?"
+            button = discord.ui.Button(
+                label=(
+                    f"{cog.format_roster_player(player_id)} - {location}"
+                )[:80],
+                style=discord.ButtonStyle.secondary,
+                custom_id=(
+                    f"d12ball:halftime_reposition:{game_id}:{player_id}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                picked: str = player_id,
+            ) -> None:
+                await self.choose_player(interaction, picked)
+
+            button.callback = callback
+            self.add_item(button)
+
+        done = discord.ui.Button(
+            label="Done repositioning",
+            style=discord.ButtonStyle.success,
+            custom_id=f"d12ball:halftime_reposition_done:{game_id}",
+            row=4,
+        )
+        done.callback = self.finish
+        self.add_item(done)
+
+    async def choose_player(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        player = self.cog.get_player_definition(player_id)
+        await interaction.response.edit_message(
+            content=(
+                "Which zone should "
+                f"{format_role_bracket(player, self.cog.team_emojis)} "
+                "move to?"
+            ),
+            view=HalftimeRepositionZoneView(
+                self.cog, self.game_id, self.side, player_id,
+            ),
+        )
+
+    async def finish(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        if self.side == TeamSide.VISITING and not match.kickoff_space_occupied_by(
+            TeamSide.VISITING,
+        ):
+            await interaction.response.send_message(
+                "The visiting team needs a player on "
+                f"{space_label(match.ball.zone, match.ball.space_index)} "
+                "to kick off the second half before finishing.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.edit_message(
+            content="Repositioning done.", view=None,
+        )
+        self.cog.next_halftime_stage(match)
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+        await self.cog.advance_halftime_stage(interaction, game, match)
+
+
+class HalftimeRepositionZoneView(HalftimeView):
+    """Which zone a freely-repositioned player's meeple moves to."""
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        side: TeamSide,
+        player_id: str,
+    ):
+        super().__init__(cog, game_id, side, f"reposition_{side.value}")
+        self.player_id = player_id
+
+        for zone in Zone:
+            button = discord.ui.Button(
+                label=destination_display_name(zone.value),
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:halftime_reposition_zone:{game_id}:"
+                    f"{player_id}:{zone.value}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                picked: Zone = zone,
+            ) -> None:
+                await self.choose_zone(interaction, picked)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose_zone(
+        self,
+        interaction: discord.Interaction,
+        zone: Zone,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        if not match.open_spaces_in_zone(self.side, zone):
+            await interaction.response.send_message(
+                "No open space for that team in that zone.",
+                ephemeral=True,
+            )
+            return
+
+        player = self.cog.get_player_definition(self.player_id)
+        await interaction.response.edit_message(
+            content=(
+                "Which space should "
+                f"{format_role_bracket(player, self.cog.team_emojis)} "
+                "stand on?"
+            ),
+            view=HalftimeRepositionSpaceView(
+                self.cog, self.game_id, self.side, self.player_id, zone,
+            ),
+        )
+
+
+class HalftimeRepositionSpaceView(HalftimeView):
+    """Which open space in the chosen zone a repositioned player stands on."""
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        side: TeamSide,
+        player_id: str,
+        zone: Zone,
+    ):
+        super().__init__(cog, game_id, side, f"reposition_{side.value}")
+        self.player_id = player_id
+        self.zone = zone
+
+        game, match = self.load()
+        if match is None or match.pending_halftime_stage != self.stage:
+            return
+
+        for space_index in match.open_spaces_in_zone(side, zone):
+            button = discord.ui.Button(
+                label=space_label(zone, space_index),
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:halftime_reposition_space:{game_id}:"
+                    f"{player_id}:{zone.value}:{space_index}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_space: int = space_index,
+            ) -> None:
+                await self.choose(interaction, chosen_space)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        space_index: int,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        try:
+            match.reposition_meeple_anywhere(
+                self.side, self.player_id, self.zone, space_index,
+            )
+        except ValueError as error:
+            await interaction.response.send_message(
+                str(error), ephemeral=True,
+            )
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        player = self.cog.get_player_definition(self.player_id)
+        await interaction.response.edit_message(
+            content=(
+                f"{format_role_bracket(player, self.cog.team_emojis)} "
+                f"moves to {space_label(self.zone, space_index)}. No "
+                "exhaustion cost."
+            ),
+            view=None,
+        )
+        await self.cog.refresh_match_image(interaction, game)
+        await interaction.followup.send(
+            "Move another meeple, or finish:",
+            view=HalftimeRepositionView(self.cog, self.game_id, self.side),
         )
 
 

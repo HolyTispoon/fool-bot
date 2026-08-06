@@ -146,7 +146,8 @@ Answers given by the author (@HolyTispoon) reviewing
 plus answers he gave directly while the shoot-to-score work was being scoped, 2026-08-01,
 while substitutions were being scoped, 2026-08-04, while reviewing
 [PR #29](https://github.com/HolyTispoon/fool-bot/pull/29)'s own-goal/run-back rework,
-2026-08-04, and while reporting a substitution-flow crash, 2026-08-05.
+2026-08-04, while reporting a substitution-flow crash, 2026-08-05, and while scoping halftime
+resolution, 2026-08-06.
 **These are rules, and where they conflict with the transcription below, these win** -- the
 transcription is a faithful copy of a page that is behind in places. They are kept in their
 own section so it stays obvious which text came from upstream and which came from the
@@ -315,6 +316,13 @@ transcription itself. What remains below is what upstream still does not say.
 - **An injured player removes all exhaustion tokens immediately and is no longer
   exhausted.** Injured players cannot gain more exhaustion tokens and do not make further
   injury checks.
+- **At halftime, "the coach can change... the players' assignment as they please" means free
+  placement to any space on the board, not just a player's own currently-assigned zone.**
+  Confirmed by the author: unlike an ordinary run back or a substitution's rearrangement
+  (both still zone-locked), halftime's repositioning step can move any fielded meeple to any
+  open space, in any zone, at no exhaustion cost. The one constraint carried over from
+  kickoff itself: the visiting side must finish with a player standing on the second-half
+  kickoff space, since they're the ones who kick off.
 
 ### Running back
 

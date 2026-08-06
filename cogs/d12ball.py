@@ -77,6 +77,8 @@ from cogs.d12ball_views import (
     BallHandlerSelectionView,
     CoinFlipView,
     DribbleAdvanceChoiceView,
+    HalftimeExtraTokenView,
+    HalftimeRepositionView,
     HighPassChoiceView,
     HomeAwaySelectionView,
     LooseBallChoiceView,
@@ -94,6 +96,20 @@ from cogs.d12ball_views import (
     SubstitutionMenuView,
     SubstitutionOfferView,
     TeamSelectionView,
+)
+
+
+# The halftime sequence's stages, in order -- see D12Ball.advance_halftime_stage.
+# Each side gets its own extra-exhaustion-token choice, its own full
+# substitution declaration (see begin_halftime_substitutions), and its own
+# free repositioning pass, home before visiting throughout.
+HALFTIME_STAGES = (
+    "extra_token_home",
+    "extra_token_visiting",
+    "subs_home",
+    "subs_visiting",
+    "reposition_home",
+    "reposition_visiting",
 )
 
 
@@ -169,7 +185,43 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         game.game_id, error,
                     )
                     continue
-                if match.active_player_id is None:
+                if match.pending_halftime_stage is not None:
+                    # Halftime resets active_player_id before its own
+                    # stages run, so it has to be checked ahead of the
+                    # "no ball handler yet" branch below, which would
+                    # otherwise misread halftime as kickoff.
+                    stage = match.pending_halftime_stage
+                    if stage == "extra_token_home":
+                        turn_view = HalftimeExtraTokenView(
+                            self, game.game_id, TeamSide.HOME,
+                        )
+                    elif stage == "extra_token_visiting":
+                        turn_view = HalftimeExtraTokenView(
+                            self, game.game_id, TeamSide.VISITING,
+                        )
+                    elif stage in ("subs_home", "subs_visiting"):
+                        # A window mid-flight comes back as either the
+                        # offer or the menu, the same as an ordinary
+                        # turnover's substitution window below.
+                        turn_view = (
+                            SubstitutionMenuView(self, game.game_id)
+                            if match.pending_substitution_declared
+                            else SubstitutionOfferView(self, game.game_id)
+                        )
+                    else:
+                        # reposition_home / reposition_visiting -- a
+                        # part-made zone/space pick is not persisted
+                        # and restarts at the reposition menu, the
+                        # same simplification a run-back choice makes.
+                        side = (
+                            TeamSide.HOME
+                            if stage == "reposition_home"
+                            else TeamSide.VISITING
+                        )
+                        turn_view = HalftimeRepositionView(
+                            self, game.game_id, side,
+                        )
+                elif match.active_player_id is None:
                     turn_view = BallHandlerSelectionView(self, game.game_id)
                 elif match.pending_substitution_side is not None:
                     # A window mid-flight comes back as either the
@@ -2541,6 +2593,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        if match.pending_halftime_stage in ("subs_home", "subs_visiting"):
+            # Halftime gives each side its own independent declaration
+            # rather than a turnover's declare-then-respond pairing, so
+            # this always moves on to the next halftime stage instead
+            # of offering the other side a response.
+            self.next_halftime_stage(match)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await self.advance_halftime_stage(interaction, game, match)
+            return
+
         if declared and not was_response and side is not None:
             other_side = (
                 TeamSide.VISITING
@@ -2981,25 +3044,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
             await interaction.followup.send(
                 f"{prefix}**End of the first half!** The clock reaches 15 "
-                "and the ball turns over -- the period ends.\n\n"
-                "Cleanup -- apply by hand:\n"
-                "- Fielded players lose 1 exhaustion token\n"
-                "- One player of the coach's choice loses an extra "
-                "exhaustion token\n"
-                "- Formations may be changed, and players may need "
-                "repositioning to their assigned zones\n\n"
-                "Both teams have their substitution declaration back "
-                "for the second half.\n\n"
-                "The second half kicks off with "
-                f"{format_team_side_label(match.visiting)} in "
-                "possession."
+                "and the ball turns over -- the period ends."
             )
             await self.refresh_match_image(interaction, game)
-
-            try:
-                await self.send_turn_prompt(interaction, game)
-            except ValueError as error:
-                await interaction.followup.send(str(error), ephemeral=True)
+            await self.begin_halftime(interaction, game, match)
             return
 
         match.reset_maneuver()
@@ -3024,6 +3072,309 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{result}"
         )
         await self.refresh_match_image(interaction, game)
+
+    # -- Halftime ------------------------------------------------------
+
+    async def begin_halftime(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Kicks off halftime cleanup once end_period has already flipped
+        the period, reset the clock, and moved the ball to the
+        second-half kickoff space: automatic exhaustion recovery for
+        every fielded player, then the rest of the sequence (each
+        side's extra-token choice, substitution window, and free
+        repositioning) driven by `match.pending_halftime_stage` --
+        see advance_halftime_stage.
+        """
+        recovery_lines = []
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            for player_id in match.setup_for_side(side).field_players:
+                player = self.get_player_definition(player_id)
+                defense_skill = self.player_catalog.effective_profile(
+                    player
+                ).defense
+                removed = match.recover_exhaustion(player_id, 1, defense_skill)
+                if removed:
+                    remaining = match.exhaustion.get(player_id, 0)
+                    recovery_lines.append(
+                        f"{format_role_bracket(player, self.team_emojis)} "
+                        f"recovers 1 exhaustion token (now {remaining})."
+                    )
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        body = (
+            "\n".join(recovery_lines)
+            if recovery_lines
+            else "No fielded player had any exhaustion tokens to recover."
+        )
+        await interaction.followup.send(
+            f"# Halftime\nEvery fielded player recovers 1 exhaustion "
+            f"token:\n{body}"
+        )
+        await self.refresh_match_image(interaction, game)
+
+        match.pending_halftime_stage = HALFTIME_STAGES[0]
+        game.match_state = match.to_dict()
+        save_games(self.games)
+        await self.advance_halftime_stage(interaction, game, match)
+
+    def next_halftime_stage(self, match: MatchState) -> None:
+        """
+        Advance `match.pending_halftime_stage` to the next entry in
+        HALFTIME_STAGES, or clear it once the sequence is exhausted.
+        Callers are responsible for saving the match afterward.
+        """
+        stage = match.pending_halftime_stage
+        if stage not in HALFTIME_STAGES:
+            match.pending_halftime_stage = None
+            return
+        index = HALFTIME_STAGES.index(stage)
+        match.pending_halftime_stage = (
+            HALFTIME_STAGES[index + 1]
+            if index + 1 < len(HALFTIME_STAGES)
+            else None
+        )
+
+    async def advance_halftime_stage(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """Dispatch to whichever halftime stage comes next, or finish."""
+        stage = match.pending_halftime_stage
+        if stage == "extra_token_home":
+            await self.begin_halftime_extra_token(
+                interaction, game, match, TeamSide.HOME,
+            )
+        elif stage == "extra_token_visiting":
+            await self.begin_halftime_extra_token(
+                interaction, game, match, TeamSide.VISITING,
+            )
+        elif stage == "subs_home":
+            await self.begin_halftime_substitutions(
+                interaction, game, match, TeamSide.HOME,
+            )
+        elif stage == "subs_visiting":
+            await self.begin_halftime_substitutions(
+                interaction, game, match, TeamSide.VISITING,
+            )
+        elif stage == "reposition_home":
+            await self.begin_halftime_reposition(
+                interaction, game, match, TeamSide.HOME,
+            )
+        elif stage == "reposition_visiting":
+            await self.begin_halftime_reposition(
+                interaction, game, match, TeamSide.VISITING,
+            )
+        else:
+            await self.finish_halftime(interaction, game, match)
+
+    async def begin_halftime_extra_token(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+    ) -> None:
+        """
+        The coach's choice of one fielded player to lose an extra
+        exhaustion token, on top of the automatic recovery every
+        fielded player already got in begin_halftime.
+        """
+        setup = match.setup_for_side(side)
+        eligible = [
+            player_id
+            for player_id in setup.field_players
+            if player_id not in match.injured
+        ]
+
+        if not eligible:
+            self.next_halftime_stage(match)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await self.advance_halftime_stage(interaction, game, match)
+            return
+
+        if self.side_is_ai(game, side):
+            player_id = max(
+                eligible, key=lambda pid: match.exhaustion.get(pid, 0),
+            )
+            defense_skill = self.player_catalog.effective_profile(
+                self.get_player_definition(player_id)
+            ).defense
+            removed = match.recover_exhaustion(player_id, 1, defense_skill)
+            self.next_halftime_stage(match)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            if removed:
+                player = self.get_player_definition(player_id)
+                remaining = match.exhaustion.get(player_id, 0)
+                await interaction.followup.send(
+                    f"{format_team_side_label(setup)} removes an extra "
+                    "exhaustion token from "
+                    f"{format_role_bracket(player, self.team_emojis)} "
+                    f"(now {remaining})."
+                )
+                await self.refresh_match_image(interaction, game)
+            await self.advance_halftime_stage(interaction, game, match)
+            return
+
+        controller_id = self.side_controller_id(game, side)
+        mention = f"<@{controller_id}>" if controller_id else "Someone"
+        prompt = await interaction.followup.send(
+            f"{mention}, {format_team_side_label(setup)}: choose one "
+            "fielded player to lose an extra exhaustion token.",
+            view=HalftimeExtraTokenView(self, game.game_id, side),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt.id
+        save_games(self.games)
+
+    async def begin_halftime_substitutions(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+    ) -> None:
+        """
+        Offer `side` a full declare-style substitution window (see
+        begin_substitution_window) -- unlike a turnover's
+        declare-then-respond pairing, halftime gives each side its own
+        independent declaration, so finish_substitution_window routes
+        back into the halftime sequence instead of chaining to the
+        other side's response.
+        """
+        if not match.may_declare_substitution(side):
+            self.next_halftime_stage(match)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await self.advance_halftime_stage(interaction, game, match)
+            return
+
+        await self.begin_substitution_window(interaction, game, match, side)
+
+    async def begin_halftime_reposition(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+    ) -> None:
+        """
+        Free placement of any of `side`'s fielded meeples to any open
+        board space, not limited to their assigned zone -- "the coach
+        can change... the players' assignment as they please" (End of
+        Time). The visiting side alone is gated on finishing with a
+        player standing on the kickoff space, since they're the ones
+        who have to kick off the second half.
+        """
+        setup = match.setup_for_side(side)
+
+        if self.side_is_ai(game, side):
+            lines = []
+            if (
+                side == TeamSide.VISITING
+                and not match.kickoff_space_occupied_by(TeamSide.VISITING)
+            ):
+                kickoff_flat = match.board.flat_index(
+                    match.ball.zone, match.ball.space_index,
+                )
+
+                def distance(player_id: str) -> int:
+                    position = match.board.meeple_position(player_id)
+                    if position is None:
+                        return 10**6
+                    return abs(
+                        match.board.flat_index(*position) - kickoff_flat
+                    )
+
+                nearest = min(setup.field_players, key=distance)
+                match.reposition_meeple_anywhere(
+                    TeamSide.VISITING,
+                    nearest,
+                    match.ball.zone,
+                    match.ball.space_index,
+                )
+                player = self.get_player_definition(nearest)
+                lines.append(
+                    f"{format_role_bracket(player, self.team_emojis)} "
+                    "takes the kickoff spot at "
+                    f"{space_label(match.ball.zone, match.ball.space_index)}."
+                )
+
+            self.next_halftime_stage(match)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            if lines:
+                await interaction.followup.send(
+                    f"{format_team_side_label(setup)} repositions:\n"
+                    + "\n".join(lines)
+                )
+                await self.refresh_match_image(interaction, game)
+            await self.advance_halftime_stage(interaction, game, match)
+            return
+
+        controller_id = self.side_controller_id(game, side)
+        mention = f"<@{controller_id}>" if controller_id else "Someone"
+        kickoff_note = (
+            " The visiting team must have a player on "
+            f"{space_label(match.ball.zone, match.ball.space_index)} to "
+            "kick off the second half before finishing."
+            if side == TeamSide.VISITING
+            else ""
+        )
+        prompt = await interaction.followup.send(
+            f"{mention}, {format_team_side_label(setup)}: reposition any "
+            "fielded meeple to any space on the board, free of "
+            f"exhaustion, or finish.{kickoff_note}",
+            view=HalftimeRepositionView(self, game.game_id, side),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt.id
+        save_games(self.games)
+
+    async def finish_halftime(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        The last step of halftime -- the visiting kickoff-space
+        guarantee is already enforced before this is reached (see
+        HalftimeRepositionView.finish), so this just clears the
+        halftime flag and hands play to the second half.
+        """
+        match.pending_halftime_stage = None
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await interaction.followup.send(
+            "**Halftime is over.** The second half kicks off with "
+            f"{format_team_side_label(match.visiting)} in possession."
+        )
+        await self.refresh_match_image(interaction, game)
+
+        try:
+            await self.send_turn_prompt(interaction, game)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
 
     async def refresh_maneuver_prompt(
         self,
