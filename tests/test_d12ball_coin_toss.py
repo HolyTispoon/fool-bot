@@ -274,6 +274,7 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         cog.continue_run_back = mock.AsyncMock()
         cog.begin_substitution_window = mock.AsyncMock()
         cog.end_period = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock())
         )
@@ -336,18 +337,32 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         cog.continue_run_back.assert_not_awaited()
         self.assertTrue(match.pending_run_back)
 
-    async def test_a_maneuver_without_a_turnover_skips_the_window(
+    async def test_a_maneuver_without_a_turnover_runs_nobody_back(
         self,
     ) -> None:
+        # Run backs belong to turnovers. Keeping the ball leaves
+        # whoever is out of position where they are, at no exhaustion
+        # cost, and goes straight on to the clock.
         cog, interaction, game, match = self.build_stubs(may_declare=True)
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_run_back(
-                interaction, game, match, turnover_occurred=False,
+                interaction, game, match,
+                distance_moved=3, turnover_occurred=False,
             )
 
         cog.begin_substitution_window.assert_not_awaited()
-        cog.continue_run_back.assert_awaited_once()
+        cog.continue_run_back.assert_not_awaited()
+        interaction.followup.send.assert_not_awaited()
+        self.assertFalse(match.pending_run_back)
+        cog.finish_maneuver_resolution.assert_awaited_once_with(
+            interaction,
+            game,
+            match,
+            distance_moved=3,
+            turnover_occurred=False,
+            lead_in="",
+        )
 
     async def test_a_turnover_during_last_possession_ends_the_period(
         self,
@@ -374,12 +389,13 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         cog.continue_run_back.assert_not_awaited()
         self.assertFalse(match.pending_run_back)
 
-    async def test_a_non_turnover_during_last_possession_still_runs_back(
+    async def test_a_non_turnover_during_last_possession_plays_on(
         self,
     ) -> None:
         # Recovering a loose ball uncontested isn't losing possession,
         # so play continues normally even once last possession has
-        # been declared.
+        # been declared -- and, not being a turnover, it runs nobody
+        # back on the way there.
         cog, interaction, game, match = self.build_stubs(may_declare=True)
         match.scoreboard.last_possession = True
 
@@ -389,7 +405,8 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
             )
 
         cog.end_period.assert_not_awaited()
-        cog.continue_run_back.assert_awaited_once()
+        cog.continue_run_back.assert_not_awaited()
+        cog.finish_maneuver_resolution.assert_awaited_once()
 
 
 class D12BallCoinEmojiTests(unittest.TestCase):
