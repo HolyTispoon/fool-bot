@@ -226,4 +226,7 @@ succeed for the offence.
 
 ### Still unspecified enough to block
 
-- The extreme shootout is described upstream but not built.
+- The extreme shootout is described upstream but not built. It is now reachable only in
+  **tournament mode** (see
+  [Ties and league vs tournament mode](d12ball-rules.md#ties-and-league-vs-tournament-mode)),
+  which setup refuses until it exists; a league-mode game ends tied instead.

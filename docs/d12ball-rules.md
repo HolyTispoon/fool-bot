@@ -405,9 +405,14 @@ transcription itself. What remains below is what upstream still does not say.
   immediately** -- no run back, and no resolution of whatever maneuver caused the turnover
   (e.g. Steal Intercept's own fallback, or its post-run-back ball-speed choice). Play
   proceeds straight to halftime (or full time) resolution. This only applies once last
-  possession has already been declared by an earlier play; a play that newly reaches 15
-  space minutes *and* is itself the turnover still ends the period the same way, but that
-  case was already handled correctly.
+  possession has already been declared by an earlier play -- see the next bullet for the
+  play that declares it.
+- **The maneuver that takes the clock to 15 never ends the period, even when it is itself
+  a turnover** (2026-08-07, superseding what this section said before). Last possession is
+  the possession that *starts* at 15, so whichever side comes out of that maneuver holding
+  the ball gets to play it out, and the period ends when *they* lose it. A steal, a goal or
+  a missed shot that brings the clock up to 15 therefore resolves in full -- run back
+  included -- and hands last possession to the side it gave the ball to.
 
 ### Substitutions
 
@@ -453,6 +458,21 @@ transcription itself. What remains below is what upstream still does not say.
     after a swap, neither new zone has an open space to step into until the other player
     vacates it, and neither can vacate first. The follow-up screen falls back to trading two
     meeples' positions directly in that case, which needs no intermediate open space.
+
+### Ties and league vs tournament mode
+
+- **A tie at full time is only sent to the extreme shootout in tournament mode** (2026-08-07,
+  new). Every game is now set up as one of two:
+  - **League mode:** the game is allowed to end in a tie, and a level score at full time is
+    the final result.
+  - **Tournament mode:** a level score at full time goes to the
+    [extreme shootout](#extreme-shootout-tie-breaking-bonanza).
+
+  Upstream's [End of Time](#end-of-time) section knows only the tournament reading ("if the
+  game is tied -- it goes into extreme shootout!"), which is now the tournament-mode case
+  rather than the only one. The choice is made in setup alongside game mode and board size.
+  Tournament mode is offered but refused for now, the same way advanced mode is, until the
+  extreme shootout is implemented.
 
 ### Coins
 
@@ -889,6 +909,10 @@ officially at an end. If that is the first period, it is now halftime. During ha
   back of the midfield
 
 At the end of the game, if the game is tied -- it goes into extreme shootout!
+
+> **Superseded** -- see [Ties and league vs tournament mode](#ties-and-league-vs-tournament-mode)
+> under [Author clarifications](#author-clarifications). This is the **tournament mode**
+> rule; a league-mode game is allowed to end in a tie and stops here.
 
 ### Extreme shootout tie breaking bonanza
 
