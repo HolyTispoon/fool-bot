@@ -265,13 +265,16 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         cog.advance_halftime_stage.assert_awaited_once()
         self.assertEqual(match.pending_halftime_stage, "subs_visiting")
 
-    async def test_a_pass_still_advances_the_stage(self) -> None:
+    async def test_a_window_used_for_nothing_still_advances_the_stage(
+        self,
+    ) -> None:
+        # Halftime has no "pass" -- a side that wants no changes just
+        # finishes the menu, which lands here the same way.
         cog = build_cog()
         game = build_human_game()
         match = self.build_match()
         match.pending_halftime_stage = "subs_visiting"
         match.open_substitution_window(TeamSide.VISITING)
-        # No declaration -- a pass.
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.finish_substitution_window(
@@ -281,6 +284,59 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_substitution_window.assert_not_awaited()
         cog.announce_run_back.assert_not_awaited()
         self.assertEqual(match.pending_halftime_stage, "reposition_home")
+
+    async def test_halftime_substitutes_without_asking_or_charging(
+        self,
+    ) -> None:
+        # Nobody is asked whether to declare: the menu comes straight
+        # up. And the window is free -- the side keeps its once-a-half
+        # declaration for the second half's open play.
+        cog = build_cog()
+        del cog.begin_substitution_window  # exercise the real one
+        cog.prompt_substitution_menu = mock.AsyncMock()
+        game = build_human_game()
+        match = self.build_match()
+        match.pending_halftime_stage = "subs_home"
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_halftime_substitutions(
+                interaction, game, match, TeamSide.HOME,
+            )
+
+        self.assertEqual(match.pending_substitution_side, "home")
+        self.assertTrue(match.pending_substitution_declared)
+        self.assertEqual(match.declared_substitution, set())
+        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+        # No declare-or-pass prompt of its own -- the menu carries the
+        # window's heading instead.
+        interaction.followup.send.assert_not_awaited()
+        cog.prompt_substitution_menu.assert_awaited_once()
+        _, kwargs = cog.prompt_substitution_menu.await_args
+        self.assertIn("Substitutions", kwargs["lead_in"])
+
+    async def test_an_ordinary_window_still_spends_the_declaration(
+        self,
+    ) -> None:
+        # Regression guard: only halftime's window is free.
+        match = self.build_match()
+        match.open_substitution_window(TeamSide.HOME)
+        match.declare_substitution()
+
+        self.assertEqual(match.declared_substitution, {"home"})
+        self.assertFalse(match.may_declare_substitution(TeamSide.HOME))
+
+    def test_a_free_window_survives_a_save_and_reload(self) -> None:
+        match = self.build_match()
+        match.open_substitution_window(
+            TeamSide.HOME, spends_declaration=False,
+        )
+
+        reloaded = MatchState.from_dict(match.to_dict(), self.rules)
+
+        self.assertFalse(reloaded.pending_substitution_spends_declaration)
+        reloaded.declare_substitution()
+        self.assertEqual(reloaded.declared_substitution, set())
 
     async def test_ordinary_turnover_windows_are_unaffected(self) -> None:
         """
