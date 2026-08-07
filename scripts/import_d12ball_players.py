@@ -15,6 +15,14 @@ DEFAULT_SOURCE = (
     "1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/"
     "export?format=csv&gid=0"
 )
+DEFAULT_ABILITIES_SOURCE = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/"
+    "export?format=csv&gid=1822486506"
+)
+# --abilities takes a CSV path or URL; this asks for the player cards
+# sheet's own Basic column instead of a separate abilities sheet.
+ABILITIES_FROM_PLAYERS = "players"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = PROJECT_ROOT / "d12ball" / "data" / "players.json"
 DEFAULT_IMAGES = PROJECT_ROOT / "d12ball" / "images" / "player_images"
@@ -36,8 +44,12 @@ REQUIRED_COLUMNS = {
     "Role",
     "Oskill",
     "Dskill",
-    "Ability",
 }
+# The player cards sheet's copy of the basic ability, formerly "Ability".
+# It is required only when that sheet is where the abilities are read from;
+# reading the abilities sheet does not need the copy to be there at all.
+BASIC_COLUMN = "Basic"
+REQUIRED_ABILITY_COLUMNS = {"Role", "Ability"}
 
 
 def read_source(source: str) -> str:
@@ -64,15 +76,46 @@ def parse_skill(raw_value: str, field: str, player_id: str) -> int:
     return value
 
 
+def import_abilities(rows: Iterable[dict[str, str]]) -> dict[str, str]:
+    abilities: dict[str, str] = {}
+
+    for row_number, row in enumerate(rows, start=2):
+        role = (row.get("Role") or "").strip().lower()
+        ability = (row.get("Ability") or "").strip()
+
+        if not role:
+            continue
+        if role not in EXPECTED_ROLE_COUNTS:
+            raise ValueError(f"Row {row_number}: unknown role {role!r}.")
+        if role in abilities:
+            raise ValueError(f"Duplicate role in the abilities sheet: {role}")
+        if not ability:
+            raise ValueError(f"{role}: Ability is required.")
+
+        abilities[role] = ability
+
+    missing_roles = sorted(set(EXPECTED_ROLE_COUNTS) - set(abilities))
+    if missing_roles:
+        raise ValueError(
+            "The abilities sheet is missing roles: "
+            + ", ".join(missing_roles)
+        )
+
+    return abilities
+
+
 def import_players(
     rows: Iterable[dict[str, str]],
     images_folder: Path,
     data_version: int,
+    role_abilities: dict[str, str] | None = None,
+    abilities_source: str = DEFAULT_SOURCE,
 ) -> dict:
     players_by_team: dict[str, list[dict]] = defaultdict(list)
     role_profiles: dict[str, dict] = {}
     player_ids: set[str] = set()
     player_names: set[str] = set()
+    advanced_count = 0
 
     for row_number, row in enumerate(rows, start=2):
         role = (row.get("Role") or "").strip().lower()
@@ -82,7 +125,9 @@ def import_players(
         player_id = (row.get("player_id") or "").strip()
         name = (row.get("Name") or "").strip()
         team = (row.get("Team") or "").strip().lower()
-        ability = (row.get("Ability") or "").strip()
+        basic = (row.get(BASIC_COLUMN) or "").strip()
+        if (row.get("Advanced") or "").strip():
+            advanced_count += 1
 
         if not player_id:
             raise ValueError(f"Row {row_number}: player_id is required.")
@@ -103,8 +148,21 @@ def import_players(
             raise ValueError(f"{player_id}: unknown role {role!r}.")
         if not name:
             raise ValueError(f"{player_id}: Name is required.")
-        if not ability:
-            raise ValueError(f"{player_id}: Ability is required.")
+
+        if role_abilities is None:
+            if not basic:
+                raise ValueError(f"{player_id}: Basic ability is required.")
+            ability = basic
+        else:
+            ability = role_abilities[role]
+            # The Basic column is copied from the abilities sheet, so a row
+            # that disagrees means the copy is stale rather than that the
+            # player is special.
+            if basic and basic != ability:
+                raise ValueError(
+                    f"{player_id}: Basic ability does not match the "
+                    f"{role} ability in the abilities sheet."
+                )
 
         offense = parse_skill(row.get("Oskill"), "Oskill", player_id)
         defense = parse_skill(row.get("Dskill"), "Dskill", player_id)
@@ -178,9 +236,16 @@ def import_players(
         for role in EXPECTED_ROLE_COUNTS
     }
 
+    if advanced_count:
+        print(
+            f"Note: {advanced_count} players have an Advanced ability. "
+            "This import reads basic mode only and drops them."
+        )
+
     return {
         "data_version": data_version,
         "source": DEFAULT_SOURCE,
+        "abilities_source": abilities_source,
         "role_profiles": ordered_profiles,
         "teams": ordered_teams,
     }
@@ -196,6 +261,16 @@ def main() -> None:
         "--source",
         default=DEFAULT_SOURCE,
         help="A local CSV path or public CSV URL.",
+    )
+    parser.add_argument(
+        "--abilities",
+        default=DEFAULT_ABILITIES_SOURCE,
+        help=(
+            "Where the basic role abilities come from: a local CSV path or "
+            "public CSV URL for the basic_abilities sheet, or "
+            f"{ABILITIES_FROM_PLAYERS!r} to read the player cards sheet's "
+            "own Basic column instead."
+        ),
     )
     parser.add_argument(
         "--output",
@@ -214,17 +289,43 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    role_abilities = None
+    abilities_source = DEFAULT_SOURCE
+    if args.abilities != ABILITIES_FROM_PLAYERS:
+        abilities_reader = csv.DictReader(
+            io.StringIO(read_source(args.abilities))
+        )
+        missing_columns = sorted(
+            REQUIRED_ABILITY_COLUMNS - set(abilities_reader.fieldnames or [])
+        )
+        if missing_columns:
+            raise ValueError(
+                "Abilities sheet is missing columns: "
+                + ", ".join(missing_columns)
+            )
+        role_abilities = import_abilities(abilities_reader)
+        abilities_source = DEFAULT_ABILITIES_SOURCE
+
     source_text = read_source(args.source)
     reader = csv.DictReader(io.StringIO(source_text))
     columns = set(reader.fieldnames or [])
-    missing_columns = sorted(REQUIRED_COLUMNS - columns)
+    required_columns = set(REQUIRED_COLUMNS)
+    if role_abilities is None:
+        required_columns.add(BASIC_COLUMN)
+    missing_columns = sorted(required_columns - columns)
     if missing_columns:
         raise ValueError(
             "Spreadsheet is missing columns: "
             + ", ".join(missing_columns)
         )
 
-    output = import_players(reader, args.images, args.data_version)
+    output = import_players(
+        reader,
+        args.images,
+        args.data_version,
+        role_abilities=role_abilities,
+        abilities_source=abilities_source,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(output, indent=2) + "\n",
