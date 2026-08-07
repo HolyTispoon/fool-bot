@@ -11,7 +11,8 @@ roll and hands out an injury check to whoever is in `match.exhausted`
 by then, so a dropped flag is a skipped injury check.
 
 See D12Ball.apply_exhaustion and D12Ball.run_injury_test in
-cogs/d12ball.py, and "Exhaustion" in docs/d12ball-rules.md.
+cogs/d12ball.py, and "Exhaustion and injury" in
+docs/living-rules.md.
 """
 
 import unittest
@@ -200,8 +201,8 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_own_goal_roll_costs_the_roller_a_token(self) -> None:
         # Charged for making the attempt, not for the result, so both
-        # outcomes pay it -- see "Own goal trigger" in
-        # docs/d12ball-rules.md.
+        # outcomes pay it -- see "Own goal" in
+        # docs/living-rules.md.
         for roll, outcome in ((12, "avoided"), (1, "conceded")):
             with self.subTest(outcome=outcome):
                 cog = build_cog()

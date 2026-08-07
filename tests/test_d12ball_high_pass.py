@@ -11,7 +11,7 @@ two places that difference is visible -- what the prompts call it, and
 whether anyone runs back afterwards.
 
 See D12Ball.apply_high_pass and contest_noun in cogs/d12ball_helpers.py,
-and "Loose ball" under Author clarifications in docs/d12ball-rules.md.
+and "High Pass" and "Loose ball" in docs/living-rules.md.
 """
 
 import unittest

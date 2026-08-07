@@ -7,8 +7,7 @@ Two rules meet here. Last possession is the possession that *starts* at
 the period even when it is itself a turnover -- only a later turnover
 does. And a level score at full time ends the game in league mode,
 where a tournament game would go to the extreme shootout. See
-"[End of Time]" and "Ties and league vs tournament mode" in
-docs/d12ball-rules.md.
+"The clock, halftime and full time" in docs/living-rules.md.
 """
 
 import unittest

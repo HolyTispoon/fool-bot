@@ -2,7 +2,8 @@
 Halftime resolution: automatic exhaustion recovery, each side's
 extra-token choice, each side's own substitution window, and free
 meeple repositioning gated on the visiting team covering the
-second-half kickoff space. See "End of Time" in docs/d12ball-rules.md
+second-half kickoff space. See "The clock, halftime and full time"
+in docs/living-rules.md
 and D12Ball.begin_halftime in cogs/d12ball.py.
 """
 

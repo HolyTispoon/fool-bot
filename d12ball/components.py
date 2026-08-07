@@ -1561,8 +1561,8 @@ class MatchState:
         reach any arrangement.
 
         No role or player is tied to a space or zone outside of this
-        assignment and the run back's own requirement (see Author
-        clarifications in docs/d12ball-rules.md), so a swapped
+        assignment and the run back's own requirement (see "Turnovers
+        and running back" in docs/living-rules.md), so a swapped
         player's meeple is free to stay right where it is -- it simply
         now counts as displaced, exactly like a meeple a maneuver
         pushed out of its zone, until it's moved into the new zone.
