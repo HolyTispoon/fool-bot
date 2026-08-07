@@ -22,9 +22,6 @@ supersedes parts of the transcription that follows.** What is still unanswered i
 
 The upstream page carries this note from the author:
 
-> Note: the language of the rules is currently ambiguous at times, referring to both the
-> humans who play the game as 'players' as well as the fictional characters on the field
-> of play as 'players'. This ambiguity will be cleared up once proper terminology is picked.
 
 ### Changelog
 
