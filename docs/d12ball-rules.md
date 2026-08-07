@@ -440,6 +440,13 @@ transcription itself. What remains below is what upstream still does not say.
   three spaces and a team may put at most one player on a space.
 - **Every turnover opens a substitution window**, not only a steal or a score attempt. The
   parenthetical upstream is illustrative, not a list.
+- **Halftime's substitutions are not a declaration** (2026-08-07). Neither side is asked
+  whether to declare -- halftime just gives each of them their changes to make, in line with
+  "the coach can change their team's formation and the players' assignment as they please"
+  ([End of Time](#end-of-time)) -- and using that window does **not** spend the side's
+  once-a-half declaration, so both teams still hold theirs for the second half's open play.
+  The allowance within the window is a declaring team's: up to two swaps and a rearrangement,
+  each side independently, with no answering substitution for the other team.
 - **The window opens before the run back.** The declaring team substitutes and rearranges
   first; the run back then places whoever ended up on the field.
 - **The bench and the back bench are two separate pools**, which is what upstream's "if and
@@ -893,6 +900,11 @@ Therefore, normally [a team] can substitute up to twice in each halftime (once w
 declare subs and once when the other team declares it). In addition, normally players who
 are subbed out cannot be subbed back in (the exception is when players are injured, and see
 below Subbing injured players).
+
+> **The count above is open play's only** -- the changes each side makes at halftime itself
+> (see [End of Time](#end-of-time)) are not a declaration and don't spend the once-a-halftime
+> one described here. See
+> [Substitutions](#substitutions) under [Author clarifications](#author-clarifications).
 
 ### Subbing injured players
 
