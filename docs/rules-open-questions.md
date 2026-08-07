@@ -29,7 +29,20 @@ roll, an injured state, or any use of the `back_bench` the spreadsheet reserves 
 players. Worth confirming that accrual is the intended scope of that PR and the Exhausted /
 Injured layer is a later piece, rather than it being assumed done.
 
-### 1.2 Where do role abilities live in the spreadsheet?
+### 1.2 What does a won Low Pass do when there is nobody to pass to?
+
+A Low Pass must reach a different player (2026-08-07, see
+[Author clarifications](d12ball-rules.md#author-clarifications)), so a ball handler with no
+teammate within two spaces in either direction wins the maneuver and has no legal
+destination. Uncommon -- six players on a 7-space board are usually closer than that -- but
+reachable after a run back or a substitution spreads a team out.
+
+The bot currently holds the ball where it is, leaves the ball's speed alone (no +1, since
+no pass happened), and lets the clock take its usual 1 space minute. Alternatives worth
+ruling on: the maneuver failing outright, or the handler being allowed to keep the ball
+after all in exactly this case.
+
+### 1.3 Where do role abilities live in the spreadsheet?
 
 The author mentioned wanting to "update the spreadsheet so the ability are found somewhere
 else matching the roles" -- currently the ability is repeated on every player row and the
