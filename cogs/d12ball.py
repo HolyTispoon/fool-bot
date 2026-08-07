@@ -1023,10 +1023,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> list[tuple[int, str]]:
         """
-        Valid Low Pass destinations: 0-2 spaces forward or backward
-        from the ball, wherever a teammate is standing -- the ball can
-        only be passed to a space someone is already on -- as
-        (distance, receiver) pairs ordered back-to-front for display.
+        A Low Pass has at most three destinations, as (distance,
+        receiver) pairs ordered back-to-front for display: the nearest
+        teammate ahead of the ball within 2 spaces, the nearest one
+        behind it within 2, and a teammate sharing the ball's own
+        space. The ball can only be passed to a space someone is
+        already standing on.
+
+        **Nearest, not any.** A teammate 2 spaces ahead is no longer a
+        destination when another one stands 1 space ahead -- each
+        direction offers only the closest, so the choice is between
+        directions rather than between distances (2026-08-07).
 
         **A pass has to reach a different player.** The ball handler
         can't pass to themselves to hold the ball, so distance 0 is a
@@ -1047,8 +1054,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.ball.zone, match.ball.space_index,
         )
 
-        candidates: list[tuple[int, str]] = []
-        for distance in range(-2, 3):
+        def teammate_at(distance: int) -> Optional[str]:
             target_flat = match.relative_flat_index(
                 origin_flat, offense_side, distance,
             )
@@ -1056,12 +1062,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # that shortened the move, this distance doesn't reach an
             # actual space and isn't a candidate.
             if abs(target_flat - origin_flat) != abs(distance):
-                continue
+                return None
             zone, space_index = match.board.position_at_flat_index(
                 target_flat,
             )
             occupants = match.board.spaces[zone][space_index]
-            teammate_id = next(
+            return next(
                 (
                     player_id
                     for player_id in occupants
@@ -1070,8 +1076,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 ),
                 None,
             )
-            if teammate_id is not None:
-                candidates.append((distance, teammate_id))
+
+        candidates: list[tuple[int, str]] = []
+        # Each run stops at its first hit: the nearest teammate is the
+        # only one that direction offers.
+        for distances in ((-1, -2), (0,), (1, 2)):
+            for distance in distances:
+                teammate_id = teammate_at(distance)
+                if teammate_id is not None:
+                    candidates.append((distance, teammate_id))
+                    break
         return candidates
 
     async def resolve_low_pass(
@@ -1085,17 +1099,36 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if not candidates:
             # A Low Pass has to reach a different player, so a handler
             # with no teammate within two spaces has won the maneuver
-            # and has nowhere to put the ball. The clock still moves;
-            # the ball and its speed don't.
-            await self.finish_maneuver_resolution(
+            # and has nowhere to put the ball. The ball goes a space
+            # forward and is loose (2026-08-07); its speed is left
+            # alone, since nobody completed a pass.
+            offense_side = match.ball.possession
+            actual_distance = match.move_ball_relative(offense_side, 1)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            # Nothing to move onto at the far end of the field: the
+            # ball is loose where it already is.
+            movement_note = (
+                "the ball rolls a space forward"
+                if actual_distance
+                else "the ball stays where it is"
+            )
+            await self.refresh_match_image(interaction, game)
+            await self.begin_loose_ball(
                 interaction,
                 game,
                 match,
-                distance_moved=1,
+                distance_moved=max(actual_distance, 1),
                 lead_in=(
                     "**Low Pass:** there is no teammate within two "
                     "spaces to receive it, and a pass can't be played "
-                    "to the passer -- the ball stays where it is."
+                    f"to the passer -- {movement_note}."
+                ),
+                headline=(
+                    "**Loose ball!** Nobody is there to collect the "
+                    "pass -- each side may send a nearby player to "
+                    "contest it."
                 ),
             )
             return
@@ -1150,11 +1183,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         actual_distance = match.move_ball_relative(offense_side, distance)
         match.ball.speed = min(12, match.ball.speed + 1)
+        # A pass across a shared space sends the passer a space forward
+        # (2026-08-07) -- the ball hasn't gone anywhere, so this is what
+        # the maneuver buys. Clamped at the far end of the field, where
+        # there is nowhere to run to.
+        passer_advance = (
+            match.move_player_relative(match.active_player_id, offense_side, 1)
+            if distance == 0
+            else 0
+        )
         game.match_state = match.to_dict()
         save_games(self.games)
 
         if distance == 0:
             movement_note = "goes to a teammate in the same space"
+            if passer_advance:
+                movement_note += (
+                    f", and {format_role_bracket(handler, self.team_emojis)} "
+                    "moves a space forward"
+                )
         else:
             direction = "forward" if distance > 0 else "backward"
             space_word = "space" if actual_distance == 1 else "spaces"
@@ -1198,7 +1245,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{format_role_bracket(handler, self.team_emojis)}'s Winger "
                 "ability can turn this into a scoring opportunity!"
             ),
-            decline_kind="regular_pass",
         )
 
     # -- Dribble Advance ---------------------------------------------
@@ -1342,7 +1388,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"forward{ability_note}."
         )
 
-        # An exact 2-space pass may set up a scoring opportunity for
+        # A pass of 2 is received cleanly: no contest at all
+        # (2026-08-07), and it may set up a scoring opportunity for
         # whoever it lands on -- unlike the old fixed-2 High Pass,
         # this no longer requires overshooting the field. A longer
         # pass never offers it, whether or not it happens to overshoot.
@@ -1362,7 +1409,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 distance_moved=actual_distance,
                 lead_in=f"{content} That reaches a teammate -- a scoring "
                 "opportunity!",
-                decline_kind="skill_test",
             )
             return
 
@@ -1383,9 +1429,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        # A teammate is standing right where the pass landed -- a High
-        # Pass still forces a skill test to keep the ball, unlike any
-        # other maneuver. That receiver is the automatic offense
+        # A teammate is standing right where the pass landed, and the
+        # pass went 3 or more -- a distance of 2 with a teammate there
+        # took the set-up branch above, since both branches ask
+        # scoring_opportunity_candidates the same question. A long
+        # High Pass still forces a skill test to keep the ball, unlike
+        # any other maneuver. That receiver is the automatic offense
         # contestant, and a defender already sharing the same space
         # (spaces are shared between both sides -- see
         # defenders_between_ball_and_goal) is likewise automatic; only
@@ -1418,13 +1467,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         shooter_id: str,
         distance_moved: int,
         lead_in: str,
-        decline_kind: str,
     ) -> None:
         """
         Offer the offense a chance to attempt a scoring-opportunity
         shot instead of letting a maneuver resolve normally -- used by
-        a High Pass's 2-space overshoot and a Winger's Low Pass.
-        `decline_kind` is threaded through to decline_scoring_attempt.
+        a High Pass's 2-space pass and a Winger's Low Pass. Declining
+        always resolves the maneuver as a normal pass; a 2-space High
+        Pass stopped forcing a contest instead on 2026-08-07.
         """
         if self.side_controlled_by_ai(game, match, "offense"):
             attempt = self.get_ai_strategy(
@@ -1438,12 +1487,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 )
             else:
                 await self.decline_scoring_attempt(
-                    interaction,
-                    game,
-                    match,
-                    distance_moved,
-                    decline_kind,
-                    shooter_id=shooter_id,
+                    interaction, game, match, distance_moved,
                 )
             return
 
@@ -1453,7 +1497,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{format_role_bracket(shooter, self.team_emojis)} can attempt "
             "the scoring opportunity, or let it go:",
             view=SetUpAttemptChoiceView(
-                self, game.game_id, shooter_id, decline_kind, distance_moved,
+                self, game.game_id, shooter_id, distance_moved,
             ),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -1469,32 +1513,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
         distance_moved: int,
-        decline_kind: str,
-        shooter_id: Optional[str] = None,
     ) -> None:
-        if decline_kind == "skill_test":
-            # The offer only exists because `shooter_id` is already
-            # standing on the ball's space (see scoring_opportunity_
-            # candidates), so declining still forces the same High
-            # Pass contest apply_high_pass would have -- with that
-            # player as the automatic offense contestant, and any
-            # defender already sharing the space likewise automatic.
-            defender_on_space = self.scoring_opportunity_candidates(
-                match, match.defending_side(),
-            )
-            await self.begin_loose_ball(
-                interaction,
-                game,
-                match,
-                distance_moved,
-                headline=HIGH_PASS_CONTEST_HEADLINE,
-                is_high_pass=True,
-                forced_offense_player=shooter_id,
-                forced_defense_player=(
-                    defender_on_space[0] if defender_on_space else None
-                ),
-            )
-            return
+        """
+        Let go of a scoring opportunity: the maneuver that offered it
+        resolves as it otherwise would have.
+        """
         await self.finish_maneuver_resolution(
             interaction, game, match, distance_moved=distance_moved,
         )

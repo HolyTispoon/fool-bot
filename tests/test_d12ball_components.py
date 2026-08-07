@@ -1681,9 +1681,9 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
 
 class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
     """
-    Post-playtest revision: Low Pass has no fixed distance (0-2 spaces
-    to a teammate, either direction) and High Pass has a 2-4 space
-    choice instead of a fixed 2. These drive low_pass_candidates(),
+    Post-playtest revision: Low Pass has no fixed distance (the nearest
+    teammate each way within 2 spaces, or one sharing the ball's space)
+    and High Pass has a 2-4 space choice instead of a fixed 2. These drive low_pass_candidates(),
     apply_low_pass(), apply_high_pass() and the Fullback's Block
     Deflect bonus directly against a real MatchState, mocking out only
     the Discord-facing/persistence side effects -- the same pattern
@@ -1756,6 +1756,34 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             cog.low_pass_candidates(match),
             [(-2, behind), (0, here), (2, ahead)],
+        )
+
+    def test_low_pass_candidates_only_reach_the_nearest_each_way(
+        self,
+    ) -> None:
+        # 2026-08-07: each direction offers only its closest teammate,
+        # so a second one standing further out is not a destination.
+        match = self.build_match()
+        self.clear_board(match)
+        home_players = match.home.field_players
+        near_behind, far_behind = home_players[0], home_players[1]
+        near_ahead, far_ahead = home_players[2], home_players[3]
+        handler = home_players[4]
+
+        match.move_meeple(far_behind, Zone.HOME_GOAL, 2)  # distance -2
+        match.move_meeple(near_behind, Zone.MIDFIELD, 0)  # distance -1
+        match.move_meeple(handler, Zone.MIDFIELD, 1)
+        match.move_meeple(near_ahead, Zone.MIDFIELD, 2)  # distance +1
+        match.move_meeple(far_ahead, Zone.VISITORS_GOAL, 0)  # distance +2
+
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = handler
+
+        cog = self.build_cog()
+        self.assertEqual(
+            cog.low_pass_candidates(match),
+            [(-1, near_behind), (1, near_ahead)],
         )
 
     def test_low_pass_candidates_never_offer_the_passer(self) -> None:
@@ -1883,10 +1911,48 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 1),
         )
         self.assertEqual(match.ball.speed, 2)
+        # 2026-08-07: passing across a shared space is what sends the
+        # passer forward -- the receiver stays on the ball.
+        self.assertEqual(
+            match.board.meeple_position(handler), (Zone.MIDFIELD, 2),
+        )
+        self.assertEqual(
+            match.board.meeple_position(sharing), (Zone.MIDFIELD, 1),
+        )
         _, kwargs = cog.finish_maneuver_resolution.await_args
         self.assertEqual(kwargs["distance_moved"], 1)
         self.assertIn(
             "goes to a teammate in the same space", kwargs["lead_in"],
+        )
+        self.assertIn("moves a space forward", kwargs["lead_in"])
+
+    async def test_apply_low_pass_leaves_the_passer_where_a_real_pass_lands(
+        self,
+    ) -> None:
+        # Only the shared-space pass moves the passer: the ball itself
+        # travelling is what the other distances buy.
+        cog = self.build_cog()
+        match = self.build_match()
+        self.clear_board(match)
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        receiver = next(
+            pid for pid in match.home.field_players if pid != handler
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.move_meeple(handler, Zone.MIDFIELD, 1)
+        match.move_meeple(receiver, Zone.MIDFIELD, 2)
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_low_pass(interaction, game, match, 1)
+
+        self.assertEqual(
+            match.board.meeple_position(handler), (Zone.MIDFIELD, 1),
         )
 
     async def test_apply_low_pass_offers_scoring_attempt_for_winger(
@@ -1917,7 +1983,6 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         cog.offer_scoring_attempt_choice.assert_awaited_once()
         _, kwargs = cog.offer_scoring_attempt_choice.await_args
         self.assertEqual(kwargs["shooter_id"], receiver)
-        self.assertEqual(kwargs["decline_kind"], "regular_pass")
         self.assertEqual(kwargs["distance_moved"], 1)
         self.assertIn("Winger ability", kwargs["lead_in"])
 
@@ -1957,12 +2022,13 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
     # -- resolve_low_pass ----------------------------------------------
 
-    async def test_a_low_pass_with_nobody_to_pass_to_holds_the_ball(
+    async def test_a_low_pass_with_nobody_to_pass_to_goes_loose(
         self,
     ) -> None:
         # Winning Low Pass with no teammate in reach is not a licence
-        # to keep the ball by passing to yourself: nothing moves, and
-        # the clock takes its space minute anyway.
+        # to keep the ball by passing to yourself: the ball rolls a
+        # space forward and is loose (2026-08-07). Nobody completed a
+        # pass, so its speed is left alone.
         cog = self.build_cog()
         cog.side_controlled_by_ai = mock.Mock(return_value=False)
         match = self.build_match()
@@ -1984,13 +2050,47 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # No prompt, and no view to answer it with.
         interaction.followup.send.assert_not_awaited()
         self.assertEqual(
-            (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 1),
+            (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 2),
         )
         self.assertEqual(match.ball.speed, 4)
-        cog.finish_maneuver_resolution.assert_awaited_once()
-        _, kwargs = cog.finish_maneuver_resolution.await_args
+        cog.finish_maneuver_resolution.assert_not_awaited()
+        cog.begin_loose_ball.assert_awaited_once()
+        _, kwargs = cog.begin_loose_ball.await_args
         self.assertEqual(kwargs["distance_moved"], 1)
         self.assertIn("no teammate within two spaces", kwargs["lead_in"])
+        self.assertIn("rolls a space forward", kwargs["lead_in"])
+
+    async def test_a_low_pass_with_nowhere_to_roll_is_loose_where_it_is(
+        self,
+    ) -> None:
+        # The far end of the field has no space to roll into, so the
+        # ball is loose where it already sits rather than claiming a
+        # move it could not make.
+        cog = self.build_cog()
+        cog.side_controlled_by_ai = mock.Mock(return_value=False)
+        match = self.build_match()
+        self.clear_board(match)
+        handler = match.home.field_players[0]
+        match.move_meeple(handler, Zone.VISITORS_GOAL, 2)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.VISITORS_GOAL, 2)  # the board's own edge
+        match.active_player_id = handler
+
+        interaction = SimpleNamespace(followup=SimpleNamespace(
+            send=mock.AsyncMock(),
+        ))
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_low_pass(interaction, game, match)
+
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index),
+            (Zone.VISITORS_GOAL, 2),
+        )
+        cog.begin_loose_ball.assert_awaited_once()
+        _, kwargs = cog.begin_loose_ball.await_args
+        self.assertEqual(kwargs["distance_moved"], 1)
+        self.assertIn("stays where it is", kwargs["lead_in"])
 
     # -- apply_high_pass ------------------------------------------------
 
@@ -2020,7 +2120,6 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         cog.offer_scoring_attempt_choice.assert_awaited_once()
         _, kwargs = cog.offer_scoring_attempt_choice.await_args
         self.assertEqual(kwargs["shooter_id"], shooter)
-        self.assertEqual(kwargs["decline_kind"], "skill_test")
         cog.begin_loose_ball.assert_not_awaited()
 
     async def test_apply_high_pass_distance_two_without_a_teammate_becomes_a_loose_ball(
@@ -2125,7 +2224,6 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         cog.offer_scoring_attempt_choice.assert_awaited_once()
         _, kwargs = cog.offer_scoring_attempt_choice.await_args
         self.assertEqual(kwargs["shooter_id"], shooter)
-        self.assertEqual(kwargs["decline_kind"], "skill_test")
 
     async def test_apply_high_pass_distance_three_never_offers_setup(
         self,

@@ -20,7 +20,10 @@ from unittest import mock
 
 from cogs.d12ball import D12Ball
 from cogs.d12ball_helpers import contest_noun
-from cogs.d12ball_views import LooseBallSkillTestView
+from cogs.d12ball_views import (
+    LooseBallSkillTestView,
+    SetUpAttemptChoiceView,
+)
 from d12ball.components import (
     MatchState,
     TeamSide,
@@ -212,6 +215,86 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotEqual(saved.ball.possession, possession_before)
         self.assertTrue(saved.pending_run_back)
         cog.finish_maneuver_resolution.assert_not_awaited()
+
+    async def test_declining_a_two_space_set_up_contests_nothing(
+        self,
+    ) -> None:
+        # 2026-08-07: a pass of 2 is received, full stop. Declining the
+        # scoring opportunity it offers resolves the maneuver as an
+        # ordinary pass instead of falling back to the contest.
+        cog, game, match, receiver, _ = self.build_contest(
+            is_high_pass=True,
+        )
+        cog.begin_loose_ball = mock.AsyncMock()
+
+        view = SetUpAttemptChoiceView(cog, game.game_id, receiver, 2)
+        self.assertEqual(
+            [item.label for item in view.children][1],
+            "Decline -- resolve as a normal pass",
+        )
+
+        await cog.decline_scoring_attempt(
+            build_interaction(), game, match, 2,
+        )
+        cog.begin_loose_ball.assert_not_awaited()
+        cog.finish_maneuver_resolution.assert_awaited_once()
+
+    def build_fast_contest(self, is_high_pass: bool):
+        """The same contest, with a ball moving fast enough to matter."""
+        cog, game, match, receiver, challenger = self.build_contest(
+            is_high_pass=is_high_pass,
+        )
+        match.ball.speed = 4  # a +2 modifier
+        game.match_state = match.to_dict()
+        return cog, game, match, receiver, challenger
+
+    async def test_the_receiver_adds_ball_speed_to_keep_a_high_pass(
+        self,
+    ) -> None:
+        # 2026-08-07: the offense carries the ball speed modifier into
+        # a High Pass's contest. These rolls lose by 1 without it.
+        cog, game, match, receiver, challenger = self.build_fast_contest(
+            is_high_pass=True,
+        )
+        possession_before = match.ball.possession
+
+        view = LooseBallSkillTestView(cog, game.game_id)
+        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+            "cogs.d12ball.save_games",
+        ), mock.patch(
+            "cogs.d12ball_views.random.randint",
+            side_effect=self.rolls_for(cog, receiver, challenger, "defense"),
+        ), mock.patch("cogs.d12ball_views.render_skill_test_dice"), mock.patch(
+            "cogs.d12ball_views.discord.File",
+        ):
+            await view.roll(build_interaction())
+
+        saved = cog.load_match_state(game)
+        self.assertEqual(saved.ball.possession, possession_before)
+        self.assertFalse(saved.pending_run_back)
+
+    async def test_a_loose_ball_gives_nobody_the_speed_modifier(self) -> None:
+        # The other half of that rule: a genuine loose ball is nobody's
+        # yet, so the same rolls on the same fast ball go the other way.
+        cog, game, match, receiver, challenger = self.build_fast_contest(
+            is_high_pass=False,
+        )
+        possession_before = match.ball.possession
+
+        view = LooseBallSkillTestView(cog, game.game_id)
+        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+            "cogs.d12ball.save_games",
+        ), mock.patch(
+            "cogs.d12ball_views.random.randint",
+            side_effect=self.rolls_for(cog, receiver, challenger, "defense"),
+        ), mock.patch("cogs.d12ball_views.render_skill_test_dice"), mock.patch(
+            "cogs.d12ball_views.discord.File",
+        ):
+            await view.roll(build_interaction())
+
+        self.assertNotEqual(
+            cog.load_match_state(game).ball.possession, possession_before,
+        )
 
     async def test_a_loose_ball_kept_by_the_offense_runs_nobody_back(
         self,

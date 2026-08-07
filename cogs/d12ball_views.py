@@ -1971,10 +1971,11 @@ class ScoreAttemptView(SafeView):
 class LowPassChoiceView(SafeView):
     """
     Which teammate-occupied space to pass to -- Low Pass has no fixed
-    distance anymore, only a 0-2 space reach in either direction that
-    must land on a *different* teammate, so the destination itself is
-    the choice. A handler with nobody in reach never sees this view:
-    resolve_low_pass settles that case without a prompt.
+    distance anymore, only the nearest teammate each way within 2
+    spaces and one sharing the ball's space, each of which must be a
+    *different* player, so the destination itself is the choice. A
+    handler with nobody in reach never sees this view: resolve_low_pass
+    settles that case without a prompt.
     Reconstructible on restart purely from match state (see
     D12Ball.build_effect_choice_view), the same pattern every other
     persistent view in this cog follows.
@@ -2144,12 +2145,10 @@ class HighPassChoiceView(SafeView):
 class SetUpAttemptChoiceView(SafeView):
     """
     Whether to take an offered scoring-opportunity shot -- a High
-    Pass's own 2-space overshoot, or a Winger's Low Pass ability --
-    or let the maneuver resolve as normal instead. `decline_kind`
-    says what "normal" means for whichever maneuver offered this:
-    "skill_test" (High Pass -- the receiver defends the ball they just
-    caught, which borrows the loose-ball machinery without being one;
-    see contest_noun) or "regular_pass" (a Winger's Low Pass).
+    Pass's own 2-space pass, or a Winger's Low Pass ability -- or let
+    the maneuver resolve as a normal pass instead. Declining means the
+    same thing either way since 2026-08-07, when a 2-space High Pass
+    stopped forcing a contest for the ball it had just delivered.
 
     Not reconstructible on restart the way the rest of this cog's
     views are -- match state doesn't record which maneuver offered
@@ -2163,14 +2162,12 @@ class SetUpAttemptChoiceView(SafeView):
         cog: "D12Ball",
         game_id: str,
         shooter_id: str,
-        decline_kind: str,
         distance_moved: int,
     ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
         self.shooter_id = shooter_id
-        self.decline_kind = decline_kind
         self.distance_moved = distance_moved
 
         shooter = cog.get_player_definition(shooter_id)
@@ -2182,13 +2179,8 @@ class SetUpAttemptChoiceView(SafeView):
         attempt_button.callback = self.attempt
         self.add_item(attempt_button)
 
-        decline_label = (
-            "Decline -- skill test for possession"
-            if decline_kind == "skill_test"
-            else "Decline -- resolve as a normal pass"
-        )
         decline_button = discord.ui.Button(
-            label=decline_label,
+            label="Decline -- resolve as a normal pass",
             style=discord.ButtonStyle.secondary,
             custom_id=f"d12ball:setup_attempt:{game_id}:decline",
         )
@@ -2250,12 +2242,7 @@ class SetUpAttemptChoiceView(SafeView):
             view=None,
         )
         await self.cog.decline_scoring_attempt(
-            interaction,
-            game,
-            match,
-            self.distance_moved,
-            self.decline_kind,
-            shooter_id=self.shooter_id,
+            interaction, game, match, self.distance_moved,
         )
 
 
@@ -3976,10 +3963,21 @@ class LooseBallSkillTestView(SafeView):
         offense_total = offense_roll + offense_skill
         defense_total = defense_roll + defense_skill
 
+        # A High Pass's receiver adds the ball speed modifier to keep
+        # what the pass delivered (2026-08-07). A genuine loose ball is
+        # nobody's yet, so neither side gets it there.
+        modifier_note = ""
+        modifier_detail = []
+        if match.pending_loose_ball_is_high_pass:
+            modifier = match.ball.speed // 2
+            offense_total += modifier
+            modifier_note = f" + {modifier} (ball speed modifier)"
+            modifier_detail = [f"+{modifier} ball speed modifier"]
+
         breakdown = (
             f"**{format_role_bracket(offense_player, self.cog.team_emojis)}** "
             f"(offense): rolled {offense_roll} + {offense_skill} "
-            f"(offensive skill modifier) = {offense_total}\n"
+            f"(offensive skill modifier){modifier_note} = {offense_total}\n"
             f"**{format_role_bracket(defense_player, self.cog.team_emojis)}** "
             f"(defense): rolled {defense_roll} + {defense_skill} "
             f"(defensive skill modifier) = {defense_total}"
@@ -3995,7 +3993,7 @@ class LooseBallSkillTestView(SafeView):
                             f"{offense_player.name} "
                             f"[{ROLE_INITIALS[offense_player.role.value]}]",
                             f"Offensive skill +{offense_skill}",
-                        ],
+                        ] + modifier_detail,
                         offense_total,
                     ),
                     (

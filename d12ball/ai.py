@@ -51,10 +51,11 @@ class AIStrategy(ABC):
     ) -> int:
         """Which destination to pass to, as the signed distance (-2 to
         2, forward positive) from a (distance, receiver_id) candidate
-        list -- Low Pass has no fixed distance, only a 0-2 space reach
-        that must land on a *different* teammate. Never called with an
-        empty candidate list: a handler with nobody to pass to has no
-        choice to make, and resolve_low_pass settles that case."""
+        list -- Low Pass has no fixed distance, only the nearest
+        teammate each way within 2 spaces and one sharing the ball's
+        space. Never called with an empty candidate list: a handler
+        with nobody to pass to has no choice to make, and
+        resolve_low_pass settles that case."""
         ...
 
     @abstractmethod
@@ -75,7 +76,7 @@ class AIStrategy(ABC):
     @abstractmethod
     def choose_scoring_opportunity_attempt(self, match: MatchState) -> bool:
         """Whether to take an offered scoring-opportunity shot -- a
-        High Pass's own 2-space overshoot, or a Winger's Low Pass --
+        High Pass's own 2-space pass, or a Winger's Low Pass --
         instead of letting the maneuver resolve normally."""
         ...
 
