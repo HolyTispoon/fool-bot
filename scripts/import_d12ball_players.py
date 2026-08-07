@@ -33,8 +33,8 @@ EXPECTED_ROLE_COUNTS = {
     "defender": 2,
     "midfielder": 1,
     "playmaker": 2,
-    "winger": 2,
-    "striker": 1,
+    "winger": 1,
+    "striker": 2,
 }
 PLAYER_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:_[a-z0-9]+)+$")
 REQUIRED_COLUMNS = {

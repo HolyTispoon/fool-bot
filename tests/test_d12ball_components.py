@@ -135,8 +135,8 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertEqual(
             setup.player_board.bench,
             [
-                "orange_blazekick",
                 "orange_inferno",
+                "orange_blazekick",
                 "orange_emberdash",
             ],
         )
