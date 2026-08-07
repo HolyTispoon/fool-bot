@@ -1,5 +1,5 @@
 {
-  "data_version": 4,
+  "data_version": 7,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1487033386",
   "maneuvers": {
     "offense": [
@@ -11,7 +11,7 @@
           2
         ],
         "defeats": "Pressure",
-        "effect": "Ball moves to a teammates 0-2 spaces away. Ball speed increases 1.",
+        "effect": "Ball to the nearest teammate ahead or behind, max 2 spaces; or to one sharing its space, and the passer moves forward 1. Ball speed +1.",
         "time": "distance traveled (1-2 space minutes)"
       },
       {
@@ -22,7 +22,7 @@
           4
         ],
         "defeats": "Block Deflect",
-        "effect": "Player and ball move forward 1 space. Manipulate ball speed up to player\u2019s offensive skill.",
+        "effect": "Player and ball move forward 1 space. Manipulate ball speed (up to oSkill).",
         "time": "1 space minute"
       },
       {
@@ -33,7 +33,7 @@
           6
         ],
         "defeats": "Steal Intercept",
-        "effect": "Ball moves forward 2-3 spaces. May set up a scoring opportunity if it moved 2, else reciving player must win a skill test to keep posession (as with loose ball).",
+        "effect": "Ball moves forward 2-3 spaces. 2: received, and may set up for scoring. 3+: receiver must win a skill test to keep it, adding ball speed.",
         "time": "distance traveled (2-4 space minutes)"
       }
     ],
@@ -46,7 +46,7 @@
           2
         ],
         "defeats": "High Pass",
-        "effect": "Ball moves back 1 space. If reaches offense\u2019s goal, sets up scoring opportunity. Ball speed decreases by 1.",
+        "effect": "Ball moves back 1 space. If overshoots the goal, may set up scoring. Ball speed -1.",
         "time": "1 space minute"
       },
       {
@@ -57,7 +57,7 @@
           4
         ],
         "defeats": "Low Pass",
-        "effect": "Turnover. Defender and ball move back 1 space. Manipulate ball speed up to defensive skill after turnover.",
+        "effect": "Turnover. Defender and ball move back 1 space. Manipulate ball speed after turnover (up to dSkill).",
         "time": "1 space minute"
       },
       {
@@ -68,7 +68,7 @@
           6
         ],
         "defeats": "Dribble Advance",
-        "effect": "Player and ball go back 1 space. Defender moves 1 forward. If reaches offense's goal, triggers own goal.",
+        "effect": "Player and ball go back 1 space. Defender moves 1 forward. If overshoots goal, own goal risk.",
         "time": "1 space minute"
       }
     ]

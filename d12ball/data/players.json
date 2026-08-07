@@ -1,6 +1,7 @@
 {
-  "data_version": 2,
+  "data_version": 3,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=0",
+  "abilities_source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1822486506",
   "role_profiles": {
     "fullback": {
       "offense": 1,
@@ -73,21 +74,21 @@
           "stat_overrides": {}
         },
         {
-          "id": "orange_blazekick",
-          "name": "Blazekick",
-          "role": "playmaker",
-          "stat_overrides": {}
-        },
-        {
           "id": "orange_inferno",
           "name": "Inferno",
           "role": "defender",
           "stat_overrides": {}
         },
         {
+          "id": "orange_blazekick",
+          "name": "Blazekick",
+          "role": "playmaker",
+          "stat_overrides": {}
+        },
+        {
           "id": "orange_emberdash",
           "name": "Emberdash",
-          "role": "winger",
+          "role": "striker",
           "stat_overrides": {}
         }
       ]
@@ -131,6 +132,12 @@
           "stat_overrides": {}
         },
         {
+          "id": "teal_flux",
+          "name": "Flux",
+          "role": "defender",
+          "stat_overrides": {}
+        },
+        {
           "id": "teal_gearclaw",
           "name": "Gearclaw",
           "role": "playmaker",
@@ -139,13 +146,7 @@
         {
           "id": "teal_tachyon",
           "name": "Tachyon",
-          "role": "winger",
-          "stat_overrides": {}
-        },
-        {
-          "id": "teal_flux",
-          "name": "Flux",
-          "role": "defender",
+          "role": "striker",
           "stat_overrides": {}
         }
       ]
@@ -189,6 +190,12 @@
           "stat_overrides": {}
         },
         {
+          "id": "purple_dravox",
+          "name": "Dravox",
+          "role": "defender",
+          "stat_overrides": {}
+        },
+        {
           "id": "purple_quillon",
           "name": "Quillon",
           "role": "playmaker",
@@ -197,13 +204,7 @@
         {
           "id": "purple_zytheris",
           "name": "Zytheris",
-          "role": "winger",
-          "stat_overrides": {}
-        },
-        {
-          "id": "purple_dravox",
-          "name": "Dravox",
-          "role": "defender",
+          "role": "striker",
           "stat_overrides": {}
         }
       ]
@@ -247,6 +248,12 @@
           "stat_overrides": {}
         },
         {
+          "id": "slime_viscor",
+          "name": "Viscor",
+          "role": "defender",
+          "stat_overrides": {}
+        },
+        {
           "id": "slime_zorch",
           "name": "Zorch",
           "role": "playmaker",
@@ -255,13 +262,7 @@
         {
           "id": "slime_acidel",
           "name": "Acidel",
-          "role": "winger",
-          "stat_overrides": {}
-        },
-        {
-          "id": "slime_viscor",
-          "name": "Viscor",
-          "role": "defender",
+          "role": "striker",
           "stat_overrides": {}
         }
       ]

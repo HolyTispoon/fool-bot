@@ -1,6 +1,6 @@
 # D12 Ball -- rules questions
 
-**As of:** 2026-08-04, against `main` at `2455af9`.
+**As of:** 2026-08-07, against `main` at `22c9869`.
 **Companion to:** [d12ball-rules.md](d12ball-rules.md).
 
 Questions that cannot be answered from either upstream source and need the author. Two
@@ -28,26 +28,6 @@ it does **not** add the Exhausted threshold (tokens > defensive skill), the inju
 roll, an injured state, or any use of the `back_bench` the spreadsheet reserves for injured
 players. Worth confirming that accrual is the intended scope of that PR and the Exhausted /
 Injured layer is a later piece, rather than it being assumed done.
-
-### 1.2 What does a won Low Pass do when there is nobody to pass to?
-
-A Low Pass must reach a different player (2026-08-07, see
-[Author clarifications](d12ball-rules.md#author-clarifications)), so a ball handler with no
-teammate within two spaces in either direction wins the maneuver and has no legal
-destination. Uncommon -- six players on a 7-space board are usually closer than that -- but
-reachable after a run back or a substitution spreads a team out.
-
-The bot currently holds the ball where it is, leaves the ball's speed alone (no +1, since
-no pass happened), and lets the clock take its usual 1 space minute. Alternatives worth
-ruling on: the maneuver failing outright, or the handler being allowed to keep the ball
-after all in exactly this case.
-
-### 1.3 Where do role abilities live in the spreadsheet?
-
-The author mentioned wanting to "update the spreadsheet so the ability are found somewhere
-else matching the roles" -- currently the ability is repeated on every player row and the
-importer asserts all players of a role agree. Worth knowing before re-importing, since a
-restructure would change the importer.
 
 ---
 
@@ -124,6 +104,20 @@ A short index so nothing is re-asked. Detail is in the rules file.
 | Substitute before or after the run back? | Before. |
 | What does "all the players on the bench were subbed out" mean? | Reframed: anyone subbed out goes to the back bench, and a team subs from the bench while it has anyone. The back bench is drawn from only when the bench is empty and the sub is for an injured player. Injured players go to the back bench and never return. |
 | Does a returning player clear Exhausted, or just lose tokens? | Just lose the tokens. Exhausted follows from what remains. |
+
+### Answered while revising the two passes (2026-08-07)
+
+| Question | Answer |
+|---|---|
+| What does a won Low Pass do when there is nobody to pass to? (was 1.2) | The ball goes a space forward and is loose, and its speed still rises by 1. Kept out of the sheet as too rare to spend card space on. |
+| Where do role abilities live in the spreadsheet? (was 1.3) | Their own `basic_abilities` tab, copied into the player cards tab's renamed `Basic` column. Either is importable. An `Advanced` column is reserved for advanced mode's per-team abilities. |
+| Can a Low Pass still reach the further of two teammates in one direction? | No -- only the nearest each way, plus one sharing the ball's space. |
+| What does a pass across a shared space buy, if the ball doesn't travel? | The passer moves a space forward. |
+| Is a 2-space High Pass still contested when its scoring opportunity is declined? | No. Only a pass of 3 or more is contested at all. |
+| Who gets the ball speed modifier in a High Pass's skill test? | The offense. A genuine loose ball still gives it to neither side. |
+
+See the [Changelog](d12ball-rules.md#changelog) and the Low Pass / High Pass bullets under
+[Author clarifications](d12ball-rules.md#author-clarifications).
 
 ### Answered while reviewing PR #29's own-goal/run-back rework
 

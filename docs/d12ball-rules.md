@@ -28,6 +28,35 @@ The upstream page carries this note from the author:
 
 ### Changelog
 
+**2026-08-07.** Re-pulled from the player cards and `maneuvers` tabs, plus a new
+`basic_abilities` tab. The sheet was restructured and two maneuvers changed:
+
+- **Role abilities moved to their own `basic_abilities` tab** (gid `1822486506`, one row per
+  role). The player cards tab's `Ability` column was renamed `Basic` and is now a copy of
+  that tab, so either can be imported -- `scripts/import_d12ball_players.py` reads the
+  abilities tab by default and cross-checks the copy. The wording of all six abilities is
+  unchanged. A sibling `Advanced` column is reserved for the per-team abilities advanced
+  mode will have; it is empty, and the importer drops it with a notice.
+- **Each team now fields one Winger and benches a second Striker**, where it was two Wingers
+  and one Striker. Emberdash, Tachyon, Zytheris and Acidel changed role, and carry the
+  Striker's 6/1 skills with it. The standard setup deals out one of each role per zone, so
+  what actually changed is the bench: defender, playmaker and **striker**.
+- **Low Pass named its destinations** instead of giving a distance range: "Ball to the
+  nearest teammate ahead or behind, max 2 spaces; or to one sharing its space, and the
+  passer moves forward 1. Ball speed +1." Two changes in one: only the *nearest* teammate
+  each way is a destination (a teammate 2 away is not one when another stands at 1), and a
+  pass across a shared space now moves the passer. The author also settled what a Low Pass
+  with no destination does -- [an open question](rules-open-questions.md) until now -- and
+  deliberately kept it out of the sheet as too much of an edge case to spend card space on;
+  it is under [Author clarifications](#author-clarifications) instead.
+- **High Pass contests only a pass of 3 or more**, and hands the offense the ball speed
+  modifier when it does: "Ball moves forward 2-3 spaces. 2: received, and may set up for
+  scoring. 3+: receiver must win a skill test to keep it, adding ball speed." A 2-space pass
+  is simply received -- declining the scoring opportunity it offers now resolves the pass
+  normally, where it used to fall back to the skill test.
+- **The other four effects were tightened** without changing what they do, and every effect
+  is now written to fit the bot's maneuver reference card.
+
 **2026-08-05.** Post-playtest revision, re-pulled from both the `Sheet1` and `maneuvers`
 tabs:
 
@@ -198,7 +227,9 @@ transcription itself. What remains below is what upstream still does not say.
 
 ### Maneuvers
 
-- The ball-speed modifier applies to **Steal Intercept only**.
+- The ball-speed modifier applies to **Steal Intercept** (to the defense) and, since
+  2026-08-07, to a **High Pass**'s skill test (to the offense) -- and to nothing else. It
+  was Steal Intercept only before that; see the High Pass bullets below.
 - **Steal Intercept's fallback happens after the turnover, and moves both the
   interceptor and the ball.** The `maneuvers` tab now says "Defender and ball move back
   1 space" (previously just "Ball moves back 1 space"), confirming the interceptor's own
@@ -209,14 +240,16 @@ transcription itself. What remains below is what upstream still does not say.
   *own* goal (not the old possessing team's goal). Read literally against the old side's
   direction, "back" would send the ball toward the new team's attacking goal instead --
   the opposite of what's intended.
-- **Low Pass (post-2026-08-05 revision) has no fixed distance or direction anymore.** "Ball
-  moves to a teammates 0-2 spaces away" means: pick any space 0, 1, or 2 spaces from the
-  ball, in either direction, that a teammate already occupies -- there is no other
-  destination a Low Pass can land on. Ball speed increases by 1 regardless of which distance
-  is picked. It no longer risks an own goal on reaching the passing team's own goal
-  -- see [Own goal trigger](#own-goal-trigger) below; that trigger moved to Pressure only.
-  Because the destination must already have a teammate on it, a Low Pass itself can never
-  produce a loose ball or an overshoot.
+- **Low Pass (post-2026-08-07 revision) has at most three destinations.** The nearest
+  teammate ahead of the ball within 2 spaces, the nearest one behind it within 2, and a
+  teammate standing on the ball's own space. **Nearest, not any:** a teammate 2 spaces ahead
+  stops being a destination the moment another one stands 1 space ahead, so the choice is
+  between directions rather than between distances. Ball speed increases by 1 whichever is
+  picked. It no longer risks an own goal on reaching the passing team's own goal -- see
+  [Own goal trigger](#own-goal-trigger) below; that trigger moved to Pressure only.
+- **A pass across a shared space sends the passer a space forward** (2026-08-07). The ball
+  hasn't travelled, so this is what the maneuver buys; the receiver stays on the ball. At
+  the far end of the field, where there is nowhere to run to, the passer simply stays put.
 - **A Low Pass must reach a different player -- nobody passes to themselves to keep the
   ball** (2026-08-07, superseding the reading recorded here before, which took distance 0 to
   mean the ball stays with the same player). Distance 0 is still legal, but only as a pass to
@@ -224,23 +257,33 @@ transcription itself. What remains below is what upstream still does not say.
   allowed (it is what [running back](#running-back)'s one-per-space rule exists to unpick).
   A ball handler with no teammate within two spaces has therefore won a Low Pass with nowhere
   to play it.
-
-  > **Open:** what a Low Pass with no legal destination should do is not settled -- see
-  > [rules-open-questions.md](rules-open-questions.md). The bot currently holds the ball
-  > where it is, leaves its speed alone, and lets the clock take its usual space minute.
+- **A Low Pass with no legal destination sends the ball a space forward, loose, and still
+  raises its speed by 1** (2026-08-07, settling what this file recorded as open until then).
+  Very unlikely -- six players on a 7-space board are rarely that spread out -- but reachable
+  after a run back or a substitution. The maneuver's speed bonus does not depend on the pass
+  finding anyone; both sides then contest the ball like any other loose ball. This one stays
+  out of the sheet's Effect text by the author's choice, as too rare to spend card space on.
 - **High Pass (post-2026-08-05 revision) is a 2-3 space choice (2-4 for a Fullback), and only
   an exact 2 can ever offer a scoring opportunity -- unlike the old fixed-2 High Pass, this no
   longer requires the pass to overshoot the field.** It still requires a teammate to be
-  standing on the landing space, exactly like a Winger's Low Pass below: a 2-space pass that
-  lands on an empty or opponent-held space skips the choice and goes straight to the mandatory
-  skill test. Declining the choice, or having gone 3 (or 4), always sends the ball to the same
-  skill-test contest a loose ball uses to decide who keeps it -- see
+  standing on the landing space, exactly like a Winger's Low Pass below. Distances of 3 or 4
+  never offer the scoring-opportunity choice, whether or not they happen to overshoot -- see
   [Setting a scoring opportunity](#setting-a-scoring-opportunity) and
-  [Actions display](#actions-display). This applies **even when a teammate is already standing
-  on the space the pass landed on** -- unlike every other maneuver, a High Pass's landing
-  space having a teammate on it does not exempt it from the contest; it only ever avoids the
-  contest by taking (and winning) the scoring-opportunity shot instead. Distances of 3 or 4
-  never offer the scoring-opportunity choice, whether or not they happen to overshoot.
+  [Actions display](#actions-display).
+- **Only a pass of 3 or more is contested** (2026-08-07, superseding the reading recorded
+  here before, under which a declined 2-space set-up fell back to the contest). A 2-space
+  pass is received: it offers the scoring opportunity when it lands on a teammate, and
+  declining that resolves the pass normally. At 3 or 4 the receiver must win a skill test to
+  keep what the pass delivered -- the same contest a loose ball uses, and mandatory **even
+  though a teammate is standing on the space the pass landed on**, which is what makes a
+  long High Pass unlike every other maneuver. A pass of any distance that lands where nobody
+  from the offense is standing is a plain loose ball rather than this contest, the same as
+  any other maneuver that overshoots into empty or enemy territory.
+- **The offense adds the ball speed modifier to a High Pass's skill test** (2026-08-07),
+  which no other use of that contest does: a genuine loose ball belongs to nobody yet, so
+  neither side gets it there. The modifier is the same `speed // 2` that Steal Intercept
+  gives the defense (see the top of this section). A fast ball is therefore easier to hold
+  onto after a long pass and harder to hold onto through a Steal Intercept.
 - **A Winger's Low Pass ability needs no overshoot or last-space requirement either, the same
   as High Pass's own set-up above -- but it needs even less.** Confirmed by the author:
   whenever a Winger completes a Low Pass (any distance, including 0), the offense may choose
@@ -589,8 +632,8 @@ ability is the d6 inverse of their offensive ability (i.e. the two numbers sum t
 for example, the better a player is on offense the worse they are on defense and vice
 versa.
 
-Roles, skills and abilities from the spreadsheet's `Sheet1` tab (offense/defense), re-read
-2026-08-05:
+Roles and skills from the spreadsheet's player cards tab (offense/defense), abilities from
+its `basic_abilities` tab, both re-read 2026-08-07:
 
 | Role | Off | Def | Ability |
 |---|---|---|---|
@@ -603,6 +646,8 @@ Roles, skills and abilities from the spreadsheet's `Sheet1` tab (offense/defense
 
 > **`d12ball/data/players.json` and `cogs/d12ball.py` both match this table**, as of the
 > post-playtest revision in this commit (see the [Changelog](#changelog), 2026-08-05).
+> Abilities live in their own tab as of 2026-08-07; the wording did not change with the
+> move.
 > Fullback's ability changed shape rather than just its wording -- see
 > [Author clarifications](#author-clarifications) for how the High Pass choice and the
 > Block Deflect bonus are implemented. Winger's ability *text* didn't change, but its
@@ -613,7 +658,9 @@ six ability slots have code behind them; see the callout above for which ones ma
 current wording.
 
 There are four teams -- Orange, Teal, Purple and Slime -- of nine players each: one of each
-role on the field plus three on the bench.
+role on the field plus three on the bench. The nine are one Fullback, two Defenders, one
+Midfielder, two Playmakers, one Winger and two Strikers, so the bench is a Defender, a
+Playmaker and a Striker (a Winger until 2026-08-07 -- see the [Changelog](#changelog)).
 
 ## Game structure
 
@@ -736,20 +783,22 @@ Two actions of the same rank tie, which is what sends a maneuver to a clash roll
 
 | Action | Side | Rank | Die | Defeats | Effect | Time |
 |---|---|---|---|---|---|---|
-| Low Pass | offense | 1 | 1-2 | Pressure | Ball moves to a teammates 0-2 spaces away. Ball speed increases 1. | distance traveled (1-2 space minutes) |
-| Dribble Advance | offense | 2 | 3-4 | Block Deflect | Player and ball move forward 1 space. Manipulate ball speed up to player's offensive skill. | 1 space minute |
-| High Pass | offense | 3 | 5-6 | Steal Intercept | Ball moves forward 2-3 spaces. May set up a scoring opportunity if it moved 2, else reciving player must win a skill test to keep posession (as with loose ball). | distance traveled (2-4 space minutes) |
-| Block Deflect | defense | 1 | 1-2 | High Pass | Ball moves back 1 space. If reaches offense's goal, sets up scoring opportunity. Ball speed decreases by 1. | 1 space minute |
-| Steal Intercept | defense | 2 | 3-4 | Low Pass | Turnover. Defender and ball move back 1 space. Manipulate ball speed up to defensive skill after turnover. | 1 space minute |
-| Pressure | defense | 3 | 5-6 | Dribble Advance | Player and ball go back 1 space. Defender moves 1 forward. If reaches offense's goal, triggers own goal. | 1 space minute |
+| Low Pass | offense | 1 | 1-2 | Pressure | Ball to the nearest teammate ahead or behind, max 2 spaces; or to one sharing its space, and the passer moves forward 1. Ball speed +1. | distance traveled (1-2 space minutes) |
+| Dribble Advance | offense | 2 | 3-4 | Block Deflect | Player and ball move forward 1 space. Manipulate ball speed (up to oSkill). | 1 space minute |
+| High Pass | offense | 3 | 5-6 | Steal Intercept | Ball moves forward 2-3 spaces. 2: received, and may set up for scoring. 3+: receiver must win a skill test to keep it, adding ball speed. | distance traveled (2-4 space minutes) |
+| Block Deflect | defense | 1 | 1-2 | High Pass | Ball moves back 1 space. If overshoots the goal, may set up scoring. Ball speed -1. | 1 space minute |
+| Steal Intercept | defense | 2 | 3-4 | Low Pass | Turnover. Defender and ball move back 1 space. Manipulate ball speed after turnover (up to dSkill). | 1 space minute |
+| Pressure | defense | 3 | 5-6 | Dribble Advance | Player and ball go back 1 space. Defender moves 1 forward. If overshoots goal, own goal risk. | 1 space minute |
 
-> **Typos preserved as written:** "reciving", "posession" (High Pass's effect) -- see
+> **The "reciving"/"posession" typos are gone**, rewritten out of High Pass's effect by the
+> 2026-08-07 revision rather than corrected here -- see
 > [About this transcription](#about-this-transcription).
 
-> **Low Pass and High Pass's Effect text names a number range, not a single distance** --
-> both are now a player choice (see [Author clarifications](#author-clarifications)), so the
-> Time column's own range tracks that choice rather than a Fullback bonus varying a fixed
-> number, the reasoning the pre-2026-08-05 version of this callout gave. **Low Pass's Time
+> **Neither pass travels a fixed distance** -- High Pass's Effect names a range outright,
+> and Low Pass's destinations sit 0, 1 or 2 spaces away depending on where teammates are
+> standing (see [Author clarifications](#author-clarifications)), so the Time column's own
+> range tracks that choice rather than a Fullback bonus varying a fixed number, the
+> reasoning the pre-2026-08-05 version of this callout gave. **Low Pass's Time
 > stayed "distance traveled (1-2 space minutes)" and does not cover its new 0 case** -- a
 > distance-0 Low Pass (to a teammate sharing the ball's space; the pass may not be played to
 > the passer, see [Author clarifications](#author-clarifications)) still costs the usual
