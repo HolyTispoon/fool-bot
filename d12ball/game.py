@@ -15,6 +15,17 @@ class GameMode(str, Enum):
     ADVANCED = "advanced"
 
 
+class TieMode(str, Enum):
+    """
+    What happens when the scores are level at full time: a league game
+    is allowed to end in a tie, a tournament game goes to the extreme
+    shootout (docs/d12ball-rules.md, End of Time).
+    """
+
+    LEAGUE = "league"
+    TOURNAMENT = "tournament"
+
+
 class AIOpponent(str, Enum):
     DINKY = "dinky"
     DECENT = "decent"
@@ -65,6 +76,7 @@ class D12BallGame:
 
     # Game configuration
     mode: GameMode = GameMode.BASIC
+    tie_mode: TieMode = TieMode.LEAGUE
     status: GameStatus = GameStatus.SETUP
     board_size: int = 7
 
@@ -85,6 +97,13 @@ class D12BallGame:
     match_state: Optional[dict] = None
     turn_message_id: Optional[int] = None
 
+    # The full-time message carrying the rematch button, and the game
+    # that button created. The id restores the button after a restart;
+    # the game id is what keeps a second click from opening a second
+    # rematch channel.
+    rematch_message_id: Optional[int] = None
+    rematch_game_id: Optional[str] = None
+
     def __post_init__(self) -> None:
         if self.player_1_team is not None:
             self.player_1_team = Team(self.player_1_team)
@@ -93,6 +112,7 @@ class D12BallGame:
             self.player_2_team = Team(self.player_2_team)
 
         self.mode = GameMode(self.mode)
+        self.tie_mode = TieMode(self.tie_mode)
         self.status = GameStatus(self.status)
 
         if self.ai_opponent is not None:

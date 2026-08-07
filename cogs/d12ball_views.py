@@ -26,6 +26,7 @@ from d12ball.game import (
     GameStatus,
     HomeChoice,
     Team,
+    TieMode,
 )
 from d12ball.render import (
     TEAM_COLORS,
@@ -39,6 +40,7 @@ from cogs.d12ball_helpers import (
     AI_OPPONENT_NAMES,
     LOGGER,
     ROLE_INITIALS,
+    TIE_MODE_LABELS,
     add_full_image_button,
     add_full_image_button_to_response,
     build_home_choice_message,
@@ -83,14 +85,28 @@ class SafeView(discord.ui.View):
 
 
 class GameConfigurationView(SafeView):
+    def configuration_start_row(
+        self,
+        game: Optional[D12BallGame],
+    ) -> int:
+        """
+        The action row the settings block starts on. A view that puts
+        its own buttons above the settings (team selection) overrides
+        this. Discord only gives us five rows and the block is up to
+        four of them -- mode, board size, tie mode, and, for a solo
+        game, the AI opponent -- so there is no room to spare.
+        """
+        return 0
+
     def add_configuration_buttons(self) -> None:
         game = self.cog.games.get(self.game_id)
         selected_mode = game.mode if game else GameMode.BASIC
         selected_board_size = game.board_size if game else 7
+        selected_tie_mode = game.tie_mode if game else TieMode.LEAGUE
         configuration_closed = bool(
             game and game.status != GameStatus.SETUP
         )
-        row_offset = 1 if game and game.test_game else 0
+        first_row = self.configuration_start_row(game)
 
         for label, mode in (
             ("Basic", GameMode.BASIC),
@@ -105,7 +121,7 @@ class GameConfigurationView(SafeView):
                 ),
                 custom_id=f"d12ball:mode:{self.game_id}:{mode.value}",
                 disabled=configuration_closed or mode == selected_mode,
-                row=1 + row_offset,
+                row=first_row,
             )
 
             async def mode_callback(
@@ -132,7 +148,7 @@ class GameConfigurationView(SafeView):
                     configuration_closed
                     or board_size == selected_board_size
                 ),
-                row=2 + row_offset,
+                row=first_row + 1,
             )
 
             async def board_size_callback(
@@ -145,6 +161,32 @@ class GameConfigurationView(SafeView):
                 )
 
             button.callback = board_size_callback
+            self.add_item(button)
+
+        for tie_mode, label in TIE_MODE_LABELS.items():
+            button = discord.ui.Button(
+                label=label,
+                style=(
+                    discord.ButtonStyle.secondary
+                    if tie_mode == selected_tie_mode
+                    else discord.ButtonStyle.primary
+                ),
+                custom_id=(
+                    f"d12ball:tie_mode:{self.game_id}:{tie_mode.value}"
+                ),
+                disabled=(
+                    configuration_closed or tie_mode == selected_tie_mode
+                ),
+                row=first_row + 2,
+            )
+
+            async def tie_mode_callback(
+                interaction: discord.Interaction,
+                selected: TieMode = tie_mode,
+            ) -> None:
+                await self.select_tie_mode(interaction, selected)
+
+            button.callback = tie_mode_callback
             self.add_item(button)
 
         if game is None or not game.is_solo_game:
@@ -164,7 +206,7 @@ class GameConfigurationView(SafeView):
                     f"d12ball:ai_opponent:{self.game_id}:{ai_type.value}"
                 ),
                 disabled=configuration_closed or ai_type == selected_ai,
-                row=3,
+                row=first_row + 3,
             )
 
             async def ai_opponent_callback(
@@ -237,6 +279,37 @@ class GameConfigurationView(SafeView):
             view=refreshed_view,
         )
 
+    async def select_tie_mode(
+        self,
+        interaction: discord.Interaction,
+        selected_tie_mode: TieMode,
+    ) -> None:
+        game = await self.validate_configuration_change(interaction)
+        if game is None:
+            return
+
+        if selected_tie_mode == TieMode.TOURNAMENT:
+            # Refused for the same reason advanced mode is: the extreme
+            # shootout a tournament tie goes to isn't implemented yet.
+            await interaction.response.send_message(
+                "tournament mode is not yet ready, please play in "
+                "league mode",
+                ephemeral=True,
+            )
+            return
+
+        game.tie_mode = TieMode.LEAGUE
+        save_games(self.cog.games)
+
+        refreshed_view = type(self)(
+            cog=self.cog,
+            game_id=self.game_id,
+        )
+        await interaction.response.edit_message(
+            content=build_setup_message(game),
+            view=refreshed_view,
+        )
+
     async def select_ai_opponent(
         self,
         interaction: discord.Interaction,
@@ -288,6 +361,15 @@ class GameConfigurationView(SafeView):
 
 
 class TeamSelectionView(GameConfigurationView):
+    def configuration_start_row(
+        self,
+        game: Optional[D12BallGame],
+    ) -> int:
+        # Below the team buttons, which a test game needs two rows for
+        # (one per player). A test game is never a solo game, so its
+        # settings block stops at the tie-mode row and still fits.
+        return 2 if game is not None and game.test_game else 1
+
     def __init__(
         self,
         cog: "D12Ball",
@@ -490,7 +572,9 @@ class CoinFlipView(GameConfigurationView):
             ),
             custom_id=f"d12ball:flip_coin:{game_id}",
             disabled=game.coin_flipped if game else False,
-            row=4 if game and game.test_game else 3,
+            # Last row, under the settings block: this button starts
+            # the game, so it belongs below everything it settles.
+            row=4,
         )
 
         self.flip_button.callback = self.flip_coin
@@ -719,6 +803,106 @@ class HomeAwaySelectionView(SafeView):
             f"**{choice.value.title()}**."
         )
         await self.cog.send_turn_prompt(interaction, game)
+
+
+class RematchView(SafeView):
+    """
+    The rematch button on a finished game's full-time message: opens a
+    fresh game for the same players, with the same settings, and
+    archives the game that just ended.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+    ):
+        super().__init__(timeout=None)
+
+        self.cog = cog
+        self.game_id = game_id
+
+        game = self.cog.games.get(game_id)
+        rematch_started = bool(
+            game is not None
+            and game.rematch_game_id is not None
+            and game.rematch_game_id in self.cog.games
+        )
+
+        button = discord.ui.Button(
+            label="Rematch",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:rematch:{game_id}",
+            disabled=rematch_started,
+        )
+        button.callback = self.start_rematch
+        self.add_item(button)
+
+    async def start_rematch(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+
+        if game is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        allowed_player_ids = {game.player_1_id}
+        if game.player_2_id is not None:
+            allowed_player_ids.add(game.player_2_id)
+
+        if interaction.user.id not in allowed_player_ids:
+            await interaction.response.send_message(
+                "Only a player in this game can start a rematch.",
+                ephemeral=True,
+            )
+            return
+
+        existing = (
+            self.cog.games.get(game.rematch_game_id)
+            if game.rematch_game_id is not None
+            else None
+        )
+        if existing is not None:
+            await interaction.response.send_message(
+                "A rematch has already been started: "
+                f"<#{existing.channel_id}>",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            rematch = await self.cog.start_rematch(game, interaction.user)
+        except (ValueError, discord.Forbidden, discord.HTTPException) as error:
+            await interaction.followup.send(
+                f"I could not start the rematch: {error}",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            await interaction.message.edit(
+                view=RematchView(self.cog, self.game_id),
+            )
+        except discord.HTTPException as error:
+            # The rematch itself is already open, so this is cosmetic:
+            # a button that wasn't greyed out just reports the rematch
+            # it finds instead of opening another one.
+            LOGGER.warning(
+                "Could not disable the rematch button for game %s: %s",
+                self.game_id, error,
+            )
+
+        await interaction.followup.send(
+            f"Rematch created: <#{rematch.channel_id}>",
+            ephemeral=True,
+        )
 
 
 class BallHandlerSelectionView(SafeView):

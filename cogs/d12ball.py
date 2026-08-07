@@ -30,6 +30,7 @@ from d12ball.game import (
     GameMode,
     GameStatus,
     Team,
+    TieMode,
 )
 from d12ball.render import (
     TEAM_COLORS,
@@ -55,6 +56,7 @@ from cogs.d12ball_helpers import (
     ROLE_INITIALS,
     add_full_image_button,
     add_full_image_button_to_response,
+    build_full_time_summary,
     contest_noun,
     destination_display_name,
     filter_choices,
@@ -90,6 +92,7 @@ from cogs.d12ball_views import (
     ManeuverActionPromptView,
     ManeuverChallengeView,
     PlayerActionView,
+    RematchView,
     RunBackChoiceView,
     ScoreAttemptView,
     SetUpAttemptChoiceView,
@@ -167,6 +170,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 self.bot.add_view(
                     setup_view,
                     message_id=game.message_id,
+                )
+                restored_views += 1
+
+            if game.rematch_message_id is not None:
+                # A finished game's full-time message. Its button stays
+                # live indefinitely -- nobody is obliged to ask for the
+                # rematch the same day they lost.
+                self.bot.add_view(
+                    RematchView(self, game.game_id),
+                    message_id=game.rematch_message_id,
                 )
                 restored_views += 1
 
@@ -2799,7 +2812,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         speed-manipulation follow-up either -- the triggering effect's
         own state change (e.g. Steal Intercept's turnover and 1-space
         fallback) has already been applied and saved by the caller,
-        this just skips everything downstream of that.
+        this just skips everything downstream of that. The maneuver
+        that *declares* last possession is not that turnover and isn't
+        caught here: its own clock advance happens later, in
+        finish_maneuver_resolution, so it runs back like any other.
 
         A resolution that left possession where it was doesn't run a
         run-back at all: "every time there's a turnover for any
@@ -3230,6 +3246,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         clear the maneuver state, and hand the offensive choice back to
         whoever now has the ball.
 
+        The maneuver that puts the clock on 15 never ends the period,
+        even when it is itself a turnover: last possession is the
+        possession that starts there, so whoever comes out of that
+        maneuver with the ball gets to play it out and only loses the
+        period when *they* lose the ball. Only a turnover under a last
+        possession that was already in force ends it -- which is the
+        case begin_run_back catches earlier, before any run back.
+
         `lead_in`, if given, is narration from earlier in the same
         effect that hasn't been posted yet -- it rides along on this
         function's own first message instead of being sent separately,
@@ -3250,14 +3274,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         entered_last_possession = match.advance_time(distance_moved)
         if entered_last_possession:
             prefix = f"{lead_in}\n\n" if lead_in else ""
+            possessing_side = format_team_side_label(
+                match.setup_for_side(match.ball.possession)
+            )
+            body = (
+                "The turnover that got here doesn't end it -- "
+                f"{possessing_side} came out of that maneuver with the "
+                "ball, so they play last possession out."
+                if turnover_occurred
+                else "Play continues until the ball turns over, which "
+                "ends the period."
+            )
             await interaction.followup.send(
                 f"{prefix}The clock reaches 15 -- this is now **last "
-                "possession**. Play continues until the ball turns over, "
-                "which ends the period."
+                f"possession**. {body}"
             )
             lead_in = ""
 
-        if turnover_occurred and match.scoreboard.last_possession:
+        if (
+            turnover_occurred
+            and match.scoreboard.last_possession
+            and not entered_last_possession
+        ):
             await self.end_period(interaction, game, match, lead_in=lead_in)
             return
 
@@ -3341,21 +3379,23 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.finish_game()
         save_games(self.games)
 
-        home_score = match.scoreboard.home_score
-        visiting_score = match.scoreboard.visiting_score
-        result = (
-            "It's a tie! This would go to an extreme shootout, which "
-            "isn't implemented yet."
-            if home_score == visiting_score
-            else "Game over!"
-        )
-        await interaction.followup.send(
+        full_time = await interaction.followup.send(
             f"{prefix}**Full time!** The clock reaches 15 and the ball "
             "turns over -- the game ends.\n\n"
-            f"Final score: {match.home.team.value.title()} {home_score}:"
-            f"{visiting_score} {match.visiting.team.value.title()}\n\n"
-            f"{result}"
+            f"{build_full_time_summary(game, match)}",
+            view=RematchView(self, game.game_id),
+            allowed_mentions=discord.AllowedMentions(
+                users=True,
+                roles=False,
+                everyone=False,
+            ),
+            wait=True,
         )
+        # Remembered so the rematch button comes back after a restart:
+        # the channel stays where it is until someone clicks it, which
+        # can be days later.
+        game.rematch_message_id = full_time.id
+        save_games(self.games)
         await self.refresh_match_image(interaction, game)
 
     # -- Halftime ------------------------------------------------------
@@ -4395,17 +4435,53 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         await interaction.response.defer(ephemeral=True)
 
+        try:
+            game = await self.open_new_game(
+                guild,
+                player_1,
+                player_2,
+                test_game=test_game,
+                created_by=interaction.user,
+            )
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+
+        await interaction.followup.send(
+            f"Game created: <#{game.channel_id}>",
+            ephemeral=True,
+        )
+
+    async def open_new_game(
+        self,
+        guild: discord.Guild,
+        player_1: discord.Member,
+        player_2: Optional[discord.Member],
+        test_game: bool = False,
+        created_by: Optional[discord.abc.User] = None,
+        mode: GameMode = GameMode.BASIC,
+        tie_mode: TieMode = TieMode.LEAGUE,
+        board_size: int = 7,
+        ai_opponent: Optional[AIOpponent] = None,
+    ) -> D12BallGame:
+        """
+        Create the private channel for a game, save the game record,
+        and post its setup message. Shared by /d12ball create_game and
+        the full-time rematch button, which is why everything that can
+        go wrong is raised as a ValueError carrying the text to show
+        the person who asked for the game rather than replying itself.
+
+        The settings arguments exist for the rematch, which carries the
+        finished game's configuration over; a fresh game takes the
+        defaults and settles them in setup.
+        """
         game_number = self.get_next_game_number(guild)
         channel_name = f"d12ball-pbd{game_number}"
 
         bot_member = guild.me
 
         if bot_member is None:
-            await interaction.followup.send(
-                "I could not find my server account.",
-                ephemeral=True,
-            )
-            return
+            raise ValueError("I could not find my server account.")
 
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(
@@ -4441,23 +4517,23 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 name=channel_name,
                 overwrites=overwrites,
                 category=category,
-                reason=f"D12 Ball game created by {interaction.user}",
+                reason=(
+                    f"D12 Ball game created by {created_by}"
+                    if created_by is not None
+                    else "D12 Ball game created."
+                ),
             )
 
         except discord.Forbidden:
-            await interaction.followup.send(
+            raise ValueError(
                 "I do not have permission to create the PBD Games category "
-                "or its game channels.",
-                ephemeral=True,
+                "or its game channels."
             )
-            return
 
         except discord.HTTPException as error:
-            await interaction.followup.send(
-                f"Discord could not create the channel: {error}",
-                ephemeral=True,
+            raise ValueError(
+                f"Discord could not create the channel: {error}"
             )
-            return
 
         try:
             await game_channel.set_permissions(
@@ -4475,24 +4551,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 not bot_permissions.view_channel
                 or not bot_permissions.manage_channels
             ):
-                await interaction.followup.send(
+                raise ValueError(
                     "The private channel was created, but I could not add "
-                    f"myself with permission to manage it: {error}",
-                    ephemeral=True,
+                    f"myself with permission to manage it: {error}"
                 )
-                return
 
         bot_permissions = game_channel.permissions_for(bot_member)
         if (
             not bot_permissions.view_channel
             or not bot_permissions.manage_channels
         ):
-            await interaction.followup.send(
+            raise ValueError(
                 "The private channel was created, but Discord did not grant "
-                "me View Channel and Manage Channels permissions.",
-                ephemeral=True,
+                "me View Channel and Manage Channels permissions."
             )
-            return
 
         game_id = uuid.uuid4().hex
 
@@ -4513,10 +4585,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 else player_2.display_name if player_2 else None
             ),
             test_game=test_game,
-            mode=GameMode.BASIC,
+            mode=mode,
+            tie_mode=tie_mode,
             status=GameStatus.SETUP,
-            board_size=7,
-            ai_opponent=None if player_2 else AIOpponent.DINKY,
+            board_size=board_size,
+            ai_opponent=(
+                None
+                if player_2
+                else ai_opponent or AIOpponent.DINKY
+            ),
         )
 
         self.games[game_id] = game
@@ -4547,20 +4624,72 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         except discord.HTTPException as error:
             self.games.pop(game_id, None)
 
-            await interaction.followup.send(
+            raise ValueError(
                 f"The channel was created, but I could not send "
-                f"the game message: {error}",
-                ephemeral=True,
+                f"the game message: {error}"
             )
-            return
 
         game.message_id = game_message.id
         save_games(self.games)
+        return game
 
-        await interaction.followup.send(
-            f"Game created: {game_channel.mention}",
-            ephemeral=True,
+    async def start_rematch(
+        self,
+        game: D12BallGame,
+        requested_by: Optional[discord.abc.User] = None,
+    ) -> D12BallGame:
+        """
+        Open a rematch of a finished game -- the same two players (or
+        the same AI opponent) and the same settings, in a new channel
+        -- and archive the finished game's own channel on the way out.
+
+        The new game id is remembered on the finished game so a second
+        click on its rematch button finds the rematch instead of
+        opening another one.
+        """
+        guild = self.bot.get_guild(game.guild_id)
+        if guild is None:
+            raise ValueError("The server for this game is not available.")
+
+        try:
+            player_1 = guild.get_member(
+                game.player_1_id
+            ) or await guild.fetch_member(game.player_1_id)
+        except discord.HTTPException:
+            raise ValueError(
+                "Player 1 is no longer a member of this server."
+            )
+
+        player_2 = player_1 if game.test_game else None
+        if game.player_2_id is not None and not game.test_game:
+            try:
+                player_2 = guild.get_member(
+                    game.player_2_id
+                ) or await guild.fetch_member(game.player_2_id)
+            except discord.HTTPException:
+                raise ValueError(
+                    "Player 2 is no longer a member of this server."
+                )
+
+        rematch = await self.open_new_game(
+            guild,
+            player_1,
+            player_2,
+            test_game=game.test_game,
+            created_by=requested_by,
+            mode=game.mode,
+            tie_mode=game.tie_mode,
+            board_size=game.board_size,
+            ai_opponent=game.ai_opponent,
         )
+
+        game.rematch_game_id = rematch.game_id
+        save_games(self.games)
+
+        # Last, so a rematch is never lost to a channel the bot turns
+        # out not to be allowed to move.
+        await self.archive_game_channel(game)
+        return rematch
 
     @app_commands.command(
         name="show_game",
