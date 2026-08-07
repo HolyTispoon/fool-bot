@@ -23,6 +23,7 @@ from d12ball.game import (
     CoinFace,
     D12BallGame,
     Team,
+    TieMode,
 )
 
 
@@ -89,6 +90,13 @@ def contest_noun(match: MatchState) -> str:
 AI_OPPONENT_NAMES = {
     AIOpponent.DINKY: "Dinky AI",
     AIOpponent.DECENT: "Decent AI",
+}
+
+# Doubles as the setup buttons' labels and the setup message's wording,
+# so the choice reads the same either place.
+TIE_MODE_LABELS = {
+    TieMode.LEAGUE: "League mode (game can end in ties)",
+    TieMode.TOURNAMENT: "Tournament mode (extreme shootout resolve ties)",
 }
 
 # The exhaustion token emoji is uploaded to the application (via the
@@ -330,6 +338,55 @@ async def get_or_create_category(
     return await guild.create_category(name=name, reason=reason)
 
 
+def build_full_time_summary(
+    game: D12BallGame,
+    match: MatchState,
+) -> str:
+    """
+    The final score and who won it, for the full-time announcement.
+
+    A level score reads differently per tie mode: a league game is
+    allowed to end tied and does, while a tournament game goes to the
+    extreme shootout -- which isn't implemented, so it is handed over
+    as a hand-apply step the way the rest of the unautomated rules
+    are. Tournament mode can't be chosen in setup yet, so that branch
+    is only reachable by a game whose mode was set some other way.
+    """
+    home_score = match.scoreboard.home_score
+    visiting_score = match.scoreboard.visiting_score
+    score_line = (
+        f"Final score: {match.home.team.value.title()} {home_score}:"
+        f"{visiting_score} {match.visiting.team.value.title()}"
+    )
+
+    if home_score == visiting_score:
+        if game.tie_mode == TieMode.TOURNAMENT:
+            return (
+                f"{score_line}\n\n"
+                "**It's a tie!** Tournament mode takes this to the "
+                "extreme shootout, which isn't implemented yet -- play "
+                "it out by hand."
+            )
+        return (
+            f"{score_line}\n\n"
+            "**It's a tie!** League mode lets a game end level, so "
+            "that's the result."
+        )
+
+    home_won = home_score > visiting_score
+    winning_setup = match.home if home_won else match.visiting
+    winning_player_number = (
+        game.home_player_number if home_won else game.visiting_player_number
+    )
+    winner = format_player(game, winning_player_number, mention=True)
+
+    return (
+        f"{score_line}\n\n"
+        f"# {winning_setup.team.value.title()} wins!\n"
+        f"Congratulations, {winner}!"
+    )
+
+
 def build_setup_message(
     game: D12BallGame,
     mention_players: bool = True,
@@ -352,7 +409,8 @@ def build_setup_message(
         f"**Player 2:** {player_2}\n\n"
         "### Game settings\n\n"
         f"Game Mode: {game.mode.value.title()}\n"
-        f"Board size: {game.board_size}\n\n"
+        f"Board size: {game.board_size}\n"
+        f"Ties: {TIE_MODE_LABELS[game.tie_mode]}\n\n"
     )
 
     if game.coin_flipped:
