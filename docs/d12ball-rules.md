@@ -43,11 +43,12 @@ The upstream page carries this note from the author:
   what actually changed is the bench: defender, playmaker and **striker**.
 - **Low Pass named its destinations** instead of giving a distance range: "Ball to the
   nearest teammate ahead or behind, max 2 spaces; or to one sharing its space, and the
-  passer moves forward 1. Ball speed +1. No target: ball goes forward 1, loose ball." Three
-  changes in one: only the *nearest* teammate each way is a destination (a teammate 2 away
-  is not one when another stands at 1), a pass across a shared space now moves the passer,
-  and a Low Pass with nowhere to go is settled -- it was
-  [an open question](rules-open-questions.md) until now.
+  passer moves forward 1. Ball speed +1." Two changes in one: only the *nearest* teammate
+  each way is a destination (a teammate 2 away is not one when another stands at 1), and a
+  pass across a shared space now moves the passer. The author also settled what a Low Pass
+  with no destination does -- [an open question](rules-open-questions.md) until now -- and
+  deliberately kept it out of the sheet as too much of an edge case to spend card space on;
+  it is under [Author clarifications](#author-clarifications) instead.
 - **High Pass contests only a pass of 3 or more**, and hands the offense the ball speed
   modifier when it does: "Ball moves forward 2-3 spaces. 2: received, and may set up for
   scoring. 3+: receiver must win a skill test to keep it, adding ball speed." A 2-space pass
@@ -256,11 +257,12 @@ transcription itself. What remains below is what upstream still does not say.
   allowed (it is what [running back](#running-back)'s one-per-space rule exists to unpick).
   A ball handler with no teammate within two spaces has therefore won a Low Pass with nowhere
   to play it.
-- **A Low Pass with no legal destination sends the ball a space forward, loose**
-  (2026-08-07, settling what this file recorded as open until then). Very unlikely -- six
-  players on a 7-space board are rarely that spread out -- but reachable after a run back or
-  a substitution. Nobody completed a pass, so the ball's speed does not get its +1, and both
-  sides contest the ball from there like any other loose ball.
+- **A Low Pass with no legal destination sends the ball a space forward, loose, and still
+  raises its speed by 1** (2026-08-07, settling what this file recorded as open until then).
+  Very unlikely -- six players on a 7-space board are rarely that spread out -- but reachable
+  after a run back or a substitution. The maneuver's speed bonus does not depend on the pass
+  finding anyone; both sides then contest the ball like any other loose ball. This one stays
+  out of the sheet's Effect text by the author's choice, as too rare to spend card space on.
 - **High Pass (post-2026-08-05 revision) is a 2-3 space choice (2-4 for a Fullback), and only
   an exact 2 can ever offer a scoring opportunity -- unlike the old fixed-2 High Pass, this no
   longer requires the pass to overshoot the field.** It still requires a teammate to be
@@ -781,7 +783,7 @@ Two actions of the same rank tie, which is what sends a maneuver to a clash roll
 
 | Action | Side | Rank | Die | Defeats | Effect | Time |
 |---|---|---|---|---|---|---|
-| Low Pass | offense | 1 | 1-2 | Pressure | Ball to the nearest teammate ahead or behind, max 2 spaces; or to one sharing its space, and the passer moves forward 1. Ball speed +1. No target: ball goes forward 1, loose ball. | distance traveled (1-2 space minutes) |
+| Low Pass | offense | 1 | 1-2 | Pressure | Ball to the nearest teammate ahead or behind, max 2 spaces; or to one sharing its space, and the passer moves forward 1. Ball speed +1. | distance traveled (1-2 space minutes) |
 | Dribble Advance | offense | 2 | 3-4 | Block Deflect | Player and ball move forward 1 space. Manipulate ball speed (up to oSkill). | 1 space minute |
 | High Pass | offense | 3 | 5-6 | Steal Intercept | Ball moves forward 2-3 spaces. 2: received, and may set up for scoring. 3+: receiver must win a skill test to keep it, adding ball speed. | distance traveled (2-4 space minutes) |
 | Block Deflect | defense | 1 | 1-2 | High Pass | Ball moves back 1 space. If overshoots the goal, may set up scoring. Ball speed -1. | 1 space minute |

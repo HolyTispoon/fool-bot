@@ -1100,10 +1100,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # A Low Pass has to reach a different player, so a handler
             # with no teammate within two spaces has won the maneuver
             # and has nowhere to put the ball. The ball goes a space
-            # forward and is loose (2026-08-07); its speed is left
-            # alone, since nobody completed a pass.
+            # forward and is loose, and its speed still rises by 1
+            # (2026-08-07) -- the maneuver's speed bonus doesn't depend
+            # on the pass finding anyone.
             offense_side = match.ball.possession
             actual_distance = match.move_ball_relative(offense_side, 1)
+            match.ball.speed = min(12, match.ball.speed + 1)
             game.match_state = match.to_dict()
             save_games(self.games)
 
@@ -1123,7 +1125,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 lead_in=(
                     "**Low Pass:** there is no teammate within two "
                     "spaces to receive it, and a pass can't be played "
-                    f"to the passer -- {movement_note}."
+                    f"to the passer -- {movement_note}. "
+                    f"Ball speed is now {match.ball.speed}."
                 ),
                 headline=(
                     "**Loose ball!** Nobody is there to collect the "

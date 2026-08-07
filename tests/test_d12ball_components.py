@@ -2027,8 +2027,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         # Winning Low Pass with no teammate in reach is not a licence
         # to keep the ball by passing to yourself: the ball rolls a
-        # space forward and is loose (2026-08-07). Nobody completed a
-        # pass, so its speed is left alone.
+        # space forward and is loose (2026-08-07), and still picks up
+        # the maneuver's +1 speed on the way.
         cog = self.build_cog()
         cog.side_controlled_by_ai = mock.Mock(return_value=False)
         match = self.build_match()
@@ -2052,7 +2052,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 2),
         )
-        self.assertEqual(match.ball.speed, 4)
+        self.assertEqual(match.ball.speed, 5)
         cog.finish_maneuver_resolution.assert_not_awaited()
         cog.begin_loose_ball.assert_awaited_once()
         _, kwargs = cog.begin_loose_ball.await_args
@@ -2091,6 +2091,9 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         _, kwargs = cog.begin_loose_ball.await_args
         self.assertEqual(kwargs["distance_moved"], 1)
         self.assertIn("stays where it is", kwargs["lead_in"])
+        # The speed bonus doesn't depend on the ball finding room to
+        # roll either.
+        self.assertEqual(match.ball.speed, 2)
 
     # -- apply_high_pass ------------------------------------------------
 

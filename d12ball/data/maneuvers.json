@@ -1,5 +1,5 @@
 {
-  "data_version": 6,
+  "data_version": 7,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1487033386",
   "maneuvers": {
     "offense": [
@@ -11,7 +11,7 @@
           2
         ],
         "defeats": "Pressure",
-        "effect": "Ball to the nearest teammate ahead or behind, max 2 spaces; or to one sharing its space, and the passer moves forward 1. Ball speed +1. No target: ball goes forward 1, loose ball.",
+        "effect": "Ball to the nearest teammate ahead or behind, max 2 spaces; or to one sharing its space, and the passer moves forward 1. Ball speed +1.",
         "time": "distance traveled (1-2 space minutes)"
       },
       {

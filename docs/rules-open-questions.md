@@ -109,7 +109,7 @@ A short index so nothing is re-asked. Detail is in the rules file.
 
 | Question | Answer |
 |---|---|
-| What does a won Low Pass do when there is nobody to pass to? (was 1.2) | The ball goes a space forward and is loose. No speed +1 -- nobody completed a pass. |
+| What does a won Low Pass do when there is nobody to pass to? (was 1.2) | The ball goes a space forward and is loose, and its speed still rises by 1. Kept out of the sheet as too rare to spend card space on. |
 | Where do role abilities live in the spreadsheet? (was 1.3) | Their own `basic_abilities` tab, copied into the player cards tab's renamed `Basic` column. Either is importable. An `Advanced` column is reserved for advanced mode's per-team abilities. |
 | Can a Low Pass still reach the further of two teammates in one direction? | No -- only the nearest each way, plus one sharing the ball's space. |
 | What does a pass across a shared space buy, if the ball doesn't travel? | The passer moves a space forward. |
