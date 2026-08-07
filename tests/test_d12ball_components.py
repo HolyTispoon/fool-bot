@@ -22,16 +22,20 @@ from d12ball.components import (
 )
 from d12ball.game import Team
 from d12ball.render import (
+    DICE_IMAGE_HEIGHT,
     FONT_BODY,
     FONT_DIR,
     FONT_HEADING,
     FONT_SCORE,
     FONT_SMALL,
     FONT_TITLE,
+    PORTRAIT_IMAGE_SIZE,
     load_font,
     render_dice_row,
+    render_injury_test_die,
     render_maneuver_reference_image,
     render_match_image,
+    render_player_portrait,
 )
 
 
@@ -1497,6 +1501,33 @@ class D12BallManeuverTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
             self.assertEqual(image.width, 480)
+
+    def test_injury_test_die_is_no_bigger_than_a_skill_test_die(self) -> None:
+        # The whole point of the injury-test render is that it draws a
+        # small die with context beside it, rather than render_dice_row's
+        # outsized single die.
+        image_data = render_injury_test_die(
+            5, "#19b5a5", "Teal", "Bulwark", safe=True,
+        )
+
+        with Image.open(image_data) as image:
+            self.assertEqual(image.format, "PNG")
+            self.assertLess(image.height, DICE_IMAGE_HEIGHT)
+
+    def test_a_player_portrait_renders_on_its_own(self) -> None:
+        image_data = render_player_portrait("Bulwark")
+
+        self.assertIsNotNone(image_data)
+        with Image.open(image_data) as image:
+            self.assertEqual(image.format, "PNG")
+            self.assertLessEqual(
+                max(image.size), PORTRAIT_IMAGE_SIZE,
+            )
+
+    def test_a_player_without_a_portrait_renders_nothing(self) -> None:
+        # Callers skip the attachment on None rather than handling an
+        # exception, so a missing portrait has to stay silent.
+        self.assertIsNone(render_player_portrait("Nobody At All"))
 
 
 class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):

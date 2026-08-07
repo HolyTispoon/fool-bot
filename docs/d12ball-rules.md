@@ -146,8 +146,8 @@ Answers given by the author (@HolyTispoon) reviewing
 plus answers he gave directly while the shoot-to-score work was being scoped, 2026-08-01,
 while substitutions were being scoped, 2026-08-04, while reviewing
 [PR #29](https://github.com/HolyTispoon/fool-bot/pull/29)'s own-goal/run-back rework,
-2026-08-04, while reporting a substitution-flow crash, 2026-08-05, and while scoping halftime
-resolution, 2026-08-06.
+2026-08-04, while reporting a substitution-flow crash, 2026-08-05, while scoping halftime
+resolution, 2026-08-06, and as a rules change handed over directly, 2026-08-07.
 **These are rules, and where they conflict with the transcription below, these win** -- the
 transcription is a faithful copy of a page that is behind in places. They are kept in their
 own section so it stays obvious which text came from upstream and which came from the
@@ -319,6 +319,13 @@ transcription itself. What remains below is what upstream still does not say.
 - **An own goal takes priority over the Defender's Pressure-steal ability.** When a won
   Pressure would trigger both -- the ball reaching the defense's own goal, and the Defender
   stealing it -- the own goal resolves and ends the point; the steal doesn't also happen.
+- **The player rolling to avoid the own goal gains 1 exhaust token** (2026-08-07). The
+  attempt costs the token whether or not it succeeds -- it is charged for making the roll,
+  not for the result -- and it is charged on top of whatever the maneuver that triggered
+  the risk already cost. Upstream's [Own goal](#own-goal) section says nothing about a
+  cost; like every other exhaustion gain, it can push the player over their defensive skill
+  and make them Exhausted (see [Exhaustion](#exhaustion) above), but it is not a skill test
+  and so owes no injury check.
 
 ### Ball speed on a turnover
 
