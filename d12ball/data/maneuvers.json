@@ -1,5 +1,5 @@
 {
-  "data_version": 5,
+  "data_version": 6,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1487033386",
   "maneuvers": {
     "offense": [
@@ -11,7 +11,7 @@
           2
         ],
         "defeats": "Pressure",
-        "effect": "Ball to closest teammate forward/backward (max 2 dist.), or a teammate sharing space (player moves 1). Ball speed +1.",
+        "effect": "Ball to the nearest teammate ahead or behind, max 2 spaces; or to one sharing its space, and the passer moves forward 1. Ball speed +1. No target: ball goes forward 1, loose ball.",
         "time": "distance traveled (1-2 space minutes)"
       },
       {
@@ -33,7 +33,7 @@
           6
         ],
         "defeats": "Steal Intercept",
-        "effect": "Ball moves forward 2-3 spaces. 2: may set up for scoring; 3+: must win a skill test to keep (with speed bonus).",
+        "effect": "Ball moves forward 2-3 spaces. 2: received, and may set up for scoring. 3+: receiver must win a skill test to keep it, adding ball speed.",
         "time": "distance traveled (2-4 space minutes)"
       }
     ],
