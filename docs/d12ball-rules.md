@@ -212,12 +212,22 @@ transcription itself. What remains below is what upstream still does not say.
 - **Low Pass (post-2026-08-05 revision) has no fixed distance or direction anymore.** "Ball
   moves to a teammates 0-2 spaces away" means: pick any space 0, 1, or 2 spaces from the
   ball, in either direction, that a teammate already occupies -- there is no other
-  destination a Low Pass can land on. Distance 0 (the ball stays with the same player) is a
-  legal choice, not a special case; ball speed still increases by 1 regardless of which
-  distance is picked. It no longer risks an own goal on reaching the passing team's own goal
+  destination a Low Pass can land on. Ball speed increases by 1 regardless of which distance
+  is picked. It no longer risks an own goal on reaching the passing team's own goal
   -- see [Own goal trigger](#own-goal-trigger) below; that trigger moved to Pressure only.
   Because the destination must already have a teammate on it, a Low Pass itself can never
   produce a loose ball or an overshoot.
+- **A Low Pass must reach a different player -- nobody passes to themselves to keep the
+  ball** (2026-08-07, superseding the reading recorded here before, which took distance 0 to
+  mean the ball stays with the same player). Distance 0 is still legal, but only as a pass to
+  a *second* player of the same side standing on the ball's own space, which is uncommon but
+  allowed (it is what [running back](#running-back)'s one-per-space rule exists to unpick).
+  A ball handler with no teammate within two spaces has therefore won a Low Pass with nowhere
+  to play it.
+
+  > **Open:** what a Low Pass with no legal destination should do is not settled -- see
+  > [rules-open-questions.md](rules-open-questions.md). The bot currently holds the ball
+  > where it is, leaves its speed alone, and lets the clock take its usual space minute.
 - **High Pass (post-2026-08-05 revision) is a 2-3 space choice (2-4 for a Fullback), and only
   an exact 2 can ever offer a scoring opportunity -- unlike the old fixed-2 High Pass, this no
   longer requires the pass to overshoot the field.** It still requires a teammate to be
@@ -430,6 +440,13 @@ transcription itself. What remains below is what upstream still does not say.
   three spaces and a team may put at most one player on a space.
 - **Every turnover opens a substitution window**, not only a steal or a score attempt. The
   parenthetical upstream is illustrative, not a list.
+- **Halftime's substitutions are not a declaration** (2026-08-07). Neither side is asked
+  whether to declare -- halftime just gives each of them their changes to make, in line with
+  "the coach can change their team's formation and the players' assignment as they please"
+  ([End of Time](#end-of-time)) -- and using that window does **not** spend the side's
+  once-a-half declaration, so both teams still hold theirs for the second half's open play.
+  The allowance within the window is a declaring team's: up to two swaps and a rearrangement,
+  each side independently, with no answering substitution for the other team.
 - **The window opens before the run back.** The declaring team substitutes and rearranges
   first; the run back then places whoever ended up on the field.
 - **The bench and the back bench are two separate pools**, which is what upstream's "if and
@@ -734,9 +751,10 @@ Two actions of the same rank tie, which is what sends a maneuver to a clash roll
 > Time column's own range tracks that choice rather than a Fullback bonus varying a fixed
 > number, the reasoning the pre-2026-08-05 version of this callout gave. **Low Pass's Time
 > stayed "distance traveled (1-2 space minutes)" and does not cover its new 0 case** -- a
-> distance-0 Low Pass (holding with the same player) still costs the usual minimum 1 space
-> minute, per [Cleanup](#cleanup)'s "time always advances at least 1 space minute", so the
-> Time column is one entry short rather than wrong. **High Pass's Time column covers its
+> distance-0 Low Pass (to a teammate sharing the ball's space; the pass may not be played to
+> the passer, see [Author clarifications](#author-clarifications)) still costs the usual
+> minimum 1 space minute, per [Cleanup](#cleanup)'s "time always advances at least 1 space
+> minute", so the Time column is one entry short rather than wrong. **High Pass's Time column covers its
 > Fullback maximum** ("2-4 space minutes" for a 2-4 space choice), unlike Low Pass's, which
 > was never revised to mention a Fullback bonus (the ability no longer grants Low Pass one at
 > all -- see the [role/ability table](#player-cards)).
@@ -882,6 +900,11 @@ Therefore, normally [a team] can substitute up to twice in each halftime (once w
 declare subs and once when the other team declares it). In addition, normally players who
 are subbed out cannot be subbed back in (the exception is when players are injured, and see
 below Subbing injured players).
+
+> **The count above is open play's only** -- the changes each side makes at halftime itself
+> (see [End of Time](#end-of-time)) are not a declaration and don't spend the once-a-halftime
+> one described here. See
+> [Substitutions](#substitutions) under [Author clarifications](#author-clarifications).
 
 ### Subbing injured players
 

@@ -34,10 +34,10 @@ from d12ball.game import (
 )
 from d12ball.render import (
     TEAM_COLORS,
-    render_dice_row,
     render_injury_test_die,
     render_maneuver_reference_image,
     render_match_image,
+    render_own_goal_dice,
 )
 
 from gamesaves.d12ball.storage import (
@@ -216,14 +216,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                             self, game.game_id, TeamSide.VISITING,
                         )
                     elif stage in ("subs_home", "subs_visiting"):
-                        # A window mid-flight comes back as either the
-                        # offer or the menu, the same as an ordinary
-                        # turnover's substitution window below.
-                        turn_view = (
-                            SubstitutionMenuView(self, game.game_id)
-                            if match.pending_substitution_declared
-                            else SubstitutionOfferView(self, game.game_id)
-                        )
+                        # Always the menu: halftime never asks whether
+                        # to declare, so there is no offer to come back
+                        # to, unlike an ordinary turnover's window
+                        # below.
+                        turn_view = SubstitutionMenuView(self, game.game_id)
                     else:
                         # reposition_home / reposition_visiting -- a
                         # part-made zone/space pick is not persisted
@@ -759,23 +756,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             winner_name = (
                 offense_name if outcome == "offense" else defense_name
             )
-            winner_number = (
-                offense_number if outcome == "offense" else defense_number
-            )
-            winner_mention = format_player_with_team(
-                game,
-                winner_number,
-                mention=True,
-            )
+            # Headed the same way a won skill test is (see
+            # SkillTestView.roll), so the two ways a maneuver can be
+            # won read alike. Whoever resolves the effect isn't named
+            # here: an effect with a choice in it prompts them by name
+            # itself, and one without needs nobody to do anything.
             await interaction.followup.send(
-                f"{reveal}\n\n"
-                f"**{winner_name}** wins! {winner_mention} resolves the "
-                "effect:",
-                allowed_mentions=discord.AllowedMentions(
-                    users=True,
-                    roles=False,
-                    everyone=False,
-                ),
+                f"{reveal}\n\n## **{winner_name}** wins!"
             )
             await self.begin_effect_resolution(interaction, game, match, winner_name)
             return
@@ -1038,10 +1025,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         Valid Low Pass destinations: 0-2 spaces forward or backward
         from the ball, wherever a teammate is standing -- the ball can
-        only be passed to a space someone is already on. Distance 0
-        (the passer's own space) is always included. At most one
-        teammate can occupy any given space, so this is at most one
-        entry per distance, ordered back-to-front for display.
+        only be passed to a space someone is already on -- as
+        (distance, receiver) pairs ordered back-to-front for display.
+
+        **A pass has to reach a different player.** The ball handler
+        can't pass to themselves to hold the ball, so distance 0 is a
+        candidate only when a *second* offensive player is standing on
+        the ball's space, and the receiver named for it is that other
+        player. A handler with nobody within two spaces has no legal
+        Low Pass at all -- see resolve_low_pass, which is where that
+        case is handled rather than here.
+
+        Two players of the same side sharing a space is uncommon but
+        legal (it is what crowded_players exists to unpick), so this
+        picks the first occupant who isn't the handler rather than
+        assuming there is only one.
         """
         offense_side = match.ball.possession
         offense_players = set(match.setup_for_side(offense_side).field_players)
@@ -1068,6 +1066,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     player_id
                     for player_id in occupants
                     if player_id in offense_players
+                    and player_id != match.active_player_id
                 ),
                 None,
             )
@@ -1081,8 +1080,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
     ) -> None:
+        candidates = self.low_pass_candidates(match)
+
+        if not candidates:
+            # A Low Pass has to reach a different player, so a handler
+            # with no teammate within two spaces has won the maneuver
+            # and has nowhere to put the ball. The clock still moves;
+            # the ball and its speed don't.
+            await self.finish_maneuver_resolution(
+                interaction,
+                game,
+                match,
+                distance_moved=1,
+                lead_in=(
+                    "**Low Pass:** there is no teammate within two "
+                    "spaces to receive it, and a pass can't be played "
+                    "to the passer -- the ball stays where it is."
+                ),
+            )
+            return
+
         if self.side_controlled_by_ai(game, match, "offense"):
-            candidates = self.low_pass_candidates(match)
             distance = self.get_ai_strategy(game).choose_low_pass(
                 match, candidates,
             )
@@ -1114,6 +1132,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         offense_side = match.ball.possession
         handler = self.get_player_definition(match.active_player_id)
+        # Read before the ball moves, because the candidates are
+        # relative to where it is now. This is the player the pass was
+        # aimed at, which is not always the same as whoever the
+        # landing space's occupant list happens to start with -- see
+        # the Winger branch below.
+        receiver_id = next(
+            (
+                player_id
+                for candidate_distance, player_id in (
+                    self.low_pass_candidates(match)
+                )
+                if candidate_distance == distance
+            ),
+            None,
+        )
 
         actual_distance = match.move_ball_relative(offense_side, distance)
         match.ball.speed = min(12, match.ball.speed + 1)
@@ -1121,7 +1154,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         if distance == 0:
-            movement_note = "stays with the same player"
+            movement_note = "goes to a teammate in the same space"
         else:
             direction = "forward" if distance > 0 else "backward"
             space_word = "space" if actual_distance == 1 else "spaces"
@@ -1131,7 +1164,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"Ball speed is now {match.ball.speed}."
         )
         # Time always advances at least 1 space minute, even on a
-        # distance-0 hold.
+        # distance-0 pass across a shared space.
         distance_moved = max(actual_distance, 1)
 
         # Role ability -- Winger: the receiving player may attempt a
@@ -1149,7 +1182,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        receiver_id = match.eligible_ball_handlers()[0]
+        if receiver_id is None:
+            # Only reachable if the board changed under a stale
+            # choice; fall back to whoever is on the ball's space.
+            receiver_id = match.eligible_ball_handlers()[0]
         await self.refresh_match_image(interaction, game)
         await self.offer_scoring_attempt_choice(
             interaction,
@@ -2363,13 +2399,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match, offense_player.player_id, 1,
         )
 
+        safe = total >= 7
+
         offense_setup = match.setup_for_side(match.ball.possession)
         dice_file = discord.File(
-            render_dice_row(
-                [
-                    (value, TEAM_COLORS[offense_setup.team], "Rolled")
-                    for value in rolls
-                ]
+            render_own_goal_dice(
+                list(rolls),
+                TEAM_COLORS[offense_setup.team],
+                safe,
             ),
             filename="own_goal_dice.png",
         )
@@ -2382,9 +2419,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"= {total}"
         )
 
-        safe = total >= 7
         if safe:
-            verdict = f"## Avoided own goal! (phew)\n\n{exhaustion_text}"
+            verdict = f"## Own goal avoided!\n\n{exhaustion_text}"
         else:
             conceding_side = match.ball.possession
             match.concede_own_goal()
@@ -2395,7 +2431,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.match_state = match.to_dict()
             save_games(self.games)
             verdict = (
-                f"# **OWN GOAL!**\n"
+                f"# Own goal!\n"
                 f"{match.home.team.value.title()} {match.scoreboard.home_score}:"
                 f"{match.scoreboard.visiting_score} "
                 f"{match.visiting.team.value.title()}\n\n"
@@ -2584,15 +2620,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side: TeamSide,
         is_response: bool = False,
         lead_in: str = "",
+        spends_declaration: bool = True,
+        auto_declare: bool = False,
     ) -> None:
         """
         Offer `side` the window. A declaration is once a half, so a
         side that has already spent theirs is never offered one --
         which is also why an injured player can be stuck on the field
         until the next half.
+
+        `auto_declare` skips the declare-or-pass offer and opens the
+        substitution menu directly, and `spends_declaration` False
+        leaves the side's once-a-half declaration unspent. Halftime
+        passes both: its substitutions are not a declaration anyone
+        chose to make, so there is nothing to ask and nothing to
+        charge for (see begin_halftime_substitutions).
         """
         side = TeamSide(side)
-        match.open_substitution_window(side, is_response=is_response)
+        match.open_substitution_window(
+            side,
+            is_response=is_response,
+            spends_declaration=spends_declaration,
+        )
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -2606,6 +2655,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         controller_id = self.side_controller_id(game, side)
         mention = f"<@{controller_id}>" if controller_id else "Someone"
         prefix = f"{lead_in}\n\n" if lead_in else ""
+
+        if auto_declare:
+            match.declare_substitution()
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await self.prompt_substitution_menu(
+                interaction, game, match, lead_in=lead_in,
+            )
+            return
 
         if is_response:
             heading = (
@@ -2646,11 +2704,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        lead_in: str = "",
     ) -> None:
         """
         Put the take-off / rearrange / done menu back up after every
         action, so a side can use its whole allowance without the flow
         deciding for them when they are finished.
+
+        `lead_in` rides above the menu on the first prompt of a window
+        that was never offered as a choice (halftime's), which is the
+        only place the window's own heading has nowhere else to go.
         """
         if match.pending_substitution_side is None:
             return
@@ -2665,8 +2728,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if remaining
             else "No substitutions left"
         )
+        prefix = f"{lead_in}\n" if lead_in else ""
         prompt = await interaction.followup.send(
-            f"{mention}, {format_team_side_label(setup)}: {allowance}. "
+            f"{prefix}{mention}, {format_team_side_label(setup)}: "
+            f"{allowance}. "
             "Take a player off, exchange two positions, or finish.",
             view=SubstitutionMenuView(self, game.game_id),
             wait=True,
@@ -3574,21 +3639,36 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side: TeamSide,
     ) -> None:
         """
-        Offer `side` a full declare-style substitution window (see
+        Give `side` a full substitution window (see
         begin_substitution_window) -- unlike a turnover's
         declare-then-respond pairing, halftime gives each side its own
-        independent declaration, so finish_substitution_window routes
-        back into the halftime sequence instead of chaining to the
-        other side's response.
-        """
-        if not match.may_declare_substitution(side):
-            self.next_halftime_stage(match)
-            game.match_state = match.to_dict()
-            save_games(self.games)
-            await self.advance_halftime_stage(interaction, game, match)
-            return
+        independent window, so finish_substitution_window routes back
+        into the halftime sequence instead of chaining to the other
+        side's response.
 
-        await self.begin_substitution_window(interaction, game, match, side)
+        Nobody is asked whether to declare, and nothing is charged for
+        it: halftime substitutions just happen ("the coach can change
+        their team's formation and the players' assignment as they
+        please", End of Time), and they leave the side's once-a-half
+        declaration unspent for the second half. A side with nothing
+        it wants to change finishes the menu without doing anything,
+        which is the same as passing used to be.
+        """
+        setup = match.setup_for_side(side)
+        await self.begin_substitution_window(
+            interaction,
+            game,
+            match,
+            side,
+            spends_declaration=False,
+            auto_declare=True,
+            lead_in=(
+                f"# Substitutions\n{format_team_side_label(setup)} may "
+                "substitute for the second half -- up to **two** swaps and "
+                "a rearrangement. Halftime is free: this doesn't spend "
+                "their once-a-half declaration."
+            ),
+        )
 
     async def begin_halftime_reposition(
         self,

@@ -1972,7 +1972,9 @@ class LowPassChoiceView(SafeView):
     """
     Which teammate-occupied space to pass to -- Low Pass has no fixed
     distance anymore, only a 0-2 space reach in either direction that
-    must land on a teammate, so the destination itself is the choice.
+    must land on a *different* teammate, so the destination itself is
+    the choice. A handler with nobody in reach never sees this view:
+    resolve_low_pass settles that case without a prompt.
     Reconstructible on restart purely from match state (see
     D12Ball.build_effect_choice_view), the same pattern every other
     persistent view in this cog follows.

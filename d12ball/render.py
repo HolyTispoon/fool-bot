@@ -909,50 +909,6 @@ def draw_d12_polygon(
     )
 
 
-DICE_IMAGE_DIE_RADIUS = 90
-DICE_IMAGE_CELL_WIDTH = 240
-DICE_IMAGE_HEIGHT = 260
-
-
-def render_dice_row(dice: list[tuple[int, str, str]]) -> BytesIO:
-    """
-    Render one or more d12 results side by side as a standalone image —
-    each entry is (rolled value, team color, team label). Used for both
-    skill-test rolls (two dice) and injury-test rolls (one die).
-    """
-    width = DICE_IMAGE_CELL_WIDTH * len(dice)
-    canvas = Image.new("RGBA", (width, DICE_IMAGE_HEIGHT), "#111820")
-    draw = ImageDraw.Draw(canvas)
-    center_y = DICE_IMAGE_HEIGHT // 2 - 15
-
-    for index, (value, color, label) in enumerate(dice):
-        center_x = index * DICE_IMAGE_CELL_WIDTH + DICE_IMAGE_CELL_WIDTH // 2
-        draw_d12_polygon(
-            draw,
-            center_x,
-            center_y,
-            DICE_IMAGE_DIE_RADIUS,
-            color,
-            str(value),
-            font=FONT_SCORE,
-        )
-        label_width = draw.textlength(label, font=FONT_BODY)
-        draw.text(
-            (
-                center_x - label_width / 2,
-                center_y + DICE_IMAGE_DIE_RADIUS + 20,
-            ),
-            label,
-            font=FONT_BODY,
-            fill="#ffffff",
-        )
-
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
-
-
 SKILL_TEST_CELL_WIDTH = 230
 SKILL_TEST_DIE_RADIUS = 36
 SKILL_TEST_CENTER_Y = SKILL_TEST_DIE_RADIUS + 20
@@ -1203,6 +1159,123 @@ def render_injury_test_die(
         verdict,
         font=FONT_DICE_TOTAL,
         fill=verdict_color,
+    )
+
+    output = BytesIO()
+    canvas.convert("RGB").save(output, format="PNG")
+    output.seek(0)
+    return output
+
+
+OWN_GOAL_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
+OWN_GOAL_CELL_WIDTH = 108
+OWN_GOAL_TOP_PADDING = 20
+# The ring marking the die that counted sits outside it, so the top
+# padding and the cell have to leave room for both it and its width.
+OWN_GOAL_MARK_GAP = 7
+OWN_GOAL_MARK_WIDTH = 4
+OWN_GOAL_MARK_COLOR = "#e8b923"
+OWN_GOAL_OUTCOME_GAP = 20
+OWN_GOAL_BOTTOM_PADDING = 16
+OWN_GOAL_SIDE_PADDING = 22
+# The die that wasn't taken keeps its shape but drops out of the team's
+# color, so which number the roll used is legible without a caption.
+OWN_GOAL_DROPPED_COLOR = "#37414d"
+OWN_GOAL_DROPPED_OUTLINE = "#5f6b78"
+OWN_GOAL_DROPPED_TEXT = "#98a3af"
+OWN_GOAL_AVOIDED_TEXT = "Own goal avoided!"
+OWN_GOAL_CONCEDED_TEXT = "Own goal!"
+# Shared with the injury test: green for the roll that got away with
+# it, red for the one that didn't.
+OWN_GOAL_AVOIDED_COLOR = INJURY_TEST_SAFE_COLOR
+OWN_GOAL_CONCEDED_COLOR = INJURY_TEST_INJURED_COLOR
+
+
+def render_own_goal_dice(
+    rolls: list[int],
+    color: str,
+    safe: bool,
+) -> BytesIO:
+    """
+    Render an own-goal roll: the dice at skill-test size, a ring around
+    the one the advantage took, and the outcome underneath.
+
+    Nothing else is drawn on it. The arithmetic behind the verdict --
+    which player rolled, their offensive skill, the total -- is in the
+    message the image is attached to, and the roll's own captions were
+    only ever the word "Rolled" twice, which said nothing the dice
+    didn't. What the picture is for is the two numbers and which of
+    them counted.
+
+    Every die matching the highest result is ringed, so a pair that
+    rolled the same number doesn't arbitrarily favour one of them.
+    """
+    outcome = OWN_GOAL_AVOIDED_TEXT if safe else OWN_GOAL_CONCEDED_TEXT
+    outcome_color = (
+        OWN_GOAL_AVOIDED_COLOR if safe else OWN_GOAL_CONCEDED_COLOR
+    )
+
+    # Measured on a throwaway canvas: the real one can't be created
+    # until the outcome's width has decided how wide it needs to be.
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    outcome_bbox = measure.textbbox((0, 0), outcome, font=FONT_DICE_TOTAL)
+    outcome_width = outcome_bbox[2] - outcome_bbox[0]
+    outcome_height = outcome_bbox[3] - outcome_bbox[1]
+
+    mark_radius = OWN_GOAL_DIE_RADIUS + OWN_GOAL_MARK_GAP
+    center_y = OWN_GOAL_TOP_PADDING + mark_radius
+    outcome_y = center_y + mark_radius + OWN_GOAL_OUTCOME_GAP
+    height = round(outcome_y + outcome_height + OWN_GOAL_BOTTOM_PADDING)
+    width = round(
+        max(
+            OWN_GOAL_CELL_WIDTH * len(rolls),
+            outcome_width + OWN_GOAL_SIDE_PADDING * 2,
+        )
+    )
+
+    canvas = Image.new("RGBA", (width, height), "#111820")
+    draw = ImageDraw.Draw(canvas)
+
+    taken = max(rolls)
+    dice_left = (width - OWN_GOAL_CELL_WIDTH * len(rolls)) / 2
+
+    for index, value in enumerate(rolls):
+        center_x = round(
+            dice_left
+            + index * OWN_GOAL_CELL_WIDTH
+            + OWN_GOAL_CELL_WIDTH / 2
+        )
+        counted = value == taken
+        draw_d12_polygon(
+            draw,
+            center_x,
+            center_y,
+            OWN_GOAL_DIE_RADIUS,
+            color if counted else OWN_GOAL_DROPPED_COLOR,
+            str(value),
+            font=FONT_DICE_VALUE,
+            outline=(
+                "#ffffff" if counted else OWN_GOAL_DROPPED_OUTLINE
+            ),
+            text_color=(
+                "#ffffff" if counted else OWN_GOAL_DROPPED_TEXT
+            ),
+        )
+        if counted:
+            draw.polygon(
+                polygon_points(center_x, center_y, mark_radius, 12),
+                outline=OWN_GOAL_MARK_COLOR,
+                width=OWN_GOAL_MARK_WIDTH,
+            )
+
+    draw.text(
+        (
+            (width - outcome_width) / 2 - outcome_bbox[0],
+            outcome_y - outcome_bbox[1],
+        ),
+        outcome,
+        font=FONT_DICE_TOTAL,
+        fill=outcome_color,
     )
 
     output = BytesIO()

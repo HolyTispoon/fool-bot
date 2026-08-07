@@ -22,7 +22,6 @@ from d12ball.components import (
 )
 from d12ball.game import Team
 from d12ball.render import (
-    DICE_IMAGE_HEIGHT,
     FONT_BODY,
     FONT_DIR,
     FONT_HEADING,
@@ -30,9 +29,12 @@ from d12ball.render import (
     FONT_SMALL,
     FONT_TITLE,
     PORTRAIT_IMAGE_SIZE,
+    OWN_GOAL_DIE_RADIUS,
+    SKILL_TEST_DIE_RADIUS,
     load_font,
-    render_dice_row,
     render_injury_test_die,
+    render_own_goal_dice,
+    render_skill_test_dice,
     render_maneuver_reference_image,
     render_match_image,
     render_player_portrait,
@@ -1493,26 +1495,44 @@ class D12BallManeuverTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
 
-    def test_dice_row_renders_one_die_per_entry(self) -> None:
-        image_data = render_dice_row(
-            [(7, "#f28c28", "Orange"), (12, "#19b5a5", "Teal")]
+    def reference_skill_test_height(self) -> int:
+        """A two-detail-line skill test, the size the others match."""
+        image_data = render_skill_test_dice(
+            [
+                (7, "#f28c28", "Orange", ["Bulwark (Fullback)", "Defense 3"], 10),
+                (4, "#19b5a5", "Teal", ["Snarl (Winger)", "Offense 2"], 6),
+            ]
         )
+        with Image.open(image_data) as image:
+            return image.height
+
+    def test_own_goal_dice_are_drawn_at_skill_test_size(self) -> None:
+        # This roll used to draw two outsized dice captioned "Rolled".
+        # It now matches the skill test's size and carries only the two
+        # numbers, a ring on the one the advantage took, and the
+        # outcome.
+        self.assertEqual(OWN_GOAL_DIE_RADIUS, SKILL_TEST_DIE_RADIUS)
+
+        image_data = render_own_goal_dice([7, 12], "#f28c28", safe=True)
 
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
-            self.assertEqual(image.width, 480)
+            self.assertLessEqual(
+                image.height, self.reference_skill_test_height(),
+            )
 
     def test_injury_test_die_is_no_bigger_than_a_skill_test_die(self) -> None:
         # The whole point of the injury-test render is that it draws a
-        # small die with context beside it, rather than render_dice_row's
-        # outsized single die.
+        # small die with context beside it.
         image_data = render_injury_test_die(
             5, "#19b5a5", "Teal", "Bulwark", safe=True,
         )
 
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
-            self.assertLess(image.height, DICE_IMAGE_HEIGHT)
+            self.assertLessEqual(
+                image.height, self.reference_skill_test_height(),
+            )
 
     def test_a_player_portrait_renders_on_its_own(self) -> None:
         image_data = render_player_portrait("Bulwark")
@@ -1715,10 +1735,14 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.clear_board(match)
         home_players = match.home.field_players
         behind, here, ahead = home_players[0], home_players[1], home_players[2]
+        handler = home_players[3]
         visitor = match.visiting.field_players[0]
 
         match.move_meeple(behind, Zone.HOME_GOAL, 2)  # flat 2 (distance -2)
-        match.move_meeple(here, Zone.MIDFIELD, 1)  # flat 4 (distance 0, ball here)
+        # The handler and one teammate share the ball's space, so
+        # distance 0 has someone other than the passer to reach.
+        match.move_meeple(handler, Zone.MIDFIELD, 1)  # flat 4, ball here
+        match.move_meeple(here, Zone.MIDFIELD, 1)
         # flat 3 (distance -1) and flat 5 (distance +1, opponent only)
         # are deliberately left without a home teammate.
         match.move_meeple(visitor, Zone.MIDFIELD, 2)
@@ -1726,6 +1750,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = handler
 
         cog = self.build_cog()
         self.assertEqual(
@@ -1733,22 +1758,73 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             [(-2, behind), (0, here), (2, ahead)],
         )
 
+    def test_low_pass_candidates_never_offer_the_passer(self) -> None:
+        # A pass has to reach a different player, so a handler standing
+        # alone on the ball's space is not a destination -- distance 0
+        # drops out entirely.
+        match = self.build_match()
+        self.clear_board(match)
+        handler, ahead = match.home.field_players[:2]
+        match.move_meeple(handler, Zone.MIDFIELD, 1)
+        match.move_meeple(ahead, Zone.MIDFIELD, 2)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = handler
+
+        cog = self.build_cog()
+        self.assertEqual(cog.low_pass_candidates(match), [(1, ahead)])
+
+    def test_low_pass_candidates_offer_a_teammate_sharing_the_space(
+        self,
+    ) -> None:
+        # Distance 0 survives when a *second* player of the same side
+        # is on the ball's space: that is a pass to a different player,
+        # which is all the rule asks for.
+        match = self.build_match()
+        self.clear_board(match)
+        handler, sharing = match.home.field_players[:2]
+        match.move_meeple(handler, Zone.MIDFIELD, 1)
+        match.move_meeple(sharing, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = handler
+
+        cog = self.build_cog()
+        self.assertEqual(cog.low_pass_candidates(match), [(0, sharing)])
+
+    def test_low_pass_candidates_can_be_empty(self) -> None:
+        # Nobody within two spaces and no self-pass allowed: the won
+        # maneuver has nowhere to put the ball. resolve_low_pass is
+        # what handles that; the candidate list just reports it.
+        match = self.build_match()
+        self.clear_board(match)
+        handler = match.home.field_players[0]
+        match.move_meeple(handler, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = handler
+
+        cog = self.build_cog()
+        self.assertEqual(cog.low_pass_candidates(match), [])
+
     def test_low_pass_candidates_excludes_distances_clamped_off_the_board(
         self,
     ) -> None:
         match = self.build_match()
         self.clear_board(match)
-        handler = match.home.field_players[0]
+        handler, sharing = match.home.field_players[:2]
         match.move_meeple(handler, Zone.HOME_GOAL, 0)  # the board's own edge
+        match.move_meeple(sharing, Zone.HOME_GOAL, 0)
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.HOME_GOAL, 0)
+        match.active_player_id = handler
 
         cog = self.build_cog()
         # -1 and -2 would go off the left edge and clamp back to the
-        # handler's own space -- not real 1/2-space destinations, so
-        # they must not appear even though a teammate is standing
-        # there (as distance 0).
-        self.assertEqual(cog.low_pass_candidates(match), [(0, handler)])
+        # ball's own space -- not real 1/2-space destinations, so they
+        # must not appear even though a teammate is standing there (as
+        # distance 0).
+        self.assertEqual(cog.low_pass_candidates(match), [(0, sharing)])
 
     # -- apply_low_pass ------------------------------------------------
 
@@ -1781,14 +1857,21 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
     async def test_apply_low_pass_zero_distance_still_costs_minimum_time(
         self,
     ) -> None:
+        # Distance 0 is a pass to a teammate sharing the space, not a
+        # hold: the ball doesn't travel, but the clock still moves.
         cog = self.build_cog()
         match = self.build_match()
         handler = self.player_with_role(
             match, TeamSide.HOME, PlayerRole.DEFENDER,
         )
+        sharing = next(
+            pid for pid in match.home.field_players if pid != handler
+        )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.MIDFIELD, 1)
+        match.move_meeple(handler, Zone.MIDFIELD, 1)
+        match.move_meeple(sharing, Zone.MIDFIELD, 1)
         match.ball.speed = 1
 
         interaction = SimpleNamespace()
@@ -1802,7 +1885,9 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.ball.speed, 2)
         _, kwargs = cog.finish_maneuver_resolution.await_args
         self.assertEqual(kwargs["distance_moved"], 1)
-        self.assertIn("stays with the same player", kwargs["lead_in"])
+        self.assertIn(
+            "goes to a teammate in the same space", kwargs["lead_in"],
+        )
 
     async def test_apply_low_pass_offers_scoring_attempt_for_winger(
         self,
@@ -1835,6 +1920,77 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kwargs["decline_kind"], "regular_pass")
         self.assertEqual(kwargs["distance_moved"], 1)
         self.assertIn("Winger ability", kwargs["lead_in"])
+
+    async def test_a_winger_s_shot_goes_to_the_player_passed_to(
+        self,
+    ) -> None:
+        # A pass across a shared space leaves passer and receiver both
+        # standing on the ball, so the shot has to follow the player
+        # the pass was aimed at rather than whoever the space lists
+        # first -- which here is the passer.
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.WINGER,
+        )
+        receiver = next(
+            pid for pid in match.home.field_players if pid != handler
+        )
+        self.clear_board(match)
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.move_meeple(handler, Zone.MIDFIELD, 1)
+        match.move_meeple(receiver, Zone.MIDFIELD, 1)
+        # The passer is the space's first occupant, so taking the
+        # first eligible handler would pick them rather than the
+        # player the pass was aimed at.
+        self.assertEqual(match.eligible_ball_handlers()[0], handler)
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_low_pass(interaction, game, match, 0)
+
+        _, kwargs = cog.offer_scoring_attempt_choice.await_args
+        self.assertEqual(kwargs["shooter_id"], receiver)
+
+    # -- resolve_low_pass ----------------------------------------------
+
+    async def test_a_low_pass_with_nobody_to_pass_to_holds_the_ball(
+        self,
+    ) -> None:
+        # Winning Low Pass with no teammate in reach is not a licence
+        # to keep the ball by passing to yourself: nothing moves, and
+        # the clock takes its space minute anyway.
+        cog = self.build_cog()
+        cog.side_controlled_by_ai = mock.Mock(return_value=False)
+        match = self.build_match()
+        self.clear_board(match)
+        handler = match.home.field_players[0]
+        match.move_meeple(handler, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.ball.speed = 4
+        match.active_player_id = handler
+
+        interaction = SimpleNamespace(followup=SimpleNamespace(
+            send=mock.AsyncMock(),
+        ))
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_low_pass(interaction, game, match)
+
+        # No prompt, and no view to answer it with.
+        interaction.followup.send.assert_not_awaited()
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 1),
+        )
+        self.assertEqual(match.ball.speed, 4)
+        cog.finish_maneuver_resolution.assert_awaited_once()
+        _, kwargs = cog.finish_maneuver_resolution.await_args
+        self.assertEqual(kwargs["distance_moved"], 1)
+        self.assertIn("no teammate within two spaces", kwargs["lead_in"])
 
     # -- apply_high_pass ------------------------------------------------
 

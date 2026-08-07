@@ -504,6 +504,8 @@ class MatchState:
     pending_substitution_used: int = 0
     pending_substitution_is_response: bool = False
     pending_substitution_declared: bool = False
+    # False only for halftime's window -- see open_substitution_window.
+    pending_substitution_spends_declaration: bool = True
     pending_halftime_stage: Optional[str] = None
 
     @classmethod
@@ -1376,29 +1378,39 @@ class MatchState:
         self,
         side: TeamSide,
         is_response: bool = False,
+        spends_declaration: bool = True,
     ) -> None:
         """
         Offer the window to `side`, who has not taken it up yet. Kept
         distinct from `declare_substitution` so that a bot restart
         mid-offer knows whether it is still asking or already
         substituting.
+
+        `spends_declaration` False is halftime's window: it carries a
+        declaring side's full allowance but doesn't cost them their
+        once-a-half declaration, so both sides still hold theirs going
+        into the second half.
         """
         self.pending_substitution_side = TeamSide(side).value
         self.pending_substitution_used = 0
         self.pending_substitution_is_response = is_response
         self.pending_substitution_declared = False
+        self.pending_substitution_spends_declaration = spends_declaration
 
     def declare_substitution(self) -> None:
         """
         Take up the offered window. Declaring spends that side's
         once-per-half; answering the other team's declaration does
-        not, which is how a side can end up substituting twice in a
-        half.
+        not, and neither does halftime's own window, which is how a
+        side can end up substituting more than once in a half.
         """
         if self.pending_substitution_side is None:
             raise ValueError("No substitution window is open.")
         self.pending_substitution_declared = True
-        if not self.pending_substitution_is_response:
+        if (
+            not self.pending_substitution_is_response
+            and self.pending_substitution_spends_declaration
+        ):
             self.declared_substitution.add(self.pending_substitution_side)
 
     def close_substitution_window(self) -> None:
@@ -1406,6 +1418,7 @@ class MatchState:
         self.pending_substitution_used = 0
         self.pending_substitution_is_response = False
         self.pending_substitution_declared = False
+        self.pending_substitution_spends_declaration = True
 
     def substitutions_remaining(self) -> int:
         """
@@ -1816,6 +1829,9 @@ class MatchState:
             "pending_substitution_declared": (
                 self.pending_substitution_declared
             ),
+            "pending_substitution_spends_declaration": (
+                self.pending_substitution_spends_declaration
+            ),
             "pending_halftime_stage": self.pending_halftime_stage,
         }
 
@@ -1922,6 +1938,9 @@ class MatchState:
             ),
             pending_substitution_declared=data.get(
                 "pending_substitution_declared", False
+            ),
+            pending_substitution_spends_declaration=data.get(
+                "pending_substitution_spends_declaration", True
             ),
             pending_halftime_stage=data.get("pending_halftime_stage"),
         )
