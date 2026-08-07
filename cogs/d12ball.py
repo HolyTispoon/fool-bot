@@ -759,23 +759,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             winner_name = (
                 offense_name if outcome == "offense" else defense_name
             )
-            winner_number = (
-                offense_number if outcome == "offense" else defense_number
-            )
-            winner_mention = format_player_with_team(
-                game,
-                winner_number,
-                mention=True,
-            )
+            # Headed the same way a won skill test is (see
+            # SkillTestView.roll), so the two ways a maneuver can be
+            # won read alike. Whoever resolves the effect isn't named
+            # here: an effect with a choice in it prompts them by name
+            # itself, and one without needs nobody to do anything.
             await interaction.followup.send(
-                f"{reveal}\n\n"
-                f"**{winner_name}** wins! {winner_mention} resolves the "
-                "effect:",
-                allowed_mentions=discord.AllowedMentions(
-                    users=True,
-                    roles=False,
-                    everyone=False,
-                ),
+                f"{reveal}\n\n## **{winner_name}** wins!"
             )
             await self.begin_effect_resolution(interaction, game, match, winner_name)
             return

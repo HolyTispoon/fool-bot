@@ -144,6 +144,47 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
             sent_texts(interaction)[0],
         )
 
+    # -- Maneuver won outright -----------------------------------------
+
+    async def test_a_maneuver_won_outright_is_headed_and_names_nobody(
+        self,
+    ) -> None:
+        # The other way a maneuver is won -- one action beating the
+        # other, no skill test -- gets the same heading a won skill
+        # test does, and stops at the result. It used to trail
+        # "<@id> (Orange) resolves the effect:", which named someone
+        # who is either prompted by name a moment later or has nothing
+        # to decide at all.
+        cog = build_cog()
+        match = self.build_match()
+        game = build_game()
+        cog.games[game.game_id] = game
+        match.active_player_id = match.setup_for_side(
+            match.ball.possession
+        ).field_players[0]
+        match.challenger_id = match.setup_for_side(
+            match.defending_side()
+        ).field_players[0]
+        winner = None
+        for offense in (m.name for m in cog.maneuver_catalog.offense):
+            for defense in (m.name for m in cog.maneuver_catalog.defense):
+                if cog.maneuver_catalog.resolve(offense, defense) == "offense":
+                    match.offense_maneuver = offense
+                    match.defense_maneuver = defense
+                    winner = offense
+                    break
+        game.match_state = match.to_dict()
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_maneuver(interaction, game, match)
+
+        announcement = sent_texts(interaction)[0]
+        self.assertIn(f"## **{winner}** wins!", announcement)
+        self.assertNotIn("resolves the effect", announcement)
+        self.assertNotIn("<@", announcement)
+        cog.begin_effect_resolution.assert_awaited_once()
+
     # -- Score attempt -------------------------------------------------
 
     def build_score_attempt(self, cog: D12Ball):
