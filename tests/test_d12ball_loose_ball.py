@@ -2,8 +2,7 @@
 Loose ball: who is asked, in what order, and what happens when nobody
 goes after it.
 
-The rules are in docs/d12ball-rules.md under the loose-ball
-clarification. Three of them are load-bearing here and easy to get
+The rules are in docs/living-rules.md under "Loose ball". Three of them are load-bearing here and easy to get
 subtly wrong:
 
 - the side that last had possession answers first, and alone;

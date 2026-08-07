@@ -30,13 +30,17 @@ python3 -m unittest discover -s tests
 | `d12ball/fonts/` | Bundled DejaVu — see "Fonts" below |
 | `gamesaves/d12ball/storage.py` | Persistence to `data/d12ball_games.json` |
 | `scripts/` | CLI tools used repeatedly (not one-off scratch work) |
-| `docs/` | The game rules and what is still unanswered about them -- see below |
+| `docs/` | The game rules, and how they got that way -- see below |
 
 ## The rules
 
-**Read [docs/d12ball-rules.md](docs/d12ball-rules.md) before changing anything that models
-the game.** It is a vendored copy of rules that live in two upstream places, neither
-complete on its own:
+**Read [docs/living-rules.md](docs/living-rules.md) before changing anything that models the
+game.** It is the whole ruleset as it currently stands and the single thing to check a
+mechanic against: it states each rule once, settled, with no history and no upstream
+wording to reconcile.
+
+The rules themselves live in two upstream places, neither complete on its own, plus a third
+body that has only ever existed in the author's head:
 
 - a [Notion page](https://propheticfools.notion.site/D12-Ball-6c9e1ea7ca61825391e881ec5fbfdca5)
   for the narrative rules. It is a JS app, so a plain fetch returns an empty shell -- render
@@ -45,22 +49,20 @@ complete on its own:
   for component data. The share URL is not fetchable but `export?format=csv&gid=<gid>` is,
   which is how `scripts/import_d12ball_players.py` works.
 
-The rules are a live prototype and move. Re-copy the file as its own commit when they do, so
-each rules change is a reviewable diff.
+[docs/rules-log.md](docs/rules-log.md) is the other half: every rules change with its date and
+where it came from, what is still unanswered, and what the answers unblock. Two parts of it
+earn their keep when upstream moves:
 
-Two things about that file matter when editing it:
+- **Where upstream is behind** lists every point at which the living rules already differ from
+  Notion or the sheet, so a fresh pull can tell old news from a real change.
+- The **change log** is the running record. The rules are a live prototype and move: when they
+  do, update the living rules and add a dated entry as its own commit, so each rules change
+  stays a reviewable diff.
 
-- Its **Author clarifications** section holds rules the author has stated but not yet written
-  upstream. Keep it separate from the transcription so it stays obvious which text is
-  upstream and which is him.
-- Where the transcription is wrong or superseded, it carries a blockquote callout rather
-  than a silent edit. Don't "correct" the quoted text -- upstream is allowed to be behind.
-
-[docs/rules-open-questions.md](docs/rules-open-questions.md) tracks what is still unanswered
-and the work the answers unblock. **Take rules questions to the author rather than inferring
-them from the code** -- several mechanics exist only in the code, so there a bug and a
-deliberate decision look identical. Asking as inline comments on a docs PR has worked far
-better than asking in chat, and it leaves the answers versioned.
+**Take rules questions to the author rather than inferring them from the code** -- several
+mechanics exist only in the code, so there a bug and a deliberate decision look identical.
+Asking as inline comments on a docs PR has worked far better than asking in chat, and it
+leaves the answers versioned.
 
 ## Logging and the #logs channel
 

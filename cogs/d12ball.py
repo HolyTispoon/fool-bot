@@ -2911,7 +2911,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         A resolution that left possession where it was doesn't run a
         run-back at all: "every time there's a turnover for any
         reason (steal, goal etc.) players have to run back" is the
-        whole of when one happens (Cleanup, docs/d12ball-rules.md).
+        whole of when one happens ("Turnovers and running back",
+        docs/living-rules.md).
         Keeping the ball -- a receiver winning their High Pass, a
         loose ball the possessing side recovers -- leaves whoever is
         out of position out of position, and charges nobody, until a

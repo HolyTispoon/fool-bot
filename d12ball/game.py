@@ -19,7 +19,8 @@ class TieMode(str, Enum):
     """
     What happens when the scores are level at full time: a league game
     is allowed to end in a tie, a tournament game goes to the extreme
-    shootout (docs/d12ball-rules.md, End of Time).
+    shootout (docs/living-rules.md, "The clock, halftime and full
+    time").
     """
 
     LEAGUE = "league"
