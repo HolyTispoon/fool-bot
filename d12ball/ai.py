@@ -50,9 +50,11 @@ class AIStrategy(ABC):
         candidates: list[tuple[int, str]],
     ) -> int:
         """Which destination to pass to, as the signed distance (-2 to
-        2, forward positive) from a (distance, teammate_id) candidate
+        2, forward positive) from a (distance, receiver_id) candidate
         list -- Low Pass has no fixed distance, only a 0-2 space reach
-        that must land on a teammate."""
+        that must land on a *different* teammate. Never called with an
+        empty candidate list: a handler with nobody to pass to has no
+        choice to make, and resolve_low_pass settles that case."""
         ...
 
     @abstractmethod
@@ -193,8 +195,7 @@ class DinkyAI(AIStrategy):
         candidates: list[tuple[int, str]],
     ) -> int:
         """Always the most forward teammate-occupied space available
-        -- same maximizing spirit as choose_speed_delta. Distance 0 is
-        always a candidate, so this never has nothing to pick."""
+        -- same maximizing spirit as choose_speed_delta."""
         return max(distance for distance, _ in candidates)
 
     def choose_dribble_advance_distance(self, match: MatchState) -> int:
