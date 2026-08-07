@@ -231,7 +231,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
         with mock.patch("cogs.d12ball.save_games"), mock.patch(
             "cogs.d12ball.random.randint", return_value=roll,
-        ), mock.patch("cogs.d12ball.render_dice_row"), mock.patch(
+        ), mock.patch("cogs.d12ball.render_own_goal_dice"), mock.patch(
             "cogs.d12ball.discord.File",
         ):
             await cog.run_own_goal_roll(
@@ -244,8 +244,8 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
 
         first, second = interaction.followup.send.await_args_list[:2]
         self.assertIn("file", first.kwargs)
-        self.assertNotIn("OWN GOAL", first.args[0])
-        self.assertIn("# **OWN GOAL!**", second.args[0])
+        self.assertNotIn("Own goal!", first.args[0])
+        self.assertIn("# Own goal!", second.args[0])
 
     async def test_avoiding_an_own_goal_is_announced_after_its_dice(
         self,
@@ -254,8 +254,8 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
 
         first, second = interaction.followup.send.await_args_list[:2]
         self.assertIn("file", first.kwargs)
-        self.assertNotIn("Avoided", first.args[0])
-        self.assertIn("Avoided own goal!", second.args[0])
+        self.assertNotIn("avoided", first.args[0])
+        self.assertIn("## Own goal avoided!", second.args[0])
 
 
 if __name__ == "__main__":

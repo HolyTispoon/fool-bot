@@ -34,10 +34,10 @@ from d12ball.game import (
 )
 from d12ball.render import (
     TEAM_COLORS,
-    render_dice_row,
     render_injury_test_die,
     render_maneuver_reference_image,
     render_match_image,
+    render_own_goal_dice,
 )
 
 from gamesaves.d12ball.storage import (
@@ -2363,13 +2363,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match, offense_player.player_id, 1,
         )
 
+        safe = total >= 7
+
         offense_setup = match.setup_for_side(match.ball.possession)
         dice_file = discord.File(
-            render_dice_row(
-                [
-                    (value, TEAM_COLORS[offense_setup.team], "Rolled")
-                    for value in rolls
-                ]
+            render_own_goal_dice(
+                list(rolls),
+                TEAM_COLORS[offense_setup.team],
+                safe,
             ),
             filename="own_goal_dice.png",
         )
@@ -2382,9 +2383,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"= {total}"
         )
 
-        safe = total >= 7
         if safe:
-            verdict = f"## Avoided own goal! (phew)\n\n{exhaustion_text}"
+            verdict = f"## Own goal avoided!\n\n{exhaustion_text}"
         else:
             conceding_side = match.ball.possession
             match.concede_own_goal()
@@ -2395,7 +2395,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.match_state = match.to_dict()
             save_games(self.games)
             verdict = (
-                f"# **OWN GOAL!**\n"
+                f"# Own goal!\n"
                 f"{match.home.team.value.title()} {match.scoreboard.home_score}:"
                 f"{match.scoreboard.visiting_score} "
                 f"{match.visiting.team.value.title()}\n\n"

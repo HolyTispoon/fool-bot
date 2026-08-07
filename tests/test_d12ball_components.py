@@ -22,7 +22,6 @@ from d12ball.components import (
 )
 from d12ball.game import Team
 from d12ball.render import (
-    DICE_IMAGE_HEIGHT,
     FONT_BODY,
     FONT_DIR,
     FONT_HEADING,
@@ -30,9 +29,12 @@ from d12ball.render import (
     FONT_SMALL,
     FONT_TITLE,
     PORTRAIT_IMAGE_SIZE,
+    OWN_GOAL_DIE_RADIUS,
+    SKILL_TEST_DIE_RADIUS,
     load_font,
-    render_dice_row,
     render_injury_test_die,
+    render_own_goal_dice,
+    render_skill_test_dice,
     render_maneuver_reference_image,
     render_match_image,
     render_player_portrait,
@@ -1493,26 +1495,44 @@ class D12BallManeuverTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
 
-    def test_dice_row_renders_one_die_per_entry(self) -> None:
-        image_data = render_dice_row(
-            [(7, "#f28c28", "Orange"), (12, "#19b5a5", "Teal")]
+    def reference_skill_test_height(self) -> int:
+        """A two-detail-line skill test, the size the others match."""
+        image_data = render_skill_test_dice(
+            [
+                (7, "#f28c28", "Orange", ["Bulwark (Fullback)", "Defense 3"], 10),
+                (4, "#19b5a5", "Teal", ["Snarl (Winger)", "Offense 2"], 6),
+            ]
         )
+        with Image.open(image_data) as image:
+            return image.height
+
+    def test_own_goal_dice_are_drawn_at_skill_test_size(self) -> None:
+        # This roll used to draw two outsized dice captioned "Rolled".
+        # It now matches the skill test's size and carries only the two
+        # numbers, a ring on the one the advantage took, and the
+        # outcome.
+        self.assertEqual(OWN_GOAL_DIE_RADIUS, SKILL_TEST_DIE_RADIUS)
+
+        image_data = render_own_goal_dice([7, 12], "#f28c28", safe=True)
 
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
-            self.assertEqual(image.width, 480)
+            self.assertLessEqual(
+                image.height, self.reference_skill_test_height(),
+            )
 
     def test_injury_test_die_is_no_bigger_than_a_skill_test_die(self) -> None:
         # The whole point of the injury-test render is that it draws a
-        # small die with context beside it, rather than render_dice_row's
-        # outsized single die.
+        # small die with context beside it.
         image_data = render_injury_test_die(
             5, "#19b5a5", "Teal", "Bulwark", safe=True,
         )
 
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
-            self.assertLess(image.height, DICE_IMAGE_HEIGHT)
+            self.assertLessEqual(
+                image.height, self.reference_skill_test_height(),
+            )
 
     def test_a_player_portrait_renders_on_its_own(self) -> None:
         image_data = render_player_portrait("Bulwark")

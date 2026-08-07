@@ -318,8 +318,8 @@ class TieModeSetupTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [item.label for item in self.tie_buttons(view)],
             [
-                "League mode (game can end in ties)",
-                "Tournament mode (extreme shootout resolve ties)",
+                TIE_MODE_LABELS[TieMode.LEAGUE],
+                TIE_MODE_LABELS[TieMode.TOURNAMENT],
             ],
         )
 
