@@ -95,8 +95,8 @@ AI_OPPONENT_NAMES = {
 # Doubles as the setup buttons' labels and the setup message's wording,
 # so the choice reads the same either place.
 TIE_MODE_LABELS = {
-    TieMode.LEAGUE: "League mode (game can end in ties)",
-    TieMode.TOURNAMENT: "Tournament mode (extreme shootout resolve ties)",
+    TieMode.LEAGUE: "League mode",
+    TieMode.TOURNAMENT: "Tournament mode",
 }
 
 # The exhaustion token emoji is uploaded to the application (via the
