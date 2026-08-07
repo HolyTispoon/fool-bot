@@ -29,6 +29,7 @@ from d12ball.game import (
 )
 from d12ball.render import (
     TEAM_COLORS,
+    render_player_portrait,
     render_skill_test_dice,
 )
 
@@ -1334,7 +1335,7 @@ class ManeuverActionSelectView(SafeView):
             f"{side_display} has picked their maneuver.",
         )
 
-        await self.cog.refresh_maneuver_prompt(interaction, game)
+        await self.cog.refresh_maneuver_prompt(interaction, game, match)
 
         if (
             match.offense_maneuver is not None
@@ -1538,13 +1539,18 @@ class SkillTestView(SafeView):
             if player.player_id in match.exhausted
         ]
 
+        # Result after the dice, not above them: a message's
+        # attachments render below its content, so the winner announced
+        # in this message would be read before the roll that decided
+        # it. The tie above keeps its text here instead, because that
+        # message also carries the roll-again button.
         await interaction.edit_original_response(
-            content=(
-                f"{breakdown}\n\n"
-                f"## **{winner_name}** wins the skill test!"
-            ),
+            content=breakdown,
             attachments=[dice_file],
             view=None,
+        )
+        await interaction.followup.send(
+            f"## **{winner_name}** wins the skill test!"
         )
         await self.cog.refresh_match_image(interaction, game)
 
@@ -1699,7 +1705,7 @@ class ScoreAttemptView(SafeView):
             )
         else:
             verdict = (
-                "**Missed attempt.** "
+                "# Missed attempt!\n"
                 f"{format_team_side_label(defending_setup)} manages to avoid a goal! (phew)"
             )
 
@@ -1745,11 +1751,29 @@ class ScoreAttemptView(SafeView):
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
+        # The dice image carries only the maths that produced it, and
+        # the verdict follows in its own message. A message's
+        # attachments always render *below* its content, so a verdict
+        # written into this one would be read before the roll it is
+        # announcing.
         await interaction.response.edit_message(
-            content=f"{breakdown}\n\n{verdict}{set_up_note}",
+            content=breakdown,
             attachments=[dice_file],
             view=None,
         )
+        await interaction.followup.send(f"{verdict}{set_up_note}")
+        if scored:
+            # The scorer, posted under the announcement -- its own
+            # message rather than an attachment on it, which would put
+            # the portrait above the "GOAL!" it belongs to.
+            portrait = render_player_portrait(shooter.name)
+            if portrait is not None:
+                await interaction.followup.send(
+                    file=discord.File(
+                        portrait,
+                        filename=f"{shooter.player_id}_goal.png",
+                    ),
+                )
         await self.cog.refresh_match_image(interaction, game)
         await self.cog.begin_run_back(
             interaction,
@@ -2424,6 +2448,57 @@ class SubstitutionView(SafeView):
             return None, None
         return game, match
 
+    def add_roster_button(
+        self,
+        custom_id: str,
+        row: Optional[int] = None,
+    ) -> None:
+        """
+        A "Team Roster" button for a substitution prompt: who is on the
+        field, where, and how exhausted they are is exactly what the
+        decision turns on, and the board image scrolls away above it.
+        Answers privately, so it doesn't push the prompt out of view.
+        """
+        button = discord.ui.Button(
+            label="Team Roster",
+            style=discord.ButtonStyle.secondary,
+            custom_id=custom_id,
+            row=row,
+        )
+        button.callback = self.show_roster
+        self.add_item(button)
+
+    async def show_roster(self, interaction: discord.Interaction) -> None:
+        # Deliberately not gated on claim(): reading your own roster is
+        # not acting on the window, so the coach who is waiting on the
+        # other side can look too.
+        game, match = self.load()
+        if game is None or match is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        setups = self.cog.roster_setups_for_user(
+            game, match, interaction.user.id,
+        )
+        if setups is None:
+            await interaction.response.send_message(
+                "You are not one of the players in this game. Use "
+                "/team_roster with all_teams:true to see both rosters.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            "\n\n".join(
+                self.cog.build_team_roster_section(match, setup)
+                for setup in setups
+            ),
+            ephemeral=True,
+        )
+
 
 class SubstitutionOfferView(SubstitutionView):
     """
@@ -2463,6 +2538,8 @@ class SubstitutionOfferView(SubstitutionView):
             )
             decline.callback = self.decline
             self.add_item(decline)
+
+        self.add_roster_button(f"d12ball:sub_offer_roster:{game_id}")
 
     async def declare(self, interaction: discord.Interaction) -> None:
         game, match = await self.claim(interaction)
@@ -2550,6 +2627,8 @@ class SubstitutionMenuView(SubstitutionView):
         swap.callback = self.begin_swap
         self.add_item(swap)
 
+        self.add_roster_button(f"d12ball:sub_menu_roster:{game_id}", row=2)
+
         done = discord.ui.Button(
             label="Done",
             style=discord.ButtonStyle.success,
@@ -2633,6 +2712,8 @@ class SubstitutionIncomingView(SubstitutionView):
 
             button.callback = callback
             self.add_item(button)
+
+        self.add_roster_button(f"d12ball:sub_incoming_roster:{game_id}", row=4)
 
     async def choose_incoming(
         self,

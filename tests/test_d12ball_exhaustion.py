@@ -22,6 +22,7 @@ from cogs.d12ball import D12Ball
 from cogs.d12ball_views import SkillTestView
 from d12ball.components import (
     MatchState,
+    TeamSide,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -196,6 +197,37 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.exhaustion[player_id], skill + 1)
         self.assertIn(player_id, match.exhausted)
         self.assertIn("exhausted", text)
+
+    async def test_the_own_goal_roll_costs_the_roller_a_token(self) -> None:
+        # Charged for making the attempt, not for the result, so both
+        # outcomes pay it -- see "Own goal trigger" in
+        # docs/d12ball-rules.md.
+        for roll, outcome in ((12, "avoided"), (1, "conceded")):
+            with self.subTest(outcome=outcome):
+                cog = build_cog()
+                cog.begin_run_back = mock.AsyncMock()
+                cog.finish_maneuver_resolution = mock.AsyncMock()
+                match = self.build_match()
+                game = build_game()
+                cog.games[game.game_id] = game
+
+                player_id = match.home.field_players[0]
+                zone, space_index = match.board.meeple_position(player_id)
+                match.ball.possession = TeamSide.HOME
+                match.set_ball_space(zone, space_index)
+                match.active_player_id = player_id
+                game.match_state = match.to_dict()
+
+                with mock.patch("cogs.d12ball.save_games"), mock.patch(
+                    "cogs.d12ball.random.randint", return_value=roll,
+                ):
+                    await cog.run_own_goal_roll(
+                        build_interaction(), game, match, distance_moved=1,
+                    )
+
+                self.assertEqual(
+                    cog.load_match_state(game).exhaustion.get(player_id), 1,
+                )
 
     async def test_a_forced_run_back_still_tests_the_threshold(self) -> None:
         # Forced run backs are applied silently, so they carry no

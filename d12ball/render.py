@@ -258,6 +258,35 @@ def load_player_portrait(name: str) -> Optional[Image.Image]:
     return portrait
 
 
+PORTRAIT_IMAGE_SIZE = 320
+
+
+def render_player_portrait(
+    player_name: str,
+    size: int = PORTRAIT_IMAGE_SIZE,
+) -> Optional[BytesIO]:
+    """
+    A player's portrait on its own, scaled to fit a `size` box, for
+    posting beside a message about them. Returns None when the player
+    has no portrait, so callers can simply skip the attachment.
+
+    Saved as RGBA rather than flattened onto a background: these images
+    are cut out, and a transparent PNG sits on whichever background the
+    reader's Discord theme gives it.
+    """
+    portrait = load_player_portrait(player_name)
+    if portrait is None:
+        return None
+
+    sized = portrait.copy()
+    sized.thumbnail((size, size), Image.Resampling.LANCZOS)
+
+    output = BytesIO()
+    sized.save(output, format="PNG")
+    output.seek(0)
+    return output
+
+
 def card_name_font(size: int) -> ImageFont.ImageFont:
     font = _CARD_NAME_FONT_CACHE.get(size)
     if font is None:
@@ -447,8 +476,13 @@ def draw_card(
         draw_exhaustion_badge(
             canvas, draw, x, y, exhaustion, player, profile, row_top, row_bottom
         )
+    # Injured and Exhausted share the same slot on the stats row: a
+    # player who becomes injured loses the Exhausted condition (and
+    # every token with it), so the two badges can never be drawn at
+    # once. The injured badge used to sit in the card's top-left
+    # corner, over the name.
     if injured:
-        draw_injured_badge(canvas, draw, x, y)
+        draw_injured_badge(canvas, draw, x, y, row_top, row_bottom)
     if exhausted:
         draw_exhausted_badge(canvas, draw, x, y, row_top, row_bottom)
 
@@ -569,10 +603,16 @@ def draw_injured_badge(
     draw: ImageDraw.ImageDraw,
     card_x: int,
     card_y: int,
+    row_top: int,
+    row_bottom: int,
 ) -> None:
+    """
+    Drawn in the same slot as the Exhausted badge -- see draw_card for
+    why the two can never collide.
+    """
     icon = load_injured_icon()
-    badge_x = card_x + 1
-    badge_y = card_y + 1
+    badge_x = card_x + CARD_SIZE[0] - INJURED_ICON_SIZE - 1
+    badge_y = card_y + row_top + (row_bottom - row_top - INJURED_ICON_SIZE) // 2
 
     if icon is not None:
         canvas.alpha_composite(icon, (badge_x, badge_y))
@@ -998,6 +1038,172 @@ def render_skill_test_dice(
             font=FONT_DICE_TOTAL,
             fill=color,
         )
+
+    output = BytesIO()
+    canvas.convert("RGB").save(output, format="PNG")
+    output.seek(0)
+    return output
+
+
+INJURY_TEST_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
+INJURY_TEST_TITLE = "INJURY TEST"
+INJURY_TEST_TITLE_TOP = 14
+INJURY_TEST_ROW_TOP = 58
+INJURY_TEST_PORTRAIT_SIZE = 96
+INJURY_TEST_LABEL_GAP = 8
+INJURY_TEST_LABEL_HEIGHT = 24
+INJURY_TEST_COLUMN_GAP = 26
+INJURY_TEST_SIDE_PADDING = 22
+INJURY_TEST_BOTTOM_PADDING = 14
+INJURY_TEST_SAFE_COLOR = "#5ac36a"
+INJURY_TEST_INJURED_COLOR = "#e2564b"
+
+
+def render_injury_test_die(
+    value: int,
+    color: str,
+    team_label: str,
+    player_name: str,
+    safe: bool,
+) -> BytesIO:
+    """
+    Render an injury test as one small d12 -- the same size as a skill
+    test's dice rather than the outsized single die render_dice_row
+    draws -- beside the portrait and name of the player taking it, and
+    the verdict it produced.
+
+    The roll on its own says nothing: the number only means something
+    against the token count of a specific player, and "Teal" alone
+    doesn't name them. Everything needed to read the result is in the
+    image, which is what makes it worth posting as one.
+    """
+    verdict = "SAFE" if safe else "INJURED"
+    verdict_color = (
+        INJURY_TEST_SAFE_COLOR if safe else INJURY_TEST_INJURED_COLOR
+    )
+
+    # Measured on a throwaway canvas: the real one can't be created
+    # until these widths have decided how big it needs to be.
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    portrait = load_player_portrait(player_name)
+    portrait_width = INJURY_TEST_PORTRAIT_SIZE
+    portrait_height = INJURY_TEST_PORTRAIT_SIZE
+    if portrait is not None:
+        sized = portrait.copy()
+        sized.thumbnail(
+            (INJURY_TEST_PORTRAIT_SIZE, INJURY_TEST_PORTRAIT_SIZE),
+            Image.Resampling.LANCZOS,
+        )
+        portrait_width, portrait_height = sized.size
+    else:
+        sized = None
+
+    die_column = max(
+        2 * INJURY_TEST_DIE_RADIUS,
+        measure.textlength(team_label, font=FONT_SMALL),
+    )
+    portrait_column = max(
+        portrait_width,
+        measure.textlength(player_name, font=FONT_SMALL),
+    )
+    verdict_bbox = measure.textbbox((0, 0), verdict, font=FONT_DICE_TOTAL)
+    verdict_column = verdict_bbox[2] - verdict_bbox[0]
+
+    row_height = max(
+        2 * INJURY_TEST_DIE_RADIUS,
+        portrait_height,
+    ) + INJURY_TEST_LABEL_GAP + INJURY_TEST_LABEL_HEIGHT
+    width = round(
+        INJURY_TEST_SIDE_PADDING * 2
+        + die_column
+        + portrait_column
+        + verdict_column
+        + INJURY_TEST_COLUMN_GAP * 2
+    )
+    height = INJURY_TEST_ROW_TOP + row_height + INJURY_TEST_BOTTOM_PADDING
+
+    canvas = Image.new("RGBA", (width, height), "#111820")
+    draw = ImageDraw.Draw(canvas)
+
+    title_width = draw.textlength(INJURY_TEST_TITLE, font=FONT_DICE_TOTAL)
+    draw.text(
+        ((width - title_width) / 2, INJURY_TEST_TITLE_TOP),
+        INJURY_TEST_TITLE,
+        font=FONT_DICE_TOTAL,
+        fill="#ffffff",
+    )
+
+    # Each column is centered on its own share of the row, and the
+    # labels under the die and the portrait share a baseline so the
+    # team name and the player's name read as one line.
+    label_y = (
+        INJURY_TEST_ROW_TOP
+        + row_height
+        - INJURY_TEST_LABEL_HEIGHT
+    )
+    content_center_y = (
+        INJURY_TEST_ROW_TOP
+        + (row_height - INJURY_TEST_LABEL_GAP - INJURY_TEST_LABEL_HEIGHT) / 2
+    )
+
+    die_center_x = INJURY_TEST_SIDE_PADDING + die_column / 2
+    draw_d12_polygon(
+        draw,
+        round(die_center_x),
+        round(content_center_y),
+        INJURY_TEST_DIE_RADIUS,
+        color,
+        str(value),
+        font=FONT_DICE_VALUE,
+    )
+    team_width = draw.textlength(team_label, font=FONT_SMALL)
+    draw.text(
+        (die_center_x - team_width / 2, label_y),
+        team_label,
+        font=FONT_SMALL,
+        fill="#c7ced6",
+    )
+
+    portrait_center_x = (
+        INJURY_TEST_SIDE_PADDING
+        + die_column
+        + INJURY_TEST_COLUMN_GAP
+        + portrait_column / 2
+    )
+    if sized is not None:
+        canvas.alpha_composite(
+            sized,
+            (
+                round(portrait_center_x - sized.width / 2),
+                round(content_center_y - sized.height / 2),
+            ),
+        )
+    name_width = draw.textlength(player_name, font=FONT_SMALL)
+    draw.text(
+        (portrait_center_x - name_width / 2, label_y),
+        player_name,
+        font=FONT_SMALL,
+        fill="#ffffff",
+    )
+
+    verdict_center_x = (
+        INJURY_TEST_SIDE_PADDING
+        + die_column
+        + portrait_column
+        + INJURY_TEST_COLUMN_GAP * 2
+        + verdict_column / 2
+    )
+    draw.text(
+        (
+            verdict_center_x - verdict_column / 2 - verdict_bbox[0],
+            content_center_y
+            - (verdict_bbox[3] - verdict_bbox[1]) / 2
+            - verdict_bbox[1],
+        ),
+        verdict,
+        font=FONT_DICE_TOTAL,
+        fill=verdict_color,
+    )
 
     output = BytesIO()
     canvas.convert("RGB").save(output, format="PNG")

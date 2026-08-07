@@ -34,6 +34,7 @@ from d12ball.game import (
 from d12ball.render import (
     TEAM_COLORS,
     render_dice_row,
+    render_injury_test_die,
     render_maneuver_reference_image,
     render_match_image,
 )
@@ -835,20 +836,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         roll = random.randint(1, 12)
         current_tokens = match.exhaustion.get(player.player_id, 0)
+        safe = roll > current_tokens
         dice_file = discord.File(
-            render_dice_row(
-                [
-                    (
-                        roll,
-                        TEAM_COLORS[player.team],
-                        player.team.value.title(),
-                    )
-                ]
+            render_injury_test_die(
+                roll,
+                TEAM_COLORS[player.team],
+                player.team.value.title(),
+                player.name,
+                safe,
             ),
             filename="injury_test_die.png",
         )
 
-        if roll > current_tokens:
+        if safe:
             content = (
                 f"{format_role_bracket(player, self.team_emojis)} is exhausted and rolls "
                 f"an injury test: {roll} beats their {current_tokens} "
@@ -2328,6 +2328,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         Automatic: 2d12 at an advantage (take the higher), plus the
         ball-handler's offensive skill, safe on 7+. No button -- there's
         no opposing roll to wait for.
+
+        Making the attempt costs the rolling player 1 exhaust token,
+        win or lose, on top of whatever the maneuver that triggered the
+        risk already charged. It is not a skill test, so it owes no
+        injury check.
         """
         offense_player = self.get_player_definition(match.active_player_id)
         offense_skill = self.player_catalog.effective_profile(
@@ -2337,6 +2342,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         rolls = (random.randint(1, 12), random.randint(1, 12))
         taken = max(rolls)
         total = taken + offense_skill
+
+        # Charged before either branch saves the match, so the token
+        # and any Exhausted flag it sets are written out with the rest
+        # of the roll's outcome -- see apply_exhaustion.
+        exhaustion_text = self.apply_exhaustion(
+            match, offense_player.player_id, 1,
+        )
 
         offense_setup = match.setup_for_side(match.ball.possession)
         dice_file = discord.File(
@@ -2349,20 +2361,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             filename="own_goal_dice.png",
         )
 
-        roll_description = (
+        breakdown = (
+            f"**Own goal risk!** "
+            f"{format_role_bracket(offense_player, self.team_emojis)} "
             f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
-            f"is {taken}"
+            f"is {taken}, + {offense_skill} (offensive skill) "
+            f"= {total}"
         )
 
         safe = total >= 7
         if safe:
-            content = (
-                f"**Own goal risk!** "
-                f"{format_role_bracket(offense_player, self.team_emojis)} "
-                f"{roll_description}, + {offense_skill} (offensive skill) "
-                f"= {total} \n"
-                f"## Avoided own goal! (phew)"
-            )
+            verdict = f"## Avoided own goal! (phew)\n\n{exhaustion_text}"
         else:
             conceding_side = match.ball.possession
             match.concede_own_goal()
@@ -2372,18 +2381,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.pending_run_back_turnover = True
             game.match_state = match.to_dict()
             save_games(self.games)
-            content = (
-                f"**Own goal risk!** "
-                f"{format_role_bracket(offense_player, self.team_emojis)} "
-                f"{roll_description}, + {offense_skill} (offensive skill) "
-                f"= {total} \n"
+            verdict = (
                 f"# **OWN GOAL!**\n"
                 f"{match.home.team.value.title()} {match.scoreboard.home_score}:"
                 f"{match.scoreboard.visiting_score} "
-                f"{match.visiting.team.value.title()}"
+                f"{match.visiting.team.value.title()}\n\n"
+                f"{exhaustion_text}"
             )
 
-        await interaction.followup.send(content, file=dice_file)
+        # The verdict follows the dice in its own message rather than
+        # riding above them -- see SkillTestView.roll for why every
+        # result is announced this way round.
+        await interaction.followup.send(breakdown, file=dice_file)
+        await interaction.followup.send(verdict)
         await self.refresh_match_image(interaction, game)
         if safe:
             game.match_state = match.to_dict()
@@ -3655,27 +3665,42 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
+        match: MatchState,
     ) -> None:
         """
         Re-render the public "choose your maneuver" prompt after one
-        side picks, so the button for the side that already chose
-        disappears.
+        side picks, and delete it once both have: its button has
+        nothing left to open, and the resolution posted underneath it
+        is what the channel should end on.
+
+        Deleting clears `turn_message_id` with it, so nothing tries to
+        edit or re-attach a view to a message that is gone; whatever
+        prompt the resolution posts next sets its own.
         """
         if game.turn_message_id is None or interaction.channel is None:
             return
 
-        refreshed_view = ManeuverActionPromptView(self, game.game_id)
+        both_chosen = (
+            match.offense_maneuver is not None
+            and match.defense_maneuver is not None
+        )
 
         try:
             prompt_message = interaction.channel.get_partial_message(
                 game.turn_message_id,
             )
-            if refreshed_view.children:
-                await prompt_message.edit(view=refreshed_view)
-            else:
+            if both_chosen:
                 await prompt_message.delete()
+            else:
+                await prompt_message.edit(
+                    view=ManeuverActionPromptView(self, game.game_id),
+                )
         except (discord.NotFound, discord.HTTPException):
             pass
+
+        if both_chosen:
+            game.turn_message_id = None
+            save_games(self.games)
 
     def retest_exhausted(self, match: MatchState, player_id: str) -> bool:
         """
@@ -3843,23 +3868,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     def format_team_roster_entry(
         self,
         match: MatchState,
-        setup: TeamSetup,
         player_id: str,
+        location: Optional[str] = None,
         show_abilities: bool = False,
     ) -> str:
+        """
+        One roster line. `location` is the space the player stands on
+        (e.g. "H1") for a player on the board, and None on a bench --
+        the group heading above the line already names the place, so
+        the line only has to say where within it.
+        """
         player = self.get_player_definition(player_id)
-        position = match.board.meeple_position(player_id)
-        if position is not None:
-            zone, space_index = position
-            location = (
-                f"{destination_display_name(zone.value)} "
-                f"({space_label(zone, space_index)})"
-            )
-        elif player_id in setup.player_board.bench:
-            location = destination_display_name("bench")
-        else:
-            location = destination_display_name("back_bench")
-
         tokens = match.exhaustion.get(player_id, 0)
 
         conditions = []
@@ -3870,10 +3889,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if player_id in match.injured:
             conditions.append(f"injured {INJURED_EMOJI_FALLBACK}")
 
-        entry = (
-            f"{format_role_bracket(player, self.team_emojis)} — {location} — "
-            f"{tokens} {get_exhaust_emoji(self.condition_emojis)}"
-        )
+        entry = format_role_bracket(player, self.team_emojis)
+        if location is not None:
+            entry += f" — {location}"
+        entry += f" — {tokens} {get_exhaust_emoji(self.condition_emojis)}"
         if conditions:
             entry += f" — {', '.join(conditions)}"
         if show_abilities:
@@ -3881,20 +3900,115 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             entry += f"\n     *{ability}*"
         return entry
 
+    def roster_places(
+        self,
+        match: MatchState,
+        setup: TeamSetup,
+    ) -> list[tuple[str, list[tuple[str, Optional[str]]]]]:
+        """
+        The team's roster grouped by where its players actually are:
+        each board zone in board order, then the bench, then the back
+        bench. Each group is (heading, [(player_id, space label or
+        None)]), with the players inside a zone ordered by space.
+
+        Grouped by the meeple's *current* zone rather than the zone its
+        card is assigned to, because that is where the player is -- a
+        maneuver can leave a player standing outside their zone until
+        they run back (see MatchState.displaced_players). Every roster
+        player appears exactly once: anyone without a meeple falls
+        through to whichever bench holds them.
+        """
+        roster_order = {
+            player.player_id: index
+            for index, player in enumerate(
+                self.player_catalog.teams[setup.team].players
+            )
+        }
+        placed: dict[Zone, list[tuple[int, int, str]]] = {
+            zone: [] for zone in Zone
+        }
+        for player_id in roster_order:
+            position = match.board.meeple_position(player_id)
+            if position is None:
+                continue
+            zone, space_index = position
+            placed[zone].append(
+                (space_index, roster_order[player_id], player_id)
+            )
+
+        on_board = {
+            player_id
+            for occupants in placed.values()
+            for _, _, player_id in occupants
+        }
+        groups: list[tuple[str, list[tuple[str, Optional[str]]]]] = [
+            (
+                destination_display_name(zone.value),
+                [
+                    (player_id, space_label(zone, space_index))
+                    for space_index, _, player_id in sorted(placed[zone])
+                ],
+            )
+            for zone in Zone
+        ]
+        for bench, benched in (
+            ("bench", setup.player_board.bench),
+            ("back_bench", setup.player_board.back_bench),
+        ):
+            groups.append(
+                (
+                    destination_display_name(bench),
+                    [
+                        (player_id, None)
+                        for player_id in benched
+                        if player_id not in on_board
+                    ],
+                )
+            )
+        return groups
+
+    def roster_setups_for_user(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        user_id: int,
+        all_teams: bool = False,
+    ) -> Optional[list[TeamSetup]]:
+        """
+        Whose rosters `user_id` gets to see: their own team's by
+        default, both when they asked for both or when they are running
+        both sides of a test game, and None when they are not playing
+        this game at all -- callers turn that into an explanation.
+        """
+        if all_teams or (game.test_game and user_id == game.player_1_id):
+            return [match.home, match.visiting]
+        side = self.side_for_user(game, user_id)
+        if side is None:
+            return None
+        return [match.setup_for_side(side)]
+
     def build_team_roster_section(
         self,
         match: MatchState,
         setup: TeamSetup,
         show_abilities: bool = False,
     ) -> str:
-        roster = self.player_catalog.teams[setup.team].players
-        lines = [
-            self.format_team_roster_entry(
-                match, setup, player.player_id, show_abilities=show_abilities,
+        lines = [f"**{format_team_side_label(setup)}**"]
+        for heading, members in self.roster_places(match, setup):
+            lines.append(f"\n__{heading}__")
+            if not members:
+                lines.append("*nobody*")
+                continue
+            lines.extend(
+                self.format_team_roster_entry(
+                    match,
+                    player_id,
+                    location=location,
+                    show_abilities=show_abilities,
+                )
+                for player_id, location in members
             )
-            for player in roster
-        ]
-        return f"**{format_team_side_label(setup)}**\n" + "\n".join(lines)
+        return "\n".join(lines)
 
     def build_turn_prompt(
         self,
@@ -4494,20 +4608,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
         game, match = result
 
-        if all_teams or (
-            game.test_game and interaction.user.id == game.player_1_id
-        ):
-            setups = [match.home, match.visiting]
-        else:
-            side = self.side_for_user(game, interaction.user.id)
-            if side is None:
-                await interaction.followup.send(
-                    "You are not one of the players in this game. Use "
-                    "all_teams:true to see both rosters.",
-                    ephemeral=True,
-                )
-                return
-            setups = [match.setup_for_side(side)]
+        setups = self.roster_setups_for_user(
+            game, match, interaction.user.id, all_teams=all_teams,
+        )
+        if setups is None:
+            await interaction.followup.send(
+                "You are not one of the players in this game. Use "
+                "all_teams:true to see both rosters.",
+                ephemeral=True,
+            )
+            return
 
         for setup in setups:
             await interaction.followup.send(
