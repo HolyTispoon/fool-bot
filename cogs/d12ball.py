@@ -57,6 +57,7 @@ from cogs.d12ball_helpers import (
     add_full_image_button,
     add_full_image_button_to_response,
     build_full_time_summary,
+    build_game_channel_name,
     contest_noun,
     destination_display_name,
     filter_choices,
@@ -4518,6 +4519,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         test_game=(
             "Create a test game where you control Player 1 and Player 2."
         ),
+        game_name=(
+            "A fun name for this game, used in the channel name. Leave "
+            "blank to name it after the players."
+        ),
     )
     @app_commands.guild_only()
     async def create_game(
@@ -4526,6 +4531,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         p1: Optional[discord.Member] = None,
         p2: Optional[discord.Member] = None,
         test_game: bool = False,
+        game_name: Optional[app_commands.Range[str, 1, 80]] = None,
     ) -> None:
         guild = interaction.guild
 
@@ -4611,6 +4617,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 player_2,
                 test_game=test_game,
                 created_by=interaction.user,
+                game_name=game_name,
             )
         except ValueError as error:
             await interaction.followup.send(str(error), ephemeral=True)
@@ -4632,6 +4639,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         tie_mode: TieMode = TieMode.LEAGUE,
         board_size: int = 7,
         ai_opponent: Optional[AIOpponent] = None,
+        game_name: Optional[str] = None,
     ) -> D12BallGame:
         """
         Create the private channel for a game, save the game record,
@@ -4645,7 +4653,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         defaults and settles them in setup.
         """
         game_number = self.get_next_game_number(guild)
-        channel_name = f"d12ball-pbd{game_number}"
+        resolved_ai_opponent = (
+            None if player_2 else ai_opponent or AIOpponent.DINKY
+        )
+        player_1_name = "Player 1" if test_game else player_1.display_name
+        player_2_name = (
+            "Player 2"
+            if test_game
+            else player_2.display_name if player_2 else None
+        )
+        channel_name = build_game_channel_name(
+            game_number,
+            player_1_name,
+            player_2_name or format_ai_name(resolved_ai_opponent),
+            game_name=game_name,
+        )
 
         bot_member = guild.me
 
@@ -4745,24 +4767,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             message_id=None,
             player_1_id=player_1.id,
             player_2_id=player_2.id if player_2 else None,
-            player_1_name=(
-                "Player 1" if test_game else player_1.display_name
-            ),
-            player_2_name=(
-                "Player 2"
-                if test_game
-                else player_2.display_name if player_2 else None
-            ),
+            player_1_name=player_1_name,
+            player_2_name=player_2_name,
             test_game=test_game,
+            game_name=game_name,
             mode=mode,
             tie_mode=tie_mode,
             status=GameStatus.SETUP,
             board_size=board_size,
-            ai_opponent=(
-                None
-                if player_2
-                else ai_opponent or AIOpponent.DINKY
-            ),
+            ai_opponent=resolved_ai_opponent,
         )
 
         self.games[game_id] = game
@@ -4850,6 +4863,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             tie_mode=game.tie_mode,
             board_size=game.board_size,
             ai_opponent=game.ai_opponent,
+            game_name=game.game_name,
         )
 
         game.rematch_game_id = rematch.game_id

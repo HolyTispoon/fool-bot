@@ -29,7 +29,14 @@ from d12ball.game import (
 
 LOGGER = logging.getLogger(__name__)
 
-CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)$")
+# Game channels are "d12ball-pbd<number>", optionally followed by the
+# game's name or its players (see build_game_channel_name). The suffix
+# is decoration -- the number is the part anything matching this cares
+# about -- so it has to stay optional for channels named before there
+# was one.
+CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)(?:-.*)?$")
+# Discord's limit on a channel name.
+CHANNEL_NAME_MAX_LENGTH = 100
 PBD_GAMES_CATEGORY_NAME = "PBD Games"
 PBD_ARCHIVE_CATEGORY_NAME = "PBD Archive"
 ROLE_INITIALS = {
@@ -229,6 +236,57 @@ def get_team_emoji(team_emojis: dict[Team, str], team: Team) -> str:
 
 def format_ai_name(ai_opponent: Optional[AIOpponent]) -> str:
     return AI_OPPONENT_NAMES[ai_opponent or AIOpponent.DINKY]
+
+
+def slugify_channel_part(text: str) -> str:
+    """
+    Turn free text into something Discord will keep verbatim in a
+    channel name.
+
+    Discord lowercases a text channel's name and rewrites spaces as
+    dashes itself, so doing it here only means the name we save and the
+    name the server shows are the same string. Punctuation is dropped
+    rather than kept, because Discord's own rewriting of it is not
+    worth predicting. Letters outside ASCII survive -- they are legal
+    in a channel name, and a display name that is entirely non-Latin
+    would otherwise slugify to nothing.
+    """
+    return re.sub(r"[^\w]+", "-", text, flags=re.UNICODE).strip("-_").casefold()
+
+
+def build_game_channel_name(
+    game_number: int,
+    player_1_name: str,
+    player_2_name: str,
+    game_name: Optional[str] = None,
+) -> str:
+    """
+    What a game's channel is called: "d12ball-pbd7-cup-final", or
+    "d12ball-pbd7-tomer-vs-dinky-ai" when the game was created without
+    a name.
+
+    The number is what the bot itself reads back off a channel, so it
+    stays immediately after the prefix and the rest is truncated to fit
+    Discord's 100-character limit around it.
+    """
+    prefix = f"d12ball-pbd{game_number}"
+
+    if game_name and game_name.strip():
+        suffix = slugify_channel_part(game_name)
+    else:
+        suffix = "-vs-".join(
+            part
+            for part in (
+                slugify_channel_part(player_1_name),
+                slugify_channel_part(player_2_name),
+            )
+            if part
+        )
+
+    if not suffix:
+        return prefix
+
+    return f"{prefix}-{suffix}"[:CHANNEL_NAME_MAX_LENGTH].rstrip("-")
 
 
 def format_role_bracket(
