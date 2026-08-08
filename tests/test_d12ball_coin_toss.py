@@ -12,6 +12,7 @@ from cogs.d12ball_helpers import (
     COIN_EMOJI_NAMES,
     EXHAUST_EMOJI_FALLBACK,
     EXHAUSTED_EMOJI_FALLBACK,
+    INJURED_EMOJI_FALLBACK,
     TEAM_EMOJI_FALLBACKS,
     TEAM_EMOJI_NAMES,
     build_setup_message,
@@ -19,6 +20,7 @@ from cogs.d12ball_helpers import (
     format_coin_emoji,
     get_exhaust_emoji,
     get_exhausted_emoji,
+    get_injured_emoji,
     get_team_emoji,
     load_coin_emojis,
     load_condition_emojis,
@@ -59,17 +61,27 @@ class FakeBot:
     """
     Stands in for the bot, which only has to hand back application
     emoji or fail the way discord.py would.
+
+    `emojis` is the *guild* emoji cache, as it is on discord.py's
+    Client -- application emoji are not in it, and only
+    fetch_application_emojis returns those.
     """
 
-    def __init__(self, emojis: list = None, error: Exception = None) -> None:
-        self.emojis = emojis or []
+    def __init__(
+        self,
+        emojis: list = None,
+        error: Exception = None,
+        guild_emojis: list = None,
+    ) -> None:
+        self.application_emojis = emojis or []
         self.error = error
+        self.emojis = guild_emojis or []
 
     async def fetch_application_emojis(self) -> list:
         if self.error is not None:
             raise self.error
 
-        return self.emojis
+        return self.application_emojis
 
 
 # Real emoji ids, because discord.py only reads <:name:id> as a custom
@@ -769,14 +781,49 @@ class D12BallConditionEmojiTests(unittest.TestCase):
 
         self.assertEqual(asyncio.run(load_condition_emojis(bot)), {})
 
+    def test_a_guild_emoji_stands_in_for_a_missing_upload(self) -> None:
+        # The condition art is as often uploaded to a server by hand as
+        # to the application, and either beats showing a stock emoji
+        # next to a board that draws the condition as a picture.
+        bot = FakeBot(
+            [],
+            guild_emojis=[discord.PartialEmoji(name="injured", id=104)],
+        )
+
+        condition_emojis = asyncio.run(load_condition_emojis(bot))
+
+        self.assertEqual(condition_emojis, {"injured": "<:injured:104>"})
+
+    def test_an_application_emoji_wins_over_a_guild_one(self) -> None:
+        bot = FakeBot(
+            [discord.PartialEmoji(name="injured", id=105)],
+            guild_emojis=[discord.PartialEmoji(name="injured", id=104)],
+        )
+
+        condition_emojis = asyncio.run(load_condition_emojis(bot))
+
+        self.assertEqual(condition_emojis["injured"], "<:injured:105>")
+
+    def test_a_failed_lookup_still_reads_the_guild_emoji(self) -> None:
+        bot = FakeBot(
+            error=discord.DiscordException("no application id"),
+            guild_emojis=[discord.PartialEmoji(name="injured", id=104)],
+        )
+
+        condition_emojis = asyncio.run(load_condition_emojis(bot))
+
+        self.assertEqual(condition_emojis, {"injured": "<:injured:104>"})
+
     def test_missing_conditions_fall_back_to_a_plain_emoji(self) -> None:
         self.assertEqual(get_exhaust_emoji({}), EXHAUST_EMOJI_FALLBACK)
         self.assertEqual(get_exhausted_emoji({}), EXHAUSTED_EMOJI_FALLBACK)
+        self.assertEqual(get_injured_emoji({}), INJURED_EMOJI_FALLBACK)
 
     def test_resolved_conditions_use_the_application_emoji(self) -> None:
         condition_emojis = {
             "exhaust": "<:exhaust:100>",
             "exhausted": "<:exhausted:101>",
+            "injured": "<:injured:102>",
         }
 
         self.assertEqual(
@@ -784,6 +831,9 @@ class D12BallConditionEmojiTests(unittest.TestCase):
         )
         self.assertEqual(
             get_exhausted_emoji(condition_emojis), "<:exhausted:101>",
+        )
+        self.assertEqual(
+            get_injured_emoji(condition_emojis), "<:injured:102>",
         )
 
 

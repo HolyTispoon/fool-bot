@@ -143,5 +143,114 @@ class ManeuverPromptLifetimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(game.turn_message_id)
 
 
+class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
+    """
+    How a settled challenge is announced.
+
+    It used to be two lines of prose -- "has chosen to maneuver" and
+    "will challenge" -- naming players a coach can already see on the
+    board and saying nothing about them. It is now one image, carrying
+    the skills and abilities the maneuver about to be picked is
+    weighed against.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+    def build_interaction(self) -> SimpleNamespace:
+        return SimpleNamespace(
+            channel=None,
+            guild=None,
+            followup=SimpleNamespace(
+                send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+            ),
+            delete_original_response=mock.AsyncMock(),
+        )
+
+    async def resolve(self, walk_in: bool):
+        cog = build_cog()
+        cog.refresh_match_image = mock.AsyncMock()
+        cog.begin_maneuver_action_selection = mock.AsyncMock()
+        game = build_game()
+        cog.games[game.game_id] = game
+
+        match = self.build_match()
+        match.select_ball_handler(match.eligible_ball_handlers()[0])
+        challenger = next(
+            player_id
+            for player_id in match.eligible_challengers()
+            if (match.distance_to_ball(player_id) > 0) == walk_in
+        )
+        game.match_state = match.to_dict()
+
+        interaction = self.build_interaction()
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.auto_resolve_challenger(
+                interaction, game, match, challenger,
+            )
+        return interaction
+
+    async def test_the_matchup_is_posted_as_an_image_and_not_as_prose(
+        self,
+    ) -> None:
+        interaction = await self.resolve(walk_in=False)
+
+        calls = interaction.followup.send.await_args_list
+        self.assertEqual(len(calls), 1)
+        self.assertIn("file", calls[0].kwargs)
+        self.assertFalse(calls[0].args)
+
+    async def test_the_walk_in_is_posted_above_the_image(self) -> None:
+        # Above, not below: the image is meant to sit directly on top
+        # of the maneuver prompt it is being read for.
+        interaction = await self.resolve(walk_in=True)
+
+        calls = interaction.followup.send.await_args_list
+        self.assertEqual(len(calls), 2)
+        self.assertIn("has moved", calls[0].args[0])
+        self.assertIn("file", calls[1].kwargs)
+
+    async def test_dropping_the_turn_prompt_clears_its_id(self) -> None:
+        cog = build_cog()
+        game = build_game()
+        game.turn_message_id = 555
+        interaction = self.build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.drop_turn_prompt(interaction, game)
+
+        interaction.delete_original_response.assert_awaited_once()
+        self.assertIsNone(game.turn_message_id)
+
+    async def test_an_already_deleted_turn_prompt_is_not_an_error(
+        self,
+    ) -> None:
+        cog = build_cog()
+        game = build_game()
+        game.turn_message_id = 555
+        interaction = self.build_interaction()
+        interaction.delete_original_response = mock.AsyncMock(
+            side_effect=discord.NotFound(
+                mock.Mock(status=404), "already gone",
+            ),
+        )
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.drop_turn_prompt(interaction, game)
+
+        self.assertIsNone(game.turn_message_id)
+
+
 if __name__ == "__main__":
     unittest.main()

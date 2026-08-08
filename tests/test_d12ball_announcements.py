@@ -4,12 +4,17 @@ Where a result is announced relative to the dice that decided it.
 Discord renders a message's attachments *below* its content, so a
 verdict written into the message the dice image is attached to is read
 before the roll it is announcing. Every one of these results therefore
-leaves the roll's arithmetic on the dice message and posts the verdict
-as the message after it: skill tests, goals, and missed attempts.
+posts the verdict as the message *after* the dice: skill tests, high
+passes and loose balls, goals, and missed attempts. The dice message
+itself carries no text at all -- the image already names both players
+and shows every modifier that built the totals.
 
 The tie is the exception -- its message also carries the roll-again
 button, so its text stays with it. See SkillTestView.roll and
 ScoreAttemptView.roll in cogs/d12ball_views.py.
+
+A maneuver challenge is announced the same way round for the same
+reason, except that there the image is the whole announcement.
 """
 
 import unittest
@@ -17,7 +22,11 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_views import ScoreAttemptView, SkillTestView
+from cogs.d12ball_views import (
+    LooseBallSkillTestView,
+    ScoreAttemptView,
+    SkillTestView,
+)
 from d12ball.components import (
     MatchState,
     load_basic_ruleset,
@@ -138,11 +147,79 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
             await view.roll(interaction)
 
         dice_message = interaction.edit_original_response.await_args.kwargs
-        self.assertNotIn("wins the skill test", dice_message["content"])
+        # No content at all: the dice image carries the whole roll, so
+        # the message it is attached to is the image and nothing else.
+        self.assertIsNone(dice_message["content"])
         self.assertIn(
             f"**{match.offense_maneuver}** wins the skill test!",
             sent_texts(interaction)[0],
         )
+
+    # -- High pass and loose ball --------------------------------------
+
+    def build_contest(self, cog: D12Ball, is_high_pass: bool):
+        match = self.build_match()
+        game = build_game()
+        match.active_player_id = match.setup_for_side(
+            match.ball.possession
+        ).field_players[0]
+        match.move_meeple(
+            match.active_player_id, match.ball.zone, match.ball.space_index,
+        )
+        match.pending_loose_ball = True
+        match.pending_loose_ball_is_high_pass = is_high_pass
+        match.loose_ball_offense_player = match.setup_for_side(
+            match.ball.possession
+        ).field_players[0]
+        match.loose_ball_defense_player = match.setup_for_side(
+            match.defending_side()
+        ).field_players[0]
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        return game, match
+
+    async def roll_contest(self, cog, game, rolls) -> SimpleNamespace:
+        interaction = build_interaction()
+        view = LooseBallSkillTestView(cog, game.game_id)
+        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+            "cogs.d12ball_views.random.randint", side_effect=rolls,
+        ), mock.patch("cogs.d12ball_views.render_skill_test_dice"), mock.patch(
+            "cogs.d12ball_views.discord.File",
+        ):
+            await view.roll(interaction)
+        return interaction
+
+    async def test_keeping_a_high_pass_is_announced_after_the_dice(
+        self,
+    ) -> None:
+        # This one used to write its result into the dice message,
+        # unlike every other skill test, so a coach read "keeps
+        # possession" above the roll that settled it.
+        cog = build_cog()
+        game, _ = self.build_contest(cog, is_high_pass=True)
+
+        interaction = await self.roll_contest(cog, game, [12, 1])
+
+        dice_message = interaction.response.edit_message.await_args.kwargs
+        self.assertIsNone(dice_message["content"])
+        self.assertIn(
+            "keeps possession after the high pass",
+            sent_texts(interaction)[0],
+        )
+
+    async def test_a_loose_ball_turnover_is_announced_after_the_dice(
+        self,
+    ) -> None:
+        cog = build_cog()
+        game, _ = self.build_contest(cog, is_high_pass=False)
+
+        interaction = await self.roll_contest(cog, game, [1, 12])
+
+        dice_message = interaction.response.edit_message.await_args.kwargs
+        self.assertIsNone(dice_message["content"])
+        announcement = sent_texts(interaction)[0]
+        self.assertTrue(announcement.startswith("# Turnover!"))
+        self.assertIn("wins the loose ball!", announcement)
 
     # -- Maneuver won outright -----------------------------------------
 
@@ -204,6 +281,41 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
         return game, match
 
+    async def test_the_attempt_is_composed_as_an_image(self) -> None:
+        # What the shot is made of used to be a paragraph of prose
+        # above the roll prompt, listing the same skills and abilities
+        # the image now shows. Only the prompt is text now.
+        cog = build_cog()
+        game, match = self.build_score_attempt(cog)
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_score_attempt(interaction, game, match)
+
+        calls = interaction.followup.send.await_args_list
+        self.assertEqual(len(calls), 2)
+        self.assertIn("file", calls[0].kwargs)
+        self.assertFalse(calls[0].args)
+        self.assertIn("Either player can roll", calls[1].args[0])
+
+    async def test_every_defender_in_the_way_is_drawn(self) -> None:
+        cog = build_cog()
+        game, match = self.build_score_attempt(cog)
+        # The real thing, rather than build_score_attempt's empty stub:
+        # a shot from the ball's own space has the whole defending side
+        # between it and the goal, which is the case that wraps onto a
+        # second row.
+        cog.intervening_defenders = D12Ball.intervening_defenders.__get__(cog)
+        self.assertGreater(len(cog.intervening_defenders(match)), 1)
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_score_attempt(interaction, game, match)
+
+        self.assertIn(
+            "file", interaction.followup.send.await_args_list[0].kwargs,
+        )
+
     async def roll_score_attempt(self, cog, game, rolls) -> SimpleNamespace:
         interaction = build_interaction()
         view = ScoreAttemptView(cog, game.game_id)
@@ -222,7 +334,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.roll_score_attempt(cog, game, [12, 1])
 
         dice_message = interaction.response.edit_message.await_args.kwargs
-        self.assertNotIn("GOAL!", dice_message["content"])
+        self.assertIsNone(dice_message["content"])
         self.assertIn("# GOAL!", sent_texts(interaction)[0])
 
     async def test_the_scorer_s_portrait_follows_the_goal(self) -> None:
@@ -247,7 +359,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.roll_score_attempt(cog, game, [1, 12])
 
         dice_message = interaction.response.edit_message.await_args.kwargs
-        self.assertNotIn("Missed attempt", dice_message["content"])
+        self.assertIsNone(dice_message["content"])
         # Same heading level as a goal -- a miss is just as big a
         # moment for the side that avoided it.
         self.assertTrue(sent_texts(interaction)[0].startswith("# Missed"))

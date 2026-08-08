@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from io import BytesIO
 from math import cos, hypot, pi, radians, sin
 from pathlib import Path
@@ -121,6 +122,9 @@ FONT_MANEUVER_BODY = load_font(22)
 FONT_MANEUVER_LEGEND = load_font(22)
 FONT_DICE_TOTAL = load_font(28, bold=True)
 FONT_DICE_VALUE = load_font(26, bold=True)
+# The one line on a matchup image that is a sum rather than a fact
+# about a player -- see group_text_lines.
+FONT_CHALLENGE_TOTAL = load_font(23, bold=True)
 FONT_SCORE = load_font(64, bold=True)
 FONT_CARD_STAT = load_font(46, bold=True)
 FONT_CARD_ROLE = load_font(46, bold=True)
@@ -1377,6 +1381,390 @@ def render_own_goal_dice(
     canvas.convert("RGB").save(output, format="PNG")
     output.seek(0)
     return output
+
+
+CHALLENGE_TITLE = "MANEUVER CHALLENGE"
+SCORE_ATTEMPT_TITLE = "SCORE ATTEMPT"
+SCORE_ATTEMPT_UNDEFENDED = "No one in the way"
+# A group's text is wrapped to its own width, which grows with what it
+# has to say and is held between these. The minimum is what a lone
+# player's block has always been drawn at; the maximum is where a line
+# of names stops fitting a Discord message legibly and starts wrapping
+# instead.
+CHALLENGE_MIN_GROUP_WIDTH = 300
+CHALLENGE_MAX_GROUP_WIDTH = 560
+# No bigger than a skill test's dice: this image sits in the same run
+# of messages as the roll it leads to, and a portrait that dwarfed the
+# dice would make the setup look like the result.
+CHALLENGE_PORTRAIT_SIZE = 2 * SKILL_TEST_DIE_RADIUS
+CHALLENGE_PORTRAIT_SPACING = 10
+CHALLENGE_GUTTER = 64
+CHALLENGE_TITLE_TOP = 14
+CHALLENGE_LOCATION_TOP = 46
+CHALLENGE_PORTRAIT_TOP = 82
+CHALLENGE_PORTRAIT_GAP = 12
+CHALLENGE_LINE_HEIGHT = 24
+CHALLENGE_ABILITY_GAP = 8
+CHALLENGE_ABILITY_LINE_HEIGHT = 21
+CHALLENGE_TEXT_PADDING = 14
+CHALLENGE_BOTTOM_PADDING = 16
+CHALLENGE_VERSUS_TEXT = "vs"
+CHALLENGE_VERSUS_COLOR = "#8b96a2"
+CHALLENGE_NAME_COLOR = "#ffffff"
+CHALLENGE_SKILL_COLOR = "#c7ced6"
+CHALLENGE_ABILITY_COLOR = "#9aa5b1"
+CHALLENGE_TOTAL_COLOR = "#ffffff"
+CHALLENGE_TOTAL_LINE_HEIGHT = 30
+
+
+@dataclass(frozen=True)
+class ChallengeSide:
+    """
+    One player in a matchup, ready to draw: who they are, the skill
+    their side of it is measured on, whatever else is being added to
+    that, and the ability they bring.
+
+    `skill_name` and `skill` are the whole of the offense/defense
+    distinction -- every player is drawn identically otherwise, and
+    which of their two skills matters is exactly what a coach is
+    weighing. They are kept apart so a group of players can add its
+    numbers up into one line. `modifiers` are the extras that only some
+    rolls have (a ball speed bonus, a role ability that applies to this
+    one), listed under the skill in the order they should be read.
+    """
+
+    name: str
+    role: str
+    team_color: str
+    team_label: str
+    skill_name: str
+    skill: int
+    ability: str
+    modifiers: tuple[str, ...] = ()
+
+
+def join_names(names: list[str]) -> str:
+    if len(names) <= 2:
+        return " and ".join(names)
+    return f"{', '.join(names[:-1])}, and {names[-1]}"
+
+
+def group_text_lines(
+    sides: list[ChallengeSide],
+    with_ability: bool,
+) -> list[tuple[str, str, ImageFont.ImageFont, int]]:
+    """
+    The (text, color, font, line height) under a group's portraits,
+    still unwrapped -- the width they are wrapped to is decided from
+    how wide they want to be.
+
+    One player reads as themselves: name, the skill they roll on, and
+    their ability. Several read as a wall: the team once, the names in
+    a line, and their skills added up, because that sum is the only
+    number the roll uses and nobody is choosing between them. The sum
+    is set bold and a size up for that reason -- it is the one line
+    here that is a result rather than a fact about a player, and it is
+    what the shot is actually up against.
+    """
+    if not sides:
+        return []
+
+    sized = [
+        (
+            sides[0].team_label,
+            sides[0].team_color,
+            FONT_SMALL,
+            CHALLENGE_LINE_HEIGHT,
+        ),
+        (
+            join_names([f"{side.name} [{side.role}]" for side in sides]),
+            CHALLENGE_NAME_COLOR,
+            FONT_SMALL,
+            CHALLENGE_LINE_HEIGHT,
+        ),
+    ]
+
+    skill_name = sides[0].skill_name
+    if len(sides) == 1:
+        sized.append(
+            (
+                f"{skill_name} skill +{sides[0].skill}",
+                CHALLENGE_SKILL_COLOR,
+                FONT_SMALL,
+                CHALLENGE_LINE_HEIGHT,
+            ),
+        )
+        sized.extend(
+            (modifier, CHALLENGE_SKILL_COLOR, FONT_SMALL, CHALLENGE_LINE_HEIGHT)
+            for modifier in sides[0].modifiers
+        )
+    else:
+        skills = " + ".join(str(side.skill) for side in sides)
+        total = sum(side.skill for side in sides)
+        sized.append(
+            (
+                f"{skill_name} skill: {skills} = {total}",
+                CHALLENGE_TOTAL_COLOR,
+                FONT_CHALLENGE_TOTAL,
+                CHALLENGE_TOTAL_LINE_HEIGHT,
+            ),
+        )
+
+    if with_ability and len(sides) == 1 and sides[0].ability:
+        # An empty line is a spacer: it sets the ability apart from the
+        # numbers above it without needing a second y-cursor.
+        sized.append(("", CHALLENGE_ABILITY_COLOR, FONT_SMALL, CHALLENGE_ABILITY_GAP))
+        sized.append(
+            (
+                sides[0].ability,
+                CHALLENGE_ABILITY_COLOR,
+                FONT_SMALL,
+                CHALLENGE_ABILITY_LINE_HEIGHT,
+            ),
+        )
+    return sized
+
+
+def render_matchup(
+    title: str,
+    location: str,
+    attacking: list[ChallengeSide],
+    defending: list[ChallengeSide],
+    defending_note: str = "",
+    defending_abilities: bool = True,
+) -> BytesIO:
+    """
+    Render a contest about to happen: who is on each side, with
+    portraits, names and roles, the skill each side rolls on, and where
+    on the board it is happening.
+
+    Shared by the maneuver challenge and the score attempt, which is
+    why either side is a list -- a maneuver is always one against one,
+    but a shot is one against however many defenders stand between the
+    ball and the goal, sometimes none, and those defenders are drawn as
+    a single group: portraits in a row, the team named once, the names
+    on one line and the skills added up on the next. `defending_note`
+    is drawn in place of an empty defending side, for a shot at an open
+    goal.
+
+    `defending_abilities` is what tells that wall from a single
+    challenger. A maneuver's challenger is one player being weighed,
+    ability and all; a shot's defenders are a number in the way, and
+    printing an ability apiece for players nobody is choosing between
+    spread them across the image and buried the skills that decide it.
+
+    Both images replace prose that named the same players and said
+    nothing about them: what a coach needs in front of them is the
+    other side's skills and abilities, which the board shows only as
+    numbers on a card too small to read the ability off.
+    """
+    # Measured on a throwaway canvas: how wide each group wants to be,
+    # and how many lines its text wraps to at that width, decide the
+    # size of the real one.
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+
+    def group_width(sides: list[ChallengeSide], note: str, ability: bool) -> int:
+        """
+        Wide enough for the portraits, and for the text up to the point
+        where wrapping it is better than growing.
+        """
+        portraits = (
+            len(sides) * CHALLENGE_PORTRAIT_SIZE
+            + max(len(sides) - 1, 0) * CHALLENGE_PORTRAIT_SPACING
+        )
+        # The ability is left out of this: it is a sentence, and sizing
+        # a group to fit one on a line would make the image unreadably
+        # wide. It wraps to whatever the rest of the group settles on.
+        texts = [
+            (text, font)
+            for text, _, font, _ in group_text_lines(sides, False)
+        ]
+        if not sides and note:
+            texts = [(note, FONT_SMALL)]
+        text_width = max(
+            (measure.textlength(text, font=font) for text, font in texts),
+            default=0,
+        )
+        # The sum is the one line that must not wrap: a total broken
+        # over two lines, with the number stranded on the second, is
+        # unreadable however wide the alternative makes the image. So
+        # it sets a floor the maximum width does not get to override.
+        sum_width = max(
+            (
+                measure.textlength(text, font=font)
+                for text, font in texts
+                if font is FONT_CHALLENGE_TOTAL
+            ),
+            default=0,
+        )
+        wanted = max(
+            portraits,
+            text_width + CHALLENGE_TEXT_PADDING * 2,
+        )
+        if ability:
+            # A group carrying an ability holds a minimum width, so a
+            # sentence under one short name doesn't wrap into a narrow
+            # column. A group without one is as narrow as its own
+            # content allows, which is what packs a wall of defenders
+            # together instead of spreading them over a fixed grid.
+            wanted = max(wanted, CHALLENGE_MIN_GROUP_WIDTH)
+        return round(
+            max(
+                min(wanted, CHALLENGE_MAX_GROUP_WIDTH),
+                portraits + CHALLENGE_TEXT_PADDING * 2,
+                sum_width + CHALLENGE_TEXT_PADDING * 2,
+            )
+        )
+
+    attacking_width = group_width(attacking, "", True)
+    defending_width = group_width(
+        defending, defending_note, defending_abilities,
+    )
+
+    def wrapped(
+        sides: list[ChallengeSide],
+        note: str,
+        ability: bool,
+        width: int,
+    ) -> list[tuple[str, str, ImageFont.ImageFont, int]]:
+        if not sides:
+            return (
+                [(note, CHALLENGE_SKILL_COLOR, FONT_SMALL, CHALLENGE_LINE_HEIGHT)]
+                if note
+                else []
+            )
+        lines = []
+        for text, color, font, line_height in group_text_lines(sides, ability):
+            if not text:
+                lines.append((text, color, font, line_height))
+                continue
+            for piece in wrap_text(
+                measure, text, font, width - CHALLENGE_TEXT_PADDING * 2,
+            ):
+                lines.append((piece, color, font, line_height))
+        return lines
+
+    attacking_lines = wrapped(attacking, "", True, attacking_width)
+    defending_lines = wrapped(
+        defending, defending_note, defending_abilities, defending_width,
+    )
+
+    text_top = (
+        CHALLENGE_PORTRAIT_TOP
+        + CHALLENGE_PORTRAIT_SIZE
+        + CHALLENGE_PORTRAIT_GAP
+    )
+    body_bottom = text_top + max(
+        sum(line_height for _, _, _, line_height in lines)
+        for lines in (attacking_lines, defending_lines)
+    )
+    height = round(body_bottom + CHALLENGE_BOTTOM_PADDING)
+    width = attacking_width + CHALLENGE_GUTTER + defending_width
+
+    canvas = Image.new("RGBA", (width, height), "#111820")
+    draw = ImageDraw.Draw(canvas)
+
+    draw_centered_text(
+        draw, width / 2, CHALLENGE_TITLE_TOP, title, FONT_DICE_TOTAL, "#ffffff",
+    )
+    draw_centered_text(
+        draw, width / 2, CHALLENGE_LOCATION_TOP, location, FONT_SMALL,
+        CHALLENGE_SKILL_COLOR,
+    )
+    draw_centered_text(
+        draw,
+        attacking_width + CHALLENGE_GUTTER / 2,
+        CHALLENGE_PORTRAIT_TOP + CHALLENGE_PORTRAIT_SIZE / 2 - 14,
+        CHALLENGE_VERSUS_TEXT,
+        FONT_DICE_TOTAL,
+        CHALLENGE_VERSUS_COLOR,
+    )
+
+    def draw_group(
+        left: int,
+        group_width_px: int,
+        sides: list[ChallengeSide],
+        lines: list[tuple[str, str, ImageFont.ImageFont, int]],
+    ) -> None:
+        center_x = left + group_width_px / 2
+        strip = (
+            len(sides) * CHALLENGE_PORTRAIT_SIZE
+            + max(len(sides) - 1, 0) * CHALLENGE_PORTRAIT_SPACING
+        )
+        portrait_x = center_x - strip / 2
+        for side in sides:
+            portrait = load_player_portrait(side.name)
+            if portrait is not None:
+                sized = portrait.copy()
+                sized.thumbnail(
+                    (CHALLENGE_PORTRAIT_SIZE, CHALLENGE_PORTRAIT_SIZE),
+                    Image.Resampling.LANCZOS,
+                )
+                canvas.alpha_composite(
+                    sized,
+                    (
+                        round(
+                            portrait_x
+                            + (CHALLENGE_PORTRAIT_SIZE - sized.width) / 2
+                        ),
+                        round(
+                            CHALLENGE_PORTRAIT_TOP
+                            + (CHALLENGE_PORTRAIT_SIZE - sized.height) / 2
+                        ),
+                    ),
+                )
+            portrait_x += CHALLENGE_PORTRAIT_SIZE + CHALLENGE_PORTRAIT_SPACING
+
+        y = text_top
+        for text, color, font, line_height in lines:
+            draw_centered_text(draw, center_x, y, text, font, color)
+            y += line_height
+
+    draw_group(0, attacking_width, attacking, attacking_lines)
+    draw_group(
+        attacking_width + CHALLENGE_GUTTER,
+        defending_width,
+        defending,
+        defending_lines,
+    )
+
+    output = BytesIO()
+    canvas.convert("RGB").save(output, format="PNG")
+    output.seek(0)
+    return output
+
+
+def render_maneuver_challenge(
+    offense: ChallengeSide,
+    defense: ChallengeSide,
+    location: str,
+) -> BytesIO:
+    """The two players about to contest a maneuver, one against one."""
+    return render_matchup(
+        CHALLENGE_TITLE, location, [offense], [defense],
+    )
+
+
+def render_score_attempt(
+    shooter: ChallengeSide,
+    defenders: list[ChallengeSide],
+    location: str,
+) -> BytesIO:
+    """
+    The shooter, and everyone between them and the goal as one group.
+
+    Nothing here says what the dice did -- this is the composition of
+    the attempt, posted before anyone rolls, and the roll gets its own
+    image afterwards.
+    """
+    return render_matchup(
+        SCORE_ATTEMPT_TITLE,
+        location,
+        [shooter],
+        defenders,
+        defending_note=SCORE_ATTEMPT_UNDEFENDED,
+        defending_abilities=False,
+    )
 
 
 MANEUVER_DIAGRAM_WIDTH = 1360
