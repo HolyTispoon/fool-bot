@@ -1110,7 +1110,6 @@ class PlayerActionView(SafeView):
         match.pending_action = "maneuver"
         handler = self.cog.get_player_definition(match.active_player_id)
         defender_number = self.cog.defending_player_number(game, match)
-        offense_number = self.cog.possession_player_number(game, match)
 
         # A defender already sharing the ball's exact space leaves
         # nothing to choose -- the 1-per-team-per-space rule means
@@ -1128,16 +1127,12 @@ class PlayerActionView(SafeView):
                 else self.cog.get_ai_strategy(game).choose_challenger(match)
             )
 
-            refresh_player_names(game, interaction.guild)
-            offense_display = format_player_with_team(game, offense_number)
-
-            await interaction.response.edit_message(
-                content=(
-                    f"{offense_display} has chosen to {action_label} with "
-                    f"{format_role_bracket(handler, self.cog.team_emojis)}."
-                ),
-                view=None,
-            )
+            # This prompt goes rather than being edited down to who
+            # chose what: the challenge image posted a moment from now
+            # names the handler, the challenger and everything about
+            # the matchup. See D12Ball.drop_turn_prompt.
+            await interaction.response.defer()
+            await self.cog.drop_turn_prompt(interaction, game)
             await self.cog.auto_resolve_challenger(
                 interaction, game, match, challenger_id,
             )
@@ -1147,24 +1142,23 @@ class PlayerActionView(SafeView):
         save_games(self.cog.games)
 
         refresh_player_names(game, interaction.guild)
-        offense_display = format_player_with_team(game, offense_number)
         defender_mention = format_player_with_team(
             game,
             defender_number,
             mention=True,
         )
 
-        await interaction.response.edit_message(
-            content=(
-                f"{offense_display} has chosen to {action_label} with "
-                f"{format_role_bracket(handler, self.cog.team_emojis)}.\n\n"
-                "Waiting for the defense to choose a challenger..."
-            ),
-            view=None,
-        )
+        await interaction.response.defer()
+        await self.cog.drop_turn_prompt(interaction, game)
 
+        # The handler is named here, unlike in the automatic case
+        # above: the defense is being asked to choose a challenger
+        # before the challenge image exists, so this is the only place
+        # they can read who they would be up against.
         challenge_view = ManeuverChallengeView(self.cog, self.game_id)
         challenge_message = await interaction.followup.send(
+            f"{format_role_bracket(handler, self.cog.team_emojis)} will "
+            f"maneuver for {handler.team.value.title()}.\n\n"
             f"{defender_mention}, choose which player will maneuver "
             "to challenge for the ball.",
             view=challenge_view,
@@ -1266,14 +1260,9 @@ class ManeuverChallengeView(SafeView):
             )
             return
 
-        refresh_player_names(game, interaction.guild)
-        defender_number = self.cog.defending_player_number(game, match)
-        defender_display = format_player_with_team(game, defender_number)
-
         # Built before the save: a walk-in's tokens can cross the
-        # Exhausted threshold, and the announcement is what tests it.
-        announcement = self.cog.build_challenge_announcement(
-            game,
+        # Exhausted threshold, and this description is what tests it.
+        walk_in_text = self.cog.describe_challenger_walk_in(
             match,
             player_id,
             distance,
@@ -1282,17 +1271,16 @@ class ManeuverChallengeView(SafeView):
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
-        await interaction.response.edit_message(
-            content=f"{defender_display} has chosen their challenger.",
-            view=None,
-        )
-        await interaction.followup.send(
-            announcement,
-            allowed_mentions=discord.AllowedMentions(
-                users=False,
-                roles=False,
-                everyone=False,
-            ),
+        # The prompt goes rather than being edited down to "has chosen
+        # their challenger" -- the challenge image below says who was
+        # picked, and a good deal more. See D12Ball.drop_turn_prompt.
+        await interaction.response.defer()
+        await self.cog.drop_turn_prompt(interaction, game)
+        await self.cog.announce_maneuver_challenge(
+            interaction,
+            match,
+            player_id,
+            walk_in_text,
         )
 
         await self.cog.refresh_match_image(interaction, game)
@@ -1607,42 +1595,31 @@ class SkillTestView(SafeView):
 
         # Role ability -- Midfielder: +3 on a skill test when
         # attempting Low Pass (offense) or Pressure (defense).
-        offense_ability_note = ""
         offense_ability_detail = ""
         if (
             offense_player.role == PlayerRole.MIDFIELDER
             and match.offense_maneuver == "Low Pass"
         ):
             offense_total += 3
-            offense_ability_note = " + 3 (Midfielder ability)"
             offense_ability_detail = "+3 Midfielder ability"
 
-        defense_ability_note = ""
         defense_ability_detail = ""
         if (
             defense_player.role == PlayerRole.MIDFIELDER
             and match.defense_maneuver == "Pressure"
         ):
             defense_total += 3
-            defense_ability_note = " + 3 (Midfielder ability)"
             defense_ability_detail = "+3 Midfielder ability"
 
-        modifier_note = ""
         modifier_detail = ""
         if match.defense_maneuver == "Steal Intercept":
             modifier = match.ball.speed // 2
             defense_total += modifier
-            modifier_note = f" + {modifier} (ball speed modifier)"
             modifier_detail = f"+{modifier} ball speed modifier"
 
-        breakdown = (
-            f"**{format_role_bracket(offense_player, self.cog.team_emojis)}** (offense): "
-            f"rolled {offense_roll} + {offense_skill} (offensive skill "
-            f"modifier){offense_ability_note} = {offense_total}\n"
-            f"**{format_role_bracket(defense_player, self.cog.team_emojis)}** (defense): "
-            f"rolled {defense_roll} + {defense_skill} (defensive skill "
-            f"modifier){defense_ability_note}{modifier_note} = {defense_total}"
-        )
+        # The dice image carries the whole arithmetic -- who rolled,
+        # what they rolled, every modifier and the total -- so no
+        # message repeats it in text. See render_skill_test_dice.
         offense_detail = [
             f"{offense_player.name} [{ROLE_INITIALS[offense_player.role.value]}]",
             f"Offensive skill +{offense_skill}",
@@ -1703,7 +1680,6 @@ class SkillTestView(SafeView):
 
             await interaction.edit_original_response(
                 content=(
-                    f"{breakdown}\n\n"
                     f"**It's a tie ({offense_total}-{defense_total})!** "
                     f"The skill test must be rolled again.\n"
                     f"{exhaustion_text}\n\nRoll again:"
@@ -1733,7 +1709,7 @@ class SkillTestView(SafeView):
         # it. The tie above keeps its text here instead, because that
         # message also carries the roll-again button.
         await interaction.edit_original_response(
-            content=breakdown,
+            content=None,
             attachments=[dice_file],
             view=None,
         )
@@ -1816,33 +1792,23 @@ class ScoreAttemptView(SafeView):
 
         # Role ability -- Striker: +3 on any scoring attempt off a
         # set-up.
-        striker_note = ""
-        if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
+        striker_bonus = (
+            match.pending_shot_is_set_up
+            and shooter.role == PlayerRole.STRIKER
+        )
+        if striker_bonus:
             attack_total += 3
-            striker_note = " + 3 (Striker ability)"
 
-        speed_note = ""
-        if speed_modifier:
-            speed_note = f" + {speed_modifier} (ball speed modifier)"
-        defense_source = (
-            f"{defense_skill_total} (defensive skill in the way)"
-            if defenders
-            else "0 (nobody in the way)"
-        )
-        breakdown = (
-            f"**{format_role_bracket(shooter, self.cog.team_emojis)}** "
-            f"(attack): rolled {attack_roll} + {offense_skill} (offensive "
-            f"skill modifier){speed_note}{striker_note} = {attack_total}\n"
-            f"**{format_team_side_label(defending_setup)}** (defense): "
-            f"rolled {defense_roll} + {defense_source} = {defense_total}"
-        )
+        # Everything that built these two totals is drawn on the dice
+        # image, so no message repeats it in text -- see
+        # render_skill_test_dice.
         attack_detail = [
             f"{shooter.name} [{ROLE_INITIALS[shooter.role.value]}]",
             f"Offensive skill +{offense_skill}",
         ]
         if speed_modifier:
             attack_detail.append(f"+{speed_modifier} ball speed modifier")
-        if striker_note:
+        if striker_bonus:
             attack_detail.append("+3 Striker ability")
 
         if defenders:
@@ -1939,13 +1905,12 @@ class ScoreAttemptView(SafeView):
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
-        # The dice image carries only the maths that produced it, and
-        # the verdict follows in its own message. A message's
-        # attachments always render *below* its content, so a verdict
-        # written into this one would be read before the roll it is
-        # announcing.
+        # The dice image carries the maths that produced it, and the
+        # verdict follows in its own message. A message's attachments
+        # always render *below* its content, so a verdict written into
+        # this one would be read before the roll it is announcing.
         await interaction.response.edit_message(
-            content=breakdown,
+            content=None,
             attachments=[dice_file],
             view=None,
         )
@@ -4363,22 +4328,14 @@ class LooseBallSkillTestView(SafeView):
         # A High Pass's receiver adds the ball speed modifier to keep
         # what the pass delivered (2026-08-07). A genuine loose ball is
         # nobody's yet, so neither side gets it there.
-        modifier_note = ""
         modifier_detail = []
         if match.pending_loose_ball_is_high_pass:
             modifier = match.ball.speed // 2
             offense_total += modifier
-            modifier_note = f" + {modifier} (ball speed modifier)"
             modifier_detail = [f"+{modifier} ball speed modifier"]
 
-        breakdown = (
-            f"**{format_role_bracket(offense_player, self.cog.team_emojis)}** "
-            f"(offense): rolled {offense_roll} + {offense_skill} "
-            f"(offensive skill modifier){modifier_note} = {offense_total}\n"
-            f"**{format_role_bracket(defense_player, self.cog.team_emojis)}** "
-            f"(defense): rolled {defense_roll} + {defense_skill} "
-            f"(defensive skill modifier) = {defense_total}"
-        )
+        # No text breakdown alongside: the dice image already names
+        # both players and shows every modifier that built the totals.
         dice_file = discord.File(
             render_skill_test_dice(
                 [
@@ -4428,7 +4385,6 @@ class LooseBallSkillTestView(SafeView):
 
             await interaction.response.edit_message(
                 content=(
-                    f"{breakdown}\n\n"
                     f"**It's a tie ({offense_total}-{defense_total})!** "
                     f"The skill test must be rolled again.\n"
                     f"{exhaustion_text}\n\nRoll again:"
@@ -4475,7 +4431,7 @@ class LooseBallSkillTestView(SafeView):
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
-        turnover_line = "\n\n# Turnover!" if turnover_occurred else ""
+        turnover_line = "# Turnover!\n\n" if turnover_occurred else ""
         winner_bracket = format_role_bracket(
             winner_player, self.cog.team_emojis,
         )
@@ -4492,10 +4448,24 @@ class LooseBallSkillTestView(SafeView):
                 f"{winner_bracket} wins the loose ball! {winner_mention} "
                 "has possession."
             )
+        # The result follows the dice in its own message, the way every
+        # other skill test announces itself -- a message's attachments
+        # render below its content, so writing the outcome into this
+        # one would put it above the roll that decided it. The tie
+        # above is the exception, since that message carries the
+        # roll-again button. See SkillTestView.roll.
         await interaction.response.edit_message(
-            content=f"{breakdown}{turnover_line}\n\n{outcome_line}",
+            content=None,
             attachments=[dice_file],
             view=None,
+        )
+        await interaction.followup.send(
+            f"{turnover_line}{outcome_line}",
+            # The edit this replaced never pinged the winner, and the
+            # prompt that follows does; one ping per turn is plenty.
+            allowed_mentions=discord.AllowedMentions(
+                users=False, roles=False, everyone=False,
+            ),
         )
         await self.cog.refresh_match_image(interaction, game)
 

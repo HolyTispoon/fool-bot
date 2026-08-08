@@ -110,10 +110,14 @@ TIE_MODE_LABELS = {
 # Developer Portal's "Emojis" tab, from images/emoji/exhaust.png) and
 # looked up here by name using load_condition_emojis below.
 EXHAUST_EMOJI_NAME = "exhaust"
-# Same deal for the "exhausted" condition; "injured" has no upload yet so
-# it just gets a plain fallback emoji.
+# Same deal for the "exhausted" and "injured" conditions, from
+# images/emoji/exhausted.png and images/emoji/injured.png -- the same
+# art the board draws those conditions with, so a line of text and the
+# badge on a card show the player the same icon. The plain emoji below
+# are only reached when an application has no upload by that name.
 EXHAUSTED_EMOJI_NAME = "exhausted"
 EXHAUSTED_EMOJI_FALLBACK = "🥵"
+INJURED_EMOJI_NAME = "injured"
 INJURED_EMOJI_FALLBACK = "🤕"
 
 # Team emoji (a letter in a team-colored ring, images/emoji/team_*.png)
@@ -138,6 +142,7 @@ EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
 CONDITION_EMOJI_NAMES = {
     "exhaust": EXHAUST_EMOJI_NAME,
     "exhausted": EXHAUSTED_EMOJI_NAME,
+    "injured": INJURED_EMOJI_NAME,
 }
 
 
@@ -145,13 +150,21 @@ async def load_condition_emojis(
     bot: commands.Bot,
 ) -> dict[str, str]:
     """
-    Look up the exhaustion-token and exhausted-condition emoji uploaded
-    to the application (the Developer Portal's "Emojis" tab), the same
-    way load_coin_emojis does.
+    Look up the condition emoji -- the exhaustion token, and the
+    exhausted and injured conditions -- uploaded to the application
+    (the Developer Portal's "Emojis" tab), the same way load_coin_emojis
+    does.
 
     Application emoji work in every server the bot is in, but unlike
     guild emoji they are not part of discord.py's `client.emojis`
     cache, so they have to be fetched explicitly.
+
+    A name with no application upload falls back to a guild emoji of
+    the same name before it falls back to a plain one: the art for
+    these conditions has been uploaded to a server by hand at least as
+    often as to the application, and a condition that reads as a
+    picture on the board should not read as a stock emoji in the text
+    beside it.
 
     Anything that goes wrong here just leaves a condition out of the
     mapping and callers fall back to a plain emoji.
@@ -162,14 +175,15 @@ async def load_condition_emojis(
         LOGGER.warning(
             "Could not load the D12 Ball condition emoji: %s", error,
         )
-        return {}
+        emojis = []
 
     emojis_by_name = {emoji.name: emoji for emoji in emojis}
+    guild_emojis_by_name = {emoji.name: emoji for emoji in bot.emojis}
     condition_emojis: dict[str, str] = {}
     missing: list[str] = []
 
     for key, name in CONDITION_EMOJI_NAMES.items():
-        emoji = emojis_by_name.get(name)
+        emoji = emojis_by_name.get(name) or guild_emojis_by_name.get(name)
 
         if emoji is None:
             missing.append(name)
@@ -178,8 +192,9 @@ async def load_condition_emojis(
 
     if missing:
         LOGGER.info(
-            "This application has no condition emoji named %s; those "
-            "conditions will show their fallback emoji instead.",
+            "No condition emoji named %s on this application or in any "
+            "of its servers; those conditions will show their fallback "
+            "emoji instead.",
             ", ".join(missing),
         )
 
@@ -192,6 +207,10 @@ def get_exhaust_emoji(condition_emojis: dict[str, str]) -> str:
 
 def get_exhausted_emoji(condition_emojis: dict[str, str]) -> str:
     return condition_emojis.get("exhausted", EXHAUSTED_EMOJI_FALLBACK)
+
+
+def get_injured_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("injured", INJURED_EMOJI_FALLBACK)
 
 
 async def load_team_emojis(

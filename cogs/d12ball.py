@@ -38,10 +38,14 @@ from d12ball.game import (
 )
 from d12ball.render import (
     TEAM_COLORS,
+    ZONE_LABELS,
+    ChallengeSide,
     render_injury_test_die,
+    render_maneuver_challenge,
     render_maneuver_reference_image,
     render_match_image,
     render_own_goal_dice,
+    render_score_attempt,
 )
 
 from gamesaves.d12ball.storage import (
@@ -53,7 +57,6 @@ from cogs.d12ball_helpers import (
     BENCH_DESTINATIONS,
     COIN_EMOJI_NAMES,
     HIGH_PASS_CONTEST_HEADLINE,
-    INJURED_EMOJI_FALLBACK,
     LOGGER,
     PBD_ARCHIVE_CATEGORY_NAME,
     PBD_GAMES_CATEGORY_NAME,
@@ -72,6 +75,7 @@ from cogs.d12ball_helpers import (
     format_team_side_label,
     get_exhaust_emoji,
     get_exhausted_emoji,
+    get_injured_emoji,
     get_or_create_category,
     load_coin_emojis,
     load_condition_emojis,
@@ -582,59 +586,23 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Post what the score attempt is made of, then the roll prompt.
-        The composition is a permanent message of its own so the numbers
-        that fed the roll survive the prompt being edited into a result.
+        The composition is a message of its own, and an image for the
+        same reason the maneuver challenge is one (see
+        build_maneuver_challenge_file): a shot is decided by skills and
+        abilities that a line of prose lists without showing.
         """
-        shooter = self.get_player_definition(match.active_player_id)
-        offense_skill = self.player_catalog.effective_profile(
-            shooter,
-        ).offense
-        speed_modifier = match.ball.speed // 2
-        defenders = self.intervening_defenders(match)
-        defense_skill_total = sum(skill for _, skill in defenders)
-        defending_setup = match.setup_for_side(match.defending_side())
-
-        attack_line = f"offensive skill {offense_skill}"
-        if speed_modifier:
-            attack_line += (
-                f", plus {speed_modifier} for a ball speed of "
-                f"{match.ball.speed}"
-            )
-        if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
-            attack_line += ", plus 3 for the Striker ability"
-
-        if defenders:
-            defense_line = (
-                ", ".join(
-                    f"{format_role_bracket(player, self.team_emojis)} "
-                    f"{skill}"
-                    for player, skill in defenders
-                )
-                + f" -- {defense_skill_total} in total"
-            )
-        else:
-            defense_line = (
-                "nobody is in the way, so the defence rolls a bare d12"
-            )
-
         await interaction.followup.send(
-            "**Score attempt** -- "
-            f"{format_role_bracket(shooter, self.team_emojis)} shoots from "
-            f"{space_label(match.ball.zone, match.ball.space_index)} at the "
-            f"{format_team_side_label(defending_setup)} goal.\n\n"
-            f"Attack: {attack_line}\n"
-            f"Defence: {defense_line}\n\n"
-            "Both sides roll one d12. The attacker scores on a total equal "
-            "to or higher than the defence.",
-            allowed_mentions=discord.AllowedMentions(
-                users=False,
-                roles=False,
-                everyone=False,
-            ),
+            file=self.build_score_attempt_file(match),
         )
 
+        # The one thing the image doesn't show is how the two rolls are
+        # read against each other, so it rides on the prompt -- which
+        # becomes the dice image the moment it is answered, taking the
+        # explanation with it once it is no longer needed.
         prompt_message = await interaction.followup.send(
-            "Either player can roll:",
+            "Either player can roll. Both sides roll one d12; the "
+            "attacker scores on a total equal to or higher than the "
+            "defence.",
             view=ScoreAttemptView(self, game.game_id),
             wait=True,
         )
@@ -658,18 +626,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         distance = match.choose_challenger(challenger_id)
         # Built before the save: the walk-in's tokens can cross the
         # Exhausted threshold, and that flag is set while the
-        # announcement is put together. See apply_exhaustion.
-        announcement = self.build_challenge_announcement(
-            game, match, challenger_id, distance,
+        # description is put together. See apply_exhaustion.
+        walk_in_text = self.describe_challenger_walk_in(
+            match, challenger_id, distance,
         )
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        await interaction.followup.send(
-            announcement,
-            allowed_mentions=discord.AllowedMentions(
-                users=False, roles=False, everyone=False,
-            ),
+        await self.announce_maneuver_challenge(
+            interaction, match, challenger_id, walk_in_text,
         )
         await self.refresh_match_image(interaction, game)
         await self.begin_maneuver_action_selection(interaction, game, match)
@@ -873,7 +838,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"an injury test: {roll} does not beat their "
                 f"{current_tokens} exhaustion tokens — injury! "
                 f"{format_role_bracket(player, self.team_emojis)} now has the condition "
-                f"**injured** {INJURED_EMOJI_FALLBACK}. Their exhaustion "
+                f"**injured** {get_injured_emoji(self.condition_emojis)}. "
+                "Their exhaustion "
                 "tokens are removed; they are no longer exhausted and "
                 "cannot gain more exhaustion tokens or make another "
                 "injury check."
@@ -4123,7 +4089,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if player_id in match.injured:
             return (
                 f"{format_role_bracket(player, self.team_emojis)} is injured "
-                f"{INJURED_EMOJI_FALLBACK} and gains no exhaustion tokens."
+                f"{get_injured_emoji(self.condition_emojis)} and gains no "
+                "exhaustion tokens."
             )
         if amount <= 0:
             return (
@@ -4149,31 +4116,163 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
         return text
 
-    def build_challenge_announcement(
+    def describe_challenger_walk_in(
         self,
-        game: D12BallGame,
         match: MatchState,
         defender_id: str,
         distance: int,
     ) -> str:
-        defender = self.get_player_definition(defender_id)
-        handler = self.get_player_definition(match.active_player_id)
+        """
+        The challenger's walk-in and what it cost, or "" when they were
+        already on the ball's space.
 
-        announcement = (
-            f"{format_role_bracket(defender, self.team_emojis)} from "
-            f"{defender.team.value.title()} will challenge "
-            f"{format_role_bracket(handler, self.team_emojis)} from "
-            f"{handler.team.value.title()}."
+        Like every other exhaustion message this tests the Exhausted
+        threshold as it writes it, so it has to be built before `match`
+        is saved -- see apply_exhaustion.
+        """
+        if distance <= 0:
+            return ""
+
+        defender = self.get_player_definition(defender_id)
+        space_word = "space" if distance == 1 else "spaces"
+        return (
+            f"{defender.name} has moved {distance} {space_word}."
+            f"\n{self.describe_exhaustion_gain(match, defender_id, distance)}"
         )
 
-        if distance > 0:
-            space_word = "space" if distance == 1 else "spaces"
-            announcement += (
-                f"\n\n{defender.name} has moved {distance} {space_word}."
-                f"\n{self.describe_exhaustion_gain(match, defender_id, distance)}"
-            )
+    def challenge_side(
+        self,
+        player_id: str,
+        attacking: bool,
+        modifiers: tuple[str, ...] = (),
+    ) -> ChallengeSide:
+        player = self.get_player_definition(player_id)
+        profile = self.player_catalog.effective_profile(player)
+        return ChallengeSide(
+            name=player.name,
+            role=ROLE_INITIALS[player.role.value],
+            team_color=TEAM_COLORS[player.team],
+            team_label=player.team.value.title(),
+            skill_name="Offensive" if attacking else "Defensive",
+            skill=profile.offense if attacking else profile.defense,
+            ability=profile.ability,
+            modifiers=modifiers,
+        )
 
-        return announcement
+    def build_maneuver_challenge_file(
+        self,
+        match: MatchState,
+        defender_id: str,
+    ) -> discord.File:
+        """
+        The matchup about to be contested, as a picture. It stands in
+        for the two lines of prose that used to announce a challenge:
+        the players' skills and abilities are what a coach weighs while
+        choosing a maneuver, and neither was in the text.
+        """
+        return discord.File(
+            render_maneuver_challenge(
+                self.challenge_side(match.active_player_id, attacking=True),
+                self.challenge_side(defender_id, attacking=False),
+                location=(
+                    f"{space_label(match.ball.zone, match.ball.space_index)}"
+                    f" — {ZONE_LABELS[match.ball.zone].title()}"
+                ),
+            ),
+            filename="maneuver_challenge.png",
+        )
+
+    def build_score_attempt_file(self, match: MatchState) -> discord.File:
+        """
+        What the shot is made of: the shooter with the modifiers this
+        particular attempt earns them, and every defender between them
+        and the goal.
+
+        The two modifiers are listed on the shooter rather than folded
+        into their skill, because both are conditions of this attempt
+        and not of the player -- the ball speed is spent on the shot,
+        and the Striker's +3 only applies off a set-up.
+        """
+        shooter = self.get_player_definition(match.active_player_id)
+        speed_modifier = match.ball.speed // 2
+        defenders = self.intervening_defenders(match)
+        defending_setup = match.setup_for_side(match.defending_side())
+
+        modifiers = []
+        if speed_modifier:
+            modifiers.append(
+                f"+{speed_modifier} ball speed ({match.ball.speed})"
+            )
+        if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
+            modifiers.append("+3 Striker ability")
+
+        return discord.File(
+            render_score_attempt(
+                self.challenge_side(
+                    shooter.player_id,
+                    attacking=True,
+                    modifiers=tuple(modifiers),
+                ),
+                [
+                    self.challenge_side(player.player_id, attacking=False)
+                    for player, _ in defenders
+                ],
+                location=(
+                    f"{space_label(match.ball.zone, match.ball.space_index)}"
+                    f" → {format_team_side_label(defending_setup)} goal"
+                ),
+            ),
+            filename="score_attempt.png",
+        )
+
+    async def announce_maneuver_challenge(
+        self,
+        interaction: discord.Interaction,
+        match: MatchState,
+        defender_id: str,
+        walk_in_text: str,
+    ) -> None:
+        """
+        Post the matchup image, with the challenger's walk-in above it
+        rather than below: the image is meant to sit directly on top of
+        the maneuver prompt, which is the message a coach is reading it
+        for.
+        """
+        if walk_in_text:
+            await interaction.followup.send(
+                walk_in_text,
+                allowed_mentions=discord.AllowedMentions(
+                    users=False, roles=False, everyone=False,
+                ),
+            )
+        await interaction.followup.send(
+            file=self.build_maneuver_challenge_file(match, defender_id),
+        )
+
+    async def drop_turn_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        """
+        Delete the prompt whose choice has just been made, the same way
+        refresh_maneuver_prompt drops the maneuver prompt once both
+        sides have picked: what it asked for is settled, and the
+        challenge image posted underneath says who is involved better
+        than the "has chosen to..." line the message would otherwise be
+        edited down to.
+
+        The caller must have acknowledged the interaction already
+        (`response.defer()`), since deleting is not itself a response.
+        """
+        try:
+            await interaction.delete_original_response()
+        except (discord.NotFound, discord.HTTPException):
+            pass
+
+        if game.turn_message_id is not None:
+            game.turn_message_id = None
+            save_games(self.games)
 
     async def refresh_match_image(
         self,
@@ -4248,7 +4347,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"exhausted {get_exhausted_emoji(self.condition_emojis)}"
             )
         if player_id in match.injured:
-            conditions.append(f"injured {INJURED_EMOJI_FALLBACK}")
+            conditions.append(
+                f"injured {get_injured_emoji(self.condition_emojis)}"
+            )
 
         entry = format_role_bracket(player, self.team_emojis)
         if location is not None:
@@ -4456,10 +4557,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.match_state = match.to_dict()
             save_games(self.games)
 
-            await interaction.followup.send(
-                f"{ai_name} has chosen to maneuver with "
-                f"{format_role_bracket(handler, self.team_emojis)}."
-            )
+            # Nothing is announced here: the challenge image
+            # auto_resolve_challenger posts names the handler the AI
+            # picked, along with everything else about the matchup.
             await self.auto_resolve_challenger(
                 interaction, game, match, on_ball_space[0],
             )
@@ -4477,7 +4577,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         challenge_view = ManeuverChallengeView(self, game.game_id)
         challenge_message = await interaction.followup.send(
-            f"{ai_name} has chosen to maneuver with "
+            f"{ai_name} will maneuver with "
             f"{format_role_bracket(handler, self.team_emojis)}.\n\n"
             f"{defender_mention}, choose which player will maneuver "
             "to challenge for the ball.",
