@@ -59,6 +59,19 @@ class AIStrategy(ABC):
         ...
 
     @abstractmethod
+    def choose_low_pass_receiver(
+        self,
+        match: MatchState,
+        receivers: list[str],
+    ) -> str:
+        """Which teammate on the destination space actually takes the
+        pass. Usually only one is standing there and there is nothing
+        to choose; a formation that stacks (4-1-1, 2-1-3) can put two
+        or three on it, and the pick decides who a Winger's set-up
+        hands the shot to. Never called with an empty list."""
+        ...
+
+    @abstractmethod
     def choose_dribble_advance_distance(self, match: MatchState) -> int:
         """1 or 2 -- only ever asked of a Playmaker, everyone else
         advances a fixed 1 space with no choice to make."""
@@ -198,6 +211,21 @@ class DinkyAI(AIStrategy):
         """Always the most forward teammate-occupied space available
         -- same maximizing spirit as choose_speed_delta."""
         return max(distance for distance, _ in candidates)
+
+    def choose_low_pass_receiver(
+        self,
+        match: MatchState,
+        receivers: list[str],
+    ) -> str:
+        """The best attacker standing there. The receiver only matters
+        when the passer is a Winger, whose ability offers this player
+        the shot, so offense is the skill to pick on."""
+        return max(
+            receivers,
+            key=lambda player_id: self.player_catalog.effective_profile(
+                self.player_catalog.player_by_id(player_id)
+            ).offense,
+        )
 
     def choose_dribble_advance_distance(self, match: MatchState) -> int:
         """Always take the full 2 spaces -- same maximizing spirit as

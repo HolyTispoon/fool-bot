@@ -1883,6 +1883,91 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # distance 0).
         self.assertEqual(cog.low_pass_candidates(match), [(0, sharing)])
 
+    # -- low_pass_receivers -------------------------------------------
+
+    def test_low_pass_receivers_lists_everyone_on_the_space(self) -> None:
+        # A formation that stacks makes two or three teammates on one
+        # space ordinary, and which of them receives is the passer's
+        # choice -- the destination list only names the first.
+        match = self.build_match()
+        self.clear_board(match)
+        handler, first, second = match.home.field_players[:3]
+        for player_id in (handler, first, second):
+            match.move_meeple(player_id, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = handler
+
+        cog = self.build_cog()
+
+        self.assertEqual(cog.low_pass_candidates(match), [(0, first)])
+        self.assertEqual(
+            cog.low_pass_receivers(match, 0), [first, second],
+        )
+
+    def test_low_pass_receivers_never_include_the_passer(self) -> None:
+        match = self.build_match()
+        self.clear_board(match)
+        handler, sharing = match.home.field_players[:2]
+        match.move_meeple(handler, Zone.MIDFIELD, 1)
+        match.move_meeple(sharing, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = handler
+
+        cog = self.build_cog()
+
+        self.assertEqual(cog.low_pass_receivers(match, 0), [sharing])
+
+    def test_low_pass_receivers_ignore_the_other_team(self) -> None:
+        match = self.build_match()
+        self.clear_board(match)
+        handler, teammate = match.home.field_players[:2]
+        opponent = match.visiting.field_players[0]
+        for player_id in (handler, teammate, opponent):
+            match.move_meeple(player_id, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = handler
+
+        cog = self.build_cog()
+
+        self.assertEqual(cog.low_pass_receivers(match, 0), [teammate])
+
+    async def test_a_winger_s_set_up_goes_to_the_chosen_receiver(
+        self,
+    ) -> None:
+        # The receiver is what the Winger's ability hands the shot to,
+        # which is the whole reason the choice is asked for.
+        cog = self.build_cog()
+        match = self.build_match()
+        self.clear_board(match)
+        winger = self.player_with_role(match, TeamSide.HOME, PlayerRole.WINGER)
+        first, second = [
+            player_id
+            for player_id in match.home.field_players
+            if player_id != winger
+        ][:2]
+        for player_id in (winger, first, second):
+            match.move_meeple(player_id, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = winger
+
+        game = SimpleNamespace(game_id="g", match_state=None)
+        interaction = SimpleNamespace(
+            followup=SimpleNamespace(send=mock.AsyncMock()),
+        )
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_low_pass(
+                interaction, game, match, 0, receiver_id=second,
+            )
+
+        self.assertEqual(
+            cog.offer_scoring_attempt_choice.await_args.kwargs["shooter_id"],
+            second,
+        )
+
     # -- apply_low_pass ------------------------------------------------
 
     async def test_apply_low_pass_moves_ball_for_non_winger(self) -> None:

@@ -521,15 +521,7 @@ class TeamSelectionView(GameConfigurationView):
 
         message = build_setup_message(game)
 
-        if game.teams_selected and not game.formations_selected:
-            await interaction.response.edit_message(
-                content=message,
-                view=FormationSelectionView(
-                    cog=self.cog,
-                    game_id=self.game_id,
-                ),
-            )
-        elif game.teams_selected:
+        if game.teams_selected:
             # Resolved before the view is built, because the flip
             # button carries the fortune coin.
             await self.cog.ensure_coin_emojis()
@@ -557,254 +549,6 @@ class TeamSelectionView(GameConfigurationView):
         game: D12BallGame,
     ) -> str:
         return build_setup_message(game)
-
-
-class FormationSelectionView(GameConfigurationView):
-    """
-    Each coach picks their formation and then fills its zones, one row
-    of the setup message each, so both can be doing it at once. A row
-    shows three formation buttons, then a select for the next zone to
-    fill, then -- once they are done -- a button to start over while
-    they wait for the other coach.
-
-    The AI never appears here: it plays the default 2-2-2 deal, so a
-    solo game only ever shows one row. Setup moves on to the coin toss
-    the moment both coaches are settled.
-    """
-
-    def configuration_start_row(
-        self,
-        game: Optional[D12BallGame],
-    ) -> int:
-        # One row per coach who has to answer, above the settings.
-        return 1 if game is not None and game.is_solo_game else 2
-
-    def __init__(
-        self,
-        cog: "D12Ball",
-        game_id: str,
-    ):
-        super().__init__(timeout=None)
-
-        self.cog = cog
-        self.game_id = game_id
-
-        game = self.cog.games.get(game_id)
-        if game is None:
-            return
-
-        for row, player_number in enumerate(self.coaches(game)):
-            self.add_coach_row(game, player_number, row)
-
-        self.add_configuration_buttons()
-
-    def coaches(self, game: D12BallGame) -> tuple[int, ...]:
-        return (1,) if game.is_solo_game else (1, 2)
-
-    def add_coach_row(
-        self,
-        game: D12BallGame,
-        player_number: int,
-        row: int,
-    ) -> None:
-        coach = format_player(game, player_number)
-        formation = game.formation_for_player(player_number)
-
-        if formation is None:
-            for choice in Formation:
-                button = discord.ui.Button(
-                    label=f"{coach}: {choice.value}"[:80],
-                    style=discord.ButtonStyle.primary,
-                    custom_id=(
-                        f"d12ball:formation:{self.game_id}:"
-                        f"{player_number}:{choice.value}"
-                    ),
-                    row=row,
-                )
-
-                async def callback(
-                    interaction: discord.Interaction,
-                    picked: Formation = choice,
-                    number: int = player_number,
-                ) -> None:
-                    await self.select_formation(
-                        interaction, number, picked,
-                    )
-
-                button.callback = callback
-                self.add_item(button)
-            return
-
-        area = self.cog.next_unfilled_area(game, player_number)
-
-        candidates = self.cog.unassigned_candidates(game, player_number)
-
-        if area is not None and candidates:
-            count = min(
-                self.cog.formation_shape(formation).count(area),
-                len(candidates),
-            )
-            select = discord.ui.Select(
-                placeholder=(
-                    f"{coach}: pick {count} for "
-                    f"{area_display_name(area)}"
-                )[:150],
-                min_values=count,
-                max_values=count,
-                options=[
-                    discord.SelectOption(
-                        label=self.cog.format_roster_player(player_id)[:100],
-                        value=player_id,
-                    )
-                    for player_id in candidates
-                ],
-                custom_id=(
-                    f"d12ball:formation_cards:{self.game_id}:"
-                    f"{player_number}:{area}"
-                ),
-                row=row,
-            )
-
-            async def select_callback(
-                interaction: discord.Interaction,
-                chosen_area: str = area,
-                number: int = player_number,
-                menu: discord.ui.Select = select,
-            ) -> None:
-                await self.select_cards(
-                    interaction, number, chosen_area, list(menu.values),
-                )
-
-            select.callback = select_callback
-            self.add_item(select)
-            return
-
-        restart = discord.ui.Button(
-            label=f"{coach}: change formation"[:80],
-            style=discord.ButtonStyle.secondary,
-            custom_id=(
-                f"d12ball:formation_restart:{self.game_id}:{player_number}"
-            ),
-            row=row,
-        )
-
-        async def restart_callback(
-            interaction: discord.Interaction,
-            number: int = player_number,
-        ) -> None:
-            await self.select_formation(interaction, number, None)
-
-        restart.callback = restart_callback
-        self.add_item(restart)
-
-    async def claim(
-        self,
-        interaction: discord.Interaction,
-        player_number: int,
-    ) -> Optional[D12BallGame]:
-        """
-        The game, once the person clicking is the coach whose row they
-        clicked. A test game is one person playing both sides, so
-        there the row itself says which coach they are answering as.
-        """
-        game = self.cog.games.get(self.game_id)
-
-        if game is None:
-            await interaction.response.send_message(
-                "I could not find this game.",
-                ephemeral=True,
-            )
-            return None
-
-        if game.status != GameStatus.SETUP:
-            await interaction.response.send_message(
-                "Setup is already closed.",
-                ephemeral=True,
-            )
-            return None
-
-        expected_id = (
-            game.player_1_id if player_number == 1 else game.player_2_id
-        )
-        if interaction.user.id != expected_id:
-            await interaction.response.send_message(
-                "Only that coach can choose their own formation.",
-                ephemeral=True,
-            )
-            return None
-
-        return game
-
-    async def select_formation(
-        self,
-        interaction: discord.Interaction,
-        player_number: int,
-        formation: Optional[Formation],
-    ) -> None:
-        game = await self.claim(interaction, player_number)
-        if game is None:
-            return
-
-        game.set_formation(player_number, formation)
-        self.cog.fill_forced_areas(game, player_number)
-        save_games(self.cog.games)
-
-        await self.advance(interaction, game)
-
-    async def select_cards(
-        self,
-        interaction: discord.Interaction,
-        player_number: int,
-        area: str,
-        player_ids: list[str],
-    ) -> None:
-        game = await self.claim(interaction, player_number)
-        if game is None:
-            return
-
-        if area != self.cog.next_unfilled_area(game, player_number):
-            # Somebody clicked a select the message had already moved
-            # past -- a stale view, or both coaches answering at once.
-            await interaction.response.send_message(
-                "That zone has already been filled.",
-                ephemeral=True,
-            )
-            return
-
-        assignment = dict(game.assignment_for_player(player_number) or {})
-        assignment[area] = player_ids
-        game.set_assignment(player_number, assignment)
-        self.cog.fill_forced_areas(game, player_number)
-        save_games(self.cog.games)
-
-        await self.advance(interaction, game)
-
-    async def advance(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-    ) -> None:
-        """
-        Re-render the setup message: the formation step again while a
-        coach still owes an answer, the coin toss once neither does.
-        """
-        message = build_setup_message(game)
-
-        if game.formations_selected:
-            await self.cog.ensure_coin_emojis()
-            await interaction.response.edit_message(
-                content=message,
-                view=CoinFlipView(cog=self.cog, game_id=self.game_id),
-            )
-            return
-
-        await interaction.response.edit_message(
-            content=message,
-            view=FormationSelectionView(
-                cog=self.cog,
-                game_id=self.game_id,
-            ),
-        )
 
 
 class CoinFlipView(GameConfigurationView):
@@ -2233,9 +1977,11 @@ class LowPassChoiceView(SafeView):
     Which teammate-occupied space to pass to -- Low Pass has no fixed
     distance anymore, only the nearest teammate each way within 2
     spaces and one sharing the ball's space, each of which must be a
-    *different* player, so the destination itself is the choice. A
-    handler with nobody in reach never sees this view: resolve_low_pass
-    settles that case without a prompt.
+    *different* player, so the destination is usually the whole choice.
+    Where the space picked holds more than one teammate -- ordinary
+    under a formation that stacks -- LowPassReceiverView asks which of
+    them takes it. A handler with nobody in reach never sees either
+    view: resolve_low_pass settles that case without a prompt.
     Reconstructible on restart purely from match state (see
     D12Ball.build_effect_choice_view), the same pattern every other
     persistent view in this cog follows.
@@ -2262,11 +2008,21 @@ class LowPassChoiceView(SafeView):
             zone, space_index = match.board.position_at_flat_index(
                 target_flat,
             )
+            receivers = cog.low_pass_receivers(match, distance)
             role_initial = ROLE_INITIALS[teammate.role.value]
-            label = (
-                f"{teammate.name} [{role_initial}] -- "
-                f"{space_label(zone, space_index)}"
-            )
+            if len(receivers) > 1:
+                # Naming one of several would misread the choice: the
+                # space is what is being picked here, and who receives
+                # comes next.
+                label = (
+                    f"{len(receivers)} players -- "
+                    f"{space_label(zone, space_index)}"
+                )
+            else:
+                label = (
+                    f"{teammate.name} [{role_initial}] -- "
+                    f"{space_label(zone, space_index)}"
+                )
             button = discord.ui.Button(
                 label=label,
                 style=discord.ButtonStyle.primary,
@@ -2306,14 +2062,7 @@ class LowPassChoiceView(SafeView):
             return
 
         offense_side = match.ball.possession
-        teammate_id = next(
-            player_id
-            for candidate_distance, player_id in (
-                self.cog.low_pass_candidates(match)
-            )
-            if candidate_distance == distance
-        )
-        teammate = self.cog.get_player_definition(teammate_id)
+        receivers = self.cog.low_pass_receivers(match, distance)
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
@@ -2323,6 +2072,18 @@ class LowPassChoiceView(SafeView):
         zone, space_index = match.board.position_at_flat_index(target_flat)
         team_name = match.setup_for_side(offense_side).team.value.title()
 
+        if len(receivers) > 1:
+            await interaction.response.edit_message(
+                content=(
+                    f"**{interaction.user.display_name} ({team_name})** is "
+                    f"passing to {space_label(zone, space_index)}. Which "
+                    "player receives it?"
+                ),
+                view=LowPassReceiverView(self.cog, self.game_id, distance),
+            )
+            return
+
+        teammate = self.cog.get_player_definition(receivers[0])
         await interaction.response.edit_message(
             content=(
                 f"**{interaction.user.display_name} ({team_name})** chose "
@@ -2332,7 +2093,112 @@ class LowPassChoiceView(SafeView):
             ),
             view=None,
         )
-        await self.cog.apply_low_pass(interaction, game, match, distance)
+        await self.cog.apply_low_pass(
+            interaction, game, match, distance, receiver_id=receivers[0],
+        )
+
+
+class LowPassReceiverView(SafeView):
+    """
+    Which of the teammates on the destination space takes the pass.
+    Only shown when more than one is standing there, which a formation
+    that stacks makes ordinary; the pick decides who a Winger's set-up
+    offers the shot to.
+
+    Unlike LowPassChoiceView this cannot be rebuilt from match state
+    alone -- the destination it belongs to is not written anywhere
+    until the pass is applied -- so a restart mid-choice drops back to
+    the destination prompt (see D12Ball.build_effect_choice_view).
+    Nothing has been committed at that point.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, distance: int):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.distance = distance
+
+        game = cog.games.get(game_id)
+        if game is None or game.match_state is None:
+            return
+        match = cog.load_match_state(game)
+
+        for player_id in cog.low_pass_receivers(match, distance):
+            player = cog.get_player_definition(player_id)
+            button = discord.ui.Button(
+                label=(
+                    f"{player.name} [{ROLE_INITIALS[player.role.value]}]"
+                )[:80],
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:low_pass_receiver:{game_id}:"
+                    f"{distance}:{player_id}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen: str = player_id,
+            ) -> None:
+                await self.choose(interaction, chosen)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        receiver_id: str,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+        match = self.cog.load_match_state(game)
+
+        if not self.cog.user_controls_possession(
+            interaction.user.id, game, match,
+        ):
+            await interaction.response.send_message(
+                "Only the player resolving this effect can choose.",
+                ephemeral=True,
+            )
+            return
+
+        if receiver_id not in self.cog.low_pass_receivers(
+            match, self.distance,
+        ):
+            await interaction.response.send_message(
+                "That player is no longer standing there.",
+                ephemeral=True,
+            )
+            return
+
+        offense_side = match.ball.possession
+        receiver = self.cog.get_player_definition(receiver_id)
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        zone, space_index = match.board.position_at_flat_index(
+            match.relative_flat_index(origin_flat, offense_side, self.distance)
+        )
+        team_name = match.setup_for_side(offense_side).team.value.title()
+
+        await interaction.response.edit_message(
+            content=(
+                f"**{interaction.user.display_name} ({team_name})** chose "
+                "to pass the ball to "
+                f"{format_role_bracket(receiver, self.cog.team_emojis)} at "
+                f"{space_label(zone, space_index)}."
+            ),
+            view=None,
+        )
+        await self.cog.apply_low_pass(
+            interaction, game, match, self.distance, receiver_id=receiver_id,
+        )
 
 
 class HighPassChoiceView(SafeView):

@@ -45,14 +45,6 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
-### Which player receives a Low Pass onto a stack?
-
-A Low Pass of distance 0 goes to "a *second* player sharing the ball's space", which named exactly
-one player while a space held at most one of a team's meeples. Formations that stack make three
-teammates on a space ordinary, and the code picks the first occupant who is not the handler --
-an arbitrary choice the coach never sees. Either the passer chooses their receiver, or something
-decides it for them; worth settling before 4-1-1 sees much play.
-
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
 
@@ -69,16 +61,21 @@ the author directly.
   goal forward, so 4-1-1 packs the defence and 2-1-3 the attack, and each fields the same six
   cards -- one of each role, with the same three left on the bench. Advanced mode keeps its
   per-team abilities and no longer owes the game its formations.
-- **The coach assigns every card.** A formation fixes only how many cards go in each zone;
-  which card goes where is the coach's, settled in setup. Left alone, a shape is dealt by role
-  back to front (fullback, defender, midfielder, playmaker, winger, striker), which reproduces
-  the old standard setup exactly for 2-2-2. That is what the AI plays.
+- **Setup does not offer them: every game kicks off in 2-2-2**, dealt as the standard setup,
+  and a formation is changed only by rearranging in a substitution window. A shape is a move
+  a coach makes during a game, not part of arriving at one.
 - **A rearrangement may change formation.** The substitution window (and halftime, which runs
-  the same window) can move a team into any of the three, not only the one they kicked off in.
-  It was previously restricted to swaps, which cannot change a shape.
+  the same window) can move a team into any of the three. It was previously restricted to
+  swaps, which cannot change a shape. Which card goes where is the coach's; the formation
+  fixes only how many go in each zone.
 - **Halftime's free placement answers to the coverage rule** -- settling the question the
   earlier entry opened. Halftime frees the *zone* a meeple may go to, not the space: a coach
   still may not leave a space of a zone they stand in empty in order to stack elsewhere in it.
+- **The passer picks the receiver when a Low Pass lands on more than one teammate.** "A pass
+  to a *second* player sharing the ball's space" named exactly one player while a space held
+  at most one of a team's meeples; a stacking formation makes two or three ordinary. The pick
+  decides who a Winger's set-up offers the shot to, so it is a real choice and belongs to the
+  coach rather than to whoever the occupant list starts with.
 
 ### 2026-08-08 -- author, correcting run-back occupancy
 
@@ -354,7 +351,8 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | "So if they were subbed while exhausted they are no longer exhausted" | Half the tokens, rounded up; Exhausted follows from what remains |
 | A tie at full time goes to the extreme shootout | Tournament mode only; a league game ends tied |
 | "For now, we need one player of each role on the field" | A property of the standard setup, not a standing rule |
-| Nothing about formations, and a fixed two cards per zone | Basic mode plays 2-2-2, 4-1-1 or 2-1-3, and the coach assigns every card |
+| Nothing about formations, and a fixed two cards per zone | Games kick off 2-2-2; rearranging can move a team into 4-1-1 or 2-1-3 |
+| A pass to the ball's own space names one player | The passer picks, when more than one teammate is standing there |
 | Nothing about a Low Pass with no legal destination | The ball goes a space forward, loose, speed still +1 |
 
 ---
@@ -381,7 +379,8 @@ Striker's +3 applies to any shot off a set-up.
 long High Pass to the offense, a score attempt to the attacker, and nothing else); every turnover
 resetting speed to 1; Steal Intercept's fallback happening after the turnover in the new
 possessor's direction; a backward Low Pass raising speed like any other; a Low Pass reaching only
-the nearest teammate each way, needing a different player, and its no-destination case; what a
+the nearest teammate each way, needing a different player, its no-destination case, and the
+passer picking the receiver where the destination holds more than one teammate; what a
 pass across a shared space buys; only a 3+ High Pass being contested.
 
 **Loose ball:** the one-team case taking possession with no test; the out-of-bounds case and its
@@ -393,9 +392,9 @@ rather than capping a space at one player, per team; the surplus stacking freely
 space is covered; same-zone teammates being separated; a steal exempting the stealer; only a
 turnover running anyone back.
 
-**Substitutions:** no requirement to keep one of each role; cards changing zones freely; all
-three formations available in basic mode, and a rearrangement free to change one; rearranging
-costing nothing; every turnover opening a window; substituting
+**Substitutions:** no requirement to keep one of each role; cards changing zones freely;
+rearranging as the only way to change formation, and all three shapes available to it;
+rearranging costing nothing; every turnover opening a window; substituting
 before the run back; the two pools; a returning player only losing tokens; halftime's window not
 being a declaration.
 
@@ -450,8 +449,9 @@ From the author, for `foolbot.py`'s generic commands:
 - **The run back**, end to end: 1 token per space, the coach picking within the zone under the
   coverage rule, the steal exemption, and stacked teammates separated while a space is free.
   Forced placements are applied silently; only a real choice is put to a coach.
-- **Formations**, end to end: 2-2-2, 4-1-1 and 2-1-3, each coach picking theirs and assigning
-  every card in setup, and any substitution window (halftime included) able to change one.
+- **Formations**, end to end: 2-2-2 at kickoff, and any substitution window (halftime
+  included) able to move a team into 4-1-1 or 2-1-3 with the cards of the coach's choosing.
+- **The Low Pass receiver**, where the destination space holds more than one teammate.
 
 ### Specified but not built
 

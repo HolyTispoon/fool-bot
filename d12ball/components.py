@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from d12ball.game import SETUP_AREAS, Formation, Team
+from d12ball.game import Formation, Team
 
 
 DATA_FOLDER = Path(__file__).resolve().parent / "data"
@@ -341,6 +341,11 @@ class TeamSetup:
         )
 
 
+# The three areas a formation and a card assignment are written in,
+# from the coach's own end forward. They are not board zones: a coach
+# reads their own shape from their own goal, and which end of the board
+# that is depends on the side they are playing (zone_for_area).
+SETUP_AREAS = ("own_goal", "midfield", "opponent_goal")
 FIELD_PLAYER_COUNT = 6
 
 

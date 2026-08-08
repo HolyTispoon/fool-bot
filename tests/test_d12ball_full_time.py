@@ -18,7 +18,6 @@ from cogs.d12ball import D12Ball
 from cogs.d12ball_helpers import TIE_MODE_LABELS, build_full_time_summary
 from cogs.d12ball_views import (
     CoinFlipView,
-    FormationSelectionView,
     RematchView,
     TeamSelectionView,
 )
@@ -354,11 +353,7 @@ class TieModeSetupTests(unittest.IsolatedAsyncioTestCase):
             ),
         ):
             cog = self.build_cog_with(game)
-            for view_type in (
-                TeamSelectionView,
-                FormationSelectionView,
-                CoinFlipView,
-            ):
+            for view_type in (TeamSelectionView, CoinFlipView):
                 with self.subTest(game=game.game_id, view=view_type.__name__):
                     view = view_type(cog, game.game_id)
                     rows = [item.row for item in view.children]

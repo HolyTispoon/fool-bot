@@ -151,26 +151,18 @@ Each coach has a player board with these areas:
    opponent. The winner chooses to be the **home** or the **visiting** team. The trade is
    deliberate: home kicks off the first half, the visitors kick off the second, so choosing
    visitor buys the second-half restart.
-4. **Each coach picks a formation** and assigns their cards to zones with it. Six cards are
-   fielded either way -- one of each role -- and the remaining Defender, Playmaker and
-   Striker go to the bench, whatever the shape. Which zone each of the six goes in is the
-   coach's own choice; the formation only fixes how many go in each.
+4. **Assign player cards to zones.** Every game starts in the **2-2-2 formation** -- two
+   cards per zone -- dealt as the standard setup, one player of each role:
 
-   | Formation | Own goal | Midfield | Opponent's goal |
-   |---|---|---|---|
-   | 2-2-2 | 2 | 2 | 2 |
-   | 4-1-1 | 4 | 1 | 1 |
-   | 2-1-3 | 2 | 1 | 3 |
+   | Zone | Players |
+   |---|---|
+   | Own goal | Fullback, Defender |
+   | Midfield | Midfielder, Playmaker |
+   | Opponent's goal | Winger, Striker |
 
-   The numbers read from a coach's own goal forward, and the two coaches choose
-   independently. Nothing about the choice depends on the toss -- which end of the board a
-   coach defends does not change their own shape -- so the two can be settled in either
-   order. 4-1-1 and 2-1-3 put more cards in a zone than that zone has spaces on any board,
-   which is what [occupancy](#the-field) is written for.
-
-   The **standard setup** -- Fullback and Defender at the back, Midfielder and Playmaker in
-   midfield, Winger and Striker up front -- is what 2-2-2 comes to when a coach makes no
-   choice at all, and reads back to front for the other two shapes.
+   The remaining Defender, Playmaker and Striker go to the bench. A coach who wants a
+   different shape changes it at their first [substitution window](#substitutions); nobody
+   kicks off in one.
 5. **Place meeples.** Each meeple goes on any space within its card's assigned zone, spread
    as [occupancy](#the-field) asks: every space of the zone taken before any space takes a
    second player. Under 2-2-2 that is one per team per space, and a three-space zone is left
@@ -308,7 +300,11 @@ distances.
 
 **A pass must reach a different player.** Nobody passes to themselves to keep the ball. A
 pass to the ball's own space is legal only when a *second* player of the same team is
-standing there -- uncommon, but possible.
+standing there.
+
+**Where the destination space holds more than one teammate, the passer says which of them
+receives it** -- routine under a formation that stacks. The pick matters: the receiver is
+who a Winger's ability offers the shot to.
 
 **Passing across a shared space moves the passer.** The ball has not travelled, so what the
 maneuver buys is the passer stepping one space forward; the receiver stays on the ball. At
@@ -630,12 +626,24 @@ passes, the reply goes with it; the reply exists only to answer a declaration.
 places whoever ended up on the field.
 
 **Rearranging** moves cards between zones freely and **costs no exhaustion** -- the one way a
-meeple moves in this game without paying per space. A team may come out of it in **any of the
-three formations**, not only the one they kicked off in, so a rearrangement is where a shape
-is changed mid-game as well as where two players trade zones. Once assignments are settled,
-the team places its meeples anywhere within their new zones, subject to
-[occupancy](#the-field), still free. Where two zones are already full, two meeples simply
-trade places.
+meeple moves in this game without paying per space. It is also the only way to change
+formation, and the whole of it: every game kicks off in 2-2-2, and a rearrangement may leave
+the team in any of the three.
+
+| Formation | Own goal | Midfield | Opponent's goal |
+|---|---|---|---|
+| 2-2-2 | 2 | 2 | 2 |
+| 4-1-1 | 4 | 1 | 1 |
+| 2-1-3 | 2 | 1 | 3 |
+
+The numbers read from the team's own goal forward, and each coach chooses their own. 4-1-1
+and 2-1-3 put more cards in a zone than that zone has spaces on any board, which is what
+[occupancy](#the-field) is written for: those zones fill every space and stack the surplus.
+
+Which card goes where is the coach's, not the formation's -- it fixes only how many go in
+each zone. Once assignments are settled, the team places its meeples anywhere within their
+new zones, subject to occupancy, still free. Where two zones are already full, two meeples
+simply trade places.
 
 Nothing requires a team to keep one of each role on the field. A substitution may leave a
 role unfielded -- and has to be able to, since every bench is a Defender, a Playmaker and a

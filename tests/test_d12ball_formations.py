@@ -1,11 +1,14 @@
 """
-Formations: the three shapes basic mode allows, how a coach picks one
-and fills it in setup, how one is changed mid-game, and the coverage
-rule that decides where a meeple may stand once a zone holds more
-players than it has spaces.
+Formations: the three shapes basic mode allows, how a coach moves
+between them in a substitution window, and the coverage rule that
+decides where a meeple may stand once a zone holds more players than it
+has spaces.
 
-The run back's own flow is covered in test_d12ball_components; this is
-about the shapes themselves.
+Every game kicks off in 2-2-2, so setup has nothing to ask and nothing
+here drives it. The run back's own flow is covered in
+test_d12ball_components; this is about the shapes themselves, and about
+what stacking changes for the coach -- including who receives a Low
+Pass into a space several teammates share.
 """
 
 import unittest
@@ -14,13 +17,15 @@ from unittest import mock
 
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
-    CoinFlipView,
-    FormationSelectionView,
+    LowPassChoiceView,
+    LowPassReceiverView,
     SubstitutionFormationView,
     SubstitutionMenuView,
 )
 from d12ball.components import (
+    SETUP_AREAS,
     MatchState,
+    PlayerRole,
     TeamSide,
     Zone,
     create_standard_setup,
@@ -32,10 +37,8 @@ from d12ball.components import (
     next_unfilled_area,
     setup_space_order,
     validate_assignment,
-    zone_for_area,
 )
 from d12ball.game import (
-    SETUP_AREAS,
     D12BallGame,
     Formation,
     GameStatus,
@@ -74,23 +77,6 @@ def build_game(**overrides) -> D12BallGame:
     )
     fields.update(overrides)
     return D12BallGame(**fields)
-
-
-def fill_assignment(cog, game, player_number: int) -> None:
-    """Answer a coach's zone prompts in order, taking whoever is next."""
-    shape = cog.formation_shape(game.formation_for_player(player_number))
-    cog.fill_forced_areas(game, player_number)
-
-    while True:
-        area = cog.next_unfilled_area(game, player_number)
-        if area is None:
-            return
-        assignment = dict(game.assignment_for_player(player_number) or {})
-        assignment[area] = cog.unassigned_candidates(game, player_number)[
-            :shape.count(area)
-        ]
-        game.set_assignment(player_number, assignment)
-        cog.fill_forced_areas(game, player_number)
 
 
 def build_interaction(user_id: int = 111) -> SimpleNamespace:
@@ -492,130 +478,6 @@ class AssignmentStepTests(unittest.TestCase):
         self.assertIsNone(next_unfilled_area(filled))
 
 
-class SetupFormationFlowTests(unittest.IsolatedAsyncioTestCase):
-    async def pick(self, view, interaction, *args) -> None:
-        with mock.patch("cogs.d12ball_views.save_games"):
-            await view.select_formation(interaction, *args)
-
-    async def test_a_coach_picks_a_shape_then_fills_it(self) -> None:
-        cog = build_cog()
-        game = build_game(player_2_id=None, player_2_team=Team.PURPLE)
-        cog.games[game.game_id] = game
-        view = FormationSelectionView(cog, game.game_id)
-
-        with mock.patch("cogs.d12ball_views.save_games"):
-            await view.select_formation(
-                build_interaction(), 1, Formation.FOUR_ONE_ONE,
-            )
-
-            self.assertEqual(
-                cog.next_unfilled_area(game, 1), "own_goal",
-            )
-
-            candidates = cog.unassigned_candidates(game, 1)
-            await view.select_cards(
-                build_interaction(), 1, "own_goal", candidates[:4],
-            )
-
-            # Two cards left for a midfield of one and an attack of
-            # one, so the coach is still asked.
-            self.assertEqual(cog.next_unfilled_area(game, 1), "midfield")
-
-            candidates = cog.unassigned_candidates(game, 1)
-            interaction = build_interaction()
-            await view.select_cards(
-                interaction, 1, "midfield", candidates[:1],
-            )
-
-        self.assertTrue(game.formation_settled(1))
-        # The AI never has to answer, so both sides are settled and
-        # setup moves on to the coin toss.
-        self.assertTrue(game.formations_selected)
-        self.assertIsInstance(
-            interaction.response.edit_message.call_args.kwargs["view"],
-            CoinFlipView,
-        )
-
-    async def test_changing_shape_drops_the_cards_already_placed(
-        self,
-    ) -> None:
-        cog = build_cog()
-        game = build_game(player_2_id=None)
-        cog.games[game.game_id] = game
-        view = FormationSelectionView(cog, game.game_id)
-
-        with mock.patch("cogs.d12ball_views.save_games"):
-            await view.select_formation(
-                build_interaction(), 1, Formation.TWO_ONE_THREE,
-            )
-            candidates = cog.unassigned_candidates(game, 1)
-            await view.select_cards(
-                build_interaction(), 1, "own_goal", candidates[:2],
-            )
-            await view.select_formation(
-                build_interaction(), 1, Formation.FOUR_ONE_ONE,
-            )
-
-        self.assertIsNone(game.player_1_assignment)
-        self.assertEqual(game.player_1_formation, Formation.FOUR_ONE_ONE)
-
-    async def test_only_that_coach_may_answer_their_own_row(self) -> None:
-        cog = build_cog()
-        game = build_game()
-        cog.games[game.game_id] = game
-        view = FormationSelectionView(cog, game.game_id)
-        interaction = build_interaction(user_id=999)
-
-        with mock.patch("cogs.d12ball_views.save_games"):
-            await view.select_formation(
-                interaction, 1, Formation.FOUR_ONE_ONE,
-            )
-
-        self.assertIsNone(game.player_1_formation)
-        interaction.response.send_message.assert_awaited_once()
-
-    async def test_the_match_is_dealt_the_formations_the_coaches_chose(
-        self,
-    ) -> None:
-        cog = build_cog()
-        game = build_game(
-            home_player_number=1,
-            visiting_player_number=2,
-            player_1_formation=Formation.FOUR_ONE_ONE,
-            player_2_formation=Formation.TWO_ONE_THREE,
-        )
-        cog.games[game.game_id] = game
-        for player_number in (1, 2):
-            fill_assignment(cog, game, player_number)
-
-        match = cog.initialize_standard_match(game)
-
-        self.assertEqual(len(match.home.zones[Zone.HOME_GOAL]), 4)
-        self.assertEqual(
-            len(match.visiting.zones[zone_for_area(TeamSide.VISITING, "opponent_goal")]),
-            3,
-        )
-
-    async def test_a_side_that_never_chose_still_gets_2_2_2(self) -> None:
-        cog = build_cog()
-        game = build_game(
-            home_player_number=1,
-            visiting_player_number=2,
-        )
-        cog.games[game.game_id] = game
-
-        match = cog.initialize_standard_match(game)
-
-        self.assertEqual(
-            cog.current_formation(match, TeamSide.HOME),
-            Formation.TWO_TWO_TWO,
-        )
-        self.assertEqual(
-            cog.current_formation(match, TeamSide.VISITING),
-            Formation.TWO_TWO_TWO,
-        )
-
-
 class SubstitutionFormationFlowTests(unittest.IsolatedAsyncioTestCase):
     def build(self) -> tuple[D12Ball, D12BallGame, MatchState]:
         cog = build_cog()
@@ -629,6 +491,15 @@ class SubstitutionFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         match.open_substitution_window(TeamSide.HOME)
         game.match_state = match.to_dict()
         return cog, game, match
+
+    def test_every_game_kicks_off_in_2_2_2(self) -> None:
+        cog, _, match = self.build()
+
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            self.assertEqual(
+                cog.current_formation(match, side),
+                Formation.TWO_TWO_TWO,
+            )
 
     def test_the_menu_offers_a_formation_change(self) -> None:
         cog, game, _ = self.build()
@@ -671,6 +542,118 @@ class SubstitutionFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             match.home.assigned_zone(fielded[5]), Zone.VISITORS_GOAL,
         )
+
+
+class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
+    """
+    Passing into a space several teammates share -- which is what a
+    stacking formation makes ordinary, and why the passer is asked who
+    receives rather than handed the first occupant.
+    """
+
+    def build(self, extras: int = 3):
+        cog = build_cog()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
+        cog.offer_scoring_attempt_choice = mock.AsyncMock()
+        game = build_game(
+            status=GameStatus.IN_PROGRESS,
+            home_player_number=1,
+            visiting_player_number=2,
+        )
+        cog.games[game.game_id] = game
+        match = cog.initialize_standard_match(game)
+
+        winger = next(
+            player_id
+            for player_id in match.home.field_players
+            if cog.get_player_definition(player_id).role == PlayerRole.WINGER
+        )
+        others = [
+            player_id
+            for player_id in match.home.field_players
+            if player_id != winger
+        ][:extras]
+        for player_id in [winger] + others:
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = winger
+        game.match_state = match.to_dict()
+        # Whoever the standard setup already had on that space counts
+        # too, so ask rather than assume.
+        return cog, game, match, cog.low_pass_receivers(match, 0)
+
+    def test_a_shared_destination_is_labelled_by_its_count(self) -> None:
+        cog, game, _, others = self.build()
+
+        labels = [
+            item.label
+            for item in LowPassChoiceView(cog, game.game_id).children
+        ]
+
+        # Naming one of three would misread what is being picked.
+        self.assertIn(f"{len(others)} players -- M2", labels)
+
+    async def test_the_passer_is_asked_which_teammate_receives(
+        self,
+    ) -> None:
+        cog, game, _, others = self.build()
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball_views.save_games"):
+            await LowPassChoiceView(cog, game.game_id).choose(interaction, 0)
+
+        view = interaction.response.edit_message.call_args.kwargs["view"]
+        self.assertIsInstance(view, LowPassReceiverView)
+        self.assertEqual(len(view.children), len(others))
+
+    async def test_the_chosen_receiver_takes_the_winger_s_set_up(
+        self,
+    ) -> None:
+        cog, game, _, others = self.build()
+        chosen = others[-1]
+
+        with mock.patch("cogs.d12ball_views.save_games"), \
+                mock.patch("cogs.d12ball.save_games"):
+            await LowPassReceiverView(cog, game.game_id, 0).choose(
+                build_interaction(), chosen,
+            )
+
+        self.assertEqual(
+            cog.offer_scoring_attempt_choice.await_args.kwargs["shooter_id"],
+            chosen,
+        )
+
+    async def test_a_single_teammate_is_passed_to_without_a_prompt(
+        self,
+    ) -> None:
+        cog, game, _, others = self.build(extras=0)
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball_views.save_games"), \
+                mock.patch("cogs.d12ball.save_games"):
+            await LowPassChoiceView(cog, game.game_id).choose(interaction, 0)
+
+        self.assertIsNone(
+            interaction.response.edit_message.call_args.kwargs["view"]
+        )
+        self.assertEqual(
+            cog.offer_scoring_attempt_choice.await_args.kwargs["shooter_id"],
+            others[0],
+        )
+
+    async def test_only_the_side_in_possession_may_choose(self) -> None:
+        cog, game, _, others = self.build()
+        interaction = build_interaction(user_id=999)
+
+        with mock.patch("cogs.d12ball_views.save_games"):
+            await LowPassReceiverView(cog, game.game_id, 0).choose(
+                interaction, others[0],
+            )
+
+        interaction.response.send_message.assert_awaited_once()
+        cog.offer_scoring_attempt_choice.assert_not_awaited()
 
 
 if __name__ == "__main__":
