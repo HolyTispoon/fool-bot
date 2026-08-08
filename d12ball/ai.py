@@ -277,10 +277,11 @@ class DinkyAI(AIStrategy):
         side: str,
     ) -> Optional[tuple[str, str]]:
         """
-        Only ever substitutes to get an injured player off, which is
-        the one case the rules make compulsory. Dinky stays a
-        dice-roller: it never spends a declaration on a tactical swap
-        and never rearranges.
+        Only ever substitutes to get an injured player off. The rules
+        no longer compel that -- an injured player may stay on all
+        game -- but it is still the one swap worth making without
+        reading the position, and Dinky stays a dice-roller: it never
+        spends a declaration on a tactical swap and never rearranges.
         """
         for player_id in match.injured_field_players(side):
             pool = match.substitution_pool(side, player_id)

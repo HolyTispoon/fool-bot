@@ -645,19 +645,104 @@ class D12BallComponentTests(unittest.TestCase):
         match.close_substitution_window()
         self.assertTrue(match.may_declare_substitution(TeamSide.VISITING))
 
-    def test_an_injury_forces_a_declaration_only_while_possible(
+    def test_an_injury_never_forces_a_declaration(self) -> None:
+        # An injured player used to compel their team to sub them off
+        # at the next window. They no longer do: the once-a-half
+        # declaration is the only gate there is, and a coach may leave
+        # them on, disadvantaged, for the rest of the game.
+        match = self.standard_match()
+        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+
+        match.mark_injured("orange_kindlefoot")
+        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+        self.assertEqual(
+            match.injured_field_players(TeamSide.HOME), ["orange_kindlefoot"],
+        )
+        self.assertFalse(hasattr(match, "must_declare_substitution"))
+
+        match.declared_substitution.add(TeamSide.HOME.value)
+        self.assertFalse(match.may_declare_substitution(TeamSide.HOME))
+
+    def test_setup_is_the_first_arrangement_a_new_play_restores(
         self,
     ) -> None:
         match = self.standard_match()
-        self.assertFalse(match.must_declare_substitution(TeamSide.HOME))
+        stray = match.home.zones[Zone.HOME_GOAL][0]
+        home = match.board.meeple_position(stray)
+        self.assertEqual(
+            match.assigned_positions[stray], [home[0].value, home[1]],
+        )
 
-        match.mark_injured("orange_kindlefoot")
-        self.assertTrue(match.must_declare_substitution(TeamSide.HOME))
+        match.board.place_meeple(stray, Zone.VISITORS_GOAL, 0)
+        moved = match.restore_assigned_positions(TeamSide.HOME)
 
-        # Already declared this half -- the injured player stays on,
-        # disadvantaged, until the next one.
-        match.declared_substitution.add(TeamSide.HOME.value)
-        self.assertFalse(match.must_declare_substitution(TeamSide.HOME))
+        self.assertEqual(moved, [(stray, home[0], home[1])])
+        self.assertEqual(match.board.meeple_position(stray), home)
+        # The restore is the coach's shape reasserting itself, not a
+        # player running: it charges nothing.
+        self.assertEqual(match.exhaustion, {})
+
+    def test_restoring_reports_only_who_actually_moved(self) -> None:
+        match = self.standard_match()
+
+        # Nobody has budged since setup, so a restore is a no-op and
+        # says so -- which is what lets the caller skip the message.
+        self.assertEqual(
+            match.restore_assigned_positions(TeamSide.HOME), [],
+        )
+        self.assertEqual(
+            match.restore_assigned_positions(TeamSide.VISITING), [],
+        )
+
+    def test_a_run_back_never_becomes_the_saved_arrangement(self) -> None:
+        # Only setup, a substitution window and halftime set an
+        # arrangement. A run back is a scramble the coach was forced
+        # into, so the shape they chose has to survive it.
+        match = self.standard_match()
+        stray, teammate = match.home.zones[Zone.HOME_GOAL][:2]
+        home = match.board.meeple_position(stray)
+        other_space = match.board.meeple_position(teammate)[1]
+
+        # Both out of the zone, so the run back has a real choice of
+        # space and can put the stray on the wrong one.
+        match.board.place_meeple(stray, Zone.MIDFIELD, 0)
+        match.board.place_meeple(teammate, Zone.MIDFIELD, 0)
+        match.run_back_player(stray, Zone.HOME_GOAL, other_space)
+
+        self.assertEqual(
+            match.assigned_positions[stray], [home[0].value, home[1]],
+        )
+        match.restore_assigned_positions(TeamSide.HOME)
+        self.assertEqual(match.board.meeple_position(stray), home)
+
+    def test_the_saved_arrangement_round_trips(self) -> None:
+        match = self.standard_match()
+        stray = match.home.zones[Zone.HOME_GOAL][0]
+        match.board.place_meeple(stray, Zone.MIDFIELD, 0)
+        match.set_assigned_positions(TeamSide.HOME)
+
+        restored = MatchState.from_dict(match.to_dict(), self.rules)
+
+        self.assertEqual(
+            restored.assigned_positions[stray],
+            [Zone.MIDFIELD.value, 0],
+        )
+
+    def test_a_game_saved_before_arrangements_existed_still_loads(
+        self,
+    ) -> None:
+        # Such a game remembers nothing, so a restore moves nobody and
+        # it keeps the old behaviour until its next window.
+        match = self.standard_match()
+        data = match.to_dict()
+        del data["assigned_positions"]
+
+        restored = MatchState.from_dict(data, self.rules)
+
+        self.assertEqual(restored.assigned_positions, {})
+        self.assertEqual(
+            restored.restore_assigned_positions(TeamSide.HOME), [],
+        )
 
     def test_substitution_state_round_trips(self) -> None:
         match = self.standard_match()
@@ -1191,14 +1276,20 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         self.assertTrue(match.pending_kickoff_fill)
         self.assertEqual(match.eligible_ball_handlers(), [])
 
-    def test_goal_restart_does_not_flag_pending_kickoff_fill_when_covered(
+    def test_goal_restart_flags_the_kickoff_fill_even_when_covered(
         self,
     ) -> None:
+        # The flag means "this restart still owes a kickoff-space
+        # check", not "nobody is standing there". Everyone moves
+        # between the restart and the check -- the new play's reset,
+        # and anything its substitution window placed -- so the
+        # question is only worth asking once they have settled, which
+        # D12Ball.continue_run_back does.
         match = self.build_match(6)
 
         match.restart_after_goal(TeamSide.HOME)
 
-        self.assertFalse(match.pending_kickoff_fill)
+        self.assertTrue(match.pending_kickoff_fill)
         self.assertNotEqual(match.eligible_ball_handlers(), [])
 
     def test_kickoff_fill_candidates_prefers_the_nearest_midfielder(

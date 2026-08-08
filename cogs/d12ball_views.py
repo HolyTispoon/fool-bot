@@ -1963,12 +1963,15 @@ class ScoreAttemptView(SafeView):
                     ),
                 )
         await self.cog.refresh_match_image(interaction, game)
+        # Goal or miss, the ball is dead and being restarted, so this
+        # is a new play and both restarts open a substitution window.
         await self.cog.begin_run_back(
             interaction,
             game,
             match,
             distance_moved=space_minutes,
             turnover_occurred=True,
+            new_play=True,
         )
 
 
@@ -2803,9 +2806,8 @@ class SubstitutionView(SafeView):
 
 class SubstitutionOfferView(SubstitutionView):
     """
-    Declare-or-pass, for the side a turnover has just handed the
-    window to. Pass is missing when an injured player makes the
-    declaration compulsory.
+    Declare-or-pass, for the side a new play has just handed the
+    window to. Both are always on offer.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -2814,7 +2816,6 @@ class SubstitutionOfferView(SubstitutionView):
         game, match = self.load()
         if match is None or match.pending_substitution_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
 
         declare = discord.ui.Button(
             label=(
@@ -2827,18 +2828,15 @@ class SubstitutionOfferView(SubstitutionView):
         declare.callback = self.declare
         self.add_item(declare)
 
-        forced = (
-            not match.pending_substitution_is_response
-            and match.must_declare_substitution(side)
+        # Passing is always on offer -- nothing forces a declaration,
+        # an injured player included.
+        decline = discord.ui.Button(
+            label="Pass",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:sub_pass:{game_id}",
         )
-        if not forced:
-            decline = discord.ui.Button(
-                label="Pass",
-                style=discord.ButtonStyle.secondary,
-                custom_id=f"d12ball:sub_pass:{game_id}",
-            )
-            decline.callback = self.decline
-            self.add_item(decline)
+        decline.callback = self.decline
+        self.add_item(decline)
 
         self.add_roster_button(f"d12ball:sub_offer_roster:{game_id}")
 
@@ -3850,6 +3848,9 @@ class HalftimeRepositionView(HalftimeView):
         await interaction.response.edit_message(
             content="Repositioning done.", view=None,
         )
+        # Halftime's free placement is the coach setting their shape,
+        # so it is what a new play in the second half restores.
+        match.set_assigned_positions(self.side)
         self.cog.next_halftime_stage(match)
         game.match_state = match.to_dict()
         save_games(self.cog.games)
@@ -4501,6 +4502,9 @@ class LooseBallSkillTestView(SafeView):
         for player in exhausted_participants:
             await self.cog.run_injury_test(interaction, game, match, player)
 
+        # Winning a live ball off the other side -- a loose ball or a
+        # long High Pass -- is a steal however it was contested, so no
+        # substitution window either way.
         await self.cog.begin_run_back(
             interaction, game, match,
             distance_moved=distance_moved,

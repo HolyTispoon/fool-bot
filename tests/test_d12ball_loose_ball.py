@@ -208,6 +208,52 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(
             cog.begin_run_back.await_args.kwargs["turnover_occurred"]
         )
+        # Out of bounds is the one loose ball that is a new play, so it
+        # is also the one that opens a substitution window.
+        self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])
+
+    async def test_the_other_team_picking_the_ball_up_is_a_steal(
+        self,
+    ) -> None:
+        # A loose ball won by the side that did not have it is a steal:
+        # a turnover and a run back, but no substitution window, since
+        # the ball never went dead.
+        cog = build_cog()
+        game = build_game()
+        match = self.build_match()
+        losing_side = match.ball.possession
+        winning_side = match.defending_side()
+
+        # Clear the ball's space of the possessing side and stand an
+        # opponent on it, which is the uncontested-turnover case.
+        for player_id in list(
+            match.fielded_players_in_zone(losing_side, match.ball.zone)
+        ):
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(
+                player_id, next(z for z in Zone if z != match.ball.zone), 0,
+            )
+        opponent = match.fielded_players_in_zone(
+            winning_side, match.ball.zone,
+        )[0]
+        match.board.remove_meeple(opponent)
+        match.board.place_meeple(
+            opponent, match.ball.zone, match.ball.space_index,
+        )
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+
+        with mock.patch("cogs.d12ball.save_games"):
+            handled = await cog.check_for_loose_ball(
+                build_interaction(), game, match, 2,
+            )
+
+        self.assertTrue(handled)
+        self.assertEqual(match.ball.possession, winning_side)
+        cog.begin_run_back.assert_awaited_once()
+        kwargs = cog.begin_run_back.await_args.kwargs
+        self.assertTrue(kwargs["turnover_occurred"])
+        self.assertFalse(kwargs.get("new_play", False))
 
     async def test_the_recovering_player_ends_up_on_the_ball(self) -> None:
         # The whole point of deferring the pickup past the run back:

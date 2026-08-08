@@ -1629,6 +1629,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "wins the loose ball uncontested."
         )
         await self.refresh_match_image(interaction, game)
+        # A loose ball the other team picks up is a steal, so no
+        # substitution window -- the ball never went dead.
         await self.begin_run_back(
             interaction, game, match,
             distance_moved=distance_moved, turnover_occurred=True,
@@ -1903,9 +1905,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "they place a player on the ball."
             )
             await self.refresh_match_image(interaction, game)
+            # Out of bounds is the one loose ball that is a new play
+            # rather than a steal: nobody took the ball off anyone, it
+            # simply went dead and is being brought back in.
             await self.begin_run_back(
                 interaction, game, match,
-                distance_moved=distance_moved, turnover_occurred=True,
+                distance_moved=distance_moved,
+                turnover_occurred=True,
+                new_play=True,
             )
             return
 
@@ -1973,6 +1980,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"gets to the ball.\n{exhaustion_text}"
             )
             await self.refresh_match_image(interaction, game)
+            # Picked off rather than restarted -- a steal, and so no
+            # substitution window.
             await self.begin_run_back(
                 interaction, game, match,
                 distance_moved=distance_moved, turnover_occurred=True,
@@ -2513,12 +2522,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 distance_moved=distance_moved,
             )
         else:
+            # A conceded own goal restarts from the kickoff space
+            # exactly as any other goal does, so it is a new play.
             await self.begin_run_back(
                 interaction,
                 game,
                 match,
                 distance_moved=distance_moved,
                 turnover_occurred=True,
+                new_play=True,
             )
 
     # -- Run-back (after a turnover) ----------------------------------
@@ -2755,9 +2767,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Offer `side` the window. A declaration is once a half, so a
-        side that has already spent theirs is never offered one --
-        which is also why an injured player can be stuck on the field
-        until the next half.
+        side that has already spent theirs is never offered one. An
+        injured player on the field is named in the heading but
+        compels nothing -- leaving them on is the coach's call.
 
         `auto_declare` skips the declare-or-pass offer and opens the
         substitution menu directly, and `spends_declaration` False
@@ -2800,23 +2812,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{format_team_side_label(setup)} may answer with **one** "
                 "substitution and rearrange their formation."
             )
-        elif match.must_declare_substitution(side):
+        else:
+            heading = (
+                f"{format_team_side_label(setup)} restart play and may "
+                "declare substitutions -- up to **two** swaps and a "
+                "rearrangement, once a half."
+            )
+
+        # An injured player is worth pointing out, but only as a
+        # nudge: nothing compels a side to get them off, and a coach
+        # may leave them on, disadvantaged, all game.
+        injured_ids = match.injured_field_players(side)
+        if injured_ids:
             injured = ", ".join(
                 format_role_bracket(
                     self.get_player_definition(player_id), self.team_emojis,
                 )
-                for player_id in match.injured_field_players(side)
+                for player_id in injured_ids
             )
-            heading = (
-                f"{injured} is injured, so {format_team_side_label(setup)} "
-                "**must** declare substitutions now and get them off."
-            )
-        else:
-            heading = (
-                f"{format_team_side_label(setup)} won possession and may "
-                "declare substitutions -- up to **two** swaps and a "
-                "rearrangement, once a half."
-            )
+            verb = "is" if len(injured_ids) == 1 else "are"
+            heading += f"\n{injured} {verb} injured and still on the field."
 
         prompt = await interaction.followup.send(
             f"{prefix}# Substitutions\n{mention}, {heading}",
@@ -2931,6 +2946,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         ahead. The other team only gets its single answering
         substitution because a declaration actually happened -- a side
         that passes takes the opposing reply down with it.
+
+        A side that used its window comes out of it standing where its
+        coach put them, and that becomes the arrangement the next new
+        play restores. A side that passed changed nothing, so their
+        existing arrangement stands untouched.
         """
         declared = match.pending_substitution_declared
         was_response = match.pending_substitution_is_response
@@ -2940,6 +2960,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else None
         )
         match.close_substitution_window()
+        if declared and side is not None:
+            match.set_assigned_positions(side)
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -2974,6 +2996,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         distance_moved: int = 1,
         turnover_occurred: bool = True,
+        new_play: bool = False,
         stays_player_id: Optional[str] = None,
         speed_choice_after: bool = False,
         lead_in: str = "",
@@ -2984,6 +3007,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         multi-turn choice flow and reach finish_maneuver_resolution
         correctly once run-back itself (which only ever costs
         exhaustion, never time) is done.
+
+        `new_play` says the ball changed hands because play stopped and
+        is restarting -- a goal, an own goal, a missed attempt, a ball
+        out of bounds -- rather than because the other team took it off
+        them. Only a new play opens a substitution window; a steal
+        (Steal Intercept, a Defender's Pressure steal, a loose ball or
+        a long High Pass the other side wins) runs everyone back and
+        plays straight on. See "Steals and new plays",
+        docs/living-rules.md. It is not persisted: it is consumed here,
+        and by the time anything is saved the state already says which
+        of the two happened -- a window open, or a run back pending.
 
         `stays_player_id` is set only for a turnover created by a
         steal (Steal Intercept, or the Defender's Pressure-ability
@@ -3047,19 +3081,65 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        # Every turnover opens a substitution window, and it opens
-        # *before* the run back: whoever comes on inherits the
-        # outgoing player's position, so they are the one who runs
-        # back and pays for the distance.
-        if turnover_occurred:
+        # A new play resets both sides to the shape their coaches set,
+        # free of exhaustion, and only then opens the substitution
+        # window -- a coach who declares rearranges from their own
+        # formation rather than from wherever open play scattered them,
+        # and a coach who passes has already got what passing gives
+        # them. It also leaves nobody displaced, so the run back that
+        # follows finds nothing to do and falls through to whatever the
+        # restart still owes (the kickoff space, an out-of-bounds
+        # pickup).
+        #
+        # A steal does none of this: the ball is still live, so the
+        # coaches get no pause and the ordinary run back stands.
+        if new_play:
+            await self.announce_new_play_reset(interaction, game, match, lead_in)
+            lead_in = ""
             winning_side = match.ball.possession
             if match.may_declare_substitution(winning_side):
                 await self.begin_substitution_window(
-                    interaction, game, match, winning_side, lead_in=lead_in,
+                    interaction, game, match, winning_side,
                 )
                 return
 
         await self.announce_run_back(interaction, game, match, lead_in)
+
+    async def announce_new_play_reset(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Put both sides back on the arrangement their coaches last set
+        and say so. Nobody pays a token for it -- see
+        MatchState.restore_assigned_positions.
+        """
+        moved: list[str] = []
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            for player_id, zone, space_index in (
+                match.restore_assigned_positions(side)
+            ):
+                player = self.get_player_definition(player_id)
+                moved.append(
+                    f"{format_role_bracket(player, self.team_emojis)} to "
+                    f"{space_label(zone, space_index)}"
+                )
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+        body = (
+            "Both teams reset to the positions their coaches last set, "
+            "free of exhaustion:\n" + "\n".join(moved)
+            if moved
+            else "Both teams are already standing where their coaches "
+            "last set them."
+        )
+        await interaction.followup.send(f"{prefix}# New play\n{body}")
+        await self.refresh_match_image(interaction, game)
 
     async def announce_run_back(
         self,
@@ -3069,23 +3149,35 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         lead_in: str = "",
     ) -> None:
         """
-        The run back proper, split out of begin_run_back because a
-        turnover's substitution window sits in between and has to
-        resolve before this can start.
+        The run back proper, split out of begin_run_back because a new
+        play's substitution window sits in between and has to resolve
+        before this can start.
+
+        With nobody displaced there is nothing to explain, and heading
+        an empty run back "Players run back!" reads as a bug. That is
+        every new play: the reset put both sides back on their own
+        arrangement, so only the speed note is left to say.
         """
         turnover_occurred = match.pending_run_back_turnover
         prefix = f"{lead_in}\n\n" if lead_in else ""
         # Speed manipulation (Steal Intercept) always happens after
         # run-back now, so a turnover's ball speed is still at its
         # reset value of 1 here.
-        speed_note = " The ball speed goes down to **1**." if turnover_occurred else ""
-        await interaction.followup.send(
-            f"{prefix}# Players run back!\n"
-            "Players return to an open space in their assigned zone and "
-            "gain 1 exhaustion token for every space traveled. Forced "
-            "locations are handled automatically; when there is a choice, "
-            f"the coach will be prompted to pick a location.{speed_note}"
+        speed_note = "The ball speed goes down to **1**." if turnover_occurred else ""
+        displaced = any(
+            self.run_back_displaced(match, side)
+            for side in (TeamSide.HOME, TeamSide.VISITING)
         )
+        if displaced:
+            await interaction.followup.send(
+                f"{prefix}# Players run back!\n"
+                "Players return to an open space in their assigned zone and "
+                "gain 1 exhaustion token for every space traveled. Forced "
+                "locations are handled automatically; when there is a choice, "
+                f"the coach will be prompted to pick a location. {speed_note}"
+            )
+        elif prefix or speed_note:
+            await interaction.followup.send(f"{prefix}{speed_note}".strip())
         await self.continue_run_back(interaction, game, match)
 
     def run_back_displaced(
@@ -3245,6 +3337,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # be elsewhere in the zone from open play. Whoever's
             # closest drops back to start the kickoff, at the usual
             # run-back cost, once every other run-back is settled.
+            #
+            # Asked here rather than back in restart_after_goal because
+            # everyone has moved since: the new play's reset, and any
+            # placement its substitution window made. Somebody standing
+            # on the space already settles it for nothing.
+            if match.eligible_ball_handlers():
+                match.pending_kickoff_fill = False
+                game.match_state = match.to_dict()
+                save_games(self.games)
+                await self.continue_run_back(interaction, game, match, lead_in)
+                return
+
             candidates = match.kickoff_fill_candidates()
             if candidates:
                 player_id = candidates[0]
@@ -3852,6 +3956,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     f"{space_label(match.ball.zone, match.ball.space_index)}."
                 )
 
+            # Same as the human path (HalftimeRepositionView.finish):
+            # wherever this side finishes halftime is the arrangement a
+            # new play restores.
+            match.set_assigned_positions(side)
             self.next_halftime_stage(match)
             game.match_state = match.to_dict()
             save_games(self.games)

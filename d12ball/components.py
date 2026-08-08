@@ -572,6 +572,9 @@ class MatchState:
     # False only for halftime's window -- see open_substitution_window.
     pending_substitution_spends_declaration: bool = True
     pending_halftime_stage: Optional[str] = None
+    # Where each coach last *put* their meeples, as player_id ->
+    # [zone, space_index]. See set_assigned_positions.
+    assigned_positions: dict[str, list] = field(default_factory=dict)
 
     @classmethod
     def standard(
@@ -632,6 +635,11 @@ class MatchState:
             ),
             scoreboard=ScoreboardState(),
         )
+        # The standard setup is the first arrangement a coach has, and
+        # the one a new play falls back to until a substitution window
+        # replaces it.
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match.set_assigned_positions(side)
         match.validate(catalog)
         return match
 
@@ -824,10 +832,19 @@ class MatchState:
         The conceding side isn't guaranteed to already have a meeple on
         that exact space -- their two midfield players could easily be
         standing elsewhere in the zone from open play -- so this flags
-        pending_kickoff_fill whenever nobody's there, the same way a
-        turnover flags pending_run_back. The caller is responsible for
-        resolving that (see D12Ball.continue_run_back) before the ball
-        is treated as live.
+        pending_kickoff_fill, the same way a turnover flags
+        pending_run_back. The caller is responsible for resolving that
+        (see D12Ball.continue_run_back) before the ball is treated as
+        live.
+
+        The flag says "this restart still owes a kickoff-space check",
+        not "nobody is standing there": everyone moves between here and
+        the check -- a new play resets both sides to their coaches'
+        arrangement, and a substitution window can place meeples freely
+        -- so an answer taken now would be stale by the time it is
+        acted on. continue_run_back asks the question once everyone has
+        settled, and clears the flag with nobody moving if the space is
+        already covered.
         """
         conceding_side = TeamSide(conceding_side)
         kickoff_index = kickoff_space_index(
@@ -837,7 +854,7 @@ class MatchState:
         self.set_ball_space(Zone.MIDFIELD, kickoff_index)
         self.ball.possession = conceding_side
         self.ball.speed = 1
-        self.pending_kickoff_fill = not self.eligible_ball_handlers()
+        self.pending_kickoff_fill = True
 
     def kickoff_fill_candidates(self) -> list[str]:
         """
@@ -1416,6 +1433,60 @@ class MatchState:
         self.board.place_meeple(player_id, zone, space_index)
         return distance
 
+    # -- The arrangement a coach set --------------------------------
+
+    def set_assigned_positions(self, side: TeamSide) -> None:
+        """
+        Remember where `side`'s meeples are standing as the arrangement
+        their coach chose. Called at the three moments a coach actually
+        places meeples -- setup, the end of a substitution window, and
+        halftime's free repositioning -- and nowhere else. A run back
+        is a scramble, not a choice, so it never overwrites this.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+        for player_id in setup.field_players:
+            position = self.board.meeple_position(player_id)
+            if position is not None:
+                zone, space_index = position
+                self.assigned_positions[player_id] = [
+                    Zone(zone).value, space_index,
+                ]
+
+    def restore_assigned_positions(
+        self,
+        side: TeamSide,
+    ) -> list[tuple[str, Zone, int]]:
+        """
+        Put `side`'s meeples back on the spaces their coach last set,
+        and report every player who actually moved. This is what a new
+        play does for both sides (see "Resetting after a new play",
+        docs/living-rules.md), and it **costs no exhaustion** -- it is
+        the coach's shape reasserting itself, not a player running.
+
+        Restoring one meeple at a time can pass through arrangements
+        occupancy would refuse, so this places directly rather than
+        going through run_back_player. The end state is a whole
+        arrangement that was valid when it was saved.
+
+        A player with nothing remembered (never placed under this
+        arrangement) is left alone: the window's own placement, or the
+        run back that follows, sorts them out.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+        moved: list[tuple[str, Zone, int]] = []
+        for player_id in setup.field_players:
+            remembered = self.assigned_positions.get(player_id)
+            if remembered is None:
+                continue
+            zone, space_index = Zone(remembered[0]), remembered[1]
+            if self.board.meeple_position(player_id) == (zone, space_index):
+                continue
+            self.board.place_meeple(player_id, zone, space_index)
+            moved.append((player_id, zone, space_index))
+        return moved
+
     def injured_field_players(self, side: TeamSide) -> list[str]:
         setup = self.setup_for_side(side)
         return [
@@ -1425,23 +1496,14 @@ class MatchState:
         ]
 
     def may_declare_substitution(self, side: TeamSide) -> bool:
-        """A side declares at most once per half."""
+        """
+        A side declares at most once per half, and that is the whole
+        gate. Nothing ever *forces* a declaration: an injured player
+        used to compel their team to sub them off at the next window,
+        which is no longer a rule -- a coach may leave them on,
+        disadvantaged, for as long as they like.
+        """
         return TeamSide(side).value not in self.declared_substitution
-
-    def must_declare_substitution(self, side: TeamSide) -> bool:
-        """
-        An injured player's team has to declare at their next
-        opportunity and sub them off -- "if they can", which means
-        they have not already declared this half and somebody is
-        available to come on.
-        """
-        side = TeamSide(side)
-        if not self.may_declare_substitution(side):
-            return False
-        return any(
-            self.substitution_pool(side, player_id)
-            for player_id in self.injured_field_players(side)
-        )
 
     def open_substitution_window(
         self,
@@ -1952,6 +2014,10 @@ class MatchState:
                 self.pending_substitution_spends_declaration
             ),
             "pending_halftime_stage": self.pending_halftime_stage,
+            "assigned_positions": {
+                player_id: list(position)
+                for player_id, position in self.assigned_positions.items()
+            },
         }
 
     @classmethod
@@ -2062,6 +2128,16 @@ class MatchState:
                 "pending_substitution_spends_declaration", True
             ),
             pending_halftime_stage=data.get("pending_halftime_stage"),
+            # A game saved before arrangements were remembered has
+            # none. Left empty, restore_assigned_positions moves
+            # nobody, so such a game simply keeps the old behaviour
+            # until its next window sets an arrangement.
+            assigned_positions={
+                player_id: list(position)
+                for player_id, position in data.get(
+                    "assigned_positions", {},
+                ).items()
+            },
         )
 
 
