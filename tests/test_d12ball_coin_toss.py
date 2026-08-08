@@ -30,7 +30,13 @@ from d12ball.game import (
     D12BallGame,
     Team,
 )
-from d12ball.components import TeamSide
+from d12ball.components import (
+    MatchState,
+    TeamSide,
+    Zone,
+    load_basic_ruleset,
+    load_player_catalog,
+)
 
 
 def build_game(player_2_id: int = 222) -> D12BallGame:
@@ -267,33 +273,54 @@ class D12BallCoinTossTests(unittest.TestCase):
 
 
 class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
-    @staticmethod
-    def build_stubs(may_declare: bool):
+    """
+    Which turnovers announce a run back, which reset to the coach's own
+    arrangement instead, and which do neither. A real MatchState rather
+    than a stub: begin_run_back now moves meeples about, and what it
+    says depends on who ends up displaced.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_stubs(self, may_declare: bool, displace: bool = True):
         cog = object.__new__(D12Ball)
         cog.games = {}
+        cog.player_catalog = self.catalog
+        cog.team_emojis = {}
+        cog.condition_emojis = {}
         cog.continue_run_back = mock.AsyncMock()
         cog.begin_substitution_window = mock.AsyncMock()
         cog.end_period = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
+        cog.refresh_match_image = mock.AsyncMock()
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock())
         )
-        game = SimpleNamespace(match_state=None)
-        match = SimpleNamespace(
-            ball=SimpleNamespace(speed=1, possession=TeamSide.HOME),
-            scoreboard=SimpleNamespace(last_possession=False),
-            pending_run_back=False,
-            pending_run_back_distance=1,
-            pending_run_back_turnover=False,
-            may_declare_substitution=lambda side: may_declare,
-            to_dict=lambda: {"pending_run_back": True},
+        game = SimpleNamespace(match_state=None, game_id="g")
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
         )
+        if displace:
+            # Drag a home player out of their zone, so there is a real
+            # run back to announce (and a real reset to undo).
+            stray = match.home.zones[Zone.HOME_GOAL][0]
+            match.board.place_meeple(stray, Zone.MIDFIELD, 0)
+        if not may_declare:
+            match.declared_substitution.add(TeamSide.HOME.value)
         return cog, interaction, game, match
 
-    async def test_begin_run_back_explains_choices_cost_and_speed(self) -> None:
-        # A side that already declared this half is offered no window,
-        # so the turnover goes straight to the run back.
-        cog, interaction, game, match = self.build_stubs(may_declare=False)
+    async def test_a_steal_explains_choices_cost_and_speed(self) -> None:
+        # The run-back explainer belongs to steals: that is the only
+        # turnover that still sends players scrambling back at a token
+        # a space.
+        cog, interaction, game, match = self.build_stubs(may_declare=True)
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_run_back(
@@ -315,9 +342,79 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         )
         cog.begin_substitution_window.assert_not_awaited()
 
-    async def test_a_turnover_offers_the_window_before_the_run_back(
+    async def test_a_new_play_resets_first_then_offers_the_window(
         self,
     ) -> None:
+        cog, interaction, game, match = self.build_stubs(may_declare=True)
+        stray = match.home.zones[Zone.HOME_GOAL][0]
+        home_zone, home_space = match.assigned_positions[stray]
+        self.assertEqual(
+            match.board.meeple_position(stray), (Zone.MIDFIELD, 0),
+        )
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_run_back(
+                interaction, game, match,
+                turnover_occurred=True, new_play=True,
+            )
+
+        # The reset comes first, so a coach who declares rearranges
+        # from their own formation rather than from wherever open play
+        # left them.
+        announcement = interaction.followup.send.await_args.args[0]
+        self.assertIn("# New play", announcement)
+        self.assertEqual(
+            match.board.meeple_position(stray),
+            (Zone(home_zone), home_space),
+        )
+        self.assertEqual(match.exhaustion.get(stray, 0), 0)
+
+        cog.begin_substitution_window.assert_awaited_once()
+        self.assertEqual(
+            cog.begin_substitution_window.await_args.args[3],
+            TeamSide.HOME,
+        )
+        cog.continue_run_back.assert_not_awaited()
+        self.assertTrue(match.pending_run_back)
+
+    async def test_a_new_play_without_a_window_still_resets(self) -> None:
+        # Passing on the window is not what triggers the reset -- a
+        # side with no declaration left never sees a window at all, and
+        # still comes back to the arrangement its coach set, free.
+        cog, interaction, game, match = self.build_stubs(may_declare=False)
+        stray = match.home.zones[Zone.HOME_GOAL][0]
+        home_zone, home_space = match.assigned_positions[stray]
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_run_back(
+                interaction, game, match,
+                turnover_occurred=True, new_play=True,
+            )
+
+        self.assertEqual(
+            match.board.meeple_position(stray),
+            (Zone(home_zone), home_space),
+        )
+        self.assertEqual(match.exhaustion.get(stray, 0), 0)
+        cog.begin_substitution_window.assert_not_awaited()
+
+        # Nobody is displaced after a reset, so there is no run back to
+        # head -- only the speed note is left to say.
+        texts = [
+            call.args[0]
+            for call in interaction.followup.send.await_args_list
+        ]
+        self.assertNotIn(
+            "# Players run back!", "\n".join(texts),
+        )
+        self.assertIn("ball speed goes down to **1**", texts[-1])
+        cog.continue_run_back.assert_awaited_once()
+
+    async def test_a_steal_runs_back_without_a_window(self) -> None:
+        # A steal is a turnover but not a new play: the ball never went
+        # dead, so nobody gets to substitute and the run back starts
+        # immediately, even though the winning side still holds its
+        # declaration.
         cog, interaction, game, match = self.build_stubs(may_declare=True)
 
         with mock.patch("cogs.d12ball.save_games"):
@@ -325,16 +422,10 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
                 interaction, game, match, turnover_occurred=True,
             )
 
-        # Nothing about the run back is announced yet -- the window
-        # has to resolve first, because whoever comes on is the player
-        # who then runs back.
-        cog.begin_substitution_window.assert_awaited_once()
-        self.assertEqual(
-            cog.begin_substitution_window.await_args.args[3],
-            TeamSide.HOME,
+        cog.begin_substitution_window.assert_not_awaited()
+        cog.continue_run_back.assert_awaited_once_with(
+            interaction, game, match,
         )
-        interaction.followup.send.assert_not_awaited()
-        cog.continue_run_back.assert_not_awaited()
         self.assertTrue(match.pending_run_back)
 
     async def test_a_maneuver_without_a_turnover_runs_nobody_back(
@@ -379,6 +470,7 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
                 game,
                 match,
                 turnover_occurred=True,
+                new_play=True,
                 speed_choice_after=True,
             )
 
@@ -407,6 +499,101 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         cog.end_period.assert_not_awaited()
         cog.continue_run_back.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
+
+
+class D12BallNewPlayKickoffTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The kickoff space after a goal, decided *after* the new play's
+    reset rather than at the restart. The reset moves everyone, so an
+    answer taken at restart_after_goal time is stale by the time
+    anything acts on it -- and getting this wrong leaves the kickoff
+    space empty and the restart reading as a loose ball.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    async def run_goal_restart(self, match: MatchState):
+        cog = object.__new__(D12Ball)
+        cog.games = {}
+        cog.player_catalog = self.catalog
+        cog.team_emojis = {}
+        cog.condition_emojis = {}
+        cog.refresh_match_image = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
+        interaction = SimpleNamespace(
+            followup=SimpleNamespace(
+                send=mock.AsyncMock(return_value=SimpleNamespace(id=1)),
+            )
+        )
+        game = SimpleNamespace(
+            match_state=None, game_id="g", turn_message_id=None,
+            home_player_number=1, visiting_player_number=2,
+            player_1_id=1, player_2_id=2, is_solo_game=False,
+        )
+        # Both sides out of declarations, so no window interrupts the
+        # flow and the reset runs straight into the kickoff fill.
+        match.declared_substitution.update(
+            {TeamSide.HOME.value, TeamSide.VISITING.value}
+        )
+        game.match_state = match.to_dict()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_run_back(
+                interaction, game, match,
+                distance_moved=2, turnover_occurred=True, new_play=True,
+            )
+        return cog, interaction
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+    async def test_the_reset_pulling_a_player_off_it_still_fills_it(
+        self,
+    ) -> None:
+        match = self.build_match()
+        midfield = match.visiting.zones[Zone.MIDFIELD]
+        # An arrangement with nobody on the kickoff space (the middle
+        # of a 3-space midfield)...
+        for player_id, space_index in zip(midfield, (0, 2)):
+            match.board.place_meeple(player_id, Zone.MIDFIELD, space_index)
+        match.set_assigned_positions(TeamSide.VISITING)
+        # ...but open play has left one of them standing on it, which
+        # is what made the old restart-time answer wrong.
+        match.board.place_meeple(midfield[0], Zone.MIDFIELD, 1)
+
+        match.restart_after_goal(TeamSide.VISITING)
+        await self.run_goal_restart(match)
+
+        self.assertNotEqual(match.eligible_ball_handlers(), [])
+        self.assertFalse(match.pending_kickoff_fill)
+
+    async def test_an_arrangement_that_covers_it_costs_nobody_anything(
+        self,
+    ) -> None:
+        match = self.build_match()
+        midfield = match.visiting.zones[Zone.MIDFIELD]
+        for player_id, space_index in zip(midfield, (1, 2)):
+            match.board.place_meeple(player_id, Zone.MIDFIELD, space_index)
+        match.set_assigned_positions(TeamSide.VISITING)
+        match.board.place_meeple(midfield[0], Zone.HOME_GOAL, 0)
+
+        match.restart_after_goal(TeamSide.VISITING)
+        await self.run_goal_restart(match)
+
+        # The reset put them back on the kickoff space, so the fill
+        # settles for nothing rather than moving anyone.
+        self.assertNotEqual(match.eligible_ball_handlers(), [])
+        self.assertFalse(match.pending_kickoff_fill)
+        self.assertEqual(match.exhaustion, {})
 
 
 class D12BallCoinEmojiTests(unittest.TestCase):

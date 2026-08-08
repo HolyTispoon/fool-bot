@@ -52,6 +52,7 @@ minutes. The team with the most goals at the end wins.
 | **Field player** | One of the six players a team has on the field. |
 | **Forward / back** | Forward is toward the goal a team is attacking; back is toward the goal it defends. Always relative to the team being spoken about. |
 | **Possession** | Which team holds the ball. Tracked separately from the ball's space. |
+| **Arrangement** | The spaces a coach last *put* their meeples on -- at setup, a substitution window, or halftime. A [new play](#resetting-after-a-new-play) puts them back on it. |
 | **Turnover** | Possession changing hands, for any reason. |
 | **Skill test** | The opposed d12 roll used to settle a tied maneuver, a loose ball, and a long High Pass. |
 | **Space minute** | The unit of game time. A period is 15 of them. |
@@ -76,9 +77,10 @@ The home team defends the home goal zone and attacks the visitors goal zone; the
 team does the reverse.
 
 **Occupancy.** Any meeples may share a space -- opposing or teammates alike -- and ordinary
-play stacks them freely. What the [run back](#turnovers-and-running-back) enforces is
-coverage, not a limit: a team comes out of it with **every space of a zone it has players in
-occupied**, as far as its players stretch, and any surplus stacked. Under the 2-2-2 formation
+play stacks them freely. What every deliberate placement -- setup, a substitution window,
+halftime, a [run back](#running-back-after-a-steal) -- enforces is coverage, not a limit: a
+team comes out of it with **every space of a zone it has players in occupied**, as far as its
+players stretch, and any surplus stacked. Under the 2-2-2 formation
 no zone ever holds more of a team's players than it has spaces, so that comes to one player
 per space; a formation that puts more players in a zone than the zone has spaces -- 4-1-1,
 2-1-3 -- fills every space and doubles up the rest.
@@ -167,7 +169,9 @@ Each coach has a player board with these areas:
    as [occupancy](#the-field) asks: every space of the zone taken before any space takes a
    second player. Under 2-2-2 that is one per team per space, and a three-space zone is left
    with a space empty. The home team must finish with a player standing on the kickoff space,
-   since they kick off.
+   since they kick off. This is each coach's first **arrangement**: every
+   [new play](#resetting-after-a-new-play) puts their meeples back on these spaces until a
+   substitution window or halftime sets new ones.
 6. **Place the ball** showing **1** on the kickoff space, in the home team's possession. Set
    the clock to 0.
 
@@ -180,10 +184,13 @@ Each turn runs in this order:
 2. **Resolve it**, including any scoring opportunity or own-goal roll it produces.
 3. **Check for a loose ball.** If the ball's space has no player from the team in possession,
    resolve it as a [loose ball](#loose-ball).
-4. **If possession changed hands**, in this order: the side that gained the ball may
-   [declare substitutions](#substitutions); then every displaced player
-   [runs back](#turnovers-and-running-back); then any placement the resolution still owes
-   (an out-of-bounds recovery, or filling the kickoff space after a goal).
+4. **If possession changed hands**, in this order: on a [steal](#steals-and-new-plays),
+   every displaced player [runs back](#running-back-after-a-steal). On a
+   [new play](#steals-and-new-plays), both sides
+   [reset to their coaches' arrangement](#resetting-after-a-new-play), then the side that
+   gained the ball may [declare substitutions](#substitutions). Either way, last comes any
+   placement the resolution still owes (an out-of-bounds recovery, or filling the kickoff
+   space after a goal).
 5. **Advance the clock** by the turn's time cost. Time always advances by at least 1 space
    minute, and by 1 per space when the ball travels.
 6. The clock stops at 15. Reaching 15 puts the game into
@@ -211,8 +218,9 @@ the roll.
 **Time.** The attempt costs 1 space minute per space the ball travels, counting the space it
 was shot from. A shot from the third space from the end of the field costs 3.
 
-**Cleanup.** Either result turns the ball over, so both restarts run the run back and open a
-substitution window, and both reset the ball's speed to 1.
+**Cleanup.** Either result turns the ball over and is a [new play](#steals-and-new-plays), so
+both restarts reset the sides to their coaches' arrangement and open a substitution window,
+and both reset the ball's speed to 1.
 
 | Result | Restart |
 |---|---|
@@ -374,7 +382,9 @@ already close enough to the offense's own goal that there was nowhere left to pu
 player from the **defending** team is standing on the space the ball ends on, that sets up a
 [scoring opportunity](#scoring-opportunities) for the defense. Possession turns over to them,
 the ball's speed resets to 1, and their player shoots at the goal the ball has just reached.
-The turnover's substitution window and run back wait until that shot has resolved.
+Everything the turnover would otherwise settle waits until that shot has resolved, and the
+deflect itself neither resets anyone nor opens a substitution window -- the shot is a goal or
+a miss, and that [new play](#steals-and-new-plays) does both.
 
 A Fullback's 2-space deflect uses the same test: it sets up the opportunity when the full
 2 spaces is what overshoots, not when 1 space would have.
@@ -469,11 +479,13 @@ the zone recovers it; that player moves to the ball's space and gains 1 token pe
 travelled. If it is the team that did *not* have possession, it is a turnover.
 
 **4. Out of bounds -- neither team has a player in the zone, or neither coach sends one.**
-The team that last had possession loses it. Everyone displaced runs back, and *then* the team
-that just gained possession must get one of their field players onto the ball's space -- from
-anywhere on the field, not just that zone -- at the same 1 token per space travelled. (The
-placement comes after the run back; done first, the run back would pull that player straight
-back off the ball.)
+The team that last had possession loses it. This is the one loose ball that is a
+[new play](#steals-and-new-plays) rather than a steal -- the ball went dead rather than being
+taken -- so both sides reset to their coaches' arrangement and the side that gained it gets a
+substitution window. *Then* that side must get one of their field players onto the ball's
+space -- from anywhere on the field, not just that zone -- at 1 token per space travelled.
+(The placement comes last; done first, the reset would pull that player straight back off the
+ball.)
 
 **The team that last had possession answers first, and alone.** Where both coaches have
 someone to send, they are asked one at a time, starting with the side losing the ball. The
@@ -521,22 +533,71 @@ check.
 
 If the roll fails, the **opposing team's score goes up 1** and the game restarts exactly as
 after any other goal: the conceding team -- the team that was in possession -- takes the ball
-on the kickoff space at speed 1, and everyone runs back.
+on the kickoff space at speed 1, and both sides reset to their coaches' arrangement.
 
 ## Turnovers and running back
 
 **A turnover is possession changing hands, for any reason.** Every turnover:
 
 - **resets the ball's speed to 1**;
-- **opens a [substitution window](#substitutions)** for the side that gained the ball;
-- **runs displaced players back**, after that window.
+- **puts players back where they belong** -- which of the two ways below depends on the kind
+  of turnover it is.
 
-**Only a turnover runs anyone back.** A resolution that leaves possession where it was runs
-nobody back and charges nobody, however far out of position it left them -- a receiver who
-wins their High Pass contest, or a loose ball the possessing side recovers, both keep the
+### Steals and new plays
+
+Every turnover is one of two things, and which it is decides both whether a
+[substitution window](#substitutions) opens and how players get back into position:
+
+| The ball changes hands because | Kind | Window | Players |
+|---|---|---|---|
+| A **Steal Intercept** wins | steal | no | run back |
+| A **Defender's Pressure** steals it | steal | no | run back |
+| A **loose ball** goes to the team that did not have it -- standing on it, sent for it unopposed, or won on the skill test | steal | no | run back |
+| A **long High Pass** contest is lost | steal | no | run back |
+| A **goal** | new play | yes | reset |
+| An **own goal** | new play | yes | reset |
+| A **missed score attempt** | new play | yes | reset |
+| The ball goes **out of bounds** | new play | yes | reset |
+
+A **steal** is the other team taking a live ball. Play never stopped, so neither coach gets
+the pause: the ball's speed resets, everyone displaced [runs back](#running-back-after-a-steal)
+at a token a space, and the game goes straight on.
+
+A **new play** is the ball going dead and being brought back into play. Both sides
+[reset to the arrangement their coaches set](#resetting-after-a-new-play), free of exhaustion,
+and the side restarting gets a substitution window.
+
+A **Block Deflect that overshoots** turns possession over without being either: the deflecting
+team's shot follows immediately, and that shot is a goal or a miss, so the new play -- and its
+window -- comes from the shot. The deflect's own turnover does neither.
+
+**Only a turnover moves anyone.** A resolution that leaves possession where it was runs nobody
+back, resets nobody and charges nobody, however far out of position it left them -- a receiver
+who wins their High Pass contest, or a loose ball the possessing side recovers, both keep the
 ball and both skip it. Whoever is displaced stays displaced until a turnover comes.
 
-**Running back:**
+### Resetting after a new play
+
+A new play puts **every fielded meeple on both sides** back on the space its coach last
+**assigned** it -- at [setup](#setting-up-a-game), at their last
+[substitution window](#substitutions), or at [halftime](#the-clock-halftime-and-full-time).
+That arrangement is the shape a coach chose, and a new play is where the game hands it back.
+
+- **It costs nothing.** No exhaust tokens, however far anyone has to come. This is not players
+  running; it is the coach's shape reasserting itself.
+- **Nobody chooses anything.** The spaces are whatever they last were, exactly.
+- **It happens before the substitution window**, so a coach who declares rearranges from their
+  own formation rather than from wherever open play scattered them, and a coach who passes has
+  already had everything passing gives them.
+- **A run back does not update it.** The scramble a steal forces is not a shape a coach chose,
+  so the next new play undoes it. Only setup, a substitution window and halftime set the
+  arrangement.
+
+The two placements a restart still owes -- the kickoff space after a goal, and picking up an
+out-of-bounds ball -- come *after* the reset and do cost their usual token a space, since
+nothing guarantees the coach's arrangement puts anybody on the space in question.
+
+### Running back after a steal
 
 - Every player returns to a space in **the zone their card is assigned to**.
 - **1 exhaust token per space travelled**, the same rate a challenger pays walking in.
@@ -552,15 +613,13 @@ ball and both skip it. Whoever is displaced stays displaced until a turnover com
 - It therefore **separates teammates who ended up stacked** on one space within their own
   zone, whenever another space in that zone has none of their players on it. Once every space
   in the zone is covered the stack stands -- nobody is moved somewhere that does not help.
-- **A steal exempts the stealing player.** On a turnover created by a Steal Intercept or a
-  Defender's Pressure steal, that one player stays where they ended up; everyone else
-  displaced still runs back. Where a stacked pair has to be separated, the exempt player is
-  the one who stays put.
+- **The stealing player is exempt.** The player who took the ball -- by Steal Intercept, or by
+  a Defender's Pressure steal -- stays where they ended up; everyone else displaced still runs
+  back. Where a stacked pair has to be separated, the exempt player is the one who stays put.
 
-**After a goal**, once everyone else is settled, the conceding team must also get a meeple
-onto the **kickoff space** to restart -- nothing guarantees one of their midfield players is
-already standing on it. Whoever is nearest drops back onto it at the usual one token per
-space.
+**After a goal**, once the reset is done, the conceding team must also get a meeple onto the
+**kickoff space** to restart -- nothing guarantees their coach's arrangement puts anybody on
+it. Whoever is nearest drops back onto it at one token per space.
 
 **During last possession**, a turnover ends the period instead: see
 [The clock](#the-clock-halftime-and-full-time).
@@ -600,8 +659,9 @@ count** they are safe. Otherwise they are injured.
 - **cannot gain further tokens** and make no further injury checks;
 - are **disadvantaged** until subbed off: they automatically lose a challenge, and must win a
   skill test even when their maneuver beats their opponent's outright;
-- **force their team to declare a substitution** at their next opportunity, if they still have
-  one that half;
+- **do not have to be substituted.** Nothing compels their team to get them off. A coach may
+  leave an injured player on the field, disadvantaged, for the rest of the game, and spend
+  their declaration on something else;
 - once subbed off, go to the **back bench and can never return**.
 
 **Halftime recovery:** every fielded player loses 1 token, and each coach picks one of their
@@ -609,8 +669,9 @@ fielded players to lose an extra one.
 
 ## Substitutions
 
-**A team may declare substitutions once per half**, when they win possession -- after **any**
-turnover, not only a steal or a shot.
+**A team may declare substitutions once per half**, when they take the ball for a
+[new play](#steals-and-new-plays) -- a goal, an own goal, a missed attempt, or a ball out of
+bounds. A steal opens no window, however the ball was taken.
 
 **The declaring team** may:
 
@@ -622,8 +683,9 @@ costs the answering side nothing -- it does not spend their own declaration -- s
 normally substitute twice in a half: once declaring, once replying. If the declaring team
 passes, the reply goes with it; the reply exists only to answer a declaration.
 
-**The window opens before the run back.** Substitute and rearrange first; the run back then
-places whoever ended up on the field.
+**The window opens after the reset.** Both sides are already standing on the arrangement
+their coaches set by the time the window is offered, so a coach who declares rearranges from
+their own formation, and a coach who passes keeps it.
 
 **Rearranging** moves cards between zones freely and **costs no exhaustion** -- the one way a
 meeple moves in this game without paying per space. It is also the only way to change
@@ -639,6 +701,10 @@ the team in any of the three.
 The numbers read from the team's own goal forward, and each coach chooses their own. 4-1-1
 and 2-1-3 put more cards in a zone than that zone has spaces on any board, which is what
 [occupancy](#the-field) is written for: those zones fill every space and stack the surplus.
+
+**Whatever a side finishes the window standing on becomes their arrangement**, and every
+[new play](#resetting-after-a-new-play) from then on puts them back on it. A side that passes
+sets nothing and keeps the arrangement it had.
 
 Which card goes where is the coach's, not the formation's -- it fixes only how many go in
 each zone. Once assignments are settled, the team places its meeples anywhere within their
@@ -679,10 +745,11 @@ period ends.
 
 - **The maneuver that takes the clock to 15 never ends the period, even when it is itself a
   turnover.** Last possession is the possession that *starts* at 15, so a steal, a goal or a
-  missed shot that brings the clock up to 15 resolves in full -- run back included -- and
-  hands last possession to whichever side it gave the ball to.
+  missed shot that brings the clock up to 15 resolves in full -- run back or reset included --
+  and hands last possession to whichever side it gave the ball to.
 - **A turnover while last possession is already in force ends the period immediately.** No run
-  back, and no resolution of whatever the causing maneuver still owed -- a Steal Intercept's
+  back, no reset, no substitution window, and no resolution of whatever the causing maneuver
+  still owed -- a Steal Intercept's
   fallback move and speed choice included. Play goes straight to halftime or full time.
 
 **Halftime**, after the first period, in this order:
@@ -696,6 +763,7 @@ period ends.
    zone is free but the space is not: [occupancy](#the-field) still applies, so a coach may
    not leave a space of a zone they are standing in empty in order to stack elsewhere in it.
    The visiting coach must finish with a player on the kickoff space, since they kick off.
+   Where each side finishes is their arrangement for the second half.
 5. The second half starts with the **visiting team in possession on the kickoff space**, ball
    speed 1.
 

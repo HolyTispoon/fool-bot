@@ -254,7 +254,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
 
     # -- Own goal ------------------------------------------------------
 
-    async def roll_own_goal(self, roll: int) -> SimpleNamespace:
+    async def roll_own_goal(self, roll: int) -> tuple:
         cog = build_cog()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         match = self.build_match()
@@ -278,10 +278,10 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
             await cog.run_own_goal_roll(
                 interaction, game, match, distance_moved=1,
             )
-        return interaction
+        return cog, interaction
 
     async def test_an_own_goal_is_announced_after_its_dice(self) -> None:
-        interaction = await self.roll_own_goal(1)
+        _, interaction = await self.roll_own_goal(1)
 
         first, second = interaction.followup.send.await_args_list[:2]
         self.assertIn("file", first.kwargs)
@@ -291,12 +291,42 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
     async def test_avoiding_an_own_goal_is_announced_after_its_dice(
         self,
     ) -> None:
-        interaction = await self.roll_own_goal(12)
+        _, interaction = await self.roll_own_goal(12)
 
         first, second = interaction.followup.send.await_args_list[:2]
         self.assertIn("file", first.kwargs)
         self.assertNotIn("avoided", first.args[0])
         self.assertIn("## Own goal avoided!", second.args[0])
+
+    # -- Which turnovers open a substitution window ---------------------
+    #
+    # A goal, an own goal and a missed attempt all restart from a dead
+    # ball, so all three are new plays. See "Steals and new plays" in
+    # docs/living-rules.md.
+
+    async def test_a_conceded_own_goal_is_a_new_play(self) -> None:
+        cog, _ = await self.roll_own_goal(1)
+
+        cog.begin_run_back.assert_awaited_once()
+        self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])
+
+    async def test_a_goal_is_a_new_play(self) -> None:
+        cog = build_cog()
+        game, _ = self.build_score_attempt(cog)
+
+        await self.roll_score_attempt(cog, game, [12, 1])
+
+        cog.begin_run_back.assert_awaited_once()
+        self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])
+
+    async def test_a_missed_attempt_is_a_new_play(self) -> None:
+        cog = build_cog()
+        game, _ = self.build_score_attempt(cog)
+
+        await self.roll_score_attempt(cog, game, [1, 12])
+
+        cog.begin_run_back.assert_awaited_once()
+        self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])
 
 
 if __name__ == "__main__":

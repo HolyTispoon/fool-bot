@@ -103,6 +103,58 @@ substitution window (which halftime reuses).
   still names one player per destination -- that is a button label, not the
   receiver.
 
+## Turnovers: steals and new plays
+
+Every turnover resets the ball's speed and puts players back in position, but
+*how* differs, and only one of the two opens a substitution window.
+`begin_run_back`'s `new_play` flag is the whole distinction -- see "Steals and
+new plays" in the living rules for which is which.
+
+- **A steal runs back; a new play resets.** A steal keeps the old behaviour --
+  the stealer stays, everyone else displaced picks a space in their zone at a
+  token a space. A new play calls `announce_new_play_reset`, which puts *both*
+  sides back on the arrangement their coaches set, free of exhaustion, and
+  then offers the window. That leaves nobody displaced, so the run back that
+  follows finds nothing to do and falls through to whatever the restart still
+  owes.
+- **`new_play` is the exception, not the rule.** It defaults False, so a new
+  path that turns the ball over is a steal unless it says otherwise. Exactly
+  three call sites pass it: the score attempt (goal or miss), the conceded own
+  goal, and the out-of-bounds loose ball. Anything that adds a way for
+  possession to change has to decide which it is -- did the ball go dead, or
+  did the other team take it off them?
+- **It is deliberately not persisted**, unlike the `pending_run_back_*`
+  fields. It is consumed inside `begin_run_back`, and by the time anything is
+  saved the state already records which branch was taken: a window open, or a
+  run back pending. A restart resumes from that, never from the flag.
+- **A Block Deflect that overshoots is neither.** It flips possession and goes
+  straight to the shot without calling `begin_run_back` at all; the goal or
+  miss that follows is the new play.
+
+### The arrangement
+
+`MatchState.assigned_positions` is `player_id -> [zone, space]`, persisted
+with the rest of the match, and it is what a new play restores.
+
+- **Only a deliberate placement sets it**, via `set_assigned_positions`: the
+  standard setup, the close of a substitution window a side actually declared,
+  and the end of halftime repositioning (both the human and the AI paths). A
+  run back must never write to it -- the scramble a steal forces is not a
+  shape a coach chose, and the whole point is that the next new play undoes
+  it.
+- **A player with no entry is left where they stand.** That is how a game
+  saved before this field existed keeps working: `restore_assigned_positions`
+  moves nobody, the ordinary run back still finds them displaced, and the
+  side's next window sets a real arrangement.
+- **Restoring never charges exhaustion**, so it goes through
+  `board.place_meeple` rather than `run_back_player`, and it skips the
+  occupancy check on purpose -- the end state is a whole arrangement that was
+  valid when it was saved, even though restoring it one meeple at a time
+  passes through states that are not.
+- **The two placements a restart owes still cost**: the post-goal kickoff fill
+  and the out-of-bounds pickup run after the reset, at the usual rate, because
+  nothing guarantees a coach's arrangement covers the space in question.
+
 ## Logging and the #logs channel
 
 **Use `logging`, not `print`.** Every module gets its own logger
