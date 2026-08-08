@@ -4433,8 +4433,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if game.status != GameStatus.FINISHED:
                 continue
 
+            # A saved game can outlive the thing it points at: channels
+            # get deleted by hand, and the bot gets removed from
+            # servers. Neither is anyone's to fix, and both would
+            # otherwise repeat their error on every reconnect, so they
+            # stay on the console.
+            if self.bot.get_guild(game.guild_id) is None:
+                LOGGER.info(
+                    "Not archiving finished D12 Ball game %s: the bot is "
+                    "not in its server any more.",
+                    game.game_id,
+                )
+                continue
+
             try:
                 await self.archive_game_channel(game)
+            except discord.NotFound:
+                LOGGER.info(
+                    "Not archiving finished D12 Ball game %s: its channel "
+                    "no longer exists.",
+                    game.game_id,
+                )
             except (ValueError, discord.Forbidden, discord.HTTPException) as error:
                 # An error rather than a warning: a finished game whose
                 # channel stays in the games category is a permission

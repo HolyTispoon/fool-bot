@@ -96,7 +96,11 @@ Three things to know before changing any of it:
 - **The level you log at decides who sees it.** ERROR reaches the server;
   WARNING and INFO are console-only. So an error means "someone needs to
   fix this", not "something unexpected happened" — a missing application
-  emoji is an INFO, a game whose channel could not be archived is an ERROR.
+  emoji is an INFO, a game whose channel the bot is not allowed to move is
+  an ERROR. The test is whether anyone can act on it: a finished game whose
+  channel was deleted, or whose server the bot has left, is an INFO however
+  much it looks like a failure, because there is nothing to fix and the
+  startup sweep would repeat it on every reconnect.
 - **The sink must never log its own failures.** A failed send that logged
   would hand itself the record it just failed to send. `botlog/handler.py`
   prints those to stderr, deliberately.
