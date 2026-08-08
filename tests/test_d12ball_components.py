@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from PIL import Image, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 from cogs.d12ball import HIGH_PASS_CONTEST_HEADLINE, D12Ball
 from d12ball.components import (
@@ -29,6 +29,7 @@ from d12ball.render import (
     FONT_SMALL,
     FONT_TITLE,
     PORTRAIT_IMAGE_SIZE,
+    fit_meeple_labels,
     OWN_GOAL_DIE_RADIUS,
     SKILL_TEST_DIE_RADIUS,
     load_font,
@@ -545,26 +546,34 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertEqual(match.exhaustion, {})
         match.validate(self.catalog)
 
-    def test_reposition_player_rejects_the_wrong_zone(self) -> None:
+    def test_run_back_player_rejects_the_wrong_zone(self) -> None:
         match = self.standard_match()
-        # orange_hellguard is a Home Goal native -- Visitors Goal's
-        # spaces are not their assigned zone.
-        with self.assertRaises(ValueError):
-            match.reposition_player(
-                TeamSide.HOME, "orange_hellguard", 0,
-            )
-        # Confirm the rejection actually came from the zone mismatch,
-        # not an out-of-range space index.
+        # orange_hellguard is a Home Goal native, so Visitors Goal is
+        # not a zone they can be sent back to. (reposition_player
+        # reads the zone off the card and so can never mismatch; only
+        # run_back_player takes one from a caller.)
         home_zone = match.home.assigned_zone("orange_hellguard")
         self.assertNotEqual(home_zone, Zone.VISITORS_GOAL)
 
-    def test_reposition_player_rejects_an_occupied_space(self) -> None:
-        match = self.standard_match()
-        player_id = match.home.zones[Zone.HOME_GOAL][0]
-        occupied = match.board.meeple_position(player_id)[1]
+        with self.assertRaises(ValueError):
+            match.run_back_player(
+                "orange_hellguard", Zone.VISITORS_GOAL, 0,
+            )
+
+    def test_reposition_player_rejects_leaving_a_space_uncovered(
+        self,
+    ) -> None:
+        # Board 9's three-space zones give 2-2-2 a space to spare, so
+        # stepping onto a teammate would leave that space with nobody
+        # on it -- which is exactly what the coverage rule forbids.
+        match = self.standard_match(board_size=9)
+        player_id, teammate_id = match.home.zones[Zone.HOME_GOAL]
+        teammate_space = match.board.meeple_position(teammate_id)[1]
 
         with self.assertRaises(ValueError):
-            match.reposition_player(TeamSide.HOME, player_id, occupied)
+            match.reposition_player(
+                TeamSide.HOME, player_id, teammate_space,
+            )
 
     def test_swap_meeple_positions_resolves_a_fully_packed_zone(
         self,
@@ -878,6 +887,26 @@ class D12BallComponentTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
             self.assertEqual(image.size, (3300, 1920))
+
+    def test_meeple_names_shrink_to_fit_a_stacked_space(self) -> None:
+        # A formation can put a whole zone's players on one space, so
+        # the label size is chosen per space (see fit_meeple_labels).
+        # The test suite cannot see the image, so this checks the sizing
+        # rule directly: four names take a smaller size than one, and
+        # every one of them fits the width it was given.
+        image = Image.new("RGB", (10, 10))
+        draw = ImageDraw.Draw(image)
+        names = ["Flickerwing", "Hellguard", "Kindlefoot", "Blazebulk"]
+
+        single_font, _ = fit_meeple_labels(draw, names[:1], 400, 300)
+        stacked_font, line_height = fit_meeple_labels(draw, names, 400, 90)
+
+        self.assertLess(stacked_font.size, single_font.size)
+        self.assertLessEqual(len(names) * line_height, 90)
+        for name in names:
+            self.assertLessEqual(
+                draw.textlength(name, font=stacked_font), 400,
+            )
 
 
 class D12BallScoreAttemptTests(unittest.TestCase):
@@ -1853,6 +1882,91 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # must not appear even though a teammate is standing there (as
         # distance 0).
         self.assertEqual(cog.low_pass_candidates(match), [(0, sharing)])
+
+    # -- low_pass_receivers -------------------------------------------
+
+    def test_low_pass_receivers_lists_everyone_on_the_space(self) -> None:
+        # A formation that stacks makes two or three teammates on one
+        # space ordinary, and which of them receives is the passer's
+        # choice -- the destination list only names the first.
+        match = self.build_match()
+        self.clear_board(match)
+        handler, first, second = match.home.field_players[:3]
+        for player_id in (handler, first, second):
+            match.move_meeple(player_id, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = handler
+
+        cog = self.build_cog()
+
+        self.assertEqual(cog.low_pass_candidates(match), [(0, first)])
+        self.assertEqual(
+            cog.low_pass_receivers(match, 0), [first, second],
+        )
+
+    def test_low_pass_receivers_never_include_the_passer(self) -> None:
+        match = self.build_match()
+        self.clear_board(match)
+        handler, sharing = match.home.field_players[:2]
+        match.move_meeple(handler, Zone.MIDFIELD, 1)
+        match.move_meeple(sharing, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = handler
+
+        cog = self.build_cog()
+
+        self.assertEqual(cog.low_pass_receivers(match, 0), [sharing])
+
+    def test_low_pass_receivers_ignore_the_other_team(self) -> None:
+        match = self.build_match()
+        self.clear_board(match)
+        handler, teammate = match.home.field_players[:2]
+        opponent = match.visiting.field_players[0]
+        for player_id in (handler, teammate, opponent):
+            match.move_meeple(player_id, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = handler
+
+        cog = self.build_cog()
+
+        self.assertEqual(cog.low_pass_receivers(match, 0), [teammate])
+
+    async def test_a_winger_s_set_up_goes_to_the_chosen_receiver(
+        self,
+    ) -> None:
+        # The receiver is what the Winger's ability hands the shot to,
+        # which is the whole reason the choice is asked for.
+        cog = self.build_cog()
+        match = self.build_match()
+        self.clear_board(match)
+        winger = self.player_with_role(match, TeamSide.HOME, PlayerRole.WINGER)
+        first, second = [
+            player_id
+            for player_id in match.home.field_players
+            if player_id != winger
+        ][:2]
+        for player_id in (winger, first, second):
+            match.move_meeple(player_id, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.active_player_id = winger
+
+        game = SimpleNamespace(game_id="g", match_state=None)
+        interaction = SimpleNamespace(
+            followup=SimpleNamespace(send=mock.AsyncMock()),
+        )
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_low_pass(
+                interaction, game, match, 0, receiver_id=second,
+            )
+
+        self.assertEqual(
+            cog.offer_scoring_attempt_choice.await_args.kwargs["shooter_id"],
+            second,
+        )
 
     # -- apply_low_pass ------------------------------------------------
 

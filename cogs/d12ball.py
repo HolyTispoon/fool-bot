@@ -11,6 +11,8 @@ from discord.ext import commands
 
 from d12ball.ai import build_ai_strategies, AIStrategy
 from d12ball.components import (
+    SETUP_AREAS,
+    FormationShape,
     MatchPeriod,
     MatchState,
     PlayerDefinition,
@@ -22,11 +24,13 @@ from d12ball.components import (
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
+    zone_for_area,
 )
 from d12ball.game import (
     AIOpponent,
     CoinFace,
     D12BallGame,
+    Formation,
     GameMode,
     GameStatus,
     Team,
@@ -56,6 +60,7 @@ from cogs.d12ball_helpers import (
     ROLE_INITIALS,
     add_full_image_button,
     add_full_image_button_to_response,
+    area_display_name,
     build_full_time_summary,
     build_game_channel_name,
     contest_noun,
@@ -376,6 +381,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return 1
 
         return max(existing_numbers) + 1
+
+    def formation_shape(self, formation: Formation) -> FormationShape:
+        return self.basic_ruleset.formations[Formation(formation)]
 
     def initialize_standard_match(
         self,
@@ -937,8 +945,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         first one -- the same class of crash-window gap as the
         unrecognized-winner case above. A won Low Pass or High Pass
         that has moved on to its scoring-opportunity attempt/decline
-        choice (SetUpAttemptChoiceView) has the same gap: this always
-        reconstructs the first-stage distance choice instead.
+        choice (SetUpAttemptChoiceView) has the same gap, as does a
+        Low Pass waiting on which of several teammates on the
+        destination space receives it (LowPassReceiverView): this
+        always reconstructs the first-stage distance choice instead.
+        Nothing has been applied by then, so the coach re-picks.
         """
         outcome = self.maneuver_catalog.resolve(
             match.offense_maneuver, match.defense_maneuver,
@@ -1044,10 +1055,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         Low Pass at all -- see resolve_low_pass, which is where that
         case is handled rather than here.
 
-        Two players of the same side sharing a space is uncommon but
-        legal (it is what crowded_players exists to unpick), so this
-        picks the first occupant who isn't the handler rather than
-        assuming there is only one.
+        The receiver named here is only the *first* teammate on that
+        space, which is all a destination button needs. Where more
+        than one is standing there -- ordinary under a formation that
+        stacks -- who actually receives the pass is the passer's
+        choice: see low_pass_receivers.
         """
         offense_side = match.ball.possession
         offense_players = set(match.setup_for_side(offense_side).field_players)
@@ -1055,39 +1067,55 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.ball.zone, match.ball.space_index,
         )
 
-        def teammate_at(distance: int) -> Optional[str]:
-            target_flat = match.relative_flat_index(
-                origin_flat, offense_side, distance,
-            )
-            # relative_flat_index() clamps to the board edge -- if
-            # that shortened the move, this distance doesn't reach an
-            # actual space and isn't a candidate.
-            if abs(target_flat - origin_flat) != abs(distance):
-                return None
-            zone, space_index = match.board.position_at_flat_index(
-                target_flat,
-            )
-            occupants = match.board.spaces[zone][space_index]
-            return next(
-                (
-                    player_id
-                    for player_id in occupants
-                    if player_id in offense_players
-                    and player_id != match.active_player_id
-                ),
-                None,
-            )
-
         candidates: list[tuple[int, str]] = []
         # Each run stops at its first hit: the nearest teammate is the
         # only one that direction offers.
         for distances in ((-1, -2), (0,), (1, 2)):
             for distance in distances:
-                teammate_id = teammate_at(distance)
-                if teammate_id is not None:
-                    candidates.append((distance, teammate_id))
+                receivers = self.low_pass_receivers(match, distance)
+                if receivers:
+                    candidates.append((distance, receivers[0]))
                     break
         return candidates
+
+    def low_pass_receivers(
+        self,
+        match: MatchState,
+        distance: int,
+    ) -> list[str]:
+        """
+        Every teammate a Low Pass of `distance` could be played to --
+        the offensive players standing on that space, minus the
+        handler, who cannot pass to themselves.
+
+        Usually one, and then the destination *is* the choice. A
+        formation that stacks (4-1-1, 2-1-3) makes two or three
+        ordinary, and which of them receives the ball is the passer's
+        to pick: it decides who a Winger's set-up hands the shot to.
+        Empty when the distance runs off the end of the board, or when
+        the space holds nobody but the handler.
+        """
+        offense_side = match.ball.possession
+        offense_players = set(match.setup_for_side(offense_side).field_players)
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        target_flat = match.relative_flat_index(
+            origin_flat, offense_side, distance,
+        )
+        # relative_flat_index() clamps to the board edge -- if that
+        # shortened the move, this distance doesn't reach an actual
+        # space and isn't a candidate.
+        if abs(target_flat - origin_flat) != abs(distance):
+            return []
+
+        zone, space_index = match.board.position_at_flat_index(target_flat)
+        return [
+            player_id
+            for player_id in match.board.spaces[zone][space_index]
+            if player_id in offense_players
+            and player_id != match.active_player_id
+        ]
 
     async def resolve_low_pass(
         self,
@@ -1138,10 +1166,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         if self.side_controlled_by_ai(game, match, "offense"):
-            distance = self.get_ai_strategy(game).choose_low_pass(
-                match, candidates,
+            strategy = self.get_ai_strategy(game)
+            distance = strategy.choose_low_pass(match, candidates)
+            await self.apply_low_pass(
+                interaction,
+                game,
+                match,
+                distance,
+                receiver_id=strategy.choose_low_pass_receiver(
+                    match, self.low_pass_receivers(match, distance),
+                ),
             )
-            await self.apply_low_pass(interaction, game, match, distance)
             return
 
         mention = format_player_with_team(
@@ -1166,24 +1201,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
         distance: int,
+        receiver_id: Optional[str] = None,
     ) -> None:
         offense_side = match.ball.possession
         handler = self.get_player_definition(match.active_player_id)
-        # Read before the ball moves, because the candidates are
-        # relative to where it is now. This is the player the pass was
-        # aimed at, which is not always the same as whoever the
-        # landing space's occupant list happens to start with -- see
-        # the Winger branch below.
-        receiver_id = next(
-            (
-                player_id
-                for candidate_distance, player_id in (
-                    self.low_pass_candidates(match)
-                )
-                if candidate_distance == distance
-            ),
-            None,
-        )
+        # Read before the ball moves, because the receivers are
+        # relative to where it is now. `receiver_id` is who the passer
+        # picked out of a shared space; without one -- a single
+        # occupant, so nothing was asked -- it is whoever is standing
+        # there. Either way this is the player the pass was aimed at,
+        # which is not always the same as whoever the landing space's
+        # occupant list happens to start with -- see the Winger branch
+        # below.
+        receivers = self.low_pass_receivers(match, distance)
+        if receiver_id not in receivers:
+            receiver_id = receivers[0] if receivers else None
 
         actual_distance = match.move_ball_relative(offense_side, distance)
         match.ball.speed = min(12, match.ball.speed + 1)
@@ -2605,6 +2637,77 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             ". Rearranging costs no exhaustion -- place their meeples below."
         )
 
+    def current_formation(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> Optional[Formation]:
+        """
+        The formation a side is standing in, or None for a shape no
+        formation describes -- which /coach and /ref can leave behind,
+        since they move cards one at a time and answer to nothing.
+        """
+        setup = match.setup_for_side(side)
+        counts = {
+            area: len(setup.zones[zone_for_area(side, area)])
+            for area in SETUP_AREAS
+        }
+        for formation, shape in self.basic_ruleset.formations.items():
+            if shape.counts() == counts:
+                return formation
+        return None
+
+    def apply_formation_change(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        formation: Formation,
+        assignment: dict[str, list[str]],
+    ) -> str:
+        """
+        Move a side into `formation`, with `assignment` saying which
+        of their six fielded cards fills each area. Nobody's meeple
+        moves: whoever now stands outside their new zone is displaced,
+        and the coach either places them by hand (free, right after
+        this) or leaves it to the next run back.
+        """
+        side = TeamSide(side)
+        shape = self.formation_shape(formation)
+
+        for area in SETUP_AREAS:
+            if len(assignment.get(area, [])) != shape.count(area):
+                raise ValueError(
+                    f"{formation.value} puts {shape.count(area)} "
+                    f"players in {area_display_name(area)}."
+                )
+
+        match.reassign_field_zones(
+            side,
+            {
+                zone_for_area(side, area): list(assignment[area])
+                for area in SETUP_AREAS
+            },
+        )
+
+        setup = match.setup_for_side(side)
+        lines = [
+            f"**{format_team_side_label(setup)} switch to "
+            f"{formation.value}.**"
+        ]
+        for area in SETUP_AREAS:
+            zone = zone_for_area(side, area)
+            names = ", ".join(
+                self.format_roster_player(player_id)
+                for player_id in assignment[area]
+            )
+            lines.append(
+                f"{destination_display_name(zone.value)}: {names}"
+            )
+        lines.append(
+            "Rearranging costs no exhaustion -- place their meeples below."
+        )
+        return "\n".join(lines)
+
     def apply_reposition(
         self,
         match: MatchState,
@@ -3011,14 +3114,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side: TeamSide,
         player_id: str,
     ) -> str:
-        """The open spaces in `player_id`'s own zone, for the
-        run-back prompt -- so the coach sees every option up front,
-        alongside the buttons that offer the same choice."""
+        """The spaces `player_id` may run back to in their own zone,
+        for the run-back prompt -- so the coach sees every option up
+        front, alongside the buttons that offer the same choice."""
         zone = match.setup_for_side(side).assigned_zone(player_id)
-        open_spaces = match.open_spaces_in_zone(side, zone)
-        if not open_spaces:
-            return "No open space in their zone."
-        options = ", ".join(space_label(zone, index) for index in open_spaces)
+        spaces = match.placement_spaces_in_zone(side, zone, player_id)
+        if not spaces:
+            return "No space in their zone."
+        options = ", ".join(space_label(zone, index) for index in spaces)
         return f"Options: {options}"
 
     async def continue_run_back(
@@ -3078,7 +3181,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
             player_id = displaced[0]
             zone = match.setup_for_side(side).assigned_zone(player_id)
-            open_spaces = match.open_spaces_in_zone(side, zone)
+            open_spaces = match.placement_spaces_in_zone(
+                side, zone, player_id,
+            )
             player = self.get_player_definition(player_id)
 
             if self.side_is_ai(game, side):

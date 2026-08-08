@@ -15,6 +15,24 @@ class GameMode(str, Enum):
     ADVANCED = "advanced"
 
 
+class Formation(str, Enum):
+    """
+    How many of a team's six fielded cards sit in each zone, read own
+    goal / midfield / opponent's goal. Every game kicks off in 2-2-2;
+    the other two are reached by rearranging in a substitution window.
+    The shapes themselves (and the check that each fields six) live in
+    `basic_rules.json`, so the two have to be changed together.
+
+    4-1-1 and 2-1-3 put more cards in a zone than the zone has spaces,
+    which is what the run back's coverage rule is written for -- see
+    "Occupancy" in docs/living-rules.md.
+    """
+
+    TWO_TWO_TWO = "2-2-2"
+    FOUR_ONE_ONE = "4-1-1"
+    TWO_ONE_THREE = "2-1-3"
+
+
 class TieMode(str, Enum):
     """
     What happens when the scores are level at full time: a league game

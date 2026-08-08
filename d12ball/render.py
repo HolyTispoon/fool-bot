@@ -127,6 +127,12 @@ FONT_CARD_ROLE = load_font(46, bold=True)
 CARD_NAME_MIN_SIZE = 28
 CARD_NAME_MAX_SIZE = 60
 _CARD_NAME_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
+# Meeple names are sized per space, not once for the board: see
+# fit_meeple_labels.
+MEEPLE_LABEL_MIN_SIZE = 14
+MEEPLE_LABEL_MAX_SIZE = 27
+MEEPLE_LABEL_LINE_GAP = 3
+_MEEPLE_LABEL_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
 MEEPLE_SIZE = 56
 BALL_RADIUS = 27
 
@@ -293,6 +299,68 @@ def card_name_font(size: int) -> ImageFont.ImageFont:
         font = load_font(size, bold=True)
         _CARD_NAME_FONT_CACHE[size] = font
     return font
+
+
+def meeple_label_font(size: int) -> ImageFont.ImageFont:
+    font = _MEEPLE_LABEL_FONT_CACHE.get(size)
+    if font is None:
+        font = load_font(size, bold=True)
+        _MEEPLE_LABEL_FONT_CACHE[size] = font
+    return font
+
+
+def fit_meeple_labels(
+    draw: ImageDraw.ImageDraw,
+    labels: list[str],
+    max_width: int,
+    max_height: int,
+) -> tuple[ImageFont.ImageFont, int]:
+    """
+    The largest label size, and the line height to go with it, that
+    fits every name of a group inside its own space: the widest name
+    within `max_width`, and one line per name within `max_height`.
+
+    A space can hold a whole zone's worth of meeples now that 4-1-1
+    and 2-1-3 exist, so the size a stack needs is not something a
+    constant can know -- one name gets the full size, four share the
+    room between the tokens and the bottom of the space. Falls back to
+    the smallest size when even that does not fit; the caller shortens
+    a name that is still too wide.
+    """
+    for size in range(MEEPLE_LABEL_MAX_SIZE, MEEPLE_LABEL_MIN_SIZE - 1, -1):
+        font = meeple_label_font(size)
+        line_height = size + MEEPLE_LABEL_LINE_GAP
+        if len(labels) * line_height > max_height:
+            continue
+        if any(
+            draw.textlength(label, font=font) > max_width
+            for label in labels
+        ):
+            continue
+        return font, line_height
+
+    return (
+        meeple_label_font(MEEPLE_LABEL_MIN_SIZE),
+        MEEPLE_LABEL_MIN_SIZE + MEEPLE_LABEL_LINE_GAP,
+    )
+
+
+def shorten_to_width(
+    draw: ImageDraw.ImageDraw,
+    label: str,
+    font: ImageFont.ImageFont,
+    max_width: int,
+) -> str:
+    """Cut a name down until it fits, keeping a trailing ellipsis."""
+    if draw.textlength(label, font=font) <= max_width:
+        return label
+
+    shortened = label
+    while shortened and draw.textlength(
+        f"{shortened}...", font=font,
+    ) > max_width:
+        shortened = shortened[:-1]
+    return f"{shortened}..." if shortened else ""
 
 
 def fit_card_name(
@@ -753,6 +821,8 @@ def draw_board(
                     ball_is_here
                     and match.ball.possession.value == "visiting"
                 ),
+                # Stop above the home side's own tokens.
+                label_bottom=BOARD_BOTTOM - 145,
             )
             home_bounds = draw_meeple_group(
                 draw,
@@ -766,6 +836,7 @@ def draw_board(
                     ball_is_here
                     and match.ball.possession.value == "home"
                 ),
+                label_bottom=BOARD_BOTTOM - 16,
             )
 
             if ball_is_here:
@@ -799,7 +870,19 @@ def draw_meeple_group(
     token_y: int,
     alignment: str,
     reserve_ball: bool,
+    label_bottom: int,
 ) -> tuple[int, int]:
+    """
+    One team's meeples on one space: a row of tokens, with their names
+    listed under them, one per line.
+
+    `label_bottom` is the lowest y the names may reach -- the bottom of
+    the space for the home side, the top of the home side's tokens for
+    the visiting one. Names are sized to fit that and the space's own
+    width (fit_meeple_labels), because a formation can put a whole
+    zone's players on one space and a size that suits one name is
+    unreadable spread over four.
+    """
     if not occupants:
         return space_left, space_right
 
@@ -818,6 +901,19 @@ def draw_meeple_group(
             - total_width
         )
     group_left = token_x
+
+    label_top = token_y + token_size + 7
+    # Keep names inside the space's own border, which is drawn 8px in
+    # on each side.
+    label_left_limit = space_left + 10
+    label_right_limit = space_right - 10
+    label_width_limit = label_right_limit - label_left_limit
+    label_font, line_height = fit_meeple_labels(
+        draw,
+        [players[player_id].name for player_id in occupants],
+        label_width_limit,
+        max(label_bottom - label_top, MEEPLE_LABEL_MIN_SIZE),
+    )
 
     for player_index, player_id in enumerate(occupants):
         player = players[player_id]
@@ -844,21 +940,20 @@ def draw_meeple_group(
             font=FONT_TOKEN,
             fill="#ffffff",
         )
-        label = player.name
-        label_width = draw.textlength(label, font=FONT_MEEPLE)
+        label = shorten_to_width(
+            draw, player.name, label_font, label_width_limit,
+        )
+        label_width = draw.textlength(label, font=label_font)
         label_x = token_x + (token_size - label_width) / 2
-        label_x = max(space_left + 4, label_x)
-        label_x = min(space_right - label_width - 4, label_x)
-        name_y = token_y + token_size + 7
-        if len(occupants) > 1:
-            name_y += player_index * 23
+        label_x = max(label_left_limit, label_x)
+        label_x = min(label_right_limit - label_width, label_x)
         draw.text(
             (
                 label_x,
-                name_y,
+                label_top + player_index * line_height,
             ),
             label,
-            font=FONT_MEEPLE,
+            font=label_font,
             fill="#ffffff",
         )
         token_x += token_size + gap

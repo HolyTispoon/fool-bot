@@ -5,7 +5,7 @@ rules got this way, what upstream still says, and what is still unanswered are a
 [rules-log.md](rules-log.md).
 
 These are the **basic mode** rules -- the only mode that exists. Advanced mode (per-team
-abilities, formations other than 2-2-2) is planned and unspecified.
+abilities) is planned and unspecified.
 
 ---
 
@@ -75,10 +75,13 @@ into three zones -- home goal, midfield, visitors goal, left to right:
 The home team defends the home goal zone and attacks the visitors goal zone; the visiting
 team does the reverse.
 
-**Occupancy.** Opposing meeples may share a space freely. A team may have at most one of its
-own players on a space once players have run back; ordinary play can leave two of a team's
-players stacked on one space, and the next [run back](#turnovers-and-running-back) separates
-them if there is anywhere to put them.
+**Occupancy.** Any meeples may share a space -- opposing or teammates alike -- and ordinary
+play stacks them freely. What the [run back](#turnovers-and-running-back) enforces is
+coverage, not a limit: a team comes out of it with **every space of a zone it has players in
+occupied**, as far as its players stretch, and any surplus stacked. Under the 2-2-2 formation
+no zone ever holds more of a team's players than it has spaces, so that comes to one player
+per space; a formation that puts more players in a zone than the zone has spaces -- 4-1-1,
+2-1-3 -- fills every space and doubles up the rest.
 
 **The kickoff space** is where the ball starts every period and every restart after a goal:
 
@@ -148,8 +151,8 @@ Each coach has a player board with these areas:
    opponent. The winner chooses to be the **home** or the **visiting** team. The trade is
    deliberate: home kicks off the first half, the visitors kick off the second, so choosing
    visitor buys the second-half restart.
-4. **Assign player cards to zones.** Two cards per zone. The standard setup fields one player
-   of each role:
+4. **Assign player cards to zones.** Every game starts in the **2-2-2 formation** -- two
+   cards per zone -- dealt as the standard setup, one player of each role:
 
    | Zone | Players |
    |---|---|
@@ -157,10 +160,14 @@ Each coach has a player board with these areas:
    | Midfield | Midfielder, Playmaker |
    | Opponent's goal | Winger, Striker |
 
-   The remaining Defender, Playmaker and Striker go to the bench.
-5. **Place meeples.** Each meeple goes on any space within its card's assigned zone, at most
-   one per team per space. On a three-space zone this leaves one space empty. The home team
-   must finish with a player standing on the kickoff space, since they kick off.
+   The remaining Defender, Playmaker and Striker go to the bench. A coach who wants a
+   different shape changes it at their first [substitution window](#substitutions); nobody
+   kicks off in one.
+5. **Place meeples.** Each meeple goes on any space within its card's assigned zone, spread
+   as [occupancy](#the-field) asks: every space of the zone taken before any space takes a
+   second player. Under 2-2-2 that is one per team per space, and a three-space zone is left
+   with a space empty. The home team must finish with a player standing on the kickoff space,
+   since they kick off.
 6. **Place the ball** showing **1** on the kickoff space, in the home team's possession. Set
    the clock to 0.
 
@@ -293,7 +300,11 @@ distances.
 
 **A pass must reach a different player.** Nobody passes to themselves to keep the ball. A
 pass to the ball's own space is legal only when a *second* player of the same team is
-standing there -- uncommon, but possible.
+standing there.
+
+**Where the destination space holds more than one teammate, the passer says which of them
+receives it** -- routine under a formation that stacks. The pick matters: the receiver is
+who a Winger's ability offers the shot to.
 
 **Passing across a shared space moves the passer.** The ball has not travelled, so what the
 maneuver buys is the passer stepping one space forward; the receiver stays on the ball. At
@@ -530,12 +541,17 @@ ball and both skip it. Whoever is displaced stays displaced until a turnover com
 - Every player returns to a space in **the zone their card is assigned to**.
 - **1 exhaust token per space travelled**, the same rate a challenger pays walking in.
 - The coach **chooses** which space in the zone each of their players runs back to, subject to
-  finishing with **at most one player per space**. Where a zone has more spaces than players
-  that is a real choice; where the counts match it is forced.
-- That one-per-space limit is **per team**. Opposing meeples still share a space.
-- It also **separates teammates who ended up stacked** on one space within their own zone, if
-  another space in that zone is open. If the zone's spaces are all spoken for, the stack
-  stands -- nobody is moved somewhere that does not help.
+  finishing with **no space in the zone left empty while another holds more than one of their
+  players**.
+  Where a zone has more spaces than players that is a real choice; where the counts match it
+  is forced; where it holds more players than spaces, every space has to be covered and the
+  surplus stacks wherever the coach likes -- four players into two spaces may finish 3+1 as
+  readily as 2+2.
+- That requirement is **per team**, and so is "empty": opposing meeples share spaces freely,
+  and a space with only an opponent on it still counts as one this team has to cover.
+- It therefore **separates teammates who ended up stacked** on one space within their own
+  zone, whenever another space in that zone has none of their players on it. Once every space
+  in the zone is covered the stack stands -- nobody is moved somewhere that does not help.
 - **A steal exempts the stealing player.** On a turnover created by a Steal Intercept or a
   Defender's Pressure steal, that one player stays where they ended up; everyone else
   displaced still runs back. Where a stacked pair has to be separated, the exempt player is
@@ -610,10 +626,24 @@ passes, the reply goes with it; the reply exists only to answer a declaration.
 places whoever ended up on the field.
 
 **Rearranging** moves cards between zones freely and **costs no exhaustion** -- the one way a
-meeple moves in this game without paying per space. Basic mode allows the **2-2-2 formation
-only**, so a rearrangement must leave two cards in each zone. Once assignments are settled,
-the team places its meeples anywhere within their new zones, any number of them, still free.
-Where two zones are already full, two meeples simply trade places.
+meeple moves in this game without paying per space. It is also the only way to change
+formation, and the whole of it: every game kicks off in 2-2-2, and a rearrangement may leave
+the team in any of the three.
+
+| Formation | Own goal | Midfield | Opponent's goal |
+|---|---|---|---|
+| 2-2-2 | 2 | 2 | 2 |
+| 4-1-1 | 4 | 1 | 1 |
+| 2-1-3 | 2 | 1 | 3 |
+
+The numbers read from the team's own goal forward, and each coach chooses their own. 4-1-1
+and 2-1-3 put more cards in a zone than that zone has spaces on any board, which is what
+[occupancy](#the-field) is written for: those zones fill every space and stack the surplus.
+
+Which card goes where is the coach's, not the formation's -- it fixes only how many go in
+each zone. Once assignments are settled, the team places its meeples anywhere within their
+new zones, subject to occupancy, still free. Where two zones are already full, two meeples
+simply trade places.
 
 Nothing requires a team to keep one of each role on the field. A substitution may leave a
 role unfielded -- and has to be able to, since every bench is a Defender, a Playmaker and a
@@ -661,9 +691,11 @@ period ends.
 2. Each coach picks one of their fielded players to lose **1 more**.
 3. Each coach may substitute and rearrange, as above -- independently of the other, with no
    reply, and without spending their once-a-half declaration.
-4. Each coach may **reposition any of their fielded meeples to any open space on the board**,
-   in any zone, at no exhaustion cost. This is the only time placement is not zone-locked. The
-   visiting coach must finish with a player on the kickoff space, since they kick off.
+4. Each coach may **reposition any of their fielded meeples to any space on the board**, in
+   any zone, at no exhaustion cost. This is the only time placement is not zone-locked. The
+   zone is free but the space is not: [occupancy](#the-field) still applies, so a coach may
+   not leave a space of a zone they are standing in empty in order to stack elsewhere in it.
+   The visiting coach must finish with a player on the kickoff space, since they kick off.
 5. The second half starts with the **visiting team in possession on the kickoff space**, ball
    speed 1.
 
