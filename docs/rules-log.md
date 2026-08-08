@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-07.
+**As of:** 2026-08-08.
 
 ## Where the rules come from
 
@@ -45,6 +45,16 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
+### May halftime's free placement stack meeples?
+
+Halftime repositioning is "any open space on the board", written when a space held at most one of
+a team's players. Now that the [2026-08-08](#2026-08-08----author-correcting-run-back-occupancy)
+correction lets a zone hold more players than spaces, "open" needs a reading: either the coverage
+rule applies to halftime placement as it does to the run back, or halftime is genuinely free and
+a coach may stack whoever they like wherever they like, with the next turnover's run back
+spreading them out again. Moot under 2-2-2 and only worth settling alongside the first formation
+that isn't.
+
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
 
@@ -54,6 +64,25 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-08 -- author, correcting run-back occupancy
+
+- **The run back spreads a team out; it does not cap a space at one player.** The living rules
+  had it as "at most one of its own players on a space once players have run back", which is
+  backwards: what a coach owes is **coverage**. Every space of a zone they have players in must
+  be occupied as far as their players stretch, and anything left over stacks.
+- **The surplus stacks wherever the coach likes.** With more players in a zone than it has
+  spaces, only "no space left empty" is required -- four players into a two-space zone may
+  finish 3+1 as readily as 2+2. No cap per space, no even spread.
+- **Nothing changes under 2-2-2**, which is why the wrong wording survived: two players never
+  outnumber a zone's 2-3 spaces, so "at most one per space" and "cover every space you can"
+  pick out the same placements. It only starts to matter with the advanced-mode formations --
+  4-1-1, 2-1-3 -- which is what prompted the correction. `MatchState.run_back_player` and
+  `open_spaces_in_zone` enforce the one-per-space reading and are therefore still correct for
+  every formation the code can produce; they will need revisiting with the first formation
+  that isn't 2-2-2.
+- Setup's meeple placement now points at the same occupancy rule instead of restating
+  one-per-team-per-space, again with no change under 2-2-2.
 
 ### 2026-08-07 -- sheet re-pull, and rules handed over directly
 
@@ -300,7 +329,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | A turnover says nothing about ball speed | Every turnover resets it to 1 |
 | A loose ball's contestant "gains 1 exhaustion" | 1 token per space travelled |
 | Nothing about the loose-ball check at all, beyond a pass landing on an empty space | A general check after every maneuver, with four cases |
-| Nothing about which space a player runs back to, or what it costs | The coach picks, one per team per space, 1 token per space |
+| Nothing about which space a player runs back to, or what it costs | The coach picks, covering every space of the zone their players can fill and stacking the surplus, 1 token per space |
 | Halftime recovery of "1 (or 2, TBD)" | 1 |
 | Halftime lets the coach change assignments "as they please" | Free placement to any space on the board, and the visiting side must cover the kickoff space |
 | Substitutions: "if and only if all the players on the bench were subbed out" | Two pools -- bench, then back bench for an injured sub only |
@@ -340,9 +369,10 @@ pass across a shared space buys; only a 3+ High Pass being contested.
 placement, after the run back; declining always being allowed, including for a High Pass's
 defence; the side that last had possession answering first and alone.
 
-**Run back:** 1 token per space; the coach picking the space; one player per space, per team;
-same-zone teammates being separated; a steal exempting the stealer; only a turnover running
-anyone back.
+**Run back:** 1 token per space; the coach picking the space; covering every space of the zone
+rather than capping a space at one player, per team; the surplus stacking freely once every
+space is covered; same-zone teammates being separated; a steal exempting the stealer; only a
+turnover running anyone back.
 
 **Substitutions:** no requirement to keep one of each role; cards changing zones freely; 2-2-2
 only in basic mode; rearranging costing nothing; every turnover opening a window; substituting
