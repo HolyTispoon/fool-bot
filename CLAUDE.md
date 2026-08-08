@@ -22,6 +22,9 @@ python3 -m unittest discover -s tests
 | `foolbot.py` | Bot entry point; generic deck/dice commands. Loads the cogs. |
 | `botlog/` | Console logging setup, and the #logs channel mirror — see below |
 | `cogs/d12ball.py` | All D12 Ball slash commands and Discord interaction flow |
+| `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming |
+| `cogs/d12ball_views.py` | The `discord.ui.View` classes, one per prompt a player can be shown |
+| `cogs/debug.py` | Maintenance commands, including the PBD channel-and-count reset |
 | `d12ball/components.py` | Game state model — `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog` |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode` |
 | `d12ball/render.py` | Board image rendering (Pillow) |
@@ -159,6 +162,28 @@ board silently collapses to tiny text. That was a real bug; the tests in
 `render.py` builds its font objects at **import time**, so a running bot keeps
 whatever it resolved at startup. Restart after any render change.
 
+## Game channels
+
+Every game gets its own private channel, named by `build_game_channel_name` in
+`cogs/d12ball_helpers.py`: `d12ball-pbd<number>`, then the game's name if
+`/d12ball create_game` was given one (`game_name`, carried on the game record
+and reused by the rematch button), or the two sides otherwise —
+`d12ball-pbd12-the-cup-final`, `d12ball-pbd12-username-vs-dinky-ai`.
+
+- **The number stays immediately after the `d12ball-pbd` prefix.** It is the
+  only part read back off a channel, by `CHANNEL_NAME_PATTERN`, and the suffix
+  in that pattern is optional so channels created before names existed still
+  match. Anything that changes the shape of the name has to keep both true.
+- **Names are slugged, not passed through.** Discord lowercases a channel name
+  and rewrites spaces itself, so `slugify_channel_part` does it first and the
+  saved name matches what the server shows. Punctuation is dropped, letters
+  outside ASCII are kept (they are legal, and a wholly non-Latin display name
+  would otherwise slug to nothing), and the whole name is cut to Discord's
+  100-character limit without ending on a dash.
+- **Archiving moves the channel between categories and never renames it**, so
+  a game's channel keeps the name it was created with for the rest of its life.
+  Nothing renames a channel when a player's display name changes.
+
 ## Gotchas
 
 - **`data/d12ball_games.json` is runtime state and is deliberately untracked.**
@@ -209,6 +234,14 @@ different operating systems.
 
 ## Notes for Claude
 
+- **Keep this file current with the code.** When a change alters the
+  architecture or the structure — a new module or cog, a responsibility moving
+  between them, a new persisted field on a game record, a change to how
+  channels are named or state is stored, a new environment variable — update
+  the relevant section here in the same commit, unless it already says so.
+  Add the reasoning, not just the fact: this file exists to explain the
+  decisions the code cannot. Leave it alone for ordinary changes that fit the
+  structure already described.
 - **Don't commit one-off diagnostic scripts.** If something is scaffolding for
   a single investigation, hand it over as a file instead. `scripts/` is for
   tools worth running more than once.

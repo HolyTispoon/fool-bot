@@ -75,6 +75,11 @@ class D12BallGame:
     # player_2_id is None; unused (and left None) in two-player games.
     ai_opponent: Optional[AIOpponent] = None
 
+    # The name the game was created with, if one was given. It only
+    # decides what the channel is called (see build_game_channel_name);
+    # a game created without one gets the players' names instead.
+    game_name: Optional[str] = None
+
     # Game configuration
     mode: GameMode = GameMode.BASIC
     tie_mode: TieMode = TieMode.LEAGUE
