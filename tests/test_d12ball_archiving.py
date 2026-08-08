@@ -1,11 +1,14 @@
 """
-Archiving finished games on startup.
+Archiving finished games on startup, and pruning the ones that have
+nothing left to archive.
 
 The startup sweep exists to catch games that finished while the bot
-could not move their channel. A saved game outliving its channel -- or
-its whole server -- is not that: nobody can act on it, and it would
-otherwise post the same error into #logs on every reconnect. See the
-logging section of CLAUDE.md for what earns an ERROR.
+could not move their channel. A saved game outliving its channel is not
+that: nobody can act on it, and it would otherwise post the same error
+into #logs on every reconnect, so it is an INFO and the record goes.
+A game whose *server* is missing is only skipped -- an outage looks the
+same from here. See the logging section of CLAUDE.md for what earns an
+ERROR.
 """
 
 import unittest
@@ -21,6 +24,9 @@ from d12ball.game import D12BallGame, GameStatus, Team
 def build_cog(*games: D12BallGame) -> D12Ball:
     cog = object.__new__(D12Ball)
     cog.games = {game.game_id: game for game in games}
+    cog.bot = SimpleNamespace(get_guild=lambda guild_id: object())
+    cog.fetch_game_channel = mock.AsyncMock()
+    cog.move_channel_to_archive = mock.AsyncMock()
     return cog
 
 
@@ -54,54 +60,84 @@ def build_http_error(
     return error_type(response, message)
 
 
+def build_not_found() -> discord.NotFound:
+    return build_http_error(discord.NotFound, 404, "Unknown Channel")
+
+
 class StartupArchivingTests(unittest.IsolatedAsyncioTestCase):
+    async def run_sweep(self, cog: D12Ball) -> tuple[list, mock.Mock]:
+        with mock.patch("cogs.d12ball.save_games") as save:
+            with self.assertLogs("cogs.d12ball_helpers", level="INFO") as logs:
+                await cog.on_ready()
+
+        return logs.records, save
+
     async def test_a_deleted_channel_is_not_an_error(self) -> None:
         game = build_game()
         cog = build_cog(game)
-        cog.bot = SimpleNamespace(get_guild=lambda guild_id: object())
-        cog.archive_game_channel = mock.AsyncMock(
-            side_effect=build_http_error(
-                discord.NotFound, 404, "Unknown Channel",
-            ),
-        )
+        cog.fetch_game_channel.side_effect = build_not_found()
 
-        with self.assertLogs("cogs.d12ball_helpers", level="INFO") as logs:
-            await cog.on_ready()
+        records, _ = await self.run_sweep(cog)
 
-        self.assertEqual([record.levelname for record in logs.records], ["INFO"])
-        self.assertIn("no longer exists", logs.output[0])
-        self.assertIn(game.game_id, logs.output[0])
+        self.assertEqual([record.levelname for record in records], ["INFO"])
+        self.assertIn("no longer exists", records[0].getMessage())
+        self.assertIn(game.game_id, records[0].getMessage())
 
-    async def test_a_server_the_bot_has_left_is_not_an_error(self) -> None:
+    async def test_a_game_whose_channel_is_gone_is_dropped(self) -> None:
+        game = build_game()
+        cog = build_cog(game)
+        cog.fetch_game_channel.side_effect = build_not_found()
+
+        _, save = await self.run_sweep(cog)
+
+        self.assertEqual(cog.games, {})
+        save.assert_called_once_with(cog.games)
+
+    async def test_a_server_the_bot_has_left_is_skipped_not_dropped(
+        self,
+    ) -> None:
         game = build_game()
         cog = build_cog(game)
         cog.bot = SimpleNamespace(get_guild=lambda guild_id: None)
-        cog.archive_game_channel = mock.AsyncMock()
 
-        with self.assertLogs("cogs.d12ball_helpers", level="INFO") as logs:
-            await cog.on_ready()
+        records, save = await self.run_sweep(cog)
 
-        self.assertEqual([record.levelname for record in logs.records], ["INFO"])
-        self.assertIn("not in its server", logs.output[0])
-        cog.archive_game_channel.assert_not_awaited()
+        self.assertEqual([record.levelname for record in records], ["INFO"])
+        self.assertIn("not in its server", records[0].getMessage())
+        self.assertEqual(list(cog.games), [game.game_id])
+        cog.fetch_game_channel.assert_not_awaited()
+        save.assert_not_called()
 
     async def test_a_channel_the_bot_may_not_move_is_still_an_error(
         self,
     ) -> None:
         game = build_game()
         cog = build_cog(game)
-        cog.bot = SimpleNamespace(get_guild=lambda guild_id: object())
-        cog.archive_game_channel = mock.AsyncMock(
-            side_effect=build_http_error(
-                discord.Forbidden, 403, "Missing Permissions",
-            ),
+        cog.move_channel_to_archive.side_effect = build_http_error(
+            discord.Forbidden, 403, "Missing Permissions",
         )
 
-        with self.assertLogs("cogs.d12ball_helpers", level="INFO") as logs:
-            await cog.on_ready()
+        records, save = await self.run_sweep(cog)
 
-        self.assertEqual([record.levelname for record in logs.records], ["ERROR"])
-        self.assertIn("Could not archive", logs.output[0])
+        self.assertEqual([record.levelname for record in records], ["ERROR"])
+        self.assertIn("Could not archive", records[0].getMessage())
+        self.assertEqual(list(cog.games), [game.game_id])
+        save.assert_not_called()
+
+    async def test_a_404_from_the_move_does_not_drop_the_game(self) -> None:
+        # Only the channel lookup speaks for the channel's existence.
+        # A 404 from the category or the move itself is a lost race, and
+        # dropping the game over it would lose a game that is still
+        # there.
+        game = build_game()
+        cog = build_cog(game)
+        cog.move_channel_to_archive.side_effect = build_not_found()
+
+        records, save = await self.run_sweep(cog)
+
+        self.assertEqual([record.levelname for record in records], ["ERROR"])
+        self.assertEqual(list(cog.games), [game.game_id])
+        save.assert_not_called()
 
     async def test_one_dead_game_does_not_stop_the_others(self) -> None:
         dead = build_game(game_id="dead", channel_id=2)
@@ -110,22 +146,34 @@ class StartupArchivingTests(unittest.IsolatedAsyncioTestCase):
             game_id="unfinished", status=GameStatus.IN_PROGRESS,
         )
         cog = build_cog(dead, alive, unfinished)
-        cog.bot = SimpleNamespace(get_guild=lambda guild_id: object())
-        not_found = build_http_error(discord.NotFound, 404, "Unknown Channel")
+        channel = object()
+        not_found = build_not_found()
 
-        def archive(game: D12BallGame) -> None:
+        def fetch(game: D12BallGame) -> object:
             if game is dead:
                 raise not_found
+            return channel
 
-        cog.archive_game_channel = mock.AsyncMock(side_effect=archive)
+        cog.fetch_game_channel.side_effect = fetch
 
-        with self.assertLogs("cogs.d12ball_helpers", level="INFO"):
-            await cog.on_ready()
+        _, save = await self.run_sweep(cog)
 
-        archived = [
-            call.args[0] for call in cog.archive_game_channel.await_args_list
-        ]
-        self.assertEqual(archived, [dead, alive])
+        self.assertEqual(list(cog.games), ["alive", "unfinished"])
+        cog.move_channel_to_archive.assert_awaited_once_with(channel)
+        save.assert_called_once_with(cog.games)
+
+
+class ArchiveGameChannelTests(unittest.IsolatedAsyncioTestCase):
+    async def test_archiving_looks_the_channel_up_and_moves_it(self) -> None:
+        game = build_game()
+        cog = build_cog(game)
+        channel = object()
+        cog.fetch_game_channel.return_value = channel
+
+        await cog.archive_game_channel(game)
+
+        cog.fetch_game_channel.assert_awaited_once_with(game)
+        cog.move_channel_to_archive.assert_awaited_once_with(channel)
 
 
 if __name__ == "__main__":

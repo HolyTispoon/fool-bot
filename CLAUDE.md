@@ -166,6 +166,16 @@ whatever it resolved at startup. Restart after any render change.
   meant it showed as modified more or less permanently and was a standing
   source of merge conflicts. Don't re-add it. Each developer's saved games are
   local to their own machine, and `data/` is created at startup if missing.
+- **Startup drops finished games whose channel was deleted.** The archiving
+  sweep in `on_ready` prunes a finished game when Discord answers its channel
+  lookup with a 404, because there is nothing left to archive and the record
+  would report the same failure on every reconnect. Two edges are deliberate:
+  a game whose *guild* is missing is only skipped, since a Discord outage
+  looks identical and the games would be gone for good; and only the channel
+  lookup counts, so a 404 from the category or the move is an error and keeps
+  the game. Deleting a channel by hand now also deletes the game record, and
+  since `get_next_game_number` is `max + 1` over the guild's saved games,
+  pruning the newest ones lets a PBD number be handed out twice.
 - **Known unfixed issue:** meeple name labels overflow their space borders and
   collide when two meeples share a space. `draw_meeple_group` in `render.py`
   clamps label positions and offsets stacked names by a fixed 23px, both tuned

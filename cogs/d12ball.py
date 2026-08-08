@@ -4379,10 +4379,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await add_full_image_button(snapshot)
         await self.refresh_match_image(interaction, game)
 
-    async def archive_game_channel(
+    async def fetch_game_channel(
         self,
         game: D12BallGame,
-    ) -> None:
+    ) -> discord.TextChannel:
+        """
+        The channel a game is played in. Split out from archiving so
+        that a `discord.NotFound` raised here means one thing only --
+        the channel is gone -- and cannot be confused with a 404 from
+        the category or the move that follows it.
+        """
         guild = self.bot.get_guild(game.guild_id)
         if guild is None:
             raise ValueError("The server for this game is not available.")
@@ -4394,6 +4400,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if not isinstance(channel, discord.TextChannel):
             raise ValueError("The channel for this game is not a text channel.")
 
+        return channel
+
+    async def move_channel_to_archive(
+        self,
+        channel: discord.TextChannel,
+    ) -> None:
         if (
             channel.category is not None
             and channel.category.name.casefold()
@@ -4402,7 +4414,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         archive_category = await get_or_create_category(
-            guild,
+            channel.guild,
             PBD_ARCHIVE_CATEGORY_NAME,
             "Create the category for finished PBD games.",
         )
@@ -4410,6 +4422,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             category=archive_category,
             reason="Move a finished D12 Ball game to the PBD archive.",
         )
+
+    async def archive_game_channel(
+        self,
+        game: D12BallGame,
+    ) -> None:
+        await self.move_channel_to_archive(await self.fetch_game_channel(game))
 
     async def finish_and_archive_game(
         self,
@@ -4429,6 +4447,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
+        # Games whose channel Discord says does not exist. Collected and
+        # dropped after the sweep rather than during it, so the save
+        # happens once and the dict is not mutated while it is walked.
+        deleted_channels: list[str] = []
+
         for game in self.games.values():
             if game.status != GameStatus.FINISHED:
                 continue
@@ -4439,6 +4462,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # otherwise repeat their error on every reconnect, so they
             # stay on the console.
             if self.bot.get_guild(game.guild_id) is None:
+                # Kept, not dropped. An unavailable guild is also how a
+                # Discord outage looks from here, and the games would be
+                # gone for good.
                 LOGGER.info(
                     "Not archiving finished D12 Ball game %s: the bot is "
                     "not in its server any more.",
@@ -4447,13 +4473,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 continue
 
             try:
-                await self.archive_game_channel(game)
+                channel = await self.fetch_game_channel(game)
             except discord.NotFound:
                 LOGGER.info(
-                    "Not archiving finished D12 Ball game %s: its channel "
-                    "no longer exists.",
+                    "Dropping finished D12 Ball game %s: its channel no "
+                    "longer exists.",
                     game.game_id,
                 )
+                deleted_channels.append(game.game_id)
+                continue
+            except (ValueError, discord.HTTPException) as error:
+                LOGGER.error(
+                    "Could not archive finished D12 Ball game %s: %s",
+                    game.game_id,
+                    error,
+                )
+                continue
+
+            try:
+                await self.move_channel_to_archive(channel)
             except (ValueError, discord.Forbidden, discord.HTTPException) as error:
                 # An error rather than a warning: a finished game whose
                 # channel stays in the games category is a permission
@@ -4464,6 +4502,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     game.game_id,
                     error,
                 )
+
+        if deleted_channels:
+            for game_id in deleted_channels:
+                del self.games[game_id]
+            save_games(self.games)
 
     @app_commands.command(
         name="create_game",
