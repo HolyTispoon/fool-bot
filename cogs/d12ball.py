@@ -11,6 +11,7 @@ from discord.ext import commands
 
 from d12ball.ai import build_ai_strategies, AIStrategy
 from d12ball.components import (
+    FormationShape,
     MatchPeriod,
     MatchState,
     PlayerDefinition,
@@ -18,15 +19,21 @@ from d12ball.components import (
     TeamSetup,
     TeamSide,
     Zone,
+    default_formation_deal,
+    fill_forced_areas,
     kickoff_space_index,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
+    next_unfilled_area,
+    zone_for_area,
 )
 from d12ball.game import (
+    SETUP_AREAS,
     AIOpponent,
     CoinFace,
     D12BallGame,
+    Formation,
     GameMode,
     GameStatus,
     Team,
@@ -56,6 +63,7 @@ from cogs.d12ball_helpers import (
     ROLE_INITIALS,
     add_full_image_button,
     add_full_image_button_to_response,
+    area_display_name,
     build_full_time_summary,
     build_game_channel_name,
     contest_noun,
@@ -83,6 +91,7 @@ from cogs.d12ball_views import (
     BallRecoveryView,
     CoinFlipView,
     DribbleAdvanceChoiceView,
+    FormationSelectionView,
     HalftimeExtraTokenView,
     HalftimeRepositionView,
     HighPassChoiceView,
@@ -153,6 +162,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             setup_view = None
             if game.coin_flipped and not game.home_and_visiting_selected:
                 setup_view = HomeAwaySelectionView(
+                    cog=self,
+                    game_id=game.game_id,
+                )
+            elif game.teams_selected and not game.formations_selected:
+                setup_view = FormationSelectionView(
                     cog=self,
                     game_id=game.game_id,
                 )
@@ -377,6 +391,127 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         return max(existing_numbers) + 1
 
+    def formation_field_candidates(self, team: Team) -> list[str]:
+        """
+        The six cards a coach has to place: one of each role, the same
+        six the standard setup fields. Which zone each goes in is the
+        coach's to choose; who is left on the bench is not, and never
+        was -- every bench is a Defender, a Playmaker and a Striker.
+        """
+        roster = self.player_catalog.teams[Team(team)]
+        deal = default_formation_deal(
+            roster,
+            self.basic_ruleset,
+            Formation.TWO_TWO_TWO,
+        )
+        return [
+            player_id
+            for area in SETUP_AREAS
+            for player_id in deal[area]
+        ]
+
+    def formation_shape(self, formation: Formation) -> FormationShape:
+        return self.basic_ruleset.formations[Formation(formation)]
+
+    def next_unfilled_area(
+        self,
+        game: D12BallGame,
+        player_number: int,
+    ) -> Optional[str]:
+        """
+        The area a coach is being asked to fill next, or None once
+        they have filled them all.
+        """
+        return next_unfilled_area(
+            game.assignment_for_player(player_number) or {}
+        )
+
+    def unassigned_candidates(
+        self,
+        game: D12BallGame,
+        player_number: int,
+    ) -> list[str]:
+        """That coach's six cards, minus the ones already placed."""
+        team = game.team_for_player(player_number)
+        if team is None:
+            return []
+        assignment = game.assignment_for_player(player_number) or {}
+        placed = {
+            player_id
+            for players in assignment.values()
+            for player_id in players
+        }
+        return [
+            player_id
+            for player_id in self.formation_field_candidates(team)
+            if player_id not in placed
+        ]
+
+    def fill_forced_areas(
+        self,
+        game: D12BallGame,
+        player_number: int,
+    ) -> None:
+        """
+        Fill in any area whose cards the coach no longer has a choice
+        about -- the last zone always, since whoever is left over goes
+        there, and any earlier one a formation leaves no slack in.
+        Saves the coach a select that could only be answered one way.
+        """
+        formation = game.formation_for_player(player_number)
+        team = game.team_for_player(player_number)
+        if formation is None or team is None:
+            return
+
+        assignment = fill_forced_areas(
+            game.assignment_for_player(player_number) or {},
+            self.formation_shape(formation),
+            self.formation_field_candidates(team),
+        )
+        game.set_assignment(player_number, assignment or None)
+
+    def formation_for_side(
+        self,
+        game: D12BallGame,
+        side: TeamSide,
+    ) -> Formation:
+        """
+        The formation the coach on `side` picked in setup, or 2-2-2
+        for a side that never picked one -- the AI, and any game saved
+        before formations existed.
+        """
+        player_number = (
+            game.home_player_number
+            if TeamSide(side) == TeamSide.HOME
+            else game.visiting_player_number
+        )
+        formation = (
+            game.formation_for_player(player_number)
+            if player_number is not None
+            else None
+        )
+        return formation or Formation.TWO_TWO_TWO
+
+    def assignment_for_side(
+        self,
+        game: D12BallGame,
+        side: TeamSide,
+    ) -> Optional[dict[str, list[str]]]:
+        """
+        Which card that side's coach put in each area, or None to let
+        the formation be dealt by role.
+        """
+        player_number = (
+            game.home_player_number
+            if TeamSide(side) == TeamSide.HOME
+            else game.visiting_player_number
+        )
+        if player_number is None or not game.formation_settled(
+            player_number
+        ):
+            return None
+        return game.assignment_for_player(player_number)
+
     def initialize_standard_match(
         self,
         game: D12BallGame,
@@ -404,6 +539,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             board_size=game.board_size,
             home_team=home_team,
             visiting_team=visiting_team,
+            home_formation=self.formation_for_side(game, TeamSide.HOME),
+            visiting_formation=self.formation_for_side(
+                game, TeamSide.VISITING,
+            ),
+            home_assignment=self.assignment_for_side(game, TeamSide.HOME),
+            visiting_assignment=self.assignment_for_side(
+                game, TeamSide.VISITING,
+            ),
         )
         game.ruleset_id = match.ruleset_id
         game.player_data_version = match.player_data_version
@@ -2605,6 +2748,77 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             ". Rearranging costs no exhaustion -- place their meeples below."
         )
 
+    def current_formation(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> Optional[Formation]:
+        """
+        The formation a side is standing in, or None for a shape no
+        formation describes -- which /coach and /ref can leave behind,
+        since they move cards one at a time and answer to nothing.
+        """
+        setup = match.setup_for_side(side)
+        counts = {
+            area: len(setup.zones[zone_for_area(side, area)])
+            for area in SETUP_AREAS
+        }
+        for formation, shape in self.basic_ruleset.formations.items():
+            if shape.counts() == counts:
+                return formation
+        return None
+
+    def apply_formation_change(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        formation: Formation,
+        assignment: dict[str, list[str]],
+    ) -> str:
+        """
+        Move a side into `formation`, with `assignment` saying which
+        of their six fielded cards fills each area. Nobody's meeple
+        moves: whoever now stands outside their new zone is displaced,
+        and the coach either places them by hand (free, right after
+        this) or leaves it to the next run back.
+        """
+        side = TeamSide(side)
+        shape = self.formation_shape(formation)
+
+        for area in SETUP_AREAS:
+            if len(assignment.get(area, [])) != shape.count(area):
+                raise ValueError(
+                    f"{formation.value} puts {shape.count(area)} "
+                    f"players in {area_display_name(area)}."
+                )
+
+        match.reassign_field_zones(
+            side,
+            {
+                zone_for_area(side, area): list(assignment[area])
+                for area in SETUP_AREAS
+            },
+        )
+
+        setup = match.setup_for_side(side)
+        lines = [
+            f"**{format_team_side_label(setup)} switch to "
+            f"{formation.value}.**"
+        ]
+        for area in SETUP_AREAS:
+            zone = zone_for_area(side, area)
+            names = ", ".join(
+                self.format_roster_player(player_id)
+                for player_id in assignment[area]
+            )
+            lines.append(
+                f"{destination_display_name(zone.value)}: {names}"
+            )
+        lines.append(
+            "Rearranging costs no exhaustion -- place their meeples below."
+        )
+        return "\n".join(lines)
+
     def apply_reposition(
         self,
         match: MatchState,
@@ -3011,14 +3225,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side: TeamSide,
         player_id: str,
     ) -> str:
-        """The open spaces in `player_id`'s own zone, for the
-        run-back prompt -- so the coach sees every option up front,
-        alongside the buttons that offer the same choice."""
+        """The spaces `player_id` may run back to in their own zone,
+        for the run-back prompt -- so the coach sees every option up
+        front, alongside the buttons that offer the same choice."""
         zone = match.setup_for_side(side).assigned_zone(player_id)
-        open_spaces = match.open_spaces_in_zone(side, zone)
-        if not open_spaces:
-            return "No open space in their zone."
-        options = ", ".join(space_label(zone, index) for index in open_spaces)
+        spaces = match.placement_spaces_in_zone(side, zone, player_id)
+        if not spaces:
+            return "No space in their zone."
+        options = ", ".join(space_label(zone, index) for index in spaces)
         return f"Options: {options}"
 
     async def continue_run_back(
@@ -3078,7 +3292,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
             player_id = displaced[0]
             zone = match.setup_for_side(side).assigned_zone(player_id)
-            open_spaces = match.open_spaces_in_zone(side, zone)
+            open_spaces = match.placement_spaces_in_zone(
+                side, zone, player_id,
+            )
             player = self.get_player_definition(player_id)
 
             if self.side_is_ai(game, side):

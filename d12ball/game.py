@@ -15,6 +15,23 @@ class GameMode(str, Enum):
     ADVANCED = "advanced"
 
 
+class Formation(str, Enum):
+    """
+    How many of a team's six fielded cards sit in each zone, read own
+    goal / midfield / opponent's goal. All three are legal in basic
+    mode; the shapes themselves (and the check that each fields six)
+    live in `basic_rules.json`, so the two have to be changed together.
+
+    4-1-1 and 2-1-3 put more cards in a zone than the zone has spaces,
+    which is what the run back's coverage rule is written for -- see
+    "Occupancy" in docs/living-rules.md.
+    """
+
+    TWO_TWO_TWO = "2-2-2"
+    FOUR_ONE_ONE = "4-1-1"
+    TWO_ONE_THREE = "2-1-3"
+
+
 class TieMode(str, Enum):
     """
     What happens when the scores are level at full time: a league game
@@ -50,6 +67,12 @@ class CoinFace(str, Enum):
 
 VALID_BOARD_SIZES = {6, 7, 9}
 
+# The three areas a formation and a card assignment are written in,
+# from the coach's own end forward. They are not board zones: which end
+# of the board a coach defends is only settled by the coin toss, well
+# after they have picked a shape.
+SETUP_AREAS = ("own_goal", "midfield", "opponent_goal")
+
 
 @dataclass
 class D12BallGame:
@@ -70,6 +93,18 @@ class D12BallGame:
     player_1_team: Optional[Team] = None
     player_2_team: Optional[Team] = None
     test_game: bool = False
+
+    # Each coach's formation, and which of their six cards they put in
+    # each zone. Settled in setup, after the teams and before the coin
+    # toss. The assignment is keyed by the setup's areas -- own_goal,
+    # midfield, opponent_goal -- rather than by board zones, because
+    # which end of the board a coach defends is not known until the
+    # toss. A side left at None is dealt the default 2-2-2 by role,
+    # which is what the AI always plays.
+    player_1_formation: Optional[Formation] = None
+    player_2_formation: Optional[Formation] = None
+    player_1_assignment: Optional[dict[str, list[str]]] = None
+    player_2_assignment: Optional[dict[str, list[str]]] = None
 
     # Which AI template controls Player 2. Only meaningful when
     # player_2_id is None; unused (and left None) in two-player games.
@@ -116,6 +151,12 @@ class D12BallGame:
 
         if self.player_2_team is not None:
             self.player_2_team = Team(self.player_2_team)
+
+        if self.player_1_formation is not None:
+            self.player_1_formation = Formation(self.player_1_formation)
+
+        if self.player_2_formation is not None:
+            self.player_2_formation = Formation(self.player_2_formation)
 
         self.mode = GameMode(self.mode)
         self.tie_mode = TieMode(self.tie_mode)
@@ -211,6 +252,89 @@ class D12BallGame:
             self.player_1_team is not None
             and self.player_2_team is not None
         )
+
+    def team_for_player(self, player_number: int) -> Optional[Team]:
+        return (
+            self.player_1_team
+            if player_number == 1
+            else self.player_2_team
+        )
+
+    def formation_for_player(
+        self,
+        player_number: int,
+    ) -> Optional[Formation]:
+        return (
+            self.player_1_formation
+            if player_number == 1
+            else self.player_2_formation
+        )
+
+    def assignment_for_player(
+        self,
+        player_number: int,
+    ) -> Optional[dict[str, list[str]]]:
+        return (
+            self.player_1_assignment
+            if player_number == 1
+            else self.player_2_assignment
+        )
+
+    def set_formation(
+        self,
+        player_number: int,
+        formation: Optional[Formation],
+    ) -> None:
+        """
+        Record a coach's formation, dropping whatever cards they had
+        assigned: a new shape has different-sized zones, so the old
+        assignment cannot be carried over and the coach fills the
+        zones again from scratch.
+        """
+        if player_number not in {1, 2}:
+            raise ValueError("Player numbers must be either 1 or 2.")
+
+        formation = None if formation is None else Formation(formation)
+        if player_number == 1:
+            self.player_1_formation = formation
+            self.player_1_assignment = None
+        else:
+            self.player_2_formation = formation
+            self.player_2_assignment = None
+
+    def set_assignment(
+        self,
+        player_number: int,
+        assignment: Optional[dict[str, list[str]]],
+    ) -> None:
+        if player_number not in {1, 2}:
+            raise ValueError("Player numbers must be either 1 or 2.")
+
+        if player_number == 1:
+            self.player_1_assignment = assignment
+        else:
+            self.player_2_assignment = assignment
+
+    def formation_settled(self, player_number: int) -> bool:
+        """
+        Whether that coach still owes the setup a decision. A coach
+        part-way through filling their zones counts as unsettled, so
+        the assignment has to name all three areas. The AI never owes
+        anything -- it plays the default 2-2-2 deal, and nobody is
+        there to press its buttons.
+        """
+        if player_number == 2 and self.is_solo_game:
+            return True
+        assignment = self.assignment_for_player(player_number)
+        return (
+            self.formation_for_player(player_number) is not None
+            and assignment is not None
+            and set(assignment) == set(SETUP_AREAS)
+        )
+
+    @property
+    def formations_selected(self) -> bool:
+        return self.formation_settled(1) and self.formation_settled(2)
 
     @property
     def home_and_visiting_selected(self) -> bool:

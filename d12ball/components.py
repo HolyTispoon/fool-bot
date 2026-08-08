@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from d12ball.game import Team
+from d12ball.game import SETUP_AREAS, Formation, Team
 
 
 DATA_FOLDER = Path(__file__).resolve().parent / "data"
@@ -341,10 +341,43 @@ class TeamSetup:
         )
 
 
+FIELD_PLAYER_COUNT = 6
+
+
+@dataclass(frozen=True)
+class FormationShape:
+    """How many cards a formation puts in each of the three areas."""
+
+    own_goal: int
+    midfield: int
+    opponent_goal: int
+
+    def __post_init__(self) -> None:
+        if self.total != FIELD_PLAYER_COUNT:
+            raise ValueError(
+                f"A formation must field {FIELD_PLAYER_COUNT} players."
+            )
+        if min(self.own_goal, self.midfield, self.opponent_goal) < 1:
+            raise ValueError("A formation must fill every zone.")
+
+    @property
+    def total(self) -> int:
+        return self.own_goal + self.midfield + self.opponent_goal
+
+    def count(self, area: str) -> int:
+        if area not in SETUP_AREAS:
+            raise ValueError(f"Unknown setup area: {area}")
+        return getattr(self, area)
+
+    def counts(self) -> dict[str, int]:
+        return {area: self.count(area) for area in SETUP_AREAS}
+
+
 @dataclass(frozen=True)
 class BasicRuleset:
     ruleset_id: str
     board_layouts: dict[int, BoardLayout]
+    formations: dict[Formation, FormationShape]
     standard_setup: dict[str, tuple[PlayerRole, ...]]
     player_board: PlayerBoardDefinition
 
@@ -467,6 +500,33 @@ def kickoff_space_index(midfield_spaces: int, kicking_side: TeamSide) -> int:
     return midfield_spaces // 2
 
 
+def setup_space_order(
+    side: TeamSide,
+    zone_spaces: int,
+    player_count: int,
+) -> list[int]:
+    """
+    Which space each of a zone's cards starts on, in the order the
+    coach assigned them: one per space working out from that side's own
+    end of the zone, then round the zone again for anyone a formation
+    leaves over. That satisfies the run back's coverage rule from the
+    kickoff -- every space taken before any space takes a second player
+    -- and spreads a surplus evenly rather than piling it up, which is
+    legal either way and easier to read on the board.
+
+    Home defends the low indices and the visiting team the high ones,
+    so the two orders are mirror images. With the standard 2-2-2 deal
+    this places exactly what the by-role placement it replaced did.
+    """
+    side = TeamSide(side)
+    order = (
+        list(range(zone_spaces))
+        if side == TeamSide.HOME
+        else list(reversed(range(zone_spaces)))
+    )
+    return [order[index % zone_spaces] for index in range(player_count)]
+
+
 @dataclass
 class MatchState:
     ruleset_id: str
@@ -516,6 +576,10 @@ class MatchState:
         board_size: int,
         home_team: Team,
         visiting_team: Team,
+        home_formation: Formation = Formation.TWO_TWO_TWO,
+        visiting_formation: Formation = Formation.TWO_TWO_TWO,
+        home_assignment: Optional[dict[str, list[str]]] = None,
+        visiting_assignment: Optional[dict[str, list[str]]] = None,
     ) -> "MatchState":
         layout = ruleset.board_layouts[board_size]
         board = BoardState.empty(layout)
@@ -523,63 +587,27 @@ class MatchState:
             catalog.teams[Team(home_team)],
             TeamSide.HOME,
             ruleset,
+            formation=home_formation,
+            assignment=home_assignment,
         )
         visiting = create_standard_setup(
             catalog.teams[Team(visiting_team)],
             TeamSide.VISITING,
             ruleset,
+            formation=visiting_formation,
+            assignment=visiting_assignment,
         )
-
-        def player_role(player_id: str) -> PlayerRole:
-            for roster in catalog.teams.values():
-                for player in roster.players:
-                    if player.player_id == player_id:
-                        return player.role
-            raise ValueError(f"Unknown player: {player_id}")
 
         for setup in (home, visiting):
             for zone, player_ids in setup.zones.items():
-                final_space = len(board.spaces[zone]) - 1
-
-                for player_id in player_ids:
-                    role = player_role(player_id)
-                    if role == PlayerRole.FULLBACK:
-                        space_index = (
-                            0
-                            if setup.side == TeamSide.HOME
-                            else final_space
-                        )
-                    elif role == PlayerRole.DEFENDER:
-                        space_index = (
-                            min(1, final_space)
-                            if setup.side == TeamSide.HOME
-                            else max(0, final_space - 1)
-                        )
-                    elif role == PlayerRole.MIDFIELDER:
-                        space_index = (
-                            0
-                            if setup.side == TeamSide.HOME
-                            else final_space
-                        )
-                    elif role == PlayerRole.PLAYMAKER:
-                        space_index = (
-                            min(1, final_space)
-                            if setup.side == TeamSide.HOME
-                            else max(0, final_space - 1)
-                        )
-                    elif role == PlayerRole.STRIKER:
-                        space_index = (
-                            min(1, final_space)
-                            if setup.side == TeamSide.HOME
-                            else max(0, final_space - 1)
-                        )
-                    else:
-                        space_index = (
-                            0
-                            if setup.side == TeamSide.HOME
-                            else final_space
-                        )
-
+                for player_id, space_index in zip(
+                    player_ids,
+                    setup_space_order(
+                        setup.side,
+                        len(board.spaces[zone]),
+                        len(player_ids),
+                    ),
+                ):
                     board.place_meeple(player_id, zone, space_index)
 
         match = cls(
@@ -1084,10 +1112,11 @@ class MatchState:
         Move one team's player card to a zone or a bench, for manual
         board correction (/coach and /ref).
 
-        A zone destination fields the card and places its meeple in an
-        empty space of that zone, or, if none is empty, in the space
-        closest to the team's own goal. A "bench"/"back_bench"
-        destination benches the card and clears its meeple.
+        A zone destination fields the card and places its meeple on a
+        space of that zone the team has not covered, or, if it covers
+        them all, on the space closest to the team's own goal. A
+        "bench"/"back_bench" destination benches the card and clears
+        its meeple.
         """
         side = TeamSide(side)
         setup = self.setup_for_side(side)
@@ -1115,17 +1144,13 @@ class MatchState:
         zone = Zone(destination)
         setup.zones[zone].append(player_id)
         spaces = self.board.spaces[zone]
-        empty_index = next(
-            (
-                index
-                for index, occupants in enumerate(spaces)
-                if not occupants
-            ),
-            None,
+        uncovered = self.open_spaces_in_zone(side, zone)
+        space_index = (
+            uncovered[0]
+            if uncovered
+            else (0 if side == TeamSide.HOME else len(spaces) - 1)
         )
-        if empty_index is None:
-            empty_index = 0 if side == TeamSide.HOME else len(spaces) - 1
-        self.board.place_meeple(player_id, zone, empty_index)
+        self.board.place_meeple(player_id, zone, space_index)
 
     def set_ball_space(self, zone: Zone, space_index: int) -> None:
         """
@@ -1268,9 +1293,11 @@ class MatchState:
         zone, so a zone's spaces stay covered as fully as possible.
         `pending_run_back_stays_player_id`, if one of the pair, is
         preferred as the one who stays (see begin_run_back). Capped to
-        each zone's currently open spaces, so a zone with more
-        zone-native players than spaces is left doubled up rather than
-        handed movers with nowhere to go.
+        each zone's currently uncovered spaces, which is what the
+        coverage rule asks for: a stack only has to break up while
+        some space in the zone still has nobody on it, so a formation
+        that puts more players in a zone than it has spaces (4-1-1,
+        2-1-3) settles with the surplus doubled up and nobody moving.
         """
         stays_player_id = self.pending_run_back_stays_player_id
         setup = self.setup_for_side(side)
@@ -1297,9 +1324,9 @@ class MatchState:
 
     def open_spaces_in_zone(self, side: TeamSide, zone: Zone) -> list[int]:
         """
-        Space indices in `zone` not already holding a meeple belonging
-        to `side`. The one-player-per-space limit run-back enforces is
-        per team, so an opposing meeple never blocks a space here.
+        Space indices in `zone` that `side` has not covered -- no
+        meeple of theirs standing there. Coverage is per team, so an
+        opposing meeple never blocks a space here.
         """
         zone = Zone(zone)
         setup = self.setup_for_side(side)
@@ -1310,6 +1337,40 @@ class MatchState:
             if not team_players.intersection(occupants)
         ]
 
+    def placement_spaces_in_zone(
+        self,
+        side: TeamSide,
+        zone: Zone,
+        player_id: Optional[str] = None,
+    ) -> list[int]:
+        """
+        Where one of `side`'s meeples may legally be put down in
+        `zone`: every space the side has yet to cover, or -- once its
+        other meeples cover them all -- every space in the zone, since
+        the surplus a formation like 4-1-1 leaves over has to stack
+        somewhere. This is the run back's coverage rule (see
+        "Turnovers and running back" in docs/living-rules.md) and the
+        same rule governs the free placements at a substitution window
+        and at halftime.
+
+        `player_id` is the meeple being moved, and is discounted: a
+        space it is the only one standing on is uncovered the moment
+        it leaves, so it stays a legal destination -- and a zone whose
+        spaces only *it* fills does not read as covered and let the
+        rest of the team pile up.
+        """
+        zone = Zone(zone)
+        setup = self.setup_for_side(side)
+        others = set(setup.field_players) - {player_id}
+        uncovered = [
+            index
+            for index, occupants in enumerate(self.board.spaces[zone])
+            if not others.intersection(occupants)
+        ]
+        if uncovered:
+            return uncovered
+        return list(range(len(self.board.spaces[zone])))
+
     def run_back_player(
         self,
         player_id: str,
@@ -1318,8 +1379,9 @@ class MatchState:
     ) -> int:
         """
         Move a displaced player's meeple back into their assigned zone,
-        at a space still open for their team. Returns the distance
-        traveled, for the exhaust tokens run-back costs.
+        at a space the coverage rule allows them (see
+        placement_spaces_in_zone). Returns the distance traveled, for
+        the exhaust tokens run-back costs.
         """
         side = (
             TeamSide.HOME
@@ -1333,9 +1395,11 @@ class MatchState:
             raise ValueError(
                 f"{player_id} is not assigned to {zone.value}."
             )
-        if space_index not in self.open_spaces_in_zone(side, zone):
+        if space_index not in self.placement_spaces_in_zone(
+            side, zone, player_id,
+        ):
             raise ValueError(
-                "That space is already occupied by a teammate."
+                "That zone still has a space with nobody on it."
             )
 
         origin_flat = self.board.flat_index(
@@ -1554,11 +1618,12 @@ class MatchState:
         """
         Exchange two of a side's fielded players' zone assignments --
         which zone each player's card belongs to, not where their
-        meeples currently stand. This is the whole of "move around
-        player assignments": basic mode allows the 2-2-2 formation
-        only, and a swap is the largest rearrangement that cannot
-        break it, so no formation check is needed. Repeated swaps
-        reach any arrangement.
+        meeples currently stand.
+
+        A swap cannot change the shape a team is in, whichever one that
+        is, so it needs no formation check: repeated swaps reach every
+        arrangement of that shape and no other. Changing shape is
+        `reassign_field_zones`.
 
         No role or player is tied to a space or zone outside of this
         assignment and the run back's own requirement (see "Turnovers
@@ -1588,6 +1653,50 @@ class MatchState:
         setup.zones[other_zone][
             setup.zones[other_zone].index(other_player_id)
         ] = player_id
+
+    def reassign_field_zones(
+        self,
+        side: TeamSide,
+        zones: dict[Zone, list[str]],
+    ) -> None:
+        """
+        Rewrite which zone each of a side's fielded cards is assigned
+        to. This is the general form of `swap_field_positions`, and
+        what changing formation is made of: a swap keeps the shape a
+        team is in, and only rewriting the lot can move it from 2-2-2
+        into 4-1-1 or 2-1-3.
+
+        The shape itself is not checked here -- a MatchState does not
+        carry the ruleset that says which shapes basic mode allows, so
+        the caller checks it against `BasicRuleset.formations` (see
+        D12Ball.apply_formation_change) and this only insists that the
+        same six cards come back, one zone each.
+
+        Meeples do not move, exactly as a swap leaves them: everyone
+        now standing outside their new zone simply counts as
+        displaced, to be placed by hand (free) or by the next run back
+        (at the usual cost per space).
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+
+        if set(zones) != set(Zone):
+            raise ValueError("A reassignment must name every zone.")
+
+        reassigned = [
+            player_id
+            for zone in Zone
+            for player_id in zones[zone]
+        ]
+        if len(set(reassigned)) != len(reassigned):
+            raise ValueError("A player cannot be assigned to two zones.")
+        if set(reassigned) != set(setup.field_players):
+            raise ValueError(
+                "A reassignment must place every fielded player, and "
+                "nobody else."
+            )
+
+        setup.zones = {zone: list(zones[zone]) for zone in Zone}
 
     def reposition_player(
         self,
@@ -1620,10 +1729,13 @@ class MatchState:
     ) -> None:
         """
         Halftime-only free placement: move a fielded player's meeple
-        to any open board space, not limited to their own
-        currently-assigned zone the way `reposition_player` is --
-        "the coach can change their team's formation and the players'
-        assignment as they please" (End of Time). Costs no exhaustion,
+        to a space in any zone, not just their own currently-assigned
+        one the way `reposition_player` is -- "the coach can change
+        their team's formation and the players' assignment as they
+        please" (End of Time). The zone is free; the space still
+        answers to the coverage rule, so a coach cannot leave a space
+        of a zone they are standing in empty in order to stack
+        somewhere else in it. Costs no exhaustion,
         same as `reposition_player`. Leaves the player card's zone
         assignment untouched, so the meeple counts as displaced (same
         as `swap_field_positions` leaves one) until a future run back
@@ -1634,8 +1746,10 @@ class MatchState:
         if player_id not in setup.field_players:
             raise ValueError(f"{player_id} is not on the field.")
         zone = Zone(zone)
-        if space_index not in self.open_spaces_in_zone(side, zone):
-            raise ValueError("That space is already occupied by a teammate.")
+        if space_index not in self.placement_spaces_in_zone(
+            side, zone, player_id,
+        ):
+            raise ValueError("That zone still has a space with nobody on it.")
         self.board.place_meeple(player_id, zone, space_index)
 
     def kickoff_space_occupied_by(self, side: TeamSide) -> bool:
@@ -2012,15 +2126,20 @@ def load_basic_ruleset(
     if set(layouts) != {6, 7, 9}:
         raise ValueError("Basic rules must define board sizes 6, 7, and 9.")
 
+    formations = {
+        Formation(name): FormationShape(**counts)
+        for name, counts in data["formations"].items()
+    }
+    if set(formations) != set(Formation):
+        raise ValueError(
+            "Basic rules must give a shape for every formation."
+        )
+
     standard_setup = {
         area: tuple(PlayerRole(role) for role in roles)
         for area, roles in data["standard_setup"].items()
     }
-    if set(standard_setup) != {
-        "own_goal",
-        "midfield",
-        "opponent_goal",
-    }:
+    if set(standard_setup) != set(SETUP_AREAS):
         raise ValueError("The standard setup has invalid areas.")
 
     dice = data["player_board"]["head_coach_dice"]
@@ -2034,6 +2153,7 @@ def load_basic_ruleset(
     return BasicRuleset(
         ruleset_id=data["ruleset_id"],
         board_layouts=layouts,
+        formations=formations,
         standard_setup=standard_setup,
         player_board=player_board,
     )
@@ -2065,12 +2185,127 @@ def load_maneuver_catalog(
     )
 
 
-def create_standard_setup(
+def next_unfilled_area(assignment: dict[str, list[str]]) -> Optional[str]:
+    """
+    The area a coach still has to fill, working from their own goal
+    forward, or None once an assignment is complete.
+    """
+    for area in SETUP_AREAS:
+        if area not in assignment:
+            return area
+    return None
+
+
+def fill_forced_areas(
+    assignment: dict[str, list[str]],
+    shape: FormationShape,
+    candidates: list[str],
+) -> dict[str, list[str]]:
+    """
+    Fill in every area the coach has no choice left about -- always
+    the last one, since whoever is unplaced goes there, and any
+    earlier one the formation leaves no slack in. Saves asking a
+    question that has only one answer.
+    """
+    filled = dict(assignment)
+    for area in SETUP_AREAS:
+        if area in filled:
+            continue
+        placed = {
+            player_id
+            for players in filled.values()
+            for player_id in players
+        }
+        remaining = [
+            player_id
+            for player_id in candidates
+            if player_id not in placed
+        ]
+        if shape.count(area) != len(remaining):
+            continue
+        filled[area] = remaining
+    return filled
+
+
+def validate_assignment(
     roster: TeamDefinition,
-    side: TeamSide,
-    ruleset: BasicRuleset,
-) -> TeamSetup:
+    shape: FormationShape,
+    assignment: dict[str, list[str]],
+) -> None:
+    """
+    Check a coach's card assignment against the formation they picked:
+    every area filled to its number, no card in two places, and every
+    card one of theirs. Benching is what is left over, so this never
+    names the bench.
+    """
+    if set(assignment) != set(SETUP_AREAS):
+        raise ValueError("An assignment must name every zone.")
+
+    assigned = [
+        player_id
+        for area in SETUP_AREAS
+        for player_id in assignment[area]
+    ]
+    if len(set(assigned)) != len(assigned):
+        raise ValueError("A player cannot be assigned to two zones.")
+
+    roster_ids = {player.player_id for player in roster.players}
+    unknown = set(assigned) - roster_ids
+    if unknown:
+        raise ValueError(
+            "The assignment names players outside the team roster."
+        )
+
+    for area in SETUP_AREAS:
+        count = shape.count(area)
+        if len(assignment[area]) != count:
+            raise ValueError(
+                f"This formation puts {count} players in "
+                f"{area.replace('_', ' ')}, not "
+                f"{len(assignment[area])}."
+            )
+
+
+def zone_for_area(side: TeamSide, area: str) -> Zone:
+    """
+    The board zone a setup area names for one side. The areas are
+    written from the coach's point of view -- own goal, midfield,
+    opponent goal -- because a formation and a card assignment are both
+    settled before the coin toss says which end of the board that is.
+    """
     side = TeamSide(side)
+    if area == "midfield":
+        return Zone.MIDFIELD
+    if area == "own_goal":
+        return (
+            Zone.HOME_GOAL
+            if side == TeamSide.HOME
+            else Zone.VISITORS_GOAL
+        )
+    if area == "opponent_goal":
+        return (
+            Zone.VISITORS_GOAL
+            if side == TeamSide.HOME
+            else Zone.HOME_GOAL
+        )
+    raise ValueError(f"Unknown setup area: {area}")
+
+
+def default_formation_deal(
+    roster: TeamDefinition,
+    ruleset: BasicRuleset,
+    formation: Formation,
+) -> dict[str, list[str]]:
+    """
+    Which cards a formation gets when nobody has assigned them by hand
+    -- the AI's team, and any side whose coach left the choice alone.
+
+    The standard setup's roles, read back to front (fullback, defender,
+    midfielder, playmaker, winger, striker), are dealt into the zones in
+    the formation's numbers. For 2-2-2 that reproduces the standard
+    setup exactly; 4-1-1 pulls the midfield pair back and 2-1-3 pushes
+    the playmaker forward.
+    """
     players_by_role: dict[
         PlayerRole,
         deque[PlayerDefinition],
@@ -2079,33 +2314,54 @@ def create_standard_setup(
     for player in roster.players:
         players_by_role[player.role].append(player)
 
-    def select(roles: tuple[PlayerRole, ...]) -> list[str]:
-        selected: list[str] = []
-        for role in roles:
+    ordered: list[str] = []
+    for area in SETUP_AREAS:
+        for role in ruleset.standard_setup[area]:
             if not players_by_role[role]:
                 raise ValueError(
                     f"{roster.team.value.title()} has no available "
                     f"{role.value} for the standard setup."
                 )
-            selected.append(players_by_role[role].popleft().player_id)
-        return selected
+            ordered.append(players_by_role[role].popleft().player_id)
 
-    own_goal_zone = (
-        Zone.HOME_GOAL
-        if side == TeamSide.HOME
-        else Zone.VISITORS_GOAL
-    )
-    opponent_goal_zone = (
-        Zone.VISITORS_GOAL
-        if side == TeamSide.HOME
-        else Zone.HOME_GOAL
-    )
+    shape = ruleset.formations[Formation(formation)]
+    deal: dict[str, list[str]] = {}
+    taken = 0
+    for area in SETUP_AREAS:
+        count = shape.count(area)
+        deal[area] = ordered[taken:taken + count]
+        taken += count
+    return deal
+
+
+def create_standard_setup(
+    roster: TeamDefinition,
+    side: TeamSide,
+    ruleset: BasicRuleset,
+    formation: Formation = Formation.TWO_TWO_TWO,
+    assignment: Optional[dict[str, list[str]]] = None,
+) -> TeamSetup:
+    """
+    Field six of a team's cards in `formation`, benching the rest.
+
+    `assignment` is the coach's own choice of which card goes where,
+    keyed by setup area; leaving it out deals the formation by role
+    (see default_formation_deal). Either way the shape is checked
+    against the ruleset, so a saved assignment that no longer matches
+    its formation is caught here rather than on the board.
+    """
+    side = TeamSide(side)
+    formation = Formation(formation)
+    shape = ruleset.formations[formation]
+
+    if assignment is None:
+        assignment = default_formation_deal(roster, ruleset, formation)
+    else:
+        validate_assignment(roster, shape, assignment)
+
     zones = {
-        own_goal_zone: select(ruleset.standard_setup["own_goal"]),
-        Zone.MIDFIELD: select(ruleset.standard_setup["midfield"]),
-        opponent_goal_zone: select(
-            ruleset.standard_setup["opponent_goal"]
-        ),
+        zone_for_area(side, area): list(assignment[area])
+        for area in SETUP_AREAS
     }
     selected_ids = {
         player_id

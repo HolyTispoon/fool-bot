@@ -26,7 +26,7 @@ python3 -m unittest discover -s tests
 | `cogs/d12ball_views.py` | The `discord.ui.View` classes, one per prompt a player can be shown |
 | `cogs/debug.py` | Maintenance commands, including the PBD channel-and-count reset |
 | `d12ball/components.py` | Game state model — `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog` |
-| `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode` |
+| `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board image rendering (Pillow) |
 | `d12ball/data/` | `players.json`, `basic_rules.json` |
 | `d12ball/images/` | Card art and emoji |
@@ -66,6 +66,37 @@ earn their keep when upstream moves:
 mechanics exist only in the code, so there a bug and a deliberate decision look identical.
 Asking as inline comments on a docs PR has worked far better than asking in chat, and it
 leaves the answers versioned.
+
+## Formations and occupancy
+
+Basic mode plays **2-2-2, 4-1-1 or 2-1-3**, per coach, chosen in setup and
+changeable at any substitution window. The numbers read from a coach's own goal
+forward and always field six cards.
+
+- **The shapes live in two places on purpose.** `Formation` in `d12ball/game.py`
+  names the three, because the game record stores a coach's choice; the counts
+  are in `basic_rules.json`, with the rest of the ruleset data.
+  `load_basic_ruleset` checks the two agree, so neither can drift alone.
+- **Occupancy is a coverage rule, not a limit** -- see "Occupancy" in the living
+  rules. `MatchState.placement_spaces_in_zone` is the whole of it: a team's
+  uncovered spaces in a zone, or every space once its other meeples cover them
+  all. It discounts the meeple being moved, since the space it is leaving is
+  about to be uncovered. Everything that puts a meeple down goes through it --
+  the run back, the free placement in a substitution window, halftime's
+  any-zone placement. `open_spaces_in_zone` still means "spaces this team has
+  not covered" and is the input to `crowded_players`.
+- **A coach assigns every card; only the counts are fixed.** An assignment is
+  keyed by *area* (`own_goal` / `midfield` / `opponent_goal`), not by board
+  zone, because it is settled before the coin toss says which end a coach
+  defends -- `zone_for_area` maps one to the other. A side that never chose is
+  dealt by role, back to front (`default_formation_deal`), which reproduces the
+  old standard setup exactly for 2-2-2 and is what the AI plays.
+- **Setup keeps its partial answers on the game record**
+  (`player_N_formation`, `player_N_assignment`), so a coach mid-assignment
+  survives a restart and `FormationSelectionView` can be rebuilt from it. A
+  mid-game change keeps them on the view instead, like `SubstitutionSwapView`'s
+  first pick: nothing reaches the match until every zone is filled, so a coach
+  who wanders off leaves the formation they had.
 
 ## Logging and the #logs channel
 
@@ -139,6 +170,7 @@ output is a PNG of the expected dimensions.
 
 ```bash
 python3 scripts/render_sample.py --home purple --visiting teal --out board.png
+python3 scripts/render_sample.py --home-formation 4-1-1   # stacked meeples
 python3 scripts/render_sample.py --list-games
 python3 scripts/render_sample.py --game <game_id>      # reproduce a real board
 ```
@@ -201,10 +233,13 @@ and reused by the rematch button), or the two sides otherwise —
   the game. Deleting a channel by hand now also deletes the game record, and
   since `get_next_game_number` is `max + 1` over the guild's saved games,
   pruning the newest ones lets a PBD number be handed out twice.
-- **Known unfixed issue:** meeple name labels overflow their space borders and
-  collide when two meeples share a space. `draw_meeple_group` in `render.py`
-  clamps label positions and offsets stacked names by a fixed 23px, both tuned
-  for a smaller `FONT_MEEPLE` than the current one.
+- **Meeple name labels are sized per space, not once for the board.**
+  `fit_meeple_labels` in `render.py` picks the largest size whose names all fit
+  the space's width and whose lines fit between the tokens and the edge of the
+  space, and `shorten_to_width` truncates anything still too wide. That replaced
+  a fixed `FONT_MEEPLE` and a fixed 23px line offset, which overflowed the space
+  borders whenever two meeples shared a space -- unavoidable once a formation
+  can put four of a team's meeples on one.
 - **The "View full image" button dies after 24 hours, by design.** Discord
   signs attachment URLs and stops honouring a signature a day after issuing it,
   so the link baked into a board or maneuver-reference message goes dead once

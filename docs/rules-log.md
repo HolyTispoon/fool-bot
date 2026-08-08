@@ -45,15 +45,13 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
-### May halftime's free placement stack meeples?
+### Which player receives a Low Pass onto a stack?
 
-Halftime repositioning is "any open space on the board", written when a space held at most one of
-a team's players. Now that the [2026-08-08](#2026-08-08----author-correcting-run-back-occupancy)
-correction lets a zone hold more players than spaces, "open" needs a reading: either the coverage
-rule applies to halftime placement as it does to the run back, or halftime is genuinely free and
-a coach may stack whoever they like wherever they like, with the next turnover's run back
-spreading them out again. Moot under 2-2-2 and only worth settling alongside the first formation
-that isn't.
+A Low Pass of distance 0 goes to "a *second* player sharing the ball's space", which named exactly
+one player while a space held at most one of a team's meeples. Formations that stack make three
+teammates on a space ordinary, and the code picks the first occupant who is not the handler --
+an arbitrary choice the coach never sees. Either the passer chooses their receiver, or something
+decides it for them; worth settling before 4-1-1 sees much play.
 
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
@@ -64,6 +62,23 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-08 (later the same day) -- author, formations in basic mode
+
+- **4-1-1 and 2-1-3 join 2-2-2 in basic mode**, for every team. They read from a coach's own
+  goal forward, so 4-1-1 packs the defence and 2-1-3 the attack, and each fields the same six
+  cards -- one of each role, with the same three left on the bench. Advanced mode keeps its
+  per-team abilities and no longer owes the game its formations.
+- **The coach assigns every card.** A formation fixes only how many cards go in each zone;
+  which card goes where is the coach's, settled in setup. Left alone, a shape is dealt by role
+  back to front (fullback, defender, midfielder, playmaker, winger, striker), which reproduces
+  the old standard setup exactly for 2-2-2. That is what the AI plays.
+- **A rearrangement may change formation.** The substitution window (and halftime, which runs
+  the same window) can move a team into any of the three, not only the one they kicked off in.
+  It was previously restricted to swaps, which cannot change a shape.
+- **Halftime's free placement answers to the coverage rule** -- settling the question the
+  earlier entry opened. Halftime frees the *zone* a meeple may go to, not the space: a coach
+  still may not leave a space of a zone they stand in empty in order to stack elsewhere in it.
 
 ### 2026-08-08 -- author, correcting run-back occupancy
 
@@ -80,7 +95,8 @@ the author directly.
   4-1-1, 2-1-3 -- which is what prompted the correction. `MatchState.run_back_player` and
   `open_spaces_in_zone` enforce the one-per-space reading and are therefore still correct for
   every formation the code can produce; they will need revisiting with the first formation
-  that isn't 2-2-2.
+  that isn't 2-2-2. (Which was the same day: see the entry above, where those formations moved
+  into basic mode and the code took the coverage rule.)
 - Setup's meeple placement now points at the same occupancy rule instead of restating
   one-per-team-per-space, again with no change under 2-2-2.
 
@@ -208,6 +224,8 @@ Both `Sheet1` and `maneuvers` were reworded:
 - **Cards change zones freely and rearranging costs no exhaustion** -- the only meeple movement
   in the game that does not pay per space. **Basic mode allows 2-2-2 only**, so a rearrangement
   must leave two per zone. 4-1-1 and 2-1-3 belong to advanced mode and fit no current board.
+  (Superseded on 2026-08-08: all three are basic mode, and a zone holding more players than it
+  has spaces is exactly what the coverage rule is for.)
 - **Every turnover opens a substitution window**, not only a steal or a score attempt.
 - **The window opens before the run back.**
 - **The bench and the back bench are two separate pools.** Anyone subbed out goes to the back
@@ -336,6 +354,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | "So if they were subbed while exhausted they are no longer exhausted" | Half the tokens, rounded up; Exhausted follows from what remains |
 | A tie at full time goes to the extreme shootout | Tournament mode only; a league game ends tied |
 | "For now, we need one player of each role on the field" | A property of the standard setup, not a standing rule |
+| Nothing about formations, and a fixed two cards per zone | Basic mode plays 2-2-2, 4-1-1 or 2-1-3, and the coach assigns every card |
 | Nothing about a Low Pass with no legal destination | The ball goes a space forward, loose, speed still +1 |
 
 ---
@@ -374,8 +393,9 @@ rather than capping a space at one player, per team; the surplus stacking freely
 space is covered; same-zone teammates being separated; a steal exempting the stealer; only a
 turnover running anyone back.
 
-**Substitutions:** no requirement to keep one of each role; cards changing zones freely; 2-2-2
-only in basic mode; rearranging costing nothing; every turnover opening a window; substituting
+**Substitutions:** no requirement to keep one of each role; cards changing zones freely; all
+three formations available in basic mode, and a rearrangement free to change one; rearranging
+costing nothing; every turnover opening a window; substituting
 before the run back; the two pools; a returning player only losing tokens; halftime's window not
 being a declaration.
 
@@ -427,18 +447,14 @@ From the author, for `foolbot.py`'s generic commands:
 - **Halftime**, end to end: recovery, the coach's extra token, each side's independent
   substitution window, and free repositioning gated on the visiting side covering the kickoff
   space.
+- **The run back**, end to end: 1 token per space, the coach picking within the zone under the
+  coverage rule, the steal exemption, and stacked teammates separated while a space is free.
+  Forced placements are applied silently; only a real choice is put to a coach.
+- **Formations**, end to end: 2-2-2, 4-1-1 and 2-1-3, each coach picking theirs and assigning
+  every card in setup, and any substitution window (halftime included) able to change one.
 
 ### Specified but not built
 
-- **The run back.** Fully specified -- 1 token per space, the coach picks within the zone, one
-  player per space per team, steal exemption, stacked teammates separated. Nothing enforces it
-  yet; the score-attempt cleanup only asks for it in words. `move_ball` refuses a space with no
-  meeple, so the post-goal and post-miss restarts are gated on this.
-- **Kickoff on a 6-board.** `MatchState.standard` uses `space_index=min(1, len(midfield) - 1)`
-  for every board size. On 7 and 9 that is the middle of the board and correct; on a 6-board it
-  is the midfield space *further* from the kicking team's goal, so the ball starts a space too far
-  forward -- that case wants index 0. Since the same rule governs the restart after a goal and at
-  the second half, this wants one shared helper rather than a literal per call site.
 - **An unchallenged maneuver should succeed, not stall.** With no defender in the ball's zone,
   `eligible_challengers()` returns empty and the cog replies "The defending team has no player in
   the ball's zone to challenge" and stops. It should automatically succeed for the offense.
@@ -447,5 +463,5 @@ From the author, for `foolbot.py`'s generic commands:
 
 - **The extreme shootout** is specified but not built, and is reachable only in **tournament
   mode** -- which setup refuses until it exists. A league-mode game ends tied instead.
-- **Advanced mode** -- per-team abilities (the sheet's empty `Advanced` column) and formations
-  other than 2-2-2 -- is unspecified. Setup refuses it.
+- **Advanced mode** -- per-team abilities (the sheet's empty `Advanced` column) -- is
+  unspecified. Setup refuses it. Formations left it for basic mode on 2026-08-08.

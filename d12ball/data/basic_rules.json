@@ -17,6 +17,23 @@
       "visitors_goal": 3
     }
   },
+  "formations": {
+    "2-2-2": {
+      "own_goal": 2,
+      "midfield": 2,
+      "opponent_goal": 2
+    },
+    "4-1-1": {
+      "own_goal": 4,
+      "midfield": 1,
+      "opponent_goal": 1
+    },
+    "2-1-3": {
+      "own_goal": 2,
+      "midfield": 1,
+      "opponent_goal": 3
+    }
+  },
   "standard_setup": {
     "own_goal": [
       "fullback",

@@ -23,7 +23,7 @@ from d12ball.components import (  # noqa: E402
     load_basic_ruleset,
     load_player_catalog,
 )
-from d12ball.game import VALID_BOARD_SIZES, Team  # noqa: E402
+from d12ball.game import VALID_BOARD_SIZES, Formation, Team  # noqa: E402
 from d12ball.render import render_match_image  # noqa: E402
 from gamesaves.d12ball.storage import load_games  # noqa: E402
 
@@ -96,6 +96,18 @@ def main() -> None:
         help="Visiting team for a fresh match (default: teal).",
     )
     parser.add_argument(
+        "--home-formation",
+        default=Formation.TWO_TWO_TWO.value,
+        choices=[formation.value for formation in Formation],
+        help="Home formation for a fresh match (default: 2-2-2).",
+    )
+    parser.add_argument(
+        "--visiting-formation",
+        default=Formation.TWO_TWO_TWO.value,
+        choices=[formation.value for formation in Formation],
+        help="Visiting formation for a fresh match (default: 2-2-2).",
+    )
+    parser.add_argument(
         "--board-size",
         type=int,
         default=7,
@@ -130,6 +142,8 @@ def main() -> None:
             board_size=arguments.board_size,
             home_team=Team(arguments.home),
             visiting_team=Team(arguments.visiting),
+            home_formation=Formation(arguments.home_formation),
+            visiting_formation=Formation(arguments.visiting_formation),
         )
         label = "Sample"
 

@@ -22,6 +22,7 @@ from d12ball.game import (
     AIOpponent,
     CoinFace,
     D12BallGame,
+    Formation,
     Team,
     TieMode,
 )
@@ -298,6 +299,19 @@ def format_role_bracket(
     return f"{team_emoji} {player.name} [{initials}]"
 
 
+def area_display_name(area: str) -> str:
+    """
+    A setup area, as a coach reads it. These are not board zones --
+    they are written from the coach's own end forward, since a
+    formation is picked before the toss says which end that is.
+    """
+    if area == "opponent_goal":
+        return "the opponent's goal"
+    if area == "own_goal":
+        return "their own goal"
+    return area.replace("_", " ")
+
+
 def destination_display_name(destination: str) -> str:
     if destination in BENCH_DESTINATIONS:
         return destination.replace("_", " ").title()
@@ -463,13 +477,24 @@ def build_setup_message(
     text = (
         "## D12 Ball game setup\n\n"
         "### Choose your teams\n\n"
-        f"**Player 1:** {player_1}\n\n"
-        f"**Player 2:** {player_2}\n\n"
+        f"**Player 1:** {player_1}{format_formation_note(game, 1)}\n\n"
+        f"**Player 2:** {player_2}{format_formation_note(game, 2)}\n\n"
         "### Game settings\n\n"
         f"Game Mode: {game.mode.value.title()}\n"
         f"Board size: {game.board_size}\n"
         f"Ties: {TIE_MODE_LABELS[game.tie_mode]}\n\n"
     )
+
+    if game.teams_selected and not game.formations_selected:
+        text += (
+            "Both teams have been selected.\n"
+            "Each coach now picks a formation and fills their zones "
+            "with it. The numbers read from their own goal forward, "
+            "so 4-1-1 packs the defence and 2-1-3 the attack -- a zone "
+            "given more players than it has spaces stacks the "
+            "surplus.\n"
+        )
+        return text
 
     if game.coin_flipped:
         text += (
@@ -517,6 +542,33 @@ def format_player(
         return game.player_2_name or "Player 2"
 
     return "Unknown player"
+
+
+def format_formation_note(
+    game: D12BallGame,
+    player_number: int,
+) -> str:
+    """
+    The formation to show beside a player in the setup message: what
+    they picked, or nothing at all before they have. The AI is shown
+    the 2-2-2 it always plays as soon as the teams are settled, so a
+    solo game does not look like it is waiting on it.
+    """
+    formation = game.formation_for_player(player_number)
+
+    if (
+        formation is None
+        and player_number == 2
+        and game.is_solo_game
+        and game.teams_selected
+    ):
+        formation = Formation.TWO_TWO_TWO
+
+    if formation is None:
+        return ""
+
+    settled = game.formation_settled(player_number)
+    return f" -- {formation.value}{'' if settled else ', filling zones'}"
 
 
 def format_player_with_team(
