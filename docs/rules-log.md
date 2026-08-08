@@ -55,6 +55,50 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-08-08 (later still) -- author, a new play resets to the coach's arrangement, and injuries compel nothing
+
+- **A turnover is now either a steal or a new play, and only a new play opens a substitution
+  window.** This narrows 2026-08-04's "every turnover opens a window", which had made the
+  window a routine part of open play: a steal came with a pause to substitute in, which is not
+  what taking the ball off someone should buy.
+- **Steals, which open nothing:** a won Steal Intercept, a Defender's Pressure steal, a loose
+  ball won by the side that did not have it (standing on it, sent for it unopposed, or won on
+  the skill test), and a lost long High Pass contest. The rule the author gave is that a loose
+  ball picked up by the opposing team is a steal, and the High Pass contest follows it -- both
+  are the other team taking a live ball.
+- **New plays, which open one:** a goal, an own goal, a missed attempt, and a ball out of
+  bounds. The common thread is that the ball went dead and is being brought back into play,
+  which is also why out of bounds parts company with the other three loose-ball cases.
+- **A Block Deflect that overshoots is neither.** Possession turns over and the shot follows
+  immediately; the shot is a goal or a miss, so the new play -- and the window -- comes from
+  the shot. The deflect's own turnover opens nothing, which is what it already did.
+- **The run back is now the steal's half of the rule, and a new play resets instead.** A new
+  play puts every fielded meeple on both sides back on the space its coach last *assigned* it
+  -- at setup, at their last substitution window, or at halftime -- **free of exhaustion**,
+  with nothing for a coach to choose. A steal keeps the run back exactly as it was: the
+  stealer stays put, everyone else out of their zone goes back to a space in it that leaves
+  none uncovered, at a token a space.
+- **This is what makes the window meaningful.** The arrangement is the shape a coach set, and
+  a substitution window (or halftime, or setup) is the only place one gets set. Open play
+  drags meeples out of it; a new play hands it back. A run back does *not* update it -- the
+  scramble a steal forces is not a shape anyone chose, so the next new play undoes it.
+- **The reset comes before the window**, reversing the old "window first, then the run back".
+  The reason for that order was that whoever came on inherited the outgoing player's position
+  and so paid their run-back distance; with the reset costing nothing there is no distance to
+  pay, and going the other way is strictly better -- a coach who declares rearranges from
+  their own formation rather than from wherever open play scattered them, and a coach who
+  passes has already had everything passing gives them.
+- **Two placements still cost.** The kickoff space after a goal, and picking up an
+  out-of-bounds ball, come after the reset at the usual token a space: nothing guarantees a
+  coach's arrangement puts anybody on the space in question.
+- **An injured player no longer has to be substituted at all**, dropping the rule outright
+  rather than letting it fall foul of the change above. The two go together: with windows now
+  only at new plays, "declare at your next opportunity" could have stranded a team on a
+  compulsory swap a long way from the moment of the injury. Leaving an injured player on,
+  disadvantaged, is now simply a choice a coach may make, and the once-a-half declaration is
+  the only gate on a window. The bot names an injured player in the window's heading as a
+  nudge, and Dinky still subs one off when it can, but nothing is compelled.
+
 ### 2026-08-08 (later the same day) -- author, formations in basic mode
 
 - **4-1-1 and 2-1-3 join 2-2-2 in basic mode**, for every team. They read from a coach's own
@@ -224,7 +268,10 @@ Both `Sheet1` and `maneuvers` were reworded:
   (Superseded on 2026-08-08: all three are basic mode, and a zone holding more players than it
   has spaces is exactly what the coverage rule is for.)
 - **Every turnover opens a substitution window**, not only a steal or a score attempt.
-- **The window opens before the run back.**
+  (Superseded on 2026-08-08: only a new play does -- a goal, an own goal, a missed attempt or
+  a ball out of bounds. A steal opens none.)
+- **The window opens before the run back.** (Superseded on 2026-08-08: a new play resets both
+  sides to their coaches' arrangement first, and the window comes after that.)
 - **The bench and the back bench are two separate pools.** Anyone subbed out goes to the back
   bench; a team subs from the bench while it has anyone; the back bench is drawn from only when
   the bench is empty and the sub is for an injured player; injured players never return.
@@ -342,9 +389,11 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | The own goal is triggered by a deflected pass, and rolled at a **disadvantage** | Triggered by Pressure's overshoot only, rolled at an **advantage**, and costs 1 token |
 | Setting a scoring opportunity describes only the old fixed-2 High Pass overshoot | Three set-ups (High Pass of 2, a Winger's Low Pass, a Block Deflect overshoot), each a choice |
 | A turnover says nothing about ball speed | Every turnover resets it to 1 |
+| Substitutions "when they win possession", with no split between kinds of turnover | Only a new play (goal, own goal, missed attempt, out of bounds) opens a window; a steal opens none |
 | A loose ball's contestant "gains 1 exhaustion" | 1 token per space travelled |
 | Nothing about the loose-ball check at all, beyond a pass landing on an empty space | A general check after every maneuver, with four cases |
-| Nothing about which space a player runs back to, or what it costs | The coach picks, covering every space of the zone their players can fill and stacking the surplus, 1 token per space |
+| Nothing about which space a player runs back to, or what it costs | After a steal the coach picks, covering every space of the zone their players can fill and stacking the surplus, 1 token per space |
+| Nothing about a restart putting players back where the coach had them | A new play resets both sides to the arrangement their coaches last set, free of exhaustion |
 | Halftime recovery of "1 (or 2, TBD)" | 1 |
 | Halftime lets the coach change assignments "as they please" | Free placement to any space on the board, and the visiting side must cover the kickoff space |
 | Substitutions: "if and only if all the players on the bench were subbed out" | Two pools -- bench, then back bench for an injured sub only |
@@ -394,9 +443,14 @@ turnover running anyone back.
 
 **Substitutions:** no requirement to keep one of each role; cards changing zones freely;
 rearranging as the only way to change formation, and all three shapes available to it;
-rearranging costing nothing; every turnover opening a window; substituting
-before the run back; the two pools; a returning player only losing tokens; halftime's window not
-being a declaration.
+rearranging costing nothing; a new play opening a window and a steal opening none; substituting
+after the new-play reset; the two pools; a returning player only losing tokens; halftime's
+window not being a declaration; nothing ever compelling a declaration, an injured player
+included.
+
+**The arrangement:** what sets one (setup, a substitution window, halftime) and what does not
+(a run back); a new play restoring it for both sides, free of exhaustion and with nothing to
+choose; the kickoff-space and out-of-bounds placements still costing, after the reset.
 
 **Own goal:** the trigger moving to Pressure; the advantage roll; priority over the Defender's
 steal; the 1-token cost.
@@ -439,10 +493,11 @@ From the author, for `foolbot.py`'s generic commands:
 - **Loose ball**, all four cases, including the ask-one-side-at-a-time order and declining.
 - **The High Pass contest**, distinct from a loose ball, with the ball-speed modifier to the
   offense.
-- **Substitutions**, end to end: the window on every turnover, before the run back, gated on the
-  once-a-half declaration; the declare-then-reply pairing; the two pools; a returning player
-  keeping half their tokens; free rearrangement implemented as exchanging two players. Dinky
-  substitutes only to get an injured player off, and never rearranges.
+- **Substitutions**, end to end: the window on a new play (and not on a steal), before the run
+  back, gated on the once-a-half declaration and nothing else -- passing is always on offer;
+  the declare-then-reply pairing; the two pools; a returning player keeping half their tokens;
+  free rearrangement implemented as exchanging two players. Dinky substitutes only to get an
+  injured player off, and never rearranges.
 - **Halftime**, end to end: recovery, the coach's extra token, each side's independent
   substitution window, and free repositioning gated on the visiting side covering the kickoff
   space.
