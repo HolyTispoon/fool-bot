@@ -66,7 +66,20 @@ COACHING_BOARD_LEFT = 40
 COACHING_BOARD_RIGHT = COACHING_WIDTH - 40
 COACHING_BOARD_TOP = 64
 COACHING_BOARD_BOTTOM = COACHING_BOARD_TOP + 250
-COACHING_HEIGHT = COACHING_BOARD_BOTTOM + 20
+# The card rows below the board: each zone's assigned cards under that
+# zone, then the two benches. Cards are the only place exhaustion
+# counts and the Exhausted and Injured badges are drawn, and all three
+# decide what a coach does with this menu, so the flow would be asking
+# them to remember numbers off a board they cannot see otherwise.
+COACHING_CARD_GAP = 12
+COACHING_ZONE_CARDS_TOP = COACHING_BOARD_BOTTOM + 18
+COACHING_BENCH_LABEL_TOP = COACHING_ZONE_CARDS_TOP + CARD_SIZE[1] + 22
+COACHING_BENCH_CARDS_TOP = COACHING_BENCH_LABEL_TOP + 40
+COACHING_HEIGHT = COACHING_BENCH_CARDS_TOP + CARD_SIZE[1] + 20
+# Where the back bench starts. The two benches always hold three cards
+# between them -- nine players, six on the field -- so the split never
+# needs more room than this.
+COACHING_BACK_BENCH_LEFT = COACHING_WIDTH // 2 + 40
 
 TEAM_COLORS = {
     Team.ORANGE: "#f28c28",
@@ -761,13 +774,14 @@ def draw_assignment_cards(
     exhaustion: dict[str, int],
     exhausted: set[str] = frozenset(),
     injured: set[str] = frozenset(),
+    gap: int = 12,
 ) -> None:
     for zone in Zone:
         left, right = bounds[zone]
         player_ids = setup.zones[zone]
         total_width = len(player_ids) * CARD_SIZE[0] + (
             len(player_ids) - 1
-        ) * 12
+        ) * gap
         x = left + (right - left - total_width) // 2
 
         for player_id in player_ids:
@@ -783,7 +797,7 @@ def draw_assignment_cards(
                 exhausted=player_id in exhausted,
                 injured=player_id in injured,
             )
-            x += CARD_SIZE[0] + 12
+            x += CARD_SIZE[0] + gap
 
 
 def draw_board(
@@ -2363,7 +2377,8 @@ def render_coaching_image(
     """
     side = TeamSide(side)
     players = player_index(catalog)
-    team_players = set(match.setup_for_side(side).field_players)
+    setup = match.setup_for_side(side)
+    team_players = set(setup.field_players)
 
     canvas = Image.new(
         "RGBA",
@@ -2455,11 +2470,79 @@ def render_coaching_image(
         top=COACHING_BOARD_TOP,
         bottom=COACHING_BOARD_BOTTOM,
     )
+    draw_assignment_cards(
+        canvas,
+        draw,
+        setup,
+        players,
+        catalog,
+        bounds,
+        COACHING_ZONE_CARDS_TOP,
+        match.exhaustion,
+        match.exhausted,
+        match.injured,
+        gap=COACHING_CARD_GAP,
+    )
+    draw_coaching_benches(canvas, draw, setup, players, catalog, match)
 
     output = BytesIO()
     canvas.convert("RGB").save(output, format="PNG")
     output.seek(0)
     return output
+
+
+def draw_coaching_benches(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    setup: TeamSetup,
+    players: dict[str, PlayerDefinition],
+    catalog: PlayerCatalog,
+    match: MatchState,
+) -> None:
+    """
+    The coach's two pools under the card rows. Which pool a player is
+    in is the whole of who may come on -- the bench while it has
+    anyone, the back bench only for an injured swap -- so a coach
+    choosing a substitution needs to see both.
+    """
+    for left, label, player_ids in (
+        (COACHING_BOARD_LEFT, "BENCH", setup.player_board.bench),
+        (
+            COACHING_BACK_BENCH_LEFT,
+            "BACK BENCH",
+            setup.player_board.back_bench,
+        ),
+    ):
+        draw.text(
+            (left, COACHING_BENCH_LABEL_TOP),
+            label,
+            font=FONT_BODY,
+            fill="#ffffff",
+        )
+        if not player_ids:
+            draw.text(
+                (left, COACHING_BENCH_CARDS_TOP + 40),
+                "Empty",
+                font=FONT_BODY,
+                fill="#9eabb8",
+            )
+            continue
+
+        card_x = left
+        for player_id in player_ids:
+            player = players[player_id]
+            draw_card(
+                canvas,
+                draw,
+                player,
+                catalog.effective_profile(player),
+                card_x,
+                COACHING_BENCH_CARDS_TOP,
+                exhaustion=match.exhaustion.get(player_id, 0),
+                exhausted=player_id in match.exhausted,
+                injured=player_id in match.injured,
+            )
+            card_x += CARD_SIZE[0] + COACHING_CARD_GAP
 
 
 def render_match_image(

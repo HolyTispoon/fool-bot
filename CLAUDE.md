@@ -560,12 +560,22 @@ lists none until the bot has been run.
 `render_coaching_image` is the 1280px half-field a
 [Coaching Choice](#the-coaching-choice) keeps up, and the two do not share a
 layout. The coaching image carries one row of meeples instead of two, so at the
-match image's width it arrives in Discord as an unreadable sliver -- but its
-width still has to fit a stack, and board 6's two-space midfield under 2-3-1 is
-the widest case there is. **It is deliberately not mirrored for the visiting
-coach**: the zones keep their real names and the spaces their real numbers, so
-V1 is the same space on both images and on the board the coaches are looking
-at.
+match image's width it arrives in Discord as an unreadable sliver. **It is
+deliberately not mirrored for the visiting coach**: the zones keep their real
+names and the spaces their real numbers, so V1 is the same space on both images
+and on the board the coaches are looking at.
+
+Two things set its width, and both are three cards wide. A zone's **assigned
+cards** are drawn under that zone, and midfield holds three under 2-3-1 and
+1-3-2; a space has to fit a **stack**, which is board 6's two-space midfield
+under those same shapes. `D12BallComponentTests` checks both, because the
+suite cannot see the image and an overflow here is silent.
+
+**The cards and the two benches are on it for a reason.** Exhaustion counts and
+the Exhausted and Injured badges are drawn nowhere else, and which pool a
+player is in is the whole of who may come on -- so without them the flow would
+be asking a coach to remember numbers off a board they cannot see while the
+menu is up.
 
 ### Fonts
 

@@ -23,8 +23,10 @@ from d12ball.components import (
 )
 from d12ball.game import Formation, Team
 from d12ball.render import (
+    CARD_SIZE,
     COACHING_BOARD_LEFT,
     COACHING_BOARD_RIGHT,
+    COACHING_CARD_GAP,
     COACHING_HEIGHT,
     COACHING_WIDTH,
     FONT_BODY,
@@ -1032,6 +1034,31 @@ class D12BallComponentTests(unittest.TestCase):
             self.assertEqual(image.format, "PNG")
             self.assertEqual(
                 image.size, (COACHING_WIDTH, COACHING_HEIGHT),
+            )
+
+    def test_a_zone_of_three_cards_fits_under_its_zone(self) -> None:
+        # The coaching image draws each zone's assigned cards under
+        # that zone, centred on it. Three in a zone is the most any
+        # basic shape allows, and midfield -- the only zone that ever
+        # holds three -- is the narrowest on board 9, where every zone
+        # is the same width.
+        for board_size in (6, 7, 9):
+            match = MatchState.standard(
+                catalog=self.catalog,
+                ruleset=self.rules,
+                board_size=board_size,
+                home_team=Team.ORANGE,
+                visiting_team=Team.TEAL,
+                home_formation=Formation.TWO_THREE_ONE,
+            )
+            bounds = zone_bounds_between(
+                match, COACHING_BOARD_LEFT, COACHING_BOARD_RIGHT,
+            )
+            left, right = bounds[Zone.MIDFIELD]
+            row = 3 * CARD_SIZE[0] + 2 * COACHING_CARD_GAP
+            self.assertLessEqual(
+                row, right - left,
+                f"three cards overflow midfield on board {board_size}",
             )
 
     def test_a_stacked_coaching_space_still_fits_its_meeples(self) -> None:
