@@ -221,6 +221,25 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("has moved", calls[0].args[0])
         self.assertIn("file", calls[1].kwargs)
 
+    def test_the_image_captions_a_player_with_the_short_ability(
+        self,
+    ) -> None:
+        # The sentence version is a caption under a portrait here, next
+        # to another player's, so the image takes the abbreviated form
+        # the abilities sheet carries. The roster still shows the
+        # sentence.
+        cog = build_cog()
+        match = self.build_match()
+        player_id = match.home.field_players[0]
+        profile = cog.player_catalog.effective_profile(
+            cog.get_player_definition(player_id),
+        )
+
+        side = cog.challenge_side(player_id, attacking=True)
+
+        self.assertEqual(side.ability, profile.ability_short)
+        self.assertNotEqual(side.ability, profile.ability)
+
     async def test_dropping_the_turn_prompt_clears_its_id(self) -> None:
         cog = build_cog()
         game = build_game()

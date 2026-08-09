@@ -4146,6 +4146,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         attacking: bool,
         modifiers: tuple[str, ...] = (),
     ) -> ChallengeSide:
+        """
+        A player as a matchup image draws them. The ability is the
+        short form: this is a caption under a portrait, next to
+        another player's, and the sentence version wrapped to three
+        lines and set the height of the whole image. The full text is
+        still what the roster and the rules listing show.
+        """
         player = self.get_player_definition(player_id)
         profile = self.player_catalog.effective_profile(player)
         return ChallengeSide(
@@ -4155,7 +4162,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             team_label=player.team.value.title(),
             skill_name="Offensive" if attacking else "Defensive",
             skill=profile.offense if attacking else profile.defense,
-            ability=profile.ability,
+            ability=profile.short_ability,
             modifiers=modifiers,
         )
 

@@ -1393,10 +1393,12 @@ SCORE_ATTEMPT_UNDEFENDED = "No one in the way"
 # instead.
 CHALLENGE_MIN_GROUP_WIDTH = 300
 CHALLENGE_MAX_GROUP_WIDTH = 560
-# No bigger than a skill test's dice: this image sits in the same run
-# of messages as the roll it leads to, and a portrait that dwarfed the
-# dice would make the setup look like the result.
-CHALLENGE_PORTRAIT_SIZE = 2 * SKILL_TEST_DIE_RADIUS
+# The same size the injury test draws a portrait at, which is the only
+# other image that shows one beside a caption. It is a step up from the
+# diameter of a skill test's dice, where this started: the abbreviated
+# abilities freed the height, and a portrait is what a coach picks a
+# player out by.
+CHALLENGE_PORTRAIT_SIZE = INJURY_TEST_PORTRAIT_SIZE
 CHALLENGE_PORTRAIT_SPACING = 10
 CHALLENGE_GUTTER = 64
 CHALLENGE_TITLE_TOP = 14

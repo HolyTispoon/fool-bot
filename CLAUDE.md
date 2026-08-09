@@ -52,6 +52,17 @@ body that has only ever existed in the author's head:
   for component data. The share URL is not fetchable but `export?format=csv&gid=<gid>` is,
   which is how `scripts/import_d12ball_players.py` works.
 
+**Every ability is imported twice**, in full and abbreviated -- `ability` and `ability_short` on
+each role profile in `players.json`, from the `basic_abilities` sheet's own two columns. Text
+that shows an ability on its own (the roster, the rules listing) uses the sentence;
+anything captioning a portrait with it uses `RoleProfile.short_ability`, which falls back to
+the sentence when there is no short form. **Don't shorten an ability in code.** Which half of a
+two-part ability survives is a rules judgement, so the author makes it upstream and the import
+carries it. Two quirks of that sheet are handled in the script and covered by
+`tests/test_d12ball_player_import.py`: the column is spelled `Abbreivated` and stored with a
+trailing space, and an abbreviation beginning `+3` is typed with a leading backtick so the
+spreadsheet doesn't read it as a formula.
+
 [docs/rules-log.md](docs/rules-log.md) is the other half: every rules change with its date and
 where it came from, what is still unanswered, and what the answers unblock. Two parts of it
 earn their keep when upstream moves:
