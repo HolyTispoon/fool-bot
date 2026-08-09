@@ -697,8 +697,31 @@ count** they are safe. Otherwise they are injured.
 
 - immediately **lose all their exhaust tokens** and are no longer Exhausted;
 - **cannot gain further tokens** and make no further injury checks;
-- are **disadvantaged** until subbed off: they automatically lose a challenge, and must win a
-  skill test even when their maneuver beats their opponent's outright;
+- are **disadvantaged** until subbed off, in both of the ways a maneuver can be decided:
+  - **A tie is a loss.** When their maneuver ties the opponent's, the injured player loses it
+    outright and the opponent resolves their own maneuver's effect. There is no skill test, so
+    neither player gains the token that entering one costs.
+  - **A win has to be rolled for.** When their maneuver beats the opponent's outright, it does
+    not simply win: the two roll a [skill test](#4-skill-test-when-they-tie), and the injured
+    player must win it for their maneuver to stick. If they lose it, the opponent's maneuver
+    resolves instead, even though it lost the ranking.
+  - That skill test is an ordinary one in every other respect. In particular **a tied total is
+    re-rolled**, as usual, until the test is decided;
+  - **Both injured is neither disadvantaged.** When both participants are injured the tie is an
+    ordinary tie and a decisive maneuver an ordinary win, because the disadvantage is measured
+    against a healthy opponent and there is not one.
+  - **An unchallenged maneuver still succeeds outright.** With no defender in the ball's zone
+    there is nobody to tie with and no test they can be made to roll, so neither half of this
+    bites;
+- **add no skill modifier in a contest** -- keeping a long [High Pass](#high-pass), or
+  contesting a [loose ball](#loose-ball). Their offensive or defensive skill does not go on the
+  roll at all: they roll the bare d12. **It is only the skill.** Every other modifier still
+  applies, notably the [ball speed modifier](#ball-speed) a receiver gets for keeping a long
+  High Pass, and so does any role ability. Nothing outside a contest is affected: a maneuver's
+  [skill test](#4-skill-test-when-they-tie) and a [score attempt](#score-attempt) are rolled as
+  normal, so a Midfielder keeps their +3 on a Low Pass and a Striker keeps theirs off a set-up.
+  (The [extreme shootout](#extreme-shootout) withholds the skill the same way; it says so
+  there.);
 - **do not have to be substituted.** Nothing compels their team to get them off. A coach may
   leave an injured player on the field, disadvantaged, for the rest of the game, and spend
   their declaration on something else;
@@ -821,8 +844,9 @@ Each coach secretly arranges their team of six players in any order they wish. O
 is set they may look at it but not reorder it.
 
 Both coaches then reveal their top card simultaneously. Those two players roll a skill test,
-each adding their **offensive** skill -- an injured player is disadvantaged and adds nothing.
-The winner scores a goal; a tie scores for nobody.
+each adding their **offensive** skill -- except an injured player, who adds no
+[skill modifier](#exhaustion-and-injury) and rolls the bare d12. The winner scores a goal; a
+tie scores for nobody.
 
 This repeats for all six players, unless one team is already ahead by more goals than the
 other can still score with the attempts remaining (leading 4-1 after five, there is no need to

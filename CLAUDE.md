@@ -147,6 +147,43 @@ succeeds outright -- see "Maneuver" in the living rules. `MatchState`'s
   they always read. What is skipped is the challenger pick, the matchup image
   (it draws two players against each other), the reveal, and the skill test.
 
+## Who wins a maneuver
+
+**`D12Ball.settled_maneuver_winner` is the only answer to that**, and it
+returns the winning maneuver's name or `None` when a skill test still has to
+decide. Three call sites ask it and none of them may go back to reading
+`maneuver_catalog.resolve()` on its own -- see "Injured players" in the living
+rules for why the ranking is no longer the whole story.
+
+- **Injury moves wins in both directions.** A decisive maneuver owed to an
+  injured player is downgraded to a skill test they have to win, and a tie
+  against exactly one injured participant is their automatic loss with nothing
+  rolled. So the ranking alone both over- and under-reports a winner, which is
+  why one predicate rather than a check at each site.
+- **Two of the three callers are restarts.** `on_ready` uses it to decide
+  whether the pending prompt is a `SkillTestView`, and `build_effect_choice_view`
+  to decide whether an effect is pending at all. Both used to ask whether the
+  ranking was a tie, which after a restart would have offered a skill test
+  nobody owed, or an effect choice for a test that had not been rolled.
+- **`resolve_maneuver` branches on it, and on `outcome` only for wording.**
+  There are four ways a maneuver lands and each reads differently, but which
+  one is a *win* is not decided there.
+- **An uncontested maneuver wins whatever the offense picked, injured or
+  not** -- no opponent to be disadvantaged against, no challenge to lose. Same
+  for a tie where *both* participants are injured: it is an ordinary tie,
+  because the disadvantage is measured against a healthy opponent. Both cases
+  postdate the disadvantage rule and both are the author's, confirmed
+  2026-08-09.
+- **Injury separately withholds the skill modifier in a *contest*** -- a
+  different thing this predicate has nothing to do with. It changes totals, not
+  winners, and lives in `LooseBallSkillTestView.roll`, which covers both the
+  loose ball and the long High Pass. An injured contestant rolls the bare d12:
+  their offensive or defensive skill is left off, and **only** that. Ball speed
+  and role abilities still apply, and a maneuver's skill test and a score
+  attempt are untouched -- so the Midfielder's +3 and the Striker's +3 are both
+  paid to an injured player. This was got backwards once, as the loss of a
+  role's bonus; the name for it is "skill modifier".
+
 ## Where a shot may be taken from
 
 A team may only shoot from within **shooting range** -- see "Score attempt" and

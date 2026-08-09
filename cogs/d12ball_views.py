@@ -1651,7 +1651,11 @@ class SkillTestView(SafeView):
         defense_total = defense_roll + defense_skill
 
         # Role ability -- Midfielder: +3 on a skill test when
-        # attempting Low Pass (offense) or Pressure (defense).
+        # attempting Low Pass (offense) or Pressure (defense). Injury
+        # does not withhold this: what an injured player loses is their
+        # own offensive or defensive skill, and only in a contest --
+        # every other modifier still applies (see "Injured players" in
+        # docs/living-rules.md).
         offense_ability_detail = ""
         if (
             offense_player.role == PlayerRole.MIDFIELDER
@@ -1849,7 +1853,11 @@ class ScoreAttemptView(SafeView):
         defense_total = defense_roll + defense_skill_total
 
         # Role ability -- Striker: +3 on any scoring attempt off a
-        # set-up.
+        # set-up. Injury does not withhold this one, deliberately: an
+        # injured player loses their ability modifier on a roll someone
+        # is contesting, and nobody contests a shot (see "Injured
+        # players" in docs/living-rules.md). Don't add match.injured
+        # here to match the skill test.
         striker_bonus = (
             match.pending_shot_is_set_up
             and shooter.role == PlayerRole.STRIKER
@@ -4377,12 +4385,28 @@ class LooseBallSkillTestView(SafeView):
         defense_player = self.cog.get_player_definition(
             match.loose_ball_defense_player,
         )
-        offense_skill = self.cog.player_catalog.effective_profile(
-            offense_player,
-        ).offense
-        defense_skill = self.cog.player_catalog.effective_profile(
-            defense_player,
-        ).defense
+        # An injured contestant adds no skill modifier -- their own
+        # offensive or defensive skill stays off the roll, and that is
+        # the whole of the disadvantage here (see "Injured players" in
+        # docs/living-rules.md). It is only the skill: every other
+        # modifier still applies, which is why the ball speed modifier
+        # below is added without asking about injury.
+        offense_injured = match.loose_ball_offense_player in match.injured
+        defense_injured = match.loose_ball_defense_player in match.injured
+        offense_skill = (
+            0
+            if offense_injured
+            else self.cog.player_catalog.effective_profile(
+                offense_player,
+            ).offense
+        )
+        defense_skill = (
+            0
+            if defense_injured
+            else self.cog.player_catalog.effective_profile(
+                defense_player,
+            ).defense
+        )
 
         offense_roll = random.randint(1, 12)
         defense_roll = random.randint(1, 12)
@@ -4411,7 +4435,9 @@ class LooseBallSkillTestView(SafeView):
                         [
                             f"{offense_player.name} "
                             f"[{ROLE_INITIALS[offense_player.role.value]}]",
-                            f"Offensive skill +{offense_skill}",
+                            "Injured — no skill modifier"
+                            if offense_injured
+                            else f"Offensive skill +{offense_skill}",
                         ] + modifier_detail,
                         offense_total,
                     ),
@@ -4422,7 +4448,9 @@ class LooseBallSkillTestView(SafeView):
                         [
                             f"{defense_player.name} "
                             f"[{ROLE_INITIALS[defense_player.role.value]}]",
-                            f"Defensive skill +{defense_skill}",
+                            "Injured — no skill modifier"
+                            if defense_injured
+                            else f"Defensive skill +{defense_skill}",
                         ],
                         defense_total,
                     ),

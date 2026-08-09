@@ -55,6 +55,52 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-08-09 (later the same day) -- author, the injured player's disadvantage spelled out
+
+*Two rounds of clarification the same day, folded into one entry: the two maneuver clauses
+first, then the edge cases and what the disadvantage does to a roll.*
+
+- **No rule changed here; the wording did.** "They automatically lose a challenge, and must win
+  a skill test even when their maneuver beats their opponent's outright" has stood since the
+  rules were first copied in on 2026-07-25, and had never been built. Implementing it turned up
+  a reading on which the two clauses collide -- section 4 calls the skill test a tie rolls a
+  *challenge*, so "automatically lose a challenge" could be read as swallowing the forced test
+  the second clause creates, leaving that clause with nothing to do. The author's answer is
+  that they are two separate moments, and the paragraph now says so directly rather than
+  leaving it to be inferred.
+- **A tie loses.** When an injured player's maneuver ties their opponent's, they lose it
+  outright and the opponent resolves their own effect. Nothing is rolled.
+- **A win has to be rolled for.** When their maneuver beats the opponent's outright, the two
+  roll a skill test instead, and the injured player has to win it for their maneuver to stick.
+  Losing it hands the effect to the opponent's maneuver, which lost the ranking -- that is what
+  the clause leaves behind, and it is now stated rather than implied.
+- **The forced test is an ordinary skill test.** A tied total is re-rolled, as usual, until it
+  is decided; each re-roll charges its token to whoever can still take one.
+- **The automatic loss costs no token**, which follows rather than being decided: the token is
+  what a player pays for entering the test, and no test is entered. Worth knowing it is a
+  derivation if the author ever prices the auto-loss differently.
+- **Both participants injured is neither of them disadvantaged**, confirmed by the author: the
+  tie is an ordinary tie and a decisive maneuver an ordinary win. Read literally the wording
+  above says each of them loses the tie, which is why this is now stated rather than left to
+  be worked out.
+- **An unchallenged maneuver still succeeds outright**, injured or not, also confirmed: with
+  no defender in the ball's zone there is nobody to tie with and no test they can be made to
+  roll. The unchallenged maneuver postdates the disadvantage, so this had been an assumption.
+- **In a contest an injured player adds no skill modifier** -- keeping a long High Pass, or
+  contesting a loose ball. Their offensive or defensive skill stays off the roll entirely and
+  they roll the bare d12. This is what the extreme shootout's "adds nothing" had always meant;
+  that wording is gone because taken at its word it also stripped the ball speed modifier a
+  High Pass receiver gets for keeping what the pass delivered.
+- **It is the skill and nothing else, in a contest and nowhere else.** Every other modifier
+  still applies, role abilities included. Outside a contest nothing is touched: a maneuver's
+  skill test and a score attempt are rolled as normal, so a Midfielder keeps their +3 on a Low
+  Pass and a Striker keeps theirs off a set-up -- the Striker confirmed by the author
+  directly. The disadvantage in a maneuver is already the two clauses above, and it is not
+  compounded by a third.
+  - **"Ability modifier" was the wrong name for it and cost a round trip.** It first went in
+    as the loss of a *role's bonus* -- the Midfielder's +3 -- which is a different quantity
+    and, in the code, a different line. The rules and the code both say "skill modifier" now.
+
 ### 2026-08-09 -- author, a shot may only be taken from within shooting range
 
 - **A score attempt now needs the ball in the far part of the field.** It used to be
@@ -553,6 +599,11 @@ From the author, for `foolbot.py`'s generic commands:
 - **The Low Pass receiver**, where the destination space holds more than one teammate.
 - **The unchallenged maneuver.** With no defender in the ball's zone the offense picks a
   maneuver on its own and it resolves as an outright win, with no reveal and no skill test.
+- **The injured player's maneuver disadvantage:** a tie against exactly one injured
+  participant is their automatic loss, rolling nothing, and a decisive maneuver owed to an
+  injured player is downgraded to a skill test they have to win. Specified since the rules
+  were first vendored on 2026-07-25 and built on 2026-08-09; the readings it rests on are in
+  [Still open](#still-open).
 
 ### Specified but not built
 
