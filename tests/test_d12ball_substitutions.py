@@ -190,24 +190,37 @@ class SubstitutionSummaryTests(unittest.TestCase):
 
         self.assertEqual(match.exhaustion, {})
         self.assertEqual(match.pending_coaching_substitutions, 0)
-        self.assertIn("no exhaustion", text)
+        self.assertIn("No exhaustion cost", text)
 
-    def test_a_swap_leaves_meeples_in_place_until_repositioned(self) -> None:
-        # A swap alone only reassigns which zone a card belongs to;
-        # the follow-up "shown a map, place them where you like" step
-        # is apply_reposition, exercised below.
+    def test_a_swap_moves_the_meeples_with_the_cards(self) -> None:
+        # A zone assignment used to reassign the cards and leave both
+        # meeples where they stood, displaced, for a placement step or
+        # the next run back to collect. It now trades the spaces too,
+        # which is what lets a Coaching Choice guarantee no meeple ever
+        # stands outside its own zone.
         cog = build_cog()
         match = self.build_match()
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         match.declare_coaching()
         player_id, other_player_id = "orange_hellguard", "orange_kindlefoot"
         before = match.board.meeple_position(player_id)
+        other_before = match.board.meeple_position(other_player_id)
 
         cog.apply_position_swap(
             match, TeamSide.HOME, player_id, other_player_id,
         )
 
-        self.assertEqual(match.board.meeple_position(player_id), before)
+        self.assertEqual(
+            match.board.meeple_position(player_id), other_before,
+        )
+        self.assertEqual(
+            match.board.meeple_position(other_player_id), before,
+        )
+        for candidate in (player_id, other_player_id):
+            self.assertEqual(
+                match.board.meeple_position(candidate)[0],
+                match.home.assigned_zone(candidate),
+            )
 
     def test_apply_reposition_moves_a_meeple_for_free(self) -> None:
         # A 6-board's zones are exactly full (2-2-2, no slack), so a
@@ -238,34 +251,29 @@ class SubstitutionSummaryTests(unittest.TestCase):
         self.assertEqual(match.exhaustion, {})
         self.assertIn("No exhaustion cost", text)
 
-    def test_apply_meeple_swap_resolves_a_fully_packed_zone(self) -> None:
-        # This is the case a straight 6-board formation swap actually
-        # needs: neither player has an open space in their new zone
-        # until the other one vacates, so only a direct trade works.
+    def test_a_swap_needs_no_open_space_on_a_packed_board(self) -> None:
+        # Board 6's zones are exactly full under 2-2-2, so neither
+        # player has anywhere to step into until the other vacates.
+        # An even exchange never needs an intermediate space, which is
+        # why the zone assignment is one and not two moves.
         cog = build_cog()
         match = self.build_match()
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         match.declare_coaching()
         player_id, other_player_id = "orange_hellguard", "orange_kindlefoot"
-        cog.apply_position_swap(
-            match, TeamSide.HOME, player_id, other_player_id,
-        )
-        new_zone = match.home.assigned_zone(player_id)
-        other_new_zone = match.home.assigned_zone(other_player_id)
-        self.assertEqual(
-            match.open_spaces_in_zone(TeamSide.HOME, new_zone), [],
-        )
 
-        text = cog.apply_meeple_swap(
+        text = cog.apply_position_swap(
             match, TeamSide.HOME, player_id, other_player_id,
         )
 
-        self.assertEqual(
-            match.board.meeple_position(player_id)[0], new_zone,
-        )
-        self.assertEqual(
-            match.board.meeple_position(other_player_id)[0], other_new_zone,
-        )
+        for candidate in (player_id, other_player_id):
+            zone = match.home.assigned_zone(candidate)
+            self.assertEqual(
+                match.board.meeple_position(candidate)[0], zone,
+            )
+            self.assertEqual(
+                match.open_spaces_in_zone(TeamSide.HOME, zone), [],
+            )
         self.assertEqual(match.exhaustion, {})
         self.assertIn("No exhaustion cost", text)
 

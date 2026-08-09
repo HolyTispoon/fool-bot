@@ -621,6 +621,69 @@ def setup_space_order(
     return [order[index % zone_spaces] for index in range(player_count)]
 
 
+def formation_stack_space(
+    side: TeamSide,
+    zone: Zone,
+    zone_spaces: int,
+) -> int:
+    """
+    The one space a zone piles its surplus on when a formation puts
+    more cards in it than it has spaces -- see "Changing formation" in
+    docs/living-rules.md.
+
+    A three-space zone stacks in the middle. A two-space zone stacks on
+    the space nearer the middle of the board, which for the two goal
+    zones is the one facing midfield. **Board 6's midfield is the
+    exception**: its two spaces straddle the middle and neither is
+    nearer it, so the surplus goes on the space nearer that coach's own
+    goal. That is also the only zone on any board where the question
+    comes up -- three cards in a two-space midfield is the one stack
+    the three basic shapes can produce.
+    """
+    side = TeamSide(side)
+    zone = Zone(zone)
+    if zone_spaces >= 3:
+        return zone_spaces // 2
+    if zone_spaces < 2:
+        return 0
+    if zone == Zone.HOME_GOAL:
+        return zone_spaces - 1
+    if zone == Zone.VISITORS_GOAL:
+        return 0
+    return 0 if side == TeamSide.HOME else zone_spaces - 1
+
+
+def formation_space_order(
+    side: TeamSide,
+    zone: Zone,
+    zone_spaces: int,
+    player_count: int,
+) -> list[int]:
+    """
+    Which space each of a zone's cards stands on after a formation
+    change, in the order they were dealt: one per space working out
+    from that coach's own end, then every one left over onto the
+    zone's stack space.
+
+    Unlike `setup_space_order`, which spreads a surplus round the zone
+    again, this piles it on one space. The two differ because a
+    formation change is a deliberate re-deal a coach asked for and can
+    then adjust, where the standard setup is the shape everyone starts
+    from.
+    """
+    side = TeamSide(side)
+    outward = (
+        list(range(zone_spaces))
+        if side == TeamSide.HOME
+        else list(reversed(range(zone_spaces)))
+    )
+    stack = formation_stack_space(side, zone, zone_spaces)
+    return [
+        outward[index] if index < zone_spaces else stack
+        for index in range(player_count)
+    ]
+
+
 @dataclass
 class MatchState:
     ruleset_id: str

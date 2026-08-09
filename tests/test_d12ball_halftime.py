@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import HALFTIME_STAGES, D12Ball
+from cogs.d12ball_views import CoachingHubView
 from d12ball.components import (
     CoachingOccasion,
     MatchState,
@@ -290,15 +291,16 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
     async def test_halftime_substitutes_without_asking_or_charging(
         self,
     ) -> None:
-        # Nobody is asked whether to declare: the menu comes straight
+        # Nobody is asked whether to declare: the hub comes straight
         # up. And the window is free -- the side keeps its once-a-half
         # declaration for the second half's open play.
         cog = build_cog()
         del cog.begin_substitution_window  # exercise the real one
-        cog.prompt_substitution_menu = mock.AsyncMock()
         game = build_human_game()
+        cog.games[game.game_id] = game
         match = self.build_match()
         match.pending_halftime_stage = "subs_home"
+        game.match_state = match.to_dict()
         interaction = build_interaction()
 
         with mock.patch("cogs.d12ball.save_games"):
@@ -307,15 +309,19 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(match.pending_coaching_side, "home")
+        self.assertEqual(
+            match.coaching_occasion, CoachingOccasion.HALFTIME,
+        )
         self.assertTrue(match.pending_coaching_declared)
         self.assertEqual(match.declared_substitution, set())
         self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
-        # No declare-or-pass prompt of its own -- the menu carries the
-        # window's heading instead.
-        interaction.followup.send.assert_not_awaited()
-        cog.prompt_substitution_menu.assert_awaited_once()
-        _, kwargs = cog.prompt_substitution_menu.await_args
-        self.assertIn("Substitutions", kwargs["lead_in"])
+
+        # One message, carrying the hub rather than a declare-or-pass
+        # offer, with the coach's own half of the field attached.
+        interaction.followup.send.assert_awaited_once()
+        _, kwargs = interaction.followup.send.await_args
+        self.assertIsInstance(kwargs["view"], CoachingHubView)
+        self.assertIsNotNone(kwargs["file"])
 
     async def test_an_ordinary_window_still_spends_the_declaration(
         self,

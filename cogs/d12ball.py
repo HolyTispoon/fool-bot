@@ -23,6 +23,7 @@ from d12ball.components import (
     TeamSetup,
     TeamSide,
     Zone,
+    formation_space_order,
     kickoff_space_index,
     load_basic_ruleset,
     load_maneuver_catalog,
@@ -43,6 +44,7 @@ from d12ball.render import (
     TEAM_COLORS,
     ZONE_LABELS,
     ChallengeSide,
+    render_coaching_image,
     render_injury_test_die,
     render_maneuver_challenge,
     render_maneuver_reference_image,
@@ -116,8 +118,8 @@ from cogs.d12ball_views import (
     ShooterChoiceView,
     SkillTestView,
     SpeedDeltaChoiceView,
-    SubstitutionMenuView,
-    SubstitutionOfferView,
+    CoachingHubView,
+    CoachingOfferView,
     TeamSelectionView,
 )
 
@@ -271,7 +273,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         # to declare, so there is no offer to come back
                         # to, unlike an ordinary turnover's window
                         # below.
-                        turn_view = SubstitutionMenuView(self, game.game_id)
+                        turn_view = CoachingHubView(self, game.game_id)
                     else:
                         # reposition_home / reposition_visiting -- a
                         # part-made zone/space pick is not persisted
@@ -294,9 +296,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     # persisted and restarts at the menu, the same way
                     # a run-back choice does.
                     turn_view = (
-                        SubstitutionMenuView(self, game.game_id)
+                        CoachingHubView(self, game.game_id)
                         if match.pending_coaching_declared
-                        else SubstitutionOfferView(self, game.game_id)
+                        else CoachingOfferView(self, game.game_id)
                     )
                 elif match.pending_run_back:
                     turn_view = self.build_run_back_view(
@@ -2906,19 +2908,112 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player_id: str,
         other_player_id: str,
     ) -> str:
-        match.swap_field_positions(side, player_id, other_player_id)
+        """
+        The Coaching Choice's zone assignment: trade two players'
+        zones, meeples included, and describe it.
+        """
+        match.exchange_field_players(side, player_id, other_player_id)
 
         setup = match.setup_for_side(side)
         first = self.get_player_definition(player_id)
         second = self.get_player_definition(other_player_id)
         return (
-            f"{format_role_bracket(first, self.team_emojis)} is now "
-            f"assigned to "
+            f"{format_role_bracket(first, self.team_emojis)} and "
+            f"{format_role_bracket(second, self.team_emojis)} change "
+            "places: "
+            f"{format_role_bracket(first, self.team_emojis)} to "
             f"{destination_display_name(setup.assigned_zone(player_id).value)}"
-            f" and {format_role_bracket(second, self.team_emojis)} to "
+            f", {format_role_bracket(second, self.team_emojis)} to "
             f"{destination_display_name(setup.assigned_zone(other_player_id).value)}"
-            ". Rearranging costs no exhaustion -- place their meeples below."
+            ". No exhaustion cost."
         )
+
+    def defense_ordered_field_players(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> list[str]:
+        """
+        A side's six, best defender first. Ties break at random, which
+        never happens between the six standard roles -- their defences
+        are 1 to 6 -- but a shuffled tie is better than one settled by
+        whatever order the zones happened to be in.
+        """
+        players = list(match.setup_for_side(side).field_players)
+        random.shuffle(players)
+        return sorted(
+            players,
+            key=lambda player_id: -self.player_catalog.effective_profile(
+                self.get_player_definition(player_id)
+            ).defense,
+        )
+
+    def formation_placement(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        formation: Formation,
+    ) -> list[tuple[str, Zone, int]]:
+        """
+        Where a side's six stand after switching to `formation`: the
+        whole line-up, cards and spaces together, dealt by defensive
+        skill from the coach's own goal forward -- see "Changing
+        formation" in docs/living-rules.md.
+
+        This is the whole of what a formation change asks of a coach.
+        It used to put each zone's cards to them one select at a time,
+        six picks to change shape; a coach who wants a particular card
+        somewhere particular now moves it afterwards, with zone
+        assignment and space positioning.
+        """
+        side = TeamSide(side)
+        shape = self.formation_shape(formation)
+        ordered = self.defense_ordered_field_players(match, side)
+
+        placement: list[tuple[str, Zone, int]] = []
+        cursor = 0
+        for area in SETUP_AREAS:
+            count = shape.count(area)
+            zone = zone_for_area(side, area)
+            spaces = formation_space_order(
+                side, zone, len(match.board.spaces[zone]), count,
+            )
+            for offset in range(count):
+                placement.append(
+                    (ordered[cursor + offset], zone, spaces[offset])
+                )
+            cursor += count
+        return placement
+
+    def apply_formation(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        formation: Formation,
+    ) -> str:
+        """Switch a side into `formation` and describe where they land."""
+        side = TeamSide(side)
+        placement = self.formation_placement(match, side, formation)
+        match.deploy_side(side, placement)
+
+        setup = match.setup_for_side(side)
+        lines = [
+            f"**{format_team_side_label(setup)} switch to "
+            f"{formation.value}.** Best defenders furthest back; "
+            "rearranging costs no exhaustion."
+        ]
+        for area in SETUP_AREAS:
+            zone = zone_for_area(side, area)
+            names = ", ".join(
+                f"{self.format_roster_player(player_id)} "
+                f"({space_label(zone, space_index)})"
+                for player_id, placed_zone, space_index in placement
+                if placed_zone == zone
+            )
+            lines.append(
+                f"{destination_display_name(zone.value)}: {names}"
+            )
+        return "\n".join(lines)
 
     def current_formation(
         self,
@@ -2940,89 +3035,72 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 return formation
         return None
 
-    def apply_formation_change(
-        self,
-        match: MatchState,
-        side: TeamSide,
-        formation: Formation,
-        assignment: dict[str, list[str]],
-    ) -> str:
-        """
-        Move a side into `formation`, with `assignment` saying which
-        of their six fielded cards fills each area. Nobody's meeple
-        moves: whoever now stands outside their new zone is displaced,
-        and the coach either places them by hand (free, right after
-        this) or leaves it to the next run back.
-        """
-        side = TeamSide(side)
-        shape = self.formation_shape(formation)
-
-        for area in SETUP_AREAS:
-            if len(assignment.get(area, [])) != shape.count(area):
-                raise ValueError(
-                    f"{formation.value} puts {shape.count(area)} "
-                    f"players in {area_display_name(area)}."
-                )
-
-        match.reassign_field_zones(
-            side,
-            {
-                zone_for_area(side, area): list(assignment[area])
-                for area in SETUP_AREAS
-            },
-        )
-
-        setup = match.setup_for_side(side)
-        lines = [
-            f"**{format_team_side_label(setup)} switch to "
-            f"{formation.value}.**"
-        ]
-        for area in SETUP_AREAS:
-            zone = zone_for_area(side, area)
-            names = ", ".join(
-                self.format_roster_player(player_id)
-                for player_id in assignment[area]
-            )
-            lines.append(
-                f"{destination_display_name(zone.value)}: {names}"
-            )
-        lines.append(
-            "Rearranging costs no exhaustion -- place their meeples below."
-        )
-        return "\n".join(lines)
-
     def apply_reposition(
         self,
         match: MatchState,
         side: TeamSide,
         player_id: str,
         space_index: int,
+        swap_with: Optional[str] = None,
     ) -> str:
+        """
+        The Coaching Choice's space positioning: move one meeple within
+        its own zone, trading with whoever is already there when the
+        rule says so, and describe what happened.
+        """
         setup = match.setup_for_side(side)
         zone = setup.assigned_zone(player_id)
-        match.reposition_player(side, player_id, space_index)
-
-        player = self.get_player_definition(player_id)
-        return (
-            f"{format_role_bracket(player, self.team_emojis)} moves to "
-            f"{space_label(zone, space_index)}. No exhaustion cost."
+        partner = match.position_meeple(
+            side, player_id, space_index, swap_with=swap_with,
         )
 
-    def apply_meeple_swap(
+        player = self.get_player_definition(player_id)
+        if partner is None:
+            return (
+                f"{format_role_bracket(player, self.team_emojis)} moves "
+                f"to {space_label(zone, space_index)}. No exhaustion cost."
+            )
+        other = self.get_player_definition(partner)
+        return (
+            f"{format_role_bracket(player, self.team_emojis)} moves to "
+            f"{space_label(zone, space_index)} and "
+            f"{format_role_bracket(other, self.team_emojis)} takes their "
+            "place. No exhaustion cost."
+        )
+
+    def coaching_title(
         self,
         match: MatchState,
         side: TeamSide,
-        player_id: str,
-        other_player_id: str,
     ) -> str:
-        match.swap_meeple_positions(side, player_id, other_player_id)
+        """The line drawn across the top of a coach's own half-field."""
+        setup = match.setup_for_side(side)
+        formation = self.current_formation(match, side)
+        shape = f" - {formation.value}" if formation else ""
+        return f"{format_team_side_label(setup)}{shape}"
 
-        first = self.get_player_definition(player_id)
-        second = self.get_player_definition(other_player_id)
-        return (
-            f"{format_role_bracket(first, self.team_emojis)} and "
-            f"{format_role_bracket(second, self.team_emojis)} trade "
-            "places. No exhaustion cost."
+    async def coaching_file(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+    ) -> discord.File:
+        """
+        The coach's own half of the field, as an attachment for their
+        Coaching Choice message. Rendered in a worker thread like every
+        other image: Pillow is pure CPU and the event loop is shared by
+        every game at once.
+        """
+        png = await asyncio.to_thread(
+            render_coaching_image,
+            match,
+            self.player_catalog,
+            side,
+            self.coaching_title(match, side),
+        )
+        return discord.File(
+            io.BytesIO(png.getvalue()),
+            filename=f"d12ball-coaching-{game.game_number}.png",
         )
 
     async def begin_substitution_window(
@@ -3063,32 +3141,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        setup = match.setup_for_side(side)
-        controller_id = self.side_controller_id(game, side)
-        mention = f"<@{controller_id}>" if controller_id else "Someone"
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-
-        if not occasion.spends_declaration:
-            # Given rather than declared, so there is nothing to ask:
-            # open_coaching_window has already taken it up.
-            await self.prompt_substitution_menu(
-                interaction, game, match, lead_in=lead_in,
-            )
-            return
-
-        allowance = self.substitution_allowance_label(match).lower()
-        if is_response:
-            heading = (
-                f"{format_team_side_label(setup)} may answer -- "
-                f"{allowance} this half, and a rearrangement. Answering "
-                "does not spend their own declaration."
+        if occasion.spends_declaration:
+            note = (
+                "Answering the other team's declaration, which costs "
+                "your own nothing."
+                if is_response
+                else "Declaring is once a half. Coach, or pass?"
             )
         else:
-            heading = (
-                f"{format_team_side_label(setup)} restart play and may "
-                f"declare -- {allowance} this half, and a rearrangement. "
-                "Declaring is once a half."
-            )
+            note = "Take as long as you like; nothing here costs exhaustion."
 
         # An injured player is worth pointing out, but only as a
         # nudge: nothing compels a side to get them off, and a coach
@@ -3102,11 +3163,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 for player_id in injured_ids
             )
             verb = "is" if len(injured_ids) == 1 else "are"
-            heading += f"\n{injured} {verb} injured and still on the field."
+            note += f"\n{injured} {verb} injured and still on the field."
 
         prompt = await interaction.followup.send(
-            f"{prefix}# Substitutions\n{mention}, {heading}",
-            view=SubstitutionOfferView(self, game.game_id),
+            self.coaching_prompt(game, match, side, note, lead_in=lead_in),
+            file=await self.coaching_file(game, match, side),
+            view=(
+                CoachingOfferView(self, game.game_id)
+                if occasion.spends_declaration
+                else CoachingHubView(self, game.game_id)
+            ),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
@@ -3115,43 +3181,75 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt.id
         save_games(self.games)
 
-    async def prompt_substitution_menu(
+    def coaching_prompt(
         self,
-        interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        side: TeamSide,
+        note: str = "",
         lead_in: str = "",
-    ) -> None:
+    ) -> str:
         """
-        Put the take-off / rearrange / done menu back up after every
-        action, so a side can use its whole allowance without the flow
-        deciding for them when they are finished.
-
-        `lead_in` rides above the menu on the first prompt of a window
-        that was never offered as a choice (halftime's), which is the
-        only place the window's own heading has nowhere else to go.
+        The text above the coaching image. Rebuilt on every step, so
+        `note` is whatever that step has to say -- the question it is
+        asking, or what the last action did.
         """
-        if match.pending_coaching_side is None:
-            return
-        side = TeamSide(match.pending_coaching_side)
+        side = TeamSide(side)
         setup = match.setup_for_side(side)
         controller_id = self.side_controller_id(game, side)
         mention = f"<@{controller_id}>" if controller_id else "Someone"
-
-        allowance = self.substitution_allowance_label(match)
-        prefix = f"{lead_in}\n" if lead_in else ""
-        prompt = await interaction.followup.send(
-            f"{prefix}{mention}, {format_team_side_label(setup)}: "
-            f"{allowance}. "
-            "Take a player off, exchange two positions, or finish.",
-            view=SubstitutionMenuView(self, game.game_id),
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
+        header = (
+            f"{mention}, **{format_team_side_label(setup)}** -- "
+            f"{self.substitution_allowance_label(match)}."
         )
-        game.turn_message_id = prompt.id
-        save_games(self.games)
+        return "\n".join(
+            part
+            for part in (lead_in, "# Coaching Choice", header, note)
+            if part
+        )
+
+    def substitution_button_label(self, match: MatchState) -> str:
+        """
+        The bracket on the hub's Substitution button. Which allowance
+        is being counted down is worth saying: halftime's two are its
+        own rather than either half's, and setup has no limit at all.
+        """
+        remaining = match.substitutions_remaining()
+        if remaining is None:
+            return "no limit"
+        if not remaining:
+            return "none left"
+        where = (
+            "at halftime"
+            if match.coaching_occasion == CoachingOccasion.HALFTIME
+            else "this half"
+        )
+        return f"{remaining} left {where}"
+
+    def coaching_finish_refusal(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> Optional[str]:
+        """
+        Why this side may not finish yet, or None. The only thing that
+        can hold a coach in the flow is the kickoff space: whoever
+        kicks off the coming period has to have somebody standing on
+        it, and nothing else in a Coaching Choice guarantees it.
+        """
+        kicking = {
+            CoachingOccasion.SETUP: TeamSide.HOME,
+            CoachingOccasion.HALFTIME: TeamSide.VISITING,
+        }.get(match.coaching_occasion)
+        if kicking is None or TeamSide(side) != kicking:
+            return None
+        if match.kickoff_space_occupied_by(kicking):
+            return None
+        return (
+            f"{kicking.value.title()} kick off, so they need a player on "
+            f"{space_label(match.ball.zone, match.ball.space_index)} "
+            "before finishing."
+        )
 
     async def run_ai_substitution_window(
         self,
