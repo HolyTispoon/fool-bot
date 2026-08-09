@@ -25,7 +25,7 @@ abilities) is planned and unspecified.
 - [Own goal](#own-goal)
 - [Turnovers and running back](#turnovers-and-running-back)
 - [Exhaustion and injury](#exhaustion-and-injury)
-- [Substitutions](#substitutions)
+- [Coaching Choice](#coaching-choice)
 - [The clock, halftime and full time](#the-clock-halftime-and-full-time)
 - [Extreme shootout](#extreme-shootout)
 - [Quick reference](#quick-reference)
@@ -53,7 +53,7 @@ minutes. The team with the most goals at the end wins.
 | **Field player** | One of the six players a team has on the field. |
 | **Forward / back** | Forward is toward the goal a team is attacking; back is toward the goal it defends. Always relative to the team being spoken about. |
 | **Possession** | Which team holds the ball. Tracked separately from the ball's space. |
-| **Arrangement** | The spaces a coach last *put* their meeples on -- at setup, a substitution window, or halftime. A [new play](#resetting-after-a-new-play) puts them back on it. |
+| **Arrangement** | The spaces a coach last *put* their meeples on, at a [Coaching Choice](#coaching-choice). A [new play](#resetting-after-a-new-play) puts them back on it. |
 | **Turnover** | Possession changing hands, for any reason. |
 | **Skill test** | The opposed d12 roll used to settle a tied maneuver, a loose ball, and a long High Pass. |
 | **Space minute** | The unit of game time. A period is 15 of them. |
@@ -101,8 +101,9 @@ The board image marks where range begins with a dashed line -- two of them on bo
 either side of the space that is in nobody's.
 
 **Occupancy.** Any meeples may share a space -- opposing or teammates alike -- and ordinary
-play stacks them freely. What every deliberate placement -- setup, a substitution window,
-halftime, a [run back](#running-back-after-a-steal) -- enforces is coverage, not a limit: a
+play stacks them freely. What every deliberate placement -- a
+[Coaching Choice](#coaching-choice), a [run back](#running-back-after-a-steal) -- enforces is
+coverage, not a limit: a
 team comes out of it with **every space of a zone it has players in occupied**, as far as its
 players stretch, and any surplus stacked. Under most formation-and-board combinations no zone
 ever holds more of a team's players than it has spaces, so that comes to one player per
@@ -177,8 +178,8 @@ Each coach has a player board with these areas:
    opponent. The winner chooses to be the **home** or the **visiting** team. The trade is
    deliberate: home kicks off the first half, the visitors kick off the second, so choosing
    visitor buys the second-half restart.
-4. **Assign player cards to zones.** Every game starts in the **2-2-2 formation** -- two
-   cards per zone -- dealt as the standard setup, one player of each role:
+4. **Deal both teams out.** Every team starts in the **2-2-2 formation** -- two cards per
+   zone -- dealt as the standard setup, one player of each role:
 
    | Zone | Players |
    |---|---|
@@ -186,16 +187,20 @@ Each coach has a player board with these areas:
    | Midfield | Midfielder, Playmaker |
    | Opponent's goal | Winger, Striker |
 
-   The remaining Defender, Playmaker and Striker go to the bench. A coach who wants a
-   different shape changes it at their first [substitution window](#substitutions); nobody
-   kicks off in one.
-5. **Place meeples.** Each meeple goes on any space within its card's assigned zone, spread
-   as [occupancy](#the-field) asks: every space of the zone taken before any space takes a
-   second player. Under 2-2-2 that is one per team per space, and a three-space zone is left
-   with a space empty. The home team must finish with a player standing on the kickoff space,
-   since they kick off. This is each coach's first **arrangement**: every
-   [new play](#resetting-after-a-new-play) puts their meeples back on these spaces until a
-   substitution window or halftime sets new ones.
+   The remaining Defender, Playmaker and Striker go to the bench. Each meeple goes on a
+   space within its card's assigned zone, spread as [occupancy](#the-field) asks: every space
+   of the zone taken before any space takes a second player. Under 2-2-2 that is one per team
+   per space, and a three-space zone is left with a space empty. In basic mode both teams are
+   identical, so both are dealt the same way.
+5. **Each coach takes a [Coaching Choice](#coaching-choice)** -- home first, since they kick
+   off, then the visitors. Substitutions are unlimited here and a player taken off goes back
+   to the bench: the game has not started, so nobody is spent and nothing is used up. A coach
+   happy with the standard deal simply finishes without changing anything.
+
+   The home team must finish with a player standing on the kickoff space, since they kick
+   off. Where each side finishes is its first **arrangement**: every
+   [new play](#resetting-after-a-new-play) puts their meeples back on these spaces until
+   another Coaching Choice sets new ones.
 6. **Place the ball** showing **1** on the kickoff space, in the home team's possession. Set
    the clock to 0.
 
@@ -212,7 +217,7 @@ Each turn runs in this order:
    every displaced player [runs back](#running-back-after-a-steal). On a
    [new play](#steals-and-new-plays), both sides
    [reset to their coaches' arrangement](#resetting-after-a-new-play), then the side that
-   gained the ball may [declare substitutions](#substitutions). Either way, last comes any
+   gained the ball may declare a [Coaching Choice](#coaching-choice). Either way, last comes any
    placement the resolution still owes (an out-of-bounds recovery, or filling the kickoff
    space after a goal).
 5. **Advance the clock** by the turn's time cost. Time always advances by at least 1 space
@@ -619,9 +624,8 @@ ball and both skip it. Whoever is displaced stays displaced until a turnover com
 ### Resetting after a new play
 
 A new play puts **every fielded meeple on both sides** back on the space its coach last
-**assigned** it -- at [setup](#setting-up-a-game), at their last
-[substitution window](#substitutions), or at [halftime](#the-clock-halftime-and-full-time).
-That arrangement is the shape a coach chose, and a new play is where the game hands it back.
+**assigned** it, at their last [Coaching Choice](#coaching-choice). That arrangement is the
+shape a coach chose, and a new play is where the game hands it back.
 
 - **It costs nothing.** No exhaust tokens, however far anyone has to come. This is not players
   running; it is the coach's shape reasserting itself.
@@ -630,7 +634,7 @@ That arrangement is the shape a coach chose, and a new play is where the game ha
   own formation rather than from wherever open play scattered them, and a coach who passes has
   already had everything passing gives them.
 - **A run back does not update it.** The scramble a steal forces is not a shape a coach chose,
-  so the next new play undoes it. Only setup, a substitution window and halftime set the
+  so the next new play undoes it. Only a [Coaching Choice](#coaching-choice) sets the
   arrangement.
 
 The two placements a restart still owes -- the kickoff space after a goal, and picking up an
@@ -730,30 +734,66 @@ count** they are safe. Otherwise they are injured.
 **Halftime recovery:** every fielded player loses 1 token, and each coach picks one of their
 fielded players to lose an extra one.
 
-## Substitutions
+<a id="substitutions"></a>
 
-**A team may declare substitutions once per half**, when they take the ball for a
-[new play](#steals-and-new-plays) -- a goal, an own goal, a missed attempt, or a ball out of
-bounds. A steal opens no window, however the ball was taken.
+## Coaching Choice
 
-**The declaring team** may:
+**A Coaching Choice is the pause in which a coach may change their team**, and it is the same
+four actions wherever it is offered. A coach takes as many of them, in any order, as they
+like, and finishes when they are done. All four are **free of exhaustion** -- a Coaching
+Choice is the one way a meeple moves in this game without paying per space.
 
-- **sub out up to 2** of their field players, and
-- **rearrange** their cards' zone assignments, and then place meeples freely.
+| Action | What it does |
+|---|---|
+| **Formation** | Change the shape the team is in. Cards and meeples are then re-dealt automatically -- see [changing formation](#changing-formation). |
+| **Substitution** | Take a field player off for one off the bench. The player coming on inherits the outgoing player's zone assignment and stands on their space. |
+| **Zone assignment** | Exchange two field players in different zones. Both the cards and the meeples trade places, so the shape is unchanged and nobody is left standing outside their zone. |
+| **Space positioning** | Move one meeple to another space in its own assigned zone. If that space is taken and the meeple is the only one of its team on the space it leaves, the two trade places instead. |
 
-**The other team may then reply**, subbing **1** player and rearranging their own. The reply
-costs the answering side nothing -- it does not spend their own declaration -- so a team can
-normally substitute twice in a half: once declaring, once replying. If the declaring team
-passes, the reply goes with it; the reply exists only to answer a declaration.
+Only a formation change and a zone assignment move a card between zones; space positioning
+never does. So a coach's cards and their meeples never disagree: **a Coaching Choice cannot
+leave a meeple standing outside its own assigned zone**, and every arrangement one can reach
+satisfies [occupancy](#the-field) as a matter of course.
 
-**The window opens after the reset.** Both sides are already standing on the arrangement
-their coaches set by the time the window is offered, so a coach who declares rearranges from
-their own formation, and a coach who passes keeps it.
+**Whatever a side finishes standing on becomes their arrangement**, and every
+[new play](#resetting-after-a-new-play) from then on puts them back on it. A side that
+declines the offer sets nothing and keeps the arrangement it had.
 
-**Rearranging** moves cards between zones freely and **costs no exhaustion** -- the one way a
-meeple moves in this game without paying per space. It is also the only way to change
-formation, and the whole of it: every game kicks off in 2-2-2, and a rearrangement may leave
-the team in any of the three.
+### When a Coaching Choice is offered
+
+Three occasions offer it, and they differ only in **how many substitutions** they allow and
+in who takes their turn first. The two coaches never coach at the same time.
+
+| Occasion | Substitutions | Order | A player taken off goes to |
+|---|---|---|---|
+| [Setting up](#setting-up-a-game) | unlimited | the side kicking off, then the other | the **bench** |
+| A [new play](#steals-and-new-plays) | out of that side's 2 for the half | the declaring side, then the other | the back bench |
+| [Halftime](#the-clock-halftime-and-full-time) | 2, its own allowance | visitors, then home | the back bench |
+
+**Setup is before the game**, so nobody has played and nobody is spent: substitutions are
+unlimited and a player taken off goes back to the bench, where they can be brought on again.
+This is the one exception to the two-pool rule below.
+
+**A new play** -- a goal, an own goal, a missed attempt, or a ball out of bounds -- offers the
+window to the side taking the ball. A steal opens no window, however the ball was taken.
+
+- **A side may declare once per half.** The side taking the ball is offered the window; if
+  they take it, the other coach gets one too when they have finished. If they pass, the reply
+  goes with it -- the reply exists only to answer a declaration.
+- **The window opens after the reset**, so both sides are already standing on the arrangement
+  their coaches set by the time it is offered.
+- Answering someone else's declaration does not spend a side's own, so a coach who has already
+  declared this half can still be offered the window as a reply -- with whatever is left of
+  their two substitutions, which may be none.
+
+**Halftime is not a declaration.** Each coach gets one independently, with no reply, and it
+does not spend that side's once-a-half declaration. Its two substitutions are **its own
+allowance**, not drawn from either half's, so a side that spends two in each half and two at
+halftime substitutes six times in a game.
+
+### Changing formation
+
+Every game kicks off in **2-2-2**, and a Coaching Choice is the only way to leave it.
 
 | Formation | Own goal | Midfield | Opponent's goal |
 |---|---|---|---|
@@ -766,14 +806,22 @@ The numbers read from the team's own goal forward, and each coach chooses their 
 spaces, which is what [occupancy](#the-field) is written for: the zone fills both spaces and
 stacks the surplus. On board 7 or 9 every shape fits one card a space.
 
-**Whatever a side finishes the window standing on becomes their arrangement**, and every
-[new play](#resetting-after-a-new-play) from then on puts them back on it. A side that passes
-sets nothing and keeps the arrangement it had.
+**Changing formation deals the whole side out again**, cards and meeples both, so a coach is
+never left to fill six slots by hand:
 
-Which card goes where is the coach's, not the formation's -- it fixes only how many go in
-each zone. Once assignments are settled, the team places its meeples anywhere within their
-new zones, subject to occupancy, still free. Where two zones are already full, two meeples
-simply trade places.
+- The six field players are sorted by **defensive skill, highest first**, and dealt into the
+  zones from the coach's own goal forward. The best defenders end up furthest back.
+- Within a zone, they are placed from the space nearest that coach's own goal outward, one to
+  a space, until every space of the zone is taken.
+- Any surplus stacks on **one** space: the middle space of a three-space zone, or, in a
+  two-space zone, the one nearer the middle of the board. Board 6's midfield is the only zone
+  whose two spaces are equally near it, and there the surplus stacks on the space nearer that
+  coach's own goal.
+
+A coach who wants a different card in a different place uses **zone assignment** and **space
+positioning** afterwards. Choosing the formation the team is already in changes nothing.
+
+### Who may come on
 
 Nothing requires a team to keep one of each role on the field. A substitution may leave a
 role unfielded -- and has to be able to, since every bench is a Defender, a Playmaker and a
@@ -782,7 +830,8 @@ Striker and so could never replace a Fullback, Midfielder or Winger in kind.
 **The two pools.** The bench and the back bench are separate, and this is the whole of the
 "players who are subbed out cannot be subbed back in" rule:
 
-- Anyone subbed out goes to the **back bench**, injured or not. The bench only ever drains.
+- Anyone subbed out goes to the **back bench**, injured or not -- except at
+  [setup](#setting-up-a-game), where they go back to the bench. The bench only ever drains.
 - While anyone is on the bench, a team may sub in **only** from the bench.
 - The **back bench may be drawn from only when the bench is empty and the team is subbing for
   an injured player.**
@@ -792,11 +841,6 @@ Striker and so could never replace a Fullback, Midfielder or Winger in kind.
 **A player returning from the back bench loses half their exhaust tokens, rounded up.** They
 are Exhausted or not according to what remains -- a player with enough tokens comes back still
 exhausted.
-
-**Halftime is not a declaration.** Each coach simply gets a declaring team's allowance -- up to
-two swaps and a rearrangement -- independently, with no reply for the other team, and using it
-does **not** spend that side's once-a-half declaration. Both sides still hold theirs for the
-second half's open play.
 
 ## The clock, halftime and full time
 
@@ -820,15 +864,14 @@ period ends.
 
 1. Every fielded player loses **1** exhaust token.
 2. Each coach picks one of their fielded players to lose **1 more**.
-3. Each coach may substitute and rearrange, as above -- independently of the other, with no
-   reply, and without spending their once-a-half declaration.
-4. Each coach may **reposition any of their fielded meeples to any space on the board**, in
-   any zone, at no exhaustion cost. This is the only time placement is not zone-locked. The
-   zone is free but the space is not: [occupancy](#the-field) still applies, so a coach may
-   not leave a space of a zone they are standing in empty in order to stack elsewhere in it.
+3. Each coach takes a [Coaching Choice](#coaching-choice) -- the **visitors first**, since
+   they kick off the second half, then the home coach. Each gets **two** substitutions of
+   halftime's own allowance, and neither spends their once-a-half declaration, so both go
+   into the second half still holding it.
+
    The visiting coach must finish with a player on the kickoff space, since they kick off.
    Where each side finishes is their arrangement for the second half.
-5. The second half starts with the **visiting team in possession on the kickoff space**, ball
+4. The second half starts with the **visiting team in possession on the kickoff space**, ball
    speed 1.
 
 **Full time.** After the second period, the higher score wins.

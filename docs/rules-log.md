@@ -55,6 +55,65 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-08-09 (later still) -- author, the Coaching Choice
+
+*Given as a specification for the substitution interface, which is being rebuilt; most of it
+turned out to be rules rather than interface, so it is recorded here.*
+
+- **The substitution window, halftime and setup are now one thing, the Coaching Choice.** They
+  had drifted into three flows offering overlapping subsets of the same four actions --
+  formation, substitution, zone assignment, space positioning. They are now the same four
+  everywhere, and the occasions differ only in how many substitutions they allow and who goes
+  first. The author's framing: a coach should not have to learn three menus to do one job.
+- **Setup now offers one, which is a new rule.** Both teams are still dealt the standard 2-2-2
+  and both are still identical in basic mode, but a coach may now change any of it before
+  kickoff instead of waiting for their first window. Nothing kicks off in a shape nobody chose.
+- **Substitutions at setup are unlimited, and a player taken off goes to the *bench*, not the
+  back bench** -- the single exception to "the bench only ever drains". The game has not
+  started, so nobody has been used up and there is nothing for the back bench to record. This
+  also keeps setup from being a trap: a coach experimenting with their line-up before kickoff
+  would otherwise permanently retire whoever they took off.
+- **The 2-and-1 asymmetry is gone.** The declaring side had two substitutions and the
+  answering side one. Both now draw on a flat **2 per half**, tracked per side across the
+  whole half rather than per window. The declaration itself is unchanged and still once a
+  half, so the counter and the gate now do different jobs: a side that spent both
+  substitutions answering someone else's declaration can still declare later in the half, and
+  gets the rearrangement without the swaps.
+- **Halftime keeps a limit of 2, as its own allowance.** It had been "a declaring team's
+  allowance"; the author's call is that it stays two rather than going unlimited like setup,
+  and that it is not drawn from either half. So a side can substitute six times in a game --
+  two in each half, two at halftime.
+- **Halftime's any-zone repositioning is dropped.** It was the one place a meeple could be put
+  outside its own assigned zone, which meant a card in one zone and its meeple in another --
+  a state nothing else in the game produces and the run back exists to undo. The Coaching
+  Choice reaches every arrangement it was there for, by changing formation and swapping zone
+  assignments, and reaches them with the cards and the meeples agreeing. **The visitors still
+  have to finish halftime with a player on the kickoff space.**
+- **The visiting coach goes first at halftime**, where the code had been running home first.
+  The rule the author gave is halftime-specific; setup's order (home first) is inferred from
+  it, on the reading that the side kicking off coaches first, and is worth confirming.
+- **A zone-assignment swap now moves the meeples too.** Exchanging two cards' zones used to
+  leave both meeples standing where they were, displaced, for the coach to place afterwards
+  or the next run back to collect. It now trades their spaces along with their zones. That is
+  what made the old "place your meeples" step necessary, and dropping it is what lets the
+  Coaching Choice guarantee no meeple ever stands outside its own zone.
+- **Changing formation now re-deals the side automatically**, by defensive skill, highest
+  first, from the coach's own goal forward -- rather than asking the coach to fill each zone
+  from a list of six. Within a zone, placement runs from the space nearest their own goal
+  outward, and the surplus stacks on the middle space of a three-space zone or the
+  centre-nearer space of a two-space one. **Board 6's midfield is the one zone whose two
+  spaces are equally near the middle**; the author's tie-break is the space nearer that
+  coach's own goal, matching how `setup_space_order` already deals outward from a side's own
+  end. Ties on defensive skill cannot arise between the six standard roles, whose defences are
+  1 to 6, but the code breaks them at random for safety.
+- **Space positioning swaps rather than refusing.** Moving a meeple onto an occupied space
+  used to be governed by the coverage rule, which on a packed zone left a coach with nowhere
+  legal to go and a separate "trade places" fallback to find. The rule is now local: if the
+  target is occupied and the mover is the only one of their team on the space they leave, the
+  two trade. **Where the target holds more than one teammate, the coach picks which one comes
+  back** -- the author's call, rather than taking the first. Coverage is preserved by
+  construction under this rule, so every space of a zone can simply be offered.
+
 ### 2026-08-09 (later the same day) -- author, the injured player's disadvantage spelled out
 
 *Two rounds of clarification the same day, folded into one entry: the two maneuver clauses
@@ -484,7 +543,9 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Nothing about which space a player runs back to, or what it costs | After a steal the coach picks, covering every space of the zone their players can fill and stacking the surplus, 1 token per space |
 | Nothing about a restart putting players back where the coach had them | A new play resets both sides to the arrangement their coaches last set, free of exhaustion |
 | Halftime recovery of "1 (or 2, TBD)" | 1 |
-| Halftime lets the coach change assignments "as they please" | Free placement to any space on the board, and the visiting side must cover the kickoff space |
+| Halftime lets the coach change assignments "as they please" | A Coaching Choice, the same four actions as any other, with the visiting coach going first and having to cover the kickoff space |
+| Nothing about a coach changing anything before kickoff | Setup offers a Coaching Choice, with unlimited substitutions and players taken off going back to the bench |
+| Substitutions "up to 2", with no period attached | 2 per side per half, plus 2 more of halftime's own allowance |
 | Substitutions: "if and only if all the players on the bench were subbed out" | Two pools -- bench, then back bench for an injured sub only |
 | "So if they were subbed while exhausted they are no longer exhausted" | Half the tokens, rounded up; Exhausted follows from what remains |
 | A tie at full time goes to the extreme shootout | Tournament mode only; a league game ends tied |
@@ -531,16 +592,19 @@ rather than capping a space at one player, per team; the surplus stacking freely
 space is covered; same-zone teammates being separated; a steal exempting the stealer; only a
 turnover running anyone back.
 
-**Substitutions:** no requirement to keep one of each role; cards changing zones freely;
-rearranging as the only way to change formation, and all three shapes available to it;
-rearranging costing nothing; a new play opening a window and a steal opening none; substituting
-after the new-play reset; the two pools; a returning player only losing tokens; halftime's
-window not being a declaration; nothing ever compelling a declaration, an injured player
-included.
+**Coaching Choice:** the same four actions at setup, a new-play window and halftime; setup
+offering one at all, with unlimited substitutions and outgoing players going back to the bench;
+2 substitutions per side per half with no declaring/answering asymmetry, and halftime's own 2 on
+top; the visitors coaching first at halftime; no requirement to keep one of each role; a formation
+change re-dealing by defensive skill; a zone swap moving the meeples too; space positioning
+swapping onto an occupied space, and the coach picking who comes back; halftime no longer freeing
+the zone; a new play opening a window and a steal opening none; coaching after the new-play reset;
+the two pools; a returning player only losing tokens; halftime's window not being a declaration;
+nothing ever compelling a declaration, an injured player included.
 
-**The arrangement:** what sets one (setup, a substitution window, halftime) and what does not
-(a run back); a new play restoring it for both sides, free of exhaustion and with nothing to
-choose; the kickoff-space and out-of-bounds placements still costing, after the reset.
+**The arrangement:** what sets one (any Coaching Choice) and what does not (a run back); a new
+play restoring it for both sides, free of exhaustion and with nothing to choose; the
+kickoff-space and out-of-bounds placements still costing, after the reset.
 
 **Own goal:** the trigger moving to Pressure; the advantage roll; priority over the Defender's
 steal; the 1-token cost.
