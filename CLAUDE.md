@@ -174,11 +174,15 @@ rules for why the ranking is no longer the whole story.
   because the disadvantage is measured against a healthy opponent. Both cases
   postdate the disadvantage rule and both are the author's, confirmed
   2026-08-09.
-- **Injury also withholds a role's ability modifier from a roll**, which is a
-  separate thing this predicate has nothing to do with -- it changes totals,
-  not winners, and lives at each roll (`SkillTestView.roll`). An injured player
-  keeps their skill and any modifier the roll itself grants, notably ball
-  speed.
+- **Injury separately withholds the skill modifier in a *contest*** -- a
+  different thing this predicate has nothing to do with. It changes totals, not
+  winners, and lives in `LooseBallSkillTestView.roll`, which covers both the
+  loose ball and the long High Pass. An injured contestant rolls the bare d12:
+  their offensive or defensive skill is left off, and **only** that. Ball speed
+  and role abilities still apply, and a maneuver's skill test and a score
+  attempt are untouched -- so the Midfielder's +3 and the Striker's +3 are both
+  paid to an injured player. This was got backwards once, as the loss of a
+  role's bonus; the name for it is "skill modifier".
 
 ## Where a shot may be taken from
 

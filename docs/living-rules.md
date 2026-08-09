@@ -713,14 +713,15 @@ count** they are safe. Otherwise they are injured.
   - **An unchallenged maneuver still succeeds outright.** With no defender in the ball's zone
     there is nobody to tie with and no test they can be made to roll, so neither half of this
     bites;
-- **add no ability modifier when someone is contesting them** -- on a
-  [skill test](#4-skill-test-when-they-tie), keeping a long [High Pass](#high-pass), or
-  contesting a [loose ball](#loose-ball). Their own role's bonus does not apply there; a
-  Midfielder's +3 on a Low Pass or Pressure skill test is the one such bonus in the game today.
-  They still add their skill, and still get any modifier the roll itself grants, notably the
-  [ball speed modifier](#ball-speed) for keeping a long High Pass. **A
-  [score attempt](#score-attempt) is untouched:** an injured Striker still adds their +3 off a
-  set-up. Nobody is contesting a shot, so there is nothing there to be disadvantaged in;
+- **add no skill modifier in a contest** -- keeping a long [High Pass](#high-pass), or
+  contesting a [loose ball](#loose-ball). Their offensive or defensive skill does not go on the
+  roll at all: they roll the bare d12. **It is only the skill.** Every other modifier still
+  applies, notably the [ball speed modifier](#ball-speed) a receiver gets for keeping a long
+  High Pass, and so does any role ability. Nothing outside a contest is affected: a maneuver's
+  [skill test](#4-skill-test-when-they-tie) and a [score attempt](#score-attempt) are rolled as
+  normal, so a Midfielder keeps their +3 on a Low Pass and a Striker keeps theirs off a set-up.
+  (The [extreme shootout](#extreme-shootout) withholds the skill the same way; it says so
+  there.);
 - **do not have to be substituted.** Nothing compels their team to get them off. A coach may
   leave an injured player on the field, disadvantaged, for the rest of the game, and spend
   their declaration on something else;
@@ -843,9 +844,9 @@ Each coach secretly arranges their team of six players in any order they wish. O
 is set they may look at it but not reorder it.
 
 Both coaches then reveal their top card simultaneously. Those two players roll a skill test,
-each adding their **offensive** skill. An injured player is
-[disadvantaged](#exhaustion-and-injury) here as anywhere: they still add their skill, but no
-ability modifier. The winner scores a goal; a tie scores for nobody.
+each adding their **offensive** skill -- except an injured player, who adds no
+[skill modifier](#exhaustion-and-injury) and rolls the bare d12. The winner scores a goal; a
+tie scores for nobody.
 
 This repeats for all six players, unless one team is already ahead by more goals than the
 other can still score with the attempts remaining (leading 4-1 after five, there is no need to

@@ -1651,17 +1651,15 @@ class SkillTestView(SafeView):
         defense_total = defense_roll + defense_skill
 
         # Role ability -- Midfielder: +3 on a skill test when
-        # attempting Low Pass (offense) or Pressure (defense). An
-        # injured player adds no ability modifier on a roll someone is
-        # contesting, and a skill test is one (see "Injured players" in
-        # docs/living-rules.md). Their skill and the ball speed
-        # modifier below are untouched, so this is the only term injury
-        # withholds here.
+        # attempting Low Pass (offense) or Pressure (defense). Injury
+        # does not withhold this: what an injured player loses is their
+        # own offensive or defensive skill, and only in a contest --
+        # every other modifier still applies (see "Injured players" in
+        # docs/living-rules.md).
         offense_ability_detail = ""
         if (
             offense_player.role == PlayerRole.MIDFIELDER
             and match.offense_maneuver == "Low Pass"
-            and offense_player.player_id not in match.injured
         ):
             offense_total += 3
             offense_ability_detail = "+3 Midfielder ability"
@@ -1670,7 +1668,6 @@ class SkillTestView(SafeView):
         if (
             defense_player.role == PlayerRole.MIDFIELDER
             and match.defense_maneuver == "Pressure"
-            and defense_player.player_id not in match.injured
         ):
             defense_total += 3
             defense_ability_detail = "+3 Midfielder ability"
@@ -4388,12 +4385,28 @@ class LooseBallSkillTestView(SafeView):
         defense_player = self.cog.get_player_definition(
             match.loose_ball_defense_player,
         )
-        offense_skill = self.cog.player_catalog.effective_profile(
-            offense_player,
-        ).offense
-        defense_skill = self.cog.player_catalog.effective_profile(
-            defense_player,
-        ).defense
+        # An injured contestant adds no skill modifier -- their own
+        # offensive or defensive skill stays off the roll, and that is
+        # the whole of the disadvantage here (see "Injured players" in
+        # docs/living-rules.md). It is only the skill: every other
+        # modifier still applies, which is why the ball speed modifier
+        # below is added without asking about injury.
+        offense_injured = match.loose_ball_offense_player in match.injured
+        defense_injured = match.loose_ball_defense_player in match.injured
+        offense_skill = (
+            0
+            if offense_injured
+            else self.cog.player_catalog.effective_profile(
+                offense_player,
+            ).offense
+        )
+        defense_skill = (
+            0
+            if defense_injured
+            else self.cog.player_catalog.effective_profile(
+                defense_player,
+            ).defense
+        )
 
         offense_roll = random.randint(1, 12)
         defense_roll = random.randint(1, 12)
@@ -4403,16 +4416,6 @@ class LooseBallSkillTestView(SafeView):
         # A High Pass's receiver adds the ball speed modifier to keep
         # what the pass delivered (2026-08-07). A genuine loose ball is
         # nobody's yet, so neither side gets it there.
-        #
-        # An injured contestant still gets this: what injury withholds
-        # is a role's own bonus, not a modifier the roll grants (see
-        # "Injured players" in docs/living-rules.md). No ability
-        # modifies a contest today -- the only two that are numbers are
-        # the Midfielder's, on a maneuver skill test, where injury does
-        # withhold it, and the Striker's, on a set-up score attempt,
-        # where it deliberately does not (nobody contests a shot). So
-        # there is nothing here to withhold; an ability added later
-        # has to check match.injured.
         modifier_detail = []
         if match.pending_loose_ball_is_high_pass:
             modifier = match.ball.speed // 2
@@ -4432,7 +4435,9 @@ class LooseBallSkillTestView(SafeView):
                         [
                             f"{offense_player.name} "
                             f"[{ROLE_INITIALS[offense_player.role.value]}]",
-                            f"Offensive skill +{offense_skill}",
+                            "Injured — no skill modifier"
+                            if offense_injured
+                            else f"Offensive skill +{offense_skill}",
                         ] + modifier_detail,
                         offense_total,
                     ),
@@ -4443,7 +4448,9 @@ class LooseBallSkillTestView(SafeView):
                         [
                             f"{defense_player.name} "
                             f"[{ROLE_INITIALS[defense_player.role.value]}]",
-                            f"Defensive skill +{defense_skill}",
+                            "Injured — no skill modifier"
+                            if defense_injured
+                            else f"Defensive skill +{defense_skill}",
                         ],
                         defense_total,
                     ),

@@ -12,6 +12,13 @@ still have to win.
 ranking on its own now disagrees with the turn in both directions -- it
 takes wins away and hands them out. The tests at the bottom pin the two
 callers that reconstruct a prompt after a restart to the same answer.
+
+The disadvantage has a second, separate half: in a **contest** an
+injured player adds no skill modifier, rolling the bare d12. That is
+the skill only, and a contest only -- ball speed, role abilities, a
+maneuver's skill test and a score attempt are all untouched. Those
+boundaries are what the middle three classes are for; each of them has
+been on the wrong side of this at least once.
 """
 
 import unittest
@@ -20,6 +27,7 @@ from unittest import mock
 
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
+    LooseBallSkillTestView,
     LowPassChoiceView,
     ScoreAttemptView,
     SkillTestView,
@@ -211,13 +219,17 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         )
 
 
-class InjuredAbilityModifierTests(unittest.IsolatedAsyncioTestCase):
+class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
     """
-    "Add no ability modifier to any roll they make" -- an injured
-    player keeps their skill and any modifier the roll itself grants,
-    and loses only their own role's bonus. The Midfielder's +3 on a
-    Low Pass or Pressure skill test is the only ability that lands on
-    a skill test, so it is the whole of what this can withhold there.
+    The skill modifier is withheld **in a contest**, and a maneuver's
+    skill test is not one -- an injured player's disadvantage there is
+    the tie-loss and the forced test, and it is not compounded by a
+    third penalty. So a skill test rolls the same whether or not a
+    participant is injured, Midfielder's +3 included.
+
+    This went in backwards once, withholding the role's bonus instead
+    of the skill and doing it here rather than in the contest, so both
+    halves are pinned.
     """
 
     def build(self, injure_midfielder: bool):
@@ -264,22 +276,24 @@ class InjuredAbilityModifierTests(unittest.IsolatedAsyncioTestCase):
         # The offense entry: (roll, colour, team, detail lines, total).
         return render.call_args.args[0][0]
 
-    async def test_a_healthy_midfielder_adds_their_ability(self) -> None:
+    async def test_a_healthy_midfielder_adds_skill_and_ability(self) -> None:
         cog, game, _ = self.build(injure_midfielder=False)
         _, _, _, detail, total = await self.roll(cog, game)
 
         self.assertIn("+3 Midfielder ability", detail)
+        self.assertIn("Offensive skill +3", detail)
         # d12 of 7, offensive skill 3, ability +3.
         self.assertEqual(total, 13)
 
-    async def test_an_injured_midfielder_does_not(self) -> None:
+    async def test_an_injured_midfielder_adds_both_just_the_same(
+        self,
+    ) -> None:
         cog, game, _ = self.build(injure_midfielder=True)
         _, _, _, detail, total = await self.roll(cog, game)
 
-        self.assertNotIn("+3 Midfielder ability", detail)
-        # The skill survives; only the role's own bonus is withheld.
-        self.assertEqual(total, 10)
+        self.assertIn("+3 Midfielder ability", detail)
         self.assertIn("Offensive skill +3", detail)
+        self.assertEqual(total, 13)
 
 
 class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
@@ -364,6 +378,121 @@ class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("+3 Striker ability", detail)
         self.assertEqual(total, 16)
+
+
+class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The one place the skill modifier is withheld: a contest -- keeping
+    a long High Pass, or a loose ball. The injured contestant rolls the
+    bare d12, and **only** the skill comes off. A High Pass receiver
+    still gets the ball speed modifier, which is the case that killed
+    the old "adds nothing" wording.
+    """
+
+    async def contest(self, injure=None, high_pass=True) -> list:
+        cog = build_cog()
+        cog.apply_exhaustion = mock.Mock(return_value="")
+        game = build_game()
+        cog.games[game.game_id] = game
+        match = cog.initialize_standard_match(game)
+
+        offense = next(
+            player_id
+            for player_id in match.home.field_players
+            if cog.get_player_definition(player_id).role == PlayerRole.STRIKER
+        )
+        defense = next(
+            player_id
+            for player_id in match.visiting.field_players
+            if cog.get_player_definition(player_id).role
+            == PlayerRole.FULLBACK
+        )
+        match.pending_loose_ball = True
+        match.pending_loose_ball_is_high_pass = high_pass
+        match.loose_ball_offense_player = offense
+        match.loose_ball_defense_player = defense
+        match.ball.speed = 6  # speed // 2 == 3.
+        if injure == "offense":
+            match.injured.add(offense)
+        elif injure == "defense":
+            match.injured.add(defense)
+        game.match_state = match.to_dict()
+
+        entries = []
+
+        class Stop(Exception):
+            pass
+
+        def capture(rows):
+            entries.append(rows)
+            raise Stop
+
+        interaction = SimpleNamespace(
+            user=SimpleNamespace(id=game.player_1_id),
+            response=SimpleNamespace(
+                defer=mock.AsyncMock(),
+                send_message=mock.AsyncMock(),
+                edit_message=mock.AsyncMock(),
+            ),
+            edit_original_response=mock.AsyncMock(),
+            followup=SimpleNamespace(
+                send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+            ),
+        )
+        view = LooseBallSkillTestView(cog, game.game_id)
+        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+            "cogs.d12ball.save_games",
+        ), mock.patch(
+            "cogs.d12ball_views.random.randint", return_value=7,
+        ), mock.patch(
+            "cogs.d12ball_views.render_skill_test_dice", side_effect=capture,
+        ):
+            with self.assertRaises(Stop):
+                await view.roll(interaction)
+        return entries[0]
+
+    async def test_healthy_contestants_add_their_skill(self) -> None:
+        (_, _, _, off_detail, off_total), (_, _, _, _, def_total) = (
+            await self.contest()
+        )
+
+        self.assertIn("Offensive skill +6", off_detail)
+        self.assertIn("+3 ball speed modifier", off_detail)
+        # d12 of 7, offensive skill 6, ball speed +3.
+        self.assertEqual(off_total, 16)
+        # Fullback's defensive skill is 6.
+        self.assertEqual(def_total, 13)
+
+    async def test_an_injured_receiver_keeps_only_the_ball_speed(
+        self,
+    ) -> None:
+        (_, _, _, off_detail, off_total), _ = await self.contest(
+            injure="offense",
+        )
+
+        self.assertIn("Injured — no skill modifier", off_detail)
+        self.assertNotIn("Offensive skill +6", off_detail)
+        # The modifier the roll grants survives -- this is the case
+        # "adds nothing" got wrong.
+        self.assertIn("+3 ball speed modifier", off_detail)
+        self.assertEqual(off_total, 10)
+
+    async def test_an_injured_defender_rolls_bare(self) -> None:
+        _, (_, _, _, def_detail, def_total) = await self.contest(
+            injure="defense",
+        )
+
+        self.assertIn("Injured — no skill modifier", def_detail)
+        self.assertEqual(def_total, 7)
+
+    async def test_it_applies_to_a_plain_loose_ball_too(self) -> None:
+        (_, _, _, off_detail, off_total), _ = await self.contest(
+            injure="offense", high_pass=False,
+        )
+
+        # No ball speed on a genuine loose ball, so nothing is left.
+        self.assertIn("Injured — no skill modifier", off_detail)
+        self.assertEqual(off_total, 7)
 
 
 class SettledWinnerRestoreTests(unittest.TestCase):

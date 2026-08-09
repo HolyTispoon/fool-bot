@@ -86,20 +86,20 @@ first, then the edge cases and what the disadvantage does to a roll.*
 - **An unchallenged maneuver still succeeds outright**, injured or not, also confirmed: with
   no defender in the ball's zone there is nobody to tie with and no test they can be made to
   roll. The unchallenged maneuver postdates the disadvantage, so this had been an assumption.
-- **The disadvantage on a roll is the loss of the ability modifier, and only that.** An
-  injured player still adds their skill and still gets any modifier the roll itself grants --
-  the ball speed modifier for keeping a long High Pass is the case the author named. This
-  replaces "adds nothing", which the extreme shootout had said and which was too strong: it
-  would have taken the ball speed modifier with it. What is withheld is the role's own bonus.
-  - **It reaches skill tests and both contests.** In the code today that is exactly one term:
-    the Midfielder's +3 on a Low Pass or Pressure skill test. No ability modifies a loose ball
-    or a High Pass contest at all, so the rule is future-proofing there rather than a change,
-    and `LooseBallSkillTestView` says so where an ability would be added.
-  - **A score attempt is untouched**, confirmed by the author: an injured Striker keeps their
-    +3 off a set-up. So the disadvantage is not "loses every role bonus" but "loses it when
-    someone is contesting them", which is why the rule is written round being contested rather
-    than round rolling. A score attempt has nobody on the other side of it, and is already the
-    one roll the rules single out as never triggering an injury check.
+- **In a contest an injured player adds no skill modifier** -- keeping a long High Pass, or
+  contesting a loose ball. Their offensive or defensive skill stays off the roll entirely and
+  they roll the bare d12. This is what the extreme shootout's "adds nothing" had always meant;
+  that wording is gone because taken at its word it also stripped the ball speed modifier a
+  High Pass receiver gets for keeping what the pass delivered.
+- **It is the skill and nothing else, in a contest and nowhere else.** Every other modifier
+  still applies, role abilities included. Outside a contest nothing is touched: a maneuver's
+  skill test and a score attempt are rolled as normal, so a Midfielder keeps their +3 on a Low
+  Pass and a Striker keeps theirs off a set-up -- the Striker confirmed by the author
+  directly. The disadvantage in a maneuver is already the two clauses above, and it is not
+  compounded by a third.
+  - **"Ability modifier" was the wrong name for it and cost a round trip.** It first went in
+    as the loss of a *role's bonus* -- the Midfielder's +3 -- which is a different quantity
+    and, in the code, a different line. The rules and the code both say "skill modifier" now.
 
 ### 2026-08-09 -- author, a shot may only be taken from within shooting range
 
