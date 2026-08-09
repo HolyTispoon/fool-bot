@@ -426,6 +426,43 @@ class HalftimeRepositionTests(unittest.IsolatedAsyncioTestCase):
         cog.advance_halftime_stage.assert_awaited_once()
 
 
+class HalftimeKickoffBoardTests(unittest.IsolatedAsyncioTestCase):
+    """
+    A half begins with a board, posted and pinned, so the arrangement
+    everyone is about to play from is one tap away for the rest of the
+    game rather than buried under halftime's own messages.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    async def test_the_second_half_opens_with_a_pinned_board(self) -> None:
+        cog = build_cog()
+        cog.post_new_play_board = mock.AsyncMock()
+        cog.send_turn_prompt = mock.AsyncMock()
+        game = build_human_game()
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.pending_halftime_stage = HALFTIME_STAGES[-1]
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.finish_halftime(build_interaction(), game, match)
+
+        self.assertIsNone(match.pending_halftime_stage)
+        cog.post_new_play_board.assert_awaited_once()
+        self.assertIn(
+            "second half",
+            cog.post_new_play_board.await_args.args[-1],
+        )
+
+
 class HalftimeEngineTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

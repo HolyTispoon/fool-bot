@@ -112,12 +112,12 @@ class FormationShapeTests(unittest.TestCase):
         two_two_two = default_formation_deal(
             roster, self.rules, Formation.TWO_TWO_TWO,
         )
-        four_one_one = default_formation_deal(
-            roster, self.rules, Formation.FOUR_ONE_ONE,
+        two_three_one = default_formation_deal(
+            roster, self.rules, Formation.TWO_THREE_ONE,
         )
 
-        # 4-1-1 pulls the midfield pair back and leaves the front two
-        # to split, so the same six cards come out in the same order.
+        # 2-3-1 pulls the winger back out of the front pair, so the
+        # same six cards come out in the same order.
         self.assertEqual(
             [
                 player_id
@@ -127,12 +127,12 @@ class FormationShapeTests(unittest.TestCase):
             [
                 player_id
                 for area in SETUP_AREAS
-                for player_id in four_one_one[area]
+                for player_id in two_three_one[area]
             ],
         )
         self.assertEqual(
-            four_one_one["own_goal"],
-            two_two_two["own_goal"] + two_two_two["midfield"],
+            two_three_one["midfield"],
+            two_two_two["midfield"] + two_two_two["opponent_goal"][:1],
         )
 
     def test_the_bench_is_the_same_three_whatever_the_shape(self) -> None:
@@ -154,18 +154,18 @@ class FormationShapeTests(unittest.TestCase):
             self.catalog.teams[Team.SLIME],
             TeamSide.VISITING,
             self.rules,
-            formation=Formation.TWO_ONE_THREE,
+            formation=Formation.ONE_THREE_TWO,
         )
 
-        # The visiting side defends the visitors goal, so 2-1-3's
-        # three attackers stand in the *home* goal zone.
-        self.assertEqual(len(setup.zones[Zone.VISITORS_GOAL]), 2)
-        self.assertEqual(len(setup.zones[Zone.MIDFIELD]), 1)
-        self.assertEqual(len(setup.zones[Zone.HOME_GOAL]), 3)
+        # The visiting side defends the visitors goal, so 1-3-2's two
+        # attackers stand in the *home* goal zone.
+        self.assertEqual(len(setup.zones[Zone.VISITORS_GOAL]), 1)
+        self.assertEqual(len(setup.zones[Zone.MIDFIELD]), 3)
+        self.assertEqual(len(setup.zones[Zone.HOME_GOAL]), 2)
 
     def test_an_assignment_has_to_match_its_formation(self) -> None:
         roster = self.catalog.teams[Team.ORANGE]
-        shape = self.rules.formations[Formation.FOUR_ONE_ONE]
+        shape = self.rules.formations[Formation.TWO_THREE_ONE]
         deal = default_formation_deal(
             roster, self.rules, Formation.TWO_TWO_TWO,
         )
@@ -197,13 +197,15 @@ class FormationShapeTests(unittest.TestCase):
     def test_a_stacking_formation_starts_with_every_space_taken(
         self,
     ) -> None:
+        # Board 6's two-space midfield is the only zone any of the
+        # three shapes overfills: 2-3-1 puts three cards in it.
         match = MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
-            board_size=7,
+            board_size=6,
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
-            home_formation=Formation.FOUR_ONE_ONE,
+            home_formation=Formation.TWO_THREE_ONE,
         )
 
         home_players = set(match.home.field_players)
@@ -213,12 +215,12 @@ class FormationShapeTests(unittest.TestCase):
                 for player_id in occupants
                 if player_id in home_players
             ]
-            for occupants in match.board.spaces[Zone.HOME_GOAL]
+            for occupants in match.board.spaces[Zone.MIDFIELD]
         ]
 
-        self.assertEqual([len(space) for space in occupancy], [2, 2])
+        self.assertEqual([len(space) for space in occupancy], [2, 1])
         self.assertEqual(
-            match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_GOAL), [],
+            match.open_spaces_in_zone(TeamSide.HOME, Zone.MIDFIELD), [],
         )
 
 
@@ -258,15 +260,17 @@ class CoverageRuleTests(unittest.TestCase):
     def test_a_covered_zone_opens_every_space_for_the_surplus(
         self,
     ) -> None:
-        match = self.build_match(home_formation=Formation.FOUR_ONE_ONE)
-        # The 4-1-1 midfielder, sent out of position and running back
-        # into a goal zone whose two spaces its four cards already
-        # cover, may stand on either of them.
-        stray = match.home.zones[Zone.MIDFIELD][0]
+        match = self.build_match(
+            board_size=6, home_formation=Formation.TWO_THREE_ONE,
+        )
+        # A 2-3-1 defender, sent out of position and running back into
+        # a midfield whose two spaces its three cards already cover,
+        # may stand on either of them.
+        stray = match.home.zones[Zone.HOME_GOAL][0]
 
         self.assertEqual(
             match.placement_spaces_in_zone(
-                TeamSide.HOME, Zone.HOME_GOAL, stray,
+                TeamSide.HOME, Zone.MIDFIELD, stray,
             ),
             [0, 1],
         )
@@ -295,17 +299,19 @@ class CoverageRuleTests(unittest.TestCase):
         )
 
     def test_running_back_may_stack_once_the_zone_is_covered(self) -> None:
-        match = self.build_match(home_formation=Formation.FOUR_ONE_ONE)
-        stray = match.home.zones[Zone.HOME_GOAL][0]
+        match = self.build_match(
+            board_size=6, home_formation=Formation.TWO_THREE_ONE,
+        )
+        stray = match.home.zones[Zone.MIDFIELD][0]
         match.board.remove_meeple(stray)
-        match.board.place_meeple(stray, Zone.MIDFIELD, 2)
+        match.board.place_meeple(stray, Zone.VISITORS_GOAL, 1)
 
         self.assertIn(stray, match.displaced_players(TeamSide.HOME))
 
-        match.run_back_player(stray, Zone.HOME_GOAL, 1)
+        match.run_back_player(stray, Zone.MIDFIELD, 1)
 
         self.assertEqual(
-            match.board.meeple_position(stray), (Zone.HOME_GOAL, 1),
+            match.board.meeple_position(stray), (Zone.MIDFIELD, 1),
         )
         match.validate(self.catalog)
 
@@ -322,22 +328,24 @@ class CoverageRuleTests(unittest.TestCase):
             match.run_back_player(stray, Zone.HOME_GOAL, teammate_space)
 
     def test_a_stack_only_breaks_up_while_a_space_is_free(self) -> None:
-        # 4-1-1's goal zone is full, so its pairs stay paired: nobody
-        # is asked to move somewhere that does not help.
-        match = self.build_match(home_formation=Formation.FOUR_ONE_ONE)
+        # 2-3-1's midfield fills board 6's two spaces, so its pair
+        # stays paired: nobody is asked to move somewhere that does
+        # not help.
+        match = self.build_match(
+            board_size=6, home_formation=Formation.TWO_THREE_ONE,
+        )
 
         self.assertEqual(match.crowded_players(TeamSide.HOME), [])
 
-        # Pile all four onto one space of board 9's three-space goal
-        # zone and two of them are crowded -- as many as the free
+        # Pile all three onto one space of board 9's three-space
+        # midfield and two of them are crowded -- as many as the free
         # spaces they can spread into, no more.
         roomier = self.build_match(
-            board_size=9, home_formation=Formation.FOUR_ONE_ONE,
+            board_size=9, home_formation=Formation.TWO_THREE_ONE,
         )
-        goal_zone = roomier.home.zones[Zone.HOME_GOAL]
-        for player_id in goal_zone:
+        for player_id in roomier.home.zones[Zone.MIDFIELD]:
             roomier.board.remove_meeple(player_id)
-            roomier.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            roomier.board.place_meeple(player_id, Zone.MIDFIELD, 0)
 
         self.assertEqual(len(roomier.crowded_players(TeamSide.HOME)), 2)
 
@@ -421,7 +429,7 @@ class FormationReassignmentTests(unittest.TestCase):
             cog.apply_formation_change(
                 match,
                 TeamSide.HOME,
-                Formation.FOUR_ONE_ONE,
+                Formation.TWO_THREE_ONE,
                 {
                     "own_goal": fielded[:3],
                     "midfield": fielded[3:4],
@@ -442,17 +450,17 @@ class FormationReassignmentTests(unittest.TestCase):
         cog.apply_formation_change(
             match,
             TeamSide.HOME,
-            Formation.TWO_ONE_THREE,
+            Formation.ONE_THREE_TWO,
             {
-                "own_goal": fielded[:2],
-                "midfield": fielded[2:3],
-                "opponent_goal": fielded[3:],
+                "own_goal": fielded[:1],
+                "midfield": fielded[1:4],
+                "opponent_goal": fielded[4:],
             },
         )
 
         self.assertEqual(
             cog.current_formation(match, TeamSide.HOME),
-            Formation.TWO_ONE_THREE,
+            Formation.ONE_THREE_TWO,
         )
         self.assertEqual(
             match.home.assigned_zone(fielded[5]), Zone.VISITORS_GOAL,
@@ -509,7 +517,7 @@ class SubstitutionFormationFlowTests(unittest.IsolatedAsyncioTestCase):
             for item in SubstitutionMenuView(cog, game.game_id).children
         ]
 
-        self.assertIn("Change formation (2-2-2)", labels)
+        self.assertIn("Change formation (currently 2-2-2)", labels)
 
     async def test_a_change_applies_once_every_zone_is_filled(self) -> None:
         cog, game, _ = self.build()
@@ -517,7 +525,7 @@ class SubstitutionFormationFlowTests(unittest.IsolatedAsyncioTestCase):
 
         with mock.patch("cogs.d12ball_views.save_games"):
             await view.pick_formation(
-                build_interaction(), Formation.FOUR_ONE_ONE,
+                build_interaction(), Formation.TWO_THREE_ONE,
             )
             match = cog.load_match_state(game)
             # Nothing is written until the whole shape is filled in.
@@ -528,16 +536,16 @@ class SubstitutionFormationFlowTests(unittest.IsolatedAsyncioTestCase):
 
             fielded = match.setup_for_side(TeamSide.HOME).field_players
             await view.pick_cards(
-                build_interaction(), "own_goal", fielded[:4],
+                build_interaction(), "own_goal", fielded[:2],
             )
             await view.pick_cards(
-                build_interaction(), "midfield", fielded[4:5],
+                build_interaction(), "midfield", fielded[2:5],
             )
 
         match = cog.load_match_state(game)
         self.assertEqual(
             cog.current_formation(match, TeamSide.HOME),
-            Formation.FOUR_ONE_ONE,
+            Formation.TWO_THREE_ONE,
         )
         self.assertEqual(
             match.home.assigned_zone(fielded[5]), Zone.VISITORS_GOAL,
@@ -568,20 +576,24 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
             for player_id in match.home.field_players
             if cog.get_player_definition(player_id).role == PlayerRole.WINGER
         )
+        # The far midfield space, M3: within home's shooting range,
+        # which is where a Winger's set-up can offer a shot at all
+        # (2026-08-09). The
+        # standard setup leaves it empty, so every receiver here is put
+        # there deliberately -- one more than `extras`, since a stack
+        # of one is still a space with a teammate on it.
         others = [
             player_id
             for player_id in match.home.field_players
             if player_id != winger
-        ][:extras]
+        ][:extras + 1]
         for player_id in [winger] + others:
             match.board.remove_meeple(player_id)
-            match.board.place_meeple(player_id, Zone.MIDFIELD, 1)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, 2)
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.set_ball_space(Zone.MIDFIELD, 2)
         match.active_player_id = winger
         game.match_state = match.to_dict()
-        # Whoever the standard setup already had on that space counts
-        # too, so ask rather than assume.
         return cog, game, match, cog.low_pass_receivers(match, 0)
 
     def test_a_shared_destination_is_labelled_by_its_count(self) -> None:
@@ -593,7 +605,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         ]
 
         # Naming one of three would misread what is being picked.
-        self.assertIn(f"{len(others)} players -- M2", labels)
+        self.assertIn(f"{len(others)} players -- M3", labels)
 
     async def test_the_passer_is_asked_which_teammate_receives(
         self,

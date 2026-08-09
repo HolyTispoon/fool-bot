@@ -16,6 +16,7 @@ from d12ball.components import (
     PlayerDefinition,
     RoleProfile,
     TeamSetup,
+    TeamSide,
     Zone,
 )
 from d12ball.game import Team
@@ -324,10 +325,11 @@ def fit_meeple_labels(
     fits every name of a group inside its own space: the widest name
     within `max_width`, and one line per name within `max_height`.
 
-    A space can hold a whole zone's worth of meeples now that 4-1-1
-    and 2-1-3 exist, so the size a stack needs is not something a
-    constant can know -- one name gets the full size, four share the
-    room between the tokens and the bottom of the space. Falls back to
+    A space can hold a whole zone's worth of meeples -- a formation
+    that stacks puts them there, and /coach can put them anywhere --
+    so the size a stack needs is not something a constant can know:
+    one name gets the full size, four share the room between the
+    tokens and the bottom of the space. Falls back to
     the smallest size when even that does not fit; the caller shortens
     a name that is still too wide.
     """
@@ -862,7 +864,49 @@ def draw_board(
                     text_color="#243347",
                 )
 
+    draw_shooting_range_edges(draw, match, bounds)
     return bounds
+
+
+def draw_shooting_range_edges(
+    draw: ImageDraw.ImageDraw,
+    match: MatchState,
+    bounds: dict[Zone, tuple[int, int]],
+) -> None:
+    """
+    Where each side's shooting range begins, dashed down the field,
+    because that is now what decides whether a team may shoot -- see
+    "Shooting range" in the living rules.
+
+    Never a zone boundary: on every board size the edge falls
+    somewhere inside midfield. An odd-sized board has a middle space
+    that is in neither side's range, so it gets two lines, one either
+    side of that space, rather than one drawn through it.
+    """
+    def range_side(index: int) -> int:
+        if match.board.is_in_shooting_range(TeamSide.HOME, index):
+            return 1
+        if match.board.is_in_shooting_range(TeamSide.VISITING, index):
+            return -1
+        return 0
+
+    for index in range(1, match.board.layout.board_size):
+        if range_side(index) == range_side(index - 1):
+            continue
+
+        zone, space_index = match.board.position_at_flat_index(index)
+        left, right = bounds[zone]
+        space_width = (right - left) / len(match.board.spaces[zone])
+        x = round(left + space_index * space_width)
+
+        y = BOARD_TOP + 50
+        while y < BOARD_BOTTOM - 4:
+            draw.line(
+                (x, y, x, min(y + 16, BOARD_BOTTOM - 4)),
+                fill="#f2f6fa",
+                width=3,
+            )
+            y += 30
 
 
 def draw_meeple_group(
@@ -1533,6 +1577,7 @@ def render_matchup(
     attacking: list[ChallengeSide],
     defending: list[ChallengeSide],
     defending_note: str = "",
+    attacking_abilities: bool = True,
     defending_abilities: bool = True,
 ) -> BytesIO:
     """
@@ -1554,6 +1599,13 @@ def render_matchup(
     ability and all; a shot's defenders are a number in the way, and
     printing an ability apiece for players nobody is choosing between
     spread them across the image and buried the skills that decide it.
+
+    `attacking_abilities` is off for a shot for a different reason: an
+    ability that bears on the attempt is already a modifier line above,
+    so the sentence only repeats it, and one that doesn't bear on the
+    attempt is not what the shot is about. A maneuver keeps it, because
+    there the ability is a fact about a player being weighed rather
+    than a number already in the sum.
 
     Both images replace prose that named the same players and said
     nothing about them: what a coach needs in front of them is the
@@ -1618,7 +1670,7 @@ def render_matchup(
             )
         )
 
-    attacking_width = group_width(attacking, "", True)
+    attacking_width = group_width(attacking, "", attacking_abilities)
     defending_width = group_width(
         defending, defending_note, defending_abilities,
     )
@@ -1646,7 +1698,9 @@ def render_matchup(
                 lines.append((piece, color, font, line_height))
         return lines
 
-    attacking_lines = wrapped(attacking, "", True, attacking_width)
+    attacking_lines = wrapped(
+        attacking, "", attacking_abilities, attacking_width,
+    )
     defending_lines = wrapped(
         defending, defending_note, defending_abilities, defending_width,
     )
@@ -1765,6 +1819,7 @@ def render_score_attempt(
         [shooter],
         defenders,
         defending_note=SCORE_ATTEMPT_UNDEFENDED,
+        attacking_abilities=False,
         defending_abilities=False,
     )
 

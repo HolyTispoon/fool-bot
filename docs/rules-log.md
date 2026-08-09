@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-08.
+**As of:** 2026-08-09.
 
 ## Where the rules come from
 
@@ -54,6 +54,49 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-09 -- author, a shot may only be taken from within shooting range
+
+- **A score attempt now needs the ball in the far part of the field.** It used to be
+  available from wherever the ball was, which made a shot from a team's own goal zone a legal
+  (if hopeless) turn. A team that has not carried the ball past the middle of the field now
+  has only a maneuver to make.
+- **The boundary is the middle of the board, not a zone boundary.** So a team's range is the
+  far part of midfield plus the goal zone it attacks, and on boards 7 and 9 -- the odd-sized
+  ones -- the middle space is in nobody's range. The author's call: no shot may be taken from
+  it. That space is also the kickoff space, which means no restart ever begins in range.
+- **It is called shooting range, not a half**, the author's call on the wording. The region
+  is not literally half the field on the standard 7-space board -- three spaces of seven --
+  so calling it one misread the rule, and "zone" was already taken by the three board zones.
+- **Set-ups are bound by it too**, also the author's call. A scoring opportunity sends a
+  player into an ordinary score attempt, so what it buys is the shot *out of turn*, not a
+  shot from anywhere: a High Pass of 2 or a Winger's Low Pass landing short of range sets
+  nothing up and resolves as the pass it was. A Block Deflect that overshoots is unaffected
+  in practice -- the ball has reached the space closest to the offense's own goal, which is
+  always deep in the deflecting team's range.
+- **Board 6 has no neutral space**, its six spaces splitting three and three, and its kickoff
+  space sits behind the kicking team's own range.
+
+### 2026-08-08 (later again) -- author, the three basic-mode shapes are 2-2-2, 2-3-1 and 1-3-2
+
+- **4-1-1 and 2-1-3 are out; 2-3-1 and 1-3-2 replace them.** Basic mode still offers exactly
+  three shapes, still read from a coach's own goal forward, and 2-2-2 is still where every
+  game kicks off. Only which two shapes join it has changed, so nothing about how a coach
+  moves between them, or when, is affected.
+- **The new pair is a midfield pair.** Both put three cards in midfield, which is what makes
+  them different from each other only at the ends: 2-3-1 keeps the back two and pushes one
+  forward player back, 1-3-2 keeps the front two and pulls one defender up. 4-1-1's four in a
+  goal zone has no counterpart in the new set.
+- **Stacking is now board-dependent, where it used to be unconditional.** 4-1-1 and 2-1-3
+  overfilled a zone on every board. Three in midfield fits board 7 and board 9 exactly, and
+  only overfills board 6's two-space midfield. The coverage rule is unchanged and still
+  earns its keep -- see "Occupancy" in the living rules -- but on the default board the new
+  shapes never stack, so it is board 6 that exercises it.
+- **An uncontested maneuver now succeeds instead of stalling.** This was already the rule --
+  "if the defending team has nobody in the ball's zone, there is no challenger and the
+  maneuver automatically succeeds for the offense" -- and the only thing the author added is
+  that the offense still *picks* which maneuver succeeds, rather than being handed a generic
+  success. It had been listed under "Specified but not built"; it is now built.
 
 ### 2026-08-08 (later still) -- author, a new play resets to the coach's arrangement, and injuries compel nothing
 
@@ -400,9 +443,10 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | "So if they were subbed while exhausted they are no longer exhausted" | Half the tokens, rounded up; Exhausted follows from what remains |
 | A tie at full time goes to the extreme shootout | Tournament mode only; a league game ends tied |
 | "For now, we need one player of each role on the field" | A property of the standard setup, not a standing rule |
-| Nothing about formations, and a fixed two cards per zone | Games kick off 2-2-2; rearranging can move a team into 4-1-1 or 2-1-3 |
+| Nothing about formations, and a fixed two cards per zone | Games kick off 2-2-2; rearranging can move a team into 2-3-1 or 1-3-2 |
 | A pass to the ball's own space names one player | The passer picks, when more than one teammate is standing there |
 | Nothing about a Low Pass with no legal destination | The ball goes a space forward, loose, speed still +1 |
+| A score attempt from wherever the ball is | Only from within shooting range, set-ups included |
 
 ---
 
@@ -505,14 +549,14 @@ From the author, for `foolbot.py`'s generic commands:
   coverage rule, the steal exemption, and stacked teammates separated while a space is free.
   Forced placements are applied silently; only a real choice is put to a coach.
 - **Formations**, end to end: 2-2-2 at kickoff, and any substitution window (halftime
-  included) able to move a team into 4-1-1 or 2-1-3 with the cards of the coach's choosing.
+  included) able to move a team into 2-3-1 or 1-3-2 with the cards of the coach's choosing.
 - **The Low Pass receiver**, where the destination space holds more than one teammate.
+- **The unchallenged maneuver.** With no defender in the ball's zone the offense picks a
+  maneuver on its own and it resolves as an outright win, with no reveal and no skill test.
 
 ### Specified but not built
 
-- **An unchallenged maneuver should succeed, not stall.** With no defender in the ball's zone,
-  `eligible_challengers()` returns empty and the cog replies "The defending team has no player in
-  the ball's zone to challenge" and stops. It should automatically succeed for the offense.
+Nothing. What is left unbuilt is blocked on something, and is in the next section.
 
 ### Blocked or deferred
 

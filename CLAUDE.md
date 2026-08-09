@@ -81,10 +81,16 @@ leaves the answers versioned.
 
 ## Formations and occupancy
 
-Basic mode has three shapes -- **2-2-2, 4-1-1 and 2-1-3**, read from a coach's
+Basic mode has three shapes -- **2-2-2, 2-3-1 and 1-3-2**, read from a coach's
 own goal forward, six cards either way. **Every game kicks off in 2-2-2**:
 setup does not ask, and a coach changes shape only by rearranging in a
 substitution window (which halftime reuses).
+
+**Stacking is board-dependent.** Three in midfield fits board 7 and board 9 one
+card a space; only board 6, whose midfield has two spaces, makes 2-3-1 or 1-3-2
+overfill a zone. So the occupancy machinery below is exercised on board 6 and
+by `/coach`, not by the default board -- render a sample at `--board-size 6` to
+see a stack.
 
 - **The shapes live in two places on purpose.** `Formation` in `d12ball/game.py`
   names the three; the counts are in `basic_rules.json`, with the rest of the
@@ -109,11 +115,76 @@ substitution window (which halftime reuses).
   first pick: nothing reaches the match until every zone has its cards, so a
   coach who wanders off mid-change leaves the formation they had.
 - **A Low Pass into a stack asks who receives it.** Several teammates on one
-  space is ordinary under 4-1-1 or 2-1-3, and the receiver is what a Winger's
+  space is ordinary under a stacking shape, and the receiver is what a Winger's
   set-up hands the shot to, so `low_pass_receivers` lists them and
   `LowPassReceiverView` puts the choice to the passer. `low_pass_candidates`
   still names one player per destination -- that is a button label, not the
   receiver.
+
+## The maneuver with nobody to challenge it
+
+A maneuver normally needs two players. When the defending team has nobody in
+the ball's zone there is no challenger, and the maneuver the offense picks
+succeeds outright -- see "Maneuver" in the living rules. `MatchState`'s
+`maneuver_uncontested` is the whole of it.
+
+- **It stands in for `challenger_id` everywhere that flag means "a maneuver is
+  under way".** `challenger_id` is what tells `validate()` that the handler is
+  allowed to be off the ball mid-effect, and what tells `on_ready` which
+  prompt to restore. An uncontested maneuver has no challenger and never will
+  have a `defense_maneuver`, so both of those checks read
+  `maneuver_uncontested` as well.
+- **It is persisted, unlike `new_play`.** Nothing else in a saved state can
+  tell "the defense has not picked yet" from "the defense is never going to
+  pick", and a restart between the offense's pick and its effect has to know
+  which. `reset_maneuver` clears it, along with everything else the turn set.
+- **`maneuver_selections_complete` is the only "are we ready to resolve"
+  test.** Two call sites used to check `offense_maneuver and defense_maneuver`
+  directly and would have hung the turn; anything new should ask the property.
+- **Both entry points go through the same branch** --
+  `PlayerActionView.choose_action` for a human and `play_ai_turn` for the AI
+  -- and both then use the ordinary maneuver prompt, so a coach reads the menu
+  they always read. What is skipped is the challenger pick, the matchup image
+  (it draws two players against each other), the reveal, and the skill test.
+
+## Where a shot may be taken from
+
+A team may only shoot from within **shooting range** -- see "Score attempt" and
+"Shooting range" in the living rules. `MatchState.can_attempt_score` is the
+whole rule, over `BoardState.is_in_shooting_range`.
+
+- **Shooting range is not a zone**, and is deliberately not called a half
+  either. It is measured from the middle of the board and cuts across midfield,
+  so it is the far part of midfield plus the goal zone a team attacks -- three
+  spaces of seven on the standard board, which is why "half" was the wrong word
+  for it. On an odd-sized board (7 and 9) the middle space is in *nobody's*
+  range, which is why the geometry compares doubled indices against the last
+  index rather than dividing. That space is also the kickoff space, so no
+  restart ever begins in range.
+- **A set-up's shot obeys it too.** A scoring opportunity sends a player into an
+  ordinary score attempt, so what it buys is the shot out of turn, not a shot
+  from anywhere. `set_up_shot_candidates` is `scoring_opportunity_candidates`
+  plus the range check, and the two are separate because only some callers are
+  asking about a shot -- a long High Pass asks the latter to find the receiver
+  who has to contest for the ball, which has nothing to do with where the goal
+  is.
+- **A 2-space High Pass that lands short of range is still received.** The range
+  rule takes away the shot, not the catch. The set-up branch and the long-pass
+  contest are the same landing space asked two different questions, so a pass of
+  2 that is refused a set-up has to resolve as an ordinary pass rather than fall
+  through to a contest it has never had to win.
+- **A Block Deflect that overshoots is the one set-up the rule cannot bite.** It
+  puts the ball on the space closest to the offense's own goal, always deep in
+  the deflecting team's range, so it asks `scoring_opportunity_candidates`
+  directly -- a branch that can never be taken reads as if it could.
+- **Nothing gates `begin_score_attempt` itself.** The rule is enforced where the
+  shot is *chosen*: `PlayerActionView` omits the button (and `build_turn_prompt`
+  says why), `choose_action` refuses a stale click, `DinkyAI` only ever shoots
+  from the scoring space, and the set-ups ask `set_up_shot_candidates`.
+- **The board image draws where range begins**, in `draw_shooting_range_edges`
+  -- one dash column on board 6, two on 7 and 9 bracketing the space in nobody's
+  range. The rule is positional and the board is where both coaches read
+  position.
 
 ## Turnovers: steals and new plays
 
@@ -142,12 +213,20 @@ new plays" in the living rules for which is which.
 - **A Block Deflect that overshoots is neither.** It flips possession and goes
   straight to the shot without calling `begin_run_back` at all; the goal or
   miss that follows is the new play.
+- **A new play posts its board and pins it**, via `post_new_play_board` inside
+  `announce_new_play_reset`. The reset is the arrangement the play starts from
+  and the one point in a restart where nothing is still moving, so it is the
+  board worth keeping -- what the restart still owes (a kickoff fill, an
+  out-of-bounds pickup) lands on the persistent message afterwards. The other
+  two pinned boards are the kickoff (the persistent message itself, pinned in
+  `TeamSelectionView`) and the second-half restart in `finish_halftime`.
+  Nothing else pins; see "Discord's rate limits".
 - **`continue_run_back` is one loop, not a recursion, and it batches.** Every
   placement it makes without asking anyone -- the forced ones, the AI's
   choices, the drop back that fills an empty kickoff -- goes into a list, and
   that list is posted as a single message with a single board refresh when the
   cascade reaches a coach's choice or runs out. It used to send a message and
-  re-upload the board per player, which after a steal that scatters a 4-1-1
+  re-upload the board per player, which after a steal that scatters a six-card
   side is a dozen-odd requests into one channel with nothing between them --
   see "Discord's rate limits". Anything added to the cascade should append to
   `notes` and `continue`, not send. `MAX_RUN_BACK_PASSES` bounds it: as a
@@ -263,12 +342,64 @@ same budget. So:
   `discord.File` consumes the stream inside it. The end of a maneuver puts the
   same board in two places (the persistent message and the snapshot under the
   result) and so does `announce_board_update`; both draw it once and upload it
-  twice. `refresh_match_image` takes a `png=` for exactly this.
+  twice. `refresh_match_image` takes a `png=` for exactly this, and so does
+  `post_new_play_board`.
+- **Only new-play boards are pinned.** A pin is a request of its own *and* a
+  "pinned a message" system post in the channel, so `pin_board_message` is
+  called from three places and no more: the kickoff board, the second-half
+  board, and `post_new_play_board`. Pinning every board a turn puts out would
+  roughly double the channel's traffic and fill the 50-pin cap inside a game.
+  At the cap the pin fails with error 30003 and the helper unpins the oldest
+  board *it* pinned -- read off `channel.pins(oldest_first=True)` and matched
+  by the `d12ball-pbd` filename -- so a pin somebody else put there is never
+  displaced, and a channel with no board to roll off simply leaves the new one
+  unpinned. Every failure is swallowed: a missing pin is worth less than the
+  turn it would take down with it.
 - **A board refresh is two requests, and that is unavoidable.** Editing the
   message uploads a new attachment, which invalidates the old one, so the
   "View full image" link has to be re-cut in a second edit -- the URL does not
   exist until the upload lands. Budget for two, and prefer not refreshing at
   all over refreshing twice.
+- **Channel message edits are one bucket, and it is the one that runs out.**
+  Every 429 in two logged sessions of play was a `PATCH` on
+  `/channels/{id}/messages/{id}`. **`message_id` is not one of Discord's major
+  rate-limit parameters**, so every edit to every message in a game's channel
+  shares a single bucket of roughly five requests in five seconds -- editing a
+  different message buys nothing. Check `discord.http.Route` before assuming
+  otherwise; this was got wrong twice.
+  - Only edits reached *through the channel* land there.
+    `interaction.response.edit_message` is the interaction-callback route and
+    `followup.send(...).edit()` is the webhook route, so neither competes.
+    `channel.get_partial_message(...).edit()` does, and there are two of
+    those: the board refresh and `refresh_maneuver_prompt`.
+  - **A board refresh spends two of the five** (the attachment, then the link
+    button), so `refresh_match_image` is rate-gated per game: the first goes
+    out at once and any that arrive within `BOARD_REFRESH_INTERVAL` collapse
+    into **one** trailing refresh rather than queueing.
+  - **`BOARD_REFRESH_INTERVAL` must stay above Discord's five-second window**,
+    or two refreshes fall inside one window and, with the prompt edit that
+    shares the bucket, a single turn spends exactly five -- measured, and
+    exactly what was still earning 429s at three seconds. Six leaves the turn
+    at three. Adding a call site is free; shortening the interval is not.
+  - A trailing refresh **draws when it runs**, never from a `png=` handed to it
+    earlier -- the board it was offered is stale by the time it fires, and
+    re-drawing is exactly what lets one pending refresh stand in for every
+    request behind it.
+  - **A board identical to the one already up is not written at all.** The
+    render is deterministic, so `write_board_message` keeps a digest of what
+    it last uploaded and skips both edits when the new bytes match. Plenty of
+    steps refresh without moving anything visible -- picking a receiver,
+    choosing a maneuver -- and those were costing two of five for nothing. The
+    digest is recorded only after the upload lands, so a rejected edit does
+    not convince the next refresh its work is done, and it is in memory only:
+    after a restart the first refresh always writes, because nothing records
+    what is actually on the message.
+  - It is a task, so `cog_unload` cancels it: a reload builds a new cog with
+    its own games, and a task holding the old one would write from state
+    nothing else can see.
+  - **Fewer requests is not the same as slower requests, and this is the
+    difference.** Nothing here sleeps before a call anyone is waiting on. The
+    gate drops redundant work; the turn does not get slower for it.
 - **Renders belong in a worker thread.** Everything that draws goes through
   `asyncio.to_thread`; Pillow is pure CPU and blocking the loop stalls the
   rate-limit sleeps and the gateway heartbeat along with everything else. The
@@ -316,7 +447,7 @@ output is a PNG of the expected dimensions.
 
 ```bash
 python3 scripts/render_sample.py --home purple --visiting teal --out board.png
-python3 scripts/render_sample.py --home-formation 4-1-1   # stacked meeples
+python3 scripts/render_sample.py --home-formation 2-3-1 --board-size 6  # stacked meeples
 python3 scripts/render_sample.py --list-games
 python3 scripts/render_sample.py --game <game_id>      # reproduce a real board
 ```

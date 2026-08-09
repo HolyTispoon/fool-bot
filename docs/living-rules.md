@@ -47,6 +47,7 @@ minutes. The team with the most goals at the end wins.
 |---|---|
 | **Space** | One area of the field. The ball and every meeple are always located on a space. |
 | **Zone** | A group of adjacent spaces: home goal, midfield, visitors goal. |
+| **Shooting range** | The far part of the field, from the middle to the goal a team attacks -- the only place they may [shoot](#score-attempt) from. Measured from the middle of the board, so it is not a zone: see [shooting range](#shooting-range). |
 | **Player card** | contain a player's infor including their role, skill scores and ability. Its position on the team board shows the **zone** that player is assigned to. |
 | **Meeple** | A player's token on the field. Shows the **space** that player is standing on right now. |
 | **Field player** | One of the six players a team has on the field. |
@@ -76,14 +77,37 @@ into three zones -- home goal, midfield, visitors goal, left to right:
 The home team defends the home goal zone and attacks the visitors goal zone; the visiting
 team does the reverse.
 
+<a id="shooting-range"></a>
+**Shooting range.** A team is **within shooting range** once the ball has passed the middle
+of the field, and a [score attempt](#score-attempt) is the only thing that depends on it.
+Range is measured from the middle of the *board*, not from a zone boundary -- it is not one
+of the three zones, and it cuts across midfield:
+
+| Board size | Visitors in range | Neither | Home in range |
+|---|---|---|---|
+| 6 | H1 H2 M1 | -- | M2 V1 V2 |
+| 7 | H1 H2 M1 | M2 | M3 V1 V2 |
+| 9 | H1 H2 H3 M1 | M2 | M3 V1 V2 V3 |
+
+Each team's range is the far end of the field from where they start, so the home team's runs
+to the right and the visitors' to the left. On the standard 7-space board it is three spaces,
+which is less than half the field.
+
+**A board with an odd number of spaces has a middle space that is in nobody's range** --
+boards 7 and 9, where that space is also the [kickoff space](#components). On board 6 the
+kickoff space is behind the kicking team's own range. Either way, no restart begins in range.
+
+The board image marks where range begins with a dashed line -- two of them on boards 7 and 9,
+either side of the space that is in nobody's.
+
 **Occupancy.** Any meeples may share a space -- opposing or teammates alike -- and ordinary
 play stacks them freely. What every deliberate placement -- setup, a substitution window,
 halftime, a [run back](#running-back-after-a-steal) -- enforces is coverage, not a limit: a
 team comes out of it with **every space of a zone it has players in occupied**, as far as its
-players stretch, and any surplus stacked. Under the 2-2-2 formation
-no zone ever holds more of a team's players than it has spaces, so that comes to one player
-per space; a formation that puts more players in a zone than the zone has spaces -- 4-1-1,
-2-1-3 -- fills every space and doubles up the rest.
+players stretch, and any surplus stacked. Under most formation-and-board combinations no zone
+ever holds more of a team's players than it has spaces, so that comes to one player per
+space; a formation that puts more players in a zone than the zone has spaces -- 2-3-1 or
+1-3-2 on board 6, whose midfield has two -- fills every space and doubles up the rest.
 
 **The kickoff space** is where the ball starts every period and every restart after a goal:
 
@@ -198,7 +222,11 @@ Each turn runs in this order:
 
 ## Score attempt
 
-The team in possession may shoot from wherever the ball is.
+**The team in possession may shoot only from within [shooting range](#shooting-range).** A
+shot is a run at the goal, not a punt from the back of the field: a team that has not carried
+the ball past the middle of the field has no shot to take, and its turn is a
+[maneuver](#maneuver). Range is the whole requirement -- anywhere inside it will do, and the
+ball may be shot from the space it is already on.
 
 **Exactly two dice are rolled, one by each coach.**
 
@@ -244,13 +272,19 @@ is usually only one.
 - Otherwise their coach picks any of their players **in the ball's zone**. That player moves
   to the ball's space and gains **1 exhaust token per space travelled**.
 - If the defending team has nobody in the ball's zone, there is no challenger and the
-  maneuver **automatically succeeds** for the offense.
+  maneuver **automatically succeeds** for the offense. The attacking coach still picks which
+  offensive maneuver it is, and its effect resolves in full -- there is simply nothing to
+  reveal it against.
 
 ### 2. Select and reveal
 
 Both coaches secretly select a maneuver with their action-selection die -- the attacker an
 offensive maneuver, the challenger a defensive one -- then reveal simultaneously. Each
 maneuver occupies two faces of the die.
+
+With no challenger there is nobody to reveal against: the attacker picks, nothing is
+concealed, and step 3 and step 4 are both skipped -- the maneuver they picked is the one that
+resolves.
 
 ### 3. Who wins
 
@@ -503,6 +537,12 @@ ball. If both decline, the ball is out of bounds.
 A scoring opportunity sends a player straight into an **ordinary score attempt**, out of turn.
 It is always **offered as a choice**; declining resolves the maneuver normally.
 
+**A set-up is offered only where the shot itself is legal** -- with the ball within
+[shooting range](#shooting-range). What a set-up buys is a shot *out of turn*, not a shot from
+anywhere, so a maneuver that would set one up short of range simply resolves as the maneuver
+it was. A Block Deflect that overshoots is never affected: the ball has reached the space
+closest to the offense's own goal, which is always deep in the deflecting team's range.
+
 Three things set one up:
 
 | Set-up | Shooter | Requirement |
@@ -695,12 +735,13 @@ the team in any of the three.
 | Formation | Own goal | Midfield | Opponent's goal |
 |---|---|---|---|
 | 2-2-2 | 2 | 2 | 2 |
-| 4-1-1 | 4 | 1 | 1 |
-| 2-1-3 | 2 | 1 | 3 |
+| 2-3-1 | 2 | 3 | 1 |
+| 1-3-2 | 1 | 3 | 2 |
 
-The numbers read from the team's own goal forward, and each coach chooses their own. 4-1-1
-and 2-1-3 put more cards in a zone than that zone has spaces on any board, which is what
-[occupancy](#the-field) is written for: those zones fill every space and stack the surplus.
+The numbers read from the team's own goal forward, and each coach chooses their own. On board
+6, whose midfield has two spaces, 2-3-1 and 1-3-2 put more cards in midfield than it has
+spaces, which is what [occupancy](#the-field) is written for: the zone fills both spaces and
+stacks the surplus. On board 7 or 9 every shape fits one card a space.
 
 **Whatever a side finishes the window standing on becomes their arrangement**, and every
 [new play](#resetting-after-a-new-play) from then on puts them back on it. A side that passes
@@ -825,3 +866,6 @@ Same rank ties and goes to a skill test. O1 beats D3, O2 beats D1, O3 beats D2.
 | Skill test | 1 each | Offensive skill | Defensive skill | Higher wins; tie re-rolls |
 | Own goal | 2d12, take the higher | Offensive skill | -- | 7+ avoids |
 | Injury check | 1 d12 | -- | -- | Higher than the token count is safe |
+
+A score attempt -- off a set-up or not -- may only be taken from within
+[shooting range](#shooting-range).

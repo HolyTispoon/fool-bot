@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import io
 import random
 import time
@@ -66,6 +67,7 @@ from cogs.d12ball_helpers import (
     add_full_image_button,
     add_full_image_button_to_response,
     area_display_name,
+    board_image_filename,
     build_full_time_summary,
     build_game_channel_name,
     contest_noun,
@@ -84,6 +86,7 @@ from cogs.d12ball_helpers import (
     load_condition_emojis,
     load_team_emojis,
     parse_space_value,
+    pin_board_message,
     refresh_player_names,
     resolve_adjustable_value,
     send_error_fallback,
@@ -138,6 +141,21 @@ HALFTIME_STAGES = (
 MAX_RUN_BACK_PASSES = 60
 
 
+# How often one game's persistent board message may be refreshed.
+#
+# The arithmetic, because it is not obvious: `message_id` is not one of
+# Discord's major rate-limit parameters, so every
+# `PATCH /channels/{id}/messages/{id}` in a game's channel shares one
+# bucket -- about five requests in five seconds. A refresh costs *two*
+# of them (the attachment, then the link button), and
+# refresh_maneuver_prompt spends more of the same bucket during a turn.
+# Holding refreshes more than five seconds apart is what keeps the
+# board to one refresh per window, which leaves the rest of that
+# budget for the prompts. See "The board message is one bucket" in
+# CLAUDE.md.
+BOARD_REFRESH_INTERVAL = 6.0
+
+
 class D12Ball(commands.GroupCog, group_name="d12ball"):
     ball_group = app_commands.Group(
         name="ball",
@@ -170,6 +188,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.player_catalog,
             self.maneuver_catalog,
         )
+        # Per game: when its board message was last edited, the
+        # trailing refresh waiting to edit it again, and a digest of
+        # the board already sitting on the message. See
+        # refresh_match_image.
+        self.board_refreshed_at: dict[str, float] = {}
+        self.board_refresh_tasks: dict[str, "asyncio.Task[None]"] = {}
+        self.board_png_digests: dict[str, bytes] = {}
 
         restored_views = 0
 
@@ -302,10 +327,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     turn_view = ManeuverChallengeView(self, game.game_id)
                 elif (
                     match.challenger_id is not None
-                    and (
-                        match.offense_maneuver is None
-                        or match.defense_maneuver is None
-                    )
+                    or match.maneuver_uncontested
                 ):
                     # challenger_id is only ever set while a maneuver is
                     # in progress and cleared by reset_maneuver(), so
@@ -313,15 +335,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     # -- pending_action itself is cleared to None by
                     # choose_challenger() right when the challenger is
                     # picked, so it can't be relied on from here on.
-                    turn_view = ManeuverActionPromptView(self, game.game_id)
-                elif (
-                    match.challenger_id is not None
-                    and match.offense_maneuver is not None
-                    and match.defense_maneuver is not None
-                ):
-                    if self.maneuver_catalog.resolve(
-                        match.offense_maneuver, match.defense_maneuver,
-                    ) == "tie":
+                    # maneuver_uncontested says the same thing for a
+                    # maneuver that never had a challenger, and is
+                    # cleared by the same reset.
+                    if not match.maneuver_selections_complete:
+                        turn_view = ManeuverActionPromptView(
+                            self, game.game_id,
+                        )
+                    elif (
+                        not match.maneuver_uncontested
+                        and self.maneuver_catalog.resolve(
+                            match.offense_maneuver, match.defense_maneuver,
+                        ) == "tie"
+                    ):
                         turn_view = SkillTestView(self, game.game_id)
                     else:
                         turn_view = self.build_effect_choice_view(
@@ -363,6 +389,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.team_emojis = await load_team_emojis(
             self.bot, application_emojis,
         )
+
+    async def cog_unload(self) -> None:
+        """
+        Drop any board refresh still waiting on its window. The reload
+        that follows builds a new cog with its own games, so a task
+        holding the old one would edit from state nothing else can see.
+        """
+        for task in list(self.board_refresh_tasks.values()):
+            task.cancel()
 
     async def cog_app_command_error(
         self,
@@ -689,6 +724,29 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.refresh_match_image(interaction, game)
         await self.begin_maneuver_action_selection(interaction, game, match)
 
+    async def announce_uncontested_maneuver(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Say that there is nobody to challenge, then go straight to the
+        offense's pick. No matchup image: it draws two players against
+        each other and there is only one.
+        """
+        handler = self.get_player_definition(match.active_player_id)
+        defense_setup = match.setup_for_side(match.defending_side())
+
+        await interaction.followup.send(
+            f"**Unchallenged!** {format_team_side_label(defense_setup)} "
+            "have nobody in "
+            f"{destination_display_name(match.ball.zone.value)} to "
+            f"challenge {format_role_bracket(handler, self.team_emojis)}, "
+            "so whichever maneuver the offense picks succeeds."
+        )
+        await self.begin_maneuver_action_selection(interaction, game, match)
+
     async def begin_maneuver_action_selection(
         self,
         interaction: discord.Interaction,
@@ -700,6 +758,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         challenger has been chosen: the AI opponent rolls immediately,
         and any human side gets a prompt to open their private
         maneuver menu.
+
+        An uncontested maneuver comes through here too, and waits on
+        the offense alone -- there is no defender to pick a defensive
+        maneuver, and nothing secret about a pick with nobody to
+        conceal it from, but the prompt is the same one so the coach
+        reads the same menu they always do.
         """
         if game.is_solo_game:
             ai_strategy = self.get_ai_strategy(game)
@@ -708,7 +772,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 match.choose_offense_maneuver(
                     ai_strategy.choose_maneuver_action("offense")
                 )
-            if self.defending_player_number(game, match) == 2:
+            if (
+                not match.maneuver_uncontested
+                and self.defending_player_number(game, match) == 2
+            ):
                 match.choose_defense_maneuver(
                     ai_strategy.choose_maneuver_action("defense")
                 )
@@ -716,10 +783,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        if (
-            match.offense_maneuver is not None
-            and match.defense_maneuver is not None
-        ):
+        if match.maneuver_selections_complete:
             await self.resolve_maneuver(interaction, game, match)
             return
 
@@ -732,7 +796,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     mention=True,
                 )
             )
-        if match.defense_maneuver is None:
+        if not match.maneuver_uncontested and match.defense_maneuver is None:
             waiting_on.append(
                 format_player_with_team(
                     game,
@@ -741,10 +805,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 )
             )
 
+        instruction = (
+            "choose a maneuver. Use the button to make your pick."
+            if match.maneuver_uncontested
+            else (
+                "both sides will now choose a maneuver privately. Use "
+                "the button to make your pick."
+            )
+        )
         prompt_view = ManeuverActionPromptView(self, game.game_id)
         prompt_message = await interaction.followup.send(
-            f"{' and '.join(waiting_on)}, both sides will now choose a "
-            "maneuver privately. Use the button to make your pick.",
+            f"{' and '.join(waiting_on)}, {instruction}",
             view=prompt_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -768,6 +839,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         defense_number = self.defending_player_number(game, match)
         offense_display = format_player_with_team(game, offense_number)
         defense_display = format_player_with_team(game, defense_number)
+
+        if match.maneuver_uncontested:
+            # Nothing to reveal against and nothing to rank: the
+            # offense's pick is the winner, and its effect runs the
+            # same pipeline a decisive win always does.
+            await interaction.followup.send(
+                f"{offense_display} chose **{offense_name}**, "
+                f"unchallenged.\n\n## **{offense_name}** succeeds!"
+            )
+            await self.begin_effect_resolution(
+                interaction, game, match, offense_name,
+            )
+            return
 
         reveal = (
             f"{offense_display} chose **{offense_name}**.\n"
@@ -968,16 +1052,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         always reconstructs the first-stage distance choice instead.
         Nothing has been applied by then, so the coach re-picks.
         """
-        outcome = self.maneuver_catalog.resolve(
-            match.offense_maneuver, match.defense_maneuver,
-        )
-        if outcome == "tie":
-            return None
-        winner_name = (
-            match.offense_maneuver
-            if outcome == "offense"
-            else match.defense_maneuver
-        )
+        if match.maneuver_uncontested:
+            winner_name = match.offense_maneuver
+        else:
+            outcome = self.maneuver_catalog.resolve(
+                match.offense_maneuver, match.defense_maneuver,
+            )
+            if outcome == "tie":
+                return None
+            winner_name = (
+                match.offense_maneuver
+                if outcome == "offense"
+                else match.defense_maneuver
+            )
         if winner_name == "Low Pass":
             return LowPassChoiceView(self, game_id)
         if winner_name == "High Pass":
@@ -1106,11 +1193,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         handler, who cannot pass to themselves.
 
         Usually one, and then the destination *is* the choice. A
-        formation that stacks (4-1-1, 2-1-3) makes two or three
-        ordinary, and which of them receives the ball is the passer's
-        to pick: it decides who a Winger's set-up hands the shot to.
-        Empty when the distance runs off the end of the board, or when
-        the space holds nobody but the handler.
+        formation that stacks (2-3-1 or 1-3-2 on a six-space board)
+        makes two ordinary, and which of them receives the ball is the
+        passer's to pick: it decides who a Winger's set-up hands the
+        shot to. Empty when the distance runs off the end of the
+        board, or when the space holds nobody but the handler.
         """
         offense_side = match.ball.possession
         offense_players = set(match.setup_for_side(offense_side).field_players)
@@ -1270,8 +1357,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # Role ability -- Winger: the receiving player may attempt a
         # scoring opportunity right where the pass lands, whatever the
         # distance -- unlike High Pass's set-up, this doesn't require
-        # reaching the space nearest the goal.
-        if handler.role != PlayerRole.WINGER:
+        # reaching the space nearest the goal. It does require shooting
+        # range, like any other shot: the ability frees the set-up from
+        # a distance, not from where a goal can be scored from.
+        if handler.role != PlayerRole.WINGER or not match.can_attempt_score(
+            offense_side,
+        ):
             await self.refresh_match_image(interaction, game)
             await self.finish_maneuver_resolution(
                 interaction,
@@ -1448,7 +1539,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # pass never offers it, whether or not it happens to overshoot.
         setup_candidates = []
         if distance == 2:
-            setup_candidates = self.scoring_opportunity_candidates(
+            setup_candidates = self.set_up_shot_candidates(
                 match, offense_side,
             )
 
@@ -1474,6 +1565,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         receiver_candidates = self.scoring_opportunity_candidates(
             match, offense_side,
         )
+
+        # A 2-space pass that found its receiver but not shooting range
+        # is just a pass: it was received cleanly, and the only thing
+        # the range rule takes away is the shot. Falling through would
+        # hand it to the long-pass contest below, which a pass of 2 has
+        # never had to win.
+        if distance == 2 and receiver_candidates:
+            await self.refresh_match_image(interaction, game)
+            await self.finish_maneuver_resolution(
+                interaction, game, match, distance_moved=actual_distance,
+                lead_in=content,
+            )
+            return
+
         if not receiver_candidates:
             await self.refresh_match_image(interaction, game)
             await self.finish_maneuver_resolution(
@@ -1574,6 +1679,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.finish_maneuver_resolution(
             interaction, game, match, distance_moved=distance_moved,
         )
+
+    def set_up_shot_candidates(
+        self,
+        match: MatchState,
+        offense_side: TeamSide,
+    ) -> list[str]:
+        """
+        Who could take a set-up's shot where the ball has landed:
+        `scoring_opportunity_candidates`, and nobody at all unless the
+        ball is within shooting range, since a set-up's shot is an
+        ordinary score attempt and obeys the same rule about where a
+        shot may be taken from.
+
+        The two are separate because only some callers of
+        `scoring_opportunity_candidates` are asking about a shot -- a
+        long High Pass asks it to find the receiver who has to contest
+        for the ball, and that has nothing to do with where the goal
+        is.
+        """
+        if not match.can_attempt_score(offense_side):
+            return []
+        return self.scoring_opportunity_candidates(match, offense_side)
 
     def scoring_opportunity_candidates(
         self,
@@ -2177,6 +2304,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{match.ball.speed}."
         )
 
+        # A shot has to be within shooting range, and this one always
+        # is: an overshoot means the ball reached the space closest to
+        # the offense's own goal, which is as deep into the deflecting
+        # team's range as the field goes. So this asks
+        # scoring_opportunity_candidates rather than
+        # set_up_shot_candidates -- the range check could never fail
+        # here, and a branch that cannot be taken reads as if it could.
         candidates = []
         if overshot:
             candidates = self.scoring_opportunity_candidates(
@@ -3134,6 +3268,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         Put both sides back on the arrangement their coaches last set
         and say so. Nobody pays a token for it -- see
         MatchState.restore_assigned_positions.
+
+        This is where a new play's board goes out and gets pinned: the
+        reset is the arrangement the play starts from, and it is the
+        one moment in the restart where nothing is still moving. What
+        the restart still owes (a kickoff fill, an out-of-bounds
+        pickup) lands on the persistent board afterwards.
         """
         moved: list[str] = []
         for side in (TeamSide.HOME, TeamSide.VISITING):
@@ -3156,8 +3296,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else "Both teams are already standing where their coaches "
             "last set them."
         )
-        await interaction.followup.send(f"{prefix}# New play\n{body}")
-        await self.refresh_match_image(interaction, game)
+        await self.post_new_play_board(
+            interaction, game, f"{prefix}# New play\n{body}",
+        )
 
     async def announce_run_back(
         self,
@@ -4113,11 +4254,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        await interaction.followup.send(
+        # A half begins the way any other new play does: with the board
+        # everyone is about to play from, posted and pinned.
+        await self.post_new_play_board(
+            interaction,
+            game,
             "**Halftime is over.** The second half kicks off with "
-            f"{format_team_side_label(match.visiting)} in possession."
+            f"{format_team_side_label(match.visiting)} in possession.",
         )
-        await self.refresh_match_image(interaction, game)
 
         try:
             await self.send_turn_prompt(interaction, game)
@@ -4132,9 +4276,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Re-render the public "choose your maneuver" prompt after one
-        side picks, and delete it once both have: its button has
-        nothing left to open, and the resolution posted underneath it
-        is what the channel should end on.
+        side picks, and delete it once every side it was waiting on
+        has: its button has nothing left to open, and the resolution
+        posted underneath it is what the channel should end on. An
+        uncontested maneuver is waiting on the offense alone, so its
+        prompt goes on that one pick.
 
         Deleting clears `turn_message_id` with it, so nothing tries to
         edit or re-attach a view to a message that is gone; whatever
@@ -4143,16 +4289,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if game.turn_message_id is None or interaction.channel is None:
             return
 
-        both_chosen = (
-            match.offense_maneuver is not None
-            and match.defense_maneuver is not None
-        )
+        all_chosen = match.maneuver_selections_complete
 
         try:
             prompt_message = interaction.channel.get_partial_message(
                 game.turn_message_id,
             )
-            if both_chosen:
+            if all_chosen:
                 await prompt_message.delete()
             else:
                 await prompt_message.edit(
@@ -4161,7 +4304,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         except (discord.NotFound, discord.HTTPException):
             pass
 
-        if both_chosen:
+        if all_chosen:
             game.turn_message_id = None
             save_games(self.games)
 
@@ -4429,12 +4572,97 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         png: Optional[bytes] = None,
     ) -> None:
         """
-        Re-render the persistent board image after the match state
-        changes outside of the interaction that owns that message.
+        Bring the persistent board message up to date, at most once
+        every BOARD_REFRESH_INTERVAL for a given game.
+
+        Discord buckets message edits per message, and this one message
+        is edited from fifty-odd places -- a single click walks through
+        several of them, and each is two edits (see
+        `write_board_message`). That is what was earning the 429s, and
+        the intermediate boards are worth nothing: a coach reads the
+        board once everything has finished moving. So a refresh that
+        arrives inside the window does not queue behind the last one,
+        it *replaces* it -- one trailing refresh is scheduled, and by
+        the time it runs it draws whatever the state has become.
 
         `png` is an already-rendered board, for a caller that is
         posting the same one somewhere else in the same breath and
-        should not pay to draw it twice.
+        should not pay to draw it twice. It is only used when the
+        refresh happens now; a deferred one re-draws, because the
+        board it was handed will be stale by the time it runs.
+        """
+        if game.message_id is None or interaction.channel is None:
+            return
+
+        now = time.monotonic()
+        last = self.board_refreshed_at.get(game.game_id)
+
+        if last is not None and now - last < BOARD_REFRESH_INTERVAL:
+            self.schedule_board_refresh(
+                interaction.channel, game, last + BOARD_REFRESH_INTERVAL - now,
+            )
+            return
+
+        self.board_refreshed_at[game.game_id] = now
+        await self.write_board_message(interaction.channel, game, png)
+
+    def schedule_board_refresh(
+        self,
+        channel: discord.TextChannel,
+        game: D12BallGame,
+        delay: float,
+    ) -> None:
+        """
+        Arrange for the board to be brought up to date once the window
+        is open again, unless one is already arranged.
+
+        One pending refresh per game is all that is ever needed: it
+        renders when it runs, so a refresh asked for after it was
+        scheduled but before it fired is already covered by it.
+        """
+        if game.game_id in self.board_refresh_tasks:
+            return
+
+        async def run() -> None:
+            try:
+                await asyncio.sleep(delay)
+                self.board_refreshed_at[game.game_id] = time.monotonic()
+                await self.write_board_message(channel, game)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # Nothing above this to catch it -- an exception left
+                # in a task surfaces as asyncio's own "never retrieved"
+                # record, naming neither the game nor this code.
+                LOGGER.error(
+                    "Could not refresh the board for D12 Ball game %s.",
+                    game.game_id,
+                    exc_info=True,
+                )
+            finally:
+                self.board_refresh_tasks.pop(game.game_id, None)
+
+        # The loop keeps only a weak reference to a task, so the handle
+        # is held here to keep this one from being collected mid-sleep.
+        self.board_refresh_tasks[game.game_id] = asyncio.create_task(run())
+
+    async def write_board_message(
+        self,
+        channel: discord.TextChannel,
+        game: D12BallGame,
+        png: Optional[bytes] = None,
+    ) -> None:
+        """
+        The two edits a board refresh actually costs: the attachment,
+        and then the link button that could not be cut until the
+        attachment had a URL.
+
+        A board identical to the one already on the message is not
+        written at all. Plenty of steps refresh without moving anything
+        a coach can see -- picking a receiver, choosing a maneuver --
+        and the render is deterministic, so byte-equality is the whole
+        test. Those refreshes cost two requests out of a bucket that
+        only has about five, and bought nothing.
 
         This is a nicety layered on top of state that has already been
         saved, not the thing carrying the turn forward -- a dropped
@@ -4443,21 +4671,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         the turn before it reaches the next prompt, any more than a 404
         or a Discord-side HTTP error already doesn't.
         """
-        if game.message_id is None or interaction.channel is None:
+        if game.message_id is None:
             return
 
         if png is None:
             png = await self.render_match_png(game)
 
+        digest = hashlib.sha256(png).digest()
+        if self.board_png_digests.get(game.game_id) == digest:
+            return
+
         try:
-            board_message = interaction.channel.get_partial_message(
-                game.message_id,
-            )
+            board_message = channel.get_partial_message(game.message_id)
             updated_message = await board_message.edit(
                 attachments=[self.match_file_from_png(game, png)],
             )
         except (discord.NotFound, discord.HTTPException, aiohttp.ClientError):
             return
+
+        # Recorded only once the upload has landed, so a failed edit
+        # leaves the next refresh believing it still has work to do.
+        self.board_png_digests[game.game_id] = digest
 
         # The link has to be re-cut because the edit above uploaded a
         # new file, and setting a view replaces the one already there,
@@ -4648,10 +4882,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         handler = self.format_roster_player(match.active_player_id)
+        # PlayerActionView drops the shoot button short of shooting
+        # range, so say why rather than leaving a coach to wonder where
+        # it went.
+        action_line = (
+            "Choose an action:"
+            if match.can_attempt_score()
+            else (
+                "The ball is out of shooting range, so there is no shot "
+                "from here -- only a maneuver:"
+            )
+        )
         return (
             f"{controller}, it is your turn.\n\n"
             f"{handler} will be handling the ball.\n\n"
-            "Choose an action:"
+            f"{action_line}"
         )
 
     async def play_ai_turn(
@@ -4684,20 +4929,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.begin_score_attempt(interaction, game, match)
             return
 
+        # Unchallenged, so the AI's pick succeeds outright -- the same
+        # branch a human offense takes, see
+        # PlayerActionView.choose_action.
         eligible_challengers = match.eligible_challengers()
         if not eligible_challengers:
+            match.begin_uncontested_maneuver()
             game.match_state = match.to_dict()
             save_games(self.games)
 
-            turn_message = await interaction.followup.send(
+            await interaction.followup.send(
                 f"{ai_name} has chosen to maneuver with "
-                f"{format_role_bracket(handler, self.team_emojis)}, "
-                "but the defending team has no player in the ball's "
-                "zone to challenge.",
-                wait=True,
+                f"{format_role_bracket(handler, self.team_emojis)}."
             )
-            game.turn_message_id = turn_message.id
-            save_games(self.games)
+            await self.announce_uncontested_maneuver(
+                interaction, game, match,
+            )
             return
 
         match.pending_action = "maneuver"
@@ -4838,7 +5085,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """One upload of an already-rendered board."""
         return discord.File(
             io.BytesIO(png),
-            filename=f"d12ball-pbd{game.game_number}.png",
+            filename=board_image_filename(game.game_number),
         )
 
     async def build_match_file(self, game: D12BallGame) -> discord.File:
@@ -4846,6 +5093,36 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return self.match_file_from_png(
             game, await self.render_match_png(game),
         )
+
+    async def post_new_play_board(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        message: str,
+    ) -> None:
+        """
+        The board at the top of a new play -- a kickoff, halftime, or
+        the restart after a goal, an own goal, a missed shot or a ball
+        out of bounds -- posted as its own message and pinned.
+
+        These are the boards worth coming back to, which is why they
+        are the ones pinned; see pin_board_message for what happens at
+        the pin cap. Everything else a turn puts out still goes to the
+        persistent board message only.
+
+        The persistent message is brought in line with the same render
+        rather than a second one, exactly as announce_board_update
+        does.
+        """
+        png = await self.render_match_png(game)
+        snapshot = await interaction.followup.send(
+            message,
+            file=self.match_file_from_png(game, png),
+            wait=True,
+        )
+        await add_full_image_button(snapshot)
+        await self.refresh_match_image(interaction, game, png=png)
+        await pin_board_message(snapshot)
 
     async def announce_board_update(
         self,
@@ -5007,12 +5284,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     @app_commands.describe(
         p1="Player 1. Leave blank to make yourself Player 1.",
         p2="Player 2. Leave blank to play against the AI.",
-        test_game=(
-            "Create a test game where you control Player 1 and Player 2."
-        ),
         game_name=(
             "A fun name for this game, used in the channel name. Leave "
             "blank to name it after the players."
+        ),
+        test_game=(
+            "Create a test game where you control Player 1 and Player 2."
         ),
     )
     @app_commands.guild_only()
@@ -5021,8 +5298,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         p1: Optional[discord.Member] = None,
         p2: Optional[discord.Member] = None,
-        test_game: bool = False,
         game_name: Optional[app_commands.Range[str, 1, 80]] = None,
+        test_game: bool = False,
     ) -> None:
         guild = interaction.guild
 
