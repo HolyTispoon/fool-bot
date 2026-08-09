@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-08.
+**As of:** 2026-08-09.
 
 ## Where the rules come from
 
@@ -54,6 +54,26 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-09 -- author, a shot may only be taken from the other team's half
+
+- **A score attempt now needs the ball in the other team's half.** It used to be available
+  from wherever the ball was, which made a shot from a team's own goal zone a legal (if
+  hopeless) turn. A team that has not carried the ball past the midline now has only a
+  maneuver to make.
+- **The halfway line runs down the middle of the board, not along a zone boundary.** So a
+  team's half is its goal zone plus the near part of midfield, and on boards 7 and 9 -- the
+  odd-sized ones -- the middle space is in neither half. The author's call: the middle space
+  is nobody's half, so no shot may be taken from it. That space is also the kickoff space,
+  which means no restart ever begins in shooting range.
+- **Set-ups are bound by it too**, also the author's call. A scoring opportunity sends a
+  player into an ordinary score attempt, so what it buys is the shot *out of turn*, not a
+  shot from anywhere: a High Pass of 2 or a Winger's Low Pass landing in a team's own half
+  sets nothing up and resolves as the pass it was. A Block Deflect that overshoots is
+  unaffected in practice -- the ball has reached the space closest to the offense's own goal,
+  which is always deep in the deflecting team's half.
+- **Board 6 has no neutral space**, its six spaces splitting three and three, and its kickoff
+  space sits in the kicking team's own half.
 
 ### 2026-08-08 (later again) -- author, the three basic-mode shapes are 2-2-2, 2-3-1 and 1-3-2
 
@@ -424,6 +444,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Nothing about formations, and a fixed two cards per zone | Games kick off 2-2-2; rearranging can move a team into 2-3-1 or 1-3-2 |
 | A pass to the ball's own space names one player | The passer picks, when more than one teammate is standing there |
 | Nothing about a Low Pass with no legal destination | The ball goes a space forward, loose, speed still +1 |
+| A score attempt from wherever the ball is | Only from the other team's half, set-ups included |
 
 ---
 
