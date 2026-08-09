@@ -7,6 +7,7 @@ it to run game logic; the views themselves are concerned with rendering
 prompts and turning button/select clicks into calls on the cog.
 """
 
+import asyncio
 import random
 from typing import TYPE_CHECKING, Optional
 
@@ -1635,7 +1636,8 @@ class SkillTestView(SafeView):
         if modifier_detail:
             defense_detail.append(modifier_detail)
         dice_file = discord.File(
-            render_skill_test_dice(
+            await asyncio.to_thread(
+                render_skill_test_dice,
                 [
                     (
                         offense_roll,
@@ -1824,7 +1826,8 @@ class ScoreAttemptView(SafeView):
             defense_detail = ["No one in the way"]
 
         dice_file = discord.File(
-            render_skill_test_dice(
+            await asyncio.to_thread(
+                render_skill_test_dice,
                 [
                     (
                         attack_roll,
@@ -1919,7 +1922,9 @@ class ScoreAttemptView(SafeView):
             # The scorer, posted under the announcement -- its own
             # message rather than an attachment on it, which would put
             # the portrait above the "GOAL!" it belongs to.
-            portrait = render_player_portrait(shooter.name)
+            portrait = await asyncio.to_thread(
+                render_player_portrait, shooter.name,
+            )
             if portrait is not None:
                 await interaction.followup.send(
                     file=discord.File(
@@ -4337,7 +4342,8 @@ class LooseBallSkillTestView(SafeView):
         # No text breakdown alongside: the dice image already names
         # both players and shows every modifier that built the totals.
         dice_file = discord.File(
-            render_skill_test_dice(
+            await asyncio.to_thread(
+                render_skill_test_dice,
                 [
                     (
                         offense_roll,

@@ -1,6 +1,7 @@
 import asyncio
 import io
 import random
+import time
 import uuid
 from typing import Optional
 
@@ -56,6 +57,7 @@ from gamesaves.d12ball.storage import (
 from cogs.d12ball_helpers import (
     BENCH_DESTINATIONS,
     COIN_EMOJI_NAMES,
+    EMOJI_REFETCH_INTERVAL,
     HIGH_PASS_CONTEST_HEADLINE,
     LOGGER,
     PBD_ARCHIVE_CATEGORY_NAME,
@@ -68,6 +70,7 @@ from cogs.d12ball_helpers import (
     build_game_channel_name,
     contest_noun,
     destination_display_name,
+    fetch_application_emojis,
     filter_choices,
     format_ai_name,
     format_player_with_team,
@@ -129,6 +132,12 @@ HALFTIME_STAGES = (
 )
 
 
+# The most placements one run back may make before it is treated as
+# stuck. Twelve players a side is the whole board several times over,
+# so this only ever fires on a bug -- see continue_run_back.
+MAX_RUN_BACK_PASSES = 60
+
+
 class D12Ball(commands.GroupCog, group_name="d12ball"):
     ball_group = app_commands.Group(
         name="ball",
@@ -149,6 +158,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.maneuver_catalog
         ).read()
         self.coin_emojis: dict[CoinFace, str] = {}
+        # When the coin emoji were last asked after -- see
+        # ensure_coin_emojis.
+        self.coin_emojis_checked_at = 0.0
         self.condition_emojis: dict[str, str] = {}
         self.team_emojis: dict[Team, str] = {}
         self.ai_strategies = build_ai_strategies(
@@ -328,9 +340,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
 
     async def cog_load(self) -> None:
-        self.coin_emojis = await load_coin_emojis(self.bot)
-        self.condition_emojis = await load_condition_emojis(self.bot)
-        self.team_emojis = await load_team_emojis(self.bot)
+        # One fetch, three lookups. Each loader used to make its own
+        # call to the same endpoint, so every startup asked Discord for
+        # the identical list three times over.
+        application_emojis = await fetch_application_emojis(self.bot)
+
+        if application_emojis is None:
+            # fetch_application_emojis has already said so. Leave the
+            # mappings empty and let everything fall back; the next
+            # coin toss retries.
+            return
+
+        self.coin_emojis = await load_coin_emojis(
+            self.bot, application_emojis,
+        )
+        self.condition_emojis = await load_condition_emojis(
+            self.bot, application_emojis,
+        )
+        self.team_emojis = await load_team_emojis(
+            self.bot, application_emojis,
+        )
 
     async def cog_app_command_error(
         self,
@@ -364,10 +393,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         The coin emoji, retrying the lookup while any are missing.
 
         Uploading the emoji to the application therefore takes effect
-        on the next coin toss instead of needing a restart.
+        without needing a restart -- but no more often than
+        EMOJI_REFETCH_INTERVAL. An application that has never had them
+        uploaded is short of them on every single toss, so the retry
+        used to mean an HTTP request per coin flip, forever, for a
+        lookup whose answer had not changed since startup.
         """
-        if len(self.coin_emojis) < len(COIN_EMOJI_NAMES):
-            self.coin_emojis = await load_coin_emojis(self.bot)
+        if len(self.coin_emojis) >= len(COIN_EMOJI_NAMES):
+            return self.coin_emojis
+
+        now = time.monotonic()
+        if now - self.coin_emojis_checked_at < EMOJI_REFETCH_INTERVAL:
+            return self.coin_emojis
+        self.coin_emojis_checked_at = now
+
+        application_emojis = await fetch_application_emojis(self.bot)
+        if application_emojis is not None:
+            self.coin_emojis = await load_coin_emojis(
+                self.bot, application_emojis,
+            )
 
         return self.coin_emojis
 
@@ -592,7 +636,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         abilities that a line of prose lists without showing.
         """
         await interaction.followup.send(
-            file=self.build_score_attempt_file(match),
+            file=await self.build_score_attempt_file(match),
         )
 
         # The one thing the image doesn't show is how the two rolls are
@@ -812,7 +856,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         current_tokens = match.exhaustion.get(player.player_id, 0)
         safe = roll > current_tokens
         dice_file = discord.File(
-            render_injury_test_die(
+            await asyncio.to_thread(
+                render_injury_test_die,
                 roll,
                 TEAM_COLORS[player.team],
                 player.team.value.title(),
@@ -2437,7 +2482,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         offense_setup = match.setup_for_side(match.ball.possession)
         dice_file = discord.File(
-            render_own_goal_dice(
+            await asyncio.to_thread(
+                render_own_goal_dice,
                 list(rolls),
                 TEAM_COLORS[offense_setup.team],
                 safe,
@@ -3182,24 +3228,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         options = ", ".join(space_label(zone, index) for index in spaces)
         return f"Options: {options}"
 
-    async def continue_run_back(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        lead_in: str = "",
-    ) -> None:
+    def apply_forced_run_backs(self, match: MatchState) -> None:
         """
-        Auto-place every forced run-back (no real choice: the open
-        spaces in a zone exactly match the players who need one) right
-        away, then either present a choice for the next player who has
-        a real one, or finish once nobody is displaced.
+        Place every run-back that isn't a choice: a zone whose open
+        spaces exactly match the players who need one has only one
+        arrangement, so nobody is asked. Repeats until a pass changes
+        nothing, since placing one zone's players can settle another.
 
-        `lead_in` only ever applies to the first message this call (or
-        its chain of recursive/resumed calls) sends -- every call site
-        that already consumed it passes none, including this method's
-        own recursion and the human-choice resumption in
-        RunBackChoiceView.
+        Silent, and it does not save -- the caller does both.
         """
         applied_forced = True
         while applied_forced:
@@ -3225,122 +3261,214 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         # there is no message here to carry the
                         # threshold test the way apply_exhaustion's
                         # does -- but the flag still has to be set
-                        # before the save below.
+                        # before the caller's save.
                         self.retest_exhausted(match, player_id)
                     applied_forced = True
 
-        game.match_state = match.to_dict()
-        save_games(self.games)
-
+    def next_run_back_choice(
+        self,
+        match: MatchState,
+    ) -> Optional[tuple[TeamSide, str]]:
+        """
+        The next side and player still owed a run-back with a real
+        choice in it, home before visiting, or None when both sides
+        are settled.
+        """
         for side in (TeamSide.HOME, TeamSide.VISITING):
             displaced = self.run_back_displaced(match, side)
-            if not displaced:
-                continue
+            if displaced:
+                return side, displaced[0]
+        return None
 
-            player_id = displaced[0]
-            zone = match.setup_for_side(side).assigned_zone(player_id)
-            open_spaces = match.placement_spaces_in_zone(
-                side, zone, player_id,
-            )
-            player = self.get_player_definition(player_id)
+    async def continue_run_back(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Auto-place every forced run-back (no real choice: the open
+        spaces in a zone exactly match the players who need one) right
+        away, then either present a choice for the next player who has
+        a real one, or finish once nobody is displaced.
 
-            if self.side_is_ai(game, side):
-                space_index = self.get_ai_strategy(
-                    game
-                ).choose_run_back_space(open_spaces)
-                distance = match.run_back_player(player_id, zone, space_index)
-                exhaustion_text = self.apply_exhaustion(
-                    match, player_id, distance,
-                )
-                game.match_state = match.to_dict()
-                save_games(self.games)
+        `lead_in` only ever applies to the first message this call (or
+        the resumption in RunBackChoiceView) sends -- every call site
+        that already consumed it passes none.
 
-                prefix = f"{lead_in}\n\n" if lead_in else ""
-                await interaction.followup.send(
-                    f"{prefix}"
-                    f"{format_role_bracket(player, self.team_emojis)} runs "
-                    f"back to {space_label(zone, space_index)}."
-                    f"\n{exhaustion_text}"
-                )
-                await self.refresh_match_image(interaction, game)
-                await self.continue_run_back(interaction, game, match)
-                return
+        Every placement made without asking anyone -- the forced ones,
+        the AI's choices, the drop back that fills an empty kickoff --
+        collects into one message and one board refresh, flushed when
+        the cascade reaches a coach's choice or runs out. It used to
+        post a message and re-upload the board per player, which after
+        a steal that scatters a 4-1-1 side is a dozen-odd REST calls
+        into one channel with nothing between them, and enough to be
+        rate limited for it. Nobody is reading the intermediate boards
+        anyway: the one worth looking at is the one where everyone has
+        finished moving.
+        """
+        # Lines describing placements already applied and saved, and
+        # not yet posted. `lead_in` is consumed by whichever message
+        # goes out first, which may be this one or the prompt below.
+        notes: list[str] = []
 
-            controller_number = (
-                game.home_player_number
-                if side == TeamSide.HOME
-                else game.visiting_player_number
-            )
-            controller_id = (
-                game.player_1_id
-                if controller_number == 1
-                else game.player_2_id
-            )
-            mention = f"<@{controller_id}>" if controller_id else "Someone"
+        # Every pass either places somebody or ends the cascade, so
+        # this can only be reached if a placement left the player it
+        # moved still owed one. That should not be possible -- see
+        # placement_spaces_in_zone -- but as a recursion it was bounded
+        # by the interpreter and as a loop it is not, and a spin here
+        # hangs the event loop for every game at once. An ERROR,
+        # because a run back that will not settle needs someone to
+        # look at it.
+        remaining_passes = MAX_RUN_BACK_PASSES
+
+        async def flush() -> bool:
+            """
+            Post the automatic placements so far, with the board they
+            produced. True when there was something to post.
+            """
+            nonlocal lead_in, notes
+
+            if not notes:
+                return False
+
             prefix = f"{lead_in}\n\n" if lead_in else ""
-            options_note = self.describe_run_back_options(match, side, player_id)
-
+            body = "\n".join(notes)
+            notes = []
+            lead_in = ""
+            await interaction.followup.send(f"{prefix}{body}")
             await self.refresh_match_image(interaction, game)
+            return True
 
-            prompt_message = await interaction.followup.send(
-                f"{prefix}{mention}, choose where "
-                f"{format_role_bracket(player, self.team_emojis)} runs "
-                f"back to:\n{options_note}",
-                view=RunBackChoiceView(self, game.game_id, player_id),
-                wait=True,
-                allowed_mentions=discord.AllowedMentions(
-                    users=True, roles=False, everyone=False,
-                ),
-            )
-            game.turn_message_id = prompt_message.id
+        while True:
+            remaining_passes -= 1
+            if remaining_passes < 0:
+                LOGGER.error(
+                    "Giving up on the run back for D12 Ball game %s after "
+                    "%d placements: it is not settling. The match is saved "
+                    "as it stands.",
+                    game.game_id,
+                    MAX_RUN_BACK_PASSES,
+                )
+                break
+
+            self.apply_forced_run_backs(match)
+            game.match_state = match.to_dict()
             save_games(self.games)
-            return
 
-        if match.pending_kickoff_fill:
-            # A goal (or own goal) restarts play with nobody
-            # necessarily standing on the kickoff space -- the
-            # conceding side's two midfield players could easily both
-            # be elsewhere in the zone from open play. Whoever's
-            # closest drops back to start the kickoff, at the usual
-            # run-back cost, once every other run-back is settled.
-            #
-            # Asked here rather than back in restart_after_goal because
-            # everyone has moved since: the new play's reset, and any
-            # placement its substitution window made. Somebody standing
-            # on the space already settles it for nothing.
-            if match.eligible_ball_handlers():
-                match.pending_kickoff_fill = False
-                game.match_state = match.to_dict()
-                save_games(self.games)
-                await self.continue_run_back(interaction, game, match, lead_in)
-                return
+            choice = self.next_run_back_choice(match)
 
-            candidates = match.kickoff_fill_candidates()
-            if candidates:
-                player_id = candidates[0]
+            if choice is not None:
+                side, player_id = choice
+                zone = match.setup_for_side(side).assigned_zone(player_id)
                 player = self.get_player_definition(player_id)
-                distance = match.fill_kickoff(player_id)
-                exhaustion_text = self.apply_exhaustion(
-                    match, player_id, distance,
-                )
-                game.match_state = match.to_dict()
-                save_games(self.games)
 
-                prefix = f"{lead_in}\n\n" if lead_in else ""
-                await interaction.followup.send(
-                    f"{prefix}"
-                    f"{format_role_bracket(player, self.team_emojis)} drops "
-                    f"back to {space_label(match.ball.zone, match.ball.space_index)} "
-                    f"to start the kickoff.\n{exhaustion_text}"
+                if self.side_is_ai(game, side):
+                    space_index = self.get_ai_strategy(
+                        game
+                    ).choose_run_back_space(
+                        match.placement_spaces_in_zone(side, zone, player_id)
+                    )
+                    distance = match.run_back_player(
+                        player_id, zone, space_index,
+                    )
+                    exhaustion_text = self.apply_exhaustion(
+                        match, player_id, distance,
+                    )
+                    game.match_state = match.to_dict()
+                    save_games(self.games)
+
+                    notes.append(
+                        f"{format_role_bracket(player, self.team_emojis)} "
+                        f"runs back to {space_label(zone, space_index)}."
+                        f"\n{exhaustion_text}"
+                    )
+                    continue
+
+                # A coach's choice ends the cascade here: say what has
+                # happened so far, show the board it left, and ask.
+                if not await flush():
+                    await self.refresh_match_image(interaction, game)
+
+                controller_number = (
+                    game.home_player_number
+                    if side == TeamSide.HOME
+                    else game.visiting_player_number
                 )
-                await self.refresh_match_image(interaction, game)
-                await self.continue_run_back(interaction, game, match)
+                controller_id = (
+                    game.player_1_id
+                    if controller_number == 1
+                    else game.player_2_id
+                )
+                mention = f"<@{controller_id}>" if controller_id else "Someone"
+                prefix = f"{lead_in}\n\n" if lead_in else ""
+                options_note = self.describe_run_back_options(
+                    match, side, player_id,
+                )
+
+                prompt_message = await interaction.followup.send(
+                    f"{prefix}{mention}, choose where "
+                    f"{format_role_bracket(player, self.team_emojis)} runs "
+                    f"back to:\n{options_note}",
+                    view=RunBackChoiceView(self, game.game_id, player_id),
+                    wait=True,
+                    allowed_mentions=discord.AllowedMentions(
+                        users=True, roles=False, everyone=False,
+                    ),
+                )
+                game.turn_message_id = prompt_message.id
+                save_games(self.games)
                 return
 
-            # Nobody fielded in midfield at all (both benched or
-            # injured) -- nothing to place. Clear the flag and let the
-            # loose-ball check downstream handle the empty kickoff.
-            match.pending_kickoff_fill = False
+            if match.pending_kickoff_fill:
+                # A goal (or own goal) restarts play with nobody
+                # necessarily standing on the kickoff space -- the
+                # conceding side's two midfield players could easily
+                # both be elsewhere in the zone from open play.
+                # Whoever's closest drops back to start the kickoff, at
+                # the usual run-back cost, once every other run-back is
+                # settled.
+                #
+                # Asked here rather than back in restart_after_goal
+                # because everyone has moved since: the new play's
+                # reset, and any placement its substitution window
+                # made. Somebody standing on the space already settles
+                # it for nothing.
+                if match.eligible_ball_handlers():
+                    match.pending_kickoff_fill = False
+                    game.match_state = match.to_dict()
+                    save_games(self.games)
+                    continue
+
+                candidates = match.kickoff_fill_candidates()
+                if candidates:
+                    player_id = candidates[0]
+                    player = self.get_player_definition(player_id)
+                    distance = match.fill_kickoff(player_id)
+                    exhaustion_text = self.apply_exhaustion(
+                        match, player_id, distance,
+                    )
+                    game.match_state = match.to_dict()
+                    save_games(self.games)
+
+                    notes.append(
+                        f"{format_role_bracket(player, self.team_emojis)} "
+                        "drops back to "
+                        f"{space_label(match.ball.zone, match.ball.space_index)} "
+                        f"to start the kickoff.\n{exhaustion_text}"
+                    )
+                    continue
+
+                # Nobody fielded in midfield at all (both benched or
+                # injured) -- nothing to place. Clear the flag and let
+                # the loose-ball check downstream handle the empty
+                # kickoff.
+                match.pending_kickoff_fill = False
+
+            break
+
+        await flush()
 
         # Nobody is displaced on either side -- run-back is done.
         match.pending_run_back = False
@@ -3574,8 +3702,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # One last board refresh with everything settled (run-back,
         # speed choice, own-goal, etc. may have landed after the last
         # refresh inside the effect itself), right before the
-        # offensive choice comes back up.
-        await self.refresh_match_image(interaction, game)
+        # offensive choice comes back up. The snapshot below is that
+        # same board, so it is drawn once and uploaded twice.
+        png = await self.render_match_png(game)
+        await self.refresh_match_image(interaction, game, png=png)
 
         prefix = f"{lead_in}\n\n" if lead_in else ""
         snapshot = await interaction.followup.send(
@@ -3586,7 +3716,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"has possession. Time has advanced {distance_moved}, now "
                 f"at {match.scoreboard.time:02d}."
             ),
-            file=await self.build_match_file(game),
+            file=self.match_file_from_png(game, png),
             wait=True,
         )
         await add_full_image_button(snapshot)
@@ -4166,7 +4296,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             modifiers=modifiers,
         )
 
-    def build_maneuver_challenge_file(
+    async def build_maneuver_challenge_file(
         self,
         match: MatchState,
         defender_id: str,
@@ -4176,9 +4306,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         for the two lines of prose that used to announce a challenge:
         the players' skills and abilities are what a coach weighs while
         choosing a maneuver, and neither was in the text.
+
+        Drawn in a worker thread for the same reason the board is --
+        see render_match_png.
         """
         return discord.File(
-            render_maneuver_challenge(
+            await asyncio.to_thread(
+                render_maneuver_challenge,
                 self.challenge_side(match.active_player_id, attacking=True),
                 self.challenge_side(defender_id, attacking=False),
                 location=(
@@ -4189,7 +4323,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             filename="maneuver_challenge.png",
         )
 
-    def build_score_attempt_file(self, match: MatchState) -> discord.File:
+    async def build_score_attempt_file(self, match: MatchState) -> discord.File:
         """
         What the shot is made of: the shooter with the modifiers this
         particular attempt earns them, and every defender between them
@@ -4214,7 +4348,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             modifiers.append("+3 Striker ability")
 
         return discord.File(
-            render_score_attempt(
+            await asyncio.to_thread(
+                render_score_attempt,
                 self.challenge_side(
                     shooter.player_id,
                     attacking=True,
@@ -4253,7 +4388,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 ),
             )
         await interaction.followup.send(
-            file=self.build_maneuver_challenge_file(match, defender_id),
+            file=await self.build_maneuver_challenge_file(match, defender_id),
         )
 
     async def drop_turn_prompt(
@@ -4285,10 +4420,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
+        png: Optional[bytes] = None,
     ) -> None:
         """
         Re-render the persistent board image after the match state
         changes outside of the interaction that owns that message.
+
+        `png` is an already-rendered board, for a caller that is
+        posting the same one somewhere else in the same breath and
+        should not pay to draw it twice.
 
         This is a nicety layered on top of state that has already been
         saved, not the thing carrying the turn forward -- a dropped
@@ -4300,12 +4440,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if game.message_id is None or interaction.channel is None:
             return
 
+        if png is None:
+            png = await self.render_match_png(game)
+
         try:
             board_message = interaction.channel.get_partial_message(
                 game.message_id,
             )
             updated_message = await board_message.edit(
-                attachments=[await self.build_match_file(game)],
+                attachments=[self.match_file_from_png(game, png)],
             )
         except (discord.NotFound, discord.HTTPException, aiohttp.ClientError):
             return
@@ -4643,13 +4786,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = turn_message.id
         save_games(self.games)
 
-    async def build_match_file(self, game: D12BallGame) -> discord.File:
+    async def render_match_png(self, game: D12BallGame) -> bytes:
         """
-        Render the board to a Discord attachment. The Pillow render is
-        pure CPU work with no awaits in it, so it runs in a worker
-        thread via to_thread -- run inline, it would block the single
-        asyncio event loop for every game and every user for as long as
-        the render takes.
+        The board as PNG bytes. The Pillow render is pure CPU work with
+        no awaits in it, so it runs in a worker thread via to_thread --
+        run inline, it would block the single asyncio event loop for
+        every game and every user for as long as the render takes.
+
+        Bytes rather than a `discord.File`, because uploading a File
+        consumes the stream inside it: a turn that puts the same board
+        in two places (the persistent message and the snapshot under
+        the result) needs two Files over one render, not two renders.
         """
         match = self.load_match_state(game)
         home_player = format_player_with_team(
@@ -4675,9 +4822,23 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.player_catalog,
             title=title,
         )
+        return image.getvalue()
+
+    def match_file_from_png(
+        self,
+        game: D12BallGame,
+        png: bytes,
+    ) -> discord.File:
+        """One upload of an already-rendered board."""
         return discord.File(
-            image,
+            io.BytesIO(png),
             filename=f"d12ball-pbd{game.game_number}.png",
+        )
+
+    async def build_match_file(self, game: D12BallGame) -> discord.File:
+        """Render the board and wrap it for a single upload."""
+        return self.match_file_from_png(
+            game, await self.render_match_png(game),
         )
 
     async def announce_board_update(
@@ -4691,14 +4852,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         /ball move/possession/speed, /score, /time) with a fresh
         snapshot attached directly to the reply, in addition to
         keeping the persistent board message in sync.
+
+        Both show the same board, so it is rendered once and uploaded
+        twice.
         """
+        png = await self.render_match_png(game)
         snapshot = await interaction.followup.send(
             message,
-            file=await self.build_match_file(game),
+            file=self.match_file_from_png(game, png),
             wait=True,
         )
         await add_full_image_button(snapshot)
-        await self.refresh_match_image(interaction, game)
+        await self.refresh_match_image(interaction, game, png=png)
 
     async def fetch_game_channel(
         self,

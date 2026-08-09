@@ -20,6 +20,7 @@ python3 -m unittest discover -s tests
 | Path | What it is |
 | --- | --- |
 | `foolbot.py` | Bot entry point; generic deck/dice commands. Loads the cogs. |
+| `botstate.py` | The little the bot remembers between runs, in `data/bot_state.json` |
 | `botlog/` | Console logging setup, and the #logs channel mirror — see below |
 | `cogs/d12ball.py` | All D12 Ball slash commands and Discord interaction flow |
 | `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming |
@@ -141,6 +142,17 @@ new plays" in the living rules for which is which.
 - **A Block Deflect that overshoots is neither.** It flips possession and goes
   straight to the shot without calling `begin_run_back` at all; the goal or
   miss that follows is the new play.
+- **`continue_run_back` is one loop, not a recursion, and it batches.** Every
+  placement it makes without asking anyone -- the forced ones, the AI's
+  choices, the drop back that fills an empty kickoff -- goes into a list, and
+  that list is posted as a single message with a single board refresh when the
+  cascade reaches a coach's choice or runs out. It used to send a message and
+  re-upload the board per player, which after a steal that scatters a 4-1-1
+  side is a dozen-odd requests into one channel with nothing between them --
+  see "Discord's rate limits". Anything added to the cascade should append to
+  `notes` and `continue`, not send. `MAX_RUN_BACK_PASSES` bounds it: as a
+  recursion the interpreter did that, and a loop that will not settle would
+  hang the event loop for every game at once.
 
 ### The arrangement
 
@@ -229,6 +241,72 @@ Three things to know before changing any of it:
 The channel is created with whatever permissions the server's defaults give
 it. Tracebacks name game ids, channel names and command arguments, so lock
 the channel down server-side if that matters.
+
+## Discord's rate limits
+
+The bot was getting rate limited mid-game, and the cause was not one call
+site: it was that a single click fanned out into ten or twenty requests into
+one channel with nothing between them. **The fix for that is always fewer
+requests, never slower ones.** discord.py already sleeps and retries on a 429
+(the `We are being rate limited... Retrying in N seconds` line is its, at
+WARNING, so it is console-only and never reaches #logs); adding our own
+pacing on top would only make a turn take ten seconds and still spend the
+same budget. So:
+
+- **Batch what the bot does on its own, and only interrupt for a person.** A
+  cascade of automatic steps is one message and one board refresh at the end
+  of it, not one of each per step -- see `continue_run_back`. Nobody reads the
+  intermediate boards; the one worth looking at is the one where everything
+  has finished moving.
+- **Render the board once per state, not once per upload.** `render_match_png`
+  returns bytes and `match_file_from_png` wraps them, because uploading a
+  `discord.File` consumes the stream inside it. The end of a maneuver puts the
+  same board in two places (the persistent message and the snapshot under the
+  result) and so does `announce_board_update`; both draw it once and upload it
+  twice. `refresh_match_image` takes a `png=` for exactly this.
+- **A board refresh is two requests, and that is unavoidable.** Editing the
+  message uploads a new attachment, which invalidates the old one, so the
+  "View full image" link has to be re-cut in a second edit -- the URL does not
+  exist until the upload lands. Budget for two, and prefer not refreshing at
+  all over refreshing twice.
+- **Renders belong in a worker thread.** Everything that draws goes through
+  `asyncio.to_thread`; Pillow is pure CPU and blocking the loop stalls the
+  rate-limit sleeps and the gateway heartbeat along with everything else. The
+  one exception is the maneuver reference image, built once in `D12Ball.__init__`
+  before the bot is serving anything.
+- **The command tree syncs only when it changed.** `setup_hook` runs on every
+  process start, and registering global commands is heavily rate limited, so a
+  day of testing used to re-upload an identical command list dozens of times.
+  `command_tree_fingerprint` hashes the exact payload `tree.sync()` would send
+  (not the command names -- an edited description is precisely the change that
+  otherwise never arrives) and `botstate` remembers it. It is recorded only
+  after a sync succeeds. When the fingerprint cannot be built at all the gate
+  syncs, which is what it always did; `FOOLBOT_COMMAND_SYNC=always` forces it
+  when Discord's copy has drifted some other way.
+- **The application emoji are fetched once per startup.** `fetch_application_emojis`
+  makes the call and the three loaders read the same answer. `ensure_coin_emojis`
+  still retries so an upload takes effect without a restart, but no more often
+  than `EMOJI_REFETCH_INTERVAL` -- an application with none of them uploaded
+  comes up short on every toss, and the retry was an HTTP request per flip.
+- **Deleting a channel is the tightest limit there is** -- two per ten minutes
+  -- so `/debug reset_channels` is slow by nature and backs off between
+  retries (`CHANNEL_DELETE_RETRY_DELAYS`). What reaches that loop is not an
+  ordinary 429, which discord.py handles; it is a failure discord.py gave up
+  on, or a Cloudflare ban, and hammering either is how a rate limit becomes a
+  ban. A long reset also outlives its 15-minute interaction token, so the
+  summary it could not deliver goes to the console.
+
+`data/bot_state.json` is where the two "already done this" facts live -- the
+build already announced and the command tree already synced. It is untracked
+runtime state like the saved games, and local to each machine, so two
+developers deploying the same commit each announce it and each sync their own
+tree.
+
+One more `.env` variable, alongside the logging ones above:
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `FOOLBOT_COMMAND_SYNC` | off | `always` registers the commands even when the tree is unchanged |
 
 ## Working on the board image
 

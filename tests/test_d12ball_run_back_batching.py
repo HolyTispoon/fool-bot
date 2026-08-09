@@ -1,0 +1,333 @@
+"""
+How many requests a run back costs Discord.
+
+The rules of the run back are covered in test_d12ball_formations and
+test_d12ball_components; what is asserted here is the shape of the
+traffic it generates. A steal that scatters a side used to post one
+message and re-upload the whole board per player, which is a burst of
+a dozen-odd REST calls into one channel with nothing between them --
+enough to be rate limited for, and the reason discord.py was logging
+"We are being rate limited" mid-game.
+"""
+
+import unittest
+from types import SimpleNamespace
+from unittest import mock
+
+from cogs.d12ball import MAX_RUN_BACK_PASSES, D12Ball
+from d12ball.ai import build_ai_strategies
+from d12ball.components import (
+    MatchState,
+    TeamSide,
+    Zone,
+    load_basic_ruleset,
+    load_maneuver_catalog,
+    load_player_catalog,
+)
+from d12ball.game import AIOpponent, Team
+
+
+def build_interaction() -> SimpleNamespace:
+    return SimpleNamespace(
+        followup=SimpleNamespace(send=mock.AsyncMock()),
+        channel=None,
+    )
+
+
+class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+        cls.maneuvers = load_maneuver_catalog()
+
+    def build_cog(self) -> D12Ball:
+        cog = object.__new__(D12Ball)
+        cog.games = {}
+        cog.player_catalog = self.catalog
+        cog.basic_ruleset = self.rules
+        cog.maneuver_catalog = self.maneuvers
+        cog.team_emojis = {}
+        cog.condition_emojis = {}
+        cog.ai_strategies = build_ai_strategies(
+            self.catalog, self.maneuvers,
+        )
+        cog.refresh_match_image = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
+        return cog
+
+    def build_match(self) -> MatchState:
+        # Three spaces to a zone, so a zone holding two players has one
+        # to spare -- which is what makes a run back into it a choice
+        # rather than the single arrangement that gets applied silently.
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+    def build_game(self) -> SimpleNamespace:
+        # Player 2 is the AI, and holds the visiting side -- see
+        # D12Ball.side_is_ai.
+        return SimpleNamespace(
+            match_state=None,
+            game_id="g",
+            is_solo_game=True,
+            ai_opponent=AIOpponent.DINKY,
+            home_player_number=1,
+            visiting_player_number=2,
+            player_1_id=11,
+            player_2_id=None,
+            turn_message_id=None,
+        )
+
+    def scatter_visiting_side(self, match: MatchState) -> list[str]:
+        """
+        Sweep the visiting side's own-goal and midfield players down
+        into the far zone, the way a turnover deep in the other half
+        leaves them. Each of those two zones is then empty of its own
+        players with a space to spare, so every one of them is owed a
+        run back that is a real choice -- four placements, which under
+        the old code was four messages and four board uploads.
+        """
+        movers = [
+            *match.visiting.zones[Zone.HOME_GOAL],
+            *match.visiting.zones[Zone.MIDFIELD],
+        ]
+        for index, player_id in enumerate(movers):
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(
+                player_id,
+                Zone.VISITORS_GOAL,
+                index % len(match.board.spaces[Zone.VISITORS_GOAL]),
+            )
+        return movers
+
+    async def run_back(self, cog, game, match) -> SimpleNamespace:
+        interaction = build_interaction()
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.continue_run_back(interaction, game, match)
+        return interaction
+
+    async def test_the_ai_run_back_is_one_message_and_one_refresh(
+        self,
+    ) -> None:
+        cog = self.build_cog()
+        game = self.build_game()
+        match = self.build_match()
+        self.scatter_visiting_side(match)
+
+        match.pending_run_back = True
+        game.match_state = match.to_dict()
+
+        interaction = await self.run_back(cog, game, match)
+
+        # However many players moved, the channel sees one post and the
+        # board is re-uploaded once.
+        self.assertEqual(interaction.followup.send.await_count, 1)
+        self.assertEqual(cog.refresh_match_image.await_count, 1)
+
+        # And it really was a cascade: one message per placement is the
+        # behaviour being guarded against, so a scenario with only one
+        # placement would pass this test without proving anything.
+        posted = interaction.followup.send.await_args_list[0].args[0]
+        self.assertEqual(posted.count("runs back to"), 4)
+
+    async def test_every_placement_is_still_reported(self) -> None:
+        cog = self.build_cog()
+        game = self.build_game()
+        match = self.build_match()
+        movers = self.scatter_visiting_side(match)
+
+        match.pending_run_back = True
+        game.match_state = match.to_dict()
+
+        interaction = await self.run_back(cog, game, match)
+
+        posted = interaction.followup.send.await_args_list[0].args[0]
+        moved_names = [
+            self.catalog.player_by_id(player_id).name
+            for player_id in movers
+            if match.board.meeple_position(player_id)[1] != 0
+        ]
+        self.assertTrue(moved_names)
+        for name in moved_names:
+            self.assertIn(name, posted)
+        # Batched into one message, not concatenated into one line.
+        self.assertIn("runs back to", posted)
+
+    async def test_the_side_is_spread_out_by_the_end(self) -> None:
+        # The batching must not change where anyone ends up: nobody is
+        # left doubled up while their zone still has an empty space.
+        cog = self.build_cog()
+        game = self.build_game()
+        match = self.build_match()
+        self.scatter_visiting_side(match)
+
+        match.pending_run_back = True
+        game.match_state = match.to_dict()
+
+        await self.run_back(cog, game, match)
+
+        self.assertEqual(
+            cog.run_back_displaced(match, TeamSide.VISITING), [],
+        )
+        cog.finish_maneuver_resolution.assert_awaited_once()
+
+    async def test_a_coach_is_still_asked_one_at_a_time(self) -> None:
+        # The home side is a person, so the cascade stops at their
+        # first choice with a prompt rather than placing anyone.
+        cog = self.build_cog()
+        game = self.build_game()
+        match = self.build_match()
+        midfield = list(match.home.zones[Zone.MIDFIELD])
+        for player_id in midfield:
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
+
+        match.pending_run_back = True
+        game.match_state = match.to_dict()
+
+        interaction = await self.run_back(cog, game, match)
+
+        prompt = interaction.followup.send.await_args_list[-1].args[0]
+        self.assertIn("choose where", prompt)
+        cog.finish_maneuver_resolution.assert_not_awaited()
+        self.assertNotEqual(
+            cog.run_back_displaced(match, TeamSide.HOME), [],
+        )
+
+
+class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
+    """
+    As a recursion the cascade was bounded by the interpreter; as a
+    loop it is bounded by MAX_RUN_BACK_PASSES, because a spin here
+    would hang the event loop for every game at once.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+        cls.maneuvers = load_maneuver_catalog()
+
+    async def test_a_run_back_that_will_not_settle_gives_up(self) -> None:
+        cog = object.__new__(D12Ball)
+        cog.games = {}
+        cog.player_catalog = self.catalog
+        cog.team_emojis = {}
+        cog.condition_emojis = {}
+        cog.refresh_match_image = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
+        # A player who stays displaced however often they are placed.
+        cog.apply_forced_run_backs = mock.Mock()
+        cog.next_run_back_choice = mock.Mock(
+            return_value=(TeamSide.VISITING, "purple_zenith"),
+        )
+        cog.side_is_ai = mock.Mock(return_value=True)
+        cog.get_ai_strategy = mock.Mock(
+            return_value=mock.Mock(choose_run_back_space=mock.Mock(return_value=0)),
+        )
+        cog.apply_exhaustion = mock.Mock(return_value="")
+        cog.get_player_definition = mock.Mock(
+            return_value=self.catalog.player_by_id("purple_zenith"),
+        )
+
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.run_back_player = mock.Mock(return_value=0)
+        game = SimpleNamespace(
+            match_state=match.to_dict(),
+            game_id="g",
+            is_solo_game=True,
+        )
+        interaction = build_interaction()
+
+        with (
+            mock.patch("cogs.d12ball.save_games"),
+            mock.patch("cogs.d12ball.LOGGER") as logger,
+        ):
+            await cog.continue_run_back(interaction, game, match)
+
+        logger.error.assert_called_once()
+        self.assertEqual(
+            match.run_back_player.call_count, MAX_RUN_BACK_PASSES,
+        )
+        # And it still hands the turn on rather than stranding it.
+        cog.finish_maneuver_resolution.assert_awaited_once()
+
+
+class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The board that ends a maneuver goes to two places -- the persistent
+    board message and the snapshot under the result -- and used to be
+    drawn once for each.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    async def test_the_closing_board_is_drawn_once(self) -> None:
+        cog = object.__new__(D12Ball)
+        cog.games = {}
+        cog.player_catalog = self.catalog
+        cog.team_emojis = {}
+        cog.condition_emojis = {}
+        cog.render_match_png = mock.AsyncMock(return_value=b"png")
+        cog.match_file_from_png = mock.Mock(return_value="file")
+        cog.refresh_match_image = mock.AsyncMock()
+        cog.send_turn_prompt = mock.AsyncMock()
+        cog.check_for_loose_ball = mock.AsyncMock(return_value=False)
+
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        game = SimpleNamespace(
+            match_state=match.to_dict(),
+            game_id="g",
+            game_number=1,
+            home_player_number=1,
+            visiting_player_number=2,
+        )
+        interaction = SimpleNamespace(
+            followup=SimpleNamespace(
+                send=mock.AsyncMock(return_value="snapshot"),
+            ),
+        )
+
+        with (
+            mock.patch("cogs.d12ball.save_games"),
+            mock.patch(
+                "cogs.d12ball.add_full_image_button", mock.AsyncMock(),
+            ),
+        ):
+            await cog.finish_maneuver_resolution(
+                interaction, game, match,
+                distance_moved=1,
+                turnover_occurred=False,
+            )
+
+        cog.render_match_png.assert_awaited_once()
+        # And the one render reached both uploads.
+        self.assertEqual(cog.match_file_from_png.call_count, 1)
+        cog.refresh_match_image.assert_awaited_once()
+        self.assertEqual(
+            cog.refresh_match_image.await_args.kwargs["png"], b"png",
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

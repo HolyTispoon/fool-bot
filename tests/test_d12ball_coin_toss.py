@@ -10,6 +10,7 @@ from cogs.d12ball import D12Ball
 from cogs.d12ball_helpers import (
     COIN_EMOJI_FALLBACK,
     COIN_EMOJI_NAMES,
+    EMOJI_REFETCH_INTERVAL,
     EXHAUST_EMOJI_FALLBACK,
     EXHAUSTED_EMOJI_FALLBACK,
     INJURED_EMOJI_FALLBACK,
@@ -893,6 +894,80 @@ class D12BallTeamEmojiTests(unittest.TestCase):
         self.assertEqual(
             get_team_emoji(team_emojis, Team.PURPLE), "<:team_purple:100>",
         )
+
+
+class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
+    """
+    How many times a startup, and a coin toss, ask Discord for the
+    application emoji list. The answer used to be three and one, for a
+    list that changes about once a year.
+    """
+
+    class CountingBot(FakeBot):
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(*args, **kwargs)
+            self.fetches = 0
+
+        async def fetch_application_emojis(self) -> list:
+            self.fetches += 1
+            return await super().fetch_application_emojis()
+
+    def build_cog(self, bot) -> D12Ball:
+        cog = object.__new__(D12Ball)
+        cog.bot = bot
+        cog.coin_emojis = {}
+        cog.condition_emojis = {}
+        cog.team_emojis = {}
+        cog.coin_emojis_checked_at = 0.0
+        return cog
+
+    async def test_startup_fetches_the_list_once(self) -> None:
+        bot = self.CountingBot([])
+        cog = self.build_cog(bot)
+
+        await cog.cog_load()
+
+        self.assertEqual(bot.fetches, 1)
+
+    async def test_a_toss_retries_at_most_once_an_interval(self) -> None:
+        # An application with no coin emoji uploaded comes up short on
+        # every toss, so the retry has to be rate limited itself or it
+        # is one HTTP request per flip, forever.
+        bot = self.CountingBot([])
+        cog = self.build_cog(bot)
+
+        await cog.ensure_coin_emojis()
+        self.assertEqual(bot.fetches, 1)
+
+        await cog.ensure_coin_emojis()
+        await cog.ensure_coin_emojis()
+        self.assertEqual(bot.fetches, 1)
+
+        # Far enough past the interval, it is worth asking again.
+        cog.coin_emojis_checked_at -= EMOJI_REFETCH_INTERVAL + 1
+        await cog.ensure_coin_emojis()
+        self.assertEqual(bot.fetches, 2)
+
+    async def test_a_complete_set_never_refetches(self) -> None:
+        bot = self.CountingBot(
+            [
+                discord.PartialEmoji(
+                    name="3_gold_fortune", id=FORTUNE_EMOJI_ID,
+                ),
+                discord.PartialEmoji(
+                    name="3_gold_doom", id=DOOM_EMOJI_ID,
+                ),
+            ]
+        )
+        cog = self.build_cog(bot)
+
+        await cog.cog_load()
+        fetches_after_startup = bot.fetches
+
+        for _ in range(5):
+            await cog.ensure_coin_emojis()
+
+        self.assertEqual(bot.fetches, fetches_after_startup)
 
 
 if __name__ == "__main__":
