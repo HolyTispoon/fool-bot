@@ -119,7 +119,12 @@ class DiscordLogChannelHandler(logging.Handler):
         # the worker calls, so it needs no lock.
         self._last_sent: Optional[str] = None
         self._duplicates = 0
-        self._window_start = 0.0
+        # None, not 0.0: the clock _admit is passed is the loop's, which
+        # is monotonic and counts from boot on Linux. A start of 0.0
+        # would put the first window's end at 60 seconds of *uptime*
+        # rather than 60 seconds after the first record, so a bot that
+        # comes up with the machine gets a short first window.
+        self._window_start: Optional[float] = None
         self._window_count = 0
         self._suppressed = 0
 
@@ -179,6 +184,8 @@ class DiscordLogChannelHandler(logging.Handler):
         an ongoing problem does not look like it stopped. Past
         RATE_LIMIT records in a RATE_WINDOW the body is dropped and
         counted, and the count is reported once the window rolls over.
+        The first record starts the first window, whatever the clock
+        happens to read at the time.
 
         Pure over its own state and the clock it is passed, so the
         awkward sequences are unit-tested without a client.
@@ -203,7 +210,10 @@ class DiscordLogChannelHandler(logging.Handler):
             )
             self._duplicates = 0
 
-        if now - self._window_start >= self.RATE_WINDOW:
+        if (
+            self._window_start is None
+            or now - self._window_start >= self.RATE_WINDOW
+        ):
             if self._suppressed:
                 notes.append(
                     f"(suppressed {self._suppressed} log record(s) over "
