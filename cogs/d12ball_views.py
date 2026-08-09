@@ -567,8 +567,7 @@ class CoinFlipView(GameConfigurationView):
 
         self.flip_button = discord.ui.Button(
             label=(
-                "Flip a Coin! Fortune wins it, doom loses it "
-                "(this would start the game)"
+                "Flip a Coin to start the game!"
             ),
             style=discord.ButtonStyle.primary,
             emoji=format_coin_emoji(
