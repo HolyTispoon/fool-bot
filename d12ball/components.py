@@ -238,6 +238,25 @@ class BoardState:
             offset += count
         raise ValueError("Flat index is off the board.")
 
+    def is_in_shooting_range(self, side: TeamSide, index: int) -> bool:
+        """
+        Whether the space at `index` is within `side`'s **shooting
+        range** -- the far part of the field, and the only place they
+        may shoot from.
+
+        Shooting range is not a board zone: it is measured from the
+        middle of the board and cuts across midfield. A board with an
+        odd number of spaces has a true middle space, which is the
+        kickoff space, and it is in neither side's range -- comparing
+        doubled indices against the last index is what leaves it out
+        of both. Home attacks from low indices to high, the visitors
+        the other way.
+        """
+        last_index = self.layout.board_size - 1
+        if TeamSide(side) == TeamSide.HOME:
+            return 2 * index > last_index
+        return 2 * index < last_index
+
 
 @dataclass(frozen=True)
 class DieDefinition:
@@ -730,6 +749,25 @@ class MatchState:
             else 0
         )
         return self.ball.space_index == closest_space
+
+    def can_attempt_score(self, side: Optional[TeamSide] = None) -> bool:
+        """
+        Whether a shot at goal is legal from where the ball is: only
+        from within the shooting team's range (see "Score attempt" in
+        the living rules). `side` is who would be shooting, defaulting
+        to the team in possession; the maneuver effects pass theirs
+        explicitly, since they read the offense once at the top and
+        resolve the whole effect against it.
+
+        This governs a set-up's shot as much as the ordinary turn's,
+        because a set-up sends a player into an ordinary score
+        attempt: what the set-up buys is the shot out of turn, not a
+        shot from anywhere.
+        """
+        return self.board.is_in_shooting_range(
+            self.ball.possession if side is None else side,
+            self.board.flat_index(self.ball.zone, self.ball.space_index),
+        )
 
     def own_goal_restart_space(self, side: TeamSide) -> tuple[Zone, int]:
         """

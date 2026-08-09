@@ -1008,6 +1008,15 @@ class BallHandlerSelectionView(SafeView):
 
 
 class PlayerActionView(SafeView):
+    """
+    The turn's choice: shoot, or maneuver. **Shooting is only offered
+    from within shooting range**, so short of it a coach is left with
+    the one button -- see `MatchState.can_attempt_score` and
+    `D12Ball.build_turn_prompt`, which says why the shot is missing.
+    Rebuilt from match state on every restart like every other
+    persistent view here, so the ball's position always decides afresh.
+    """
+
     def __init__(
         self,
         cog: "D12Ball",
@@ -1018,18 +1027,29 @@ class PlayerActionView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
-        for label, action, style in (
-            (
-                "Shoot to score",
-                "shoot",
-                discord.ButtonStyle.danger,
-            ),
+        game = cog.games.get(game_id)
+        can_shoot = True
+        if game is not None and game.match_state is not None:
+            can_shoot = cog.load_match_state(game).can_attempt_score()
+
+        actions = [
             (
                 "Maneuver",
                 "maneuver",
                 discord.ButtonStyle.primary,
             ),
-        ):
+        ]
+        if can_shoot:
+            actions.insert(
+                0,
+                (
+                    "Shoot to score",
+                    "shoot",
+                    discord.ButtonStyle.danger,
+                ),
+            )
+
+        for label, action, style in actions:
             button = discord.ui.Button(
                 label=label,
                 style=style,
@@ -1085,6 +1105,16 @@ class PlayerActionView(SafeView):
             return
 
         if action == "shoot":
+            # The button is only built when the shot is legal, so this
+            # is a click on a prompt the ball has since moved out from
+            # under -- the same stale-view guard the other choices keep.
+            if not match.can_attempt_score():
+                await interaction.response.send_message(
+                    "The ball is out of shooting range.",
+                    ephemeral=True,
+                )
+                return
+
             match.pending_action = "shoot"
             game.match_state = match.to_dict()
             save_games(self.cog.games)

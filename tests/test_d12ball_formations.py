@@ -576,20 +576,24 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
             for player_id in match.home.field_players
             if cog.get_player_definition(player_id).role == PlayerRole.WINGER
         )
+        # The far midfield space, M3: within home's shooting range,
+        # which is where a Winger's set-up can offer a shot at all
+        # (2026-08-09). The
+        # standard setup leaves it empty, so every receiver here is put
+        # there deliberately -- one more than `extras`, since a stack
+        # of one is still a space with a teammate on it.
         others = [
             player_id
             for player_id in match.home.field_players
             if player_id != winger
-        ][:extras]
+        ][:extras + 1]
         for player_id in [winger] + others:
             match.board.remove_meeple(player_id)
-            match.board.place_meeple(player_id, Zone.MIDFIELD, 1)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, 2)
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.set_ball_space(Zone.MIDFIELD, 2)
         match.active_player_id = winger
         game.match_state = match.to_dict()
-        # Whoever the standard setup already had on that space counts
-        # too, so ask rather than assume.
         return cog, game, match, cog.low_pass_receivers(match, 0)
 
     def test_a_shared_destination_is_labelled_by_its_count(self) -> None:
@@ -601,7 +605,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         ]
 
         # Naming one of three would misread what is being picked.
-        self.assertIn(f"{len(others)} players -- M2", labels)
+        self.assertIn(f"{len(others)} players -- M3", labels)
 
     async def test_the_passer_is_asked_which_teammate_receives(
         self,

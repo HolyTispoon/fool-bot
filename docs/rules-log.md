@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-08.
+**As of:** 2026-08-09.
 
 ## Where the rules come from
 
@@ -54,6 +54,28 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-09 -- author, a shot may only be taken from within shooting range
+
+- **A score attempt now needs the ball in the far part of the field.** It used to be
+  available from wherever the ball was, which made a shot from a team's own goal zone a legal
+  (if hopeless) turn. A team that has not carried the ball past the middle of the field now
+  has only a maneuver to make.
+- **The boundary is the middle of the board, not a zone boundary.** So a team's range is the
+  far part of midfield plus the goal zone it attacks, and on boards 7 and 9 -- the odd-sized
+  ones -- the middle space is in nobody's range. The author's call: no shot may be taken from
+  it. That space is also the kickoff space, which means no restart ever begins in range.
+- **It is called shooting range, not a half**, the author's call on the wording. The region
+  is not literally half the field on the standard 7-space board -- three spaces of seven --
+  so calling it one misread the rule, and "zone" was already taken by the three board zones.
+- **Set-ups are bound by it too**, also the author's call. A scoring opportunity sends a
+  player into an ordinary score attempt, so what it buys is the shot *out of turn*, not a
+  shot from anywhere: a High Pass of 2 or a Winger's Low Pass landing short of range sets
+  nothing up and resolves as the pass it was. A Block Deflect that overshoots is unaffected
+  in practice -- the ball has reached the space closest to the offense's own goal, which is
+  always deep in the deflecting team's range.
+- **Board 6 has no neutral space**, its six spaces splitting three and three, and its kickoff
+  space sits behind the kicking team's own range.
 
 ### 2026-08-08 (later again) -- author, the three basic-mode shapes are 2-2-2, 2-3-1 and 1-3-2
 
@@ -424,6 +446,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Nothing about formations, and a fixed two cards per zone | Games kick off 2-2-2; rearranging can move a team into 2-3-1 or 1-3-2 |
 | A pass to the ball's own space names one player | The passer picks, when more than one teammate is standing there |
 | Nothing about a Low Pass with no legal destination | The ball goes a space forward, loose, speed still +1 |
+| A score attempt from wherever the ball is | Only from within shooting range, set-ups included |
 
 ---
 

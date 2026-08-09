@@ -1357,8 +1357,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # Role ability -- Winger: the receiving player may attempt a
         # scoring opportunity right where the pass lands, whatever the
         # distance -- unlike High Pass's set-up, this doesn't require
-        # reaching the space nearest the goal.
-        if handler.role != PlayerRole.WINGER:
+        # reaching the space nearest the goal. It does require shooting
+        # range, like any other shot: the ability frees the set-up from
+        # a distance, not from where a goal can be scored from.
+        if handler.role != PlayerRole.WINGER or not match.can_attempt_score(
+            offense_side,
+        ):
             await self.refresh_match_image(interaction, game)
             await self.finish_maneuver_resolution(
                 interaction,
@@ -1535,7 +1539,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # pass never offers it, whether or not it happens to overshoot.
         setup_candidates = []
         if distance == 2:
-            setup_candidates = self.scoring_opportunity_candidates(
+            setup_candidates = self.set_up_shot_candidates(
                 match, offense_side,
             )
 
@@ -1561,6 +1565,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         receiver_candidates = self.scoring_opportunity_candidates(
             match, offense_side,
         )
+
+        # A 2-space pass that found its receiver but not shooting range
+        # is just a pass: it was received cleanly, and the only thing
+        # the range rule takes away is the shot. Falling through would
+        # hand it to the long-pass contest below, which a pass of 2 has
+        # never had to win.
+        if distance == 2 and receiver_candidates:
+            await self.refresh_match_image(interaction, game)
+            await self.finish_maneuver_resolution(
+                interaction, game, match, distance_moved=actual_distance,
+                lead_in=content,
+            )
+            return
+
         if not receiver_candidates:
             await self.refresh_match_image(interaction, game)
             await self.finish_maneuver_resolution(
@@ -1661,6 +1679,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.finish_maneuver_resolution(
             interaction, game, match, distance_moved=distance_moved,
         )
+
+    def set_up_shot_candidates(
+        self,
+        match: MatchState,
+        offense_side: TeamSide,
+    ) -> list[str]:
+        """
+        Who could take a set-up's shot where the ball has landed:
+        `scoring_opportunity_candidates`, and nobody at all unless the
+        ball is within shooting range, since a set-up's shot is an
+        ordinary score attempt and obeys the same rule about where a
+        shot may be taken from.
+
+        The two are separate because only some callers of
+        `scoring_opportunity_candidates` are asking about a shot -- a
+        long High Pass asks it to find the receiver who has to contest
+        for the ball, and that has nothing to do with where the goal
+        is.
+        """
+        if not match.can_attempt_score(offense_side):
+            return []
+        return self.scoring_opportunity_candidates(match, offense_side)
 
     def scoring_opportunity_candidates(
         self,
@@ -2264,6 +2304,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{match.ball.speed}."
         )
 
+        # A shot has to be within shooting range, and this one always
+        # is: an overshoot means the ball reached the space closest to
+        # the offense's own goal, which is as deep into the deflecting
+        # team's range as the field goes. So this asks
+        # scoring_opportunity_candidates rather than
+        # set_up_shot_candidates -- the range check could never fail
+        # here, and a branch that cannot be taken reads as if it could.
         candidates = []
         if overshot:
             candidates = self.scoring_opportunity_candidates(
@@ -4835,10 +4882,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         handler = self.format_roster_player(match.active_player_id)
+        # PlayerActionView drops the shoot button short of shooting
+        # range, so say why rather than leaving a coach to wonder where
+        # it went.
+        action_line = (
+            "Choose an action:"
+            if match.can_attempt_score()
+            else (
+                "The ball is out of shooting range, so there is no shot "
+                "from here -- only a maneuver:"
+            )
+        )
         return (
             f"{controller}, it is your turn.\n\n"
             f"{handler} will be handling the ball.\n\n"
-            "Choose an action:"
+            f"{action_line}"
         )
 
     async def play_ai_turn(

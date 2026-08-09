@@ -2039,10 +2039,12 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             for player_id in match.home.field_players
             if player_id != winger
         ][:2]
+        # The far midfield space: within home's shooting range, so a
+        # shot is legal from it at all (2026-08-09).
         for player_id in (winger, first, second):
-            match.move_meeple(player_id, Zone.MIDFIELD, 1)
+            match.move_meeple(player_id, Zone.MIDFIELD, 2)
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.set_ball_space(Zone.MIDFIELD, 2)
         match.active_player_id = winger
 
         game = SimpleNamespace(game_id="g", match_state=None)
@@ -2209,9 +2211,11 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.clear_board(match)
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.MIDFIELD, 1)
-        match.move_meeple(handler, Zone.MIDFIELD, 1)
-        match.move_meeple(receiver, Zone.MIDFIELD, 1)
+        # The far midfield space: within home's shooting range, so a
+        # shot is legal from it at all (2026-08-09).
+        match.set_ball_space(Zone.MIDFIELD, 2)
+        match.move_meeple(handler, Zone.MIDFIELD, 2)
+        match.move_meeple(receiver, Zone.MIDFIELD, 2)
         # The passer is the space's first occupant, so taking the
         # first eligible handler would pick them rather than the
         # player the pass was aimed at.
@@ -2406,8 +2410,9 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         """
         The scoring-opportunity offer no longer requires the pass to
         overshoot the field -- an exact 2-space pass that lands on a
-        teammate mid-board offers it too, same as one that reaches the
-        edge.
+        teammate short of the edge offers it too. It does have to land
+        within shooting range, which is where a shot may be taken
+        from at all (2026-08-09).
         """
         cog = self.build_cog()
         match = self.build_match()
@@ -2416,9 +2421,15 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.HOME_GOAL, 0)  # flat 0, plenty of room
+        match.set_ball_space(Zone.MIDFIELD, 1)  # flat 4, the middle space
         shooter = match.home.field_players[0]
-        match.move_meeple(shooter, Zone.HOME_GOAL, 2)  # flat 2, landing space
+        # flat 6, the landing space: the visitors' half, two short of
+        # the edge. The standard setup already has someone there, and
+        # the set-up names the space's first occupant, so clear it.
+        for player_id in list(match.board.spaces[Zone.VISITORS_GOAL][0]):
+            if player_id in match.home.field_players:
+                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+        match.move_meeple(shooter, Zone.VISITORS_GOAL, 0)
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
@@ -2426,7 +2437,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             await cog.apply_high_pass(interaction, game, match, 2)
 
         self.assertEqual(
-            (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
+            (match.ball.zone, match.ball.space_index),
+            (Zone.VISITORS_GOAL, 0),
         )
         cog.begin_loose_ball.assert_not_awaited()
         cog.offer_scoring_attempt_choice.assert_awaited_once()

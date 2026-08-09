@@ -147,6 +147,45 @@ succeeds outright -- see "Maneuver" in the living rules. `MatchState`'s
   they always read. What is skipped is the challenger pick, the matchup image
   (it draws two players against each other), the reveal, and the skill test.
 
+## Where a shot may be taken from
+
+A team may only shoot from within **shooting range** -- see "Score attempt" and
+"Shooting range" in the living rules. `MatchState.can_attempt_score` is the
+whole rule, over `BoardState.is_in_shooting_range`.
+
+- **Shooting range is not a zone**, and is deliberately not called a half
+  either. It is measured from the middle of the board and cuts across midfield,
+  so it is the far part of midfield plus the goal zone a team attacks -- three
+  spaces of seven on the standard board, which is why "half" was the wrong word
+  for it. On an odd-sized board (7 and 9) the middle space is in *nobody's*
+  range, which is why the geometry compares doubled indices against the last
+  index rather than dividing. That space is also the kickoff space, so no
+  restart ever begins in range.
+- **A set-up's shot obeys it too.** A scoring opportunity sends a player into an
+  ordinary score attempt, so what it buys is the shot out of turn, not a shot
+  from anywhere. `set_up_shot_candidates` is `scoring_opportunity_candidates`
+  plus the range check, and the two are separate because only some callers are
+  asking about a shot -- a long High Pass asks the latter to find the receiver
+  who has to contest for the ball, which has nothing to do with where the goal
+  is.
+- **A 2-space High Pass that lands short of range is still received.** The range
+  rule takes away the shot, not the catch. The set-up branch and the long-pass
+  contest are the same landing space asked two different questions, so a pass of
+  2 that is refused a set-up has to resolve as an ordinary pass rather than fall
+  through to a contest it has never had to win.
+- **A Block Deflect that overshoots is the one set-up the rule cannot bite.** It
+  puts the ball on the space closest to the offense's own goal, always deep in
+  the deflecting team's range, so it asks `scoring_opportunity_candidates`
+  directly -- a branch that can never be taken reads as if it could.
+- **Nothing gates `begin_score_attempt` itself.** The rule is enforced where the
+  shot is *chosen*: `PlayerActionView` omits the button (and `build_turn_prompt`
+  says why), `choose_action` refuses a stale click, `DinkyAI` only ever shoots
+  from the scoring space, and the set-ups ask `set_up_shot_candidates`.
+- **The board image draws where range begins**, in `draw_shooting_range_edges`
+  -- one dash column on board 6, two on 7 and 9 bracketing the space in nobody's
+  range. The rule is positional and the board is where both coaches read
+  position.
+
 ## Turnovers: steals and new plays
 
 Every turnover resets the ball's speed and puts players back in position, but
