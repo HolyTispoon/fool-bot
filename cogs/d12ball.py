@@ -848,8 +848,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         An uncontested maneuver wins whatever the offense picked, injured
         or not: there is no opponent to be disadvantaged against, and no
-        challenge to lose. See "The maneuver with nobody to challenge
-        it" in CLAUDE.md, and the open question in docs/rules-log.md.
+        challenge to lose. A tie where both participants are injured is
+        an ordinary tie for the same reason -- the disadvantage is
+        measured against a healthy opponent. Both are the author's
+        (2026-08-09); see "The maneuver with nobody to challenge it" in
+        CLAUDE.md.
         """
         if match.maneuver_uncontested:
             return match.offense_maneuver

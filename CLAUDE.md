@@ -169,9 +169,16 @@ rules for why the ranking is no longer the whole story.
   There are four ways a maneuver lands and each reads differently, but which
   one is a *win* is not decided there.
 - **An uncontested maneuver wins whatever the offense picked, injured or
-  not** -- no opponent to be disadvantaged against, no challenge to lose. That
-  case postdates the disadvantage rule, so it is flagged in the rules log
-  rather than assumed.
+  not** -- no opponent to be disadvantaged against, no challenge to lose. Same
+  for a tie where *both* participants are injured: it is an ordinary tie,
+  because the disadvantage is measured against a healthy opponent. Both cases
+  postdate the disadvantage rule and both are the author's, confirmed
+  2026-08-09.
+- **Injury also withholds a role's ability modifier from a roll**, which is a
+  separate thing this predicate has nothing to do with -- it changes totals,
+  not winners, and lives at each roll (`SkillTestView.roll`). An injured player
+  keeps their skill and any modifier the roll itself grants, notably ball
+  speed.
 
 ## Where a shot may be taken from
 

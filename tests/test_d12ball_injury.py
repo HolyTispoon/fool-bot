@@ -27,6 +27,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.components import PlayerRole
 from d12ball.game import D12BallGame, GameStatus, Team
 
 
@@ -203,6 +204,77 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             cog.begin_effect_resolution.await_args.args[3], "Low Pass",
         )
+
+
+class InjuredAbilityModifierTests(unittest.IsolatedAsyncioTestCase):
+    """
+    "Add no ability modifier to any roll they make" -- an injured
+    player keeps their skill and any modifier the roll itself grants,
+    and loses only their own role's bonus. The Midfielder's +3 on a
+    Low Pass or Pressure skill test is the only ability that lands on
+    a skill test, so it is the whole of what this can withhold there.
+    """
+
+    def build(self, injure_midfielder: bool):
+        cog = build_cog()
+        cog.run_injury_test = mock.AsyncMock()
+        game = build_game()
+        cog.games[game.game_id] = game
+        match = cog.initialize_standard_match(game)
+
+        midfielder = next(
+            player_id
+            for player_id in match.home.field_players
+            if cog.get_player_definition(player_id).role
+            == PlayerRole.MIDFIELDER
+        )
+        match.active_player_id = midfielder
+        match.challenger_id = match.visiting.field_players[0]
+        match.offense_maneuver = "Low Pass"
+        match.defense_maneuver = "Block Deflect"
+        if injure_midfielder:
+            match.injured.add(midfielder)
+        game.match_state = match.to_dict()
+        return cog, game, midfielder
+
+    async def roll(self, cog, game):
+        interaction = SimpleNamespace(
+            user=SimpleNamespace(id=game.player_1_id),
+            response=SimpleNamespace(
+                defer=mock.AsyncMock(),
+                send_message=mock.AsyncMock(),
+            ),
+            edit_original_response=mock.AsyncMock(),
+            followup=SimpleNamespace(send=mock.AsyncMock()),
+        )
+        view = SkillTestView(cog, game.game_id)
+        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+            "cogs.d12ball_views.discord.File",
+        ), mock.patch(
+            "cogs.d12ball_views.random.randint", return_value=7,
+        ), mock.patch(
+            "cogs.d12ball_views.render_skill_test_dice",
+        ) as render:
+            await view.roll(interaction)
+        # The offense entry: (roll, colour, team, detail lines, total).
+        return render.call_args.args[0][0]
+
+    async def test_a_healthy_midfielder_adds_their_ability(self) -> None:
+        cog, game, _ = self.build(injure_midfielder=False)
+        _, _, _, detail, total = await self.roll(cog, game)
+
+        self.assertIn("+3 Midfielder ability", detail)
+        # d12 of 7, offensive skill 3, ability +3.
+        self.assertEqual(total, 13)
+
+    async def test_an_injured_midfielder_does_not(self) -> None:
+        cog, game, _ = self.build(injure_midfielder=True)
+        _, _, _, detail, total = await self.roll(cog, game)
+
+        self.assertNotIn("+3 Midfielder ability", detail)
+        # The skill survives; only the role's own bonus is withheld.
+        self.assertEqual(total, 10)
+        self.assertIn("Offensive skill +3", detail)
 
 
 class SettledWinnerRestoreTests(unittest.TestCase):

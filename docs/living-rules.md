@@ -707,6 +707,18 @@ count** they are safe. Otherwise they are injured.
     resolves instead, even though it lost the ranking.
   - That skill test is an ordinary one in every other respect. In particular **a tied total is
     re-rolled**, as usual, until the test is decided;
+  - **Both injured is neither disadvantaged.** When both participants are injured the tie is an
+    ordinary tie and a decisive maneuver an ordinary win, because the disadvantage is measured
+    against a healthy opponent and there is not one.
+  - **An unchallenged maneuver still succeeds outright.** With no defender in the ball's zone
+    there is nobody to tie with and no test they can be made to roll, so neither half of this
+    bites;
+- **add no ability modifier to any roll they make.** They still add their skill, and still get
+  any game modifier the roll grants -- notably the [ball speed modifier](#ball-speed) for
+  keeping a long [High Pass](#high-pass). What they lose is their own role's bonus, such as a
+  Midfielder's +3 on a Low Pass or Pressure [skill test](#4-skill-test-when-they-tie). This
+  holds wherever they roll: a skill test, keeping a long High Pass, and contesting a
+  [loose ball](#loose-ball);
 - **do not have to be substituted.** Nothing compels their team to get them off. A coach may
   leave an injured player on the field, disadvantaged, for the rest of the game, and spend
   their declaration on something else;
@@ -829,8 +841,9 @@ Each coach secretly arranges their team of six players in any order they wish. O
 is set they may look at it but not reorder it.
 
 Both coaches then reveal their top card simultaneously. Those two players roll a skill test,
-each adding their **offensive** skill -- an injured player is disadvantaged and adds nothing.
-The winner scores a goal; a tie scores for nobody.
+each adding their **offensive** skill. An injured player is
+[disadvantaged](#exhaustion-and-injury) here as anywhere: they still add their skill, but no
+ability modifier. The winner scores a goal; a tie scores for nobody.
 
 This repeats for all six players, unless one team is already ahead by more goals than the
 other can still score with the attempts remaining (leading 4-1 after five, there is no need to

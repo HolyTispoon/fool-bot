@@ -1651,11 +1651,16 @@ class SkillTestView(SafeView):
         defense_total = defense_roll + defense_skill
 
         # Role ability -- Midfielder: +3 on a skill test when
-        # attempting Low Pass (offense) or Pressure (defense).
+        # attempting Low Pass (offense) or Pressure (defense). An
+        # injured player adds no ability modifier to any roll (see
+        # "Injured players" in docs/living-rules.md); their skill and
+        # the ball speed modifier below are untouched, so this is the
+        # only term injury withholds here.
         offense_ability_detail = ""
         if (
             offense_player.role == PlayerRole.MIDFIELDER
             and match.offense_maneuver == "Low Pass"
+            and offense_player.player_id not in match.injured
         ):
             offense_total += 3
             offense_ability_detail = "+3 Midfielder ability"
@@ -1664,6 +1669,7 @@ class SkillTestView(SafeView):
         if (
             defense_player.role == PlayerRole.MIDFIELDER
             and match.defense_maneuver == "Pressure"
+            and defense_player.player_id not in match.injured
         ):
             defense_total += 3
             defense_ability_detail = "+3 Midfielder ability"
@@ -4392,6 +4398,14 @@ class LooseBallSkillTestView(SafeView):
         # A High Pass's receiver adds the ball speed modifier to keep
         # what the pass delivered (2026-08-07). A genuine loose ball is
         # nobody's yet, so neither side gets it there.
+        #
+        # An injured contestant still gets this: what injury withholds
+        # is a role's own bonus, not a modifier the roll grants (see
+        # "Injured players" in docs/living-rules.md). No ability
+        # modifies a contest today -- the two that are numbers are the
+        # Midfielder's, on a maneuver skill test, and the Striker's, on
+        # a set-up score attempt -- so there is nothing here to
+        # withhold. One added later has to check match.injured.
         modifier_detail = []
         if match.pending_loose_ball_is_high_pass:
             modifier = match.ball.speed // 2

@@ -47,23 +47,16 @@ and the Exhausted / Injured layer is a later piece, rather than assuming it done
 
 ### Four edge cases in the injured player's maneuver disadvantage
 
-The 2026-08-09 answer settles the disadvantage for one injured player facing a healthy one,
-which is the case that comes up. Three neighbours of it are still assumed rather than
-answered, and `settled_maneuver_winner` in `cogs/d12ball.py` currently reads them this way:
+### Does an injured player lose their ability modifier on a score attempt too?
 
-- **A tie between two injured players is an ordinary tie** -- a real skill test, as if neither
-  were injured -- on the reasoning that the disadvantage is relative to a healthy opponent and
-  cancels out when both sides carry it. Taken literally the new wording says each of them
-  loses, which cannot be what it means.
-- **An injured player's uncontested maneuver still succeeds outright.** With no defender in
-  the ball's zone there is nobody to tie with and no test to be made to roll, so neither half
-  of the disadvantage has anything to bite on. The unchallenged maneuver did not exist when
-  the disadvantage was first written down.
-- **Being injured does not affect a contest** -- the long High Pass contest, or a loose ball.
-  "Disadvantaged" is spelled out for maneuvers (above) and for the extreme shootout, where an
-  injured player adds nothing to their roll; a contest is a third kind of roll and the rules
-  say nothing about it either way. The code treats an injured contestant as ordinary. If the
-  shootout's "adds nothing" is meant to generalise, this is where it would land.
+The 2026-08-09 clarifications settle the disadvantage for skill tests and contests: an injured
+player adds no ability modifier to a roll. The only ability that is a number on a *score
+attempt* is the Striker's +3 off a set-up, and a score attempt is neither a challenge nor a
+contest -- it is also the one roll the rules already single out as never triggering an injury
+check. So the code leaves the Striker's +3 alone for an injured shooter, on the reading that
+"disadvantaged" is about being contested rather than about shooting. If the intent is that an
+injured player loses every role bonus everywhere, `cogs/d12ball.py:4591` and
+`cogs/d12ball_views.py:1855` are the two places to change.
 
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
@@ -76,6 +69,9 @@ Newest first. Each entry says where the change came from: a pull from the sheet 
 the author directly.
 
 ### 2026-08-09 (later the same day) -- author, the injured player's disadvantage spelled out
+
+*Two rounds of clarification the same day, folded into one entry: the two maneuver clauses
+first, then the edge cases and what the disadvantage does to a roll.*
 
 - **No rule changed here; the wording did.** "They automatically lose a challenge, and must win
   a skill test even when their maneuver beats their opponent's outright" has stood since the
@@ -96,9 +92,24 @@ the author directly.
 - **The automatic loss costs no token**, which follows rather than being decided: the token is
   what a player pays for entering the test, and no test is entered. Worth knowing it is a
   derivation if the author ever prices the auto-loss differently.
-- Three neighbouring cases are still assumed rather than answered -- two injured players tying,
-  an injured player's unchallenged maneuver, and whether the disadvantage reaches a contest.
-  They are in [Still open](#still-open).
+- **Both participants injured is neither of them disadvantaged**, confirmed by the author: the
+  tie is an ordinary tie and a decisive maneuver an ordinary win. Read literally the wording
+  above says each of them loses the tie, which is why this is now stated rather than left to
+  be worked out.
+- **An unchallenged maneuver still succeeds outright**, injured or not, also confirmed: with
+  no defender in the ball's zone there is nobody to tie with and no test they can be made to
+  roll. The unchallenged maneuver postdates the disadvantage, so this had been an assumption.
+- **The disadvantage on a roll is the loss of the ability modifier, and only that.** An
+  injured player still adds their skill and still gets any modifier the roll itself grants --
+  the ball speed modifier for keeping a long High Pass is the case the author named. This
+  replaces "adds nothing", which the extreme shootout had said and which was too strong: it
+  would have taken the ball speed modifier with it. What is withheld is the role's own bonus.
+  - **It reaches skill tests and both contests.** In the code today that is exactly one term:
+    the Midfielder's +3 on a Low Pass or Pressure skill test. No ability modifies a loose ball
+    or a High Pass contest at all, so the rule is future-proofing there rather than a change,
+    and `LooseBallSkillTestView` says so where an ability would be added.
+  - The Striker's +3 off a set-up is a score attempt, not a challenge, and is left alone --
+    see [Still open](#still-open).
 
 ### 2026-08-09 -- author, a shot may only be taken from within shooting range
 
