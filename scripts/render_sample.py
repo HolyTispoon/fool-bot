@@ -23,8 +23,12 @@ from d12ball.components import (  # noqa: E402
     load_basic_ruleset,
     load_player_catalog,
 )
+from d12ball.components import TeamSide  # noqa: E402
 from d12ball.game import VALID_BOARD_SIZES, Formation, Team  # noqa: E402
-from d12ball.render import render_match_image  # noqa: E402
+from d12ball.render import (  # noqa: E402
+    render_coaching_image,
+    render_match_image,
+)
 from gamesaves.d12ball.storage import load_games  # noqa: E402
 
 
@@ -119,6 +123,14 @@ def main() -> None:
         help="Override the title drawn across the top of the image.",
     )
     parser.add_argument(
+        "--coaching",
+        choices=[side.value for side in TeamSide],
+        help=(
+            "Render that side's Coaching Choice image -- their own half "
+            "of the field, their meeples only -- instead of the board."
+        ),
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         default=DEFAULT_OUTPUT,
@@ -147,11 +159,26 @@ def main() -> None:
         )
         label = "Sample"
 
-    title = arguments.title or (
-        f"{label} - {match.home.team.value.title()} vs. "
-        f"{match.visiting.team.value.title()}, {period_label(match)}"
-    )
-    image = render_match_image(match, catalog, title=title)
+    if arguments.coaching:
+        side = TeamSide(arguments.coaching)
+        setup = match.setup_for_side(side)
+        image = render_coaching_image(
+            match,
+            catalog,
+            side,
+            title=arguments.title or (
+                f"{setup.team.value.title()} ({side.value.title()})"
+            ),
+        )
+    else:
+        image = render_match_image(
+            match,
+            catalog,
+            title=arguments.title or (
+                f"{label} - {match.home.team.value.title()} vs. "
+                f"{match.visiting.team.value.title()}, {period_label(match)}"
+            ),
+        )
 
     arguments.out.parent.mkdir(parents=True, exist_ok=True)
     arguments.out.write_bytes(image.getvalue())

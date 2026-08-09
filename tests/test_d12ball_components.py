@@ -20,25 +20,32 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.game import Team
+from d12ball.game import Formation, Team
 from d12ball.render import (
+    COACHING_BOARD_LEFT,
+    COACHING_BOARD_RIGHT,
+    COACHING_HEIGHT,
+    COACHING_WIDTH,
     FONT_BODY,
     FONT_DIR,
     FONT_HEADING,
     FONT_SCORE,
     FONT_SMALL,
     FONT_TITLE,
+    MEEPLE_SIZE,
     PORTRAIT_IMAGE_SIZE,
     fit_meeple_labels,
     OWN_GOAL_DIE_RADIUS,
     SKILL_TEST_DIE_RADIUS,
     load_font,
+    render_coaching_image,
     render_injury_test_die,
     render_own_goal_dice,
     render_skill_test_dice,
     render_maneuver_reference_image,
     render_match_image,
     render_player_portrait,
+    zone_bounds_between,
 )
 
 
@@ -972,6 +979,62 @@ class D12BallComponentTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
             self.assertEqual(image.size, (3300, 1920))
+
+    def test_the_coaching_image_renders_one_side_only(self) -> None:
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+        )
+        image_data = render_coaching_image(
+            match, self.catalog, TeamSide.HOME, title="Orange (Home)",
+        )
+
+        with Image.open(image_data) as image:
+            self.assertEqual(image.format, "PNG")
+            self.assertEqual(
+                image.size, (COACHING_WIDTH, COACHING_HEIGHT),
+            )
+
+    def test_a_stacked_coaching_space_still_fits_its_meeples(self) -> None:
+        # Board 6's two-space midfield under 2-3-1 is the only place a
+        # Coaching Choice can put two of a side's meeples on one space,
+        # and the coaching image's width is chosen to fit exactly that
+        # -- see COACHING_WIDTH. If a future board or shape stacks more,
+        # or the image narrows, the tokens start overlapping the space
+        # border and this is the check that notices.
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=6,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+            home_formation=Formation.TWO_THREE_ONE,
+        )
+        bounds = zone_bounds_between(
+            match, COACHING_BOARD_LEFT, COACHING_BOARD_RIGHT,
+        )
+        deepest = max(
+            len(
+                [
+                    player_id
+                    for player_id in occupants
+                    if player_id in set(match.home.field_players)
+                ]
+            )
+            for zone in Zone
+            for occupants in match.board.spaces[zone]
+        )
+        self.assertEqual(deepest, 2)
+
+        narrowest = min(
+            (right - left) / len(match.board.spaces[zone])
+            for zone, (left, right) in bounds.items()
+        )
+        stack_width = deepest * MEEPLE_SIZE + (deepest - 1) * 3
+        self.assertLess(stack_width, narrowest - 20)
 
     def test_meeple_names_shrink_to_fit_a_stacked_space(self) -> None:
         # A formation can put a whole zone's players on one space, so
