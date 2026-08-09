@@ -576,8 +576,9 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
             for player_id in match.home.field_players
             if cog.get_player_definition(player_id).role == PlayerRole.WINGER
         )
-        # The far midfield space, M3: past the midline, which is where
-        # a Winger's set-up can offer a shot at all (2026-08-09). The
+        # The far midfield space, M3: within home's shooting range,
+        # which is where a Winger's set-up can offer a shot at all
+        # (2026-08-09). The
         # standard setup leaves it empty, so every receiver here is put
         # there deliberately -- one more than `extras`, since a stack
         # of one is still a space with a teammate on it.

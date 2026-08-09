@@ -1,14 +1,14 @@
 """
-A shot may only be taken from the other team's half.
+A shot may only be taken from within shooting range.
 
 The rule is one predicate -- MatchState.can_attempt_score -- and these
 cover the geometry it rests on and the three places it is enforced: the
-turn's own shoot button, a High Pass of 2, and a Winger's Low Pass. The
-halfway line runs down the middle of the *board*, so a team's half is
-its goal zone plus the near part of midfield, and an odd-sized board's
-middle space belongs to neither side.
+turn's own shoot button, a High Pass of 2, and a Winger's Low Pass.
+Range is measured from the middle of the *board*, so it is the far part
+of midfield plus the goal zone a team attacks, and an odd-sized board's
+middle space is in nobody's range.
 
-See "Score attempt" and "Halves" in docs/living-rules.md.
+See "Score attempt" and "Shooting range" in docs/living-rules.md.
 """
 
 import unittest
@@ -82,7 +82,7 @@ def build_interaction() -> SimpleNamespace:
     )
 
 
-class ShootingHalfGeometryTests(unittest.TestCase):
+class ShootingRangeGeometryTests(unittest.TestCase):
     """Which spaces each side may shoot from, board by board."""
 
     @classmethod
@@ -105,12 +105,12 @@ class ShootingHalfGeometryTests(unittest.TestCase):
         return [
             index
             for index in range(match.board.layout.board_size)
-            if match.board.is_in_attacking_half(side, index)
+            if match.board.is_in_shooting_range(side, index)
         ]
 
-    def test_each_side_may_shoot_only_from_beyond_the_midline(self) -> None:
+    def test_each_side_may_shoot_only_from_beyond_the_middle(self) -> None:
         # Home attacks the high indices, the visitors the low ones, and
-        # on 7 and 9 the true middle space is in neither half.
+        # on 7 and 9 the true middle space is in nobody's range.
         expected = {
             6: ([3, 4, 5], [0, 1, 2]),
             7: ([4, 5, 6], [0, 1, 2]),
@@ -126,15 +126,15 @@ class ShootingHalfGeometryTests(unittest.TestCase):
                     self.shooting_spaces(match, TeamSide.VISITING), visiting,
                 )
 
-    def test_a_half_is_more_than_the_zone_a_team_defends(self) -> None:
-        # The line is the middle of the board, not a zone boundary: the
-        # near part of midfield is a team's own half, and its far part
-        # is shooting ground.
+    def test_range_is_more_than_the_zone_a_team_attacks(self) -> None:
+        # The edge is the middle of the board, not a zone boundary: the
+        # near part of midfield is out of range and its far part is in,
+        # so range is never just the goal zone.
         match = self.build_match(7)
         for space_index, home_may_shoot in ((0, False), (1, False), (2, True)):
             with self.subTest(space=space_index):
                 self.assertEqual(
-                    match.board.is_in_attacking_half(
+                    match.board.is_in_shooting_range(
                         TeamSide.HOME,
                         match.board.flat_index(Zone.MIDFIELD, space_index),
                     ),
@@ -142,8 +142,8 @@ class ShootingHalfGeometryTests(unittest.TestCase):
                 )
 
     def test_no_restart_begins_in_shooting_range(self) -> None:
-        # The kickoff space is the middle space (7 and 9), which is
-        # nobody's half, or -- on 6 -- the kicking side's own half.
+        # The kickoff space is the middle space (7 and 9), which is in
+        # nobody's range, or -- on 6 -- behind the kicking side's own.
         for board_size in (6, 7, 9):
             match = self.build_match(board_size)
             for side in TeamSide:
@@ -171,9 +171,9 @@ class ShootingHalfGeometryTests(unittest.TestCase):
         match.ball.possession = TeamSide.VISITING
         self.assertTrue(match.can_attempt_score())
 
-    def test_the_scoring_space_is_always_in_the_other_team_half(self) -> None:
+    def test_the_scoring_space_is_always_within_range(self) -> None:
         # What keeps the AI honest: DinkyAI shoots only from the space
-        # closest to the opponent's goal, which the half rule always
+        # closest to the opponent's goal, which the range rule always
         # allows.
         strategy = DinkyAI(self.catalog, load_maneuver_catalog())
         for board_size in (6, 7, 9):
@@ -228,7 +228,7 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
         return cog, game, match
 
-    def test_the_shoot_button_is_offered_only_past_the_midline(self) -> None:
+    def test_the_shoot_button_is_offered_only_within_range(self) -> None:
         cog, game, _ = self.build_turn(Zone.VISITORS_GOAL, 0)
         self.assertEqual(
             [item.label for item in PlayerActionView(
@@ -255,7 +255,7 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Choose an action:", cog.build_turn_prompt(game, match))
 
     async def test_a_stale_shoot_click_is_refused(self) -> None:
-        # The button is never built in a team's own half, so reaching
+        # The button is never built out of range, so reaching
         # choose_action("shoot") means the ball moved under a prompt
         # somebody was still looking at.
         cog, game, _ = self.build_turn(Zone.MIDFIELD, 0)
@@ -267,13 +267,13 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
 
         interaction.response.send_message.assert_awaited_once()
         self.assertIn(
-            "other team's half",
+            "out of shooting range",
             interaction.response.send_message.await_args.args[0],
         )
         cog.begin_score_attempt.assert_not_awaited()
 
 
-class SetUpShotHalfTests(unittest.IsolatedAsyncioTestCase):
+class SetUpShotRangeTests(unittest.IsolatedAsyncioTestCase):
     """
     A set-up buys a shot out of turn, not a shot from anywhere: it is
     offered only where an ordinary score attempt would be legal.
@@ -329,10 +329,10 @@ class SetUpShotHalfTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch("cogs.d12ball.save_games"):
             await cog.apply_high_pass(build_interaction(), game, match, 2)
 
-    async def test_a_high_pass_of_two_sets_up_only_past_the_midline(
+    async def test_a_high_pass_of_two_sets_up_only_within_range(
         self,
     ) -> None:
-        # Landing on M3 (flat 4) is the visitors' half; the same pass
+        # Landing on M3 (flat 4) is in range for home; the same pass
         # landing on M1 (flat 2) is not.
         cog, game, match, _ = self.build_pass(PlayerRole.MIDFIELDER, 2)
         await self.apply_high_pass(cog, game, match)
@@ -342,10 +342,10 @@ class SetUpShotHalfTests(unittest.IsolatedAsyncioTestCase):
         await self.apply_high_pass(cog, game, match)
         cog.offer_scoring_attempt_choice.assert_not_awaited()
 
-    async def test_a_two_space_pass_in_a_team_own_half_is_still_received(
+    async def test_a_two_space_pass_short_of_range_is_still_received(
         self,
     ) -> None:
-        # The half rule takes away the shot, not the catch. A pass of 2
+        # The range rule takes away the shot, not the catch. A pass of 2
         # has never had to win a contest, so it must not fall through
         # to the long-pass one.
         cog, game, match, _ = self.build_pass(PlayerRole.MIDFIELDER, 0)
@@ -354,7 +354,7 @@ class SetUpShotHalfTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
 
-    async def test_a_winger_low_pass_sets_up_only_past_the_midline(
+    async def test_a_winger_low_pass_sets_up_only_within_range(
         self,
     ) -> None:
         # The Winger's ability frees the set-up from a distance, not

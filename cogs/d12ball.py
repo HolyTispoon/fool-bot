@@ -1357,10 +1357,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # Role ability -- Winger: the receiving player may attempt a
         # scoring opportunity right where the pass lands, whatever the
         # distance -- unlike High Pass's set-up, this doesn't require
-        # reaching the space nearest the goal. It does require the
-        # other team's half, like any other shot: the ability frees the
-        # set-up from a distance, not from where a goal can be scored
-        # from.
+        # reaching the space nearest the goal. It does require shooting
+        # range, like any other shot: the ability frees the set-up from
+        # a distance, not from where a goal can be scored from.
         if handler.role != PlayerRole.WINGER or not match.can_attempt_score(
             offense_side,
         ):
@@ -1567,11 +1566,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match, offense_side,
         )
 
-        # A 2-space pass that found its receiver but not the other
-        # team's half is just a pass: it was received cleanly, and the
-        # only thing the half rule takes away is the shot. Falling
-        # through would hand it to the long-pass contest below, which
-        # a pass of 2 has never had to win.
+        # A 2-space pass that found its receiver but not shooting range
+        # is just a pass: it was received cleanly, and the only thing
+        # the range rule takes away is the shot. Falling through would
+        # hand it to the long-pass contest below, which a pass of 2 has
+        # never had to win.
         if distance == 2 and receiver_candidates:
             await self.refresh_match_image(interaction, game)
             await self.finish_maneuver_resolution(
@@ -1689,7 +1688,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         Who could take a set-up's shot where the ball has landed:
         `scoring_opportunity_candidates`, and nobody at all unless the
-        ball is in the other team's half, since a set-up's shot is an
+        ball is within shooting range, since a set-up's shot is an
         ordinary score attempt and obeys the same rule about where a
         shot may be taken from.
 
@@ -2305,12 +2304,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{match.ball.speed}."
         )
 
-        # A shot has to come from the other team's half, and this one
-        # always does: an overshoot means the ball reached the space
-        # closest to the offense's own goal, which is as deep in the
-        # deflecting team's attacking half as the field goes. So this
-        # asks scoring_opportunity_candidates rather than
-        # set_up_shot_candidates -- the half check could never fail
+        # A shot has to be within shooting range, and this one always
+        # is: an overshoot means the ball reached the space closest to
+        # the offense's own goal, which is as deep into the deflecting
+        # team's range as the field goes. So this asks
+        # scoring_opportunity_candidates rather than
+        # set_up_shot_candidates -- the range check could never fail
         # here, and a branch that cannot be taken reads as if it could.
         candidates = []
         if overshot:
@@ -4883,15 +4882,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         handler = self.format_roster_player(match.active_player_id)
-        # PlayerActionView drops the shoot button in a team's own half,
-        # so say why rather than leaving a coach to wonder where it
-        # went.
+        # PlayerActionView drops the shoot button short of shooting
+        # range, so say why rather than leaving a coach to wonder where
+        # it went.
         action_line = (
             "Choose an action:"
             if match.can_attempt_score()
             else (
-                "The ball has not reached the other team's half, so there "
-                "is no shot from here -- only a maneuver:"
+                "The ball is out of shooting range, so there is no shot "
+                "from here -- only a maneuver:"
             )
         )
         return (

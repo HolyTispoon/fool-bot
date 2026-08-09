@@ -2039,8 +2039,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             for player_id in match.home.field_players
             if player_id != winger
         ][:2]
-        # The far midfield space: past the midline, so a shot is legal
-        # from it at all (2026-08-09).
+        # The far midfield space: within home's shooting range, so a
+        # shot is legal from it at all (2026-08-09).
         for player_id in (winger, first, second):
             match.move_meeple(player_id, Zone.MIDFIELD, 2)
         match.ball.possession = TeamSide.HOME
@@ -2211,8 +2211,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.clear_board(match)
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        # The far midfield space: past the midline, so a shot is legal
-        # from it at all (2026-08-09).
+        # The far midfield space: within home's shooting range, so a
+        # shot is legal from it at all (2026-08-09).
         match.set_ball_space(Zone.MIDFIELD, 2)
         match.move_meeple(handler, Zone.MIDFIELD, 2)
         match.move_meeple(receiver, Zone.MIDFIELD, 2)
@@ -2411,7 +2411,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         The scoring-opportunity offer no longer requires the pass to
         overshoot the field -- an exact 2-space pass that lands on a
         teammate short of the edge offers it too. It does have to land
-        in the other team's half, which is where a shot may be taken
+        within shooting range, which is where a shot may be taken
         from at all (2026-08-09).
         """
         cog = self.build_cog()

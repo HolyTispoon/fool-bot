@@ -47,7 +47,7 @@ minutes. The team with the most goals at the end wins.
 |---|---|
 | **Space** | One area of the field. The ball and every meeple are always located on a space. |
 | **Zone** | A group of adjacent spaces: home goal, midfield, visitors goal. |
-| **Half** | Either side of the field's midline. A team may only [shoot](#score-attempt) from the other team's [half](#halves), which is not the same as the zone the other team defends. |
+| **Shooting range** | The far part of the field, from the middle to the goal a team attacks -- the only place they may [shoot](#score-attempt) from. Measured from the middle of the board, so it is not a zone: see [shooting range](#shooting-range). |
 | **Player card** | contain a player's infor including their role, skill scores and ability. Its position on the team board shows the **zone** that player is assigned to. |
 | **Meeple** | A player's token on the field. Shows the **space** that player is standing on right now. |
 | **Field player** | One of the six players a team has on the field. |
@@ -77,24 +77,28 @@ into three zones -- home goal, midfield, visitors goal, left to right:
 The home team defends the home goal zone and attacks the visitors goal zone; the visiting
 team does the reverse.
 
-<a id="halves"></a>
-**Halves.** The field also splits in two down the middle, which is what a
-[score attempt](#score-attempt) is measured against. The halfway line runs down the middle of
-the *board*, not along a zone boundary, so a team's half is more than the zone it defends:
+<a id="shooting-range"></a>
+**Shooting range.** A team is **within shooting range** once the ball has passed the middle
+of the field, and a [score attempt](#score-attempt) is the only thing that depends on it.
+Range is measured from the middle of the *board*, not from a zone boundary -- it is not one
+of the three zones, and it cuts across midfield:
 
-| Board size | Home half | Neither | Visitors half |
+| Board size | Visitors in range | Neither | Home in range |
 |---|---|---|---|
 | 6 | H1 H2 M1 | -- | M2 V1 V2 |
 | 7 | H1 H2 M1 | M2 | M3 V1 V2 |
 | 9 | H1 H2 H3 M1 | M2 | M3 V1 V2 V3 |
 
-**A board with an odd number of spaces has a middle space that is in neither half** -- boards
-7 and 9, where that space is also the [kickoff space](#components). On board 6 the kickoff
-space is in the kicking team's own half. Either way, no restart begins in the other team's
-half.
+Each team's range is the far end of the field from where they start, so the home team's runs
+to the right and the visitors' to the left. On the standard 7-space board it is three spaces,
+which is less than half the field.
 
-The board image marks the halves with a dashed line -- two of them on boards 7 and 9, either
-side of the space that is in neither.
+**A board with an odd number of spaces has a middle space that is in nobody's range** --
+boards 7 and 9, where that space is also the [kickoff space](#components). On board 6 the
+kickoff space is behind the kicking team's own range. Either way, no restart begins in range.
+
+The board image marks where range begins with a dashed line -- two of them on boards 7 and 9,
+either side of the space that is in nobody's.
 
 **Occupancy.** Any meeples may share a space -- opposing or teammates alike -- and ordinary
 play stacks them freely. What every deliberate placement -- setup, a substitution window,
@@ -218,11 +222,11 @@ Each turn runs in this order:
 
 ## Score attempt
 
-**The team in possession may shoot only from [the other team's half](#halves).** A shot is a
-run at the goal, not a punt from the back of the field: a team that has not carried the ball
-past the halfway line has no shot to take, and its turn is a [maneuver](#maneuver). Being in
-the other team's half is the whole requirement -- anywhere in it will do, and the ball may be
-shot from the space it is already on.
+**The team in possession may shoot only from within [shooting range](#shooting-range).** A
+shot is a run at the goal, not a punt from the back of the field: a team that has not carried
+the ball past the middle of the field has no shot to take, and its turn is a
+[maneuver](#maneuver). Range is the whole requirement -- anywhere inside it will do, and the
+ball may be shot from the space it is already on.
 
 **Exactly two dice are rolled, one by each coach.**
 
@@ -533,11 +537,11 @@ ball. If both decline, the ball is out of bounds.
 A scoring opportunity sends a player straight into an **ordinary score attempt**, out of turn.
 It is always **offered as a choice**; declining resolves the maneuver normally.
 
-**A set-up is offered only where the shot itself is legal** -- with the ball in
-[the other team's half](#halves). What a set-up buys is a shot *out of turn*, not a shot from
-anywhere, so a maneuver that would set one up in a team's own half simply resolves as the
-maneuver it was. A Block Deflect that overshoots is never affected: the ball has reached the
-space closest to the offense's own goal, which is always in the deflecting team's half.
+**A set-up is offered only where the shot itself is legal** -- with the ball within
+[shooting range](#shooting-range). What a set-up buys is a shot *out of turn*, not a shot from
+anywhere, so a maneuver that would set one up short of range simply resolves as the maneuver
+it was. A Block Deflect that overshoots is never affected: the ball has reached the space
+closest to the offense's own goal, which is always deep in the deflecting team's range.
 
 Three things set one up:
 
@@ -863,5 +867,5 @@ Same rank ties and goes to a skill test. O1 beats D3, O2 beats D1, O3 beats D2.
 | Own goal | 2d12, take the higher | Offensive skill | -- | 7+ avoids |
 | Injury check | 1 d12 | -- | -- | Higher than the token count is safe |
 
-A score attempt -- off a set-up or not -- may only be taken from
-[the other team's half](#halves).
+A score attempt -- off a set-up or not -- may only be taken from within
+[shooting range](#shooting-range).

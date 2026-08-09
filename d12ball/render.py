@@ -864,33 +864,34 @@ def draw_board(
                     text_color="#243347",
                 )
 
-    draw_half_boundaries(draw, match, bounds)
+    draw_shooting_range_edges(draw, match, bounds)
     return bounds
 
 
-def draw_half_boundaries(
+def draw_shooting_range_edges(
     draw: ImageDraw.ImageDraw,
     match: MatchState,
     bounds: dict[Zone, tuple[int, int]],
 ) -> None:
     """
-    The halfway line, dashed down the field, because where a team may
-    shoot from now depends on it -- see "Halves" in the living rules.
+    Where each side's shooting range begins, dashed down the field,
+    because that is now what decides whether a team may shoot -- see
+    "Shooting range" in the living rules.
 
-    It never falls on a zone boundary: on every board size the field
-    splits somewhere inside midfield. An odd-sized board has a middle
-    space that is in neither half, so it gets two lines, one either
+    Never a zone boundary: on every board size the edge falls
+    somewhere inside midfield. An odd-sized board has a middle space
+    that is in neither side's range, so it gets two lines, one either
     side of that space, rather than one drawn through it.
     """
-    def half(index: int) -> int:
-        if match.board.is_in_attacking_half(TeamSide.HOME, index):
+    def range_side(index: int) -> int:
+        if match.board.is_in_shooting_range(TeamSide.HOME, index):
             return 1
-        if match.board.is_in_attacking_half(TeamSide.VISITING, index):
+        if match.board.is_in_shooting_range(TeamSide.VISITING, index):
             return -1
         return 0
 
     for index in range(1, match.board.layout.board_size):
-        if half(index) == half(index - 1):
+        if range_side(index) == range_side(index - 1):
             continue
 
         zone, space_index = match.board.position_at_flat_index(index)

@@ -238,17 +238,19 @@ class BoardState:
             offset += count
         raise ValueError("Flat index is off the board.")
 
-    def is_in_attacking_half(self, side: TeamSide, index: int) -> bool:
+    def is_in_shooting_range(self, side: TeamSide, index: int) -> bool:
         """
-        Whether the space at `index` lies in the half of the field
-        `side` attacks into -- the other team's half.
+        Whether the space at `index` is within `side`'s **shooting
+        range** -- the far part of the field, and the only place they
+        may shoot from.
 
-        The halfway line runs down the middle of the board, not along
-        a zone boundary. A board with an odd number of spaces has a
-        true middle space, which is the kickoff space, and it belongs
-        to neither half: comparing doubled indices against the last
-        index is what leaves it out of both. Home attacks from low
-        indices to high, the visitors the other way.
+        Shooting range is not a board zone: it is measured from the
+        middle of the board and cuts across midfield. A board with an
+        odd number of spaces has a true middle space, which is the
+        kickoff space, and it is in neither side's range -- comparing
+        doubled indices against the last index is what leaves it out
+        of both. Home attacks from low indices to high, the visitors
+        the other way.
         """
         last_index = self.layout.board_size - 1
         if TeamSide(side) == TeamSide.HOME:
@@ -751,9 +753,9 @@ class MatchState:
     def can_attempt_score(self, side: Optional[TeamSide] = None) -> bool:
         """
         Whether a shot at goal is legal from where the ball is: only
-        from the other team's half (see "Score attempt" in the living
-        rules). `side` is who would be shooting, defaulting to the
-        team in possession; the maneuver effects pass theirs
+        from within the shooting team's range (see "Score attempt" in
+        the living rules). `side` is who would be shooting, defaulting
+        to the team in possession; the maneuver effects pass theirs
         explicitly, since they read the offense once at the top and
         resolve the whole effect against it.
 
@@ -762,7 +764,7 @@ class MatchState:
         attempt: what the set-up buys is the shot out of turn, not a
         shot from anywhere.
         """
-        return self.board.is_in_attacking_half(
+        return self.board.is_in_shooting_range(
             self.ball.possession if side is None else side,
             self.board.flat_index(self.ball.zone, self.ball.space_index),
         )
