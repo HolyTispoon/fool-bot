@@ -66,6 +66,7 @@ from cogs.d12ball_helpers import (
     add_full_image_button,
     add_full_image_button_to_response,
     area_display_name,
+    board_image_filename,
     build_full_time_summary,
     build_game_channel_name,
     contest_noun,
@@ -84,6 +85,7 @@ from cogs.d12ball_helpers import (
     load_condition_emojis,
     load_team_emojis,
     parse_space_value,
+    pin_board_message,
     refresh_player_names,
     resolve_adjustable_value,
     send_error_fallback,
@@ -3187,6 +3189,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         Put both sides back on the arrangement their coaches last set
         and say so. Nobody pays a token for it -- see
         MatchState.restore_assigned_positions.
+
+        This is where a new play's board goes out and gets pinned: the
+        reset is the arrangement the play starts from, and it is the
+        one moment in the restart where nothing is still moving. What
+        the restart still owes (a kickoff fill, an out-of-bounds
+        pickup) lands on the persistent board afterwards.
         """
         moved: list[str] = []
         for side in (TeamSide.HOME, TeamSide.VISITING):
@@ -3209,8 +3217,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else "Both teams are already standing where their coaches "
             "last set them."
         )
-        await interaction.followup.send(f"{prefix}# New play\n{body}")
-        await self.refresh_match_image(interaction, game)
+        await self.post_new_play_board(
+            interaction, game, f"{prefix}# New play\n{body}",
+        )
 
     async def announce_run_back(
         self,
@@ -4166,11 +4175,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        await interaction.followup.send(
+        # A half begins the way any other new play does: with the board
+        # everyone is about to play from, posted and pinned.
+        await self.post_new_play_board(
+            interaction,
+            game,
             "**Halftime is over.** The second half kicks off with "
-            f"{format_team_side_label(match.visiting)} in possession."
+            f"{format_team_side_label(match.visiting)} in possession.",
         )
-        await self.refresh_match_image(interaction, game)
 
         try:
             await self.send_turn_prompt(interaction, game)
@@ -4892,7 +4904,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """One upload of an already-rendered board."""
         return discord.File(
             io.BytesIO(png),
-            filename=f"d12ball-pbd{game.game_number}.png",
+            filename=board_image_filename(game.game_number),
         )
 
     async def build_match_file(self, game: D12BallGame) -> discord.File:
@@ -4900,6 +4912,36 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return self.match_file_from_png(
             game, await self.render_match_png(game),
         )
+
+    async def post_new_play_board(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        message: str,
+    ) -> None:
+        """
+        The board at the top of a new play -- a kickoff, halftime, or
+        the restart after a goal, an own goal, a missed shot or a ball
+        out of bounds -- posted as its own message and pinned.
+
+        These are the boards worth coming back to, which is why they
+        are the ones pinned; see pin_board_message for what happens at
+        the pin cap. Everything else a turn puts out still goes to the
+        persistent board message only.
+
+        The persistent message is brought in line with the same render
+        rather than a second one, exactly as announce_board_update
+        does.
+        """
+        png = await self.render_match_png(game)
+        snapshot = await interaction.followup.send(
+            message,
+            file=self.match_file_from_png(game, png),
+            wait=True,
+        )
+        await add_full_image_button(snapshot)
+        await self.refresh_match_image(interaction, game, png=png)
+        await pin_board_message(snapshot)
 
     async def announce_board_update(
         self,

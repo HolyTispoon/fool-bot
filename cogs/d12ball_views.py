@@ -57,6 +57,7 @@ from cogs.d12ball_helpers import (
     format_player_with_team,
     format_role_bracket,
     format_team_side_label,
+    pin_board_message,
     refresh_player_names,
     send_error_fallback,
     space_label,
@@ -688,6 +689,10 @@ class CoinFlipView(GameConfigurationView):
         await add_full_image_button(choice_message, refreshed_view)
 
         if game.match_state is not None:
+            # The kickoff board, and the only pinned one that stays
+            # current: this is the persistent message every later
+            # refresh edits, so the pin never needs re-cutting.
+            await pin_board_message(choice_message)
             await self.cog.send_turn_prompt(interaction, game)
 
 

@@ -174,6 +174,14 @@ new plays" in the living rules for which is which.
 - **A Block Deflect that overshoots is neither.** It flips possession and goes
   straight to the shot without calling `begin_run_back` at all; the goal or
   miss that follows is the new play.
+- **A new play posts its board and pins it**, via `post_new_play_board` inside
+  `announce_new_play_reset`. The reset is the arrangement the play starts from
+  and the one point in a restart where nothing is still moving, so it is the
+  board worth keeping -- what the restart still owes (a kickoff fill, an
+  out-of-bounds pickup) lands on the persistent message afterwards. The other
+  two pinned boards are the kickoff (the persistent message itself, pinned in
+  `TeamSelectionView`) and the second-half restart in `finish_halftime`.
+  Nothing else pins; see "Discord's rate limits".
 - **`continue_run_back` is one loop, not a recursion, and it batches.** Every
   placement it makes without asking anyone -- the forced ones, the AI's
   choices, the drop back that fills an empty kickoff -- goes into a list, and
@@ -295,7 +303,19 @@ same budget. So:
   `discord.File` consumes the stream inside it. The end of a maneuver puts the
   same board in two places (the persistent message and the snapshot under the
   result) and so does `announce_board_update`; both draw it once and upload it
-  twice. `refresh_match_image` takes a `png=` for exactly this.
+  twice. `refresh_match_image` takes a `png=` for exactly this, and so does
+  `post_new_play_board`.
+- **Only new-play boards are pinned.** A pin is a request of its own *and* a
+  "pinned a message" system post in the channel, so `pin_board_message` is
+  called from three places and no more: the kickoff board, the second-half
+  board, and `post_new_play_board`. Pinning every board a turn puts out would
+  roughly double the channel's traffic and fill the 50-pin cap inside a game.
+  At the cap the pin fails with error 30003 and the helper unpins the oldest
+  board *it* pinned -- read off `channel.pins(oldest_first=True)` and matched
+  by the `d12ball-pbd` filename -- so a pin somebody else put there is never
+  displaced, and a channel with no board to roll off simply leaves the new one
+  unpinned. Every failure is swallowed: a missing pin is worth less than the
+  turn it would take down with it.
 - **A board refresh is two requests, and that is unavoidable.** Editing the
   message uploads a new attachment, which invalidates the old one, so the
   "View full image" link has to be re-cut in a second edit -- the URL does not

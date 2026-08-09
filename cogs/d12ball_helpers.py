@@ -60,6 +60,13 @@ COIN_EMOJI_NAMES = {
 }
 COIN_EMOJI_FALLBACK = "🪙"
 FULL_IMAGE_BUTTON_LABEL = "View full image"
+# Every board upload is named for its game, which is also how a pinned
+# board is told apart from anything else somebody pinned in the channel.
+BOARD_IMAGE_FILENAME_PREFIX = "d12ball-pbd"
+# Discord caps a channel at 50 pins and answers the 51st with this
+# error code.
+MAX_PINNED_MESSAGES = 50
+MAX_PINS_ERROR_CODE = 30003
 
 # A High Pass reuses the loose-ball contest (see begin_loose_ball) even
 # when the landing space isn't empty -- a 3+ space pass, or a declined
@@ -808,6 +815,71 @@ async def add_full_image_button(
         # timeout) covers a dropped connection below discord.py's own
         # exception types -- equally not worth losing the rest of the
         # turn over.
+        pass
+
+
+def board_image_filename(game_number: int) -> str:
+    return f"{BOARD_IMAGE_FILENAME_PREFIX}{game_number}.png"
+
+
+def is_board_image_message(message: discord.Message) -> bool:
+    """
+    Whether a message is one of the bot's board posts, judged by the
+    attachment's filename. Used to decide which pin may be rolled off,
+    so it has to be narrow: anything a person pinned is not ours to
+    remove.
+    """
+    return any(
+        attachment.filename.startswith(BOARD_IMAGE_FILENAME_PREFIX)
+        for attachment in message.attachments
+    )
+
+
+async def pin_board_message(message: discord.Message) -> None:
+    """
+    Pin a board posted at a new play, so the channel keeps a jump list
+    of the boards worth going back to.
+
+    Only new-play boards are pinned -- kickoff, halftime, and each
+    restart after a goal, an own goal, a missed shot or a ball out of
+    bounds -- not the several boards a single turn puts out. A pin is
+    an extra request and Discord posts a "pinned a message" notice for
+    each one, so this is deliberately rare; see "Discord's rate limits"
+    in CLAUDE.md.
+
+    A channel holds 50 pins. At the cap, the oldest pinned *board* is
+    unpinned to make room -- a pin somebody else put there is left
+    alone, and if there is no board of ours to roll off, the new one
+    simply goes unpinned. Failing to pin is never worth losing the turn
+    over, so every error here is swallowed the way
+    add_full_image_button's are.
+    """
+    try:
+        await message.pin()
+        return
+    except discord.HTTPException as error:
+        if error.code != MAX_PINS_ERROR_CODE:
+            return
+    except aiohttp.ClientError:
+        return
+
+    try:
+        oldest = await anext(
+            (
+                pinned
+                async for pinned in message.channel.pins(
+                    limit=MAX_PINNED_MESSAGES, oldest_first=True,
+                )
+                if pinned.id != message.id
+                and is_board_image_message(pinned)
+            ),
+            None,
+        )
+        if oldest is None:
+            return
+        await oldest.unpin()
+        await message.pin()
+    except (discord.HTTPException, aiohttp.ClientError):
         pass
 
 
