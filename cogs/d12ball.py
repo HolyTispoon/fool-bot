@@ -14,6 +14,7 @@ from discord.ext import commands
 from d12ball.ai import build_ai_strategies, AIStrategy
 from d12ball.components import (
     SETUP_AREAS,
+    CoachingOccasion,
     FormationShape,
     MatchPeriod,
     MatchState,
@@ -286,7 +287,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         )
                 elif match.active_player_id is None:
                     turn_view = BallHandlerSelectionView(self, game.game_id)
-                elif match.pending_substitution_side is not None:
+                elif match.pending_coaching_side is not None:
                     # A window mid-flight comes back as either the
                     # offer or the menu. A part-made choice (picked
                     # who goes off, not yet who comes on) is not
@@ -294,7 +295,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     # a run-back choice does.
                     turn_view = (
                         SubstitutionMenuView(self, game.game_id)
-                        if match.pending_substitution_declared
+                        if match.pending_coaching_declared
                         else SubstitutionOfferView(self, game.game_id)
                     )
                 elif match.pending_run_back:
@@ -2839,9 +2840,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             incoming_player_id
             in match.setup_for_side(side).player_board.back_bench
         )
+        occasion = match.coaching_occasion or CoachingOccasion.NEW_PLAY
 
-        match.substitute(side, outgoing_player_id, incoming_player_id)
-        match.pending_substitution_used += 1
+        match.substitute(
+            side,
+            outgoing_player_id,
+            incoming_player_id,
+            retire_outgoing=occasion.retires_outgoing_players,
+        )
+        match.record_substitution()
 
         outgoing = self.get_player_definition(outgoing_player_id)
         incoming = self.get_player_definition(incoming_player_id)
@@ -2873,10 +2880,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     f"defensive skill of {defense_skill}."
                 )
 
-        remaining_subs = match.substitutions_remaining()
-        if remaining_subs:
-            text += f"\n{remaining_subs} substitution left."
+        text += f"\n{self.substitution_allowance_label(match)}."
         return text
+
+    def substitution_allowance_label(self, match: MatchState) -> str:
+        """
+        What the open window has left, for a button label or a prompt.
+        Setup has no limit at all, which is not the same as a large
+        number and reads differently.
+        """
+        remaining = match.substitutions_remaining()
+        if remaining is None:
+            return "No substitution limit"
+        if not remaining:
+            return "No substitutions left"
+        return (
+            f"{remaining} substitution"
+            f"{'s' if remaining != 1 else ''} left"
+        )
 
     def apply_position_swap(
         self,
@@ -3010,10 +3031,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
         side: TeamSide,
+        occasion: CoachingOccasion = CoachingOccasion.NEW_PLAY,
         is_response: bool = False,
         lead_in: str = "",
-        spends_declaration: bool = True,
-        auto_declare: bool = False,
     ) -> None:
         """
         Offer `side` the window. A declaration is once a half, so a
@@ -3021,18 +3041,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         injured player on the field is named in the heading but
         compels nothing -- leaving them on is the coach's call.
 
-        `auto_declare` skips the declare-or-pass offer and opens the
-        substitution menu directly, and `spends_declaration` False
-        leaves the side's once-a-half declaration unspent. Halftime
-        passes both: its substitutions are not a declaration anyone
-        chose to make, so there is nothing to ask and nothing to
-        charge for (see begin_halftime_substitutions).
+        `occasion` carries every difference between the three -- the
+        substitution allowance, whether the declare-or-pass offer is
+        put at all, and where a player taken off goes. Setup and
+        halftime are given rather than declared, so both skip the
+        offer and open the menu directly.
         """
         side = TeamSide(side)
-        match.open_substitution_window(
+        occasion = CoachingOccasion(occasion)
+        match.open_coaching_window(
             side,
+            occasion,
             is_response=is_response,
-            spends_declaration=spends_declaration,
         )
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -3048,25 +3068,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         mention = f"<@{controller_id}>" if controller_id else "Someone"
         prefix = f"{lead_in}\n\n" if lead_in else ""
 
-        if auto_declare:
-            match.declare_substitution()
-            game.match_state = match.to_dict()
-            save_games(self.games)
+        if not occasion.spends_declaration:
+            # Given rather than declared, so there is nothing to ask:
+            # open_coaching_window has already taken it up.
             await self.prompt_substitution_menu(
                 interaction, game, match, lead_in=lead_in,
             )
             return
 
+        allowance = self.substitution_allowance_label(match).lower()
         if is_response:
             heading = (
-                f"{format_team_side_label(setup)} may answer with **one** "
-                "substitution and rearrange their formation."
+                f"{format_team_side_label(setup)} may answer -- "
+                f"{allowance} this half, and a rearrangement. Answering "
+                "does not spend their own declaration."
             )
         else:
             heading = (
                 f"{format_team_side_label(setup)} restart play and may "
-                "declare substitutions -- up to **two** swaps and a "
-                "rearrangement, once a half."
+                f"declare -- {allowance} this half, and a rearrangement. "
+                "Declaring is once a half."
             )
 
         # An injured player is worth pointing out, but only as a
@@ -3110,19 +3131,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         that was never offered as a choice (halftime's), which is the
         only place the window's own heading has nowhere else to go.
         """
-        if match.pending_substitution_side is None:
+        if match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         setup = match.setup_for_side(side)
         controller_id = self.side_controller_id(game, side)
         mention = f"<@{controller_id}>" if controller_id else "Someone"
 
-        remaining = match.substitutions_remaining()
-        allowance = (
-            f"{remaining} substitution{'s' if remaining != 1 else ''} left"
-            if remaining
-            else "No substitutions left"
-        )
+        allowance = self.substitution_allowance_label(match)
         prefix = f"{lead_in}\n" if lead_in else ""
         prompt = await interaction.followup.send(
             f"{prefix}{mention}, {format_team_side_label(setup)}: "
@@ -3144,16 +3160,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         lead_in: str = "",
     ) -> None:
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         strategy = self.get_ai_strategy(game)
         lines: list[str] = []
 
-        while match.substitutions_remaining():
+        while match.may_substitute():
             choice = strategy.choose_substitution(match, side)
             if choice is None:
                 break
-            if not match.pending_substitution_declared:
-                match.declare_substitution()
+            if not match.pending_coaching_declared:
+                match.declare_coaching()
             outgoing_player_id, incoming_player_id = choice
             try:
                 lines.append(
@@ -3202,14 +3218,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         play restores. A side that passed changed nothing, so their
         existing arrangement stands untouched.
         """
-        declared = match.pending_substitution_declared
-        was_response = match.pending_substitution_is_response
+        declared = match.pending_coaching_declared
+        was_response = match.pending_coaching_is_response
         side = (
-            TeamSide(match.pending_substitution_side)
-            if match.pending_substitution_side
+            TeamSide(match.pending_coaching_side)
+            if match.pending_coaching_side
             else None
         )
-        match.close_substitution_window()
+        match.close_coaching_window()
         if declared and side is not None:
             match.set_assigned_positions(side)
         game.match_state = match.to_dict()
@@ -3347,7 +3363,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.announce_new_play_reset(interaction, game, match, lead_in)
             lead_in = ""
             winning_side = match.ball.possession
-            if match.may_declare_substitution(winning_side):
+            if match.may_declare_coaching(winning_side):
                 await self.begin_substitution_window(
                     interaction, game, match, winning_side,
                 )
@@ -3994,9 +4010,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.scoreboard.last_possession = False
             # A declaration is once every half, so both sides get
             # theirs back -- including a side that had to spend the
-            # first half's on an injury.
+            # first half's on an injury. Their two substitutions for
+            # the half come back with it; halftime's own two are
+            # counted separately and are not touched here.
             match.declared_substitution.clear()
-            match.close_substitution_window()
+            match.half_substitutions_used.clear()
+            match.close_coaching_window()
             kickoff_index = kickoff_space_index(
                 len(match.board.spaces[Zone.MIDFIELD]),
                 TeamSide.VISITING,
@@ -4238,13 +4257,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game,
             match,
             side,
-            spends_declaration=False,
-            auto_declare=True,
+            occasion=CoachingOccasion.HALFTIME,
             lead_in=(
                 f"# Substitutions\n{format_team_side_label(setup)} may "
                 "substitute for the second half -- up to **two** swaps and "
                 "a rearrangement. Halftime is free: this doesn't spend "
-                "their once-a-half declaration."
+                "their once-a-half declaration, and its two swaps are its "
+                "own rather than either half's."
             ),
         )
 

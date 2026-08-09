@@ -34,6 +34,58 @@ class TeamSide(str, Enum):
     VISITING = "visiting"
 
 
+class CoachingOccasion(str, Enum):
+    """
+    The three occasions that offer a coach a Coaching Choice. They run
+    the same four actions and differ only in the three things below --
+    see "Coaching Choice" in docs/living-rules.md.
+    """
+
+    SETUP = "setup"
+    NEW_PLAY = "new_play"
+    HALFTIME = "halftime"
+
+    @property
+    def substitution_allowance(self) -> Optional[int]:
+        """
+        How many substitutions this occasion allows, or None for no
+        limit. Setup is unlimited because nobody has played yet;
+        halftime's 2 are its own, and a new play's come out of the
+        side's 2 for the half.
+        """
+        return None if self == CoachingOccasion.SETUP else 2
+
+    @property
+    def counts_against_the_half(self) -> bool:
+        """
+        Whether a substitution here spends one of the side's two for
+        the half. Only open play's does, which is what lets a side
+        substitute six times in a game -- two a half, plus halftime's
+        own two.
+        """
+        return self == CoachingOccasion.NEW_PLAY
+
+    @property
+    def spends_declaration(self) -> bool:
+        """
+        Whether taking this window up costs the side their once-a-half
+        declaration. Setup and halftime are given rather than declared,
+        so neither is asked for and neither is charged.
+        """
+        return self == CoachingOccasion.NEW_PLAY
+
+    @property
+    def retires_outgoing_players(self) -> bool:
+        """
+        Whether a player taken off goes to the back bench, where they
+        can never return. At setup they go back to the bench instead:
+        the game has not started, so nobody has been used up and a
+        coach trying out a line-up should not be retiring players to do
+        it.
+        """
+        return self != CoachingOccasion.SETUP
+
+
 class AssignmentEdge(str, Enum):
     BELOW = "below"
     ABOVE = "above"
@@ -608,12 +660,19 @@ class MatchState:
     loose_ball_defense_declined: bool = False
     pending_ball_recovery: bool = False
     declared_substitution: set[str] = field(default_factory=set)
-    pending_substitution_side: Optional[str] = None
-    pending_substitution_used: int = 0
-    pending_substitution_is_response: bool = False
-    pending_substitution_declared: bool = False
-    # False only for halftime's window -- see open_substitution_window.
-    pending_substitution_spends_declaration: bool = True
+    # How many substitutions each side has spent in the half it is in,
+    # keyed by TeamSide value. Halftime's own allowance is not counted
+    # here -- see substitutions_remaining -- and end_period clears it.
+    half_substitutions_used: dict[str, int] = field(default_factory=dict)
+    pending_coaching_side: Optional[str] = None
+    # Which of the three occasions the open window is, as a
+    # CoachingOccasion value. It decides the substitution allowance,
+    # whether a declaration is asked for and spent, and where a player
+    # taken off goes -- see open_coaching_window.
+    pending_coaching_occasion: Optional[str] = None
+    pending_coaching_substitutions: int = 0
+    pending_coaching_is_response: bool = False
+    pending_coaching_declared: bool = False
     pending_halftime_stage: Optional[str] = None
     # Where each coach last *put* their meeples, as player_id ->
     # [zone, space_index]. See set_assigned_positions.
@@ -1590,71 +1649,120 @@ class MatchState:
             if player_id in self.injured
         ]
 
-    def may_declare_substitution(self, side: TeamSide) -> bool:
+    def may_declare_coaching(self, side: TeamSide) -> bool:
         """
         A side declares at most once per half, and that is the whole
-        gate. Nothing ever *forces* a declaration: an injured player
-        used to compel their team to sub them off at the next window,
-        which is no longer a rule -- a coach may leave them on,
-        disadvantaged, for as long as they like.
+        gate on being *offered* a new play's window. Nothing ever
+        *forces* a declaration: an injured player used to compel their
+        team to sub them off at the next window, which is no longer a
+        rule -- a coach may leave them on, disadvantaged, for as long
+        as they like.
+
+        The two substitutions a side has for the half are a separate
+        count (substitutions_remaining), and the two limits do
+        different jobs: a side that spent both substitutions answering
+        someone else's declaration can still declare later in the half
+        and get the rearrangement without the swaps.
         """
         return TeamSide(side).value not in self.declared_substitution
 
-    def open_substitution_window(
+    def open_coaching_window(
         self,
         side: TeamSide,
+        occasion: CoachingOccasion,
         is_response: bool = False,
-        spends_declaration: bool = True,
     ) -> None:
         """
         Offer the window to `side`, who has not taken it up yet. Kept
-        distinct from `declare_substitution` so that a bot restart
-        mid-offer knows whether it is still asking or already
-        substituting.
+        distinct from `declare_coaching` so that a bot restart
+        mid-offer knows whether it is still asking or already coaching.
 
-        `spends_declaration` False is halftime's window: it carries a
-        declaring side's full allowance but doesn't cost them their
-        once-a-half declaration, so both sides still hold theirs going
-        into the second half.
+        `occasion` carries every difference between the three: the
+        substitution allowance, whether a declaration is asked for and
+        charged, and where a player taken off goes. Only a new play
+        asks -- setup and halftime are given, so both open declared.
         """
-        self.pending_substitution_side = TeamSide(side).value
-        self.pending_substitution_used = 0
-        self.pending_substitution_is_response = is_response
-        self.pending_substitution_declared = False
-        self.pending_substitution_spends_declaration = spends_declaration
+        occasion = CoachingOccasion(occasion)
+        self.pending_coaching_side = TeamSide(side).value
+        self.pending_coaching_occasion = occasion.value
+        self.pending_coaching_substitutions = 0
+        self.pending_coaching_is_response = is_response
+        self.pending_coaching_declared = False
+        if not occasion.spends_declaration:
+            self.declare_coaching()
 
-    def declare_substitution(self) -> None:
+    @property
+    def coaching_occasion(self) -> Optional[CoachingOccasion]:
+        if self.pending_coaching_occasion is None:
+            return None
+        return CoachingOccasion(self.pending_coaching_occasion)
+
+    def declare_coaching(self) -> None:
         """
         Take up the offered window. Declaring spends that side's
         once-per-half; answering the other team's declaration does
-        not, and neither does halftime's own window, which is how a
-        side can end up substituting more than once in a half.
+        not, and neither do setup and halftime, which is how a side can
+        end up coaching more than once in a half.
         """
-        if self.pending_substitution_side is None:
-            raise ValueError("No substitution window is open.")
-        self.pending_substitution_declared = True
+        if self.pending_coaching_side is None:
+            raise ValueError("No coaching window is open.")
+        self.pending_coaching_declared = True
+        occasion = self.coaching_occasion
         if (
-            not self.pending_substitution_is_response
-            and self.pending_substitution_spends_declaration
+            not self.pending_coaching_is_response
+            and occasion is not None
+            and occasion.spends_declaration
         ):
-            self.declared_substitution.add(self.pending_substitution_side)
+            self.declared_substitution.add(self.pending_coaching_side)
 
-    def close_substitution_window(self) -> None:
-        self.pending_substitution_side = None
-        self.pending_substitution_used = 0
-        self.pending_substitution_is_response = False
-        self.pending_substitution_declared = False
-        self.pending_substitution_spends_declaration = True
+    def close_coaching_window(self) -> None:
+        self.pending_coaching_side = None
+        self.pending_coaching_occasion = None
+        self.pending_coaching_substitutions = 0
+        self.pending_coaching_is_response = False
+        self.pending_coaching_declared = False
 
-    def substitutions_remaining(self) -> int:
+    def substitutions_remaining(self) -> Optional[int]:
         """
-        How many more swaps the side holding the window may make: two
-        for the team that declared, one for the team answering.
+        How many more substitutions the side holding the window may
+        make, or **None for no limit** -- which setup is, and which
+        callers have to handle rather than treating as zero.
+
+        A new play's come out of the side's two for the half, spent
+        across every window they get in it; halftime's two are its own
+        and are counted within the window.
         """
-        if self.pending_substitution_side is None:
+        occasion = self.coaching_occasion
+        if self.pending_coaching_side is None or occasion is None:
             return 0
-        allowance = 1 if self.pending_substitution_is_response else 2
-        return max(0, allowance - self.pending_substitution_used)
+        allowance = occasion.substitution_allowance
+        if allowance is None:
+            return None
+        spent = (
+            self.half_substitutions_used.get(self.pending_coaching_side, 0)
+            if occasion.counts_against_the_half
+            else self.pending_coaching_substitutions
+        )
+        return max(0, allowance - spent)
+
+    def may_substitute(self) -> bool:
+        remaining = self.substitutions_remaining()
+        return remaining is None or remaining > 0
+
+    def record_substitution(self) -> None:
+        """
+        Charge the open window one substitution, to whichever counter
+        the occasion draws on.
+        """
+        occasion = self.coaching_occasion
+        if self.pending_coaching_side is None or occasion is None:
+            raise ValueError("No coaching window is open.")
+        self.pending_coaching_substitutions += 1
+        if occasion.counts_against_the_half:
+            side_value = self.pending_coaching_side
+            self.half_substitutions_used[side_value] = (
+                self.half_substitutions_used.get(side_value, 0) + 1
+            )
 
     def substitution_pool(
         self,
@@ -1688,6 +1796,7 @@ class MatchState:
         side: TeamSide,
         fielded_player_id: str,
         incoming_player_id: str,
+        retire_outgoing: bool = True,
     ) -> None:
         """
         Swap a fielded player for one off the bench, in place: whoever
@@ -1695,11 +1804,16 @@ class MatchState:
         stands where they stood, and the outgoing player goes to the
         back bench.
 
-        Standing where they stood matters because the substitution
-        window opens *before* the run back, so the outgoing player may
-        well be displaced -- in which case the player coming on
-        inherits the run back too, and pays for the distance like
-        anyone else.
+        `retire_outgoing` False sends them to the ordinary bench
+        instead, which is setup's exception: the game has not started,
+        so there is nothing for the back bench to record and a coach
+        trying out a line-up should not be retiring players to do it.
+        See CoachingOccasion.retires_outgoing_players.
+
+        Standing where they stood matters because the coaching window
+        opens *before* the run back, so the outgoing player may well be
+        displaced -- in which case the player coming on inherits the
+        run back too, and pays for the distance like anyone else.
 
         A player returning from the back bench loses half their
         exhaustion tokens, rounded up. Their Exhausted flag is cleared
@@ -1748,7 +1862,10 @@ class MatchState:
             if tokens:
                 self.exhaustion[incoming_player_id] = tokens // 2
             self.exhausted.discard(incoming_player_id)
-        setup.player_board.back_bench.append(fielded_player_id)
+        if retire_outgoing:
+            setup.player_board.back_bench.append(fielded_player_id)
+        else:
+            setup.player_board.bench.append(fielded_player_id)
 
         self.board.remove_meeple(fielded_player_id)
         self.board.place_meeple(incoming_player_id, position[0], space_index)
@@ -1815,6 +1932,169 @@ class MatchState:
         setup.zones[other_zone][
             setup.zones[other_zone].index(other_player_id)
         ] = player_id
+
+    def exchange_field_players(
+        self,
+        side: TeamSide,
+        player_id: str,
+        other_player_id: str,
+    ) -> None:
+        """
+        Trade two fielded players completely: their zone assignments
+        and their meeples both. This is the Coaching Choice's zone
+        assignment action -- see "Coaching Choice" in
+        docs/living-rules.md.
+
+        Moving the meeples is what keeps the two in step. Exchanging
+        the cards alone used to leave both meeples standing in the
+        zone they had just left, displaced, for a later placement step
+        or the next run back to collect; trading the spaces too means
+        a Coaching Choice can never leave a meeple outside its own
+        zone, and there is nothing left over to place.
+
+        An even exchange also needs no open space to pass through, so
+        it works on zones that are already full -- which one-at-a-time
+        movement cannot do.
+        """
+        side = TeamSide(side)
+        self.swap_field_positions(side, player_id, other_player_id)
+        self.swap_meeple_positions(side, player_id, other_player_id)
+
+    def positioning_swap_candidates(
+        self,
+        side: TeamSide,
+        player_id: str,
+        space_index: int,
+    ) -> list[str]:
+        """
+        Which teammates a space-positioning move onto `space_index`
+        would have to trade with, in the coach's own assigned zone.
+
+        Empty when the move is an ordinary one: either the target has
+        none of this side's meeples on it, or the mover is leaving
+        teammates behind and so is free to stack onto it. More than one
+        means the coach has to pick which of them comes back -- see
+        position_meeple.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+        zone = setup.assigned_zone(player_id)
+        team_players = set(setup.field_players)
+
+        position = self.board.meeple_position(player_id)
+        if position is not None and position == (zone, space_index):
+            return []
+
+        on_target = [
+            occupant
+            for occupant in self.board.spaces[zone][space_index]
+            if occupant in team_players and occupant != player_id
+        ]
+        if not on_target:
+            return []
+        if position is not None:
+            left_behind = [
+                occupant
+                for occupant in self.board.spaces[position[0]][position[1]]
+                if occupant in team_players and occupant != player_id
+            ]
+            if left_behind:
+                return []
+        return on_target
+
+    def position_meeple(
+        self,
+        side: TeamSide,
+        player_id: str,
+        space_index: int,
+        swap_with: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Move one meeple to another space in its own assigned zone, for
+        no exhaustion, and report who it traded with (None for an
+        ordinary move).
+
+        The rule is local rather than a coverage check, and that is
+        what lets every space of the zone simply be offered: **if the
+        target is occupied and the mover is the only one of their team
+        on the space they leave, the two trade places.** Every other
+        move is a plain one. Coverage comes out of that for free --
+        leaving a space covered by a teammate uncovers nothing, a trade
+        uncovers nothing, and a move between two spaces neither of
+        which is shared keeps the count of covered spaces the same.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+        if player_id not in setup.field_players:
+            raise ValueError(f"{player_id} is not on the field.")
+        zone = setup.assigned_zone(player_id)
+        if not 0 <= space_index < len(self.board.spaces[zone]):
+            raise ValueError("That space is not in that zone.")
+        if self.board.meeple_position(player_id) == (zone, space_index):
+            raise ValueError("They are already standing there.")
+
+        candidates = self.positioning_swap_candidates(
+            side, player_id, space_index,
+        )
+        if not candidates:
+            if swap_with is not None:
+                raise ValueError("That move does not trade with anybody.")
+            self.board.place_meeple(player_id, zone, space_index)
+            return None
+
+        if swap_with is None:
+            if len(candidates) > 1:
+                raise ValueError(
+                    "More than one teammate is on that space -- pick "
+                    "which of them comes back."
+                )
+            swap_with = candidates[0]
+        elif swap_with not in candidates:
+            raise ValueError("They are not on the space being moved to.")
+
+        self.swap_meeple_positions(side, player_id, swap_with)
+        return swap_with
+
+    def deploy_side(
+        self,
+        side: TeamSide,
+        placement: list[tuple[str, Zone, int]],
+    ) -> None:
+        """
+        Put a side's whole line-up down at once -- every card's zone
+        assignment and every meeple's space, together. This is what a
+        formation change is made of: the six are re-dealt by defensive
+        skill rather than asked for one zone at a time, so nothing
+        partial ever reaches the match.
+
+        Places directly rather than through run_back_player: it costs
+        no exhaustion, and laying six meeples down one at a time passes
+        through arrangements occupancy would refuse even though the one
+        being built is fine. The caller builds a covering placement --
+        see D12Ball.formation_placement.
+        """
+        side = TeamSide(side)
+        setup = self.setup_for_side(side)
+
+        placed = [player_id for player_id, _, _ in placement]
+        if len(set(placed)) != len(placed):
+            raise ValueError("A player cannot be placed twice.")
+        if set(placed) != set(setup.field_players):
+            raise ValueError(
+                "A deployment must place every fielded player, and "
+                "nobody else."
+            )
+        for _, zone, space_index in placement:
+            if not 0 <= space_index < len(self.board.spaces[Zone(zone)]):
+                raise ValueError("That space is not in that zone.")
+
+        zones: dict[Zone, list[str]] = {zone: [] for zone in Zone}
+        for player_id, zone, _ in placement:
+            zones[Zone(zone)].append(player_id)
+        setup.zones = zones
+
+        for player_id, zone, space_index in placement:
+            self.board.place_meeple(player_id, Zone(zone), space_index)
 
     def reassign_field_zones(
         self,
@@ -2103,17 +2383,16 @@ class MatchState:
             "loose_ball_defense_declined": self.loose_ball_defense_declined,
             "pending_ball_recovery": self.pending_ball_recovery,
             "declared_substitution": sorted(self.declared_substitution),
-            "pending_substitution_side": self.pending_substitution_side,
-            "pending_substitution_used": self.pending_substitution_used,
-            "pending_substitution_is_response": (
-                self.pending_substitution_is_response
+            "half_substitutions_used": dict(self.half_substitutions_used),
+            "pending_coaching_side": self.pending_coaching_side,
+            "pending_coaching_occasion": self.pending_coaching_occasion,
+            "pending_coaching_substitutions": (
+                self.pending_coaching_substitutions
             ),
-            "pending_substitution_declared": (
-                self.pending_substitution_declared
+            "pending_coaching_is_response": (
+                self.pending_coaching_is_response
             ),
-            "pending_substitution_spends_declaration": (
-                self.pending_substitution_spends_declaration
-            ),
+            "pending_coaching_declared": self.pending_coaching_declared,
             "pending_halftime_stage": self.pending_halftime_stage,
             "assigned_positions": {
                 player_id: list(position)
@@ -2214,20 +2493,39 @@ class MatchState:
             declared_substitution=set(
                 data.get("declared_substitution", [])
             ),
-            pending_substitution_side=data.get(
-                "pending_substitution_side"
+            half_substitutions_used=dict(
+                data.get("half_substitutions_used", {})
             ),
-            pending_substitution_used=data.get(
-                "pending_substitution_used", 0
+            # The `pending_substitution_*` fallbacks are for a game
+            # saved with a window open before the three occasions
+            # became one Coaching Choice. Both developers run the bot
+            # from their own working tree against their own saves, so
+            # a half-finished game outlives the change that renamed
+            # these. An old window comes back as a new play's, which
+            # is the only kind the old code could leave open mid-game.
+            pending_coaching_side=data.get(
+                "pending_coaching_side",
+                data.get("pending_substitution_side"),
             ),
-            pending_substitution_is_response=data.get(
-                "pending_substitution_is_response", False
+            pending_coaching_occasion=data.get(
+                "pending_coaching_occasion",
+                (
+                    CoachingOccasion.NEW_PLAY.value
+                    if data.get("pending_substitution_side")
+                    else None
+                ),
             ),
-            pending_substitution_declared=data.get(
-                "pending_substitution_declared", False
+            pending_coaching_substitutions=data.get(
+                "pending_coaching_substitutions",
+                data.get("pending_substitution_used", 0),
             ),
-            pending_substitution_spends_declaration=data.get(
-                "pending_substitution_spends_declaration", True
+            pending_coaching_is_response=data.get(
+                "pending_coaching_is_response",
+                data.get("pending_substitution_is_response", False),
+            ),
+            pending_coaching_declared=data.get(
+                "pending_coaching_declared",
+                data.get("pending_substitution_declared", False),
             ),
             pending_halftime_stage=data.get("pending_halftime_stage"),
             # A game saved before arrangements were remembered has

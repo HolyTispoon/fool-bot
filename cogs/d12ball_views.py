@@ -2770,14 +2770,14 @@ class SubstitutionView(SafeView):
                 ephemeral=True,
             )
             return None, None
-        if match.pending_substitution_side is None:
+        if match.pending_coaching_side is None:
             await interaction.response.send_message(
                 "That substitution window has already closed.",
                 ephemeral=True,
             )
             return None, None
 
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         if interaction.user.id != self.cog.side_controller_id(game, side):
             await interaction.response.send_message(
                 "Only that team's coach can choose this.",
@@ -2848,12 +2848,12 @@ class SubstitutionOfferView(SubstitutionView):
         super().__init__(cog, game_id)
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
 
         declare = discord.ui.Button(
             label=(
-                "Substitute" if match.pending_substitution_is_response
+                "Substitute" if match.pending_coaching_is_response
                 else "Declare substitutions"
             ),
             style=discord.ButtonStyle.primary,
@@ -2879,7 +2879,7 @@ class SubstitutionOfferView(SubstitutionView):
         if game is None or match is None:
             return
 
-        match.declare_substitution()
+        match.declare_coaching()
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
@@ -2894,7 +2894,7 @@ class SubstitutionOfferView(SubstitutionView):
         if game is None or match is None:
             return
 
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         team_name = match.setup_for_side(side).team.value.title()
         coach_name = interaction.user.display_name
 
@@ -2920,12 +2920,12 @@ class SubstitutionMenuView(SubstitutionView):
         super().__init__(cog, game_id)
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         setup = match.setup_for_side(side)
 
-        if match.substitutions_remaining() > 0:
+        if match.may_substitute():
             for player_id in setup.field_players:
                 if not match.substitution_pool(side, player_id):
                     continue
@@ -3060,9 +3060,9 @@ class SubstitutionIncomingView(SubstitutionView):
         self.outgoing_player_id = outgoing_player_id
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
 
         for player_id in match.substitution_pool(side, outgoing_player_id):
             button = discord.ui.Button(
@@ -3091,7 +3091,7 @@ class SubstitutionIncomingView(SubstitutionView):
         if game is None or match is None:
             return
 
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         try:
             summary = self.cog.apply_substitution(
                 match, side, self.outgoing_player_id, incoming_player_id,
@@ -3126,9 +3126,9 @@ class SubstitutionSwapView(SubstitutionView):
         self.first_player_id = first_player_id
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         setup = match.setup_for_side(side)
 
         for player_id in setup.field_players:
@@ -3176,7 +3176,7 @@ class SubstitutionSwapView(SubstitutionView):
             )
             return
 
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         try:
             summary = self.cog.apply_position_swap(
                 match, side, self.first_player_id, player_id,
@@ -3223,9 +3223,9 @@ class SubstitutionFormationView(SubstitutionView):
         self.assignment = dict(assignment or {})
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
 
         if formation is None:
             current = cog.current_formation(match, side)
@@ -3322,7 +3322,7 @@ class SubstitutionFormationView(SubstitutionView):
         if game is None or match is None:
             return
 
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         self.formation = formation
         self.assignment = fill_forced_areas(
             {},
@@ -3341,7 +3341,7 @@ class SubstitutionFormationView(SubstitutionView):
         if game is None or match is None:
             return
 
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         self.assignment[area] = player_ids
         self.assignment = fill_forced_areas(
             self.assignment,
@@ -3360,7 +3360,7 @@ class SubstitutionFormationView(SubstitutionView):
         Ask for the next zone's cards, or -- once every zone has them
         -- apply the change and hand over to repositioning.
         """
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
 
         if next_unfilled_area(self.assignment) is not None:
             await interaction.response.edit_message(
@@ -3412,9 +3412,9 @@ class SubstitutionRepositionView(SubstitutionView):
         super().__init__(cog, game_id)
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         setup = match.setup_for_side(side)
 
         for player_id in setup.field_players:
@@ -3461,7 +3461,7 @@ class SubstitutionRepositionView(SubstitutionView):
         if game is None or match is None:
             return
 
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         zone = match.setup_for_side(side).assigned_zone(player_id)
         player = self.cog.get_player_definition(player_id)
 
@@ -3533,9 +3533,9 @@ class SubstitutionRepositionSpaceView(SubstitutionView):
         self.player_id = player_id
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         zone = match.setup_for_side(side).assigned_zone(player_id)
         position = match.board.meeple_position(player_id)
 
@@ -3571,7 +3571,7 @@ class SubstitutionRepositionSpaceView(SubstitutionView):
         if game is None or match is None:
             return
 
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         try:
             summary = self.cog.apply_reposition(
                 match, side, self.player_id, space_index,
@@ -3613,9 +3613,9 @@ class SubstitutionMeepleSwapView(SubstitutionView):
         self.player_id = player_id
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         setup = match.setup_for_side(side)
 
         for other_id in setup.field_players:
@@ -3651,7 +3651,7 @@ class SubstitutionMeepleSwapView(SubstitutionView):
         if game is None or match is None:
             return
 
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
         try:
             summary = self.cog.apply_meeple_swap(
                 match, side, self.player_id, other_player_id,

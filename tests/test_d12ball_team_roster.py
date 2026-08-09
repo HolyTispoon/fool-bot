@@ -21,6 +21,7 @@ from cogs.d12ball_views import (
     SubstitutionOfferView,
 )
 from d12ball.components import (
+    CoachingOccasion,
     MatchState,
     TeamSide,
     Zone,
@@ -228,7 +229,7 @@ class SubstitutionRosterButtonTests(unittest.IsolatedAsyncioTestCase):
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
-        match.open_substitution_window(TeamSide.HOME)
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         game = build_game()
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
@@ -243,7 +244,7 @@ class SubstitutionRosterButtonTests(unittest.IsolatedAsyncioTestCase):
         offer = SubstitutionOfferView(cog, game.game_id)
         self.assertIn("Team Roster", self.labels(offer))
 
-        match.declare_substitution()
+        match.declare_coaching()
         game.match_state = match.to_dict()
         menu = SubstitutionMenuView(cog, game.game_id)
         self.assertIn("Team Roster", self.labels(menu))

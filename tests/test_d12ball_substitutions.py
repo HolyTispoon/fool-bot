@@ -13,6 +13,7 @@ from unittest import mock
 from cogs.d12ball import D12Ball
 from d12ball.ai import DinkyAI
 from d12ball.components import (
+    CoachingOccasion,
     MatchState,
     TeamSide,
     Zone,
@@ -61,8 +62,8 @@ class SubstitutionHandoffTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_declaration_hands_the_other_team_a_reply(self) -> None:
         cog = build_cog()
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
 
         await self.finish(cog, match)
 
@@ -79,7 +80,7 @@ class SubstitutionHandoffTests(unittest.IsolatedAsyncioTestCase):
     async def test_passing_takes_the_other_team_reply_with_it(self) -> None:
         cog = build_cog()
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
 
         await self.finish(cog, match)
 
@@ -87,20 +88,20 @@ class SubstitutionHandoffTests(unittest.IsolatedAsyncioTestCase):
         # team to answer -- straight on to the run back.
         cog.begin_substitution_window.assert_not_awaited()
         cog.announce_run_back.assert_awaited_once()
-        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
 
     async def test_a_reply_ends_the_window(self) -> None:
         cog = build_cog()
         match = self.build_match()
-        match.open_substitution_window(TeamSide.VISITING, is_response=True)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.VISITING, CoachingOccasion.NEW_PLAY, is_response=True)
+        match.declare_coaching()
 
         await self.finish(cog, match)
 
         # A reply never bounces back for another reply.
         cog.begin_substitution_window.assert_not_awaited()
         cog.announce_run_back.assert_awaited_once()
-        self.assertIsNone(match.pending_substitution_side)
+        self.assertIsNone(match.pending_coaching_side)
 
 
 class SubstitutionSummaryTests(unittest.TestCase):
@@ -121,8 +122,8 @@ class SubstitutionSummaryTests(unittest.TestCase):
     def test_a_swap_spends_one_of_the_allowance(self) -> None:
         cog = build_cog()
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
 
         text = cog.apply_substitution(
             match,
@@ -131,7 +132,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
             match.home.player_board.bench[0],
         )
 
-        self.assertEqual(match.pending_substitution_used, 1)
+        self.assertEqual(match.pending_coaching_substitutions, 1)
         self.assertEqual(match.substitutions_remaining(), 1)
         self.assertIn("comes on for", text)
         self.assertIn("1 substitution left", text)
@@ -139,8 +140,8 @@ class SubstitutionSummaryTests(unittest.TestCase):
     def test_an_injured_player_is_named_as_such(self) -> None:
         cog = build_cog()
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
         match.mark_injured("orange_kindlefoot")
 
         text = cog.apply_substitution(
@@ -158,8 +159,8 @@ class SubstitutionSummaryTests(unittest.TestCase):
         returning = "orange_hellguard"
         match.add_exhaustion(returning, 5)
 
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
         for outgoing in (returning, "orange_sizzik", "orange_scorchit"):
             match.substitute(
                 TeamSide.HOME, outgoing, match.home.player_board.bench[0],
@@ -180,15 +181,15 @@ class SubstitutionSummaryTests(unittest.TestCase):
     def test_rearranging_is_free(self) -> None:
         cog = build_cog()
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
 
         text = cog.apply_position_swap(
             match, TeamSide.HOME, "orange_hellguard", "orange_kindlefoot",
         )
 
         self.assertEqual(match.exhaustion, {})
-        self.assertEqual(match.pending_substitution_used, 0)
+        self.assertEqual(match.pending_coaching_substitutions, 0)
         self.assertIn("no exhaustion", text)
 
     def test_a_swap_leaves_meeples_in_place_until_repositioned(self) -> None:
@@ -197,8 +198,8 @@ class SubstitutionSummaryTests(unittest.TestCase):
         # is apply_reposition, exercised below.
         cog = build_cog()
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
         player_id, other_player_id = "orange_hellguard", "orange_kindlefoot"
         before = match.board.meeple_position(player_id)
 
@@ -215,8 +216,8 @@ class SubstitutionSummaryTests(unittest.TestCase):
         # wandered out of position, the case it's actually built for.
         cog = build_cog()
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
         player_id = "orange_blazebulk"
         zone = match.home.assigned_zone(player_id)
         # Displace them out of their own zone first, the way a
@@ -243,8 +244,8 @@ class SubstitutionSummaryTests(unittest.TestCase):
         # until the other one vacates, so only a direct trade works.
         cog = build_cog()
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
         player_id, other_player_id = "orange_hellguard", "orange_kindlefoot"
         cog.apply_position_swap(
             match, TeamSide.HOME, player_id, other_player_id,

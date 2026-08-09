@@ -23,6 +23,7 @@ from cogs.d12ball_views import (
     SubstitutionMenuView,
 )
 from d12ball.components import (
+    CoachingOccasion,
     SETUP_AREAS,
     MatchState,
     PlayerRole,
@@ -496,7 +497,7 @@ class SubstitutionFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         )
         cog.games[game.game_id] = game
         match = cog.initialize_standard_match(game)
-        match.open_substitution_window(TeamSide.HOME)
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         game.match_state = match.to_dict()
         return cog, game, match
 

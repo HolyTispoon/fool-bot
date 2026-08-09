@@ -13,6 +13,7 @@ from unittest import mock
 
 from cogs.d12ball import HALFTIME_STAGES, D12Ball
 from d12ball.components import (
+    CoachingOccasion,
     MatchState,
     TeamSide,
     Zone,
@@ -251,8 +252,8 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         game = build_human_game()
         match = self.build_match()
         match.pending_halftime_stage = "subs_home"
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.finish_substitution_window(
@@ -275,7 +276,7 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         game = build_human_game()
         match = self.build_match()
         match.pending_halftime_stage = "subs_visiting"
-        match.open_substitution_window(TeamSide.VISITING)
+        match.open_coaching_window(TeamSide.VISITING, CoachingOccasion.NEW_PLAY)
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.finish_substitution_window(
@@ -305,10 +306,10 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
                 interaction, game, match, TeamSide.HOME,
             )
 
-        self.assertEqual(match.pending_substitution_side, "home")
-        self.assertTrue(match.pending_substitution_declared)
+        self.assertEqual(match.pending_coaching_side, "home")
+        self.assertTrue(match.pending_coaching_declared)
         self.assertEqual(match.declared_substitution, set())
-        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
         # No declare-or-pass prompt of its own -- the menu carries the
         # window's heading instead.
         interaction.followup.send.assert_not_awaited()
@@ -321,23 +322,26 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         # Regression guard: only halftime's window is free.
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
 
         self.assertEqual(match.declared_substitution, {"home"})
-        self.assertFalse(match.may_declare_substitution(TeamSide.HOME))
+        self.assertFalse(match.may_declare_coaching(TeamSide.HOME))
 
     def test_a_free_window_survives_a_save_and_reload(self) -> None:
         match = self.build_match()
-        match.open_substitution_window(
-            TeamSide.HOME, spends_declaration=False,
-        )
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
 
         reloaded = MatchState.from_dict(match.to_dict(), self.rules)
 
-        self.assertFalse(reloaded.pending_substitution_spends_declaration)
-        reloaded.declare_substitution()
+        self.assertEqual(
+            reloaded.coaching_occasion, CoachingOccasion.HALFTIME,
+        )
+        # Halftime's window opens already taken up, so a reload finds a
+        # declared window that still cost the side nothing.
+        self.assertTrue(reloaded.pending_coaching_declared)
         self.assertEqual(reloaded.declared_substitution, set())
+        self.assertTrue(reloaded.may_declare_coaching(TeamSide.HOME))
 
     async def test_ordinary_turnover_windows_are_unaffected(self) -> None:
         """
@@ -349,8 +353,8 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_human_game()
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.finish_substitution_window(
