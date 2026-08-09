@@ -121,6 +121,32 @@ see a stack.
   still names one player per destination -- that is a button label, not the
   receiver.
 
+## The maneuver with nobody to challenge it
+
+A maneuver normally needs two players. When the defending team has nobody in
+the ball's zone there is no challenger, and the maneuver the offense picks
+succeeds outright -- see "Maneuver" in the living rules. `MatchState`'s
+`maneuver_uncontested` is the whole of it.
+
+- **It stands in for `challenger_id` everywhere that flag means "a maneuver is
+  under way".** `challenger_id` is what tells `validate()` that the handler is
+  allowed to be off the ball mid-effect, and what tells `on_ready` which
+  prompt to restore. An uncontested maneuver has no challenger and never will
+  have a `defense_maneuver`, so both of those checks read
+  `maneuver_uncontested` as well.
+- **It is persisted, unlike `new_play`.** Nothing else in a saved state can
+  tell "the defense has not picked yet" from "the defense is never going to
+  pick", and a restart between the offense's pick and its effect has to know
+  which. `reset_maneuver` clears it, along with everything else the turn set.
+- **`maneuver_selections_complete` is the only "are we ready to resolve"
+  test.** Two call sites used to check `offense_maneuver and defense_maneuver`
+  directly and would have hung the turn; anything new should ask the property.
+- **Both entry points go through the same branch** --
+  `PlayerActionView.choose_action` for a human and `play_ai_turn` for the AI
+  -- and both then use the ordinary maneuver prompt, so a coach reads the menu
+  they always read. What is skipped is the challenger pick, the matchup image
+  (it draws two players against each other), the reveal, and the skill test.
+
 ## Turnovers: steals and new plays
 
 Every turnover resets the ball's speed and puts players back in position, but
