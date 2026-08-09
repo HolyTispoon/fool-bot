@@ -47,30 +47,23 @@ and the Exhausted / Injured layer is a later piece, rather than assuming it done
 
 ### Four edge cases in the injured player's maneuver disadvantage
 
-The "Injured players" paragraph under Exhaustion and injury gives the disadvantage as two
-clauses -- an injured player automatically loses a challenge, and must win a skill test even
-when their maneuver beats their opponent's outright. Both are now implemented, in
-`settled_maneuver_winner` in `cogs/d12ball.py`, on four readings the author has not confirmed:
+The 2026-08-09 answer settles the disadvantage for one injured player facing a healthy one,
+which is the case that comes up. Three neighbours of it are still assumed rather than
+answered, and `settled_maneuver_winner` in `cogs/d12ball.py` currently reads them this way:
 
-- **The two clauses are read as covering different moments**, rather than the first swallowing
-  the second. "Challenge" is what section 4 calls the skill test a tie rolls, so the automatic
-  loss is taken to apply to that tie and not to the test the second clause forces. Read the
-  other way -- an injured player loses every challenge, including the forced one -- the second
-  clause could never do anything, so this is the only reading on which both clauses have work.
-- **The automatic loss on a tie costs neither side an exhaust token.** The token is what each
-  player pays for entering the test, and no test is rolled, so nothing here reads as entering
-  one. (An injured player could not gain one anyway; the healthy opponent could.)
 - **A tie between two injured players is an ordinary tie** -- a real skill test, as if neither
   were injured -- on the reasoning that the disadvantage is relative to a healthy opponent and
-  cancels out when both sides carry it.
+  cancels out when both sides carry it. Taken literally the new wording says each of them
+  loses, which cannot be what it means.
 - **An injured player's uncontested maneuver still succeeds outright.** With no defender in
-  the ball's zone there is no opponent to be disadvantaged against and no challenge to lose,
-  so neither clause has anything to bite on. This case did not exist when the disadvantage was
-  written down.
-
-A fifth follows from the second clause and is not really a choice: when the injured player
-loses the forced skill test, their opponent's maneuver resolves, even though it lost the
-ranking. That is what "must win it to make it stick" leaves behind.
+  the ball's zone there is nobody to tie with and no test to be made to roll, so neither half
+  of the disadvantage has anything to bite on. The unchallenged maneuver did not exist when
+  the disadvantage was first written down.
+- **Being injured does not affect a contest** -- the long High Pass contest, or a loose ball.
+  "Disadvantaged" is spelled out for maneuvers (above) and for the extreme shootout, where an
+  injured player adds nothing to their roll; a contest is a third kind of roll and the rules
+  say nothing about it either way. The code treats an injured contestant as ordinary. If the
+  shootout's "adds nothing" is meant to generalise, this is where it would land.
 
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
@@ -81,6 +74,31 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-09 (later the same day) -- author, the injured player's disadvantage spelled out
+
+- **No rule changed here; the wording did.** "They automatically lose a challenge, and must win
+  a skill test even when their maneuver beats their opponent's outright" has stood since the
+  rules were first copied in on 2026-07-25, and had never been built. Implementing it turned up
+  a reading on which the two clauses collide -- section 4 calls the skill test a tie rolls a
+  *challenge*, so "automatically lose a challenge" could be read as swallowing the forced test
+  the second clause creates, leaving that clause with nothing to do. The author's answer is
+  that they are two separate moments, and the paragraph now says so directly rather than
+  leaving it to be inferred.
+- **A tie loses.** When an injured player's maneuver ties their opponent's, they lose it
+  outright and the opponent resolves their own effect. Nothing is rolled.
+- **A win has to be rolled for.** When their maneuver beats the opponent's outright, the two
+  roll a skill test instead, and the injured player has to win it for their maneuver to stick.
+  Losing it hands the effect to the opponent's maneuver, which lost the ranking -- that is what
+  the clause leaves behind, and it is now stated rather than implied.
+- **The forced test is an ordinary skill test.** A tied total is re-rolled, as usual, until it
+  is decided; each re-roll charges its token to whoever can still take one.
+- **The automatic loss costs no token**, which follows rather than being decided: the token is
+  what a player pays for entering the test, and no test is entered. Worth knowing it is a
+  derivation if the author ever prices the auto-loss differently.
+- Three neighbouring cases are still assumed rather than answered -- two injured players tying,
+  an injured player's unchallenged maneuver, and whether the disadvantage reaches a contest.
+  They are in [Still open](#still-open).
 
 ### 2026-08-09 -- author, a shot may only be taken from within shooting range
 

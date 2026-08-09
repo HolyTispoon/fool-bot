@@ -697,8 +697,16 @@ count** they are safe. Otherwise they are injured.
 
 - immediately **lose all their exhaust tokens** and are no longer Exhausted;
 - **cannot gain further tokens** and make no further injury checks;
-- are **disadvantaged** until subbed off: they automatically lose a challenge, and must win a
-  skill test even when their maneuver beats their opponent's outright;
+- are **disadvantaged** until subbed off, in both of the ways a maneuver can be decided:
+  - **A tie is a loss.** When their maneuver ties the opponent's, the injured player loses it
+    outright and the opponent resolves their own maneuver's effect. There is no skill test, so
+    neither player gains the token that entering one costs.
+  - **A win has to be rolled for.** When their maneuver beats the opponent's outright, it does
+    not simply win: the two roll a [skill test](#4-skill-test-when-they-tie), and the injured
+    player must win it for their maneuver to stick. If they lose it, the opponent's maneuver
+    resolves instead, even though it lost the ranking.
+  - That skill test is an ordinary one in every other respect. In particular **a tied total is
+    re-rolled**, as usual, until the test is decided;
 - **do not have to be substituted.** Nothing compels their team to get them off. A coach may
   leave an injured player on the field, disadvantaged, for the rest of the game, and spend
   their declaration on something else;
