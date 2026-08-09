@@ -2928,14 +2928,13 @@ class CoachingOfferView(CoachingView):
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
-        await interaction.response.edit_message(
-            content=self.cog.coaching_prompt(
-                game, match, self.side(match),
-            ),
-            view=CoachingHubView(self.cog, self.game_id),
-            attachments=[
-                await self.cog.coaching_file(game, match, self.side(match))
-            ],
+        # No attachments: the offer this replaces already carried the
+        # image, and taking the window up moves nobody.
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingHubView(self.cog, self.game_id),
         )
 
     async def decline(self, interaction: discord.Interaction) -> None:
