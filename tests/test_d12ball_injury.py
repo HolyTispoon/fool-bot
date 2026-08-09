@@ -19,15 +19,20 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_views import LowPassChoiceView, SkillTestView
+from cogs.d12ball_views import (
+    LowPassChoiceView,
+    ScoreAttemptView,
+    SkillTestView,
+)
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     MatchState,
+    PlayerRole,
+    TeamSide,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.components import PlayerRole
 from d12ball.game import D12BallGame, GameStatus, Team
 
 
@@ -275,6 +280,90 @@ class InjuredAbilityModifierTests(unittest.IsolatedAsyncioTestCase):
         # The skill survives; only the role's own bonus is withheld.
         self.assertEqual(total, 10)
         self.assertIn("Offensive skill +3", detail)
+
+
+class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The disadvantage is losing the ability modifier *when someone is
+    contesting them*, and nobody contests a shot -- so an injured
+    Striker keeps their +3 off a set-up. The author's, 2026-08-09.
+    This is the counterpart to the Midfielder tests above and exists to
+    stop the two being "made consistent" with each other.
+    """
+
+    async def roll_attempt(self, injure: bool) -> list:
+        cog = build_cog()
+        cog.intervening_defenders = mock.Mock(return_value=[])
+        cog.announce_board_update = mock.AsyncMock()
+        game = build_game()
+        cog.games[game.game_id] = game
+        match = cog.initialize_standard_match(game)
+
+        striker = next(
+            player_id
+            for player_id in match.home.field_players
+            if cog.get_player_definition(player_id).role == PlayerRole.STRIKER
+        )
+        match.active_player_id = striker
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(*match.board.meeple_position(striker))
+        match.pending_action = "shoot"
+        match.pending_shot_is_set_up = True
+        match.ball.speed = 1  # speed // 2 == 0, so no ball speed term.
+        if injure:
+            match.injured.add(striker)
+        game.match_state = match.to_dict()
+
+        interaction = SimpleNamespace(
+            user=SimpleNamespace(id=game.player_1_id),
+            response=SimpleNamespace(
+                defer=mock.AsyncMock(),
+                send_message=mock.AsyncMock(),
+                edit_message=mock.AsyncMock(),
+            ),
+            edit_original_response=mock.AsyncMock(),
+            followup=SimpleNamespace(
+                send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+            ),
+        )
+        # Only the arithmetic is under test, and it is all in the
+        # entries handed to the dice render. Everything past that point
+        # is the goal-or-miss aftermath -- a new play, a run back, a
+        # board post -- so the render stops the roll once it has what
+        # this needs.
+        entries = []
+
+        class Stop(Exception):
+            pass
+
+        def capture(rows):
+            entries.append(rows)
+            raise Stop
+
+        view = ScoreAttemptView(cog, game.game_id)
+        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+            "cogs.d12ball.save_games",
+        ), mock.patch(
+            "cogs.d12ball_views.random.randint", return_value=7,
+        ), mock.patch(
+            "cogs.d12ball_views.render_skill_test_dice", side_effect=capture,
+        ):
+            with self.assertRaises(Stop):
+                await view.roll(interaction)
+        return entries[0][0]
+
+    async def test_a_healthy_striker_adds_the_set_up_bonus(self) -> None:
+        _, _, _, detail, total = await self.roll_attempt(injure=False)
+
+        self.assertIn("+3 Striker ability", detail)
+        # d12 of 7, offensive skill 6, ability +3.
+        self.assertEqual(total, 16)
+
+    async def test_an_injured_striker_keeps_it(self) -> None:
+        _, _, _, detail, total = await self.roll_attempt(injure=True)
+
+        self.assertIn("+3 Striker ability", detail)
+        self.assertEqual(total, 16)
 
 
 class SettledWinnerRestoreTests(unittest.TestCase):

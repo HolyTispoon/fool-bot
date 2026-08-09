@@ -1652,10 +1652,11 @@ class SkillTestView(SafeView):
 
         # Role ability -- Midfielder: +3 on a skill test when
         # attempting Low Pass (offense) or Pressure (defense). An
-        # injured player adds no ability modifier to any roll (see
-        # "Injured players" in docs/living-rules.md); their skill and
-        # the ball speed modifier below are untouched, so this is the
-        # only term injury withholds here.
+        # injured player adds no ability modifier on a roll someone is
+        # contesting, and a skill test is one (see "Injured players" in
+        # docs/living-rules.md). Their skill and the ball speed
+        # modifier below are untouched, so this is the only term injury
+        # withholds here.
         offense_ability_detail = ""
         if (
             offense_player.role == PlayerRole.MIDFIELDER
@@ -1855,7 +1856,11 @@ class ScoreAttemptView(SafeView):
         defense_total = defense_roll + defense_skill_total
 
         # Role ability -- Striker: +3 on any scoring attempt off a
-        # set-up.
+        # set-up. Injury does not withhold this one, deliberately: an
+        # injured player loses their ability modifier on a roll someone
+        # is contesting, and nobody contests a shot (see "Injured
+        # players" in docs/living-rules.md). Don't add match.injured
+        # here to match the skill test.
         striker_bonus = (
             match.pending_shot_is_set_up
             and shooter.role == PlayerRole.STRIKER
@@ -4402,10 +4407,12 @@ class LooseBallSkillTestView(SafeView):
         # An injured contestant still gets this: what injury withholds
         # is a role's own bonus, not a modifier the roll grants (see
         # "Injured players" in docs/living-rules.md). No ability
-        # modifies a contest today -- the two that are numbers are the
-        # Midfielder's, on a maneuver skill test, and the Striker's, on
-        # a set-up score attempt -- so there is nothing here to
-        # withhold. One added later has to check match.injured.
+        # modifies a contest today -- the only two that are numbers are
+        # the Midfielder's, on a maneuver skill test, where injury does
+        # withhold it, and the Striker's, on a set-up score attempt,
+        # where it deliberately does not (nobody contests a shot). So
+        # there is nothing here to withhold; an ability added later
+        # has to check match.injured.
         modifier_detail = []
         if match.pending_loose_ball_is_high_pass:
             modifier = match.ball.speed // 2

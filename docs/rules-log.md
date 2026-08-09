@@ -45,19 +45,6 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
-### Four edge cases in the injured player's maneuver disadvantage
-
-### Does an injured player lose their ability modifier on a score attempt too?
-
-The 2026-08-09 clarifications settle the disadvantage for skill tests and contests: an injured
-player adds no ability modifier to a roll. The only ability that is a number on a *score
-attempt* is the Striker's +3 off a set-up, and a score attempt is neither a challenge nor a
-contest -- it is also the one roll the rules already single out as never triggering an injury
-check. So the code leaves the Striker's +3 alone for an injured shooter, on the reading that
-"disadvantaged" is about being contested rather than about shooting. If the intent is that an
-injured player loses every role bonus everywhere, `cogs/d12ball.py:4591` and
-`cogs/d12ball_views.py:1855` are the two places to change.
-
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
 
@@ -108,8 +95,11 @@ first, then the edge cases and what the disadvantage does to a roll.*
     the Midfielder's +3 on a Low Pass or Pressure skill test. No ability modifies a loose ball
     or a High Pass contest at all, so the rule is future-proofing there rather than a change,
     and `LooseBallSkillTestView` says so where an ability would be added.
-  - The Striker's +3 off a set-up is a score attempt, not a challenge, and is left alone --
-    see [Still open](#still-open).
+  - **A score attempt is untouched**, confirmed by the author: an injured Striker keeps their
+    +3 off a set-up. So the disadvantage is not "loses every role bonus" but "loses it when
+    someone is contesting them", which is why the rule is written round being contested rather
+    than round rolling. A score attempt has nobody on the other side of it, and is already the
+    one roll the rules single out as never triggering an injury check.
 
 ### 2026-08-09 -- author, a shot may only be taken from within shooting range
 

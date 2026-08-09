@@ -713,12 +713,14 @@ count** they are safe. Otherwise they are injured.
   - **An unchallenged maneuver still succeeds outright.** With no defender in the ball's zone
     there is nobody to tie with and no test they can be made to roll, so neither half of this
     bites;
-- **add no ability modifier to any roll they make.** They still add their skill, and still get
-  any game modifier the roll grants -- notably the [ball speed modifier](#ball-speed) for
-  keeping a long [High Pass](#high-pass). What they lose is their own role's bonus, such as a
-  Midfielder's +3 on a Low Pass or Pressure [skill test](#4-skill-test-when-they-tie). This
-  holds wherever they roll: a skill test, keeping a long High Pass, and contesting a
-  [loose ball](#loose-ball);
+- **add no ability modifier when someone is contesting them** -- on a
+  [skill test](#4-skill-test-when-they-tie), keeping a long [High Pass](#high-pass), or
+  contesting a [loose ball](#loose-ball). Their own role's bonus does not apply there; a
+  Midfielder's +3 on a Low Pass or Pressure skill test is the one such bonus in the game today.
+  They still add their skill, and still get any modifier the roll itself grants, notably the
+  [ball speed modifier](#ball-speed) for keeping a long High Pass. **A
+  [score attempt](#score-attempt) is untouched:** an injured Striker still adds their +3 off a
+  set-up. Nobody is contesting a shot, so there is nothing there to be disadvantaged in;
 - **do not have to be substituted.** Nothing compels their team to get them off. A coach may
   leave an injured player on the field, disadvantaged, for the rest of the game, and spend
   their declaration on something else;
