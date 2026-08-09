@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -7,6 +10,22 @@ from cogs.d12ball_helpers import (
     PBD_ARCHIVE_CATEGORY_NAME,
 )
 from gamesaves.d12ball.storage import save_games
+
+
+LOGGER = logging.getLogger(__name__)
+
+# How long to wait before each retry of a channel delete that Discord
+# refused.
+#
+# Deleting a channel sits in the channel-modification bucket, which is
+# the most restrictive limit Discord documents -- two per ten minutes.
+# discord.py does the waiting for an ordinary 429 itself, so a plain
+# rate limit never reaches this loop at all; what does reach it is a
+# Discord-side failure it gave up on, or a Cloudflare ban, which is
+# what too many rejected requests in ten minutes earns. Retrying
+# either of those immediately, which is what this used to do three
+# times in a row per channel, is how a rate limit turns into a ban.
+CHANNEL_DELETE_RETRY_DELAYS = (2.0, 8.0)
 
 
 class Debug(commands.Cog):
@@ -89,7 +108,11 @@ class Debug(commands.Cog):
         deleted_channels = 0
 
         for channel in pbd_channels:
-            for attempt in range(3):
+            for attempt in range(len(CHANNEL_DELETE_RETRY_DELAYS) + 1):
+                if attempt:
+                    await asyncio.sleep(
+                        CHANNEL_DELETE_RETRY_DELAYS[attempt - 1]
+                    )
                 try:
                     await channel.delete(
                         reason=(
@@ -108,7 +131,7 @@ class Debug(commands.Cog):
                     )
                     break
                 except discord.HTTPException as error:
-                    if attempt == 2:
+                    if attempt == len(CHANNEL_DELETE_RETRY_DELAYS):
                         failed_channels.append(
                             (channel.name, f"Discord error: {error}")
                         )
@@ -146,7 +169,20 @@ class Debug(commands.Cog):
                 f"{failure_details}"
             )
 
-        await interaction.followup.send(result, ephemeral=True)
+        try:
+            await interaction.followup.send(result, ephemeral=True)
+        except discord.HTTPException as error:
+            # An interaction token is good for fifteen minutes, and the
+            # rate limit on deleting channels means a reset of more
+            # than a handful outlives it. The reset itself has already
+            # happened and been saved -- only the report is lost, so it
+            # goes to the console rather than being raised at someone.
+            LOGGER.info(
+                "Could not report the D12 Ball channel reset back to "
+                "Discord (%s). %s",
+                error,
+                result,
+            )
 
 
 async def setup(bot: commands.Bot) -> None:

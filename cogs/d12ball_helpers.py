@@ -139,6 +139,14 @@ TEAM_EMOJI_FALLBACKS = {
 EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
 
 
+# How long a lookup that came up short waits before asking Discord
+# again. The emoji are uploaded to the application by hand, so a retry
+# is worth making at all -- but the answer changes about once a year,
+# and an application that has none of them uploaded comes up short
+# every single time it is asked.
+EMOJI_REFETCH_INTERVAL = 300.0
+
+
 CONDITION_EMOJI_NAMES = {
     "exhaust": EXHAUST_EMOJI_NAME,
     "exhausted": EXHAUSTED_EMOJI_NAME,
@@ -146,18 +154,46 @@ CONDITION_EMOJI_NAMES = {
 }
 
 
-async def load_condition_emojis(
+async def fetch_application_emojis(
     bot: commands.Bot,
-) -> dict[str, str]:
+) -> Optional[dict[str, discord.Emoji]]:
     """
-    Look up the condition emoji -- the exhaustion token, and the
-    exhausted and injured conditions -- uploaded to the application
-    (the Developer Portal's "Emojis" tab), the same way load_coin_emojis
-    does.
+    Every emoji uploaded to the application (the Developer Portal's
+    "Emojis" tab), keyed by name -- or None when the lookup failed.
 
     Application emoji work in every server the bot is in, but unlike
     guild emoji they are not part of discord.py's `client.emojis`
-    cache, so they have to be fetched explicitly.
+    cache, so they have to be fetched over HTTP. That is one request
+    that answers every question anyone asks of it, which is why it is
+    a function of its own: the three loaders below each used to make
+    their own call, so a startup asked Discord for the same list three
+    times, and a coin toss on an application with no emoji uploaded
+    asked again every time it was flipped.
+
+    Deliberately broad in what it catches: the emoji are decoration,
+    and no failure to fetch them should stop anyone playing.
+    """
+    try:
+        emojis = await bot.fetch_application_emojis()
+    except Exception as error:
+        LOGGER.warning("Could not load the application emoji: %s", error)
+        return None
+
+    return {emoji.name: emoji for emoji in emojis}
+
+
+async def load_condition_emojis(
+    bot: commands.Bot,
+    emojis_by_name: Optional[dict[str, discord.Emoji]] = None,
+) -> dict[str, str]:
+    """
+    Look up the condition emoji -- the exhaustion token, and the
+    exhausted and injured conditions -- among the application's emoji,
+    the same way load_coin_emojis does.
+
+    `emojis_by_name` is an already-fetched application emoji list, from
+    a caller that is looking several things up out of the same one.
+    Fetched here when it is not given.
 
     A name with no application upload falls back to a guild emoji of
     the same name before it falls back to a plain one: the art for
@@ -169,15 +205,9 @@ async def load_condition_emojis(
     Anything that goes wrong here just leaves a condition out of the
     mapping and callers fall back to a plain emoji.
     """
-    try:
-        emojis = await bot.fetch_application_emojis()
-    except Exception as error:
-        LOGGER.warning(
-            "Could not load the D12 Ball condition emoji: %s", error,
-        )
-        emojis = []
+    if emojis_by_name is None:
+        emojis_by_name = await fetch_application_emojis(bot) or {}
 
-    emojis_by_name = {emoji.name: emoji for emoji in emojis}
     guild_emojis_by_name = {emoji.name: emoji for emoji in bot.emojis}
     condition_emojis: dict[str, str] = {}
     missing: list[str] = []
@@ -215,19 +245,18 @@ def get_injured_emoji(condition_emojis: dict[str, str]) -> str:
 
 async def load_team_emojis(
     bot: commands.Bot,
+    emojis_by_name: Optional[dict[str, discord.Emoji]] = None,
 ) -> dict[Team, str]:
     """
-    Look up the team-letter emoji uploaded to the application (the
-    Developer Portal's "Emojis" tab), the same way load_coin_emojis
-    and load_condition_emojis do.
-    """
-    try:
-        emojis = await bot.fetch_application_emojis()
-    except Exception as error:
-        LOGGER.warning("Could not load the D12 Ball team emoji: %s", error)
-        return {}
+    Look up the team-letter emoji among the application's emoji, the
+    same way load_coin_emojis and load_condition_emojis do.
 
-    emojis_by_name = {emoji.name: emoji for emoji in emojis}
+    `emojis_by_name` is an already-fetched list -- see
+    fetch_application_emojis.
+    """
+    if emojis_by_name is None:
+        emojis_by_name = await fetch_application_emojis(bot) or {}
+
     team_emojis: dict[Team, str] = {}
     missing: list[str] = []
 
@@ -585,27 +614,22 @@ def refresh_player_names(
 
 async def load_coin_emojis(
     bot: commands.Bot,
+    emojis_by_name: Optional[dict[str, discord.Emoji]] = None,
 ) -> dict[CoinFace, str]:
     """
-    Look up the coin emoji uploaded to the application.
+    Look up the coin emoji among the application's emoji, and keep
+    them as ready-to-post <:name:id> strings.
 
-    Application emoji work in every server the bot is in, but
-    discord.py does not cache them, so they are fetched once and kept
-    as ready-to-post <:name:id> strings.
+    `emojis_by_name` is an already-fetched list -- see
+    fetch_application_emojis.
 
     Anything that goes wrong here leaves a face out of the mapping and
     the coin toss falls back to a plain coin. An app that has not had
     the emoji uploaded yet is the expected case, not an error.
     """
-    try:
-        emojis = await bot.fetch_application_emojis()
-    except Exception as error:
-        # Deliberately broad: the emoji is decoration, and no failure
-        # to fetch it should stop anyone from flipping a coin.
-        LOGGER.warning("Could not load the D12 Ball coin emoji: %s", error)
-        return {}
+    if emojis_by_name is None:
+        emojis_by_name = await fetch_application_emojis(bot) or {}
 
-    emojis_by_name = {emoji.name: emoji for emoji in emojis}
     coin_emojis: dict[CoinFace, str] = {}
     missing: list[str] = []
 

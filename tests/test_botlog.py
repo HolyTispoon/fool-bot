@@ -275,6 +275,31 @@ class FloodControlTests(unittest.TestCase):
         self.assertIn("suppressed 3 log record(s)", posts[0])
         self.assertEqual(posts[1], "after the window")
 
+    def test_the_first_window_starts_at_the_first_record(self) -> None:
+        # The clock here is the loop's, which is monotonic and counts
+        # from boot on Linux, so on a bot that comes up with the machine
+        # the first record can arrive at a `now` of 40-odd. Every other
+        # test in this class starts at 0.0, where a window beginning at
+        # "time zero" and one beginning at the first record are the same
+        # thing -- which is what let the difference hide.
+        limit = DiscordLogChannelHandler.RATE_LIMIT
+        window = DiscordLogChannelHandler.RATE_WINDOW
+        boot = window / 3
+
+        for number in range(limit + 2):
+            self.handler._admit(f"error {number}", boot)
+
+        # Still inside the first window, counted from the first record
+        # rather than from boot, so the cap still holds.
+        self.assertEqual(
+            self.handler._admit("still capped", boot + window - 1), [],
+        )
+
+        posts = self.handler._admit("a full window later", boot + window)
+
+        self.assertIn("suppressed 3 log record(s)", posts[0])
+        self.assertEqual(posts[1], "a full window later")
+
 
 class HandlerTests(unittest.TestCase):
     def make_record(self, message: str = "boom") -> logging.LogRecord:

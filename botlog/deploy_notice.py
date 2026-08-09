@@ -22,7 +22,6 @@ landed, so a failed post retries on the next start instead of being
 swallowed.
 """
 
-import json
 import os
 import re
 import socket
@@ -31,14 +30,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import botstate
+
 
 # The repository the running code was imported from; botlog/ lives one
 # level under it.
 REPO_DIR = Path(__file__).resolve().parents[1]
 
-# Beside data/d12ball_games.json, and untracked for the same reason: it
-# is runtime state, and each machine's is its own.
-STATE_FILE = REPO_DIR / "data" / "bot_state.json"
+# The file botstate.py owns; named here too because the tests and the
+# functions below take it as an argument.
+STATE_FILE = botstate.STATE_FILE
 
 # The key in that file holding the sha of the build already announced.
 LAST_SHA_KEY = "deploy_notice_sha"
@@ -504,43 +505,11 @@ def last_announced(state_file: Path = STATE_FILE) -> Optional[str]:
     a notice. A missing or unreadable state file is a first run, not an
     error: the cost of being wrong is one extra notice.
     """
-    try:
-        with state_file.open("r", encoding="utf-8") as file:
-            state = json.load(file)
-    except (OSError, json.JSONDecodeError):
-        return None
-
-    if not isinstance(state, dict):
-        return None
-
-    sha = state.get(LAST_SHA_KEY)
-
-    return sha if isinstance(sha, str) else None
+    return botstate.read_key(LAST_SHA_KEY, state_file)
 
 
 def mark_announced(sha: str, state_file: Path = STATE_FILE) -> None:
     """
     Record `sha` as announced, so the next restart on it says nothing.
-    Written through a temporary file, the way the saved games are, so an
-    interrupted write cannot leave a truncated file behind.
     """
-    state_file.parent.mkdir(parents=True, exist_ok=True)
-
-    state: dict[str, object] = {}
-
-    try:
-        with state_file.open("r", encoding="utf-8") as file:
-            loaded = json.load(file)
-
-        if isinstance(loaded, dict):
-            state = loaded
-    except (OSError, json.JSONDecodeError):
-        state = {}
-
-    state[LAST_SHA_KEY] = sha
-    temporary_file = state_file.with_suffix(".tmp")
-
-    with temporary_file.open("w", encoding="utf-8") as file:
-        json.dump(state, file, indent=2)
-
-    temporary_file.replace(state_file)
+    botstate.write_key(LAST_SHA_KEY, sha, state_file)
