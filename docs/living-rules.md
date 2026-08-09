@@ -80,10 +80,10 @@ team does the reverse.
 play stacks them freely. What every deliberate placement -- setup, a substitution window,
 halftime, a [run back](#running-back-after-a-steal) -- enforces is coverage, not a limit: a
 team comes out of it with **every space of a zone it has players in occupied**, as far as its
-players stretch, and any surplus stacked. Under the 2-2-2 formation
-no zone ever holds more of a team's players than it has spaces, so that comes to one player
-per space; a formation that puts more players in a zone than the zone has spaces -- 4-1-1,
-2-1-3 -- fills every space and doubles up the rest.
+players stretch, and any surplus stacked. Under most formation-and-board combinations no zone
+ever holds more of a team's players than it has spaces, so that comes to one player per
+space; a formation that puts more players in a zone than the zone has spaces -- 2-3-1 or
+1-3-2 on board 6, whose midfield has two -- fills every space and doubles up the rest.
 
 **The kickoff space** is where the ball starts every period and every restart after a goal:
 
@@ -244,13 +244,19 @@ is usually only one.
 - Otherwise their coach picks any of their players **in the ball's zone**. That player moves
   to the ball's space and gains **1 exhaust token per space travelled**.
 - If the defending team has nobody in the ball's zone, there is no challenger and the
-  maneuver **automatically succeeds** for the offense.
+  maneuver **automatically succeeds** for the offense. The attacking coach still picks which
+  offensive maneuver it is, and its effect resolves in full -- there is simply nothing to
+  reveal it against.
 
 ### 2. Select and reveal
 
 Both coaches secretly select a maneuver with their action-selection die -- the attacker an
 offensive maneuver, the challenger a defensive one -- then reveal simultaneously. Each
 maneuver occupies two faces of the die.
+
+With no challenger there is nobody to reveal against: the attacker picks, nothing is
+concealed, and step 3 and step 4 are both skipped -- the maneuver they picked is the one that
+resolves.
 
 ### 3. Who wins
 
@@ -695,12 +701,13 @@ the team in any of the three.
 | Formation | Own goal | Midfield | Opponent's goal |
 |---|---|---|---|
 | 2-2-2 | 2 | 2 | 2 |
-| 4-1-1 | 4 | 1 | 1 |
-| 2-1-3 | 2 | 1 | 3 |
+| 2-3-1 | 2 | 3 | 1 |
+| 1-3-2 | 1 | 3 | 2 |
 
-The numbers read from the team's own goal forward, and each coach chooses their own. 4-1-1
-and 2-1-3 put more cards in a zone than that zone has spaces on any board, which is what
-[occupancy](#the-field) is written for: those zones fill every space and stack the surplus.
+The numbers read from the team's own goal forward, and each coach chooses their own. On board
+6, whose midfield has two spaces, 2-3-1 and 1-3-2 put more cards in midfield than it has
+spaces, which is what [occupancy](#the-field) is written for: the zone fills both spaces and
+stacks the surplus. On board 7 or 9 every shape fits one card a space.
 
 **Whatever a side finishes the window standing on becomes their arrangement**, and every
 [new play](#resetting-after-a-new-play) from then on puts them back on it. A side that passes

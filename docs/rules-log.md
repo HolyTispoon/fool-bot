@@ -55,6 +55,27 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-08-08 (later again) -- author, the three basic-mode shapes are 2-2-2, 2-3-1 and 1-3-2
+
+- **4-1-1 and 2-1-3 are out; 2-3-1 and 1-3-2 replace them.** Basic mode still offers exactly
+  three shapes, still read from a coach's own goal forward, and 2-2-2 is still where every
+  game kicks off. Only which two shapes join it has changed, so nothing about how a coach
+  moves between them, or when, is affected.
+- **The new pair is a midfield pair.** Both put three cards in midfield, which is what makes
+  them different from each other only at the ends: 2-3-1 keeps the back two and pushes one
+  forward player back, 1-3-2 keeps the front two and pulls one defender up. 4-1-1's four in a
+  goal zone has no counterpart in the new set.
+- **Stacking is now board-dependent, where it used to be unconditional.** 4-1-1 and 2-1-3
+  overfilled a zone on every board. Three in midfield fits board 7 and board 9 exactly, and
+  only overfills board 6's two-space midfield. The coverage rule is unchanged and still
+  earns its keep -- see "Occupancy" in the living rules -- but on the default board the new
+  shapes never stack, so it is board 6 that exercises it.
+- **An uncontested maneuver now succeeds instead of stalling.** This was already the rule --
+  "if the defending team has nobody in the ball's zone, there is no challenger and the
+  maneuver automatically succeeds for the offense" -- and the only thing the author added is
+  that the offense still *picks* which maneuver succeeds, rather than being handed a generic
+  success. It had been listed under "Specified but not built"; it is now built.
+
 ### 2026-08-08 (later still) -- author, a new play resets to the coach's arrangement, and injuries compel nothing
 
 - **A turnover is now either a steal or a new play, and only a new play opens a substitution
@@ -400,7 +421,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | "So if they were subbed while exhausted they are no longer exhausted" | Half the tokens, rounded up; Exhausted follows from what remains |
 | A tie at full time goes to the extreme shootout | Tournament mode only; a league game ends tied |
 | "For now, we need one player of each role on the field" | A property of the standard setup, not a standing rule |
-| Nothing about formations, and a fixed two cards per zone | Games kick off 2-2-2; rearranging can move a team into 4-1-1 or 2-1-3 |
+| Nothing about formations, and a fixed two cards per zone | Games kick off 2-2-2; rearranging can move a team into 2-3-1 or 1-3-2 |
 | A pass to the ball's own space names one player | The passer picks, when more than one teammate is standing there |
 | Nothing about a Low Pass with no legal destination | The ball goes a space forward, loose, speed still +1 |
 
@@ -505,14 +526,14 @@ From the author, for `foolbot.py`'s generic commands:
   coverage rule, the steal exemption, and stacked teammates separated while a space is free.
   Forced placements are applied silently; only a real choice is put to a coach.
 - **Formations**, end to end: 2-2-2 at kickoff, and any substitution window (halftime
-  included) able to move a team into 4-1-1 or 2-1-3 with the cards of the coach's choosing.
+  included) able to move a team into 2-3-1 or 1-3-2 with the cards of the coach's choosing.
 - **The Low Pass receiver**, where the destination space holds more than one teammate.
+- **The unchallenged maneuver.** With no defender in the ball's zone the offense picks a
+  maneuver on its own and it resolves as an outright win, with no reveal and no skill test.
 
 ### Specified but not built
 
-- **An unchallenged maneuver should succeed, not stall.** With no defender in the ball's zone,
-  `eligible_challengers()` returns empty and the cog replies "The defending team has no player in
-  the ball's zone to challenge" and stops. It should automatically succeed for the offense.
+Nothing. What is left unbuilt is blocked on something, and is in the next section.
 
 ### Blocked or deferred
 
