@@ -1577,6 +1577,7 @@ def render_matchup(
     attacking: list[ChallengeSide],
     defending: list[ChallengeSide],
     defending_note: str = "",
+    attacking_abilities: bool = True,
     defending_abilities: bool = True,
 ) -> BytesIO:
     """
@@ -1598,6 +1599,13 @@ def render_matchup(
     ability and all; a shot's defenders are a number in the way, and
     printing an ability apiece for players nobody is choosing between
     spread them across the image and buried the skills that decide it.
+
+    `attacking_abilities` is off for a shot for a different reason: an
+    ability that bears on the attempt is already a modifier line above,
+    so the sentence only repeats it, and one that doesn't bear on the
+    attempt is not what the shot is about. A maneuver keeps it, because
+    there the ability is a fact about a player being weighed rather
+    than a number already in the sum.
 
     Both images replace prose that named the same players and said
     nothing about them: what a coach needs in front of them is the
@@ -1662,7 +1670,7 @@ def render_matchup(
             )
         )
 
-    attacking_width = group_width(attacking, "", True)
+    attacking_width = group_width(attacking, "", attacking_abilities)
     defending_width = group_width(
         defending, defending_note, defending_abilities,
     )
@@ -1690,7 +1698,9 @@ def render_matchup(
                 lines.append((piece, color, font, line_height))
         return lines
 
-    attacking_lines = wrapped(attacking, "", True, attacking_width)
+    attacking_lines = wrapped(
+        attacking, "", attacking_abilities, attacking_width,
+    )
     defending_lines = wrapped(
         defending, defending_note, defending_abilities, defending_width,
     )
@@ -1809,6 +1819,7 @@ def render_score_attempt(
         [shooter],
         defenders,
         defending_note=SCORE_ATTEMPT_UNDEFENDED,
+        attacking_abilities=False,
         defending_abilities=False,
     )
 
