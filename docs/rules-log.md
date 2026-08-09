@@ -45,6 +45,33 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
+### Four edge cases in the injured player's maneuver disadvantage
+
+The "Injured players" paragraph under Exhaustion and injury gives the disadvantage as two
+clauses -- an injured player automatically loses a challenge, and must win a skill test even
+when their maneuver beats their opponent's outright. Both are now implemented, in
+`settled_maneuver_winner` in `cogs/d12ball.py`, on four readings the author has not confirmed:
+
+- **The two clauses are read as covering different moments**, rather than the first swallowing
+  the second. "Challenge" is what section 4 calls the skill test a tie rolls, so the automatic
+  loss is taken to apply to that tie and not to the test the second clause forces. Read the
+  other way -- an injured player loses every challenge, including the forced one -- the second
+  clause could never do anything, so this is the only reading on which both clauses have work.
+- **The automatic loss on a tie costs neither side an exhaust token.** The token is what each
+  player pays for entering the test, and no test is rolled, so nothing here reads as entering
+  one. (An injured player could not gain one anyway; the healthy opponent could.)
+- **A tie between two injured players is an ordinary tie** -- a real skill test, as if neither
+  were injured -- on the reasoning that the disadvantage is relative to a healthy opponent and
+  cancels out when both sides carry it.
+- **An injured player's uncontested maneuver still succeeds outright.** With no defender in
+  the ball's zone there is no opponent to be disadvantaged against and no challenge to lose,
+  so neither clause has anything to bite on. This case did not exist when the disadvantage was
+  written down.
+
+A fifth follows from the second clause and is not really a choice: when the injured player
+loses the forced skill test, their opponent's maneuver resolves, even though it lost the
+ranking. That is what "must win it to make it stick" leaves behind.
+
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
 
@@ -553,6 +580,11 @@ From the author, for `foolbot.py`'s generic commands:
 - **The Low Pass receiver**, where the destination space holds more than one teammate.
 - **The unchallenged maneuver.** With no defender in the ball's zone the offense picks a
   maneuver on its own and it resolves as an outright win, with no reveal and no skill test.
+- **The injured player's maneuver disadvantage:** a tie against exactly one injured
+  participant is their automatic loss, rolling nothing, and a decisive maneuver owed to an
+  injured player is downgraded to a skill test they have to win. Specified since the rules
+  were first vendored on 2026-07-25 and built on 2026-08-09; the readings it rests on are in
+  [Still open](#still-open).
 
 ### Specified but not built
 

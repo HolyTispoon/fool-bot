@@ -342,12 +342,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         turn_view = ManeuverActionPromptView(
                             self, game.game_id,
                         )
-                    elif (
-                        not match.maneuver_uncontested
-                        and self.maneuver_catalog.resolve(
-                            match.offense_maneuver, match.defense_maneuver,
-                        ) == "tie"
-                    ):
+                    elif self.settled_maneuver_winner(match) is None:
+                        # No winner yet means a skill test is owed --
+                        # a tie, or a decisive maneuver an injured
+                        # player still has to roll for. Asking the
+                        # ranking directly here would get both wrong.
                         turn_view = SkillTestView(self, game.game_id)
                     else:
                         turn_view = self.build_effect_choice_view(
@@ -827,6 +826,62 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 
+    def settled_maneuver_winner(self, match: MatchState) -> Optional[str]:
+        """
+        Which maneuver wins outright, or None when a skill test still
+        has to decide it.
+
+        This is the whole of who wins a maneuver, and the only place
+        that ranking and the injured player's disadvantage are put
+        together -- see "Injured players" under Exhaustion and injury
+        in docs/living-rules.md. Three call sites ask it and none of
+        them may re-derive the answer from
+        `maneuver_catalog.resolve()` alone: injury both takes wins away
+        (a decisive one owed to an injured player becomes a skill test)
+        and hands them out (a tie against exactly one injured player is
+        their automatic loss, with no test to roll), so the ranking on
+        its own now disagrees with the turn in both directions. The two
+        that reconstruct a prompt after a restart -- `on_ready` and
+        `build_effect_choice_view` -- would otherwise restore a skill
+        test nobody owes, or an effect choice for a test that hasn't
+        been rolled.
+
+        An uncontested maneuver wins whatever the offense picked, injured
+        or not: there is no opponent to be disadvantaged against, and no
+        challenge to lose. See "The maneuver with nobody to challenge
+        it" in CLAUDE.md, and the open question in docs/rules-log.md.
+        """
+        if match.maneuver_uncontested:
+            return match.offense_maneuver
+
+        outcome = self.maneuver_catalog.resolve(
+            match.offense_maneuver, match.defense_maneuver,
+        )
+        offense_injured = match.active_player_id in match.injured
+        defense_injured = match.challenger_id in match.injured
+
+        if outcome != "tie":
+            winner_injured = (
+                offense_injured if outcome == "offense" else defense_injured
+            )
+            if winner_injured:
+                return None
+            return (
+                match.offense_maneuver
+                if outcome == "offense"
+                else match.defense_maneuver
+            )
+
+        if offense_injured == defense_injured:
+            # Both or neither: no relative disadvantage, so an
+            # ordinary tie.
+            return None
+        return (
+            match.offense_maneuver
+            if defense_injured
+            else match.defense_maneuver
+        )
+
     async def resolve_maneuver(
         self,
         interaction: discord.Interaction,
@@ -858,22 +913,73 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{defense_display} chose **{defense_name}**."
         )
 
+        # Who wins is settled_maneuver_winner's alone to say; what is
+        # decided here is only how the four ways it can land are
+        # worded. `outcome` is the ranking on its own, which is what
+        # separates a win on the cards from a win handed over by the
+        # other player's injury.
         outcome = self.maneuver_catalog.resolve(offense_name, defense_name)
+        winner_name = self.settled_maneuver_winner(match)
+        defense_injured = match.challenger_id in match.injured
 
-        if outcome != "tie":
-            winner_name = (
+        if winner_name is not None:
+            if outcome == "tie":
+                # A tie with exactly one injured participant: they lose
+                # it outright. Nothing is rolled, so neither side pays
+                # the token a skill test would have cost them.
+                injured_player = self.get_player_definition(
+                    match.challenger_id
+                    if defense_injured
+                    else match.active_player_id
+                )
+                await interaction.followup.send(
+                    f"{reveal}\n\n"
+                    f"**{offense_name}** ties with **{defense_name}**, but "
+                    f"{format_role_bracket(injured_player, self.team_emojis)}"
+                    " is **injured** "
+                    f"{get_injured_emoji(self.condition_emojis)} and "
+                    "automatically loses the tie.\n\n"
+                    f"## **{winner_name}** wins!"
+                )
+            else:
+                # Headed the same way a won skill test is (see
+                # SkillTestView.roll), so the two ways a maneuver can be
+                # won read alike. Whoever resolves the effect isn't named
+                # here: an effect with a choice in it prompts them by name
+                # itself, and one without needs nobody to do anything.
+                await interaction.followup.send(
+                    f"{reveal}\n\n## **{winner_name}** wins!"
+                )
+            await self.begin_effect_resolution(
+                interaction, game, match, winner_name,
+            )
+            return
+
+        if outcome == "tie":
+            # An ordinary tie -- both or neither participant is injured.
+            headline = (
+                f"{reveal}\n\n"
+                f"**{offense_name}** ties with **{defense_name}** — skill "
+                "test!\n\n"
+            )
+        else:
+            # An injured player's maneuver never wins outright -- they
+            # still have to win a skill test to make it stick.
+            would_be_winner = (
                 offense_name if outcome == "offense" else defense_name
             )
-            # Headed the same way a won skill test is (see
-            # SkillTestView.roll), so the two ways a maneuver can be
-            # won read alike. Whoever resolves the effect isn't named
-            # here: an effect with a choice in it prompts them by name
-            # itself, and one without needs nobody to do anything.
-            await interaction.followup.send(
-                f"{reveal}\n\n## **{winner_name}** wins!"
+            injured_player = self.get_player_definition(
+                match.active_player_id
+                if outcome == "offense"
+                else match.challenger_id
             )
-            await self.begin_effect_resolution(interaction, game, match, winner_name)
-            return
+            headline = (
+                f"{reveal}\n\n"
+                f"**{would_be_winner}** would win, but "
+                f"{format_role_bracket(injured_player, self.team_emojis)} is "
+                f"**injured** {get_injured_emoji(self.condition_emojis)} -- "
+                "a skill test decides it instead!\n\n"
+            )
 
         exhaustion_text = (
             self.apply_exhaustion(match, match.active_player_id, 1)
@@ -896,9 +1002,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # prompt below, so it survives every re-roll intact instead of
         # being edited away.
         await interaction.followup.send(
-            f"{reveal}\n\n"
-            f"**{offense_name}** ties with **{defense_name}** — skill "
-            "test!\n\n"
+            f"{headline}"
             f"{format_role_bracket(offense_player, self.team_emojis)}: offense skill "
             f"{offense_skill}\n"
             f"{format_role_bracket(defense_player, self.team_emojis)}: defense skill "
@@ -1052,19 +1156,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         always reconstructs the first-stage distance choice instead.
         Nothing has been applied by then, so the coach re-picks.
         """
-        if match.maneuver_uncontested:
-            winner_name = match.offense_maneuver
-        else:
-            outcome = self.maneuver_catalog.resolve(
-                match.offense_maneuver, match.defense_maneuver,
-            )
-            if outcome == "tie":
-                return None
-            winner_name = (
-                match.offense_maneuver
-                if outcome == "offense"
-                else match.defense_maneuver
-            )
+        winner_name = self.settled_maneuver_winner(match)
+        if winner_name is None:
+            # Still owed a skill test, so no effect is pending yet.
+            return None
         if winner_name == "Low Pass":
             return LowPassChoiceView(self, game_id)
         if winner_name == "High Pass":
