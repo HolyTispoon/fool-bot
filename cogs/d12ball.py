@@ -138,6 +138,12 @@ HALFTIME_STAGES = (
 MAX_RUN_BACK_PASSES = 60
 
 
+# How often one game's persistent board message may be edited. Discord
+# buckets edits per message, and this is the single most-edited message
+# the bot owns -- see "The board message is one bucket" in CLAUDE.md.
+BOARD_REFRESH_INTERVAL = 3.0
+
+
 class D12Ball(commands.GroupCog, group_name="d12ball"):
     ball_group = app_commands.Group(
         name="ball",
@@ -170,6 +176,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.player_catalog,
             self.maneuver_catalog,
         )
+        # Per game: when its board message was last edited, and the
+        # trailing refresh waiting to edit it again. See
+        # refresh_match_image.
+        self.board_refreshed_at: dict[str, float] = {}
+        self.board_refresh_tasks: dict[str, "asyncio.Task[None]"] = {}
 
         restored_views = 0
 
@@ -363,6 +374,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.team_emojis = await load_team_emojis(
             self.bot, application_emojis,
         )
+
+    async def cog_unload(self) -> None:
+        """
+        Drop any board refresh still waiting on its window. The reload
+        that follows builds a new cog with its own games, so a task
+        holding the old one would edit from state nothing else can see.
+        """
+        for task in list(self.board_refresh_tasks.values()):
+            task.cancel()
 
     async def cog_app_command_error(
         self,
@@ -4429,12 +4449,90 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         png: Optional[bytes] = None,
     ) -> None:
         """
-        Re-render the persistent board image after the match state
-        changes outside of the interaction that owns that message.
+        Bring the persistent board message up to date, at most once
+        every BOARD_REFRESH_INTERVAL for a given game.
+
+        Discord buckets message edits per message, and this one message
+        is edited from fifty-odd places -- a single click walks through
+        several of them, and each is two edits (see
+        `write_board_message`). That is what was earning the 429s, and
+        the intermediate boards are worth nothing: a coach reads the
+        board once everything has finished moving. So a refresh that
+        arrives inside the window does not queue behind the last one,
+        it *replaces* it -- one trailing refresh is scheduled, and by
+        the time it runs it draws whatever the state has become.
 
         `png` is an already-rendered board, for a caller that is
         posting the same one somewhere else in the same breath and
-        should not pay to draw it twice.
+        should not pay to draw it twice. It is only used when the
+        refresh happens now; a deferred one re-draws, because the
+        board it was handed will be stale by the time it runs.
+        """
+        if game.message_id is None or interaction.channel is None:
+            return
+
+        now = time.monotonic()
+        last = self.board_refreshed_at.get(game.game_id)
+
+        if last is not None and now - last < BOARD_REFRESH_INTERVAL:
+            self.schedule_board_refresh(
+                interaction.channel, game, last + BOARD_REFRESH_INTERVAL - now,
+            )
+            return
+
+        self.board_refreshed_at[game.game_id] = now
+        await self.write_board_message(interaction.channel, game, png)
+
+    def schedule_board_refresh(
+        self,
+        channel: discord.TextChannel,
+        game: D12BallGame,
+        delay: float,
+    ) -> None:
+        """
+        Arrange for the board to be brought up to date once the window
+        is open again, unless one is already arranged.
+
+        One pending refresh per game is all that is ever needed: it
+        renders when it runs, so a refresh asked for after it was
+        scheduled but before it fired is already covered by it.
+        """
+        if game.game_id in self.board_refresh_tasks:
+            return
+
+        async def run() -> None:
+            try:
+                await asyncio.sleep(delay)
+                self.board_refreshed_at[game.game_id] = time.monotonic()
+                await self.write_board_message(channel, game)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # Nothing above this to catch it -- an exception left
+                # in a task surfaces as asyncio's own "never retrieved"
+                # record, naming neither the game nor this code.
+                LOGGER.error(
+                    "Could not refresh the board for D12 Ball game %s.",
+                    game.game_id,
+                    exc_info=True,
+                )
+            finally:
+                self.board_refresh_tasks.pop(game.game_id, None)
+
+        # The loop keeps only a weak reference to a task, so the handle
+        # is held here to keep this one from being collected mid-sleep.
+        self.board_refresh_tasks[game.game_id] = asyncio.create_task(run())
+
+    async def write_board_message(
+        self,
+        channel: discord.TextChannel,
+        game: D12BallGame,
+        png: Optional[bytes] = None,
+    ) -> None:
+        """
+        The two edits a board refresh actually costs: the attachment,
+        and then the link button that could not be cut until the
+        attachment had a URL.
 
         This is a nicety layered on top of state that has already been
         saved, not the thing carrying the turn forward -- a dropped
@@ -4443,16 +4541,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         the turn before it reaches the next prompt, any more than a 404
         or a Discord-side HTTP error already doesn't.
         """
-        if game.message_id is None or interaction.channel is None:
+        if game.message_id is None:
             return
 
         if png is None:
             png = await self.render_match_png(game)
 
         try:
-            board_message = interaction.channel.get_partial_message(
-                game.message_id,
-            )
+            board_message = channel.get_partial_message(game.message_id)
             updated_message = await board_message.edit(
                 attachments=[self.match_file_from_png(game, png)],
             )

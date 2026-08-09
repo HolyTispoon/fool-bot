@@ -269,6 +269,26 @@ same budget. So:
   "View full image" link has to be re-cut in a second edit -- the URL does not
   exist until the upload lands. Budget for two, and prefer not refreshing at
   all over refreshing twice.
+- **The board message is one bucket, and it is the one that runs out.** Every
+  429 in a logged session of play was a `PATCH` on a single message id: the
+  game's persistent board. Discord meters edits per message, roughly five in
+  five seconds, and the board is refreshed from fifty-odd call sites at two
+  edits each -- so a click that walks through three steps spends six of that
+  five. `refresh_match_image` is therefore rate-gated per game: the first
+  refresh goes out at once, and any that arrive within `BOARD_REFRESH_INTERVAL`
+  collapse into **one** trailing refresh rather than queueing, which holds the
+  worst case to two edits per interval. That is the ceiling to protect; adding
+  a call site is free, but shortening the interval is not.
+  - A trailing refresh **draws when it runs**, never from a `png=` handed to it
+    earlier -- the board it was offered is stale by the time it fires, and
+    re-drawing is exactly what lets one pending refresh stand in for every
+    request behind it.
+  - It is a task, so `cog_unload` cancels it: a reload builds a new cog with
+    its own games, and a task holding the old one would write from state
+    nothing else can see.
+  - **Fewer requests is not the same as slower requests, and this is the
+    difference.** Nothing here sleeps before a call anyone is waiting on. The
+    gate drops redundant work; the turn does not get slower for it.
 - **Renders belong in a worker thread.** Everything that draws goes through
   `asyncio.to_thread`; Pillow is pure CPU and blocking the loop stalls the
   rate-limit sleeps and the gateway heartbeat along with everything else. The
