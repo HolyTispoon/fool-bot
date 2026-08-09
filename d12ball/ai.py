@@ -37,6 +37,10 @@ class AIStrategy(ABC):
 
     @abstractmethod
     def choose_action(self, match: MatchState) -> str:
+        """Either "shoot" or "maneuver". A strategy may only return
+        "shoot" where `match.can_attempt_score()` is true -- a shot
+        has to be taken from the other team's half, and a human is
+        offered no button for it there."""
         ...
 
     @abstractmethod
@@ -189,6 +193,9 @@ class DinkyAI(AIStrategy):
         """
         Shoot when the ball is already on the space closest to the
         opponent's goal, otherwise always maneuver to advance it.
+
+        That space is always in the other team's half, so this never
+        picks a shot the half rule forbids.
         """
         if match.is_ball_at_scoring_space():
             return "shoot"

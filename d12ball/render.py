@@ -16,6 +16,7 @@ from d12ball.components import (
     PlayerDefinition,
     RoleProfile,
     TeamSetup,
+    TeamSide,
     Zone,
 )
 from d12ball.game import Team
@@ -863,7 +864,48 @@ def draw_board(
                     text_color="#243347",
                 )
 
+    draw_half_boundaries(draw, match, bounds)
     return bounds
+
+
+def draw_half_boundaries(
+    draw: ImageDraw.ImageDraw,
+    match: MatchState,
+    bounds: dict[Zone, tuple[int, int]],
+) -> None:
+    """
+    The halfway line, dashed down the field, because where a team may
+    shoot from now depends on it -- see "Halves" in the living rules.
+
+    It never falls on a zone boundary: on every board size the field
+    splits somewhere inside midfield. An odd-sized board has a middle
+    space that is in neither half, so it gets two lines, one either
+    side of that space, rather than one drawn through it.
+    """
+    def half(index: int) -> int:
+        if match.board.is_in_attacking_half(TeamSide.HOME, index):
+            return 1
+        if match.board.is_in_attacking_half(TeamSide.VISITING, index):
+            return -1
+        return 0
+
+    for index in range(1, match.board.layout.board_size):
+        if half(index) == half(index - 1):
+            continue
+
+        zone, space_index = match.board.position_at_flat_index(index)
+        left, right = bounds[zone]
+        space_width = (right - left) / len(match.board.spaces[zone])
+        x = round(left + space_index * space_width)
+
+        y = BOARD_TOP + 50
+        while y < BOARD_BOTTOM - 4:
+            draw.line(
+                (x, y, x, min(y + 16, BOARD_BOTTOM - 4)),
+                fill="#f2f6fa",
+                width=3,
+            )
+            y += 30
 
 
 def draw_meeple_group(
