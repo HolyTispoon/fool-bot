@@ -321,20 +321,40 @@ same budget. So:
   "View full image" link has to be re-cut in a second edit -- the URL does not
   exist until the upload lands. Budget for two, and prefer not refreshing at
   all over refreshing twice.
-- **The board message is one bucket, and it is the one that runs out.** Every
-  429 in a logged session of play was a `PATCH` on a single message id: the
-  game's persistent board. Discord meters edits per message, roughly five in
-  five seconds, and the board is refreshed from fifty-odd call sites at two
-  edits each -- so a click that walks through three steps spends six of that
-  five. `refresh_match_image` is therefore rate-gated per game: the first
-  refresh goes out at once, and any that arrive within `BOARD_REFRESH_INTERVAL`
-  collapse into **one** trailing refresh rather than queueing, which holds the
-  worst case to two edits per interval. That is the ceiling to protect; adding
-  a call site is free, but shortening the interval is not.
+- **Channel message edits are one bucket, and it is the one that runs out.**
+  Every 429 in two logged sessions of play was a `PATCH` on
+  `/channels/{id}/messages/{id}`. **`message_id` is not one of Discord's major
+  rate-limit parameters**, so every edit to every message in a game's channel
+  shares a single bucket of roughly five requests in five seconds -- editing a
+  different message buys nothing. Check `discord.http.Route` before assuming
+  otherwise; this was got wrong twice.
+  - Only edits reached *through the channel* land there.
+    `interaction.response.edit_message` is the interaction-callback route and
+    `followup.send(...).edit()` is the webhook route, so neither competes.
+    `channel.get_partial_message(...).edit()` does, and there are two of
+    those: the board refresh and `refresh_maneuver_prompt`.
+  - **A board refresh spends two of the five** (the attachment, then the link
+    button), so `refresh_match_image` is rate-gated per game: the first goes
+    out at once and any that arrive within `BOARD_REFRESH_INTERVAL` collapse
+    into **one** trailing refresh rather than queueing.
+  - **`BOARD_REFRESH_INTERVAL` must stay above Discord's five-second window**,
+    or two refreshes fall inside one window and, with the prompt edit that
+    shares the bucket, a single turn spends exactly five -- measured, and
+    exactly what was still earning 429s at three seconds. Six leaves the turn
+    at three. Adding a call site is free; shortening the interval is not.
   - A trailing refresh **draws when it runs**, never from a `png=` handed to it
     earlier -- the board it was offered is stale by the time it fires, and
     re-drawing is exactly what lets one pending refresh stand in for every
     request behind it.
+  - **A board identical to the one already up is not written at all.** The
+    render is deterministic, so `write_board_message` keeps a digest of what
+    it last uploaded and skips both edits when the new bytes match. Plenty of
+    steps refresh without moving anything visible -- picking a receiver,
+    choosing a maneuver -- and those were costing two of five for nothing. The
+    digest is recorded only after the upload lands, so a rejected edit does
+    not convince the next refresh its work is done, and it is in memory only:
+    after a restart the first refresh always writes, because nothing records
+    what is actually on the message.
   - It is a task, so `cog_unload` cancels it: a reload builds a new cog with
     its own games, and a task holding the old one would write from state
     nothing else can see.

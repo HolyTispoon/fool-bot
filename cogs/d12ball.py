@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import io
 import random
 import time
@@ -140,10 +141,19 @@ HALFTIME_STAGES = (
 MAX_RUN_BACK_PASSES = 60
 
 
-# How often one game's persistent board message may be edited. Discord
-# buckets edits per message, and this is the single most-edited message
-# the bot owns -- see "The board message is one bucket" in CLAUDE.md.
-BOARD_REFRESH_INTERVAL = 3.0
+# How often one game's persistent board message may be refreshed.
+#
+# The arithmetic, because it is not obvious: `message_id` is not one of
+# Discord's major rate-limit parameters, so every
+# `PATCH /channels/{id}/messages/{id}` in a game's channel shares one
+# bucket -- about five requests in five seconds. A refresh costs *two*
+# of them (the attachment, then the link button), and
+# refresh_maneuver_prompt spends more of the same bucket during a turn.
+# Holding refreshes more than five seconds apart is what keeps the
+# board to one refresh per window, which leaves the rest of that
+# budget for the prompts. See "The board message is one bucket" in
+# CLAUDE.md.
+BOARD_REFRESH_INTERVAL = 6.0
 
 
 class D12Ball(commands.GroupCog, group_name="d12ball"):
@@ -178,11 +188,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.player_catalog,
             self.maneuver_catalog,
         )
-        # Per game: when its board message was last edited, and the
-        # trailing refresh waiting to edit it again. See
+        # Per game: when its board message was last edited, the
+        # trailing refresh waiting to edit it again, and a digest of
+        # the board already sitting on the message. See
         # refresh_match_image.
         self.board_refreshed_at: dict[str, float] = {}
         self.board_refresh_tasks: dict[str, "asyncio.Task[None]"] = {}
+        self.board_png_digests: dict[str, bytes] = {}
 
         restored_views = 0
 
@@ -4598,6 +4610,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         and then the link button that could not be cut until the
         attachment had a URL.
 
+        A board identical to the one already on the message is not
+        written at all. Plenty of steps refresh without moving anything
+        a coach can see -- picking a receiver, choosing a maneuver --
+        and the render is deterministic, so byte-equality is the whole
+        test. Those refreshes cost two requests out of a bucket that
+        only has about five, and bought nothing.
+
         This is a nicety layered on top of state that has already been
         saved, not the thing carrying the turn forward -- a dropped
         connection here (aiohttp.ClientError, e.g. a reset or a bad SSL
@@ -4611,6 +4630,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if png is None:
             png = await self.render_match_png(game)
 
+        digest = hashlib.sha256(png).digest()
+        if self.board_png_digests.get(game.game_id) == digest:
+            return
+
         try:
             board_message = channel.get_partial_message(game.message_id)
             updated_message = await board_message.edit(
@@ -4618,6 +4641,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
         except (discord.NotFound, discord.HTTPException, aiohttp.ClientError):
             return
+
+        # Recorded only once the upload has landed, so a failed edit
+        # leaves the next refresh believing it still has work to do.
+        self.board_png_digests[game.game_id] = digest
 
         # The link has to be re-cut because the edit above uploaded a
         # new file, and setting a view replaces the one already there,
