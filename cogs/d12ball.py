@@ -102,7 +102,6 @@ from cogs.d12ball_views import (
     CoinFlipView,
     DribbleAdvanceChoiceView,
     HalftimeExtraTokenView,
-    HalftimeRepositionView,
     HighPassChoiceView,
     HomeAwaySelectionView,
     LooseBallChoiceView,
@@ -124,18 +123,28 @@ from cogs.d12ball_views import (
 )
 
 
-# The halftime sequence's stages, in order -- see D12Ball.advance_halftime_stage.
-# Each side gets its own extra-exhaustion-token choice, its own full
-# substitution declaration (see begin_halftime_substitutions), and its own
-# free repositioning pass, home before visiting throughout.
+# The halftime sequence's stages, in order -- see
+# D12Ball.advance_halftime_stage. Each side gets its own
+# extra-exhaustion-token choice and its own Coaching Choice, **the
+# visitors first** throughout: they kick off the second half, so they
+# are the side whose arrangement the restart depends on.
 HALFTIME_STAGES = (
-    "extra_token_home",
     "extra_token_visiting",
-    "subs_home",
-    "subs_visiting",
-    "reposition_home",
-    "reposition_visiting",
+    "extra_token_home",
+    "coaching_visiting",
+    "coaching_home",
 )
+
+# What a game saved mid-halftime under the old sequence comes back as.
+# Halftime used to run substitutions and free any-zone repositioning as
+# two stages a side; the Coaching Choice is one, so both old stages map
+# onto it. A game paused in either resumes at that side's hub.
+LEGACY_HALFTIME_STAGES = {
+    "subs_home": "coaching_home",
+    "subs_visiting": "coaching_visiting",
+    "reposition_home": "coaching_home",
+    "reposition_visiting": "coaching_visiting",
+}
 
 
 # The most placements one run back may make before it is treated as
@@ -259,7 +268,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     # stages run, so it has to be checked ahead of the
                     # "no ball handler yet" branch below, which would
                     # otherwise misread halftime as kickoff.
-                    stage = match.pending_halftime_stage
+                    stage = self.halftime_stage(match)
                     if stage == "extra_token_home":
                         turn_view = HalftimeExtraTokenView(
                             self, game.game_id, TeamSide.HOME,
@@ -268,25 +277,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         turn_view = HalftimeExtraTokenView(
                             self, game.game_id, TeamSide.VISITING,
                         )
-                    elif stage in ("subs_home", "subs_visiting"):
-                        # Always the menu: halftime never asks whether
-                        # to declare, so there is no offer to come back
-                        # to, unlike an ordinary turnover's window
-                        # below.
-                        turn_view = CoachingHubView(self, game.game_id)
                     else:
-                        # reposition_home / reposition_visiting -- a
-                        # part-made zone/space pick is not persisted
-                        # and restarts at the reposition menu, the
-                        # same simplification a run-back choice makes.
-                        side = (
-                            TeamSide.HOME
-                            if stage == "reposition_home"
-                            else TeamSide.VISITING
-                        )
-                        turn_view = HalftimeRepositionView(
-                            self, game.game_id, side,
-                        )
+                        # coaching_home / coaching_visiting. Always the
+                        # hub: halftime never asks whether to declare,
+                        # so there is no offer to come back to, unlike
+                        # an ordinary turnover's window below. A
+                        # part-made pick inside the flow is not
+                        # persisted and restarts here, the same
+                        # simplification a run-back choice makes.
+                        turn_view = CoachingHubView(self, game.game_id)
                 elif match.active_player_id is None:
                     turn_view = BallHandlerSelectionView(self, game.game_id)
                 elif match.pending_coaching_side is not None:
@@ -3282,6 +3281,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 )
                 break
 
+        covered = self.cover_kickoff_space(match, side)
+        if covered:
+            lines.append(covered)
+
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -3290,14 +3293,67 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if lines:
             body = "\n".join(lines)
             await interaction.followup.send(
-                f"{prefix}# Substitutions\n"
-                f"{format_team_side_label(setup)} declares:\n{body}"
+                f"{prefix}# Coaching Choice\n"
+                f"{format_team_side_label(setup)}:\n{body}"
             )
             await self.refresh_match_image(interaction, game)
         elif prefix:
             await interaction.followup.send(lead_in)
 
         await self.finish_substitution_window(interaction, game, match)
+
+    def cover_kickoff_space(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> Optional[str]:
+        """
+        Put one of an AI side's meeples on the kickoff space when they
+        are the ones kicking off and nobody is standing on it, and
+        describe the move -- or None when there is nothing to do.
+
+        A human coach is refused the Done button until they have
+        covered it (see coaching_finish_refusal); the AI has no menu to
+        be held in, so it does the same thing here. The kickoff space
+        is always in midfield and every basic shape puts at least one
+        card there, so the mover is always somebody whose own zone it
+        is.
+        """
+        side = TeamSide(side)
+        if self.coaching_finish_refusal(match, side) is None:
+            return None
+
+        setup = match.setup_for_side(side)
+        kickoff_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        candidates = [
+            player_id
+            for player_id in setup.field_players
+            if setup.assigned_zone(player_id) == match.ball.zone
+        ]
+        if not candidates:
+            LOGGER.error(
+                "No %s card is assigned to %s, so nobody can take the "
+                "kickoff space.",
+                side.value, match.ball.zone.value,
+            )
+            return None
+
+        def distance(player_id: str) -> int:
+            position = match.board.meeple_position(player_id)
+            if position is None:
+                return 10**6
+            return abs(match.board.flat_index(*position) - kickoff_flat)
+
+        nearest = min(candidates, key=distance)
+        match.position_meeple(side, nearest, match.ball.space_index)
+        player = self.get_player_definition(nearest)
+        return (
+            f"{format_role_bracket(player, self.team_emojis)} takes the "
+            "kickoff spot at "
+            f"{space_label(match.ball.zone, match.ball.space_index)}."
+        )
 
     async def finish_substitution_window(
         self,
@@ -3329,7 +3385,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        if match.pending_halftime_stage in ("subs_home", "subs_visiting"):
+        if self.halftime_stage(match) in (
+            "coaching_home", "coaching_visiting",
+        ):
             # Halftime gives each side its own independent declaration
             # rather than a turnover's declare-then-respond pairing, so
             # this always moves on to the next halftime stage instead
@@ -4209,13 +4267,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
         await self.advance_halftime_stage(interaction, game, match)
 
+    @staticmethod
+    def halftime_stage(match: MatchState) -> Optional[str]:
+        """
+        The stage a match is at, with a stage saved under the old
+        sequence translated -- see LEGACY_HALFTIME_STAGES.
+        """
+        stage = match.pending_halftime_stage
+        return LEGACY_HALFTIME_STAGES.get(stage, stage)
+
     def next_halftime_stage(self, match: MatchState) -> None:
         """
         Advance `match.pending_halftime_stage` to the next entry in
         HALFTIME_STAGES, or clear it once the sequence is exhausted.
         Callers are responsible for saving the match afterward.
         """
-        stage = match.pending_halftime_stage
+        stage = self.halftime_stage(match)
         if stage not in HALFTIME_STAGES:
             match.pending_halftime_stage = None
             return
@@ -4233,7 +4300,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         """Dispatch to whichever halftime stage comes next, or finish."""
-        stage = match.pending_halftime_stage
+        stage = self.halftime_stage(match)
         if stage == "extra_token_home":
             await self.begin_halftime_extra_token(
                 interaction, game, match, TeamSide.HOME,
@@ -4242,20 +4309,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.begin_halftime_extra_token(
                 interaction, game, match, TeamSide.VISITING,
             )
-        elif stage == "subs_home":
+        elif stage == "coaching_home":
             await self.begin_halftime_substitutions(
                 interaction, game, match, TeamSide.HOME,
             )
-        elif stage == "subs_visiting":
+        elif stage == "coaching_visiting":
             await self.begin_halftime_substitutions(
-                interaction, game, match, TeamSide.VISITING,
-            )
-        elif stage == "reposition_home":
-            await self.begin_halftime_reposition(
-                interaction, game, match, TeamSide.HOME,
-            )
-        elif stage == "reposition_visiting":
-            await self.begin_halftime_reposition(
                 interaction, game, match, TeamSide.VISITING,
             )
         else:
@@ -4357,101 +4416,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             side,
             occasion=CoachingOccasion.HALFTIME,
             lead_in=(
-                f"# Substitutions\n{format_team_side_label(setup)} may "
-                "substitute for the second half -- up to **two** swaps and "
-                "a rearrangement. Halftime is free: this doesn't spend "
-                "their once-a-half declaration, and its two swaps are its "
-                "own rather than either half's."
+                f"## Halftime\n{format_team_side_label(setup)} set up for "
+                "the second half. Halftime is free: it does not spend "
+                "their once-a-half declaration, and its two substitutions "
+                "are its own rather than either half's."
             ),
         )
-
-    async def begin_halftime_reposition(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        side: TeamSide,
-    ) -> None:
-        """
-        Free placement of any of `side`'s fielded meeples to any open
-        board space, not limited to their assigned zone -- "the coach
-        can change... the players' assignment as they please" (End of
-        Time). The visiting side alone is gated on finishing with a
-        player standing on the kickoff space, since they're the ones
-        who have to kick off the second half.
-        """
-        setup = match.setup_for_side(side)
-
-        if self.side_is_ai(game, side):
-            lines = []
-            if (
-                side == TeamSide.VISITING
-                and not match.kickoff_space_occupied_by(TeamSide.VISITING)
-            ):
-                kickoff_flat = match.board.flat_index(
-                    match.ball.zone, match.ball.space_index,
-                )
-
-                def distance(player_id: str) -> int:
-                    position = match.board.meeple_position(player_id)
-                    if position is None:
-                        return 10**6
-                    return abs(
-                        match.board.flat_index(*position) - kickoff_flat
-                    )
-
-                nearest = min(setup.field_players, key=distance)
-                match.reposition_meeple_anywhere(
-                    TeamSide.VISITING,
-                    nearest,
-                    match.ball.zone,
-                    match.ball.space_index,
-                )
-                player = self.get_player_definition(nearest)
-                lines.append(
-                    f"{format_role_bracket(player, self.team_emojis)} "
-                    "takes the kickoff spot at "
-                    f"{space_label(match.ball.zone, match.ball.space_index)}."
-                )
-
-            # Same as the human path (HalftimeRepositionView.finish):
-            # wherever this side finishes halftime is the arrangement a
-            # new play restores.
-            match.set_assigned_positions(side)
-            self.next_halftime_stage(match)
-            game.match_state = match.to_dict()
-            save_games(self.games)
-
-            if lines:
-                await interaction.followup.send(
-                    f"{format_team_side_label(setup)} repositions:\n"
-                    + "\n".join(lines)
-                )
-                await self.refresh_match_image(interaction, game)
-            await self.advance_halftime_stage(interaction, game, match)
-            return
-
-        controller_id = self.side_controller_id(game, side)
-        mention = f"<@{controller_id}>" if controller_id else "Someone"
-        kickoff_note = (
-            " The visiting team must have a player on "
-            f"{space_label(match.ball.zone, match.ball.space_index)} to "
-            "kick off the second half before finishing."
-            if side == TeamSide.VISITING
-            else ""
-        )
-        prompt = await interaction.followup.send(
-            f"{mention}, {format_team_side_label(setup)}: reposition any "
-            "fielded meeple to any space on the board, free of "
-            f"exhaustion, or finish.{kickoff_note}",
-            view=HalftimeRepositionView(self, game.game_id, side),
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt.id
-        save_games(self.games)
 
     async def finish_halftime(
         self,
@@ -4462,8 +4432,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         The last step of halftime -- the visiting kickoff-space
         guarantee is already enforced before this is reached (see
-        HalftimeRepositionView.finish), so this just clears the
-        halftime flag and hands play to the second half.
+        coaching_finish_refusal), so this just clears the halftime flag
+        and hands play to the second half.
         """
         match.pending_halftime_stage = None
         game.match_state = match.to_dict()
