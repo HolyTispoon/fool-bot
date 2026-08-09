@@ -324,10 +324,11 @@ def fit_meeple_labels(
     fits every name of a group inside its own space: the widest name
     within `max_width`, and one line per name within `max_height`.
 
-    A space can hold a whole zone's worth of meeples now that 4-1-1
-    and 2-1-3 exist, so the size a stack needs is not something a
-    constant can know -- one name gets the full size, four share the
-    room between the tokens and the bottom of the space. Falls back to
+    A space can hold a whole zone's worth of meeples -- a formation
+    that stacks puts them there, and /coach can put them anywhere --
+    so the size a stack needs is not something a constant can know:
+    one name gets the full size, four share the room between the
+    tokens and the bottom of the space. Falls back to
     the smallest size when even that does not fit; the caller shortens
     a name that is still too wide.
     """

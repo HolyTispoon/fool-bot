@@ -1106,11 +1106,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         handler, who cannot pass to themselves.
 
         Usually one, and then the destination *is* the choice. A
-        formation that stacks (4-1-1, 2-1-3) makes two or three
-        ordinary, and which of them receives the ball is the passer's
-        to pick: it decides who a Winger's set-up hands the shot to.
-        Empty when the distance runs off the end of the board, or when
-        the space holds nobody but the handler.
+        formation that stacks (2-3-1 or 1-3-2 on a six-space board)
+        makes two ordinary, and which of them receives the ball is the
+        passer's to pick: it decides who a Winger's set-up hands the
+        shot to. Empty when the distance runs off the end of the
+        board, or when the space holds nobody but the handler.
         """
         offense_side = match.ball.possession
         offense_players = set(match.setup_for_side(offense_side).field_players)

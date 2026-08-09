@@ -1336,8 +1336,9 @@ class MatchState:
         each zone's currently uncovered spaces, which is what the
         coverage rule asks for: a stack only has to break up while
         some space in the zone still has nobody on it, so a formation
-        that puts more players in a zone than it has spaces (4-1-1,
-        2-1-3) settles with the surplus doubled up and nobody moving.
+        that puts more players in a zone than it has spaces (2-3-1 or
+        1-3-2 on a six-space board) settles with the surplus doubled
+        up and nobody moving.
         """
         stays_player_id = self.pending_run_back_stays_player_id
         setup = self.setup_for_side(side)
@@ -1387,7 +1388,7 @@ class MatchState:
         Where one of `side`'s meeples may legally be put down in
         `zone`: every space the side has yet to cover, or -- once its
         other meeples cover them all -- every space in the zone, since
-        the surplus a formation like 4-1-1 leaves over has to stack
+        the surplus a formation like 2-3-1 leaves over has to stack
         somewhere. This is the run back's coverage rule (see
         "Turnovers and running back" in docs/living-rules.md) and the
         same rule governs the free placements at a substitution window
@@ -1749,7 +1750,7 @@ class MatchState:
         to. This is the general form of `swap_field_positions`, and
         what changing formation is made of: a swap keeps the shape a
         team is in, and only rewriting the lot can move it from 2-2-2
-        into 4-1-1 or 2-1-3.
+        into 2-3-1 or 1-3-2.
 
         The shape itself is not checked here -- a MatchState does not
         carry the ruleset that says which shapes basic mode allows, so
@@ -2402,8 +2403,8 @@ def default_formation_deal(
     The standard setup's roles, read back to front (fullback, defender,
     midfielder, playmaker, winger, striker), are dealt into the zones in
     the formation's numbers. For 2-2-2 that reproduces the standard
-    setup exactly; 4-1-1 pulls the midfield pair back and 2-1-3 pushes
-    the playmaker forward.
+    setup exactly; 2-3-1 pulls the winger back into midfield and 1-3-2
+    pushes the defender up into it.
     """
     players_by_role: dict[
         PlayerRole,

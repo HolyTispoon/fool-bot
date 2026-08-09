@@ -81,10 +81,16 @@ leaves the answers versioned.
 
 ## Formations and occupancy
 
-Basic mode has three shapes -- **2-2-2, 4-1-1 and 2-1-3**, read from a coach's
+Basic mode has three shapes -- **2-2-2, 2-3-1 and 1-3-2**, read from a coach's
 own goal forward, six cards either way. **Every game kicks off in 2-2-2**:
 setup does not ask, and a coach changes shape only by rearranging in a
 substitution window (which halftime reuses).
+
+**Stacking is board-dependent.** Three in midfield fits board 7 and board 9 one
+card a space; only board 6, whose midfield has two spaces, makes 2-3-1 or 1-3-2
+overfill a zone. So the occupancy machinery below is exercised on board 6 and
+by `/coach`, not by the default board -- render a sample at `--board-size 6` to
+see a stack.
 
 - **The shapes live in two places on purpose.** `Formation` in `d12ball/game.py`
   names the three; the counts are in `basic_rules.json`, with the rest of the
@@ -109,7 +115,7 @@ substitution window (which halftime reuses).
   first pick: nothing reaches the match until every zone has its cards, so a
   coach who wanders off mid-change leaves the formation they had.
 - **A Low Pass into a stack asks who receives it.** Several teammates on one
-  space is ordinary under 4-1-1 or 2-1-3, and the receiver is what a Winger's
+  space is ordinary under a stacking shape, and the receiver is what a Winger's
   set-up hands the shot to, so `low_pass_receivers` lists them and
   `LowPassReceiverView` puts the choice to the passer. `low_pass_candidates`
   still names one player per destination -- that is a button label, not the
@@ -147,7 +153,7 @@ new plays" in the living rules for which is which.
   choices, the drop back that fills an empty kickoff -- goes into a list, and
   that list is posted as a single message with a single board refresh when the
   cascade reaches a coach's choice or runs out. It used to send a message and
-  re-upload the board per player, which after a steal that scatters a 4-1-1
+  re-upload the board per player, which after a steal that scatters a six-card
   side is a dozen-odd requests into one channel with nothing between them --
   see "Discord's rate limits". Anything added to the cascade should append to
   `notes` and `continue`, not send. `MAX_RUN_BACK_PASSES` bounds it: as a
@@ -316,7 +322,7 @@ output is a PNG of the expected dimensions.
 
 ```bash
 python3 scripts/render_sample.py --home purple --visiting teal --out board.png
-python3 scripts/render_sample.py --home-formation 4-1-1   # stacked meeples
+python3 scripts/render_sample.py --home-formation 2-3-1 --board-size 6  # stacked meeples
 python3 scripts/render_sample.py --list-games
 python3 scripts/render_sample.py --game <game_id>      # reproduce a real board
 ```

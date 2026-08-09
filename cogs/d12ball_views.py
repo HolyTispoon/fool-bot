@@ -2896,12 +2896,15 @@ class SubstitutionMenuView(SubstitutionView):
         swap.callback = self.begin_swap
         self.add_item(swap)
 
+        # The shape in brackets is the one they are in now, not the one
+        # the button switches to, so it says so -- a bare "(2-2-2)"
+        # reads as the destination.
         formation = cog.current_formation(match, side)
         change = discord.ui.Button(
             label=(
                 "Change formation"
                 if formation is None
-                else f"Change formation ({formation.value})"
+                else f"Change formation (currently {formation.value})"
             ),
             style=discord.ButtonStyle.primary,
             custom_id=f"d12ball:sub_formation:{game_id}",
