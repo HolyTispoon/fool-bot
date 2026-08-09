@@ -562,6 +562,12 @@ class MatchState:
     active_player_id: Optional[str] = None
     pending_action: Optional[str] = None
     challenger_id: Optional[str] = None
+    # Set instead of challenger_id when the defending team has nobody
+    # in the ball's zone: the offense picks a maneuver on its own and
+    # it succeeds outright. Unlike challenger_id this is persisted --
+    # it is what tells a restart that the missing defense_maneuver is
+    # never coming. See begin_uncontested_maneuver.
+    maneuver_uncontested: bool = False
     offense_maneuver: Optional[str] = None
     defense_maneuver: Optional[str] = None
     exhaustion: dict[str, int] = field(default_factory=dict)
@@ -686,6 +692,7 @@ class MatchState:
         self.active_player_id = player_id
         self.pending_action = None
         self.challenger_id = None
+        self.maneuver_uncontested = False
 
     def distance_to_ball(self, player_id: str) -> int:
         """
@@ -1030,6 +1037,36 @@ class MatchState:
         self.pending_action = None
         return distance
 
+    def begin_uncontested_maneuver(self) -> None:
+        """
+        The no-challenger branch of "determine the two players": the
+        defending team has nobody in the ball's zone, so there is no
+        second player and the maneuver the offense picks succeeds --
+        see "Maneuver" in docs/living-rules.md.
+
+        Clears `pending_action` for the same reason choose_challenger
+        does: the action is settled and what happens next is the
+        maneuver selection, not another prompt for this one.
+        """
+        if self.eligible_challengers():
+            raise ValueError(
+                "The defending team has a player who can challenge."
+            )
+        self.maneuver_uncontested = True
+        self.pending_action = None
+
+    @property
+    def maneuver_selections_complete(self) -> bool:
+        """
+        Whether every maneuver this turn is waiting on has been
+        picked. An uncontested maneuver waits on the offense alone --
+        nobody is going to fill in `defense_maneuver`, so checking
+        both would hang the turn.
+        """
+        if self.offense_maneuver is None:
+            return False
+        return self.maneuver_uncontested or self.defense_maneuver is not None
+
     def choose_offense_maneuver(self, name: str) -> None:
         if self.offense_maneuver is not None:
             raise ValueError("The offense has already chosen a maneuver.")
@@ -1111,6 +1148,7 @@ class MatchState:
         self.active_player_id = None
         self.pending_action = None
         self.challenger_id = None
+        self.maneuver_uncontested = False
         self.offense_maneuver = None
         self.defense_maneuver = None
         self.pending_run_back = False
@@ -1336,8 +1374,9 @@ class MatchState:
         each zone's currently uncovered spaces, which is what the
         coverage rule asks for: a stack only has to break up while
         some space in the zone still has nobody on it, so a formation
-        that puts more players in a zone than it has spaces (4-1-1,
-        2-1-3) settles with the surplus doubled up and nobody moving.
+        that puts more players in a zone than it has spaces (2-3-1 or
+        1-3-2 on a six-space board) settles with the surplus doubled
+        up and nobody moving.
         """
         stays_player_id = self.pending_run_back_stays_player_id
         setup = self.setup_for_side(side)
@@ -1387,7 +1426,7 @@ class MatchState:
         Where one of `side`'s meeples may legally be put down in
         `zone`: every space the side has yet to cover, or -- once its
         other meeples cover them all -- every space in the zone, since
-        the surplus a formation like 4-1-1 leaves over has to stack
+        the surplus a formation like 2-3-1 leaves over has to stack
         somewhere. This is the run back's coverage rule (see
         "Turnovers and running back" in docs/living-rules.md) and the
         same rule governs the free placements at a substitution window
@@ -1749,7 +1788,7 @@ class MatchState:
         to. This is the general form of `swap_field_positions`, and
         what changing formation is made of: a swap keeps the shape a
         team is in, and only rewriting the lot can move it from 2-2-2
-        into 4-1-1 or 2-1-3.
+        into 2-3-1 or 1-3-2.
 
         The shape itself is not checked here -- a MatchState does not
         carry the ruleset that says which shapes basic mode allows, so
@@ -1940,10 +1979,15 @@ class MatchState:
         # identifies this phase -- pending_action itself is cleared to
         # None by choose_challenger() right when the challenger is
         # picked, well before an effect can be resolving.
-        maneuver_effect_in_progress = (
-            self.challenger_id is not None
-            and self.offense_maneuver is not None
-            and self.defense_maneuver is not None
+        # An uncontested maneuver has no challenger and never will
+        # have a defense_maneuver, so maneuver_uncontested stands in
+        # for both.
+        maneuver_effect_in_progress = self.offense_maneuver is not None and (
+            self.maneuver_uncontested
+            or (
+                self.challenger_id is not None
+                and self.defense_maneuver is not None
+            )
         )
         if (
             self.active_player_id is not None
@@ -1993,6 +2037,7 @@ class MatchState:
             "active_player_id": self.active_player_id,
             "pending_action": self.pending_action,
             "challenger_id": self.challenger_id,
+            "maneuver_uncontested": self.maneuver_uncontested,
             "offense_maneuver": self.offense_maneuver,
             "defense_maneuver": self.defense_maneuver,
             "exhaustion": dict(self.exhaustion),
@@ -2085,6 +2130,7 @@ class MatchState:
             active_player_id=data.get("active_player_id"),
             pending_action=data.get("pending_action"),
             challenger_id=data.get("challenger_id"),
+            maneuver_uncontested=data.get("maneuver_uncontested", False),
             offense_maneuver=data.get("offense_maneuver"),
             defense_maneuver=data.get("defense_maneuver"),
             exhaustion=exhaustion,
@@ -2402,8 +2448,8 @@ def default_formation_deal(
     The standard setup's roles, read back to front (fullback, defender,
     midfielder, playmaker, winger, striker), are dealt into the zones in
     the formation's numbers. For 2-2-2 that reproduces the standard
-    setup exactly; 4-1-1 pulls the midfield pair back and 2-1-3 pushes
-    the playmaker forward.
+    setup exactly; 2-3-1 pulls the winger back into midfield and 1-3-2
+    pushes the defender up into it.
     """
     players_by_role: dict[
         PlayerRole,

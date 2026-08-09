@@ -66,6 +66,7 @@ from cogs.d12ball_helpers import (
     add_full_image_button,
     add_full_image_button_to_response,
     area_display_name,
+    board_image_filename,
     build_full_time_summary,
     build_game_channel_name,
     contest_noun,
@@ -84,6 +85,7 @@ from cogs.d12ball_helpers import (
     load_condition_emojis,
     load_team_emojis,
     parse_space_value,
+    pin_board_message,
     refresh_player_names,
     resolve_adjustable_value,
     send_error_fallback,
@@ -313,10 +315,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     turn_view = ManeuverChallengeView(self, game.game_id)
                 elif (
                     match.challenger_id is not None
-                    and (
-                        match.offense_maneuver is None
-                        or match.defense_maneuver is None
-                    )
+                    or match.maneuver_uncontested
                 ):
                     # challenger_id is only ever set while a maneuver is
                     # in progress and cleared by reset_maneuver(), so
@@ -324,15 +323,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     # -- pending_action itself is cleared to None by
                     # choose_challenger() right when the challenger is
                     # picked, so it can't be relied on from here on.
-                    turn_view = ManeuverActionPromptView(self, game.game_id)
-                elif (
-                    match.challenger_id is not None
-                    and match.offense_maneuver is not None
-                    and match.defense_maneuver is not None
-                ):
-                    if self.maneuver_catalog.resolve(
-                        match.offense_maneuver, match.defense_maneuver,
-                    ) == "tie":
+                    # maneuver_uncontested says the same thing for a
+                    # maneuver that never had a challenger, and is
+                    # cleared by the same reset.
+                    if not match.maneuver_selections_complete:
+                        turn_view = ManeuverActionPromptView(
+                            self, game.game_id,
+                        )
+                    elif (
+                        not match.maneuver_uncontested
+                        and self.maneuver_catalog.resolve(
+                            match.offense_maneuver, match.defense_maneuver,
+                        ) == "tie"
+                    ):
                         turn_view = SkillTestView(self, game.game_id)
                     else:
                         turn_view = self.build_effect_choice_view(
@@ -709,6 +712,29 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.refresh_match_image(interaction, game)
         await self.begin_maneuver_action_selection(interaction, game, match)
 
+    async def announce_uncontested_maneuver(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Say that there is nobody to challenge, then go straight to the
+        offense's pick. No matchup image: it draws two players against
+        each other and there is only one.
+        """
+        handler = self.get_player_definition(match.active_player_id)
+        defense_setup = match.setup_for_side(match.defending_side())
+
+        await interaction.followup.send(
+            f"**Unchallenged!** {format_team_side_label(defense_setup)} "
+            "have nobody in "
+            f"{destination_display_name(match.ball.zone.value)} to "
+            f"challenge {format_role_bracket(handler, self.team_emojis)}, "
+            "so whichever maneuver the offense picks succeeds."
+        )
+        await self.begin_maneuver_action_selection(interaction, game, match)
+
     async def begin_maneuver_action_selection(
         self,
         interaction: discord.Interaction,
@@ -720,6 +746,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         challenger has been chosen: the AI opponent rolls immediately,
         and any human side gets a prompt to open their private
         maneuver menu.
+
+        An uncontested maneuver comes through here too, and waits on
+        the offense alone -- there is no defender to pick a defensive
+        maneuver, and nothing secret about a pick with nobody to
+        conceal it from, but the prompt is the same one so the coach
+        reads the same menu they always do.
         """
         if game.is_solo_game:
             ai_strategy = self.get_ai_strategy(game)
@@ -728,7 +760,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 match.choose_offense_maneuver(
                     ai_strategy.choose_maneuver_action("offense")
                 )
-            if self.defending_player_number(game, match) == 2:
+            if (
+                not match.maneuver_uncontested
+                and self.defending_player_number(game, match) == 2
+            ):
                 match.choose_defense_maneuver(
                     ai_strategy.choose_maneuver_action("defense")
                 )
@@ -736,10 +771,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        if (
-            match.offense_maneuver is not None
-            and match.defense_maneuver is not None
-        ):
+        if match.maneuver_selections_complete:
             await self.resolve_maneuver(interaction, game, match)
             return
 
@@ -752,7 +784,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     mention=True,
                 )
             )
-        if match.defense_maneuver is None:
+        if not match.maneuver_uncontested and match.defense_maneuver is None:
             waiting_on.append(
                 format_player_with_team(
                     game,
@@ -761,10 +793,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 )
             )
 
+        instruction = (
+            "choose a maneuver. Use the button to make your pick."
+            if match.maneuver_uncontested
+            else (
+                "both sides will now choose a maneuver privately. Use "
+                "the button to make your pick."
+            )
+        )
         prompt_view = ManeuverActionPromptView(self, game.game_id)
         prompt_message = await interaction.followup.send(
-            f"{' and '.join(waiting_on)}, both sides will now choose a "
-            "maneuver privately. Use the button to make your pick.",
+            f"{' and '.join(waiting_on)}, {instruction}",
             view=prompt_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -788,6 +827,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         defense_number = self.defending_player_number(game, match)
         offense_display = format_player_with_team(game, offense_number)
         defense_display = format_player_with_team(game, defense_number)
+
+        if match.maneuver_uncontested:
+            # Nothing to reveal against and nothing to rank: the
+            # offense's pick is the winner, and its effect runs the
+            # same pipeline a decisive win always does.
+            await interaction.followup.send(
+                f"{offense_display} chose **{offense_name}**, "
+                f"unchallenged.\n\n## **{offense_name}** succeeds!"
+            )
+            await self.begin_effect_resolution(
+                interaction, game, match, offense_name,
+            )
+            return
 
         reveal = (
             f"{offense_display} chose **{offense_name}**.\n"
@@ -988,16 +1040,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         always reconstructs the first-stage distance choice instead.
         Nothing has been applied by then, so the coach re-picks.
         """
-        outcome = self.maneuver_catalog.resolve(
-            match.offense_maneuver, match.defense_maneuver,
-        )
-        if outcome == "tie":
-            return None
-        winner_name = (
-            match.offense_maneuver
-            if outcome == "offense"
-            else match.defense_maneuver
-        )
+        if match.maneuver_uncontested:
+            winner_name = match.offense_maneuver
+        else:
+            outcome = self.maneuver_catalog.resolve(
+                match.offense_maneuver, match.defense_maneuver,
+            )
+            if outcome == "tie":
+                return None
+            winner_name = (
+                match.offense_maneuver
+                if outcome == "offense"
+                else match.defense_maneuver
+            )
         if winner_name == "Low Pass":
             return LowPassChoiceView(self, game_id)
         if winner_name == "High Pass":
@@ -1126,11 +1181,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         handler, who cannot pass to themselves.
 
         Usually one, and then the destination *is* the choice. A
-        formation that stacks (4-1-1, 2-1-3) makes two or three
-        ordinary, and which of them receives the ball is the passer's
-        to pick: it decides who a Winger's set-up hands the shot to.
-        Empty when the distance runs off the end of the board, or when
-        the space holds nobody but the handler.
+        formation that stacks (2-3-1 or 1-3-2 on a six-space board)
+        makes two ordinary, and which of them receives the ball is the
+        passer's to pick: it decides who a Winger's set-up hands the
+        shot to. Empty when the distance runs off the end of the
+        board, or when the space holds nobody but the handler.
         """
         offense_side = match.ball.possession
         offense_players = set(match.setup_for_side(offense_side).field_players)
@@ -3154,6 +3209,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         Put both sides back on the arrangement their coaches last set
         and say so. Nobody pays a token for it -- see
         MatchState.restore_assigned_positions.
+
+        This is where a new play's board goes out and gets pinned: the
+        reset is the arrangement the play starts from, and it is the
+        one moment in the restart where nothing is still moving. What
+        the restart still owes (a kickoff fill, an out-of-bounds
+        pickup) lands on the persistent board afterwards.
         """
         moved: list[str] = []
         for side in (TeamSide.HOME, TeamSide.VISITING):
@@ -3176,8 +3237,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else "Both teams are already standing where their coaches "
             "last set them."
         )
-        await interaction.followup.send(f"{prefix}# New play\n{body}")
-        await self.refresh_match_image(interaction, game)
+        await self.post_new_play_board(
+            interaction, game, f"{prefix}# New play\n{body}",
+        )
 
     async def announce_run_back(
         self,
@@ -4133,11 +4195,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        await interaction.followup.send(
+        # A half begins the way any other new play does: with the board
+        # everyone is about to play from, posted and pinned.
+        await self.post_new_play_board(
+            interaction,
+            game,
             "**Halftime is over.** The second half kicks off with "
-            f"{format_team_side_label(match.visiting)} in possession."
+            f"{format_team_side_label(match.visiting)} in possession.",
         )
-        await self.refresh_match_image(interaction, game)
 
         try:
             await self.send_turn_prompt(interaction, game)
@@ -4152,9 +4217,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Re-render the public "choose your maneuver" prompt after one
-        side picks, and delete it once both have: its button has
-        nothing left to open, and the resolution posted underneath it
-        is what the channel should end on.
+        side picks, and delete it once every side it was waiting on
+        has: its button has nothing left to open, and the resolution
+        posted underneath it is what the channel should end on. An
+        uncontested maneuver is waiting on the offense alone, so its
+        prompt goes on that one pick.
 
         Deleting clears `turn_message_id` with it, so nothing tries to
         edit or re-attach a view to a message that is gone; whatever
@@ -4163,16 +4230,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if game.turn_message_id is None or interaction.channel is None:
             return
 
-        both_chosen = (
-            match.offense_maneuver is not None
-            and match.defense_maneuver is not None
-        )
+        all_chosen = match.maneuver_selections_complete
 
         try:
             prompt_message = interaction.channel.get_partial_message(
                 game.turn_message_id,
             )
-            if both_chosen:
+            if all_chosen:
                 await prompt_message.delete()
             else:
                 await prompt_message.edit(
@@ -4181,7 +4245,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         except (discord.NotFound, discord.HTTPException):
             pass
 
-        if both_chosen:
+        if all_chosen:
             game.turn_message_id = None
             save_games(self.games)
 
@@ -4780,20 +4844,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.begin_score_attempt(interaction, game, match)
             return
 
+        # Unchallenged, so the AI's pick succeeds outright -- the same
+        # branch a human offense takes, see
+        # PlayerActionView.choose_action.
         eligible_challengers = match.eligible_challengers()
         if not eligible_challengers:
+            match.begin_uncontested_maneuver()
             game.match_state = match.to_dict()
             save_games(self.games)
 
-            turn_message = await interaction.followup.send(
+            await interaction.followup.send(
                 f"{ai_name} has chosen to maneuver with "
-                f"{format_role_bracket(handler, self.team_emojis)}, "
-                "but the defending team has no player in the ball's "
-                "zone to challenge.",
-                wait=True,
+                f"{format_role_bracket(handler, self.team_emojis)}."
             )
-            game.turn_message_id = turn_message.id
-            save_games(self.games)
+            await self.announce_uncontested_maneuver(
+                interaction, game, match,
+            )
             return
 
         match.pending_action = "maneuver"
@@ -4934,7 +5000,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """One upload of an already-rendered board."""
         return discord.File(
             io.BytesIO(png),
-            filename=f"d12ball-pbd{game.game_number}.png",
+            filename=board_image_filename(game.game_number),
         )
 
     async def build_match_file(self, game: D12BallGame) -> discord.File:
@@ -4942,6 +5008,36 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return self.match_file_from_png(
             game, await self.render_match_png(game),
         )
+
+    async def post_new_play_board(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        message: str,
+    ) -> None:
+        """
+        The board at the top of a new play -- a kickoff, halftime, or
+        the restart after a goal, an own goal, a missed shot or a ball
+        out of bounds -- posted as its own message and pinned.
+
+        These are the boards worth coming back to, which is why they
+        are the ones pinned; see pin_board_message for what happens at
+        the pin cap. Everything else a turn puts out still goes to the
+        persistent board message only.
+
+        The persistent message is brought in line with the same render
+        rather than a second one, exactly as announce_board_update
+        does.
+        """
+        png = await self.render_match_png(game)
+        snapshot = await interaction.followup.send(
+            message,
+            file=self.match_file_from_png(game, png),
+            wait=True,
+        )
+        await add_full_image_button(snapshot)
+        await self.refresh_match_image(interaction, game, png=png)
+        await pin_board_message(snapshot)
 
     async def announce_board_update(
         self,

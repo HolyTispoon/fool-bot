@@ -23,14 +23,16 @@ class Formation(str, Enum):
     The shapes themselves (and the check that each fields six) live in
     `basic_rules.json`, so the two have to be changed together.
 
-    4-1-1 and 2-1-3 put more cards in a zone than the zone has spaces,
-    which is what the run back's coverage rule is written for -- see
-    "Occupancy" in docs/living-rules.md.
+    2-3-1 and 1-3-2 put three cards in midfield, which is more than a
+    six-space board's midfield has spaces, so those cards stack. That
+    is what the run back's coverage rule is written for -- see
+    "Occupancy" in docs/living-rules.md. On a seven- or nine-space
+    board every shape fits one card a space.
     """
 
     TWO_TWO_TWO = "2-2-2"
-    FOUR_ONE_ONE = "4-1-1"
-    TWO_ONE_THREE = "2-1-3"
+    TWO_THREE_ONE = "2-3-1"
+    ONE_THREE_TWO = "1-3-2"
 
 
 class TieMode(str, Enum):

@@ -81,10 +81,16 @@ leaves the answers versioned.
 
 ## Formations and occupancy
 
-Basic mode has three shapes -- **2-2-2, 4-1-1 and 2-1-3**, read from a coach's
+Basic mode has three shapes -- **2-2-2, 2-3-1 and 1-3-2**, read from a coach's
 own goal forward, six cards either way. **Every game kicks off in 2-2-2**:
 setup does not ask, and a coach changes shape only by rearranging in a
 substitution window (which halftime reuses).
+
+**Stacking is board-dependent.** Three in midfield fits board 7 and board 9 one
+card a space; only board 6, whose midfield has two spaces, makes 2-3-1 or 1-3-2
+overfill a zone. So the occupancy machinery below is exercised on board 6 and
+by `/coach`, not by the default board -- render a sample at `--board-size 6` to
+see a stack.
 
 - **The shapes live in two places on purpose.** `Formation` in `d12ball/game.py`
   names the three; the counts are in `basic_rules.json`, with the rest of the
@@ -109,11 +115,37 @@ substitution window (which halftime reuses).
   first pick: nothing reaches the match until every zone has its cards, so a
   coach who wanders off mid-change leaves the formation they had.
 - **A Low Pass into a stack asks who receives it.** Several teammates on one
-  space is ordinary under 4-1-1 or 2-1-3, and the receiver is what a Winger's
+  space is ordinary under a stacking shape, and the receiver is what a Winger's
   set-up hands the shot to, so `low_pass_receivers` lists them and
   `LowPassReceiverView` puts the choice to the passer. `low_pass_candidates`
   still names one player per destination -- that is a button label, not the
   receiver.
+
+## The maneuver with nobody to challenge it
+
+A maneuver normally needs two players. When the defending team has nobody in
+the ball's zone there is no challenger, and the maneuver the offense picks
+succeeds outright -- see "Maneuver" in the living rules. `MatchState`'s
+`maneuver_uncontested` is the whole of it.
+
+- **It stands in for `challenger_id` everywhere that flag means "a maneuver is
+  under way".** `challenger_id` is what tells `validate()` that the handler is
+  allowed to be off the ball mid-effect, and what tells `on_ready` which
+  prompt to restore. An uncontested maneuver has no challenger and never will
+  have a `defense_maneuver`, so both of those checks read
+  `maneuver_uncontested` as well.
+- **It is persisted, unlike `new_play`.** Nothing else in a saved state can
+  tell "the defense has not picked yet" from "the defense is never going to
+  pick", and a restart between the offense's pick and its effect has to know
+  which. `reset_maneuver` clears it, along with everything else the turn set.
+- **`maneuver_selections_complete` is the only "are we ready to resolve"
+  test.** Two call sites used to check `offense_maneuver and defense_maneuver`
+  directly and would have hung the turn; anything new should ask the property.
+- **Both entry points go through the same branch** --
+  `PlayerActionView.choose_action` for a human and `play_ai_turn` for the AI
+  -- and both then use the ordinary maneuver prompt, so a coach reads the menu
+  they always read. What is skipped is the challenger pick, the matchup image
+  (it draws two players against each other), the reveal, and the skill test.
 
 ## Turnovers: steals and new plays
 
@@ -142,12 +174,20 @@ new plays" in the living rules for which is which.
 - **A Block Deflect that overshoots is neither.** It flips possession and goes
   straight to the shot without calling `begin_run_back` at all; the goal or
   miss that follows is the new play.
+- **A new play posts its board and pins it**, via `post_new_play_board` inside
+  `announce_new_play_reset`. The reset is the arrangement the play starts from
+  and the one point in a restart where nothing is still moving, so it is the
+  board worth keeping -- what the restart still owes (a kickoff fill, an
+  out-of-bounds pickup) lands on the persistent message afterwards. The other
+  two pinned boards are the kickoff (the persistent message itself, pinned in
+  `TeamSelectionView`) and the second-half restart in `finish_halftime`.
+  Nothing else pins; see "Discord's rate limits".
 - **`continue_run_back` is one loop, not a recursion, and it batches.** Every
   placement it makes without asking anyone -- the forced ones, the AI's
   choices, the drop back that fills an empty kickoff -- goes into a list, and
   that list is posted as a single message with a single board refresh when the
   cascade reaches a coach's choice or runs out. It used to send a message and
-  re-upload the board per player, which after a steal that scatters a 4-1-1
+  re-upload the board per player, which after a steal that scatters a six-card
   side is a dozen-odd requests into one channel with nothing between them --
   see "Discord's rate limits". Anything added to the cascade should append to
   `notes` and `continue`, not send. `MAX_RUN_BACK_PASSES` bounds it: as a
@@ -263,7 +303,19 @@ same budget. So:
   `discord.File` consumes the stream inside it. The end of a maneuver puts the
   same board in two places (the persistent message and the snapshot under the
   result) and so does `announce_board_update`; both draw it once and upload it
-  twice. `refresh_match_image` takes a `png=` for exactly this.
+  twice. `refresh_match_image` takes a `png=` for exactly this, and so does
+  `post_new_play_board`.
+- **Only new-play boards are pinned.** A pin is a request of its own *and* a
+  "pinned a message" system post in the channel, so `pin_board_message` is
+  called from three places and no more: the kickoff board, the second-half
+  board, and `post_new_play_board`. Pinning every board a turn puts out would
+  roughly double the channel's traffic and fill the 50-pin cap inside a game.
+  At the cap the pin fails with error 30003 and the helper unpins the oldest
+  board *it* pinned -- read off `channel.pins(oldest_first=True)` and matched
+  by the `d12ball-pbd` filename -- so a pin somebody else put there is never
+  displaced, and a channel with no board to roll off simply leaves the new one
+  unpinned. Every failure is swallowed: a missing pin is worth less than the
+  turn it would take down with it.
 - **A board refresh is two requests, and that is unavoidable.** Editing the
   message uploads a new attachment, which invalidates the old one, so the
   "View full image" link has to be re-cut in a second edit -- the URL does not
@@ -336,7 +388,7 @@ output is a PNG of the expected dimensions.
 
 ```bash
 python3 scripts/render_sample.py --home purple --visiting teal --out board.png
-python3 scripts/render_sample.py --home-formation 4-1-1   # stacked meeples
+python3 scripts/render_sample.py --home-formation 2-3-1 --board-size 6  # stacked meeples
 python3 scripts/render_sample.py --list-games
 python3 scripts/render_sample.py --game <game_id>      # reproduce a real board
 ```

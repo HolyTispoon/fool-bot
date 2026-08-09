@@ -58,6 +58,23 @@ def build_game(player_2_id: int = 222) -> D12BallGame:
     )
 
 
+class NewPlayBoardStubMixin:
+    """
+    A new play posts and pins its board, which these tests neither
+    render nor care about. Stubbing the render and the two follow-up
+    edits leaves `post_new_play_board`'s own followup.send in place, so
+    the announcements they *do* assert on still come through it.
+    """
+
+    def stub_new_play_board(self, cog) -> None:
+        cog.render_match_png = mock.AsyncMock(return_value=b"")
+        cog.match_file_from_png = mock.Mock(return_value=None)
+        for name in ("add_full_image_button", "pin_board_message"):
+            patcher = mock.patch(f"cogs.d12ball.{name}", mock.AsyncMock())
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+
 class FakeBot:
     """
     Stands in for the bot, which only has to hand back application
@@ -285,7 +302,9 @@ class D12BallCoinTossTests(unittest.TestCase):
         self.assertEqual(reloaded.coin_winner_player_number, 1)
 
 
-class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
+class D12BallRunBackAnnouncementTests(
+    NewPlayBoardStubMixin, unittest.IsolatedAsyncioTestCase,
+):
     """
     Which turnovers announce a run back, which reset to the coach's own
     arrangement instead, and which do neither. A real MatchState rather
@@ -309,6 +328,7 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         cog.end_period = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         cog.refresh_match_image = mock.AsyncMock()
+        self.stub_new_play_board(cog)
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock())
         )
@@ -514,7 +534,9 @@ class D12BallRunBackAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         cog.finish_maneuver_resolution.assert_awaited_once()
 
 
-class D12BallNewPlayKickoffTests(unittest.IsolatedAsyncioTestCase):
+class D12BallNewPlayKickoffTests(
+    NewPlayBoardStubMixin, unittest.IsolatedAsyncioTestCase,
+):
     """
     The kickoff space after a goal, decided *after* the new play's
     reset rather than at the restart. The reset moves everyone, so an
@@ -536,6 +558,7 @@ class D12BallNewPlayKickoffTests(unittest.IsolatedAsyncioTestCase):
         cog.condition_emojis = {}
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
+        self.stub_new_play_board(cog)
         interaction = SimpleNamespace(
             followup=SimpleNamespace(
                 send=mock.AsyncMock(return_value=SimpleNamespace(id=1)),

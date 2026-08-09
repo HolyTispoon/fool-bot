@@ -57,6 +57,7 @@ from cogs.d12ball_helpers import (
     format_player_with_team,
     format_role_bracket,
     format_team_side_label,
+    pin_board_message,
     refresh_player_names,
     send_error_fallback,
     space_label,
@@ -688,6 +689,10 @@ class CoinFlipView(GameConfigurationView):
         await add_full_image_button(choice_message, refreshed_view)
 
         if game.match_state is not None:
+            # The kickoff board, and the only pinned one that stays
+            # current: this is the persistent message every later
+            # refresh edits, so the pin never needs re-cutting.
+            await pin_board_message(choice_message)
             await self.cog.send_turn_prompt(interaction, game)
 
 
@@ -1099,12 +1104,21 @@ class PlayerActionView(SafeView):
             await self.cog.begin_score_attempt(interaction, game, match)
             return
 
+        # Nobody in the ball's zone to challenge with: the maneuver
+        # succeeds automatically, and the offense still picks which one
+        # (docs/living-rules.md, "Maneuver"). There is no challenger to
+        # choose and nothing for the defense to do, so this skips
+        # straight to the offense's pick.
         eligible_challengers = match.eligible_challengers()
         if not eligible_challengers:
-            await interaction.response.send_message(
-                "The defending team has no player in the ball's zone "
-                "to challenge.",
-                ephemeral=True,
+            match.begin_uncontested_maneuver()
+            game.match_state = match.to_dict()
+            save_games(self.cog.games)
+
+            await interaction.response.defer()
+            await self.cog.drop_turn_prompt(interaction, game)
+            await self.cog.announce_uncontested_maneuver(
+                interaction, game, match,
             )
             return
 
@@ -1368,8 +1382,19 @@ class ManeuverActionPromptView(SafeView):
 
         if match.offense_maneuver is None and is_offense_player:
             side = "offense"
-        elif match.defense_maneuver is None and is_defense_player:
+        elif (
+            match.defense_maneuver is None
+            and is_defense_player
+            and not match.maneuver_uncontested
+        ):
             side = "defense"
+        elif is_defense_player and match.maneuver_uncontested:
+            await interaction.response.send_message(
+                "You have nobody in the ball's zone, so there is no "
+                "defensive maneuver to pick.",
+                ephemeral=True,
+            )
+            return
         elif is_offense_player or is_defense_player:
             await interaction.response.send_message(
                 "You have already chosen your maneuver.",
@@ -1502,22 +1527,24 @@ class ManeuverActionSelectView(SafeView):
             view=None,
         )
 
-        side_number = (
-            self.cog.possession_player_number(game, match)
-            if self.side == "offense"
-            else self.cog.defending_player_number(game, match)
-        )
-        side_display = format_player_with_team(game, side_number)
-        await interaction.followup.send(
-            f"{side_display} has picked their maneuver.",
-        )
+        # "Someone has picked, you can't see what" is only worth a
+        # message while the other side is still choosing. An
+        # uncontested maneuver has nobody else to keep in the dark,
+        # and the reveal a moment from now names the pick anyway.
+        if not match.maneuver_uncontested:
+            side_number = (
+                self.cog.possession_player_number(game, match)
+                if self.side == "offense"
+                else self.cog.defending_player_number(game, match)
+            )
+            side_display = format_player_with_team(game, side_number)
+            await interaction.followup.send(
+                f"{side_display} has picked their maneuver.",
+            )
 
         await self.cog.refresh_maneuver_prompt(interaction, game, match)
 
-        if (
-            match.offense_maneuver is not None
-            and match.defense_maneuver is not None
-        ):
+        if match.maneuver_selections_complete:
             await self.cog.resolve_maneuver(interaction, game, match)
 
 
@@ -2896,12 +2923,15 @@ class SubstitutionMenuView(SubstitutionView):
         swap.callback = self.begin_swap
         self.add_item(swap)
 
+        # The shape in brackets is the one they are in now, not the one
+        # the button switches to, so it says so -- a bare "(2-2-2)"
+        # reads as the destination.
         formation = cog.current_formation(match, side)
         change = discord.ui.Button(
             label=(
                 "Change formation"
                 if formation is None
-                else f"Change formation ({formation.value})"
+                else f"Change formation (currently {formation.value})"
             ),
             style=discord.ButtonStyle.primary,
             custom_id=f"d12ball:sub_formation:{game_id}",

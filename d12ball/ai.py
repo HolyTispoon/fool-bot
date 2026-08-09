@@ -66,9 +66,10 @@ class AIStrategy(ABC):
     ) -> str:
         """Which teammate on the destination space actually takes the
         pass. Usually only one is standing there and there is nothing
-        to choose; a formation that stacks (4-1-1, 2-1-3) can put two
-        or three on it, and the pick decides who a Winger's set-up
-        hands the shot to. Never called with an empty list."""
+        to choose; a formation that stacks (2-3-1 or 1-3-2 on a
+        six-space board) can put two on it, and the pick decides who a
+        Winger's set-up hands the shot to. Never called with an empty
+        list."""
         ...
 
     @abstractmethod
