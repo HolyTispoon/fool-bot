@@ -5284,12 +5284,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     @app_commands.describe(
         p1="Player 1. Leave blank to make yourself Player 1.",
         p2="Player 2. Leave blank to play against the AI.",
-        test_game=(
-            "Create a test game where you control Player 1 and Player 2."
-        ),
         game_name=(
             "A fun name for this game, used in the channel name. Leave "
             "blank to name it after the players."
+        ),
+        test_game=(
+            "Create a test game where you control Player 1 and Player 2."
         ),
     )
     @app_commands.guild_only()
@@ -5298,8 +5298,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         p1: Optional[discord.Member] = None,
         p2: Optional[discord.Member] = None,
-        test_game: bool = False,
         game_name: Optional[app_commands.Range[str, 1, 80]] = None,
+        test_game: bool = False,
     ) -> None:
         guild = interaction.guild
 
