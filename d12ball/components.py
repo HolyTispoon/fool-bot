@@ -737,6 +737,11 @@ class MatchState:
     pending_coaching_is_response: bool = False
     pending_coaching_declared: bool = False
     pending_halftime_stage: Optional[str] = None
+    # Which side is still to take their Coaching Choice before kickoff,
+    # as a SETUP_STAGES value. None once both have, which is every
+    # game saved before setup offered one -- those kicked off on the
+    # standard deal and are already past this.
+    pending_setup_stage: Optional[str] = None
     # Where each coach last *put* their meeples, as player_id ->
     # [zone, space_index]. See set_assigned_positions.
     assigned_positions: dict[str, list] = field(default_factory=dict)
@@ -2457,6 +2462,7 @@ class MatchState:
             ),
             "pending_coaching_declared": self.pending_coaching_declared,
             "pending_halftime_stage": self.pending_halftime_stage,
+            "pending_setup_stage": self.pending_setup_stage,
             "assigned_positions": {
                 player_id: list(position)
                 for player_id, position in self.assigned_positions.items()
@@ -2591,6 +2597,7 @@ class MatchState:
                 data.get("pending_substitution_declared", False),
             ),
             pending_halftime_stage=data.get("pending_halftime_stage"),
+            pending_setup_stage=data.get("pending_setup_stage"),
             # A game saved before arrangements were remembered has
             # none. Left empty, restore_assigned_positions moves
             # nobody, so such a game simply keeps the old behaviour

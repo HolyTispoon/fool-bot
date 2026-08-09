@@ -135,6 +135,14 @@ HALFTIME_STAGES = (
     "coaching_home",
 )
 
+# Both coaches get a Coaching Choice before kickoff -- see
+# D12Ball.advance_setup_stage. **Home first**, since they kick off the
+# first half, the same reason the visitors go first at halftime.
+SETUP_STAGES = (
+    "coaching_home",
+    "coaching_visiting",
+)
+
 # What a game saved mid-halftime under the old sequence comes back as.
 # Halftime used to run substitutions and free any-zone repositioning as
 # two stages a side; the Coaching Choice is one, so both old stages map
@@ -263,7 +271,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         game.game_id, error,
                     )
                     continue
-                if match.pending_halftime_stage is not None:
+                if match.pending_setup_stage is not None:
+                    # Before kickoff, so active_player_id is None and
+                    # the "no ball handler yet" branch below would
+                    # otherwise misread this as the kickoff prompt --
+                    # the same reason halftime is checked ahead of it.
+                    turn_view = CoachingHubView(self, game.game_id)
+                elif match.pending_halftime_stage is not None:
                     # Halftime resets active_player_id before its own
                     # stages run, so it has to be checked ahead of the
                     # "no ball handler yet" branch below, which would
@@ -3258,6 +3272,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         lead_in: str = "",
     ) -> None:
         side = TeamSide(match.pending_coaching_side)
+        occasion = match.coaching_occasion or CoachingOccasion.NEW_PLAY
         strategy = self.get_ai_strategy(game)
         lines: list[str] = []
 
@@ -3297,7 +3312,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{format_team_side_label(setup)}:\n{body}"
             )
             await self.refresh_match_image(interaction, game)
-        elif prefix:
+        elif lead_in and occasion.spends_declaration:
+            # A new play's lead-in is the announcement that opened the
+            # window -- the goal, the miss -- and has to be posted
+            # whatever the AI decided. Setup's and halftime's are
+            # instructions to a coach, so an AI that changed nothing
+            # says nothing rather than posting a menu heading with no
+            # menu under it.
             await interaction.followup.send(lead_in)
 
         await self.finish_substitution_window(interaction, game, match)
@@ -3385,13 +3406,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        # Setup and halftime give each side its own window rather than
+        # a turnover's declare-then-respond pairing, so both move on to
+        # the next stage of their own sequence instead of offering the
+        # other side a response.
+        if match.pending_setup_stage is not None:
+            self.next_setup_stage(match)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await self.advance_setup_stage(interaction, game, match)
+            return
+
         if self.halftime_stage(match) in (
             "coaching_home", "coaching_visiting",
         ):
-            # Halftime gives each side its own independent declaration
-            # rather than a turnover's declare-then-respond pairing, so
-            # this always moves on to the next halftime stage instead
-            # of offering the other side a response.
             self.next_halftime_stage(match)
             game.match_state = match.to_dict()
             save_games(self.games)
@@ -4266,6 +4294,94 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
         await self.advance_halftime_stage(interaction, game, match)
+
+    async def begin_setup_coaching(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        """
+        Offer both coaches a Coaching Choice before kickoff, home
+        first -- see "Setting up a game" in docs/living-rules.md. Both
+        teams are dealt the standard 2-2-2 and, in basic mode, dealt
+        identically; this is where a coach may change any of it rather
+        than waiting for their first window.
+
+        Substitutions here are unlimited and a player taken off goes
+        back to the bench: nobody has played, so nothing is used up.
+        A coach happy with the deal finishes without changing anything.
+        """
+        match = self.load_match_state(game)
+        match.pending_setup_stage = SETUP_STAGES[0]
+        game.match_state = match.to_dict()
+        save_games(self.games)
+        await self.advance_setup_stage(interaction, game, match)
+
+    def next_setup_stage(self, match: MatchState) -> None:
+        stage = match.pending_setup_stage
+        if stage not in SETUP_STAGES:
+            match.pending_setup_stage = None
+            return
+        index = SETUP_STAGES.index(stage)
+        match.pending_setup_stage = (
+            SETUP_STAGES[index + 1]
+            if index + 1 < len(SETUP_STAGES)
+            else None
+        )
+
+    async def advance_setup_stage(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """Hand the next coach their pre-kickoff window, or kick off."""
+        stage = match.pending_setup_stage
+        if stage in ("coaching_home", "coaching_visiting"):
+            side = (
+                TeamSide.HOME
+                if stage == "coaching_home"
+                else TeamSide.VISITING
+            )
+            setup = match.setup_for_side(side)
+            await self.begin_substitution_window(
+                interaction,
+                game,
+                match,
+                side,
+                occasion=CoachingOccasion.SETUP,
+                lead_in=(
+                    f"## Before kickoff\n{format_team_side_label(setup)} "
+                    "set their line-up. Substitutions are unlimited here "
+                    "and anyone taken off goes back to the bench -- the "
+                    "game has not started, so nothing is used up."
+                ),
+            )
+            return
+
+        await self.finish_setup_coaching(interaction, game, match)
+
+    async def finish_setup_coaching(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Both coaches are done, so the game can start. The board was
+        pinned before either of them touched it, so it is brought up to
+        date here rather than pinned again -- see "Discord's rate
+        limits" in CLAUDE.md for why a second pin is not free.
+        """
+        match.pending_setup_stage = None
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await self.refresh_match_image(interaction, game)
+        try:
+            await self.send_turn_prompt(interaction, game)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
 
     @staticmethod
     def halftime_stage(match: MatchState) -> Optional[str]:

@@ -690,7 +690,7 @@ class CoinFlipView(GameConfigurationView):
             # current: this is the persistent message every later
             # refresh edits, so the pin never needs re-cutting.
             await pin_board_message(choice_message)
-            await self.cog.send_turn_prompt(interaction, game)
+            await self.cog.begin_setup_coaching(interaction, game)
 
 
 class HomeAwaySelectionView(SafeView):
@@ -809,7 +809,7 @@ class HomeAwaySelectionView(SafeView):
             f"{format_player_with_team(game, winner_player_number)} chose "
             f"**{choice.value.title()}**."
         )
-        await self.cog.send_turn_prompt(interaction, game)
+        await self.cog.begin_setup_coaching(interaction, game)
 
 
 class RematchView(SafeView):
