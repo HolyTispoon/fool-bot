@@ -51,9 +51,22 @@ class MatchPeriod(str, Enum):
 
 @dataclass(frozen=True)
 class RoleProfile:
+    """
+    What a role is, in basic mode. `ability_short` is the same ability
+    written to fit beside something else -- it comes from its own
+    column in the abilities sheet rather than being cut down here,
+    because which half of a two-part ability matters is a rules
+    question and the author answers it upstream.
+
+    It is optional, and `short_ability` falls back to the sentence: a
+    players.json written before the column existed still loads, and a
+    caller that wants the short form always gets something to draw.
+    """
+
     offense: int
     defense: int
     ability: str
+    ability_short: str = ""
 
     def __post_init__(self) -> None:
         if self.offense not in range(1, 7):
@@ -62,6 +75,10 @@ class RoleProfile:
             raise ValueError("Defensive skill must be from 1 to 6.")
         if not self.ability:
             raise ValueError("A player ability is required.")
+
+    @property
+    def short_ability(self) -> str:
+        return self.ability_short or self.ability
 
 
 @dataclass(frozen=True)
@@ -103,6 +120,7 @@ class PlayerCatalog:
             "offense": base.offense,
             "defense": base.defense,
             "ability": base.ability,
+            "ability_short": base.ability_short,
         }
         values.update(player.stat_overrides)
         return RoleProfile(**values)

@@ -7,7 +7,7 @@ import re
 import urllib.request
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, NamedTuple
 
 
 DEFAULT_SOURCE = (
@@ -50,6 +50,47 @@ REQUIRED_COLUMNS = {
 # reading the abilities sheet does not need the copy to be there at all.
 BASIC_COLUMN = "Basic"
 REQUIRED_ABILITY_COLUMNS = {"Role", "Ability"}
+# The abilities sheet's short form of each ability, for places that show
+# an ability next to something else and have no room for a sentence --
+# the matchup images, today. The sheet spells the column "Abbreivated";
+# both spellings are accepted so correcting it upstream doesn't break
+# the import, and header names are stripped before matching because that
+# one is stored with a trailing space.
+ABBREVIATED_COLUMNS = ("Abbreviated", "Abbreivated")
+
+
+class RoleAbility(NamedTuple):
+    text: str
+    short: str
+
+
+def strip_formula_escape(value: str) -> str:
+    """
+    Drop the leading backtick or apostrophe a spreadsheet needs on a
+    cell whose text starts with +, - or =, which it would otherwise
+    read as a formula. Two of the abbreviations start with "+3", so
+    the escape is in the export and is not part of the ability.
+    """
+    if value[:1] in ("`", "'") and value[1:2] in ("+", "-", "="):
+        return value[1:]
+    return value
+
+
+def strip_header_names(reader: csv.DictReader) -> csv.DictReader:
+    """
+    Trim the whitespace around a sheet's column names, so a header
+    typed with a trailing space still matches the name asked for.
+    """
+    if reader.fieldnames:
+        reader.fieldnames = [name.strip() for name in reader.fieldnames]
+    return reader
+
+
+def abbreviated_column(columns: Iterable[str]) -> str | None:
+    for name in ABBREVIATED_COLUMNS:
+        if name in columns:
+            return name
+    return None
 
 
 def read_source(source: str) -> str:
@@ -76,12 +117,16 @@ def parse_skill(raw_value: str, field: str, player_id: str) -> int:
     return value
 
 
-def import_abilities(rows: Iterable[dict[str, str]]) -> dict[str, str]:
-    abilities: dict[str, str] = {}
+def import_abilities(
+    rows: Iterable[dict[str, str]],
+    short_column: str,
+) -> dict[str, RoleAbility]:
+    abilities: dict[str, RoleAbility] = {}
 
     for row_number, row in enumerate(rows, start=2):
         role = (row.get("Role") or "").strip().lower()
         ability = (row.get("Ability") or "").strip()
+        short = strip_formula_escape((row.get(short_column) or "").strip())
 
         if not role:
             continue
@@ -91,8 +136,14 @@ def import_abilities(rows: Iterable[dict[str, str]]) -> dict[str, str]:
             raise ValueError(f"Duplicate role in the abilities sheet: {role}")
         if not ability:
             raise ValueError(f"{role}: Ability is required.")
+        if not short:
+            raise ValueError(
+                f"{role}: {short_column} is required -- every ability needs "
+                "a short form for the images that have no room for the "
+                "sentence."
+            )
 
-        abilities[role] = ability
+        abilities[role] = RoleAbility(text=ability, short=short)
 
     missing_roles = sorted(set(EXPECTED_ROLE_COUNTS) - set(abilities))
     if missing_roles:
@@ -108,7 +159,7 @@ def import_players(
     rows: Iterable[dict[str, str]],
     images_folder: Path,
     data_version: int,
-    role_abilities: dict[str, str] | None = None,
+    role_abilities: dict[str, RoleAbility] | None = None,
     abilities_source: str = DEFAULT_SOURCE,
 ) -> dict:
     players_by_team: dict[str, list[dict]] = defaultdict(list)
@@ -152,13 +203,16 @@ def import_players(
         if role_abilities is None:
             if not basic:
                 raise ValueError(f"{player_id}: Basic ability is required.")
-            ability = basic
+            # The player cards sheet carries no short form, so the
+            # sentence stands in for one. Reading the abilities sheet
+            # (the default) is the way to get real abbreviations.
+            ability = RoleAbility(text=basic, short=basic)
         else:
             ability = role_abilities[role]
             # The Basic column is copied from the abilities sheet, so a row
             # that disagrees means the copy is stale rather than that the
             # player is special.
-            if basic and basic != ability:
+            if basic and basic != ability.text:
                 raise ValueError(
                     f"{player_id}: Basic ability does not match the "
                     f"{role} ability in the abilities sheet."
@@ -169,7 +223,8 @@ def import_players(
         profile = {
             "offense": offense,
             "defense": defense,
-            "ability": ability,
+            "ability": ability.text,
+            "ability_short": ability.short,
         }
 
         existing_profile = role_profiles.get(role)
@@ -292,22 +347,24 @@ def main() -> None:
     role_abilities = None
     abilities_source = DEFAULT_SOURCE
     if args.abilities != ABILITIES_FROM_PLAYERS:
-        abilities_reader = csv.DictReader(
-            io.StringIO(read_source(args.abilities))
+        abilities_reader = strip_header_names(
+            csv.DictReader(io.StringIO(read_source(args.abilities)))
         )
-        missing_columns = sorted(
-            REQUIRED_ABILITY_COLUMNS - set(abilities_reader.fieldnames or [])
-        )
+        ability_columns = set(abilities_reader.fieldnames or [])
+        missing_columns = sorted(REQUIRED_ABILITY_COLUMNS - ability_columns)
+        short_column = abbreviated_column(ability_columns)
+        if short_column is None:
+            missing_columns.append(ABBREVIATED_COLUMNS[0])
         if missing_columns:
             raise ValueError(
                 "Abilities sheet is missing columns: "
-                + ", ".join(missing_columns)
+                + ", ".join(sorted(missing_columns))
             )
-        role_abilities = import_abilities(abilities_reader)
+        role_abilities = import_abilities(abilities_reader, short_column)
         abilities_source = DEFAULT_ABILITIES_SOURCE
 
     source_text = read_source(args.source)
-    reader = csv.DictReader(io.StringIO(source_text))
+    reader = strip_header_names(csv.DictReader(io.StringIO(source_text)))
     columns = set(reader.fieldnames or [])
     required_columns = set(REQUIRED_COLUMNS)
     if role_abilities is None:
