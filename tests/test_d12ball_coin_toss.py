@@ -918,7 +918,7 @@ class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
         cog.coin_emojis = {}
         cog.condition_emojis = {}
         cog.team_emojis = {}
-        cog.coin_emojis_checked_at = 0.0
+        cog.coin_emojis_checked_at = None
         return cog
 
     async def test_startup_fetches_the_list_once(self) -> None:
@@ -947,6 +947,21 @@ class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
         cog.coin_emojis_checked_at -= EMOJI_REFETCH_INTERVAL + 1
         await cog.ensure_coin_emojis()
         self.assertEqual(bot.fetches, 2)
+
+    async def test_the_first_toss_after_a_boot_still_retries(self) -> None:
+        # The interval is measured on the monotonic clock, which counts
+        # from boot on Linux. A "never checked" sentinel of 0.0 would
+        # read as "checked a moment ago" on a host that starts the bot
+        # as it comes up, and skip the retry for the first five
+        # minutes of uptime -- which is exactly the window a fresh
+        # deploy runs in.
+        bot = self.CountingBot([])
+        cog = self.build_cog(bot)
+
+        with mock.patch("cogs.d12ball.time.monotonic", return_value=42.0):
+            await cog.ensure_coin_emojis()
+
+        self.assertEqual(bot.fetches, 1)
 
     async def test_a_complete_set_never_refetches(self) -> None:
         bot = self.CountingBot(

@@ -158,9 +158,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.maneuver_catalog
         ).read()
         self.coin_emojis: dict[CoinFace, str] = {}
-        # When the coin emoji were last asked after -- see
-        # ensure_coin_emojis.
-        self.coin_emojis_checked_at = 0.0
+        # When the coin emoji were last asked after, on the monotonic
+        # clock -- see ensure_coin_emojis. None, not 0.0: monotonic
+        # counts from boot on Linux, so on a host that starts the bot
+        # as it comes up, 0.0 reads as "asked a moment ago" and skips
+        # the first retry.
+        self.coin_emojis_checked_at: Optional[float] = None
         self.condition_emojis: dict[str, str] = {}
         self.team_emojis: dict[Team, str] = {}
         self.ai_strategies = build_ai_strategies(
@@ -403,7 +406,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return self.coin_emojis
 
         now = time.monotonic()
-        if now - self.coin_emojis_checked_at < EMOJI_REFETCH_INTERVAL:
+        if (
+            self.coin_emojis_checked_at is not None
+            and now - self.coin_emojis_checked_at < EMOJI_REFETCH_INTERVAL
+        ):
             return self.coin_emojis
         self.coin_emojis_checked_at = now
 

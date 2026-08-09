@@ -106,7 +106,9 @@ class CoinCommands(commands.GroupCog, group_name="coin"):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.coin_emojis: dict[str, str] = {}
-        self.coin_emojis_checked_at = 0.0
+        # None rather than 0.0 -- see the same field on the D12 Ball
+        # cog for why the monotonic clock makes that distinction real.
+        self.coin_emojis_checked_at: Optional[float] = None
 
     async def cog_load(self) -> None:
         self.coin_emojis = await load_coin_emojis(self.bot)
@@ -125,7 +127,10 @@ class CoinCommands(commands.GroupCog, group_name="coin"):
             return self.coin_emojis
 
         now = time.monotonic()
-        if now - self.coin_emojis_checked_at < EMOJI_REFETCH_INTERVAL:
+        if (
+            self.coin_emojis_checked_at is not None
+            and now - self.coin_emojis_checked_at < EMOJI_REFETCH_INTERVAL
+        ):
             return self.coin_emojis
         self.coin_emojis_checked_at = now
 
