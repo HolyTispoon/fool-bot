@@ -45,7 +45,6 @@ from cogs.d12ball_helpers import (
     TIE_MODE_LABELS,
     add_full_image_button,
     add_full_image_button_to_response,
-    area_display_name,
     build_home_choice_message,
     build_setup_message,
     contest_noun,

@@ -31,11 +31,9 @@ from d12ball.components import (
     Zone,
     create_standard_setup,
     default_formation_deal,
-    fill_forced_areas,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
-    next_unfilled_area,
     setup_space_order,
     validate_assignment,
 )
@@ -350,17 +348,36 @@ class CoverageRuleTests(unittest.TestCase):
 
         self.assertEqual(len(roomier.crowded_players(TeamSide.HOME)), 2)
 
-    def test_halftime_placement_answers_to_coverage_too(self) -> None:
+    def test_a_coaching_choice_never_leaves_a_space_uncovered(
+        self,
+    ) -> None:
+        # Halftime used to allow free placement into any zone, gated
+        # on this rule. It no longer does: positioning is zone-locked
+        # and its trade rule preserves coverage by construction, so
+        # coverage now falls out of every move rather than being
+        # checked at one. Board 9 gives 2-2-2 a space to spare in every
+        # zone, which is where a coverage break could show up.
         match = self.build_match(board_size=9)
-        player_id = match.home.zones[Zone.MIDFIELD][0]
-        occupied = match.board.meeple_position(
-            match.home.zones[Zone.HOME_GOAL][0]
-        )[1]
+        first, second = match.home.zones[Zone.HOME_GOAL]
+        before = len(match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_GOAL))
 
-        with self.assertRaises(ValueError):
-            match.reposition_meeple_anywhere(
-                TeamSide.HOME, player_id, Zone.HOME_GOAL, occupied,
-            )
+        # Onto the free space: coverage improves or holds.
+        free = match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_GOAL)[0]
+        match.position_meeple(TeamSide.HOME, first, free)
+        self.assertEqual(
+            len(match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_GOAL)),
+            before,
+        )
+
+        # Onto the teammate: a trade, so nothing is uncovered either.
+        occupied = match.board.meeple_position(second)[1]
+        self.assertEqual(
+            match.position_meeple(TeamSide.HOME, first, occupied), second,
+        )
+        self.assertEqual(
+            len(match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_GOAL)),
+            before,
+        )
 
 
 class FormationReassignmentTests(unittest.TestCase):
@@ -378,49 +395,6 @@ class FormationReassignmentTests(unittest.TestCase):
             visiting_team=Team.PURPLE,
         )
 
-    def test_a_reassignment_rewrites_every_zone_and_moves_nobody(
-        self,
-    ) -> None:
-        match = self.build_match()
-        before = {
-            player_id: match.board.meeple_position(player_id)
-            for player_id in match.home.field_players
-        }
-        fielded = list(match.home.field_players)
-
-        match.reassign_field_zones(
-            TeamSide.HOME,
-            {
-                Zone.HOME_GOAL: fielded[:2],
-                Zone.MIDFIELD: fielded[2:3],
-                Zone.VISITORS_GOAL: fielded[3:],
-            },
-        )
-
-        self.assertEqual(len(match.home.zones[Zone.VISITORS_GOAL]), 3)
-        for player_id, position in before.items():
-            self.assertEqual(
-                match.board.meeple_position(player_id), position,
-            )
-        match.validate(self.catalog)
-
-    def test_a_reassignment_has_to_place_exactly_the_fielded_six(
-        self,
-    ) -> None:
-        match = self.build_match()
-        fielded = list(match.home.field_players)
-        benched = match.home.player_board.bench[0]
-
-        with self.assertRaises(ValueError):
-            match.reassign_field_zones(
-                TeamSide.HOME,
-                {
-                    Zone.HOME_GOAL: fielded[:2],
-                    Zone.MIDFIELD: fielded[2:3],
-                    Zone.VISITORS_GOAL: fielded[3:5] + [benched],
-                },
-            )
-
     def test_the_current_formation_is_read_off_the_zones(self) -> None:
         cog = build_cog()
         match = self.build_match()
@@ -436,25 +410,6 @@ class FormationReassignmentTests(unittest.TestCase):
             cog.current_formation(match, TeamSide.HOME),
             Formation.ONE_THREE_TWO,
         )
-
-
-class AssignmentStepTests(unittest.TestCase):
-    def test_forced_areas_fill_themselves(self) -> None:
-        rules = load_basic_ruleset()
-        shape = rules.formations[Formation.TWO_TWO_TWO]
-        candidates = [f"p{index}" for index in range(6)]
-
-        # Nothing is forced up front: 2 of 6 is a real choice.
-        self.assertEqual(fill_forced_areas({}, shape, candidates), {})
-
-        # Once four are placed, the last two have only one home left.
-        filled = fill_forced_areas(
-            {"own_goal": candidates[:2], "midfield": candidates[2:4]},
-            shape,
-            candidates,
-        )
-        self.assertEqual(filled["opponent_goal"], candidates[4:])
-        self.assertIsNone(next_unfilled_area(filled))
 
 
 class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):

@@ -579,37 +579,6 @@ class HalftimeEngineTests(unittest.TestCase):
 
         self.assertEqual(removed, 0)
 
-    def test_reposition_meeple_anywhere_moves_across_zones(self) -> None:
-        match = self.build_match()
-        player_id = match.home.field_players[0]
-        # Board 9's 2-2-2 setup only fills 2 of Visitors Goal's 3
-        # spaces for home, leaving index 2 open regardless of which
-        # player is being moved.
-        open_index = match.open_spaces_in_zone(
-            TeamSide.HOME, Zone.VISITORS_GOAL,
-        )[0]
-
-        match.reposition_meeple_anywhere(
-            TeamSide.HOME, player_id, Zone.VISITORS_GOAL, open_index,
-        )
-
-        self.assertEqual(
-            match.board.meeple_position(player_id),
-            (Zone.VISITORS_GOAL, open_index),
-        )
-
-    def test_reposition_meeple_anywhere_rejects_a_teammates_space(
-        self,
-    ) -> None:
-        match = self.build_match()
-        mover, occupant = match.home.field_players[:2]
-        zone, space_index = match.board.meeple_position(occupant)
-
-        with self.assertRaises(ValueError):
-            match.reposition_meeple_anywhere(
-                TeamSide.HOME, mover, zone, space_index,
-            )
-
     def test_kickoff_space_occupied_by_reflects_the_board(self) -> None:
         match = self.build_match()
         home_player = match.home.field_players[0]

@@ -647,19 +647,23 @@ From the author, for `foolbot.py`'s generic commands:
 - **Loose ball**, all four cases, including the ask-one-side-at-a-time order and declining.
 - **The High Pass contest**, distinct from a loose ball, with the ball-speed modifier to the
   offense.
-- **Substitutions**, end to end: the window on a new play (and not on a steal), before the run
-  back, gated on the once-a-half declaration and nothing else -- passing is always on offer;
-  the declare-then-reply pairing; the two pools; a returning player keeping half their tokens;
-  free rearrangement implemented as exchanging two players. Dinky substitutes only to get an
-  injured player off, and never rearranges.
-- **Halftime**, end to end: recovery, the coach's extra token, each side's independent
-  substitution window, and free repositioning gated on the visiting side covering the kickoff
-  space.
+- **The Coaching Choice**, end to end, and the same four actions at all three occasions:
+  formation, substitution, zone assignment, space positioning, on one message a coach edits
+  their way through. Setup offers one to each coach before kickoff (home first, unlimited
+  substitutions, outgoing players back to the bench); a new play offers one to the side taking
+  the ball, gated on the once-a-half declaration, with a reply for the other coach if they take
+  it and 2 substitutions a side for the half; halftime offers one to each coach independently
+  (visitors first) with its own 2. A formation change re-deals the side by defensive skill.
+  Dinky substitutes only to get an injured player off, never rearranges, and covers the kickoff
+  space itself when it is the side kicking off.
+- **Halftime**, end to end: recovery, the coach's extra token, and each side's Coaching Choice,
+  gated on the visiting side covering the kickoff space.
 - **The run back**, end to end: 1 token per space, the coach picking within the zone under the
   coverage rule, the steal exemption, and stacked teammates separated while a space is free.
   Forced placements are applied silently; only a real choice is put to a coach.
-- **Formations**, end to end: 2-2-2 at kickoff, and any substitution window (halftime
-  included) able to move a team into 2-3-1 or 1-3-2 with the cards of the coach's choosing.
+- **Formations**, end to end: every team dealt 2-2-2, and any Coaching Choice -- setup
+  included -- able to move a team into 2-3-1 or 1-3-2, re-dealing the six by defensive skill
+  and placing every meeple, with the stack space settled per zone.
 - **The Low Pass receiver**, where the destination space holds more than one teammate.
 - **The unchallenged maneuver.** With no defender in the ball's zone the offense picks a
   maneuver on its own and it resolves as an outright win, with no reveal and no skill test.

@@ -528,61 +528,6 @@ class D12BallComponentTests(unittest.TestCase):
             match.pending_run_back_stays_player_id, "orange_blazebulk",
         )
 
-    def test_reposition_player_moves_within_their_assigned_zone(
-        self,
-    ) -> None:
-        # Board size 9 gives every zone 3 spaces for 2-2-2's 2 native
-        # players, leaving slack to step into -- board 6 (and board
-        # 7's goal zones) are fully packed instead, covered separately
-        # by test_swap_meeple_positions_resolves_a_fully_packed_zone.
-        match = self.standard_match(board_size=9)
-        first, second = "orange_hellguard", "orange_kindlefoot"
-        match.swap_field_positions(TeamSide.HOME, first, second)
-        self.assertEqual(
-            match.home.assigned_zone(first), Zone.VISITORS_GOAL,
-        )
-
-        open_space = match.open_spaces_in_zone(
-            TeamSide.HOME, Zone.VISITORS_GOAL,
-        )[0]
-        match.reposition_player(TeamSide.HOME, first, open_space)
-
-        self.assertEqual(
-            match.board.meeple_position(first),
-            (Zone.VISITORS_GOAL, open_space),
-        )
-        self.assertEqual(match.exhaustion, {})
-        match.validate(self.catalog)
-
-    def test_run_back_player_rejects_the_wrong_zone(self) -> None:
-        match = self.standard_match()
-        # orange_hellguard is a Home Goal native, so Visitors Goal is
-        # not a zone they can be sent back to. (reposition_player
-        # reads the zone off the card and so can never mismatch; only
-        # run_back_player takes one from a caller.)
-        home_zone = match.home.assigned_zone("orange_hellguard")
-        self.assertNotEqual(home_zone, Zone.VISITORS_GOAL)
-
-        with self.assertRaises(ValueError):
-            match.run_back_player(
-                "orange_hellguard", Zone.VISITORS_GOAL, 0,
-            )
-
-    def test_reposition_player_rejects_leaving_a_space_uncovered(
-        self,
-    ) -> None:
-        # Board 9's three-space zones give 2-2-2 a space to spare, so
-        # stepping onto a teammate would leave that space with nobody
-        # on it -- which is exactly what the coverage rule forbids.
-        match = self.standard_match(board_size=9)
-        player_id, teammate_id = match.home.zones[Zone.HOME_GOAL]
-        teammate_space = match.board.meeple_position(teammate_id)[1]
-
-        with self.assertRaises(ValueError):
-            match.reposition_player(
-                TeamSide.HOME, player_id, teammate_space,
-            )
-
     def test_swap_meeple_positions_resolves_a_fully_packed_zone(
         self,
     ) -> None:

@@ -69,7 +69,6 @@ from cogs.d12ball_helpers import (
     ROLE_INITIALS,
     add_full_image_button,
     add_full_image_button_to_response,
-    area_display_name,
     board_image_filename,
     build_full_time_summary,
     build_game_channel_name,
