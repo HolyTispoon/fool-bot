@@ -45,6 +45,16 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
+### Does a won long High Pass contest name a ball carrier?
+
+The [ball carrier](living-rules.md#the-ball-carrier) rule was given for the resolutions that
+hand the ball over; a 3-or-4-space High Pass instead makes the receiver *win* it. Read as a
+contest it is like a loose ball, and nobody carries it -- which is how it is written and
+built. Read as a pass that happened to be checked, the receiver was still the player it was
+aimed at, and they would carry it. Only the receiver and one defender can be standing there,
+so in practice this decides very little; it is worth an answer for consistency rather than
+for play.
+
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
 
@@ -54,6 +64,36 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-09 (latest) -- author, the ball is carried by a player
+
+*Given as three cases; the general rule behind them, and the two edges it reaches, were
+confirmed in the same exchange.*
+
+- **The ball belongs to a player, not to a space.** The author's framing: "the ball is in
+  possession of a specific player." Where a resolution leaves it with somebody in particular,
+  that player takes the next turn -- so a coach who dribbles forward can no longer start the
+  next turn with a different player who happens to share the zone. Possession has always been
+  tracked per *team*; this is the first rule that tracks it per *player*.
+- **The three cases as given** were a won Dribble Advance, a won Steal Intercept, and losing
+  to Pressure. All three are the ones where the ball travels attached to a person.
+- **Pass receivers carry too**, confirmed when asked, on the reading that a pass is aimed at
+  somebody and the passer already names them out of a stack. So a completed Low Pass and a
+  received 2-space High Pass both name a carrier. That is what makes it one rule -- "whoever
+  the ball was left with" -- rather than three exceptions to remember.
+- **A Defender who steals on a won Pressure carries it**, confirmed when asked. They are
+  already the player the run back exempts, on the grounds that they are the one holding it.
+- **An own goal survived still carries.** Pressure that overshoots and then passes its roll
+  leaves the handler where they were, still holding the ball; nothing about the roll changes
+  who has it. A conceded own goal is a new play and clears the carry with everything else.
+- **A contested ball is nobody's.** A loose ball, however it is won, and the long High Pass
+  contest both end with the ball fought for rather than given, so the coach chooses off the
+  ball's space as before. Block Deflect likewise names nobody -- it sends the ball back to a
+  space, not to a player.
+- **A carry lasts exactly one turn**, set by the resolution that ends a turn and spent by the
+  one that follows. A new play, a period restart and a kickoff all clear it.
+- **What is fixed is who acts, not what they do.** A carrier chooses freely between a shot and
+  a maneuver, subject to shooting range like anyone else.
 
 ### 2026-08-09 (later still) -- author, the Coaching Choice
 
@@ -554,6 +594,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | A pass to the ball's own space names one player | The passer picks, when more than one teammate is standing there |
 | Nothing about a Low Pass with no legal destination | The ball goes a space forward, loose, speed still +1 |
 | A score attempt from wherever the ball is | Only from within shooting range, set-ups included |
+| Possession is a team's, and any player on the ball's space may act | The ball is carried by a player, who takes the next turn; the coach only chooses when it came free |
 
 ---
 

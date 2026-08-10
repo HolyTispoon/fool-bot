@@ -53,6 +53,7 @@ minutes. The team with the most goals at the end wins.
 | **Field player** | One of the six players a team has on the field. |
 | **Forward / back** | Forward is toward the goal a team is attacking; back is toward the goal it defends. Always relative to the team being spoken about. |
 | **Possession** | Which team holds the ball. Tracked separately from the ball's space. |
+| **Ball carrier** | The individual player holding the ball, when the last resolution left it with somebody in particular. They take their team's next turn: see [the ball carrier](#the-ball-carrier). |
 | **Arrangement** | The spaces a coach last *put* their meeples on, at a [Coaching Choice](#coaching-choice). A [new play](#resetting-after-a-new-play) puts them back on it. |
 | **Turnover** | Possession changing hands, for any reason. |
 | **Skill test** | The opposed d12 roll used to settle a tied maneuver, a loose ball, and a long High Pass. |
@@ -209,7 +210,8 @@ Each coach has a player board with these areas:
 Each turn runs in this order:
 
 1. **The team in possession chooses** either a [score attempt](#score-attempt) or a
-   [maneuver](#maneuver).
+   [maneuver](#maneuver), and which of their players on the ball's space takes it -- unless
+   there is a [ball carrier](#the-ball-carrier), who takes it themselves.
 2. **Resolve it**, including any scoring opportunity or own-goal roll it produces.
 3. **Check for a loose ball.** If the ball's space has no player from the team in possession,
    resolve it as a [loose ball](#loose-ball).
@@ -224,6 +226,42 @@ Each turn runs in this order:
    minute, and by 1 per space when the ball travels.
 6. The clock stops at 15. Reaching 15 puts the game into
    [last possession](#the-clock-halftime-and-full-time).
+
+### The ball carrier
+
+**The ball is carried by a player, not held by a space.** When a resolution leaves the ball
+with somebody in particular -- the player who dribbled it there, the one who was shoved back
+still holding it, the one who took it off them, the one it was passed to -- that player is the
+**ball carrier**, and they take their team's next turn. Their coach does not choose again.
+
+Without a carrier, the coach picks any of their players on the ball's space, as they always
+have. A carrier is one of those players too; the rule takes the choice away, not the ball.
+
+| The resolution | Carrier |
+|---|---|
+| **Dribble Advance** wins | The handler, who moved with the ball |
+| **Pressure** wins | The handler, shoved back still holding it -- including when the own-goal roll is survived |
+| **Pressure** wins for a **Defender** | The Defender, who stole it |
+| **Steal Intercept** wins | The interceptor |
+| **Low Pass** completes | The receiver -- the player the passer aimed at, which is the same player a Winger's set-up would offer the shot to |
+| **High Pass** of 2 is received | The receiver, whether or not the set-up is offered or taken |
+
+**Everything else leaves nobody carrying it**, and the coach chooses:
+
+- a **[loose ball](#loose-ball)**, however it is won -- the ball was free and got picked up;
+- a **long High Pass contest**, which is fought for the same way;
+- a **[new play](#steals-and-new-plays)** and the [reset](#resetting-after-a-new-play) it
+  brings, and the kickoff that starts each period -- the ball went dead;
+- a **Block Deflect**, which sends the ball back to a space rather than to a player.
+
+**A carry lasts exactly one turn.** It is set by the resolution that ends a turn and spent by
+the turn that follows; nothing carries over further than that. The player also has to still be
+standing on the ball for the side in possession when their turn comes -- which every carry
+above guarantees, since none of them can be run back or displaced in between.
+
+**A carrier still chooses their action.** They may shoot as readily as maneuver, subject to
+[shooting range](#shooting-range) like anyone else. What is fixed is who acts, not what they
+do.
 
 ## Score attempt
 
@@ -267,7 +305,7 @@ Most turns are maneuvers rather than shots. A maneuver runs in four steps.
 ### 1. Determine the two players
 
 **The attacker** is a player from the team in possession standing on the ball's space. There
-is usually only one.
+is usually only one, and where there is a [ball carrier](#the-ball-carrier) it is them.
 
 **The challenger** comes from the defending team:
 
@@ -936,3 +974,6 @@ Same rank ties and goes to a skill test. O1 beats D3, O2 beats D1, O3 beats D2.
 
 A score attempt -- off a set-up or not -- may only be taken from within
 [shooting range](#shooting-range).
+
+Every maneuver above except Block Deflect leaves the ball with a particular player, who then
+takes the next turn: see [the ball carrier](#the-ball-carrier).
