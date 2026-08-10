@@ -1,13 +1,14 @@
 """
 The end of the game: who gets to play last possession, how full time is
-announced, the tie modes, and the rematch button.
+announced, and the rematch button.
 
 Two rules meet here. Last possession is the possession that *starts* at
 15 space minutes, so the maneuver that puts the clock there never ends
 the period even when it is itself a turnover -- only a later turnover
-does. And a level score at full time ends the game in league mode,
-where a tournament game would go to the extreme shootout. See
-"The clock, halftime and full time" in docs/living-rules.md.
+does. And full time settles the game only when the scores differ: a
+level one opens the extreme shootout, which is covered in
+tests/test_d12ball_shootout.py. See "The clock, halftime and full time"
+in docs/living-rules.md.
 """
 
 import unittest
@@ -15,7 +16,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_helpers import TIE_MODE_LABELS, build_full_time_summary
+from cogs.d12ball_helpers import build_full_time_summary, build_setup_message
 from cogs.d12ball_views import (
     CoinFlipView,
     RematchView,
@@ -24,6 +25,7 @@ from cogs.d12ball_views import (
 from d12ball.components import (
     MatchPeriod,
     MatchState,
+    TeamSide,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -33,7 +35,6 @@ from d12ball.game import (
     D12BallGame,
     GameStatus,
     Team,
-    TieMode,
 )
 
 
@@ -237,22 +238,29 @@ class FullTimeSummaryTests(unittest.TestCase):
         self.assertIn("# Purple wins!", summary)
         self.assertIn("Dinky AI", summary)
 
-    def test_a_league_game_is_allowed_to_end_tied(self) -> None:
+    def test_a_level_score_goes_to_the_shootout(self) -> None:
         summary = build_full_time_summary(
-            build_game(tie_mode=TieMode.LEAGUE), self.build_match(2, 2),
-        )
-
-        self.assertIn("It's a tie!", summary)
-        self.assertIn("League mode", summary)
-        self.assertNotIn("shootout", summary)
-
-    def test_a_tournament_tie_goes_to_the_shootout(self) -> None:
-        summary = build_full_time_summary(
-            build_game(tie_mode=TieMode.TOURNAMENT), self.build_match(2, 2),
+            build_game(), self.build_match(2, 2),
         )
 
         self.assertIn("It's a tie!", summary)
         self.assertIn("extreme shootout", summary)
+        self.assertNotIn("wins!", summary)
+
+    def test_a_shootout_win_reports_both_scores(self) -> None:
+        match = self.build_match(2, 2)
+        match.begin_shootout()
+        for _ in range(4):
+            match.award_shootout_goal(TeamSide.HOME)
+        for _ in range(3):
+            match.award_shootout_goal(TeamSide.VISITING)
+
+        summary = build_full_time_summary(build_game(), match)
+
+        self.assertIn("Final score: Orange 6:5 Purple", summary)
+        self.assertIn("2:2 at full time", summary)
+        self.assertIn("settled 4-3 on the extreme shootout", summary)
+        self.assertIn("# Orange wins!", summary)
 
 
 class EndPeriodFullTimeTests(unittest.IsolatedAsyncioTestCase):
@@ -297,43 +305,31 @@ class EndPeriodFullTimeTests(unittest.IsolatedAsyncioTestCase):
         )
 
 
-class TieModeSetupTests(unittest.IsolatedAsyncioTestCase):
-    def tie_buttons(self, view) -> list:
-        return [
-            item for item in view.children
-            if item.custom_id
-            and item.custom_id.startswith("d12ball:tie_mode:")
-        ]
-
+class GameSetupTests(unittest.IsolatedAsyncioTestCase):
     def build_cog_with(self, game) -> D12Ball:
         cog = build_cog()
         cog.games[game.game_id] = game
         return cog
 
-    def test_both_tie_modes_are_offered_with_their_own_wording(self) -> None:
+    def test_setup_offers_no_tie_setting(self) -> None:
+        # There is nothing to choose: every tie goes to the extreme
+        # shootout, so league mode and the buttons for it are gone.
         game = build_game(status=GameStatus.SETUP)
         view = TeamSelectionView(self.build_cog_with(game), game.game_id)
 
         self.assertEqual(
-            [item.label for item in self.tie_buttons(view)],
             [
-                TIE_MODE_LABELS[TieMode.LEAGUE],
-                TIE_MODE_LABELS[TieMode.TOURNAMENT],
+                item for item in view.children
+                if item.custom_id
+                and "tie_mode" in item.custom_id
             ],
+            [],
         )
-
-    def test_the_setup_message_names_the_tie_rules(self) -> None:
-        from cogs.d12ball_helpers import build_setup_message
-
-        game = build_game(status=GameStatus.SETUP)
-
-        self.assertIn(
-            TIE_MODE_LABELS[TieMode.LEAGUE], build_setup_message(game),
-        )
+        self.assertNotIn("Ties:", build_setup_message(game))
 
     def test_every_setup_button_fits_discord_s_five_rows(self) -> None:
-        # The settings block grew a row; a test game's two team rows
-        # and a solo game's AI row are what make this tight.
+        # A test game's two team rows and a solo game's AI row are what
+        # make this tight.
         for game in (
             build_game(status=GameStatus.SETUP),
             build_game(
@@ -360,20 +356,6 @@ class TieModeSetupTests(unittest.IsolatedAsyncioTestCase):
                     self.assertLessEqual(max(rows), 4)
                     for row in set(rows):
                         self.assertLessEqual(rows.count(row), 5)
-
-    async def test_tournament_mode_is_refused_for_now(self) -> None:
-        game = build_game(status=GameStatus.SETUP)
-        cog = self.build_cog_with(game)
-        view = TeamSelectionView(cog, game.game_id)
-        interaction = build_interaction()
-
-        with mock.patch("cogs.d12ball_views.save_games"):
-            await view.select_tie_mode(interaction, TieMode.TOURNAMENT)
-
-        self.assertEqual(game.tie_mode, TieMode.LEAGUE)
-        message = interaction.response.send_message.await_args.args[0]
-        self.assertIn("tournament mode is not yet ready", message)
-        interaction.response.edit_message.assert_not_awaited()
 
 
 class RematchTests(unittest.IsolatedAsyncioTestCase):
@@ -409,7 +391,6 @@ class RematchTests(unittest.IsolatedAsyncioTestCase):
         args, kwargs = cog.open_new_game.await_args
         self.assertEqual(args[1:], (player_1, player_2))
         self.assertEqual(kwargs["board_size"], 9)
-        self.assertEqual(kwargs["tie_mode"], game.tie_mode)
         self.assertEqual(kwargs["mode"], game.mode)
 
     async def test_a_solo_rematch_keeps_playing_the_ai(self) -> None:

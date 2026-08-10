@@ -177,14 +177,11 @@ Each coach has a team board with these areas:
 ## Setting up a game
 
 1. **Choose the board size** -- 6, 7 or 9. 7 is the default.
-2. **Choose how a tie is settled.** In **league mode** a level score at full time is the
-   final result. In **tournament mode** a level score goes to the
-   [extreme shootout](#extreme-shootout).
-3. **Toss a coin.** Fortune wins the toss for the coach who flipped; doom hands it to their
+2. **Toss a coin.** Fortune wins the toss for the coach who flipped; doom hands it to their
    opponent. The winner chooses to be the **home** or the **visiting** team. The trade is
    deliberate: home kicks off the first half, the visitors kick off the second, so choosing
    visitor buys the second-half restart.
-4. **Deal both teams out.** Every team starts in the **2-2-2 formation** -- two cards per
+3. **Deal both teams out.** Every team starts in the **2-2-2 formation** -- two cards per
    zone -- dealt as the standard setup, one player of each role:
 
    | Zone | Players |
@@ -198,7 +195,7 @@ Each coach has a team board with these areas:
    of the zone taken before any space takes a second player. Under 2-2-2 that is one per team
    per space, and a three-space zone is left with a space empty. In basic mode both teams are
    identical, so both are dealt the same way.
-5. **Each coach takes a [Coaching Choice](#coaching-choice)** -- home first, since they kick
+4. **Each coach takes a [Coaching Choice](#coaching-choice)** -- home first, since they kick
    off, then the visitors. Substitutions are unlimited here and a player taken off goes back
    to the bench: the game has not started, so nobody is spent and nothing is used up. A coach
    happy with the standard deal simply finishes without changing anything.
@@ -207,7 +204,7 @@ Each coach has a team board with these areas:
    off. Where each side finishes is its first **arrangement**: every
    [new play](#resetting-after-a-new-play) puts their meeples back on these spaces until
    another Coaching Choice sets new ones.
-6. **Place the ball** showing **1** on the kickoff space, in the home team's possession. Set
+5. **Place the ball** showing **1** on the kickoff space, in the home team's possession. Set
    the clock to 0.
 
 ## The turn
@@ -994,30 +991,50 @@ period ends.
 4. The second half starts with the **visiting team in possession on the kickoff space**, ball
    speed 1.
 
-**Full time.** After the second period, the higher score wins.
-
-- **League mode:** a level score is a tie, and the game ends there.
-- **Tournament mode:** a level score goes to the [extreme shootout](#extreme-shootout).
+**Full time.** After the second period, the higher score wins. **A level score goes to the
+[extreme shootout](#extreme-shootout)**, in every game: there is no game in which a tie is
+allowed to stand.
 
 ## Extreme shootout
 
-Tournament mode only, and only on a tie at full time.
+How a game level at full time is settled. It is played by **the six players each team has on
+the field** at the whistle, in the state the second period left them -- exhaustion counts,
+injuries and all. Nobody comes on for it and nobody is substituted.
 
-Each coach secretly arranges their team of six players in any order they wish. Once the order
-is set they may look at it but not reorder it.
+**Nobody recovers exhaustion at full time.** Halftime takes a token off every fielded player
+and a second off one of them; the whistle takes nothing off anybody. A side that finished the
+second half with players over their defensive skill goes to the shootout with them still
+**Exhausted**, owing an injury check on every test they take part in.
 
-Both coaches then reveal their top card simultaneously. Those two players roll a skill test,
-each adding their **offensive** skill -- except an injured player, who adds no
-[skill modifier](#exhaustion-and-injury) and rolls the bare d12. The winner scores a goal; a
-tie scores for nobody.
+Each coach secretly arranges their six in any order they wish. Once the order is set they may
+look at it but not reorder it.
+
+Both coaches then reveal their top card simultaneously. Those two players roll a
+[skill test](#4-skill-test-when-they-tie), each adding their **offensive** skill -- except an
+injured player, who adds no [skill modifier](#exhaustion-and-injury) and rolls the bare d12.
+The winner scores a goal; **a tie scores for nobody and is not re-rolled**, which is the one
+place in the game a tied skill test is left tied.
+
+**A shootout skill test costs no exhaustion**, however many a player takes part in -- it is
+not one of the [ways to gain a token](#exhaustion-and-injury). An **Exhausted** player still
+rolls an **injury check** when a test they took part in resolves, the same as any other skill
+test, and an injury landing in one round withholds that player's skill in a later one.
 
 This repeats for all six players, unless one team is already ahead by more goals than the
-other can still score with the attempts remaining (leading 4-1 after five, there is no need to
-roll a sixth). Six clashes is one **round**.
+other can still score with the attempts remaining (leading 4-1 with two to go, there is no
+need to roll either of them). Six skill tests is one **round**.
 
-If a round ends level -- most commonly 3-3 -- the shootout continues one clash at a time. Each
-coach chooses and simultaneously reveals one player who has not yet gone this round; they roll,
-and if either side wins, they score and win the game.
+If a round ends level -- most commonly 3-3 -- the shootout goes to **sudden death** and
+continues one skill test at a time. Each coach chooses and simultaneously reveals one player
+who has not yet gone **this round**; they roll, and if either side wins, they score and win
+the game. When all six have gone the round ends and a new one begins with everybody eligible
+again, still one test at a time.
+
+The order set before the first round governs that round alone. Every sudden-death test is a
+fresh choice.
+
+**Shootout goals are goals**, and go on the scoreboard: a game level at 2:2 and settled 4-3 on
+the shootout is a 6:5 win.
 
 ## Quick reference
 
@@ -1051,6 +1068,7 @@ Same rank ties and goes to a skill test. O1 beats D3, O2 beats D1, O3 beats D2.
 |---|---|---|---|---|
 | Score attempt | 1 each | Offensive skill + ball speed modifier (+3 Striker off a set-up) | Defensive skills of every meeple between ball and goal | Attack >= defense scores |
 | Skill test | 1 each | Offensive skill | Defensive skill | Higher wins; tie re-rolls |
+| [Shootout](#extreme-shootout) skill test | 1 each | Offensive skill | Offensive skill | Higher wins and scores; a tie scores for nobody and stands |
 | Own goal | 2d12, take the higher | Offensive skill | -- | 7+ avoids |
 | Injury check | 1 d12 | -- | -- | Higher than the token count is safe |
 

@@ -39,7 +39,6 @@ from d12ball.game import (
     GameMode,
     GameStatus,
     Team,
-    TieMode,
 )
 from d12ball.render import (
     TEAM_COLORS,
@@ -126,6 +125,11 @@ from cogs.d12ball_views import (
     ScoreAttemptView,
     SetUpAttemptChoiceView,
     ShooterChoiceView,
+    ShootoutOrderPromptView,
+    ShootoutOrderSelectView,
+    ShootoutPickPromptView,
+    ShootoutPickSelectView,
+    ShootoutTestView,
     SkillTestView,
     SpeedDeltaChoiceView,
     CoachingHubView,
@@ -295,6 +299,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     message_id=game.turn_message_id,
                 )
                 restored_views += 1
+
+                if isinstance(
+                    turn_view,
+                    (ShootoutOrderPromptView, ShootoutPickPromptView),
+                ):
+                    # Same problem as the maneuver menu, same answer --
+                    # see restore_shootout_menus.
+                    restored_views += self.restore_shootout_menus(game, match)
 
                 if isinstance(turn_view, ManeuverActionPromptView):
                     # The maneuver menu a coach may have open right
@@ -1083,12 +1095,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Pick the turn back up where the injury tests interrupted it.
-        The two kinds are the two contests that hand them out: a
-        maneuver's skill test goes on to the winner's effect, a loose
-        ball (or the long High Pass that borrows its machinery) goes on
-        to its run back.
+        The kinds are the contests that hand them out: a maneuver's
+        skill test goes on to the winner's effect, a loose ball (or
+        the long High Pass that borrows its machinery) goes on to its
+        run back, and a shootout skill test goes on to the next one --
+        or to the end of the game.
         """
         kind = (resume or {}).get("kind")
+        if kind == "shootout_test":
+            await self.continue_shootout(interaction, game, match)
+            return
         if kind == "maneuver_effect":
             await self.begin_effect_resolution(
                 interaction, game, match, resume["winner_name"],
@@ -1348,6 +1364,55 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         return len(sides)
 
+    def restore_shootout_menus(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> int:
+        """
+        Bring an open shootout menu back to life after a restart, the
+        way `restore_maneuver_menus` does for the maneuver pick, and
+        for the same reason: a coach's shooting order and their
+        sudden-death shooter are secret, so both menus are ephemeral
+        and neither has a message id to re-attach to. `add_view`
+        without one registers against `(None, custom_id)`, which is
+        what the coach's already-open menu is dispatched by.
+
+        The custom_ids carry the game and the side, so nothing can
+        reach the wrong game, and a message_id match still wins -- the
+        next menu the shootout opens is dispatched to its own view as
+        usual. A stale click is answered rather than acted on: an
+        order that is already set refuses to be reordered, and a pick
+        that has already been made says so.
+
+        Only the side that still owes something is registered, so a
+        coach who has already answered has nothing left listening.
+        """
+        registered = 0
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            if self.side_is_ai(game, side):
+                continue
+            if not match.shootout_orders_complete:
+                if match.shootout_order_complete(side):
+                    continue
+                view = ShootoutOrderSelectView(
+                    self, game.game_id, side, timeout=None,
+                )
+            elif match.shootout_shooter(side) is None:
+                view = ShootoutPickSelectView(
+                    self, game.game_id, side, timeout=None,
+                )
+            else:
+                continue
+
+            # timeout=None because add_view refuses anything else: a
+            # view it cannot see the message for has nothing to time
+            # out against.
+            self.bot.add_view(view)
+            registered += 1
+
+        return registered
+
     def pending_turn_view(
         self,
         game_id: str,
@@ -1448,6 +1513,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return (
                 OwnGoalRollView(self, game_id),
                 "Either player can roll for the own goal.",
+            )
+
+        if match.pending_shootout:
+            # The three shootout states, read off the same three
+            # questions `advance_shootout` asks and in the same order.
+            # It comes after the injury queue because a shootout skill
+            # test owes its checks before the next one is set up, and
+            # ahead of everything below because the match underneath a
+            # shootout is still whatever full time left there.
+            if not match.shootout_orders_complete:
+                return (
+                    ShootoutOrderPromptView(self, game_id),
+                    "Extreme shootout — set your shooting order:",
+                )
+            if not match.shootout_shooters_complete:
+                return (
+                    ShootoutPickPromptView(self, game_id),
+                    "Extreme shootout — choose who shoots next:",
+                )
+            return (
+                ShootoutTestView(self, game_id),
+                "Either player can roll the shootout skill test:",
             )
 
         if match.active_player_id is None:
@@ -3948,6 +4035,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         Nothing here changes the match. That is what `force` is for.
         """
+        if match.pending_shootout and not match.pending_injury_tests:
+            # Two of the shootout's four steps are the bot's own -- the
+            # reveal, and setting the next test up -- so a process that
+            # died between them leaves nothing to click. advance_shootout
+            # picks up whichever it stopped on. An owed injury check is
+            # the exception: that is a button, and it comes first.
+            await self.advance_shootout(interaction, game, match)
+            return "the extreme shootout"
+
         if match.pending_coaching_side is not None:
             # Ahead of the two stage checks below: setup and halftime
             # both run their coaching through this same window, and
@@ -5034,11 +5130,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         The turnover that closes out last possession: transition to the
-        second half, or end the game at full time. Halftime recovery,
-        formation changes, substitutions, and the extreme shootout are
-        all out of scope here -- announced as hand-apply instructions,
-        the same way score-attempt cleanup already defers its own
-        unautomated pieces.
+        second half, or end the game at full time -- which, on a level
+        score, means opening the [extreme shootout](begin_shootout)
+        rather than finishing anything.
         """
         prefix = f"{lead_in}\n\n" if lead_in else ""
 
@@ -5082,13 +5176,42 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.reset_maneuver()
         game.match_state = match.to_dict()
         save_games(self.games)
+
+        whistle = (
+            f"{prefix}**Full time!** The clock reaches 15 and the ball "
+            "turns over -- the game ends.\n\n"
+            f"{build_full_time_summary(game, match)}"
+        )
+
+        if match.scoreboard.home_score == match.scoreboard.visiting_score:
+            # Level, so nothing is finished: the summary above says the
+            # game goes to the shootout, and the shootout is what ends
+            # it -- the game record stays in progress until then, so a
+            # restart mid-shootout comes back to a live game.
+            await interaction.followup.send(whistle)
+            await self.refresh_match_image(interaction, game)
+            await self.begin_shootout(interaction, game, match)
+            return
+
         game.finish_game()
         save_games(self.games)
 
-        full_time = await interaction.followup.send(
-            f"{prefix}**Full time!** The clock reaches 15 and the ball "
-            "turns over -- the game ends.\n\n"
-            f"{build_full_time_summary(game, match)}",
+        await self.announce_game_over(interaction, game, whistle)
+        await self.refresh_match_image(interaction, game)
+
+    async def announce_game_over(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        content: str,
+    ) -> None:
+        """
+        The last message of a game: the result, and the rematch button
+        under it. Both endings post it -- the whistle when full time
+        settles the game, and the shootout when it does not.
+        """
+        final = await interaction.followup.send(
+            content,
             view=RematchView(self, game.game_id),
             allowed_mentions=discord.AllowedMentions(
                 users=True,
@@ -5100,9 +5223,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # Remembered so the rematch button comes back after a restart:
         # the channel stays where it is until someone clicks it, which
         # can be days later.
-        game.rematch_message_id = full_time.id
+        game.rematch_message_id = final.id
         save_games(self.games)
-        await self.refresh_match_image(interaction, game)
 
     # -- Halftime ------------------------------------------------------
 
@@ -5436,6 +5558,381 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.send_turn_prompt(interaction, game)
         except ValueError as error:
             await interaction.followup.send(str(error), ephemeral=True)
+
+    # -- The extreme shootout ------------------------------------------
+
+    async def begin_shootout(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Open the shootout that settles a game level at full time. See
+        "Extreme shootout" in docs/living-rules.md.
+
+        The shootout is **four steps that hand back to each other**,
+        and `advance_shootout` is the single reading of which one a
+        saved game is on -- the same job `pending_turn_view` does for
+        a turn, and for the same reason: two of the four are the
+        bot's own move, so a restart between them has no button
+        anywhere to press.
+        """
+        match.begin_shootout()
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await interaction.followup.send(
+            "# Extreme shootout\n"
+            "The scores are level, so the game is settled on the "
+            "extreme shootout.\n\n"
+            "Each coach secretly puts their **six field players** in "
+            "the order they will shoot. Both sides then reveal their "
+            "top card together and those two players roll a **skill "
+            "test**, each adding their offensive skill -- an injured "
+            "player adds none and rolls the bare d12. The winner "
+            "scores a goal; a tie scores for nobody. Six skill tests "
+            "is a **round**, and a level round goes to sudden death."
+        )
+        await self.advance_shootout(interaction, game, match)
+
+    async def advance_shootout(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Put the shootout's next step in front of whoever owes it.
+
+        Everything routes through here -- opening the shootout, the
+        end of a skill test, and `/d12ball resume` -- so there is one
+        answer to "what is this shootout waiting on?" and no way for
+        the resume to offer a different step from the one a restart
+        restores. `pending_turn_view` reads the same three states off
+        the same three questions.
+        """
+        if not match.shootout_orders_complete:
+            await self.ask_shootout_orders(interaction, game, match)
+            return
+
+        if not match.shootout_shooters_complete:
+            await self.ask_shootout_shooters(interaction, game, match)
+            return
+
+        await self.reveal_shootout_test(interaction, game, match)
+
+    async def ask_shootout_orders(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        The secret ordering both coaches do before the first test. An
+        AI side sets its own here and now, so a solo game only ever
+        waits on the one coach who has a choice to make.
+        """
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            if match.shootout_order_complete(side):
+                continue
+            if not self.side_is_ai(game, side):
+                continue
+            match.set_shootout_order(
+                side,
+                self.get_ai_strategy(game).choose_shootout_order(
+                    match.shootout_squad(side),
+                ),
+            )
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        if match.shootout_orders_complete:
+            await self.reveal_shootout_test(interaction, game, match)
+            return
+
+        owing = [
+            side
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+            if not match.shootout_order_complete(side)
+        ]
+        await self.post_shootout_prompt(
+            interaction,
+            game,
+            match,
+            f"{self.shootout_mentions(game, match, owing)}: set the "
+            "order your six players shoot in. Nobody else sees it.",
+            ShootoutOrderPromptView(self, game.game_id),
+            # Nobody has shot, so the usual "skill test 1 of 6, 0 — 0"
+            # is a scoreline with nothing in it yet.
+            heading="### Extreme shootout",
+        )
+
+    async def ask_shootout_shooters(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Sudden death's pick. Only ever reached in a round past the
+        first: the first round's shooter is read off the order, so
+        there is nothing to ask for and nothing to lose in a restart.
+        """
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            if match.shootout_shooter(side) is not None:
+                continue
+            if not self.side_is_ai(game, side):
+                continue
+            match.set_shootout_shooter(
+                side,
+                self.get_ai_strategy(game).choose_shootout_shooter(
+                    match.shootout_eligible(side),
+                ),
+            )
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        if match.shootout_shooters_complete:
+            await self.reveal_shootout_test(interaction, game, match)
+            return
+
+        owing = [
+            side
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+            if match.shootout_shooter(side) is None
+        ]
+        await self.post_shootout_prompt(
+            interaction,
+            game,
+            match,
+            f"{self.shootout_mentions(game, match, owing)}: choose who "
+            "goes out next, from the players who have not shot yet "
+            "this round. Nobody else sees it until the reveal.",
+            ShootoutPickPromptView(self, game.game_id),
+        )
+
+    async def post_shootout_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        content: str,
+        view: discord.ui.View,
+        heading: Optional[str] = None,
+    ) -> None:
+        prompt = await interaction.followup.send(
+            f"{heading or self.shootout_heading(match)}\n{content}",
+            view=view,
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt.id
+        save_games(self.games)
+
+    def shootout_mentions(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        sides: list[TeamSide],
+    ) -> str:
+        """Whoever a shootout step is still waiting on, named."""
+        parts = []
+        for side in sides:
+            controller_id = self.side_controller_id(game, side)
+            parts.append(
+                f"<@{controller_id}>"
+                if controller_id
+                else format_team_side_label(match.setup_for_side(side))
+            )
+        return " and ".join(parts) or "Someone"
+
+    def shootout_running_score(self, match: MatchState) -> str:
+        """
+        The shootout's own score, which is not the scoreboard's: the
+        goals are on that too, but 6:5 says nothing about how many of
+        the six have gone.
+        """
+        home = match.shootout_goals_for(TeamSide.HOME)
+        visiting = match.shootout_goals_for(TeamSide.VISITING)
+        return (
+            f"{match.home.team.value.title()} {home} — {visiting} "
+            f"{match.visiting.team.value.title()}"
+        )
+
+    def shootout_heading(self, match: MatchState) -> str:
+        """
+        Where the shootout has got to, above the test it is asking
+        for. **Only ever a question, never an answer**: the test
+        number it names is the one about to be rolled, and by the time
+        a result is posted the shooters have been retired and that
+        number has moved on -- so a result carries the running score
+        alone (see ShootoutTestView.roll).
+        """
+        if match.shootout_round > 1:
+            where = f"sudden death, round {match.shootout_round}"
+        else:
+            taken = match.shootout_tests_taken(TeamSide.HOME)
+            where = f"skill test {taken + 1} of 6"
+
+        return (
+            f"### Extreme shootout — {where}\n"
+            f"{self.shootout_running_score(match)}"
+        )
+
+    def shootout_button_label(
+        self,
+        match: Optional[MatchState],
+        player_id: str,
+    ) -> str:
+        """
+        One player, on a button in the shootout's ephemeral menus. The
+        offensive skill is the whole of what a coach is choosing on --
+        it is the only modifier a shootout roll adds -- so it is on
+        the label rather than a card the coach has to go and find.
+        """
+        player = self.get_player_definition(player_id)
+        role = ROLE_INITIALS[player.role.value]
+        if match is not None and player_id in match.injured:
+            return f"{player.name} [{role}] injured"
+        offense = self.player_catalog.effective_profile(player).offense
+        return f"{player.name} [{role}] +{offense}"
+
+    def shootout_order_text(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> str:
+        """The order a coach has built so far, on their own menu."""
+        lines = []
+        for position, player_id in enumerate(
+            match.shootout_order(side), start=1,
+        ):
+            player = self.get_player_definition(player_id)
+            note = " — injured" if player_id in match.injured else ""
+            lines.append(
+                f"{position}. "
+                f"{format_role_bracket(player, self.team_emojis)}{note}"
+            )
+
+        if match.shootout_order_complete(side):
+            header = (
+                "**Your shooting order is set.** You may look at it, "
+                "but not reorder it."
+            )
+        elif lines:
+            header = "Keep going -- click the next player to shoot."
+        else:
+            header = (
+                "Click your six players in the order they shoot. Only "
+                "you can see this."
+            )
+
+        return "\n".join([header, *lines])
+
+    async def reveal_shootout_test(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Both top cards, turned over together, and the button that
+        rolls them against each other. Either coach may press it, like
+        every other roll in the game.
+        """
+        lines = []
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            shooter_id = match.shootout_shooter(side)
+            if shooter_id is None:
+                # Nothing to reveal means the state moved under us --
+                # advance_shootout is the only way back in.
+                await self.advance_shootout(interaction, game, match)
+                return
+            player = self.get_player_definition(shooter_id)
+            note = (
+                " — injured, no skill modifier"
+                if shooter_id in match.injured
+                else ""
+            )
+            lines.append(
+                f"{format_role_bracket(player, self.team_emojis)}{note}"
+            )
+
+        prompt = await interaction.followup.send(
+            f"{self.shootout_heading(match)}\n"
+            f"{lines[0]}\nversus\n{lines[1]}\n\nEither player can roll:",
+            view=ShootoutTestView(self, game.game_id),
+            wait=True,
+        )
+        game.turn_message_id = prompt.id
+        save_games(self.games)
+
+    async def close_shootout_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        """
+        Drop the "set your order" or "choose your shooter" prompt once
+        both sides have answered it. Its button has nothing left to
+        open, and the reveal posted underneath it is what the channel
+        should end on -- the same reasoning as close_maneuver_prompt,
+        including clearing `turn_message_id` so nothing re-attaches a
+        view to a message that is gone.
+        """
+        if game.turn_message_id is None or interaction.channel is None:
+            return
+
+        try:
+            await interaction.channel.get_partial_message(
+                game.turn_message_id,
+            ).delete()
+        except (discord.NotFound, discord.HTTPException):
+            pass
+
+        game.turn_message_id = None
+        save_games(self.games)
+
+    async def continue_shootout(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        What a settled skill test hands back to: end the shootout, or
+        set the next test up.
+
+        The test has already retired its two shooters by the time this
+        runs (`finish_shootout_test`, in the same save as the goal),
+        which is what lets `shootout_winner` count the tests still to
+        come simply by asking who is left.
+        """
+        winner = match.shootout_winner()
+        if winner is None:
+            await self.advance_shootout(interaction, game, match)
+            return
+
+        match.pending_shootout = False
+        game.match_state = match.to_dict()
+        save_games(self.games)
+        game.finish_game()
+        save_games(self.games)
+
+        home = match.shootout_goals_for(TeamSide.HOME)
+        visiting = match.shootout_goals_for(TeamSide.VISITING)
+        await self.announce_game_over(
+            interaction,
+            game,
+            f"**The extreme shootout is settled, {home}-{visiting}.**"
+            f"\n\n{build_full_time_summary(game, match)}",
+        )
+        await self.refresh_match_image(interaction, game)
 
     async def close_maneuver_prompt(
         self,
@@ -6689,7 +7186,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         test_game: bool = False,
         created_by: Optional[discord.abc.User] = None,
         mode: GameMode = GameMode.BASIC,
-        tie_mode: TieMode = TieMode.LEAGUE,
         board_size: int = 7,
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,
@@ -6825,7 +7321,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             test_game=test_game,
             game_name=game_name,
             mode=mode,
-            tie_mode=tie_mode,
             status=GameStatus.SETUP,
             board_size=board_size,
             ai_opponent=resolved_ai_opponent,
@@ -6913,7 +7408,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             test_game=game.test_game,
             created_by=requested_by,
             mode=game.mode,
-            tie_mode=game.tie_mode,
             board_size=game.board_size,
             ai_opponent=game.ai_opponent,
             game_name=game.game_name,
@@ -7175,6 +7669,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
         game, match = result
 
+        # The shootout is not a turn and has no offensive choice in it,
+        # so this would reset a maneuver that is not being played and
+        # then prompt for a ball nobody is holding.
+        if match.pending_shootout:
+            await interaction.followup.send(
+                "This game is in the extreme shootout. Use "
+                "`/d12ball resume` to put its prompt back up.",
+                ephemeral=True,
+            )
+            return
+
         # Both refusals point at /d12ball resume, which is what these
         # two states actually want: it re-posts the maneuver or score
         # attempt prompt this turn is still owed rather than throwing
@@ -7313,18 +7818,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # reset_maneuver clears the whole turn -- ball handler,
             # maneuver picks, run back, loose ball, kickoff fill,
             # out-of-bounds pickup -- and the coaching window is closed
-            # separately because it is not part of a turn. Setup and
-            # halftime are left alone on purpose: those are real
-            # positions in the game rather than a turn gone wrong, and
-            # a plain resume walks them on.
+            # separately because it is not part of a turn. Setup,
+            # halftime and the shootout are left alone on purpose:
+            # those are real positions in the game rather than a turn
+            # gone wrong, and a plain resume walks them on. The
+            # shootout most of all -- there is no turn under it to
+            # clear, and clearing one would throw away orders both
+            # coaches have already set.
             if (
                 match.pending_setup_stage is not None
                 or match.pending_halftime_stage is not None
+                or match.pending_shootout
             ):
                 await interaction.followup.send(
-                    "This game is in setup or at halftime, which "
-                    "`force` cannot skip past. Run `/d12ball resume` "
-                    "without it.",
+                    "This game is in setup, at halftime, or in the "
+                    "extreme shootout, which `force` cannot skip past. "
+                    "Run `/d12ball resume` without it.",
                     ephemeral=True,
                 )
                 return

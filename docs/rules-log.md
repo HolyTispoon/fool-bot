@@ -55,7 +55,49 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-10 (latest) -- author, a High Pass that overshoots sets up a shot it has to fight for
+### 2026-08-10 (latest) -- author, every tie goes to the extreme shootout
+
+*From the author, who asked for league mode to be removed and the shootout built, and then
+answered the four things the shootout section did not say: the six who shoot are "the six on
+the field at full time"; a shootout test "does not cost exhaustion tokens, but does involve
+injury checks for exhausted players"; shootout goals are "added to the match score"; and in
+sudden death, once all six have gone, eligibility resets and each pick is free. Then, asked
+whether the whistle recovers anything the way halftime does: "noone recovers exhaustion at
+full time". Separately: "the term 'clash' is an old reference", to be replaced with "skill
+test" throughout.*
+
+- **League mode is gone, and with it the tie-mode setting.** Every game is now settled: a
+  level score at full time goes to the extreme shootout, full stop. Setup no longer asks, and
+  the `tie_mode` field is off the game record -- a saved game still carrying the key is
+  loaded without it rather than skipped.
+- **The shootout is played by the six on the field at the whistle**, in the state the second
+  period left them. No substitution before it and nobody off the bench, so an injured player
+  shoots -- at the disadvantage injury already carries in a contest, adding no skill modifier
+  and rolling the bare d12.
+- **A shootout skill test costs no exhaustion but still owes injury checks.** It is not one of
+  the ways to gain a token, so nothing is charged; an Exhausted player taking part in one
+  still rolls a check when it resolves, which is the ordinary rule for a skill test read
+  straight. An injury landing in one round withholds that player's skill in a later one.
+- **Full time recovers nothing**, unlike halftime, which takes a token off every fielded
+  player and a second off one of them. A side goes to the shootout holding everything the
+  second half left it with, so players who finished over their defensive skill are still
+  Exhausted and owe a check on every test they take part in. This is what makes the two
+  answers above bite: with no tokens charged and no recovery either, who is Exhausted in a
+  shootout was settled before the whistle, and the only thing that can change it is an injury.
+- **Shootout goals go on the scoreboard.** A game level at 2:2 and settled 4-3 is a 6:5 win.
+  The shootout's own tally is kept alongside it, because that is what decides when there is no
+  point rolling on -- and because 6:5 says nothing about how the game was won.
+- **Sudden death resets eligibility and chooses freely.** The order set before the first round
+  governs that round alone. Every test after it is a fresh secret pick from whoever has not
+  gone this round, and when all six have gone the round ends and a new one starts with
+  everybody eligible again.
+- **A tied shootout skill test is not re-rolled.** It scores for nobody and the shootout moves
+  on -- the one place in the game a tied skill test is left tied. Already in the rules, and
+  worth naming next to the ordinary skill test's re-roll.
+- **"Clash" is retired everywhere.** It was renamed to "skill test" on 2026-08-07 but survived
+  in the shootout section, which was the last text written under the old term.
+
+### 2026-08-10 (earlier) -- author, a High Pass that overshoots sets up a shot it has to fight for
 
 *From the author, given directly and then refined twice in the same conversation: "if a high
 pass overshoots the goal - whether the coach chose 2 or 3 or 4 - it sets up a scoring
@@ -723,7 +765,8 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Substitutions "up to 2", with no period attached | 2 per side per half, plus 2 more of halftime's own allowance |
 | Substitutions: "if and only if all the players on the bench were subbed out" | Two pools -- bench, then back bench for an injured sub only |
 | "So if they were subbed while exhausted they are no longer exhausted" | Half the tokens, rounded up; Exhausted follows from what remains |
-| A tie at full time goes to the extreme shootout | Tournament mode only; a league game ends tied |
+| The shootout says nothing about who shoots, what it costs, or what its goals do | The six on the field at full time; no exhaustion but injury checks as usual; goals go on the scoreboard |
+| A level round "continues one clash at a time" with no end to a round | Eligibility resets when all six have gone, and every sudden-death pick is free |
 | "For now, we need one player of each role on the field" | A property of the standard setup, not a standing rule |
 | Nothing about formations, and a fixed two cards per zone | Games kick off 2-2-2; rearranging can move a team into 2-3-1 or 1-3-2 |
 | A pass to the ball's own space names one player | The passer picks, when more than one teammate is standing there |
@@ -849,6 +892,10 @@ From the author, for `foolbot.py`'s generic commands:
   injured player is downgraded to a skill test they have to win. Specified since the rules
   were first vendored on 2026-07-25 and built on 2026-08-09; the readings it rests on are in
   [Still open](#still-open).
+- **The extreme shootout**, end to end: a secret order a side at a time, the reveal, the
+  skill test with its injury checks, the "cannot be caught" stop, and sudden death with a
+  fresh pick each test. It is the only thing that settles a level game now that league mode
+  is gone.
 
 ### Specified but not built
 
@@ -856,7 +903,5 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
 
 ### Blocked or deferred
 
-- **The extreme shootout** is specified but not built, and is reachable only in **tournament
-  mode** -- which setup refuses until it exists. A league-mode game ends tied instead.
 - **Advanced mode** -- per-team abilities (the sheet's empty `Advanced` column) -- is
   unspecified. Setup refuses it. Formations left it for basic mode on 2026-08-08.
