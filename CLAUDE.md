@@ -29,6 +29,7 @@ python3 -m unittest discover -s tests
 | `d12ball/components.py` | Game state model — `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog` |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board image rendering (Pillow) |
+| `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
 | `d12ball/data/` | `players.json`, `basic_rules.json` |
 | `d12ball/images/` | Card art and emoji |
 | `d12ball/fonts/` | Bundled DejaVu — see "Fonts" below |
@@ -78,6 +79,41 @@ earn their keep when upstream moves:
 mechanics exist only in the code, so there a bug and a deliberate decision look identical.
 Asking as inline comments on a docs PR has worked far better than asking in chat, and it
 leaves the answers versioned.
+
+### Serving the rules in Discord
+
+`/d12ball rules_full` posts the living rules in a thread and `/d12ball rules_search`
+posts one section of them. Both read `docs/living-rules.md` itself, through
+`d12ball/rules_doc.py` -- **there is no second copy of the rules text in the bot**, so a
+rules change reaches the commands in the commit that makes it, and cannot be half-applied.
+
+- **The parse is cached against the file's timestamp**, so an edited ruleset is served
+  without restarting the bot -- the opposite of the fonts, which are resolved at import
+  (see "Fonts"). It is re-read on every autocomplete keystroke otherwise.
+- **A section carries its subsections.** Asking about "Maneuver" means the four steps as
+  well, so `RulesSection.text` is the whole subtree; `label` is the heading path
+  (`Maneuver › 3. Who wins`) and `slug` is GitHub's own anchor, which is what the
+  document's internal links already use.
+- **The autocomplete searches the body as well as the headings**, because a coach knows
+  the rule and not what it is filed under -- "scissors" has to find "3. Who wins". Headings
+  match first, then bodies, deepest first, since the subsection is the more specific answer
+  to the same question.
+- **A coach can submit text that was never offered**, so `best_match` is what the command
+  asks rather than `find`. It answers when the words can only mean one thing: they name a
+  heading, or every section mentioning them is on one branch -- a subsection and the parents
+  carrying its text, which are the same rule read at different depths. Anything wider comes
+  back as a list of headings, because it is a choice and not an answer.
+- **Discord renders neither anchors nor tables.** `[text](#anchor)` shows as its raw
+  brackets, so `for_discord` drops the syntax and keeps the words; tables are left alone,
+  because the alternative is restating the rules in a second form and that is exactly what
+  this avoids.
+- **`chunk_for_discord` breaks at blank lines and starts a message at every `##`.** A chunk
+  boundary is a visible seam in the channel, and a heading is where a seam belongs; a table
+  split down the middle renders as neither a table nor prose.
+- **The full rules are around forty messages, which is why they go in a thread.** A thread
+  has its own channel id, so those sends are a rate-limit bucket of their own rather than
+  the game channel's -- see "Discord's rate limits". Run inside a thread already, the
+  command posts there instead, since threads do not nest.
 
 ## Formations and occupancy
 

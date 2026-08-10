@@ -52,6 +52,12 @@ from d12ball.render import (
     render_own_goal_dice,
     render_score_attempt,
 )
+from d12ball.rules_doc import (
+    LIVING_RULES_PATH,
+    RulesDocument,
+    chunk_for_discord,
+    load_rules_document,
+)
 
 from gamesaves.d12ball.storage import (
     load_games,
@@ -6391,6 +6397,141 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             for role in PlayerRole
         ]
         await interaction.response.send_message("\n".join(lines))
+
+    async def load_rules(
+        self,
+        interaction: discord.Interaction,
+    ) -> Optional[RulesDocument]:
+        """The living rules, or None once the coach has been told why not.
+
+        The document ships with the checkout, so a deployment without it
+        is a broken deployment and worth an ERROR -- see "Logging and the
+        #logs channel" in CLAUDE.md. Both commands ask before they answer
+        the interaction, so the refusal is the response itself.
+        """
+        try:
+            return await asyncio.to_thread(load_rules_document)
+        except OSError as error:
+            LOGGER.error(
+                "Could not read the living rules at %s: %s",
+                LIVING_RULES_PATH,
+                error,
+            )
+            await interaction.response.send_message(
+                "The rules document is missing from this bot's checkout, "
+                "so there is nothing to post.",
+                ephemeral=True,
+            )
+            return None
+
+    @app_commands.command(
+        name="rules_full",
+        description="Post the complete rules of D12 Ball in a thread.",
+    )
+    @app_commands.guild_only()
+    async def rules_full(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        document = await self.load_rules(interaction)
+        if document is None:
+            return
+
+        chunks = chunk_for_discord(document.text)
+        channel = interaction.channel
+
+        # The whole ruleset is around forty messages, so it goes in a
+        # thread: it stays out of the channel's history, and a thread
+        # has its own id, so those sends are a rate-limit bucket of
+        # their own rather than the game channel's -- see "Discord's
+        # rate limits" in CLAUDE.md. A command run inside a thread
+        # already has one, and threads do not nest.
+        if isinstance(channel, discord.Thread):
+            await interaction.response.send_message(
+                f"Posting the full rules ({len(chunks)} messages)."
+            )
+            destination: discord.abc.Messageable = channel
+        else:
+            await interaction.response.send_message(
+                f"**{document.title}** -- the full rules, in the thread "
+                "below."
+            )
+            anchor = await interaction.original_response()
+            try:
+                destination = await anchor.create_thread(
+                    name="D12 Ball rules",
+                    auto_archive_duration=1440,
+                )
+            except discord.HTTPException as error:
+                LOGGER.error(
+                    "Could not open a rules thread in #%s: %s",
+                    getattr(channel, "name", interaction.channel_id),
+                    error,
+                )
+                await interaction.followup.send(
+                    "I could not open a thread here. Give me the "
+                    "Create Public Threads permission, or run this in a "
+                    "channel where I have it.",
+                    ephemeral=True,
+                )
+                return
+
+        for chunk in chunks:
+            await destination.send(chunk)
+
+    @app_commands.command(
+        name="rules_search",
+        description="Post one section of the D12 Ball rules.",
+    )
+    @app_commands.describe(
+        section="Which part of the rules to post.",
+    )
+    @app_commands.guild_only()
+    async def rules_search(
+        self,
+        interaction: discord.Interaction,
+        section: str,
+    ) -> None:
+        document = await self.load_rules(interaction)
+        if document is None:
+            return
+
+        # Discord lets a coach submit what they typed instead of a
+        # choice, so words that were never offered still have to be
+        # answered -- with the section when they can only mean one, and
+        # with the headings that mention them otherwise.
+        found = document.best_match(section)
+        if found is None:
+            matches = document.search(section, limit=5)
+            suggestions = "\n".join(f"- {match.label}" for match in matches)
+            await interaction.response.send_message(
+                f"No one rules section matches “{section}”."
+                + (f"\n\nDid you mean:\n{suggestions}" if matches else ""),
+                ephemeral=True,
+            )
+            return
+
+        # The section is the answer, so the first chunk is the response
+        # itself rather than a deferral followed by one.
+        first, *rest = chunk_for_discord(found.text)
+        await interaction.response.send_message(first)
+        for chunk in rest:
+            await interaction.followup.send(chunk)
+
+    @rules_search.autocomplete("section")
+    async def rules_search_section_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        try:
+            document = await asyncio.to_thread(load_rules_document)
+        except OSError:
+            return []
+        return [
+            app_commands.Choice(name=match.label[:100], value=match.slug)
+            for match in document.search(current)
+        ]
 
     @app_commands.command(
         name="offensive_choice",
