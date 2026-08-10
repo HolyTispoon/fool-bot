@@ -2359,6 +2359,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 match, offense_player_id, recovery_distance,
             )
             match.pending_loose_ball = False
+            # They went after it and came away with it, so they are
+            # holding it -- the same answer as a contested win below,
+            # since an unopposed contest is still how they got it.
+            match.set_ball_carrier(offense_player_id)
             game.match_state = match.to_dict()
             save_games(self.games)
 
@@ -2395,6 +2399,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.ball.possession = match.defending_side()
             match.ball.speed = 1
             match.pending_loose_ball = False
+            match.set_ball_carrier(defense_player_id)
             game.match_state = match.to_dict()
             save_games(self.games)
 

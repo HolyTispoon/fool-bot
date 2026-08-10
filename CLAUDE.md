@@ -309,20 +309,31 @@ ball's space -- see "The ball carrier" in the living rules.
   a value surviving a period restart, or missing from a game saved before the
   field existed, narrows nothing. Correctness does not rest on having found
   every place to clear it.
-- **The setting sites are the effects, not one dispatcher.** Six of them:
+- **The setting sites are the effects, not one dispatcher.** Nine of them:
   `apply_dribble_advance`, `resolve_steal_intercept`, `resolve_pressure`
   (twice -- the handler, then the Defender's steal over the top of it),
-  `apply_low_pass`, and the two High Pass branches where a pass of 2 is
-  received. There is no single "who has the ball now" to derive it from after
-  the fact, which is why each effect says so itself. A new maneuver has to
-  decide, the same way it decides steal-or-new-play.
+  `apply_low_pass`, the two High Pass branches where a pass of 2 is received,
+  the two unopposed branches of `resolve_loose_ball`, and
+  `LooseBallSkillTestView.roll`. There is no single "who has the ball now" to
+  derive it from after the fact, which is why each says so itself. A new
+  maneuver has to decide, the same way it decides steal-or-new-play.
 - **Pressure sets it before the overshoot branch returns.** An own goal
   survived is still a handler who was pressured and kept the ball; a conceded
   one is a new play and gets cleared with everything else.
-- **A contested ball is nobody's**, so `begin_loose_ball` clears it -- which
-  covers the long High Pass contest too, since that routes through the same
-  function. Block Deflect sets nothing: it sends the ball to a space rather
+- **A contest names its winner**, so `begin_loose_ball` clears the carry when
+  the ball comes free and the resolution sets it again to whoever won -- on
+  the roll, or unopposed. That covers the long High Pass, which routes through
+  the same machinery. The out-of-bounds branch is the exception: nobody
+  contested it, so it stays clear and the pickup is an ordinary placement.
+  Block Deflect sets nothing either -- it sends the ball to a space rather
   than to a player.
+- **The run back can still pull a contest winner off the ball**, because only
+  a steal exempts anyone (`stays_player_id`) and the exemption names Steal
+  Intercept and a Defender's Pressure steal. A winner assigned to another zone
+  runs back out of the ball's zone and the carry is dropped by the fallback.
+  That predates this rule and is left as it was, pending an answer -- see
+  "Still open" in the rules log. **Don't quietly add the exemption**: it
+  changes exhaustion and positions, and it is the author's call.
 - **`build_turn_prompt` is told, not asked.** `select_ball_handler` has
   already consumed the field by the time the prompt is built, so `carrying=`
   is passed by the one caller that still knows -- worth the parameter, because

@@ -4282,6 +4282,12 @@ class LooseBallSkillTestView(SafeView):
         match.ball.possession = winner_side
         if turnover_occurred:
             match.ball.speed = 1
+        # Whoever won the contest is holding the ball, and takes the
+        # next turn -- the receiver who kept a long High Pass, or
+        # either side's contestant who won a loose ball. Confirmed by
+        # the author 2026-08-09; see "The ball carrier" in
+        # docs/living-rules.md.
+        match.set_ball_carrier(winner_player.player_id)
         match.pending_loose_ball = False
         match.loose_ball_offense_player = None
         match.loose_ball_defense_player = None

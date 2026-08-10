@@ -19,7 +19,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_views import BallHandlerSelectionView
+from cogs.d12ball_views import BallHandlerSelectionView, LooseBallSkillTestView
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     MatchState,
@@ -76,6 +76,24 @@ def build_interaction() -> SimpleNamespace:
         user=SimpleNamespace(id=111, display_name="One"),
         response=SimpleNamespace(defer=mock.AsyncMock()),
         followup=SimpleNamespace(send=mock.AsyncMock(return_value=sent)),
+    )
+
+
+def build_contest_interaction() -> SimpleNamespace:
+    """The contest edits its own message, unlike the effects above."""
+    return SimpleNamespace(
+        user=SimpleNamespace(id=111, display_name="One"),
+        channel=None,
+        guild=None,
+        followup=SimpleNamespace(
+            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+        ),
+        response=SimpleNamespace(
+            defer=mock.AsyncMock(),
+            edit_message=mock.AsyncMock(),
+            send_message=mock.AsyncMock(),
+        ),
+        edit_original_response=mock.AsyncMock(),
     )
 
 
@@ -411,6 +429,169 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
                 build_interaction(), game, match,
             )
 
+        self.assertIsNone(match.ball_carrier_id)
+
+
+class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
+    """
+    A contest is won by a player, not by a team: the winner of a loose
+    ball or a long High Pass carries it into the next turn, however the
+    contest was settled (author, 2026-08-09). Both run through the same
+    machinery, so `is_high_pass` is the only thing that differs.
+    """
+
+    def build_contest(
+        self, is_high_pass: bool,
+    ) -> tuple[D12Ball, D12BallGame, MatchState, str, str]:
+        cog = build_cog()
+        cog.run_injury_test = mock.AsyncMock()
+        cog.announce_run_back = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
+        cog.begin_substitution_window = mock.AsyncMock()
+        cog.begin_run_back = mock.AsyncMock()
+        cog.end_period = mock.AsyncMock()
+        game = build_game()
+        cog.games[game.game_id] = game
+        match = cog.initialize_standard_match(game)
+
+        receiver = match.setup_for_side(match.ball.possession).field_players[0]
+        challenger = match.setup_for_side(
+            match.defending_side()
+        ).field_players[0]
+        for player_id in (receiver, challenger):
+            match.move_meeple(
+                player_id, match.ball.zone, match.ball.space_index,
+            )
+
+        match.begin_loose_ball(2, is_high_pass=is_high_pass)
+        match.choose_loose_ball_offense_player(receiver)
+        match.choose_loose_ball_defense_player(challenger)
+        game.match_state = match.to_dict()
+        return cog, game, match, receiver, challenger
+
+    def rolls_for(
+        self, cog: D12Ball, receiver: str, challenger: str, winner: str,
+    ) -> list[int]:
+        """Dice that make `winner` ("offense"/"defense") take the test."""
+        offense_skill = cog.player_catalog.effective_profile(
+            cog.get_player_definition(receiver)
+        ).offense
+        defense_skill = cog.player_catalog.effective_profile(
+            cog.get_player_definition(challenger)
+        ).defense
+        offense_roll = 6
+        defense_roll = offense_roll + offense_skill - defense_skill
+        self.assertTrue(2 <= defense_roll <= 11)
+        if winner == "offense":
+            return [offense_roll, defense_roll - 1]
+        return [offense_roll, defense_roll + 1]
+
+    async def roll_the_contest(
+        self, cog: D12Ball, game: D12BallGame, dice: list[int],
+    ) -> MatchState:
+        view = LooseBallSkillTestView(cog, game.game_id)
+        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+            "cogs.d12ball.save_games",
+        ), mock.patch(
+            "cogs.d12ball_views.random.randint", side_effect=dice,
+        ), mock.patch(
+            "cogs.d12ball_views.render_skill_test_dice",
+        ), mock.patch("cogs.d12ball_views.discord.File"):
+            await view.roll(build_contest_interaction())
+        return cog.load_match_state(game)
+
+    async def test_a_receiver_who_keeps_a_high_pass_carries_it(self) -> None:
+        cog, game, _, receiver, challenger = self.build_contest(
+            is_high_pass=True,
+        )
+
+        saved = await self.roll_the_contest(
+            cog, game, self.rolls_for(cog, receiver, challenger, "offense"),
+        )
+
+        self.assertEqual(saved.ball_carrier_id, receiver)
+        self.assertEqual(saved.turn_handler_candidates(), [receiver])
+
+    async def test_a_challenger_who_takes_a_high_pass_carries_it(
+        self,
+    ) -> None:
+        cog, game, _, receiver, challenger = self.build_contest(
+            is_high_pass=True,
+        )
+
+        saved = await self.roll_the_contest(
+            cog, game, self.rolls_for(cog, receiver, challenger, "defense"),
+        )
+
+        self.assertEqual(saved.ball.possession, TeamSide.VISITING)
+        self.assertEqual(saved.ball_carrier_id, challenger)
+        self.assertEqual(saved.turn_handler_candidates(), [challenger])
+
+    async def test_winning_a_loose_ball_carries_it(self) -> None:
+        cog, game, _, receiver, challenger = self.build_contest(
+            is_high_pass=False,
+        )
+
+        saved = await self.roll_the_contest(
+            cog, game, self.rolls_for(cog, receiver, challenger, "defense"),
+        )
+
+        self.assertEqual(saved.ball_carrier_id, challenger)
+
+    async def test_an_unopposed_recovery_carries_it(self) -> None:
+        """
+        Only one side sending anybody skips the roll, but it is still
+        how that player came to be holding the ball.
+        """
+        cog, game, match, receiver, _ = self.build_contest(
+            is_high_pass=False,
+        )
+        match.loose_ball_defense_player = None
+        match.decline_loose_ball(match.defending_side())
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_loose_ball(
+                build_contest_interaction(), game, match,
+            )
+
+        self.assertEqual(match.ball_carrier_id, receiver)
+        self.assertEqual(match.turn_handler_candidates(), [receiver])
+
+    async def test_an_unopposed_pick_off_carries_it(self) -> None:
+        cog, game, match, _, challenger = self.build_contest(
+            is_high_pass=False,
+        )
+        match.loose_ball_offense_player = None
+        match.decline_loose_ball(match.ball.possession)
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_loose_ball(
+                build_contest_interaction(), game, match,
+            )
+
+        self.assertEqual(match.ball.possession, TeamSide.VISITING)
+        self.assertEqual(match.ball_carrier_id, challenger)
+
+    async def test_a_ball_that_went_out_of_bounds_carries_to_nobody(
+        self,
+    ) -> None:
+        """
+        The one loose ball that is a new play: nobody contested it, so
+        nobody won it, and the pickup afterwards is a placement the
+        coach makes rather than a contest anyone came out of.
+        """
+        cog, game, match, _, _ = self.build_contest(is_high_pass=False)
+        match.loose_ball_offense_player = None
+        match.loose_ball_defense_player = None
+        match.decline_loose_ball(match.ball.possession)
+        match.decline_loose_ball(match.defending_side())
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_loose_ball(
+                build_contest_interaction(), game, match,
+            )
+
+        self.assertTrue(match.pending_ball_recovery)
         self.assertIsNone(match.ball_carrier_id)
 
 
