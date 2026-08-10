@@ -55,6 +55,32 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-08-10 -- documentation only, three sub-rules of The field given headings
+
+*No rule changes here. This is structure, and the parts of it that are a judgement call are
+asked as inline comments on the pull request rather than settled.*
+
+- **Shooting range, Occupancy and the kickoff space are now `####` headings** under
+  Components › The field, where they had been bold run-in paragraphs. They were already the
+  targets of links -- `#shooting-range` had an explicit `<a id="shooting-range"></a>` above
+  it -- so the links worked, but a hand-written anchor is not a heading and so is invisible
+  to everything that reads the document by its headings: the Contents list, and
+  `/d12ball rules_search`, which slugs headings and nothing else.
+- **All three had to move together.** A heading runs until the next one at its level or
+  above, so promoting Shooting range alone would have swallowed Occupancy and the kickoff
+  space into its section. Either all three are headings or none is.
+- **Four links now point at the sub-rule rather than the section containing it**:
+  `[occupancy](#the-field)` in three places and `[kickoff space](#components)` in one. Both
+  were aimed wide because there was nothing narrower to aim at.
+- **`#substitutions` is gone.** It was a second hand-written anchor, sitting immediately
+  above `## Coaching Choice` and named for something the document has no heading called; its
+  one use, in Steals and new plays, now points at `#coaching-choice`. The substitution rules
+  proper are under Coaching Choice › Who may come on, which is the other candidate target --
+  see the pull request.
+- **Every one of the document's 94 internal links now resolves to a real heading.** Both
+  hand-written anchors are removed, so there is nothing left that a heading-based reader
+  cannot see.
+
 ### 2026-08-09 (ball carrier, 3 of 3) -- author, the ball's holder does not run back
 
 *Answering the question the entry below raised, and generalising the run-back exemption in

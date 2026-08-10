@@ -78,8 +78,9 @@ into three zones -- home goal, midfield, visitors goal, left to right:
 The home team defends the home goal zone and attacks the visitors goal zone; the visiting
 team does the reverse.
 
-<a id="shooting-range"></a>
-**Shooting range.** A team is **within shooting range** once the ball has passed the middle
+#### Shooting range
+
+A team is **within shooting range** once the ball has passed the middle
 of the field, and a [score attempt](#score-attempt) is the only thing that depends on it.
 Range is measured from the middle of the *board*, not from a zone boundary -- it is not one
 of the three zones, and it cuts across midfield:
@@ -95,13 +96,15 @@ to the right and the visitors' to the left. On the standard 7-space board it is 
 which is less than half the field.
 
 **A board with an odd number of spaces has a middle space that is in nobody's range** --
-boards 7 and 9, where that space is also the [kickoff space](#components). On board 6 the
+boards 7 and 9, where that space is also the [kickoff space](#the-kickoff-space). On board 6 the
 kickoff space is behind the kicking team's own range. Either way, no restart begins in range.
 
 The board image marks where range begins with a dashed line -- two of them on boards 7 and 9,
 either side of the space that is in nobody's.
 
-**Occupancy.** Any meeples may share a space -- opposing or teammates alike -- and ordinary
+#### Occupancy
+
+Any meeples may share a space -- opposing or teammates alike -- and ordinary
 play stacks them freely. What every deliberate placement -- a
 [Coaching Choice](#coaching-choice), a [run back](#running-back-after-a-steal) -- enforces is
 coverage, not a limit: a
@@ -111,7 +114,9 @@ ever holds more of a team's players than it has spaces, so that comes to one pla
 space; a formation that puts more players in a zone than the zone has spaces -- 2-3-1 or
 1-3-2 on board 6, whose midfield has two -- fills every space and doubles up the rest.
 
-**The kickoff space** is where the ball starts every period and every restart after a goal:
+#### The kickoff space
+
+The kickoff space is where the ball starts every period and every restart after a goal:
 
 - **Board 7 or 9:** the middle space of the board (the middle space of the midfield zone).
 - **Board 6:** the midfield space closer to the kicking team's own goal.
@@ -189,7 +194,7 @@ Each coach has a player board with these areas:
    | Opponent's goal | Winger, Striker |
 
    The remaining Defender, Playmaker and Striker go to the bench. Each meeple goes on a
-   space within its card's assigned zone, spread as [occupancy](#the-field) asks: every space
+   space within its card's assigned zone, spread as [occupancy](#occupancy) asks: every space
    of the zone taken before any space takes a second player. Under 2-2-2 that is one per team
    per space, and a three-space zone is left with a space empty. In basic mode both teams are
    identical, so both are dealt the same way.
@@ -641,7 +646,7 @@ on the kickoff space at speed 1, and both sides reset to their coaches' arrangem
 ### Steals and new plays
 
 Every turnover is one of two things, and which it is decides both whether a
-[substitution window](#substitutions) opens and how players get back into position:
+[substitution window](#coaching-choice) opens and how players get back into position:
 
 | The ball changes hands because | Kind | Window | Players |
 |---|---|---|---|
@@ -789,8 +794,6 @@ count** they are safe. Otherwise they are injured.
 **Halftime recovery:** every fielded player loses 1 token, and each coach picks one of their
 fielded players to lose an extra one.
 
-<a id="substitutions"></a>
-
 ## Coaching Choice
 
 **A Coaching Choice is the pause in which a coach may change their team**, and it is the same
@@ -808,7 +811,7 @@ Choice is the one way a meeple moves in this game without paying per space.
 Only a formation change and a zone assignment move a card between zones; space positioning
 never does. So a coach's cards and their meeples never disagree: **a Coaching Choice cannot
 leave a meeple standing outside its own assigned zone**, and every arrangement one can reach
-satisfies [occupancy](#the-field) as a matter of course.
+satisfies [occupancy](#occupancy) as a matter of course.
 
 **Whatever a side finishes standing on becomes their arrangement**, and every
 [new play](#resetting-after-a-new-play) from then on puts them back on it. A side that
@@ -858,7 +861,7 @@ Every game kicks off in **2-2-2**, and a Coaching Choice is the only way to leav
 
 The numbers read from the team's own goal forward, and each coach chooses their own. On board
 6, whose midfield has two spaces, 2-3-1 and 1-3-2 put more cards in midfield than it has
-spaces, which is what [occupancy](#the-field) is written for: the zone fills both spaces and
+spaces, which is what [occupancy](#occupancy) is written for: the zone fills both spaces and
 stacks the surplus. On board 7 or 9 every shape fits one card a space.
 
 **Changing formation deals the whole side out again**, cards and meeples both, so a coach is
