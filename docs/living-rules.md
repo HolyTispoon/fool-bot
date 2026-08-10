@@ -53,6 +53,7 @@ minutes. The team with the most goals at the end wins.
 | **Field player** | One of the six players a team has on the field. |
 | **Forward / back** | Forward is toward the goal a team is attacking; back is toward the goal it defends. Always relative to the team being spoken about. |
 | **Possession** | Which team holds the ball. Tracked separately from the ball's space. |
+| **Ball carrier** | The individual player holding the ball, when the last resolution left it with somebody in particular. They take their team's next turn: see [the ball carrier](#the-ball-carrier). |
 | **Arrangement** | The spaces a coach last *put* their meeples on, at a [Coaching Choice](#coaching-choice). A [new play](#resetting-after-a-new-play) puts them back on it. |
 | **Turnover** | Possession changing hands, for any reason. |
 | **Skill test** | The opposed d12 roll used to settle a tied maneuver, a loose ball, and a long High Pass. |
@@ -209,7 +210,8 @@ Each coach has a player board with these areas:
 Each turn runs in this order:
 
 1. **The team in possession chooses** either a [score attempt](#score-attempt) or a
-   [maneuver](#maneuver).
+   [maneuver](#maneuver), and which of their players on the ball's space takes it -- unless
+   there is a [ball carrier](#the-ball-carrier), who takes it themselves.
 2. **Resolve it**, including any scoring opportunity or own-goal roll it produces.
 3. **Check for a loose ball.** If the ball's space has no player from the team in possession,
    resolve it as a [loose ball](#loose-ball).
@@ -224,6 +226,54 @@ Each turn runs in this order:
    minute, and by 1 per space when the ball travels.
 6. The clock stops at 15. Reaching 15 puts the game into
    [last possession](#the-clock-halftime-and-full-time).
+
+### The ball carrier
+
+**The ball is carried by a player, not held by a space.** When a resolution leaves the ball
+with somebody in particular -- the player who dribbled it there, the one who was shoved back
+still holding it, the one who took it off them, the one it was passed to -- that player is the
+**ball carrier**, and they take their team's next turn. Their coach does not choose again.
+
+Without a carrier, the coach picks any of their players on the ball's space, as they always
+have. A carrier is one of those players too; the rule takes the choice away, not the ball.
+
+| The resolution | Carrier |
+|---|---|
+| **Dribble Advance** wins | The handler, who moved with the ball |
+| **Pressure** wins | The handler, shoved back still holding it -- including when the own-goal roll is survived |
+| **Pressure** wins for a **Defender** | The Defender, who stole it |
+| **Steal Intercept** wins | The interceptor |
+| **Low Pass** completes | The receiver -- the player the passer aimed at, which is the same player a Winger's set-up would offer the shot to |
+| **High Pass** of 2 is received | The receiver, whether or not the set-up is offered or taken |
+| A **long High Pass contest** is settled | Whoever won it -- the receiver who kept the ball, or the defender who took it |
+| A **[loose ball](#loose-ball)** is settled | Whoever won it, on the skill test or unopposed |
+
+**A contest is won by a player, not by a team.** Both contests end with one named player
+standing on the ball having just fought for it, so both name a carrier however they were
+settled -- on the roll, or because only one side sent anybody.
+
+**Everything else leaves nobody carrying it**, and the coach chooses:
+
+- a **[new play](#steals-and-new-plays)** and the [reset](#resetting-after-a-new-play) it
+  brings, and the kickoff that starts each period -- the ball went dead;
+- the two placements a restart owes -- **picking up an out-of-bounds ball**, and **filling the
+  kickoff space** after a goal -- where the coach is already choosing who goes to the ball;
+- a **Block Deflect**, which sends the ball back to a space rather than to a player.
+
+**A carry lasts exactly one turn.** It is set by the resolution that ends a turn and spent by
+the turn that follows; nothing carries over further than that.
+
+**Carrying the ball is also what exempts a player from
+[running back](#running-back-after-a-steal)**, so nothing that follows a turnover can move the
+carrier off the ball before their turn comes. The two are one rule read from either end: the
+ball's holder keeps it, and keeping it is why they stay put.
+
+**A carrier who is somehow no longer on the ball when their turn comes does not carry it**,
+and their coach chooses from whoever is.
+
+**A carrier still chooses their action.** They may shoot as readily as maneuver, subject to
+[shooting range](#shooting-range) like anyone else. What is fixed is who acts, not what they
+do.
 
 ## Score attempt
 
@@ -267,7 +317,7 @@ Most turns are maneuvers rather than shots. A maneuver runs in four steps.
 ### 1. Determine the two players
 
 **The attacker** is a player from the team in possession standing on the ball's space. There
-is usually only one.
+is usually only one, and where there is a [ball carrier](#the-ball-carrier) it is them.
 
 **The challenger** comes from the defending team:
 
@@ -657,9 +707,14 @@ nothing guarantees the coach's arrangement puts anybody on the space in question
 - It therefore **separates teammates who ended up stacked** on one space within their own
   zone, whenever another space in that zone has none of their players on it. Once every space
   in the zone is covered the stack stands -- nobody is moved somewhere that does not help.
-- **The stealing player is exempt.** The player who took the ball -- by Steal Intercept, or by
-  a Defender's Pressure steal -- stays where they ended up; everyone else displaced still runs
-  back. Where a stacked pair has to be separated, the exempt player is the one who stays put.
+- **The player holding the ball is exempt.** Whoever the turnover left
+  [carrying](#the-ball-carrier) it stays where they ended up -- the interceptor, the Defender
+  who stole it on a Pressure, the winner of a loose ball or a long High Pass. Running them
+  back would move them off the ball they are holding and charge them for it. Everyone else
+  displaced still runs back, and where a stacked pair has to be separated, the exempt player
+  is the one who stays put.
+- **A new play exempts nobody**, because nobody is carrying a dead ball. The
+  [reset](#resetting-after-a-new-play) moves both sides whatever they were doing.
 
 **After a goal**, once the reset is done, the conceding team must also get a meeple onto the
 **kickoff space** to restart -- nothing guarantees their coach's arrangement puts anybody on
@@ -936,3 +991,6 @@ Same rank ties and goes to a skill test. O1 beats D3, O2 beats D1, O3 beats D2.
 
 A score attempt -- off a set-up or not -- may only be taken from within
 [shooting range](#shooting-range).
+
+Every maneuver above except Block Deflect leaves the ball with a particular player, who then
+takes the next turn: see [the ball carrier](#the-ball-carrier).

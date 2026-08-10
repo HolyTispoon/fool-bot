@@ -926,7 +926,11 @@ class BallHandlerSelectionView(SafeView):
             return
 
         match = self.cog.load_match_state(game)
-        for player_id in match.eligible_ball_handlers():
+        # Not eligible_ball_handlers: a ball carrier narrows this to
+        # one button, which is the rule showing up as a menu with no
+        # choice in it. send_turn_prompt normally skips the view
+        # entirely in that case; this is the restore path.
+        for player_id in match.turn_handler_candidates():
             player = self.cog.get_player_definition(player_id)
             initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
@@ -4278,6 +4282,12 @@ class LooseBallSkillTestView(SafeView):
         match.ball.possession = winner_side
         if turnover_occurred:
             match.ball.speed = 1
+        # Whoever won the contest is holding the ball, and takes the
+        # next turn -- the receiver who kept a long High Pass, or
+        # either side's contestant who won a loose ball. Confirmed by
+        # the author 2026-08-09; see "The ball carrier" in
+        # docs/living-rules.md.
+        match.set_ball_carrier(winner_player.player_id)
         match.pending_loose_ball = False
         match.loose_ball_offense_player = None
         match.loose_ball_defense_player = None

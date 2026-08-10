@@ -174,9 +174,11 @@ class DinkyAI(AIStrategy):
     def choose_ball_handler(self, match: MatchState) -> str:
         """
         When more than one of its players shares the ball's space,
-        pick the one with the higher offensive skill.
+        pick the one with the higher offensive skill. A ball carrier
+        leaves nothing to pick -- turn_handler_candidates narrows to
+        them, so this is a one-element list and the skill sort is moot.
         """
-        candidates = match.eligible_ball_handlers()
+        candidates = match.turn_handler_candidates()
         if not candidates:
             raise ValueError(
                 "There are no eligible ball handlers to choose from."

@@ -1591,6 +1591,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if distance == 0
             else 0
         )
+        # The pass was aimed at somebody, and it is the same somebody a
+        # Winger's set-up would hand the shot to -- so they receive it
+        # and take the next turn. `receivers` is empty only when the
+        # pass had no legal destination, which rolls the ball forward
+        # loose instead of completing; nobody carries a loose ball.
+        match.set_ball_carrier(receiver_id)
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -1706,6 +1712,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.set_ball_space(
             *match.board.meeple_position(match.active_player_id)
         )
+        # They dribbled it there, so they still have it: the same
+        # player takes the next turn rather than the coach choosing
+        # again off the space they landed on.
+        match.set_ball_carrier(match.active_player_id)
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -1803,6 +1813,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         if setup_candidates:
+            # Received, so the receiver carries it -- set before the
+            # set-up is offered, because declining resolves this as an
+            # ordinary completed pass and the carrier has to survive
+            # that. Taking the shot makes it moot: a goal or a miss is
+            # a new play, which clears the carrier.
+            match.set_ball_carrier(setup_candidates[0])
+            game.match_state = match.to_dict()
+            save_games(self.games)
             await self.refresh_match_image(interaction, game)
             await self.offer_scoring_attempt_choice(
                 interaction,
@@ -1831,6 +1849,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # hand it to the long-pass contest below, which a pass of 2 has
         # never had to win.
         if distance == 2 and receiver_candidates:
+            # Caught cleanly, just out of shooting range -- the range
+            # rule takes away the shot, not the catch, so the receiver
+            # still carries it.
+            match.set_ball_carrier(receiver_candidates[0])
+            game.match_state = match.to_dict()
+            save_games(self.games)
             await self.refresh_match_image(interaction, game)
             await self.finish_maneuver_resolution(
                 interaction, game, match, distance_moved=actual_distance,
@@ -2238,6 +2262,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side, not a fresh pick from the whole zone.
         """
         match.begin_loose_ball(distance_moved, is_high_pass=is_high_pass)
+        # The ball is free and about to be contested, so nobody is
+        # carrying it -- including the long High Pass, where a receiver
+        # who has to win a test to keep it is not yet in possession of
+        # anything. Whoever comes out of the contest with it is chosen
+        # off the ball's space in the ordinary way.
+        match.clear_ball_carrier()
         if forced_offense_player is not None:
             match.choose_loose_ball_offense_player(forced_offense_player)
         if forced_defense_player is not None:
@@ -2329,6 +2359,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 match, offense_player_id, recovery_distance,
             )
             match.pending_loose_ball = False
+            # They went after it and came away with it, so they are
+            # holding it -- the same answer as a contested win below,
+            # since an unopposed contest is still how they got it.
+            match.set_ball_carrier(offense_player_id)
             game.match_state = match.to_dict()
             save_games(self.games)
 
@@ -2365,6 +2399,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.ball.possession = match.defending_side()
             match.ball.speed = 1
             match.pending_loose_ball = False
+            match.set_ball_carrier(defense_player_id)
             game.match_state = match.to_dict()
             save_games(self.games)
 
@@ -2632,6 +2667,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             challenger_id, new_possession_side, -1,
         )
         match.set_ball_space(*match.board.meeple_position(challenger_id))
+        # The interceptor took the ball off someone and fell back with
+        # it, so they carry it into their side's next turn -- the same
+        # player the run back exempts below.
+        match.set_ball_carrier(challenger_id)
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -2642,11 +2681,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         # Ball-speed manipulation is offered after run-back finishes,
         # not here -- see begin_run_back's speed_choice_after.
+        # No stays_player_id: begin_run_back exempts the ball carrier,
+        # which set_ball_carrier above has already made the interceptor.
         await self.begin_run_back(
             interaction,
             game,
             match,
-            stays_player_id=challenger_id,
             speed_choice_after=True,
             lead_in=(
                 "**Steal Intercept:**\n"
@@ -2688,6 +2728,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         match.move_player_relative(match.challenger_id, defense_side, 1)
 
+        # Losing to Pressure does not lose the ball: the handler was
+        # shoved back still holding it, so they take the next turn.
+        # Set before the overshoot branch, because an own goal avoided
+        # is the same thing -- pressured, and still holding it. The
+        # Defender's steal below moves the carry to the Defender, and a
+        # conceded own goal is a new play, which clears it.
+        match.set_ball_carrier(match.active_player_id)
+
         handler = self.get_player_definition(match.active_player_id)
         defender = self.get_player_definition(match.challenger_id)
         space_word = "space" if actual_distance == 1 else "spaces"
@@ -2721,6 +2769,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if stolen:
             match.ball.possession = defense_side
             match.ball.speed = 1
+            match.set_ball_carrier(match.challenger_id)
             content += (
                 "\n\n# Turnover!\n"
                 f"{format_role_bracket(defender, self.team_emojis)} "
@@ -2738,13 +2787,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # clamping, same reasoning as Block Deflect above.
         if stolen:
             # The stealing player keeps the ball and stays put --
-            # everyone else who's out of position runs back.
+            # everyone else who's out of position runs back. Read off
+            # the carrier set above, not passed in.
             await self.begin_run_back(
                 interaction,
                 game,
                 match,
                 lead_in=content,
-                stays_player_id=match.challenger_id,
             )
         else:
             await self.finish_maneuver_resolution(
@@ -3712,7 +3761,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         distance_moved: int = 1,
         turnover_occurred: bool = True,
         new_play: bool = False,
-        stays_player_id: Optional[str] = None,
         speed_choice_after: bool = False,
         lead_in: str = "",
     ) -> None:
@@ -3734,12 +3782,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         and by the time anything is saved the state already says which
         of the two happened -- a window open, or a run back pending.
 
-        `stays_player_id` is set only for a turnover created by a
-        steal (Steal Intercept, or the Defender's Pressure-ability
-        steal) -- that player keeps the ball and is exempt from
-        running back, unlike every other turnover (a goal, a missed
-        shot, Block Deflect's scoring opportunity), where nobody gets
-        that exemption.
+        **The player holding the ball does not run back**, whoever they
+        are -- see "The ball carrier" and "Running back after a steal"
+        in docs/living-rules.md. The exemption is read off
+        `ball_carrier_id` rather than passed in, because the two are
+        the same fact: a run back that moved the ball's holder would
+        run them off the ball and charge them for it. It used to be a
+        `stays_player_id` argument that only Steal Intercept and a
+        Defender's Pressure steal passed, which left a loose-ball or
+        High Pass winner -- equally the holder -- being run back off
+        the ball they had just won.
+
+        A new play exempts nobody: the ball went dead, so nobody is
+        carrying it, and the reset that follows moves both sides
+        whatever they were doing.
 
         `speed_choice_after` is set only for Steal Intercept -- once
         run-back finishes, its defender still gets to manipulate the
@@ -3788,10 +3844,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
+        if new_play:
+            # The ball is dead. Clearing here as well as in
+            # announce_new_play_reset is what keeps the exemption below
+            # honest: a goal scored off a High Pass set-up leaves the
+            # receiver still recorded as carrying it, and they are not
+            # -- the ball is on its way back to the kickoff space.
+            match.clear_ball_carrier()
+
         match.pending_run_back = True
         match.pending_run_back_distance = distance_moved
         match.pending_run_back_turnover = turnover_occurred
-        match.pending_run_back_stays_player_id = stays_player_id
+        match.pending_run_back_stays_player_id = match.ball_carrier_id
         match.pending_run_back_speed_choice = speed_choice_after
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -3838,6 +3902,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         the restart still owes (a kickoff fill, an out-of-bounds
         pickup) lands on the persistent board afterwards.
         """
+        # The ball went dead and is being brought back into play, so
+        # nobody is carrying it -- whoever ends up on it chooses.
+        match.clear_ball_carrier()
         moved: list[str] = []
         for side in (TeamSide.HOME, TeamSide.VISITING):
             for player_id, zone, space_index in (
@@ -4452,6 +4519,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         unautomated pieces.
         """
         prefix = f"{lead_in}\n\n" if lead_in else ""
+
+        # The turnover that ends a period is the one carry that must
+        # not survive it: a Steal Intercept under last possession names
+        # a carrier, and the second half kicks off from the coaches'
+        # arrangement with nobody holding anything.
+        match.clear_ball_carrier()
 
         if match.scoreboard.period == MatchPeriod.FIRST_HALF:
             match.scoreboard.period = MatchPeriod.SECOND_HALF
@@ -5432,6 +5505,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self,
         game: D12BallGame,
         match: MatchState,
+        carrying: bool = False,
     ) -> str:
         player_number = self.possession_player_number(game, match)
         controller = format_player_with_team(
@@ -5448,6 +5522,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         handler = self.format_roster_player(match.active_player_id)
+        # `carrying` is passed in rather than read off the match:
+        # select_ball_handler has already consumed ball_carrier_id by
+        # the time the prompt is built, so only the caller that did the
+        # selecting still knows the handler was forced.
+        handler_line = (
+            f"{handler} is carrying the ball, and takes this turn."
+            if carrying
+            else f"{handler} will be handling the ball."
+        )
         # PlayerActionView drops the shoot button short of shooting
         # range, so say why rather than leaving a coach to wonder where
         # it went.
@@ -5461,7 +5544,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         return (
             f"{controller}, it is your turn.\n\n"
-            f"{handler} will be handling the ball.\n\n"
+            f"{handler_line}\n\n"
             f"{action_line}"
         )
 
@@ -5568,11 +5651,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         refresh_player_names(game, interaction.guild)
         match = self.load_match_state(game)
-        eligible_handlers = match.eligible_ball_handlers()
+        # The carrier, when the last resolution left the ball with
+        # somebody; everyone on the ball's space otherwise. Either way
+        # a single candidate is selected below without asking, so the
+        # rule costs a coach a click rather than adding one.
+        eligible_handlers = match.turn_handler_candidates()
         if not eligible_handlers:
             raise ValueError(
                 "The team in possession has no player in the ball's space."
             )
+        carrying = match.ball_carrier_id in eligible_handlers
 
         offense_number = self.possession_player_number(game, match)
         if game.is_solo_game and offense_number == 2:
@@ -5593,7 +5681,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         turn_message = await interaction.followup.send(
-            self.build_turn_prompt(game, match),
+            self.build_turn_prompt(game, match, carrying=carrying),
             view=view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
