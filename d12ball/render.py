@@ -45,9 +45,9 @@ CARD_INTERNAL_SIZE = (
 )
 CARD_OFFENSE_COLOR = "#dc143c"
 CARD_DEFENSE_COLOR = "#0f7a35"
-PLAYER_BOARD_TOP = 1030
-PLAYER_BOARD_BOTTOM = IMAGE_HEIGHT - 25
-PLAYER_BOARD_GAP = 30
+TEAM_BOARD_TOP = 1030
+TEAM_BOARD_BOTTOM = IMAGE_HEIGHT - 25
+TEAM_BOARD_GAP = 30
 
 # The coaching image: the field cut in half horizontally, showing one
 # coach their own band of it. Narrower than the match image on purpose
@@ -2270,7 +2270,7 @@ def draw_jumbotron(
     )
 
 
-def draw_player_board(
+def draw_team_board(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
     setup: TeamSetup,
@@ -2285,7 +2285,7 @@ def draw_player_board(
 ) -> None:
     color = TEAM_COLORS[setup.team]
     draw.rounded_rectangle(
-        (x, y, x + width, PLAYER_BOARD_BOTTOM),
+        (x, y, x + width, TEAM_BOARD_BOTTOM),
         radius=18,
         fill="#202a35",
         outline=color,
@@ -2306,7 +2306,7 @@ def draw_player_board(
         fill="#ffffff",
     )
     card_x = bench_x
-    for player_id in setup.player_board.bench:
+    for player_id in setup.team_board.bench:
         player = players[player_id]
         draw_card(
             canvas,
@@ -2328,7 +2328,7 @@ def draw_player_board(
         font=FONT_BODY,
         fill="#ffffff",
     )
-    if not setup.player_board.back_bench:
+    if not setup.team_board.back_bench:
         draw.text(
             (back_bench_x, y + 105),
             "Empty",
@@ -2337,7 +2337,7 @@ def draw_player_board(
         )
     else:
         card_x = back_bench_x
-        for player_id in setup.player_board.back_bench:
+        for player_id in setup.team_board.back_bench:
             player = players[player_id]
             draw_card(
                 canvas,
@@ -2506,11 +2506,11 @@ def draw_coaching_benches(
     choosing a substitution needs to see both.
     """
     for left, label, player_ids in (
-        (COACHING_BOARD_LEFT, "BENCH", setup.player_board.bench),
+        (COACHING_BOARD_LEFT, "BENCH", setup.team_board.bench),
         (
             COACHING_BACK_BENCH_LEFT,
             "BACK BENCH",
-            setup.player_board.back_bench,
+            setup.team_board.back_bench,
         ),
     ):
         draw.text(
@@ -2603,31 +2603,31 @@ def render_match_image(
         match.exhausted,
         match.injured,
     )
-    player_board_width = (
-        BOARD_RIGHT - BOARD_LEFT - PLAYER_BOARD_GAP
+    team_board_width = (
+        BOARD_RIGHT - BOARD_LEFT - TEAM_BOARD_GAP
     ) // 2
-    draw_player_board(
+    draw_team_board(
         canvas,
         draw,
         match.home,
         players,
         catalog,
         BOARD_LEFT,
-        PLAYER_BOARD_TOP,
-        player_board_width,
+        TEAM_BOARD_TOP,
+        team_board_width,
         match.exhaustion,
         match.exhausted,
         match.injured,
     )
-    draw_player_board(
+    draw_team_board(
         canvas,
         draw,
         match.visiting,
         players,
         catalog,
-        BOARD_LEFT + player_board_width + PLAYER_BOARD_GAP,
-        PLAYER_BOARD_TOP,
-        player_board_width,
+        BOARD_LEFT + team_board_width + TEAM_BOARD_GAP,
+        TEAM_BOARD_TOP,
+        team_board_width,
         match.exhaustion,
         match.exhausted,
         match.injured,

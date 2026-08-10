@@ -144,7 +144,7 @@ class FormationShapeTests(unittest.TestCase):
                 formation=formation,
             )
             self.assertEqual(len(setup.field_players), 6)
-            benches.add(tuple(setup.player_board.bench))
+            benches.add(tuple(setup.team_board.bench))
 
         self.assertEqual(len(benches), 1)
 

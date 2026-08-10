@@ -144,7 +144,7 @@ class D12BallComponentTests(unittest.TestCase):
             ["orange_flickerwing", "orange_kindlefoot"],
         )
         self.assertEqual(
-            setup.player_board.bench,
+            setup.team_board.bench,
             [
                 "orange_inferno",
                 "orange_blazekick",
@@ -183,18 +183,18 @@ class D12BallComponentTests(unittest.TestCase):
             AttackDirection.RIGHT_TO_LEFT,
         )
 
-    def test_player_board_dice(self) -> None:
-        player_board = self.rules.player_board
+    def test_team_board_dice(self) -> None:
+        team_board = self.rules.team_board
         self.assertEqual(
-            (player_board.offense_die.sides, player_board.offense_die.color),
+            (team_board.offense_die.sides, team_board.offense_die.color),
             (6, "crimson"),
         )
         self.assertEqual(
-            (player_board.defense_die.sides, player_board.defense_die.color),
+            (team_board.defense_die.sides, team_board.defense_die.color),
             (6, "green"),
         )
         self.assertEqual(
-            (player_board.team_die.sides, player_board.team_die.color),
+            (team_board.team_die.sides, team_board.team_die.color),
             (12, "team"),
         )
 
@@ -223,8 +223,8 @@ class D12BallComponentTests(unittest.TestCase):
             all(
                 match.board.meeple_position(player_id) is None
                 for player_id in (
-                    match.home.player_board.bench
-                    + match.visiting.player_board.bench
+                    match.home.team_board.bench
+                    + match.visiting.team_board.bench
                 )
             )
         )
@@ -305,6 +305,33 @@ class D12BallComponentTests(unittest.TestCase):
         )
         self.assertEqual(restored.active_player_id, "orange_sizzik")
 
+    def test_a_game_saved_as_player_board_still_loads(self) -> None:
+        """
+        The team board was called a player board, and a game saved
+        under the old key outlives the rename -- both developers run the
+        bot against their own saves.
+        """
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+        )
+        legacy = match.to_dict()
+        for side in ("home", "visiting"):
+            legacy[side]["player_board"] = legacy[side].pop("team_board")
+
+        restored = MatchState.from_dict(legacy, self.rules)
+
+        self.assertEqual(
+            restored.home.team_board.bench, match.home.team_board.bench,
+        )
+        # Read under either name, written under one: the old key does
+        # not survive a save, so it dies out on its own.
+        self.assertEqual(restored.to_dict(), match.to_dict())
+        self.assertNotIn("player_board", restored.to_dict()["home"])
+
     def test_validate_tolerates_a_stale_active_player_mid_resolution(
         self,
     ) -> None:
@@ -354,7 +381,7 @@ class D12BallComponentTests(unittest.TestCase):
     def test_substitution_swaps_card_and_meeple_state(self) -> None:
         match = self.standard_match()
         outgoing = "orange_blazebulk"
-        incoming = match.home.player_board.bench[0]
+        incoming = match.home.team_board.bench[0]
         position = match.board.meeple_position(outgoing)
 
         match.substitute(
@@ -373,13 +400,13 @@ class D12BallComponentTests(unittest.TestCase):
     def test_subbed_out_player_goes_to_the_back_bench(self) -> None:
         match = self.standard_match()
         outgoing = "orange_blazebulk"
-        incoming = match.home.player_board.bench[0]
+        incoming = match.home.team_board.bench[0]
 
         match.substitute(TeamSide.HOME, outgoing, incoming)
 
-        self.assertIn(outgoing, match.home.player_board.back_bench)
-        self.assertNotIn(outgoing, match.home.player_board.bench)
-        self.assertNotIn(incoming, match.home.player_board.bench)
+        self.assertIn(outgoing, match.home.team_board.back_bench)
+        self.assertNotIn(outgoing, match.home.team_board.bench)
+        self.assertNotIn(incoming, match.home.team_board.bench)
 
         # The bench only ever drains, so it can never be the route
         # back on for someone who has already been subbed out.
@@ -397,16 +424,16 @@ class D12BallComponentTests(unittest.TestCase):
         # even for an injured player's replacement.
         self.assertEqual(
             match.substitution_pool(TeamSide.HOME, injured),
-            match.home.player_board.bench,
+            match.home.team_board.bench,
         )
 
         for outgoing in ("orange_hellguard", "orange_sizzik", "orange_scorchit"):
             match.substitute(
                 TeamSide.HOME,
                 outgoing,
-                match.home.player_board.bench[0],
+                match.home.team_board.bench[0],
             )
-        self.assertEqual(match.home.player_board.bench, [])
+        self.assertEqual(match.home.team_board.bench, [])
 
         # Empty bench: a healthy player has nobody to bring on, but an
         # injured one reopens the back bench.
@@ -416,7 +443,7 @@ class D12BallComponentTests(unittest.TestCase):
         )
         self.assertEqual(
             sorted(match.substitution_pool(TeamSide.HOME, injured)),
-            sorted(match.home.player_board.back_bench),
+            sorted(match.home.team_board.back_bench),
         )
 
     def test_injured_players_never_come_back(self) -> None:
@@ -424,17 +451,17 @@ class D12BallComponentTests(unittest.TestCase):
         injured = "orange_kindlefoot"
         match.mark_injured(injured)
         match.substitute(
-            TeamSide.HOME, injured, match.home.player_board.bench[0],
+            TeamSide.HOME, injured, match.home.team_board.bench[0],
         )
         for outgoing in ("orange_hellguard", "orange_sizzik"):
             match.substitute(
                 TeamSide.HOME,
                 outgoing,
-                match.home.player_board.bench[0],
+                match.home.team_board.bench[0],
             )
 
-        self.assertEqual(match.home.player_board.bench, [])
-        self.assertIn(injured, match.home.player_board.back_bench)
+        self.assertEqual(match.home.team_board.bench, [])
+        self.assertIn(injured, match.home.team_board.back_bench)
 
         # A second injury opens the back bench, but not to the player
         # who limped off it.
@@ -452,13 +479,13 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertIn(returning, match.exhausted)
 
         match.substitute(
-            TeamSide.HOME, returning, match.home.player_board.bench[0],
+            TeamSide.HOME, returning, match.home.team_board.bench[0],
         )
         for outgoing in ("orange_sizzik", "orange_scorchit"):
             match.substitute(
                 TeamSide.HOME,
                 outgoing,
-                match.home.player_board.bench[0],
+                match.home.team_board.bench[0],
             )
 
         injured = "orange_kindlefoot"
@@ -507,7 +534,7 @@ class D12BallComponentTests(unittest.TestCase):
 
         # Subbed off: whoever comes on is standing on the ball now, so
         # running them back would take the ball carrier off the ball.
-        incoming = match.home.player_board.bench[0]
+        incoming = match.home.team_board.bench[0]
         match.substitute(TeamSide.HOME, stealer, incoming)
 
         self.assertEqual(match.pending_run_back_stays_player_id, incoming)
@@ -2700,7 +2727,7 @@ class D12BallFontTests(unittest.TestCase):
         self.assertGreater(FONT_BODY.size, FONT_SMALL.size)
 
     def test_bundled_font_covers_board_label_glyphs(self) -> None:
-        # The em dash in the player board heading rendered as a tofu box
+        # The em dash in the team board heading rendered as a tofu box
         # under the fallback face.
         font = load_font(28)
         for character in "—:!":

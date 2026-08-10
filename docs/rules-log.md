@@ -55,6 +55,22 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-08-10 (later the same day) -- author, the player board is called the team board
+
+*A rename, not a rule. Nothing about what the board holds or how it is used changes.*
+
+- **"Player board" becomes "team board" everywhere.** The living rules were already saying
+  both: the Terms table described a player card's position as showing its zone "on the team
+  board" while the section defining that board was headed "Player boards". Team board is the
+  right one -- the board belongs to a coach's whole side, and "player board" reads as the
+  board belonging to one player, which is the player card.
+- **The heading `### Player boards` is now `### Team boards`.** Nothing linked to
+  `#player-boards`, so no anchor breaks; `/d12ball rules_search team board` finds it under the
+  new name.
+- **Upstream still says player board**, so far as the sheet's component data shows -- recorded
+  in "Where upstream is behind" below. Worth confirming against the Notion page on the next
+  pull, since this rename was made here rather than upstream.
+
 ### 2026-08-10 -- documentation only, three sub-rules of The field given headings
 
 *No rule changes here. This is structure, and the parts of it that are a judgement call are
@@ -625,6 +641,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 
 | Upstream still says | The living rules say |
 |---|---|
+| "Player board" (the sheet's component data; the Notion wording is unconfirmed) | Team board |
 | A fixed 12-card board, 6 field cards, two spaces per zone, and a 'back'/'front' half to each zone | Board sizes 6, 7 and 9; zones of 2-3 spaces; no back/front |
 | Home is randomly assigned | A coin toss, and the winner chooses home or visiting |
 | "Place the ball ... on the space 3 of the home team" | The kickoff space, by board size |

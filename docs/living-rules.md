@@ -163,9 +163,9 @@ rolls a d12 for every test and attempt in the game.
 A coin has a **fortune** face and a **doom** face, and is used for the opening toss. Coins
 come in denominations (1 or 3, in bronze, silver or gold); the denomination is cosmetic.
 
-### Player boards
+### Team boards
 
-Each coach has a player board with these areas:
+Each coach has a team board with these areas:
 
 | Area | Holds |
 |---|---|

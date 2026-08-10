@@ -117,7 +117,7 @@ class D12BallGame:
     home_player_number: Optional[int] = None
     visiting_player_number: Optional[int] = None
 
-    # Standard board, player-board, card, and meeple state
+    # Standard board, team-board, card, and meeple state
     ruleset_id: Optional[str] = None
     player_data_version: Optional[int] = None
     match_state: Optional[dict] = None

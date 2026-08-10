@@ -812,6 +812,15 @@ as a bug.
 
 ## Gotchas
 
+- **The team board is saved as `team_board` and read under either name.** It
+  was called a player board until 2026-08-10 — `TeamBoardState`, `team_board`
+  on `TeamSetup`, and the key in `basic_rules.json` and in every saved match.
+  `TeamSetup.from_dict` falls back to `player_board`, because a game saved
+  before the rename outlives it: both developers run the bot from their own
+  tree against their own saves, and there were real games under the old key
+  when it changed. Nothing writes the old name, so it dies out on its own —
+  don't add a migration, and don't drop the fallback until you know no
+  half-finished game predates the rename.
 - **`data/d12ball_games.json` is runtime state and is deliberately untracked.**
   The bot rewrites it on every game action. It used to be committed, which
   meant it showed as modified more or less permanently and was a standing

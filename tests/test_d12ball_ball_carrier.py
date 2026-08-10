@@ -694,7 +694,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
         """
         cog, game, match = self.build()
         carrier = self.displaced_winner(cog, match)
-        replacement = match.visiting.player_board.bench[0]
+        replacement = match.visiting.team_board.bench[0]
         match.set_ball_carrier(carrier)
         match.pending_run_back_stays_player_id = carrier
 
