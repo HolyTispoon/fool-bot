@@ -1445,13 +1445,28 @@ class ManeuverActionPromptView(SafeView):
 
 
 class ManeuverActionSelectView(SafeView):
+    """
+    The six maneuver buttons, on the **one ephemeral message in the
+    game** -- a coach must not see the other side's pick before the
+    reveal, and ephemeral is the only thing Discord offers that hides
+    it.
+
+    That makes this the one view a restart cannot re-attach to its
+    message: the bot never holds a durable handle to an ephemeral
+    message, so there is no id to give `add_view`. It is restored
+    message-agnostically instead -- see
+    `D12Ball.restore_maneuver_menus`, which is why `timeout` is an
+    argument rather than a constant.
+    """
+
     def __init__(
         self,
         cog: "D12Ball",
         game_id: str,
         side: str,
+        timeout: Optional[float] = 180,
     ):
-        super().__init__(timeout=180)
+        super().__init__(timeout=timeout)
 
         self.cog = cog
         self.game_id = game_id

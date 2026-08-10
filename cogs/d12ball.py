@@ -107,6 +107,7 @@ from cogs.d12ball_views import (
     LooseBallSkillTestView,
     LowPassChoiceView,
     ManeuverActionPromptView,
+    ManeuverActionSelectView,
     ManeuverChallengeView,
     PlayerActionView,
     RematchView,
@@ -270,110 +271,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         game.game_id, error,
                     )
                     continue
-                if match.pending_setup_stage is not None:
-                    # Before kickoff, so active_player_id is None and
-                    # the "no ball handler yet" branch below would
-                    # otherwise misread this as the kickoff prompt --
-                    # the same reason halftime is checked ahead of it.
-                    turn_view = CoachingHubView(self, game.game_id)
-                elif match.pending_halftime_stage is not None:
-                    # Halftime resets active_player_id before its own
-                    # stages run, so it has to be checked ahead of the
-                    # "no ball handler yet" branch below, which would
-                    # otherwise misread halftime as kickoff.
-                    stage = self.halftime_stage(match)
-                    if stage == "extra_token_home":
-                        turn_view = HalftimeExtraTokenView(
-                            self, game.game_id, TeamSide.HOME,
-                        )
-                    elif stage == "extra_token_visiting":
-                        turn_view = HalftimeExtraTokenView(
-                            self, game.game_id, TeamSide.VISITING,
-                        )
-                    else:
-                        # coaching_home / coaching_visiting. Always the
-                        # hub: halftime never asks whether to declare,
-                        # so there is no offer to come back to, unlike
-                        # an ordinary turnover's window below. A
-                        # part-made pick inside the flow is not
-                        # persisted and restarts here, the same
-                        # simplification a run-back choice makes.
-                        turn_view = CoachingHubView(self, game.game_id)
-                elif match.active_player_id is None:
-                    turn_view = BallHandlerSelectionView(self, game.game_id)
-                elif match.pending_coaching_side is not None:
-                    # A window mid-flight comes back as either the
-                    # offer or the menu. A part-made choice (picked
-                    # who goes off, not yet who comes on) is not
-                    # persisted and restarts at the menu, the same way
-                    # a run-back choice does.
-                    turn_view = (
-                        CoachingHubView(self, game.game_id)
-                        if match.pending_coaching_declared
-                        else CoachingOfferView(self, game.game_id)
-                    )
-                elif match.pending_run_back:
-                    turn_view = self.build_run_back_view(
-                        game.game_id, match,
-                    ) or PlayerActionView(self, game.game_id)
-                elif match.pending_ball_recovery:
-                    # An out-of-bounds ball whose run back has already
-                    # finished, waiting on the winning side to send
-                    # someone to pick it up.
-                    turn_view = BallRecoveryView(self, game.game_id)
-                elif match.pending_loose_ball:
-                    if (
-                        match.loose_ball_offense_player is not None
-                        and match.loose_ball_defense_player is not None
-                    ):
-                        turn_view = LooseBallSkillTestView(
-                            self, game.game_id,
-                        )
-                    else:
-                        turn_view = self.build_loose_ball_view(
-                            game.game_id, match,
-                        ) or PlayerActionView(self, game.game_id)
-                elif match.pending_action == "shoot":
-                    turn_view = ScoreAttemptView(self, game.game_id)
-                elif (
-                    match.pending_action == "maneuver"
-                    and match.challenger_id is None
-                ):
-                    turn_view = ManeuverChallengeView(self, game.game_id)
-                elif (
-                    match.challenger_id is not None
-                    or match.maneuver_uncontested
-                ):
-                    # challenger_id is only ever set while a maneuver is
-                    # in progress and cleared by reset_maneuver(), so
-                    # it alone disambiguates this from any other phase
-                    # -- pending_action itself is cleared to None by
-                    # choose_challenger() right when the challenger is
-                    # picked, so it can't be relied on from here on.
-                    # maneuver_uncontested says the same thing for a
-                    # maneuver that never had a challenger, and is
-                    # cleared by the same reset.
-                    if not match.maneuver_selections_complete:
-                        turn_view = ManeuverActionPromptView(
-                            self, game.game_id,
-                        )
-                    elif self.settled_maneuver_winner(match) is None:
-                        # No winner yet means a skill test is owed --
-                        # a tie, or a decisive maneuver an injured
-                        # player still has to roll for. Asking the
-                        # ranking directly here would get both wrong.
-                        turn_view = SkillTestView(self, game.game_id)
-                    else:
-                        turn_view = self.build_effect_choice_view(
-                            game.game_id, match,
-                        ) or PlayerActionView(self, game.game_id)
-                else:
-                    turn_view = PlayerActionView(self, game.game_id)
+                turn_view, _ = self.pending_turn_view(game.game_id, match)
                 self.bot.add_view(
                     turn_view,
                     message_id=game.turn_message_id,
                 )
                 restored_views += 1
+
+                if isinstance(turn_view, ManeuverActionPromptView):
+                    # The maneuver menu a coach may have open right
+                    # now, which is ephemeral and so has no message to
+                    # re-attach to. Only reachable from here: a
+                    # maneuver under way always has its prompt on
+                    # turn_message_id, since that is only cleared once
+                    # both sides have picked and the menus are gone
+                    # with it.
+                    restored_views += self.restore_maneuver_menus(game, match)
 
         LOGGER.info(
             "Loaded %d saved D12 Ball games and restored %d button "
@@ -1194,6 +1107,239 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 self, game_id, match.challenger_id, "defense",
             )
         return None
+
+    def restore_maneuver_menus(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> int:
+        """
+        Bring an open maneuver menu back to life after a restart, and
+        say how many were registered.
+
+        **The maneuver pick is the one ephemeral view in the game**,
+        and it has to be: a coach must not see the other side's choice
+        before the reveal, and ephemeral is the only thing Discord
+        offers that hides it. It is also therefore the one view that
+        cannot be re-attached the ordinary way -- the bot never holds a
+        durable handle to an ephemeral message, so there is no id to
+        give `add_view`.
+
+        `add_view` **without** a message_id is the way round it.
+        discord.py looks a component interaction up by
+        `(message_id, custom_id)` and then falls back to
+        `(None, custom_id)`, so a view registered this way is
+        dispatched for any message carrying its custom_ids -- the
+        coach's already-open ephemeral menu included. Verified against
+        `ViewStore.dispatch_view`; the fallback is deliberate and
+        documented there.
+
+        Two things make it safe rather than a scattergun:
+
+        - **The custom_ids already carry the game and the side**
+          (`d12ball:maneuver_pick:<game>:<side>:<maneuver>`), so
+          nothing can be dispatched into the wrong game.
+        - **A message_id match wins over the fallback**, so the next
+          menu this game opens is dispatched to its own view as usual.
+          This one only ever catches clicks nothing else claims.
+
+        The registration outlives the maneuver -- there is no message
+        to hang its removal on either -- but a stale click costs
+        nothing: `pick` re-reads the match and answers "a maneuver has
+        already been chosen for that side."
+        """
+        sides = []
+        if match.offense_maneuver is None:
+            sides.append("offense")
+        if match.defense_maneuver is None and not match.maneuver_uncontested:
+            sides.append("defense")
+
+        for side in sides:
+            # timeout=None because add_view refuses anything else: a
+            # view it cannot see the message for has nothing to time
+            # out against.
+            self.bot.add_view(
+                ManeuverActionSelectView(
+                    self, game.game_id, side, timeout=None,
+                ),
+            )
+
+        return len(sides)
+
+    def pending_turn_view(
+        self,
+        game_id: str,
+        match: MatchState,
+    ) -> tuple[discord.ui.View, str]:
+        """
+        The prompt a saved match still owes: the view to put in front
+        of whoever it is waiting on, and a line asking for it.
+
+        **This is the only reading of "what is this match waiting
+        on?", and it has two callers that must not drift apart.**
+        Startup re-attaches the view to the message the prompt was
+        already posted on (`turn_message_id`); `/d12ball resume` posts
+        a fresh message carrying the same one, for the games where
+        that message is gone, was never recorded, or was left with
+        nothing live on it. A second copy of this branch chain is how
+        a resume ends up offering a different prompt from the one a
+        restart restores.
+
+        Ordering matters more than it looks:
+
+        - Setup and halftime come first because both leave
+          `active_player_id` None, and the "no ball handler yet"
+          branch would otherwise misread either as the kickoff.
+        - `challenger_id` (or `maneuver_uncontested`) is what says a
+          maneuver is under way, not `pending_action`, which
+          `choose_challenger` clears the moment a challenger is
+          picked.
+
+        The three `or PlayerActionView` fallbacks are states whose
+        next step is the bot's, not a coach's -- a run back with only
+        forced placements left, an effect with no choice in it. There
+        is no button to restore for those, so startup falls back to
+        the turn prompt; `resume_pending_prompt` re-drives the
+        pipeline instead, which is the difference between the two
+        callers and the reason this returns a view rather than doing
+        the posting itself.
+        """
+        if match.pending_setup_stage is not None:
+            # Before kickoff, so active_player_id is None and the "no
+            # ball handler yet" branch below would otherwise misread
+            # this as the kickoff prompt -- the same reason halftime is
+            # checked ahead of it.
+            return (
+                CoachingHubView(self, game_id),
+                "Coaching Choice, before kickoff:",
+            )
+
+        if match.pending_halftime_stage is not None:
+            # Halftime resets active_player_id before its own stages
+            # run, so it has to be checked ahead of the "no ball
+            # handler yet" branch below, which would otherwise misread
+            # halftime as kickoff.
+            stage = self.halftime_stage(match)
+            if stage in ("extra_token_home", "extra_token_visiting"):
+                side = (
+                    TeamSide.HOME
+                    if stage == "extra_token_home"
+                    else TeamSide.VISITING
+                )
+                return (
+                    HalftimeExtraTokenView(self, game_id, side),
+                    "Halftime: choose a player to lose an extra "
+                    "exhaustion token.",
+                )
+            # coaching_home / coaching_visiting. Always the hub:
+            # halftime never asks whether to declare, so there is no
+            # offer to come back to, unlike an ordinary turnover's
+            # window below. A part-made pick inside the flow is not
+            # persisted and restarts here, the same simplification a
+            # run-back choice makes.
+            return (
+                CoachingHubView(self, game_id),
+                "Halftime Coaching Choice:",
+            )
+
+        if match.active_player_id is None:
+            return (
+                BallHandlerSelectionView(self, game_id),
+                "Choose who takes the ball:",
+            )
+
+        if match.pending_coaching_side is not None:
+            # A window mid-flight comes back as either the offer or the
+            # menu. A part-made choice (picked who goes off, not yet
+            # who comes on) is not persisted and restarts at the menu,
+            # the same way a run-back choice does.
+            if match.pending_coaching_declared:
+                return (
+                    CoachingHubView(self, game_id),
+                    "Coaching Choice:",
+                )
+            return (
+                CoachingOfferView(self, game_id),
+                "Coaching Choice — coach, or pass?",
+            )
+
+        if match.pending_run_back:
+            return (
+                self.build_run_back_view(game_id, match)
+                or PlayerActionView(self, game_id),
+                "Choose where the next player runs back to:",
+            )
+
+        if match.pending_ball_recovery:
+            # An out-of-bounds ball whose run back has already
+            # finished, waiting on the winning side to send someone to
+            # pick it up.
+            return (
+                BallRecoveryView(self, game_id),
+                "Send a player to pick the ball up at "
+                f"{space_label(match.ball.zone, match.ball.space_index)}:",
+            )
+
+        if match.pending_loose_ball:
+            if (
+                match.loose_ball_offense_player is not None
+                and match.loose_ball_defense_player is not None
+            ):
+                return (
+                    LooseBallSkillTestView(self, game_id),
+                    "Either player can roll for the loose ball:",
+                )
+            return (
+                self.build_loose_ball_view(game_id, match)
+                or PlayerActionView(self, game_id),
+                "Choose who goes after the loose ball:",
+            )
+
+        if match.pending_action == "shoot":
+            return (
+                ScoreAttemptView(self, game_id),
+                "Either player can roll for the score attempt.",
+            )
+
+        if match.pending_action == "maneuver" and match.challenger_id is None:
+            return (
+                ManeuverChallengeView(self, game_id),
+                "Choose who challenges the maneuver:",
+            )
+
+        if match.challenger_id is not None or match.maneuver_uncontested:
+            # challenger_id is only ever set while a maneuver is in
+            # progress and cleared by reset_maneuver(), so it alone
+            # disambiguates this from any other phase -- pending_action
+            # itself is cleared to None by choose_challenger() right
+            # when the challenger is picked, so it can't be relied on
+            # from here on. maneuver_uncontested says the same thing
+            # for a maneuver that never had a challenger, and is
+            # cleared by the same reset.
+            if not match.maneuver_selections_complete:
+                return (
+                    ManeuverActionPromptView(self, game_id),
+                    "Choose your maneuver:",
+                )
+            if self.settled_maneuver_winner(match) is None:
+                # No winner yet means a skill test is owed -- a tie, or
+                # a decisive maneuver an injured player still has to
+                # roll for. Asking the ranking directly here would get
+                # both wrong.
+                return (
+                    SkillTestView(self, game_id),
+                    "Either player can roll:",
+                )
+            return (
+                self.build_effect_choice_view(game_id, match)
+                or PlayerActionView(self, game_id),
+                "Resolve the maneuver:",
+            )
+
+        return (
+            PlayerActionView(self, game_id),
+            "Choose an action:",
+        )
 
     def build_run_back_view(
         self,
@@ -3192,6 +3338,126 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         game.turn_message_id = prompt.id
         save_games(self.games)
+
+    async def repost_coaching_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> str:
+        """
+        Put an already-open Coaching Choice back in front of its coach,
+        image and all, without touching the window itself.
+
+        Deliberately not `begin_substitution_window`, which is the
+        *opening* of a window: that calls `open_coaching_window` and
+        resets the substitution counter, so resuming through it would
+        hand a coach back the swaps they had already spent. Everything
+        here reads the window as saved.
+
+        The image is re-sent because a Coaching Choice is unreadable
+        without it -- exhaustion counts, the Exhausted and Injured
+        badges and which bench a player sits on are drawn nowhere else
+        (see "Working on the board image" in CLAUDE.md).
+        """
+        side = TeamSide(match.pending_coaching_side)
+
+        if self.side_is_ai(game, side):
+            # No menu to put back up: the AI's window is a routine that
+            # runs to completion, and a restart in the middle of one
+            # leaves nobody to click anything. Run it, as
+            # begin_substitution_window would have.
+            await self.run_ai_substitution_window(interaction, game, match)
+            return "the AI's Coaching Choice"
+
+        view = (
+            CoachingHubView(self, game.game_id)
+            if match.pending_coaching_declared
+            else CoachingOfferView(self, game.game_id)
+        )
+        prompt = await interaction.followup.send(
+            self.coaching_prompt(
+                game,
+                match,
+                side,
+                "Picking this window up where it left off. Nothing you "
+                "had already done has been undone.",
+            ),
+            file=await self.coaching_file(game, match, side),
+            view=view,
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt.id
+        save_games(self.games)
+        return "the open Coaching Choice"
+
+    async def resume_pending_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> str:
+        """
+        Put the game back in front of whoever it is waiting on, and say
+        what that was. See `/d12ball resume`.
+
+        A restart only ever re-arms **one** message per game, the one
+        recorded in `turn_message_id`, so a game that lost that message
+        -- deleted by `refresh_maneuver_prompt` once both sides had
+        picked, or never recorded because the process died before the
+        prompt was sent -- comes back with nothing live in its channel
+        at all. This posts a new one.
+
+        The states worth separating out are the ones whose next step
+        was **the bot's**, not a coach's. A restart mid-cascade is what
+        strands a game hardest: `continue_run_back`, the halftime
+        sequence and the setup sequence are all driven from a live
+        interaction, so a process that dies between two of their steps
+        leaves state that nothing will ever pick up and no button to
+        press. Each is handed back to the routine that drives it, which
+        picks up exactly where it stopped. Everything else owes a
+        click, and gets `pending_turn_view` on a fresh message -- the
+        same view a restart would have re-attached.
+
+        Nothing here changes the match. That is what `force` is for.
+        """
+        if match.pending_coaching_side is not None:
+            # Ahead of the two stage checks below: setup and halftime
+            # both run their coaching through this same window, and
+            # their own routines would re-open it.
+            return await self.repost_coaching_prompt(interaction, game, match)
+
+        if match.pending_setup_stage is not None:
+            await self.advance_setup_stage(interaction, game, match)
+            return "the pre-kickoff Coaching Choice"
+
+        if match.pending_halftime_stage is not None:
+            await self.advance_halftime_stage(interaction, game, match)
+            return "halftime"
+
+        if match.pending_run_back:
+            await self.continue_run_back(interaction, game, match)
+            return "the run back"
+
+        if match.pending_ball_recovery:
+            await self.begin_ball_recovery(interaction, game, match)
+            return "the out-of-bounds pickup"
+
+        view, ask = self.pending_turn_view(game.game_id, match)
+        prompt = await interaction.followup.send(
+            ask,
+            view=view,
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt.id
+        save_games(self.games)
+        return "a choice, re-posted above"
 
     def coaching_prompt(
         self,
@@ -6055,17 +6321,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
         game, match = result
 
+        # Both refusals point at /d12ball resume, which is what these
+        # two states actually want: it re-posts the maneuver or score
+        # attempt prompt this turn is still owed rather than throwing
+        # the turn away. A turn that is genuinely wedged wants
+        # `resume force:true`.
         if match.pending_action == "maneuver":
             await interaction.followup.send(
                 "A maneuver challenge is already in progress for this "
-                "turn.",
+                "turn. Use `/d12ball resume` to put its prompt back up, "
+                "or `/d12ball resume force:true` to abandon the turn and "
+                "start the offensive choice over.",
                 ephemeral=True,
             )
             return
 
         if match.pending_action == "shoot":
             await interaction.followup.send(
-                "A score attempt is already in progress for this turn.",
+                "A score attempt is already in progress for this turn. "
+                "Use `/d12ball resume` to put its prompt back up, or "
+                "`/d12ball resume force:true` to abandon the turn and "
+                "start the offensive choice over.",
                 ephemeral=True,
             )
             return
@@ -6084,6 +6360,281 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.send_turn_prompt(interaction, game)
         except ValueError as error:
             await interaction.followup.send(str(error), ephemeral=True)
+
+    def may_administer_game(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> bool:
+        """
+        Whether this person may run a recovery command on this game:
+        either of its two players, or anyone the server trusts with
+        `manage_channels`.
+
+        A test game has both players set to the same person, so the
+        player check covers it. `manage_channels` is the same
+        permission `/debug reset_channels` is gated on, which is the
+        blunter version of the same job.
+        """
+        if interaction.user.id in (game.player_1_id, game.player_2_id):
+            return True
+        permissions = getattr(interaction.user, "guild_permissions", None)
+        return bool(permissions is not None and permissions.manage_channels)
+
+    @app_commands.command(
+        name="resume",
+        description=(
+            "Unstick a game: re-post whatever prompt it is waiting on."
+        ),
+    )
+    @app_commands.describe(
+        force=(
+            "Throw the current turn away and start the offensive choice "
+            "over. Use only when resuming normally doesn't help."
+        ),
+    )
+    @app_commands.guild_only()
+    async def resume(
+        self,
+        interaction: discord.Interaction,
+        force: bool = False,
+    ) -> None:
+        """
+        Recover a game whose live prompt is gone.
+
+        A restart re-arms exactly one message per game -- the one in
+        `turn_message_id` -- so a game can come back with no working
+        button anywhere: the prompt was deleted once both sides picked
+        (`refresh_maneuver_prompt`), or the process died before the
+        prompt it was about to send was recorded, or it died in the
+        middle of a cascade whose next step was the bot's own. See
+        `resume_pending_prompt`.
+
+        Plain resume changes nothing about the match; it only puts the
+        question back. `force` is the escape hatch for state that is
+        genuinely inconsistent -- it clears the turn and asks the
+        offense to choose again.
+        """
+        result = await self.defer_and_get_match(interaction)
+        if result is None:
+            return
+        game, match = result
+
+        if not self.may_administer_game(interaction, game):
+            await interaction.followup.send(
+                "Only a player in this game, or someone who can manage "
+                "channels, can resume it.",
+                ephemeral=True,
+            )
+            return
+
+        if game.status == GameStatus.FINISHED:
+            await interaction.followup.send(
+                "This game has already finished, so there is nothing to "
+                "resume.",
+                ephemeral=True,
+            )
+            return
+
+        if force:
+            # reset_maneuver clears the whole turn -- ball handler,
+            # maneuver picks, run back, loose ball, kickoff fill,
+            # out-of-bounds pickup -- and the coaching window is closed
+            # separately because it is not part of a turn. Setup and
+            # halftime are left alone on purpose: those are real
+            # positions in the game rather than a turn gone wrong, and
+            # a plain resume walks them on.
+            if (
+                match.pending_setup_stage is not None
+                or match.pending_halftime_stage is not None
+            ):
+                await interaction.followup.send(
+                    "This game is in setup or at halftime, which "
+                    "`force` cannot skip past. Run `/d12ball resume` "
+                    "without it.",
+                    ephemeral=True,
+                )
+                return
+
+            match.reset_maneuver()
+            match.close_coaching_window()
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            try:
+                await self.send_turn_prompt(interaction, game)
+            except ValueError as error:
+                await interaction.followup.send(str(error), ephemeral=True)
+                return
+
+            await self.refresh_match_image(interaction, game)
+            await interaction.followup.send(
+                "Turn cleared and the offensive choice re-posted.",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            waiting_on = await self.resume_pending_prompt(
+                interaction, game, match,
+            )
+        except ValueError as error:
+            # Every step this hands off to validates the state it
+            # loads, so a match that no longer hangs together says so
+            # here rather than half-resuming.
+            await interaction.followup.send(
+                f"I could not resume this game: {error}\n"
+                "`/d12ball resume force:true` will clear the turn and "
+                "start the offensive choice over.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.followup.send(
+            f"Resumed — the game was waiting on {waiting_on}.",
+            ephemeral=True,
+        )
+
+    @app_commands.command(
+        name="abandon_game",
+        description=(
+            "End this channel's game without a result and archive it."
+        ),
+    )
+    @app_commands.describe(
+        confirm='Type "confirm" to abandon this game.',
+    )
+    @app_commands.guild_only()
+    async def abandon_game(
+        self,
+        interaction: discord.Interaction,
+        confirm: str,
+    ) -> None:
+        """
+        End one stuck game, rather than every unfinished game at once,
+        which is all `/debug reset_channels` can do.
+
+        The channel is archived, not deleted: it is the record of what
+        happened, deleting one is the tightest rate limit Discord has
+        (see "Discord's rate limits" in CLAUDE.md), and the saved game
+        is what keeps its PBD number from being handed out twice.
+        """
+        await interaction.response.defer(ephemeral=True)
+
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None:
+            await interaction.followup.send(
+                "There is no D12 Ball game in this channel.",
+                ephemeral=True,
+            )
+            return
+
+        if not self.may_administer_game(interaction, game):
+            await interaction.followup.send(
+                "Only a player in this game, or someone who can manage "
+                "channels, can abandon it.",
+                ephemeral=True,
+            )
+            return
+
+        if game.status == GameStatus.FINISHED:
+            await interaction.followup.send(
+                "This game has already finished.",
+                ephemeral=True,
+            )
+            return
+
+        if confirm != "confirm":
+            await interaction.followup.send(
+                'Abandon cancelled. Type "confirm" in the confirm field '
+                "to end this game without a result and move its channel "
+                "to the PBD archive. The channel and everything in it "
+                "are kept.",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            await self.abandon_and_archive_game(game, interaction.user)
+        except (ValueError, discord.Forbidden, discord.HTTPException) as error:
+            # An error rather than a warning: the game is still in the
+            # active category with nobody able to play it, which is
+            # exactly the state this command exists to get out of.
+            LOGGER.error(
+                "Could not abandon D12 Ball game %s: %s",
+                game.game_id, error,
+            )
+            await interaction.followup.send(
+                f"I could not abandon this game: {error}",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.followup.send(
+            "Game abandoned. Its channel has moved to the PBD archive, "
+            "and it no longer counts as a game in progress.",
+            ephemeral=True,
+        )
+
+    async def abandon_and_archive_game(
+        self,
+        game: D12BallGame,
+        abandoned_by: discord.abc.User,
+    ) -> None:
+        """
+        End `game` without a result, archive its channel and take down
+        every live prompt it left behind.
+
+        The order matters: the channel lookup and move are the only
+        steps that can fail, so they go first and a failure leaves the
+        game exactly as it was rather than half-ended. Everything after
+        them is local.
+
+        Clearing `message_id` and `turn_message_id` is what stops the
+        next restart re-arming the buttons of a game that is over --
+        `D12Ball.__init__` restores views off those two ids and reads
+        nothing about status.
+        """
+        channel = await self.fetch_game_channel(game)
+
+        # Said in the channel, not just back to whoever ran the
+        # command: the other coach is the person who most needs to know
+        # the game they were waiting on is over.
+        await channel.send(
+            f"**Game abandoned** by {abandoned_by.display_name}. It ends "
+            "with no result, and this channel moves to the PBD archive."
+        )
+        await self.move_channel_to_archive(channel)
+
+        # The prompt is stripped where it stands, so the abandoned
+        # channel does not keep a menu that acts on a finished game
+        # until the next restart drops it. One edit, and a failure is
+        # not worth reporting: the game is over either way.
+        if game.turn_message_id is not None:
+            try:
+                await channel.get_partial_message(
+                    game.turn_message_id,
+                ).edit(view=None)
+            except discord.HTTPException:
+                pass
+
+        # A board refresh still waiting on its window would write to a
+        # channel that has just been archived, so drop it the same way
+        # cog_unload does.
+        task = self.board_refresh_tasks.pop(game.game_id, None)
+        if task is not None:
+            task.cancel()
+        self.board_refreshed_at.pop(game.game_id, None)
+        self.board_png_digests.pop(game.game_id, None)
+
+        game.abandon()
+        game.message_id = None
+        game.turn_message_id = None
+        save_games(self.games)
+
+        LOGGER.info(
+            "D12 Ball game %s abandoned by %s.", game.game_id, abandoned_by,
+        )
 
     @app_commands.command(
         name="coach",
