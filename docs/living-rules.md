@@ -48,7 +48,7 @@ minutes. The team with the most goals at the end wins.
 | **Space** | One area of the field. The ball and every meeple are always located on a space. |
 | **Zone** | A group of adjacent spaces: home goal, midfield, visitors goal. |
 | **Shooting range** | The far part of the field, from the middle to the goal a team attacks -- the only place they may [shoot](#score-attempt) from. Measured from the middle of the board, so it is not a zone: see [shooting range](#shooting-range). |
-| **Player card** | contain a player's infor including their role, skill scores and ability. Its position on the team board shows the **zone** that player is assigned to. |
+| **Player card** | contain a player's information including their role, skill scores and ability. Its position on the team board shows the **zone** that player is assigned to. |
 | **Meeple** | A player's token on the field. Shows the **space** that player is standing on right now. |
 | **Field player** | One of the six players a team has on the field. |
 | **Forward / back** | Forward is toward the goal a team is attacking; back is toward the goal it defends. Always relative to the team being spoken about. |
