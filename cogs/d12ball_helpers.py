@@ -764,10 +764,23 @@ def build_full_image_button(
     if not message.attachments:
         return None
 
+    return full_image_link_button(message.attachments[0].url)
+
+
+def full_image_link_button(url: str) -> discord.ui.Button:
+    """
+    The same button, built from a URL that was read off an upload
+    earlier rather than from the message it is going onto.
+
+    The board's link is re-cut a beat after the upload it points at
+    (see `settle_board_link`), by which time nothing is holding the
+    message it came back on -- only the URL, which is the whole of
+    what the button needs.
+    """
     return discord.ui.Button(
         label=FULL_IMAGE_BUTTON_LABEL,
         style=discord.ButtonStyle.link,
-        url=message.attachments[0].url,
+        url=url,
     )
 
 

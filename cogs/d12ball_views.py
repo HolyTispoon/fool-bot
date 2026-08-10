@@ -1579,7 +1579,7 @@ class ManeuverActionSelectView(SafeView):
                 f"{side_display} has picked their maneuver.",
             )
 
-        await self.cog.refresh_maneuver_prompt(interaction, game, match)
+        await self.cog.close_maneuver_prompt(interaction, game, match)
 
         if match.maneuver_selections_complete:
             await self.cog.resolve_maneuver(interaction, game, match)

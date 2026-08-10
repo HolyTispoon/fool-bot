@@ -21,12 +21,20 @@ import discord
 from cogs.d12ball import BOARD_REFRESH_INTERVAL, D12Ball
 
 
+class FakeAttachment:
+    def __init__(self, url: str) -> None:
+        self.url = url
+
+
 class FakeMessage:
     def __init__(self) -> None:
         self.edits = 0
+        self.fields: list[dict] = []
+        self.attachments = [FakeAttachment(ATTACHMENT_URL)]
 
     async def edit(self, **fields):
         self.edits += 1
+        self.fields.append(fields)
         return self
 
 
@@ -43,12 +51,20 @@ class FakeChannel:
         return self.message
 
 
+# What a board upload comes back as. The signature is what the link
+# button needs and the only thing an edit changes about it.
+ATTACHMENT_URL = (
+    "https://cdn.discordapp.com/attachments/1/2/d12ball-pbd17.png?ex=1&hm=a"
+)
+
+
 def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)
     cog.games = {}
     cog.board_refreshed_at = {}
     cog.board_refresh_tasks = {}
     cog.board_png_digests = {}
+    cog.board_link_owed = {}
     # Every render differs, so these tests see the write path. The
     # identical-board case has its own class below.
     cog.render_match_png = mock.AsyncMock(
@@ -239,6 +255,131 @@ class UnchangedBoardTests(unittest.IsolatedAsyncioTestCase):
         await cog.refresh_match_image(interaction, game)
 
         self.assertEqual(channel.message.edits, 1)
+
+
+def build_assigned_game(game_id: str = "g") -> SimpleNamespace:
+    """A game past the home/visiting choice, so the board carries a link."""
+    game = build_game(game_id)
+    game.home_and_visiting_selected = True
+    return game
+
+
+def link_urls(fields: dict) -> list:
+    """The link buttons an edit put on the message, or None for 'left alone'."""
+    view = fields.get("view", discord.utils.MISSING)
+
+    if view is discord.utils.MISSING:
+        return None
+
+    return [
+        item.url for item in view.children
+        if getattr(item, "url", None) is not None
+    ]
+
+
+class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
+    """
+    What the full-image link costs, which used to be an edit per board.
+
+    Its URL only exists once the upload has landed, so re-cutting it is
+    always a second edit -- and the upload has already killed the link
+    the message was carrying, so the choice is two edits or no link,
+    not one edit or two. An interim write takes the option the bucket
+    can afford: strip the dead link in the edit it is already paying
+    for, and let the settling write put a live one back once.
+    """
+
+    def build(self):
+        cog, game, channel = build_cog(), build_assigned_game(), FakeChannel()
+        return cog, game, channel, SimpleNamespace(channel=channel)
+
+    async def test_an_interim_write_is_one_edit_without_the_link(self) -> None:
+        cog, game, channel, interaction = self.build()
+
+        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+            await cog.refresh_match_image(interaction, game)
+
+            self.assertEqual(channel.message.edits, 1)
+            self.assertEqual(link_urls(channel.message.fields[0]), [])
+            # Held against the upload it was read off, for the
+            # settling write to spend.
+            self.assertEqual(cog.board_link_owed[game.game_id], ATTACHMENT_URL)
+
+            await asyncio.gather(*cog.board_refresh_tasks.values())
+
+    async def test_the_settling_write_puts_the_link_back(self) -> None:
+        cog, game, channel, interaction = self.build()
+
+        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+            await cog.refresh_match_image(interaction, game)
+            await asyncio.gather(*cog.board_refresh_tasks.values())
+
+        # The interim write, then the settling board and its link.
+        self.assertEqual(channel.message.edits, 3)
+        self.assertEqual(link_urls(channel.message.fields[-1]), [ATTACHMENT_URL])
+        self.assertNotIn(game.game_id, cog.board_link_owed)
+
+    async def test_an_unchanged_board_still_pays_its_link(self) -> None:
+        # The common case: the click's last step moved nothing, so the
+        # board the interim write stripped is the final one. The link
+        # still has to go back on it, and that is the only request.
+        cog, game, channel, interaction = self.build()
+        cog.render_match_png = mock.AsyncMock(return_value=b"one board")
+
+        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+            await cog.refresh_match_image(interaction, game)
+            await asyncio.gather(*cog.board_refresh_tasks.values())
+
+        self.assertEqual(channel.message.edits, 2)
+        self.assertEqual(link_urls(channel.message.fields[-1]), [ATTACHMENT_URL])
+        self.assertEqual(list(channel.message.fields[-1]), ["view"])
+        self.assertNotIn(game.game_id, cog.board_link_owed)
+
+    async def test_a_burst_costs_three_edits(self) -> None:
+        # The whole point of the split. A turn's refreshes used to be
+        # two writes at two edits each; they are now one edit, then the
+        # settling write and its link.
+        cog, game, channel, interaction = self.build()
+
+        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+            for _ in range(8):
+                await cog.refresh_match_image(interaction, game)
+            await asyncio.gather(*cog.board_refresh_tasks.values())
+
+        self.assertEqual(channel.message.edits, 3)
+
+    async def test_a_settled_board_owes_nothing(self) -> None:
+        # Nothing stripped a link, so the settling pass has nothing to
+        # put back and spends no request finding that out.
+        cog, game, channel, interaction = self.build()
+
+        await cog.settle_board_link(channel, game)
+
+        self.assertEqual(channel.message.edits, 0)
+
+    async def test_a_board_with_no_link_on_it_owes_nothing(self) -> None:
+        # Before the home/visiting choice this message is still the
+        # setup prompt: its buttons are live, it has no link to go
+        # stale, and its view must not be replaced.
+        cog, game, channel = build_cog(), build_game(), FakeChannel()
+
+        await cog.refresh_match_image(SimpleNamespace(channel=channel), game)
+
+        self.assertEqual(link_urls(channel.message.fields[0]), None)
+        self.assertEqual(cog.board_link_owed, {})
+        self.assertEqual(cog.board_refresh_tasks, {})
+
+    async def test_a_failed_write_owes_nothing(self) -> None:
+        cog, game, channel, interaction = self.build()
+        channel.message.edit = mock.AsyncMock(
+            side_effect=discord.HTTPException(
+                SimpleNamespace(status=500, reason="nope"), "nope",
+            ),
+        )
+
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertEqual(cog.board_link_owed, {})
 
 
 if __name__ == "__main__":
