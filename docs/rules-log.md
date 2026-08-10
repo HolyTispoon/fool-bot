@@ -55,6 +55,25 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-08-10 (later still) -- author, a Coaching Choice opens on the coach's own arrangement
+
+*From the author, on what a coach should be looking at while they coach: the half-field the
+bot puts in front of them "should show the positioning that the coach last settled - not the
+positions that players last ran back to after a turnover".*
+
+- **Every Coaching Choice now begins by putting the side back on the arrangement its coach
+  last set**, free of exhaustion -- the same restore a new play already does, and resting on
+  the same rule that a run back never overwrites that arrangement.
+- **Only halftime is actually changed by this.** A new play resets both sides *before* it
+  offers the window, so the restore finds nothing to do; setup runs on a fresh deal. Halftime
+  had no reset at all, so a coach was rearranging out of wherever the first half happened to
+  stop -- which is exactly the scramble the arrangement exists to undo.
+- **The second half now starts from the shape a coach chose**, since where each side finishes
+  its halftime window is its arrangement for the half, and it now finishes from its own shape
+  rather than from a run back.
+- Upstream says nothing either way about positions at halftime; this is the author's, given
+  directly.
+
 ### 2026-08-10 (later the same day) -- author, the player board is called the team board
 
 *A rename, not a rule. Nothing about what the board holds or how it is used changes.*
