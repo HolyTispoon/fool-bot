@@ -292,7 +292,7 @@ ball may be shot from the space it is already on.
 
 | Side | Rolls | Adds |
 |---|---|---|
-| Attack | one d12 | The shooting player's offensive skill, plus the [ball speed modifier](#ball-speed), plus 3 if a Striker is shooting off a set-up |
+| Attack | one d12 | The shooting player's offensive skill, plus the [ball speed modifier](#ball-speed) -- *minus* it, off a [High Pass that overshoots](#high-pass) -- plus 3 if a Striker is shooting off a set-up |
 | Defense | one d12 | The defensive skills of **every** opposing meeple between the ball and the goal being attacked, including any on the ball's own space |
 
 If the attacker's total is **equal to or higher than** the defense's total, they score.
@@ -443,6 +443,17 @@ The attacking coach chooses the distance: **2 or 3 spaces** forward.
 
 > **Fullback ability.** A Fullback may choose **4** as well.
 
+**Only a distance that fits on the field is offered.** A longer pass that lands where a shorter
+one already would is the same pass at a disadvantage -- it counts as an overshoot, so it pays
+the [ball speed modifier](#ball-speed) the wrong way round and owes a contest the shorter one
+does not. So a coach three spaces from the end of the field chooses 2 or 3 and a Fullback is
+not offered 4; two spaces from the end, 2 is the only choice there is.
+
+**With the ball 0 or 1 spaces from the end of the field there is no choice at all.** Every
+distance lands on the same space, so the pass is an **overshoot** before anyone picks anything,
+and it is resolved as one -- see below. (From the home side's end, that is the ball on H1 or H2
+for a team attacking the home goal.)
+
 What happens next depends on the distance and on who is standing where the ball lands:
 
 | Distance | Landing space | Result |
@@ -450,6 +461,27 @@ What happens next depends on the distance and on who is standing where the ball 
 | 2 | A teammate is there | **Received.** The offense may take a [scoring opportunity](#scoring-opportunities) with that receiver. Declining ends the maneuver with the ball received normally -- no contest. |
 | 3 or 4 | A teammate is there | **The receiver must win a skill test to keep the ball**, even though a teammate caught it. See below. |
 | any | Nobody from the offense is there | A [loose ball](#loose-ball), like any other maneuver that overshoots into empty or enemy territory. |
+
+**Overshoot.** A pass is an overshoot when it is clamped short of the distance thrown -- the
+ball ran out of field. Since only a distance that fits is ever offered, that means one thing:
+**the ball was 0 or 1 spaces from the end**, so no distance fitted and none was asked for. The
+ball ends on the space closest to the goal being attacked.
+
+If a player from the **passing** team is standing on that space, the offense chooses between
+two things, and **both pay the [ball speed modifier](#ball-speed) against them** -- the pass
+arrived faster than anyone could settle it:
+
+| Choice | What it is |
+|---|---|
+| **Take the shot** | A [scoring opportunity](#scoring-opportunities) with that receiver, with the modifier subtracted from the attempt |
+| **Contest for the ball** | The long-pass contest below, with the modifier subtracted from the receiver's side of it |
+
+There is no third option that settles the ball quietly: the receiver either shoots at a
+disadvantage or fights to keep what they caught.
+
+An overshoot with nobody from the passing team on that space sets nothing up and is a
+[loose ball](#loose-ball) like any other, as the table says. A pass that cannot move the ball
+at all -- it is already on the last space -- is an overshoot like any other.
 
 **The long-pass contest.** This is the one place in the game where a maneuver that landed on
 a teammate is still contested. The receiver is the offense's contestant automatically. The
@@ -461,6 +493,10 @@ The test is the ordinary skill test: offensive skill against defensive skill, an
 offense adds the [ball speed modifier](#ball-speed)** -- the one contest where a fast ball
 helps the side holding it. Winning keeps possession and changes nothing else. Losing is a
 turnover.
+
+**An overshoot that turns down its shot lands here**, with the modifier subtracted rather than
+added. That is the second half of the overshoot's own choice, not a fallback: turning down the
+shot does not settle the ball.
 
 ### Block Deflect
 
@@ -549,6 +585,13 @@ ball, a lost long High Pass, a Defender's Pressure steal, and the second-half ki
 
 A genuine loose ball belongs to nobody yet, so neither side adds it there.
 
+**One thing subtracts it instead.** A [High Pass that overshoots](#high-pass) pays the modifier
+the other way round -- the ball came in too fast to settle, so the speed that would have helped
+is what makes it hard to do anything with. That holds for both of the places the overshoot can
+lead: the shot it sets up, and the long-pass contest a declined set-up falls into. Nothing else
+in the game subtracts it, and the defense's Steal Intercept modifier is never affected -- the
+intercept is settled before any pass is thrown.
+
 ## Loose ball
 
 **After every maneuver resolves, check the ball's space.** If it holds no player from the
@@ -600,14 +643,15 @@ It is always **offered as a choice**; declining resolves the maneuver normally.
 **A set-up is offered only where the shot itself is legal** -- with the ball within
 [shooting range](#shooting-range). What a set-up buys is a shot *out of turn*, not a shot from
 anywhere, so a maneuver that would set one up short of range simply resolves as the maneuver
-it was. A Block Deflect that overshoots is never affected: the ball has reached the space
-closest to the offense's own goal, which is always deep in the deflecting team's range.
+it was. **An overshoot is never affected**, whichever maneuver it was: the ball has reached the
+space closest to one goal or the other, which is always deep inside the shooting team's range.
 
-Three things set one up:
+Four things set one up:
 
 | Set-up | Shooter | Requirement |
 |---|---|---|
 | A **High Pass** of exactly 2 spaces | the receiver | A player from the passing team is standing on the landing space |
+| A **High Pass** that overshoots | the receiver | The ball was 0 or 1 spaces from the end, and a player from the passing team is standing where it lands |
 | A **Winger's Low Pass** | the receiver | None -- any distance, including 0 |
 | A **Block Deflect** that overshoots | the deflecting team's player on that space | The deflect was clamped short, and one of their players is standing there |
 
@@ -616,6 +660,13 @@ additions:
 
 - **The shooter gains 1 exhaust token, after the roll.**
 - **A Striker adds +3** to any scoring attempt off a set-up.
+
+An overshot High Pass adds a third: the [ball speed modifier](#ball-speed) is **subtracted**
+from that shot rather than added to it. Nothing else about the attempt changes, and the
+Striker's +3 is paid in full.
+
+**Declining costs nothing and settles the ball, with one exception**: an overshot High Pass is
+a shot or a [long-pass contest](#high-pass), so declining lands in the contest instead.
 
 ## Own goal
 
@@ -1004,7 +1055,8 @@ Same rank ties and goes to a skill test. O1 beats D3, O2 beats D1, O3 beats D2.
 | Injury check | 1 d12 | -- | -- | Higher than the token count is safe |
 
 A score attempt -- off a set-up or not -- may only be taken from within
-[shooting range](#shooting-range).
+[shooting range](#shooting-range). The ball speed modifier is **subtracted** on a shot set up
+by a [High Pass that overshoots](#high-pass), and added everywhere else.
 
 Every maneuver above except Block Deflect leaves the ball with a particular player, who then
 takes the next turn: see [the ball carrier](#the-ball-carrier).

@@ -86,16 +86,25 @@ class AIStrategy(ABC):
     def choose_high_pass_distance(
         self,
         match: MatchState,
-        max_distance: int,
+        distances: list[int],
     ) -> int:
-        """2 up to max_distance (3, or 4 for a Fullback)."""
+        """
+        One of `distances` -- what the coach's own menu would offer,
+        which is 2 up to the handler's maximum less anything that runs
+        out of field. Never called with an empty list: a position
+        where every distance overshoots has no choice in it at all,
+        and D12Ball.resolve_high_pass takes that branch before asking
+        anyone. See MatchState.high_pass_distances.
+        """
         ...
 
     @abstractmethod
     def choose_scoring_opportunity_attempt(self, match: MatchState) -> bool:
         """Whether to take an offered scoring-opportunity shot -- a
-        High Pass's own 2-space pass, or a Winger's Low Pass --
-        instead of letting the maneuver resolve normally."""
+        High Pass's own 2-space pass, a High Pass that overshoots, or a
+        Winger's Low Pass -- instead of letting the maneuver resolve
+        normally. Declining an overshoot is a contest for the ball
+        rather than a settled pass."""
         ...
 
     @abstractmethod
@@ -245,12 +254,14 @@ class DinkyAI(AIStrategy):
     def choose_high_pass_distance(
         self,
         match: MatchState,
-        max_distance: int,
+        distances: list[int],
     ) -> int:
         """Always take the longest pass available -- same maximizing
         spirit as choose_dribble_advance_distance. This never chases
-        the 2-space scoring-opportunity option in favor of distance."""
-        return max_distance
+        the 2-space scoring-opportunity option in favor of distance.
+        The list is already free of distances that overshoot, so the
+        longest is a real pass rather than a clamped one."""
+        return distances[-1]
 
     def choose_scoring_opportunity_attempt(self, match: MatchState) -> bool:
         """Always take the shot when offered one."""

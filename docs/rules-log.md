@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-09.
+**As of:** 2026-08-10.
 
 ## Where the rules come from
 
@@ -54,6 +54,45 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-10 (latest) -- author, a High Pass that overshoots sets up a shot it has to fight for
+
+*From the author, given directly and then refined twice in the same conversation: "if a high
+pass overshoots the goal - whether the coach chose 2 or 3 or 4 - it sets up a scoring
+opportunity in the space closest to the goal with the speed modifier as a negative"; then that
+the distance choice "should be moot" and so "should not be offered" from a position 0 or 1
+spaces off the end, where the overshoot "offers a choice between a scoring attempt with a
+negative speed ball modifier and a high pass contest with a negative ball speed modifier to keep
+the ball"; then that "a fullback should not be offered a 4 space when that would overshoot, and
+no player should be offered 3 spaces when 2 is possible and 3 would overshoot".*
+
+- **An overshoot sets up a scoring opportunity at any distance.** Until now only an exact 2
+  could, and only by landing on a teammate; a 3 or a 4 that ran out of field went straight to
+  the long-pass contest. The shooter is a player from the passing team standing where the ball
+  ended, and the space is the one the clamp put it on -- the space closest to the goal.
+- **The ball speed modifier is subtracted rather than added**, on the shot and on the contest
+  alike. This is the first thing in the game that reverses the modifier's sign; everything else
+  either adds it or ignores it. It is why the modifier now has a single home rather than being
+  halved afresh at each site that pays it.
+- **The shot and the contest are one choice, not an offer and a fallback.** Turning down the
+  shot lands in the contest, at the same disadvantage. There is no third branch that settles the
+  ball quietly.
+- **A distance that runs off the field is not offered at all.** A longer pass landing where a
+  shorter one already would is that pass at a disadvantage -- negative modifier, contest owed --
+  so offering it is offering a strictly worse button. Three spaces from the end a Fullback
+  chooses 2 or 3; two spaces from the end, 2 is the whole menu.
+- **With the ball 0 or 1 spaces from the end there is no menu.** Every distance is the same
+  pass, so the prompt is skipped rather than answered and the pass resolves as an overshoot
+  directly. This is now the *only* way an overshoot happens, which is what collapsed the earlier
+  reading that a declined overshoot of 2 might be an ordinary catch: a 2 can only overshoot from
+  a position where no distance was ever asked for.
+- **A pass that cannot move the ball at all is still an overshoot**, confirmed: "clamped short
+  is clamped short". A coach whose ball is already on the last space throws a High Pass for a
+  shot from where they stand, with the modifier against them. Same test Block Deflect already
+  used for its own overshoot.
+- **An overshoot with nobody from the passing team on the landing space sets nothing up** and
+  is a loose ball as before. Nothing was said about this either way; there is no shooter, so
+  there is nothing else it could be.
 
 ### 2026-08-10 (later still) -- author, a Coaching Choice opens on the coach's own arrangement
 
@@ -669,7 +708,9 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | A score attempt's "each player rolls a d12" | Exactly two dice, one per coach; the defence sums intervening meeples |
 | Nothing about what a score attempt costs | Nothing for a plain attempt; 1 token to a shooter off a set-up, after the roll |
 | The own goal is triggered by a deflected pass, and rolled at a **disadvantage** | Triggered by Pressure's overshoot only, rolled at an **advantage**, and costs 1 token |
-| Setting a scoring opportunity describes only the old fixed-2 High Pass overshoot | Three set-ups (High Pass of 2, a Winger's Low Pass, a Block Deflect overshoot), each a choice |
+| Setting a scoring opportunity describes only the old fixed-2 High Pass overshoot | Four set-ups (High Pass of 2, a High Pass that overshoots, a Winger's Low Pass, a Block Deflect overshoot), each a choice |
+| The ball speed modifier is always added | An overshot High Pass subtracts it, on the shot it sets up and on the contest behind that shot |
+| A High Pass is a free choice of 2 or 3 (or 4) | Only distances that fit on the field are offered, and none is offered at all with the ball 0 or 1 spaces from the end |
 | A turnover says nothing about ball speed | Every turnover resets it to 1 |
 | Substitutions "when they win possession", with no split between kinds of turnover | Only a new play (goal, own goal, missed attempt, out of bounds) opens a window; a steal opens none |
 | A loose ball's contestant "gains 1 exhaustion" | 1 token per space travelled |

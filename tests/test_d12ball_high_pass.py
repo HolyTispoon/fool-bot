@@ -19,14 +19,18 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_helpers import contest_noun
+from cogs.d12ball_helpers import HIGH_PASS_CONTEST_HEADLINE, contest_noun
 from cogs.d12ball_views import (
+    HighPassChoiceView,
     LooseBallSkillTestView,
+    ScoreAttemptView,
     SetUpAttemptChoiceView,
 )
 from d12ball.components import (
     MatchState,
+    PlayerRole,
     TeamSide,
+    Zone,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -238,6 +242,34 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
 
+    async def test_declining_an_overshot_long_pass_falls_into_the_contest(
+        self,
+    ) -> None:
+        # 2026-08-10: the shot an overshoot offers is the bonus, not a
+        # replacement -- a pass of 3 or 4 still owes the contest it
+        # would have owed unclamped, so declining lands there.
+        cog, game, match, receiver, _ = self.build_contest(
+            is_high_pass=True,
+        )
+        cog.begin_loose_ball = mock.AsyncMock()
+
+        view = SetUpAttemptChoiceView(
+            cog, game.game_id, receiver, 2, contest_on_decline=True,
+        )
+        self.assertEqual(
+            [item.label for item in view.children][1],
+            "Decline -- contest for the ball",
+        )
+
+        await cog.decline_scoring_attempt(
+            build_interaction(), game, match, 2, contest=True,
+        )
+        cog.finish_maneuver_resolution.assert_not_awaited()
+        cog.begin_loose_ball.assert_awaited_once()
+        _, kwargs = cog.begin_loose_ball.await_args
+        self.assertEqual(kwargs["headline"], HIGH_PASS_CONTEST_HEADLINE)
+        self.assertTrue(kwargs["is_high_pass"])
+
     def build_fast_contest(self, is_high_pass: bool):
         """The same contest, with a ball moving fast enough to matter."""
         cog, game, match, receiver, challenger = self.build_contest(
@@ -271,6 +303,38 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         saved = cog.load_match_state(game)
         self.assertEqual(saved.ball.possession, possession_before)
         self.assertFalse(saved.pending_run_back)
+
+    async def test_an_overshot_receiver_pays_the_speed_modifier_instead(
+        self,
+    ) -> None:
+        # 2026-08-10: a High Pass that ran out of field arrives too
+        # fast to settle, so the modifier that would have helped the
+        # receiver keep it counts against them -- in the contest a
+        # declined set-up falls into, exactly as it would have in the
+        # shot. These rolls win by 1 without any modifier at all, so
+        # only a negative one loses them.
+        cog, game, match, receiver, challenger = self.build_fast_contest(
+            is_high_pass=True,
+        )
+        match.pending_high_pass_overshoot = True
+        self.assertEqual(match.ball_speed_modifier(), -2)
+        game.match_state = match.to_dict()
+        possession_before = match.ball.possession
+
+        view = LooseBallSkillTestView(cog, game.game_id)
+        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+            "cogs.d12ball.save_games",
+        ), mock.patch(
+            "cogs.d12ball_views.random.randint",
+            side_effect=self.rolls_for(cog, receiver, challenger, "offense"),
+        ), mock.patch("cogs.d12ball_views.render_skill_test_dice"), mock.patch(
+            "cogs.d12ball_views.discord.File",
+        ):
+            await view.roll(build_interaction())
+
+        saved = cog.load_match_state(game)
+        self.assertNotEqual(saved.ball.possession, possession_before)
+        self.assertTrue(saved.pending_run_back)
 
     async def test_a_loose_ball_gives_nobody_the_speed_modifier(self) -> None:
         # The other half of that rule: a genuine loose ball is nobody's
@@ -318,6 +382,183 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(cog.load_match_state(game).pending_run_back)
         cog.announce_run_back.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
+
+
+class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
+    """
+    What the distance prompt offers (2026-08-10): only distances that
+    fit on the field, because a longer pass landing where a shorter
+    one already would is the same pass at a disadvantage. See
+    D12Ball.high_pass_distance_options and "High Pass" in
+    docs/living-rules.md.
+
+    Board 7, so the flat indices are 0..6 and the home side attacks
+    toward 6: midfield is flat 2-4 and the visitors' goal 5-6.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build(self, zone: Zone, space: int, role: PlayerRole):
+        cog = build_cog()
+        cog.apply_high_pass = mock.AsyncMock()
+        cog.user_controls_possession = mock.Mock(return_value=True)
+        game = build_game()
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(zone, space)
+        match.active_player_id = next(
+            player_id for player_id in match.home.field_players
+            if self.catalog.player_by_id(player_id).role == role
+        )
+        match.move_meeple(match.active_player_id, zone, space)
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        return cog, game, match
+
+    def test_a_fullback_is_not_offered_four_it_cannot_throw(self) -> None:
+        # Three spaces of room: the 4 lands where the 3 does, so only
+        # the 3 is offered. The ability is still real one space back.
+        cog, game, _ = self.build(Zone.MIDFIELD, 1, PlayerRole.FULLBACK)
+        self.assertEqual(
+            [item.label for item in HighPassChoiceView(
+                cog, game.game_id,
+            ).children],
+            ["2 spaces", "3 spaces"],
+        )
+
+        cog, game, _ = self.build(Zone.MIDFIELD, 0, PlayerRole.FULLBACK)
+        self.assertEqual(
+            [item.label for item in HighPassChoiceView(
+                cog, game.game_id,
+            ).children],
+            ["2 spaces", "3 spaces", "4 spaces (Fullback ability)"],
+        )
+
+    def test_nobody_is_offered_three_when_only_two_fits(self) -> None:
+        cog, game, _ = self.build(Zone.MIDFIELD, 2, PlayerRole.DEFENDER)
+        self.assertEqual(
+            [item.label for item in HighPassChoiceView(
+                cog, game.game_id,
+            ).children],
+            ["2 spaces"],
+        )
+
+    async def test_a_click_on_a_distance_no_longer_on_offer_is_refused(
+        self,
+    ) -> None:
+        # The buttons carry no message id, so an older prompt still in
+        # the channel dispatches here. The menu is read off the match
+        # rather than off the view for exactly that reason.
+        cog, game, match = self.build(
+            Zone.MIDFIELD, 0, PlayerRole.FULLBACK,
+        )
+        view = HighPassChoiceView(cog, game.game_id)
+        self.assertEqual(len(view.children), 3)
+
+        # A later turn: the ball, and whoever is handling it, have
+        # moved two spaces closer to the end of the field.
+        match.set_ball_space(Zone.MIDFIELD, 2)
+        match.move_meeple(match.active_player_id, Zone.MIDFIELD, 2)
+        game.match_state = match.to_dict()
+
+        interaction = build_interaction()
+        await view.choose(interaction, 3)
+
+        cog.apply_high_pass.assert_not_awaited()
+        interaction.response.edit_message.assert_not_awaited()
+        message, = interaction.response.send_message.await_args.args
+        self.assertIn("runs off the end of the field", message)
+        self.assertTrue(
+            interaction.response.send_message.await_args.kwargs["ephemeral"]
+        )
+
+
+class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The shot an overshoot sets up, from the other end: the ball speed
+    modifier is subtracted from the attempt rather than added to it
+    (2026-08-10). Only the arithmetic is under test, and all of it is
+    in the rows handed to the dice render, so the roll is stopped
+    there -- everything past it is the goal-or-miss aftermath.
+
+    See MatchState.ball_speed_modifier and "Ball speed" in
+    docs/living-rules.md.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    async def roll_shot(self, overshot: bool):
+        cog = build_cog()
+        cog.apply_exhaustion = mock.Mock(return_value="")
+        # Nobody in the way, so the attacker's row is the whole test.
+        cog.intervening_defenders = mock.Mock(return_value=[])
+        game = build_game()
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.active_player_id = match.setup_for_side(
+            match.ball.possession
+        ).field_players[0]
+        match.move_meeple(
+            match.active_player_id, match.ball.zone, match.ball.space_index,
+        )
+        match.pending_action = "shoot"
+        match.ball.speed = 6  # a modifier of 3, either way round
+        match.pending_high_pass_overshoot = overshot
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+
+        entries = []
+
+        class Stop(Exception):
+            pass
+
+        def capture(rows):
+            entries.append(rows)
+            raise Stop
+
+        view = ScoreAttemptView(cog, game.game_id)
+        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+            "cogs.d12ball.save_games",
+        ), mock.patch(
+            "cogs.d12ball_views.random.randint", return_value=7,
+        ), mock.patch(
+            "cogs.d12ball_views.render_skill_test_dice", side_effect=capture,
+        ):
+            with self.assertRaises(Stop):
+                await view.roll(build_interaction())
+        return entries[0][0]
+
+    async def test_an_ordinary_shot_adds_it(self) -> None:
+        _, _, _, detail, total = await self.roll_shot(overshot=False)
+
+        self.assertIn("+3 ball speed modifier", detail)
+        self.assertNotIn("-3 ball speed modifier", detail)
+        skill = int(detail[1].removeprefix("Offensive skill +"))
+        self.assertEqual(total, 7 + skill + 3)
+
+    async def test_an_overshot_set_up_subtracts_it(self) -> None:
+        _, _, _, detail, total = await self.roll_shot(overshot=True)
+
+        self.assertIn("-3 ball speed modifier", detail)
+        skill = int(detail[1].removeprefix("Offensive skill +"))
+        self.assertEqual(total, 7 + skill - 3)
 
 
 if __name__ == "__main__":
