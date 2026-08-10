@@ -283,6 +283,51 @@ whole rule, over `BoardState.is_in_shooting_range`.
   range. The rule is positional and the board is where both coaches read
   position.
 
+## The ball carrier
+
+Possession is a team's, but the ball is a *player's*: a resolution that
+leaves it with somebody in particular makes them the **ball carrier**, and
+they take their side's next turn instead of the coach picking again off the
+ball's space -- see "The ball carrier" in the living rules.
+`MatchState.ball_carrier_id` is the field and
+`MatchState.turn_handler_candidates` is the whole of the rule.
+
+- **Every place that offers a handler asks `turn_handler_candidates`**, never
+  `eligible_ball_handlers` -- `send_turn_prompt`, `BallHandlerSelectionView`,
+  `DinkyAI.choose_ball_handler`, and `select_ball_handler`'s own validation.
+  `eligible_ball_handlers` still means "everyone of this team on the ball" and
+  is what the loose-ball check and the kickoff fill ask, which is a different
+  question and must not be narrowed.
+- **`reset_maneuver` deliberately does not clear it.** It runs *between* the
+  effect that sets the carrier and the prompt that spends it, so clearing it
+  there drops every carry -- and `/d12ball offensive_choice` calls it to start
+  a turn fresh, which would make that command a way to hand the ball to
+  somebody else. It is consumed by `select_ball_handler` and cleared by
+  `clear_ball_carrier`.
+- **A stale carrier is harmless by construction.** `turn_handler_candidates`
+  falls back to the full list whenever the named player is not among them, so
+  a value surviving a period restart, or missing from a game saved before the
+  field existed, narrows nothing. Correctness does not rest on having found
+  every place to clear it.
+- **The setting sites are the effects, not one dispatcher.** Six of them:
+  `apply_dribble_advance`, `resolve_steal_intercept`, `resolve_pressure`
+  (twice -- the handler, then the Defender's steal over the top of it),
+  `apply_low_pass`, and the two High Pass branches where a pass of 2 is
+  received. There is no single "who has the ball now" to derive it from after
+  the fact, which is why each effect says so itself. A new maneuver has to
+  decide, the same way it decides steal-or-new-play.
+- **Pressure sets it before the overshoot branch returns.** An own goal
+  survived is still a handler who was pressured and kept the ball; a conceded
+  one is a new play and gets cleared with everything else.
+- **A contested ball is nobody's**, so `begin_loose_ball` clears it -- which
+  covers the long High Pass contest too, since that routes through the same
+  function. Block Deflect sets nothing: it sends the ball to a space rather
+  than to a player.
+- **`build_turn_prompt` is told, not asked.** `select_ball_handler` has
+  already consumed the field by the time the prompt is built, so `carrying=`
+  is passed by the one caller that still knows -- worth the parameter, because
+  a coach who is not offered a choice should be told why.
+
 ## Turnovers: steals and new plays
 
 Every turnover resets the ball's speed and puts players back in position, but

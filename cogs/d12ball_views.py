@@ -926,7 +926,11 @@ class BallHandlerSelectionView(SafeView):
             return
 
         match = self.cog.load_match_state(game)
-        for player_id in match.eligible_ball_handlers():
+        # Not eligible_ball_handlers: a ball carrier narrows this to
+        # one button, which is the rule showing up as a menu with no
+        # choice in it. send_turn_prompt normally skips the view
+        # entirely in that case; this is the restore path.
+        for player_id in match.turn_handler_candidates():
             player = self.cog.get_player_definition(player_id)
             initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(

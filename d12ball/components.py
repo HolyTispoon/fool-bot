@@ -694,6 +694,14 @@ class MatchState:
     ball: BallState
     scoreboard: ScoreboardState
     active_player_id: Optional[str] = None
+    # Who the last resolution left the ball with, when it left it with
+    # somebody in particular -- the dribbler, the player pushed back by
+    # a Pressure, the stealer, the player a pass was aimed at. That
+    # player takes their side's next turn instead of the coach picking
+    # again off the ball's space. Cleared when the ball comes free, and
+    # consumed by select_ball_handler. See "The ball carrier" in
+    # docs/living-rules.md.
+    ball_carrier_id: Optional[str] = None
     pending_action: Optional[str] = None
     challenger_id: Optional[str] = None
     # Set instead of challenger_id when the defending team has nobody
@@ -830,12 +838,43 @@ class MatchState:
             if player_id in possessing_players
         ]
 
+    def turn_handler_candidates(self) -> list[str]:
+        """
+        Who may take this turn: the ball carrier alone when the last
+        resolution left the ball in somebody's hands, otherwise every
+        eligible handler for the coach to choose between.
+
+        A carrier who is no longer standing on the ball for the side in
+        possession is ignored rather than trusted -- the fallback keeps
+        a value left over from a period that has since ended, or from a
+        state saved before this field existed, from narrowing the
+        choice to a player who cannot take the turn.
+        """
+        candidates = self.eligible_ball_handlers()
+        if self.ball_carrier_id in candidates:
+            return [self.ball_carrier_id]
+        return candidates
+
+    def set_ball_carrier(self, player_id: Optional[str]) -> None:
+        self.ball_carrier_id = player_id
+
+    def clear_ball_carrier(self) -> None:
+        """
+        The ball has come free -- a loose ball, an out-of-bounds, a new
+        play -- so nobody is carrying it and the side that ends up with
+        it chooses who picks it up.
+        """
+        self.ball_carrier_id = None
+
     def select_ball_handler(self, player_id: str) -> None:
-        if player_id not in self.eligible_ball_handlers():
+        if player_id not in self.turn_handler_candidates():
             raise ValueError(
                 "The selected player is not an eligible ball handler."
             )
         self.active_player_id = player_id
+        # Consumed: the carrier has taken their turn, and what happens
+        # next decides who carries it after this one.
+        self.ball_carrier_id = None
         self.pending_action = None
         self.challenger_id = None
         self.maneuver_uncontested = False
@@ -1309,6 +1348,15 @@ class MatchState:
         """
         Clear the ball-handler and maneuver-selection state once a
         maneuver resolves, so the match no longer looks mid-turn.
+
+        `ball_carrier_id` is deliberately not cleared here. The effect
+        that just resolved is what sets it, and this runs after that
+        effect and before the next turn's prompt, so clearing it would
+        wipe the carrier between the two -- and `/d12ball
+        offensive_choice`, which calls this to start a turn fresh,
+        would become a way to hand the ball to somebody else. It is
+        consumed by select_ball_handler and cleared by
+        clear_ball_carrier when the ball comes free.
         """
         self.active_player_id = None
         self.pending_action = None
@@ -2323,6 +2371,7 @@ class MatchState:
                 "last_possession": self.scoreboard.last_possession,
             },
             "active_player_id": self.active_player_id,
+            "ball_carrier_id": self.ball_carrier_id,
             "pending_action": self.pending_action,
             "challenger_id": self.challenger_id,
             "maneuver_uncontested": self.maneuver_uncontested,
@@ -2416,6 +2465,7 @@ class MatchState:
                 **data.get("scoreboard", {})
             ),
             active_player_id=data.get("active_player_id"),
+            ball_carrier_id=data.get("ball_carrier_id"),
             pending_action=data.get("pending_action"),
             challenger_id=data.get("challenger_id"),
             maneuver_uncontested=data.get("maneuver_uncontested", False),
