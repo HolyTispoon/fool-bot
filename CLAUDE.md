@@ -327,13 +327,25 @@ ball's space -- see "The ball carrier" in the living rules.
   contested it, so it stays clear and the pickup is an ordinary placement.
   Block Deflect sets nothing either -- it sends the ball to a space rather
   than to a player.
-- **The run back can still pull a contest winner off the ball**, because only
-  a steal exempts anyone (`stays_player_id`) and the exemption names Steal
-  Intercept and a Defender's Pressure steal. A winner assigned to another zone
-  runs back out of the ball's zone and the carry is dropped by the fallback.
-  That predates this rule and is left as it was, pending an answer -- see
-  "Still open" in the rules log. **Don't quietly add the exemption**: it
-  changes exhaustion and positions, and it is the author's call.
+- **The run-back exemption is the carry, read from the other end.**
+  `begin_run_back` sets `pending_run_back_stays_player_id` from
+  `ball_carrier_id` rather than taking it as an argument -- the player holding
+  the ball does not run back, whoever they are, because running them back
+  would move them off the ball and charge them for it. It used to be a
+  `stays_player_id` argument that only the two steals passed, which left a
+  loose-ball or High Pass winner being run back off the ball they had just
+  won. Deriving it is what stops a new resolution naming a carrier and
+  forgetting the exemption; **don't reintroduce the parameter.**
+- **A new play exempts nobody**, so `begin_run_back` clears the carry before
+  reading it. A goal scored off a High Pass set-up still has the receiver
+  recorded as carrying, and they are not -- the ball is on its way back to the
+  kickoff space. `announce_new_play_reset` clears it too; that one is for the
+  reset, this one is for the exemption two lines below it.
+- **The carry travels with the exemption**, in `inherit_run_back_exemption`
+  (a substitution) and `swap_meeple_positions` (a meeple trade). Both belong
+  to the space rather than the player, since both exist because that meeple is
+  standing on the ball. `swap_field_positions` deliberately moves neither: it
+  exchanges zone assignments and leaves both meeples where they are.
 - **`build_turn_prompt` is told, not asked.** `select_ball_handler` has
   already consumed the field by the time the prompt is built, so `carrying=`
   is passed by the one caller that still knows -- worth the parameter, because

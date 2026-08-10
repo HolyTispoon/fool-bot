@@ -1995,14 +1995,19 @@ class MatchState:
         arriving_player_id: str,
     ) -> None:
         """
-        Move a steal's run-back exemption to whoever took that
-        player's place. The exemption belongs to the position, not the
-        player: it exists because that meeple is standing on the ball,
-        so leaving it behind would run the new ball carrier away from
-        the ball and charge them for it.
+        Move the run-back exemption, and the carry it comes from, to
+        whoever took that player's place. Both belong to the position
+        rather than to the player: they exist because that meeple is
+        standing on the ball, so leaving them behind would run the new
+        ball carrier away from the ball and charge them for it.
+
+        The two move together because they are one fact -- see
+        begin_run_back, which reads the exemption off the carry.
         """
         if self.pending_run_back_stays_player_id == leaving_player_id:
             self.pending_run_back_stays_player_id = arriving_player_id
+        if self.ball_carrier_id == leaving_player_id:
+            self.ball_carrier_id = arriving_player_id
 
     def swap_field_positions(
         self,
@@ -2263,11 +2268,19 @@ class MatchState:
         self.board.place_meeple(player_id, *other_position)
         self.board.place_meeple(other_player_id, *position)
 
+        # The exemption and the carry follow the space, not the player
+        # -- see inherit_run_back_exemption for why they move together.
         stays_player_id = self.pending_run_back_stays_player_id
         if stays_player_id == player_id:
             self.pending_run_back_stays_player_id = other_player_id
         elif stays_player_id == other_player_id:
             self.pending_run_back_stays_player_id = player_id
+
+        carrier_id = self.ball_carrier_id
+        if carrier_id == player_id:
+            self.ball_carrier_id = other_player_id
+        elif carrier_id == other_player_id:
+            self.ball_carrier_id = player_id
 
     def validate(self, catalog: PlayerCatalog) -> None:
         self.home.validate(catalog.teams[self.home.team])

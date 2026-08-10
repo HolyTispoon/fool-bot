@@ -2681,11 +2681,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         # Ball-speed manipulation is offered after run-back finishes,
         # not here -- see begin_run_back's speed_choice_after.
+        # No stays_player_id: begin_run_back exempts the ball carrier,
+        # which set_ball_carrier above has already made the interceptor.
         await self.begin_run_back(
             interaction,
             game,
             match,
-            stays_player_id=challenger_id,
             speed_choice_after=True,
             lead_in=(
                 "**Steal Intercept:**\n"
@@ -2786,13 +2787,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # clamping, same reasoning as Block Deflect above.
         if stolen:
             # The stealing player keeps the ball and stays put --
-            # everyone else who's out of position runs back.
+            # everyone else who's out of position runs back. Read off
+            # the carrier set above, not passed in.
             await self.begin_run_back(
                 interaction,
                 game,
                 match,
                 lead_in=content,
-                stays_player_id=match.challenger_id,
             )
         else:
             await self.finish_maneuver_resolution(
@@ -3760,7 +3761,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         distance_moved: int = 1,
         turnover_occurred: bool = True,
         new_play: bool = False,
-        stays_player_id: Optional[str] = None,
         speed_choice_after: bool = False,
         lead_in: str = "",
     ) -> None:
@@ -3782,12 +3782,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         and by the time anything is saved the state already says which
         of the two happened -- a window open, or a run back pending.
 
-        `stays_player_id` is set only for a turnover created by a
-        steal (Steal Intercept, or the Defender's Pressure-ability
-        steal) -- that player keeps the ball and is exempt from
-        running back, unlike every other turnover (a goal, a missed
-        shot, Block Deflect's scoring opportunity), where nobody gets
-        that exemption.
+        **The player holding the ball does not run back**, whoever they
+        are -- see "The ball carrier" and "Running back after a steal"
+        in docs/living-rules.md. The exemption is read off
+        `ball_carrier_id` rather than passed in, because the two are
+        the same fact: a run back that moved the ball's holder would
+        run them off the ball and charge them for it. It used to be a
+        `stays_player_id` argument that only Steal Intercept and a
+        Defender's Pressure steal passed, which left a loose-ball or
+        High Pass winner -- equally the holder -- being run back off
+        the ball they had just won.
+
+        A new play exempts nobody: the ball went dead, so nobody is
+        carrying it, and the reset that follows moves both sides
+        whatever they were doing.
 
         `speed_choice_after` is set only for Steal Intercept -- once
         run-back finishes, its defender still gets to manipulate the
@@ -3836,10 +3844,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
+        if new_play:
+            # The ball is dead. Clearing here as well as in
+            # announce_new_play_reset is what keeps the exemption below
+            # honest: a goal scored off a High Pass set-up leaves the
+            # receiver still recorded as carrying it, and they are not
+            # -- the ball is on its way back to the kickoff space.
+            match.clear_ball_carrier()
+
         match.pending_run_back = True
         match.pending_run_back_distance = distance_moved
         match.pending_run_back_turnover = turnover_occurred
-        match.pending_run_back_stays_player_id = stays_player_id
+        match.pending_run_back_stays_player_id = match.ball_carrier_id
         match.pending_run_back_speed_choice = speed_choice_after
         game.match_state = match.to_dict()
         save_games(self.games)

@@ -595,5 +595,159 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(match.ball_carrier_id)
 
 
+class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The player holding the ball does not run back, whoever they are
+    (author, 2026-08-09). begin_run_back reads the exemption off
+    ball_carrier_id rather than taking it as an argument, because the
+    two are one fact -- running the ball's holder back would move them
+    off the ball and charge them for it.
+    """
+
+    def build(self) -> tuple[D12Ball, D12BallGame, MatchState]:
+        cog = build_cog()
+        cog.announce_run_back = mock.AsyncMock()
+        cog.announce_new_play_reset = mock.AsyncMock()
+        cog.begin_substitution_window = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
+        cog.end_period = mock.AsyncMock()
+        game = build_game()
+        cog.games[game.game_id] = game
+        match = cog.initialize_standard_match(game)
+        return cog, game, match
+
+    def displaced_winner(self, cog: D12Ball, match: MatchState) -> str:
+        """
+        A contestant sent after a ball outside their own zone, who then
+        wins it: standing in midfield, assigned to the visitors' goal.
+        Before the exemption generalised, the run back moved them.
+        """
+        setup = match.visiting
+        winner = next(
+            player_id
+            for player_id in setup.field_players
+            if setup.assigned_zone(player_id) == Zone.VISITORS_GOAL
+        )
+        match.board.remove_meeple(winner)
+        match.board.place_meeple(winner, Zone.MIDFIELD, 1)
+        match.ball.possession = TeamSide.VISITING
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        return winner
+
+    async def test_a_contest_winner_is_not_run_back_off_the_ball(
+        self,
+    ) -> None:
+        cog, game, match = self.build()
+        winner = self.displaced_winner(cog, match)
+        match.set_ball_carrier(winner)
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_run_back(build_interaction(), game, match)
+
+        self.assertEqual(match.pending_run_back_stays_player_id, winner)
+        self.assertNotIn(
+            winner, cog.run_back_displaced(match, TeamSide.VISITING),
+        )
+
+    async def test_the_same_player_is_run_back_without_the_ball(
+        self,
+    ) -> None:
+        """
+        The other half: the exemption is the ball, not the player. The
+        identical position with nobody carrying it still runs back.
+        """
+        cog, game, match = self.build()
+        winner = self.displaced_winner(cog, match)
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_run_back(build_interaction(), game, match)
+
+        self.assertIsNone(match.pending_run_back_stays_player_id)
+        self.assertIn(
+            winner, cog.run_back_displaced(match, TeamSide.VISITING),
+        )
+
+    async def test_a_new_play_exempts_nobody(self) -> None:
+        """
+        A goal scored off a High Pass set-up leaves the receiver still
+        recorded as carrying it. They are not -- the ball went dead,
+        and the reset moves both sides whatever they were doing.
+        """
+        cog, game, match = self.build()
+        shooter = self.displaced_winner(cog, match)
+        match.set_ball_carrier(shooter)
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_run_back(
+                build_interaction(), game, match, new_play=True,
+            )
+
+        self.assertIsNone(match.ball_carrier_id)
+        self.assertIsNone(match.pending_run_back_stays_player_id)
+
+    def test_substituting_the_carrier_moves_the_carry_with_it(self) -> None:
+        """
+        The exemption already followed the position rather than the
+        player; the carry has to travel with it, or the replacement is
+        exempt from running back while the carry points at somebody no
+        longer on the field.
+        """
+        cog, game, match = self.build()
+        carrier = self.displaced_winner(cog, match)
+        replacement = match.visiting.player_board.bench[0]
+        match.set_ball_carrier(carrier)
+        match.pending_run_back_stays_player_id = carrier
+
+        match.inherit_run_back_exemption(carrier, replacement)
+
+        self.assertEqual(match.ball_carrier_id, replacement)
+        self.assertEqual(
+            match.pending_run_back_stays_player_id, replacement,
+        )
+
+    def test_trading_the_carrier_s_meeple_moves_the_carry_with_it(
+        self,
+    ) -> None:
+        """
+        swap_meeple_positions, not swap_field_positions: trading two
+        meeples moves whoever is standing on the ball, so the carry
+        goes with the space. Exchanging zone *assignments* leaves both
+        meeples where they are, so it leaves the carry alone too.
+        """
+        cog, game, match = self.build()
+        carrier = self.displaced_winner(cog, match)
+        other = next(
+            player_id
+            for player_id in match.visiting.field_players
+            if player_id != carrier
+        )
+        match.set_ball_carrier(carrier)
+        match.pending_run_back_stays_player_id = carrier
+
+        match.swap_meeple_positions(TeamSide.VISITING, carrier, other)
+
+        self.assertEqual(match.ball_carrier_id, other)
+        self.assertEqual(match.pending_run_back_stays_player_id, other)
+
+    def test_reassigning_zones_leaves_the_carry_where_it_is(self) -> None:
+        """
+        A zone swap moves cards, not meeples -- the player standing on
+        the ball is still standing on it.
+        """
+        cog, game, match = self.build()
+        carrier = self.displaced_winner(cog, match)
+        other = next(
+            player_id
+            for player_id in match.visiting.field_players
+            if match.visiting.assigned_zone(player_id)
+            != match.visiting.assigned_zone(carrier)
+        )
+        match.set_ball_carrier(carrier)
+
+        match.swap_field_positions(TeamSide.VISITING, carrier, other)
+
+        self.assertEqual(match.ball_carrier_id, carrier)
+
+
 if __name__ == "__main__":
     unittest.main()
