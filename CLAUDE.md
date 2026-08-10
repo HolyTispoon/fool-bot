@@ -303,6 +303,44 @@ rules for why the ranking is no longer the whole story.
   paid to an injured player. This was got backwards once, as the loss of a
   role's bonus; the name for it is "skill modifier".
 
+## Every roll is a coach's
+
+**Nothing rolls dice on its own.** A skill test, a score attempt, a loose ball,
+an own goal and an injury test all wait behind a button, and any coach in the
+game may press it -- one roll by one player is still their roll to throw, and
+letting either side press it is what keeps a solo game moving when the risk is
+the AI's. The two that were not always like this were the one-sided ones: the
+own goal and the injury test had no opposing roll to wait for, so the bot rolled
+them itself and posted the answer.
+
+Both are now places a turn can **stop**, and that is the whole cost of it:
+
+- **What the roll was going to do next has to outlive the wait.** An own goal
+  carries `pending_own_goal_distance`, the clock cost of the maneuver that
+  risked it, which the roll spends whichever way it goes. Injury tests carry
+  `pending_injury_resume`, which is the contest's continuation -- a maneuver's
+  skill test resumes into its winner's effect, a loose ball (or the long High
+  Pass borrowing its machinery) into its run back, with the two arguments that
+  run back needs. Neither is derivable after the fact: `settled_maneuver_winner`
+  answers None while a test is owed, and the contest that knew the distance has
+  already cleared itself. Both are persisted, and `reset_maneuver` clears them
+  with everything else the turn set.
+- **`pending_injury_tests` is a queue, and `continue_injury_tests` is its only
+  exit.** A contest can owe two tests; they are asked one at a time and the
+  continuation fires when the last one is answered. A test that turns out not to
+  be owed -- the player is already injured -- leaves by the same door rather
+  than returning, so this can never be where a turn stops for good. **Nothing is
+  written when nothing is owed**: `begin_injury_tests` goes straight to the
+  continuation, which is the common case and the one that has to stay free.
+- **Both are checked ahead of everything else in `pending_turn_view`**, because
+  both interrupt a turn whose own state is still set underneath them -- a skill
+  test comes back with its challenger and both maneuvers in place, an own goal
+  with the Pressure that risked it still live, and either would otherwise be
+  answered by the maneuver branches.
+- **The player is in the injury button's custom_id as well as in the queue**, so
+  a coach who scrolls back to the first of two prompts cannot roll the second
+  player's test with it.
+
 ## Where a shot may be taken from
 
 A team may only shoot from within **shooting range** -- see "Score attempt" and
@@ -879,11 +917,14 @@ Two things follow from that:
   `close_coaching_window`, and asks the offense to choose again. It refuses
   during setup and halftime: those are real positions in the game rather than a
   turn gone wrong, and clearing them would drop a coach's window on the floor.
-- **`/d12ball offensive_choice`'s two refusals point at resume.** "A score
+- **`/d12ball offensive_choice`'s refusals all point at resume.** "A score
   attempt is already in progress" was the symptom that started this:
   `pending_action` stays `"shoot"` for the whole post-goal sequence, since only
   `reset_maneuver` at the end of the turn clears it, so a restart during the new
-  play's coaching window leaves it set with the window still open.
+  play's coaching window leaves it set with the window still open. The third
+  refusal is a roll a coach still owes (see "Every roll is a coach's"), which
+  `pending_action` says nothing about -- `choose_challenger` cleared it when the
+  maneuver that led there began.
 - **Abandoning archives, it does not delete.** The channel is the record of what
   happened, deleting one is the tightest rate limit Discord has, and keeping the
   saved game is what stops the PBD number being handed out twice (see the

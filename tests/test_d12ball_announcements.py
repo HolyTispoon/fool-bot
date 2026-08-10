@@ -45,7 +45,6 @@ def build_cog() -> D12Ball:
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
-    cog.run_injury_test = mock.AsyncMock()
     cog.begin_effect_resolution = mock.AsyncMock()
     cog.begin_run_back = mock.AsyncMock()
     return cog
@@ -379,6 +378,8 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         match.move_meeple(
             match.active_player_id, match.ball.zone, match.ball.space_index,
         )
+        match.pending_own_goal = True
+        match.pending_own_goal_distance = 1
         game.match_state = match.to_dict()
 
         interaction = build_interaction()
@@ -387,28 +388,28 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("cogs.d12ball.render_own_goal_dice"), mock.patch(
             "cogs.d12ball.discord.File",
         ):
-            await cog.run_own_goal_roll(
-                interaction, game, match, distance_moved=1,
-            )
+            await cog.run_own_goal_roll(interaction, game, match)
         return cog, interaction
 
     async def test_an_own_goal_is_announced_after_its_dice(self) -> None:
         _, interaction = await self.roll_own_goal(1)
 
-        first, second = interaction.followup.send.await_args_list[:2]
-        self.assertIn("file", first.kwargs)
-        self.assertNotIn("Own goal!", first.args[0])
-        self.assertIn("# Own goal!", second.args[0])
+        # The roll prompt becomes the dice, and the verdict follows it
+        # in a message of its own.
+        dice_message = interaction.edit_original_response.await_args.kwargs
+        self.assertIn("attachments", dice_message)
+        self.assertNotIn("Own goal!", dice_message["content"])
+        self.assertIn("# Own goal!", sent_texts(interaction)[0])
 
     async def test_avoiding_an_own_goal_is_announced_after_its_dice(
         self,
     ) -> None:
         _, interaction = await self.roll_own_goal(12)
 
-        first, second = interaction.followup.send.await_args_list[:2]
-        self.assertIn("file", first.kwargs)
-        self.assertNotIn("avoided", first.args[0])
-        self.assertIn("## Own goal avoided!", second.args[0])
+        dice_message = interaction.edit_original_response.await_args.kwargs
+        self.assertIn("attachments", dice_message)
+        self.assertNotIn("avoided", dice_message["content"])
+        self.assertIn("## Own goal avoided!", sent_texts(interaction)[0])
 
     # -- Which turnovers open a substitution window ---------------------
     #

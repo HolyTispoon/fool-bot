@@ -733,14 +733,24 @@ class MatchState:
     pending_run_back_speed_choice: bool = False
     pending_kickoff_fill: bool = False
     pending_shot_is_set_up: bool = False
-    # A High Pass was clamped short of the distance the coach asked
-    # for, so the ball speed modifier is paid the other way round for
-    # whatever that overshoot leads to -- the set-up's shot, or the
-    # long-pass contest a declined set-up falls into. Persisted
-    # because both of those outlive the effect that set it: the shot
-    # is a view a restart re-attaches, and the contest is rolled a
-    # click later. See ball_speed_modifier.
+    # A High Pass was clamped short of the distance thrown, so the
+    # ball speed modifier is paid the other way round for whatever
+    # that overshoot leads to -- the set-up's shot, or the long-pass
+    # contest behind it. Persisted because both of those outlive the
+    # effect that set it: the shot is a view a restart re-attaches,
+    # and the contest is rolled a click later. See ball_speed_modifier.
     pending_high_pass_overshoot: bool = False
+    # An own-goal roll waiting on a button. The distance is the clock
+    # cost of the maneuver that risked it, held here because it is the
+    # roll's continuation that spends it and the roll is now a step of
+    # its own -- see begin_own_goal_roll.
+    pending_own_goal: bool = False
+    pending_own_goal_distance: int = 1
+    # The injury tests a resolved skill test still owes, in the order
+    # they are asked for, and what the contest was going to do once
+    # they were done. Both are consumed by continue_injury_tests.
+    pending_injury_tests: list[str] = field(default_factory=list)
+    pending_injury_resume: Optional[dict] = None
     pending_loose_ball: bool = False
     pending_loose_ball_distance: int = 1
     pending_loose_ball_is_high_pass: bool = False
@@ -1469,6 +1479,10 @@ class MatchState:
         self.pending_kickoff_fill = False
         self.pending_shot_is_set_up = False
         self.pending_high_pass_overshoot = False
+        self.pending_own_goal = False
+        self.pending_own_goal_distance = 1
+        self.pending_injury_tests = []
+        self.pending_injury_resume = None
         self.pending_loose_ball = False
         self.pending_loose_ball_distance = 1
         self.pending_loose_ball_is_high_pass = False
@@ -2523,6 +2537,14 @@ class MatchState:
             "pending_kickoff_fill": self.pending_kickoff_fill,
             "pending_shot_is_set_up": self.pending_shot_is_set_up,
             "pending_high_pass_overshoot": self.pending_high_pass_overshoot,
+            "pending_own_goal": self.pending_own_goal,
+            "pending_own_goal_distance": self.pending_own_goal_distance,
+            "pending_injury_tests": list(self.pending_injury_tests),
+            "pending_injury_resume": (
+                dict(self.pending_injury_resume)
+                if self.pending_injury_resume is not None
+                else None
+            ),
             "pending_loose_ball": self.pending_loose_ball,
             "pending_loose_ball_distance": self.pending_loose_ball_distance,
             "pending_loose_ball_is_high_pass": (
@@ -2630,6 +2652,12 @@ class MatchState:
             pending_high_pass_overshoot=data.get(
                 "pending_high_pass_overshoot", False
             ),
+            pending_own_goal=data.get("pending_own_goal", False),
+            pending_own_goal_distance=data.get(
+                "pending_own_goal_distance", 1
+            ),
+            pending_injury_tests=list(data.get("pending_injury_tests", [])),
+            pending_injury_resume=data.get("pending_injury_resume"),
             pending_loose_ball=data.get("pending_loose_ball", False),
             pending_loose_ball_distance=data.get(
                 "pending_loose_ball_distance", 1

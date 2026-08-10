@@ -10,7 +10,7 @@ not cosmetic: `SkillTestView` reloads the saved state to resolve the
 roll and hands out an injury check to whoever is in `match.exhausted`
 by then, so a dropped flag is a skipped injury check.
 
-See D12Ball.apply_exhaustion and D12Ball.run_injury_test in
+See D12Ball.apply_exhaustion and D12Ball.begin_injury_tests in
 cogs/d12ball.py, and "Exhaustion and injury" in
 docs/living-rules.md.
 """
@@ -41,7 +41,7 @@ def build_cog() -> D12Ball:
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
     cog.begin_effect_resolution = mock.AsyncMock()
-    cog.run_injury_test = mock.AsyncMock()
+    cog.begin_injury_tests = mock.AsyncMock()
     return cog
 
 
@@ -181,7 +181,9 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
             await view.roll(interaction)
 
         self.assertIn(offense_id, cog.load_match_state(game).exhausted)
-        cog.run_injury_test.assert_not_awaited()
+        # A tie resolves nothing, so it owes no injury test: the
+        # queue is only ever built when the contest ends.
+        cog.begin_injury_tests.assert_not_awaited()
 
     async def test_apply_exhaustion_charges_and_tests_together(self) -> None:
         cog = build_cog()
@@ -217,13 +219,15 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
                 match.ball.possession = TeamSide.HOME
                 match.set_ball_space(zone, space_index)
                 match.active_player_id = player_id
+                match.pending_own_goal = True
+                match.pending_own_goal_distance = 1
                 game.match_state = match.to_dict()
 
                 with mock.patch("cogs.d12ball.save_games"), mock.patch(
                     "cogs.d12ball.random.randint", return_value=roll,
                 ):
                     await cog.run_own_goal_roll(
-                        build_interaction(), game, match, distance_moved=1,
+                        build_interaction(), game, match,
                     )
 
                 self.assertEqual(

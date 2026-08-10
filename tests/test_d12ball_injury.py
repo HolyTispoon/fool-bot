@@ -234,7 +234,6 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
 
     def build(self, injure_midfielder: bool):
         cog = build_cog()
-        cog.run_injury_test = mock.AsyncMock()
         game = build_game()
         cog.games[game.game_id] = game
         match = cog.initialize_standard_match(game)
