@@ -48,13 +48,13 @@ minutes. The team with the most goals at the end wins.
 | **Space** | One area of the field. The ball and every meeple are always located on a space. |
 | **Zone** | A group of adjacent spaces: home goal, midfield, visitors goal. |
 | **Shooting range** | The far part of the field, from the middle to the goal a team attacks -- the only place they may [shoot](#score-attempt) from. Measured from the middle of the board, so it is not a zone: see [shooting range](#shooting-range). |
-| **Player card** | contain a player's infor including their role, skill scores and ability. Its position on the team board shows the **zone** that player is assigned to. |
-| **Meeple** | A player's token on the field. Shows the **space** that player is standing on right now. |
-| **Field player** | One of the six players a team has on the field. |
+| **Player card** | contain a player's information including their role, skill scores and ability. Its position on the team board shows the **zone** that player is assigned to. |
+| **Meeple** | A player's token on the field. Shows the **space** that player is standing on at any given moment. |
+| **Fielded player** | One of the six players a team has on the field. Their player card will be assigend to one of the zones. |
 | **Forward / back** | Forward is toward the goal a team is attacking; back is toward the goal it defends. Always relative to the team being spoken about. |
 | **Possession** | Which team holds the ball. Tracked separately from the ball's space. |
-| **Arrangement** | The spaces a coach last *put* their meeples on, at a [Coaching Choice](#coaching-choice). A [new play](#resetting-after-a-new-play) puts them back on it. |
-| **Turnover** | Possession changing hands, for any reason. |
+| **Arrangement** | The spaces a coach last *placed* their meeples on, at a [Coaching Choice](#coaching-choice). A [new play](#resetting-after-a-new-play) returns them back. |
+| **Turnover** | Possession changing hands. |
 | **Skill test** | The opposed d12 roll used to settle a tied maneuver, a loose ball, and a long High Pass. |
 | **Space minute** | The unit of game time. A period is 15 of them. |
 
@@ -79,7 +79,7 @@ team does the reverse.
 
 <a id="shooting-range"></a>
 **Shooting range.** A team is **within shooting range** once the ball has passed the middle
-of the field, and a [score attempt](#score-attempt) is the only thing that depends on it.
+of the field, and is in their posession. At that poin, they may [shoot to score](#score-attempt).
 Range is measured from the middle of the *board*, not from a zone boundary -- it is not one
 of the three zones, and it cuts across midfield:
 
