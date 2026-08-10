@@ -245,19 +245,31 @@ have. A carrier is one of those players too; the rule takes the choice away, not
 | **Steal Intercept** wins | The interceptor |
 | **Low Pass** completes | The receiver -- the player the passer aimed at, which is the same player a Winger's set-up would offer the shot to |
 | **High Pass** of 2 is received | The receiver, whether or not the set-up is offered or taken |
+| A **long High Pass contest** is settled | Whoever won it -- the receiver who kept the ball, or the defender who took it |
+| A **[loose ball](#loose-ball)** is settled | Whoever won it, on the skill test or unopposed |
+
+**A contest is won by a player, not by a team.** Both contests end with one named player
+standing on the ball having just fought for it, so both name a carrier however they were
+settled -- on the roll, or because only one side sent anybody.
 
 **Everything else leaves nobody carrying it**, and the coach chooses:
 
-- a **[loose ball](#loose-ball)**, however it is won -- the ball was free and got picked up;
-- a **long High Pass contest**, which is fought for the same way;
 - a **[new play](#steals-and-new-plays)** and the [reset](#resetting-after-a-new-play) it
   brings, and the kickoff that starts each period -- the ball went dead;
+- the two placements a restart owes -- **picking up an out-of-bounds ball**, and **filling the
+  kickoff space** after a goal -- where the coach is already choosing who goes to the ball;
 - a **Block Deflect**, which sends the ball back to a space rather than to a player.
 
 **A carry lasts exactly one turn.** It is set by the resolution that ends a turn and spent by
-the turn that follows; nothing carries over further than that. The player also has to still be
-standing on the ball for the side in possession when their turn comes -- which every carry
-above guarantees, since none of them can be run back or displaced in between.
+the turn that follows; nothing carries over further than that.
+
+**A carrier who is no longer on the ball when their turn comes does not carry it**, and their
+coach chooses from whoever is. The maneuvers above cannot leave one stranded, but a contest
+can: the winner of a loose ball or a long High Pass is only exempt from
+[running back](#running-back-after-a-steal) if they took the ball as a
+[steal](#steals-and-new-plays), and a winner assigned to another zone runs back out of the
+ball's zone like anyone else. Whether winning a contest should carry that exemption too is
+[open](rules-log.md#does-winning-a-contest-exempt-the-winner-from-running-back).
 
 **A carrier still chooses their action.** They may shoot as readily as maneuver, subject to
 [shooting range](#shooting-range) like anyone else. What is fixed is who acts, not what they

@@ -45,15 +45,22 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
-### Does a won long High Pass contest name a ball carrier?
+### Does winning a contest exempt the winner from running back?
 
-The [ball carrier](living-rules.md#the-ball-carrier) rule was given for the resolutions that
-hand the ball over; a 3-or-4-space High Pass instead makes the receiver *win* it. Read as a
-contest it is like a loose ball, and nobody carries it -- which is how it is written and
-built. Read as a pass that happened to be checked, the receiver was still the player it was
-aimed at, and they would carry it. Only the receiver and one defender can be standing there,
-so in practice this decides very little; it is worth an answer for consistency rather than
-for play.
+Raised by the answer below: a contest winner is now the [ball
+carrier](living-rules.md#the-ball-carrier), but only a *steal* exempts a player from
+[running back](living-rules.md#running-back-after-a-steal), and the exemption names two
+resolutions -- Steal Intercept and a Defender's Pressure steal. A loose ball won by a
+contestant whose card is assigned to another zone therefore runs them back out of the ball's
+zone, off the ball they just won, and the carry is dropped: the game says they are holding it
+and then moves them.
+
+Reproduced, and it predates the carrier rule -- the run back could always pull the ball's
+holder away, it just went unnoticed while the next turn was a free choice among whoever
+remained. The two readings: winning a live ball off the other side *is* a steal (the turnover
+table already calls it one), so the exemption should follow; or the exemption is deliberately
+the two named resolutions and a contestant who ran in from another zone is out of position
+whatever they are holding. **This is the one thing the ball-carrier work left inconsistent.**
 
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
@@ -65,7 +72,28 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-09 (latest) -- author, the ball is carried by a player
+### 2026-08-09 (latest) -- author, a contest winner carries the ball
+
+*Answering the question the entry below left open, and extending it to the loose ball in the
+same breath.*
+
+- **Whoever wins a contest is the ball handler.** The author's answer: the receiver of a High
+  Pass who wins the contest, the challenger who wins it instead, and the winner of a loose
+  ball. So a contest names a carrier the same way a pass does -- it was the last resolution
+  that could still be read as leaving the ball to a space rather than to a person, and it
+  does not.
+- **An unopposed recovery counts.** Only one side sending anybody is still how that player
+  came to be holding it, so the branch that skips the roll names a carrier too.
+- **What is left free is now only the dead ball**: a new play and its reset, the kickoff, the
+  two placements a restart owes, and a Block Deflect, which sends the ball to a space rather
+  than to anyone.
+- **This exposed an inconsistency in the run back**, recorded in
+  [Still open](#does-winning-a-contest-exempt-the-winner-from-running-back). Only a steal
+  exempts a player from running back, and the exemption names Steal Intercept and a
+  Defender's Pressure steal -- so a contest winner assigned to another zone is run back off
+  the ball they just won. Left as it was, pending an answer.
+
+### 2026-08-09 (later still, again) -- author, the ball is carried by a player
 
 *Given as three cases; the general rule behind them, and the two edges it reaches, were
 confirmed in the same exchange.*
