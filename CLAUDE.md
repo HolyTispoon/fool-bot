@@ -622,9 +622,30 @@ its channel. `/d12ball resume` puts the question back up and
 to either player in the game, or to anyone with `manage_channels`
 (`may_administer_game`).
 
-Three ways a restart strands a game, none of which is an ephemeral message —
-**no view in this cog is ever attached to one**; `ephemeral=True` is only ever
-used for error replies with no buttons on them:
+**There is exactly one ephemeral view in the game, and it is the maneuver
+pick.** `ManeuverActionSelectView` has to be ephemeral — a coach must not see
+the other side's choice before the reveal, and it is the only thing Discord
+offers that hides it. Everywhere else `ephemeral=True` carries an error reply
+with no buttons on it. That one view is also the only one a restart cannot
+re-attach to its message: the bot never holds a durable handle to an ephemeral
+message, so there is no id to give `add_view`.
+
+`restore_maneuver_menus` is the way round it. `add_view` **without** a
+message_id lands the view under a `None` key, and discord.py's
+`ViewStore.dispatch_view` looks a click up by `(message_id, custom_id)` and then
+falls back to `(None, custom_id)` — so the menu a coach already has open starts
+answering again after a restart. It is safe because the custom_ids already carry
+the game and the side (`d12ball:maneuver_pick:<game>:<side>:<maneuver>`), and
+because a message_id match wins over the fallback, so the next menu the game
+opens is dispatched to its own view as usual. The registration outlives the
+maneuver, which costs nothing: `pick` re-reads the match and answers "a maneuver
+has already been chosen for that side." The fallback is asserted against
+discord.py's own store in `tests/test_d12ball_recovery.py`, because the whole
+thing rests on it surviving a library upgrade. Failing all that, the public
+"Choose Your Maneuver" button *is* restored normally, and clicking it opens a
+fresh menu.
+
+Three more ways a restart strands a game, none of them about ephemerality:
 
 - The prompt was **deleted** before the restart. `refresh_maneuver_prompt` drops
   the maneuver prompt once both sides have picked and clears `turn_message_id`

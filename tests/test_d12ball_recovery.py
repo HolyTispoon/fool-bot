@@ -27,6 +27,8 @@ from cogs.d12ball_views import (
     CoachingHubView,
     CoachingOfferView,
     HalftimeExtraTokenView,
+    ManeuverActionPromptView,
+    ManeuverActionSelectView,
     PlayerActionView,
     ScoreAttemptView,
     SkillTestView,
@@ -236,6 +238,137 @@ class PendingTurnViewTests(unittest.TestCase):
         view, _ = cog.pending_turn_view("g1", match)
 
         self.assertIsInstance(view, PlayerActionView)
+
+
+class ManeuverMenuRestoreTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The maneuver pick is the one ephemeral view in the game -- a coach
+    must not see the other side's choice before the reveal -- and so
+    the one view a restart cannot re-attach to its message. It is
+    registered without a message id instead, which discord.py
+    dispatches by custom_id alone.
+
+    That fallback is the load-bearing claim here, so it is exercised
+    against a real ViewStore rather than asserted about.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build(self) -> tuple[D12Ball, D12BallGame, MatchState]:
+        cog = build_cog()
+        cog.bot = SimpleNamespace(add_view=mock.Mock())
+        game = build_game()
+        cog.games[game.game_id] = game
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+            home_formation=Formation.TWO_TWO_TWO,
+        )
+        match.active_player_id = match.eligible_ball_handlers()[0]
+        match.challenger_id = match.visiting.field_players[0]
+        game.match_state = match.to_dict()
+        return cog, game, match
+
+    def test_both_sides_are_restored_while_both_still_owe_a_pick(
+        self,
+    ) -> None:
+        cog, game, match = self.build()
+
+        self.assertEqual(cog.restore_maneuver_menus(game, match), 2)
+        sides = [
+            call.args[0].side for call in cog.bot.add_view.call_args_list
+        ]
+        self.assertEqual(sides, ["offense", "defense"])
+
+    def test_a_side_that_has_already_picked_is_not_restored(self) -> None:
+        cog, game, match = self.build()
+        match.offense_maneuver = "Low Pass"
+
+        self.assertEqual(cog.restore_maneuver_menus(game, match), 1)
+        self.assertEqual(cog.bot.add_view.call_args.args[0].side, "defense")
+
+    def test_an_uncontested_maneuver_has_no_defensive_menu(self) -> None:
+        cog, game, match = self.build()
+        match.challenger_id = None
+        match.maneuver_uncontested = True
+
+        self.assertEqual(cog.restore_maneuver_menus(game, match), 1)
+        self.assertEqual(cog.bot.add_view.call_args.args[0].side, "offense")
+
+    def test_the_restored_menu_is_registered_with_no_message_id(
+        self,
+    ) -> None:
+        """
+        The whole trick: there is no id to give, because the bot never
+        holds a durable handle to an ephemeral message.
+        """
+        cog, game, match = self.build()
+
+        cog.restore_maneuver_menus(game, match)
+
+        for call in cog.bot.add_view.call_args_list:
+            self.assertNotIn("message_id", call.kwargs)
+            self.assertTrue(call.args[0].is_persistent())
+
+    async def test_discord_dispatches_it_by_custom_id_alone(self) -> None:
+        """
+        `add_view` with no message_id lands under a None key, and
+        `dispatch_view` falls back to that key when the message it was
+        clicked on is unknown -- which every ephemeral message is. Run
+        through discord.py's own store and all the way to the callback,
+        because the whole restore rests on that fallback surviving an
+        upgrade.
+        """
+        import asyncio
+
+        from discord.ui.view import ViewStore
+
+        cog, game, match = self.build()
+        store = ViewStore(SimpleNamespace(loop=asyncio.get_running_loop()))
+        cog.bot = SimpleNamespace(
+            add_view=lambda view, message_id=None: store.add_view(
+                view, message_id,
+            ),
+        )
+
+        cog.restore_maneuver_menus(game, match)
+
+        # Stopping at _dispatch_item rather than letting the callback
+        # run: what is under test is the lookup, and everything past
+        # this point is discord.py driving a real interaction.
+        dispatched: list = []
+        with mock.patch.object(
+            ManeuverActionSelectView,
+            "_dispatch_item",
+            lambda self, item, interaction: dispatched.append(item),
+        ):
+            store.dispatch_view(
+                discord.ComponentType.button.value,
+                f"d12ball:maneuver_pick:{game.game_id}:offense:Low Pass",
+                # An id no view was registered under: an ephemeral
+                # message the bot has never seen before.
+                SimpleNamespace(message=SimpleNamespace(id=123456789)),
+            )
+
+        self.assertEqual(len(dispatched), 1, "the None-keyed fallback is gone")
+        self.assertEqual(dispatched[0].label, "Low Pass")
+
+    def test_a_restart_mid_maneuver_restores_the_menus(self) -> None:
+        # End to end through the startup path: the prompt view is what
+        # says a maneuver is under way, and it is the only route to the
+        # ephemeral menus.
+        cog, game, match = self.build()
+
+        turn_view, _ = cog.pending_turn_view(game.game_id, match)
+
+        self.assertIsInstance(turn_view, ManeuverActionPromptView)
+        self.assertEqual(cog.restore_maneuver_menus(game, match), 2)
 
 
 class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):

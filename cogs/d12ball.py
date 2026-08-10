@@ -107,6 +107,7 @@ from cogs.d12ball_views import (
     LooseBallSkillTestView,
     LowPassChoiceView,
     ManeuverActionPromptView,
+    ManeuverActionSelectView,
     ManeuverChallengeView,
     PlayerActionView,
     RematchView,
@@ -276,6 +277,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     message_id=game.turn_message_id,
                 )
                 restored_views += 1
+
+                if isinstance(turn_view, ManeuverActionPromptView):
+                    # The maneuver menu a coach may have open right
+                    # now, which is ephemeral and so has no message to
+                    # re-attach to. Only reachable from here: a
+                    # maneuver under way always has its prompt on
+                    # turn_message_id, since that is only cleared once
+                    # both sides have picked and the menus are gone
+                    # with it.
+                    restored_views += self.restore_maneuver_menus(game, match)
 
         LOGGER.info(
             "Loaded %d saved D12 Ball games and restored %d button "
@@ -1096,6 +1107,64 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 self, game_id, match.challenger_id, "defense",
             )
         return None
+
+    def restore_maneuver_menus(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> int:
+        """
+        Bring an open maneuver menu back to life after a restart, and
+        say how many were registered.
+
+        **The maneuver pick is the one ephemeral view in the game**,
+        and it has to be: a coach must not see the other side's choice
+        before the reveal, and ephemeral is the only thing Discord
+        offers that hides it. It is also therefore the one view that
+        cannot be re-attached the ordinary way -- the bot never holds a
+        durable handle to an ephemeral message, so there is no id to
+        give `add_view`.
+
+        `add_view` **without** a message_id is the way round it.
+        discord.py looks a component interaction up by
+        `(message_id, custom_id)` and then falls back to
+        `(None, custom_id)`, so a view registered this way is
+        dispatched for any message carrying its custom_ids -- the
+        coach's already-open ephemeral menu included. Verified against
+        `ViewStore.dispatch_view`; the fallback is deliberate and
+        documented there.
+
+        Two things make it safe rather than a scattergun:
+
+        - **The custom_ids already carry the game and the side**
+          (`d12ball:maneuver_pick:<game>:<side>:<maneuver>`), so
+          nothing can be dispatched into the wrong game.
+        - **A message_id match wins over the fallback**, so the next
+          menu this game opens is dispatched to its own view as usual.
+          This one only ever catches clicks nothing else claims.
+
+        The registration outlives the maneuver -- there is no message
+        to hang its removal on either -- but a stale click costs
+        nothing: `pick` re-reads the match and answers "a maneuver has
+        already been chosen for that side."
+        """
+        sides = []
+        if match.offense_maneuver is None:
+            sides.append("offense")
+        if match.defense_maneuver is None and not match.maneuver_uncontested:
+            sides.append("defense")
+
+        for side in sides:
+            # timeout=None because add_view refuses anything else: a
+            # view it cannot see the message for has nothing to time
+            # out against.
+            self.bot.add_view(
+                ManeuverActionSelectView(
+                    self, game.game_id, side, timeout=None,
+                ),
+            )
+
+        return len(sides)
 
     def pending_turn_view(
         self,
