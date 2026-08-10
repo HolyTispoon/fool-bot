@@ -263,13 +263,13 @@ settled -- on the roll, or because only one side sent anybody.
 **A carry lasts exactly one turn.** It is set by the resolution that ends a turn and spent by
 the turn that follows; nothing carries over further than that.
 
-**A carrier who is no longer on the ball when their turn comes does not carry it**, and their
-coach chooses from whoever is. The maneuvers above cannot leave one stranded, but a contest
-can: the winner of a loose ball or a long High Pass is only exempt from
-[running back](#running-back-after-a-steal) if they took the ball as a
-[steal](#steals-and-new-plays), and a winner assigned to another zone runs back out of the
-ball's zone like anyone else. Whether winning a contest should carry that exemption too is
-[open](rules-log.md#does-winning-a-contest-exempt-the-winner-from-running-back).
+**Carrying the ball is also what exempts a player from
+[running back](#running-back-after-a-steal)**, so nothing that follows a turnover can move the
+carrier off the ball before their turn comes. The two are one rule read from either end: the
+ball's holder keeps it, and keeping it is why they stay put.
+
+**A carrier who is somehow no longer on the ball when their turn comes does not carry it**,
+and their coach chooses from whoever is.
 
 **A carrier still chooses their action.** They may shoot as readily as maneuver, subject to
 [shooting range](#shooting-range) like anyone else. What is fixed is who acts, not what they
@@ -707,9 +707,14 @@ nothing guarantees the coach's arrangement puts anybody on the space in question
 - It therefore **separates teammates who ended up stacked** on one space within their own
   zone, whenever another space in that zone has none of their players on it. Once every space
   in the zone is covered the stack stands -- nobody is moved somewhere that does not help.
-- **The stealing player is exempt.** The player who took the ball -- by Steal Intercept, or by
-  a Defender's Pressure steal -- stays where they ended up; everyone else displaced still runs
-  back. Where a stacked pair has to be separated, the exempt player is the one who stays put.
+- **The player holding the ball is exempt.** Whoever the turnover left
+  [carrying](#the-ball-carrier) it stays where they ended up -- the interceptor, the Defender
+  who stole it on a Pressure, the winner of a loose ball or a long High Pass. Running them
+  back would move them off the ball they are holding and charge them for it. Everyone else
+  displaced still runs back, and where a stacked pair has to be separated, the exempt player
+  is the one who stays put.
+- **A new play exempts nobody**, because nobody is carrying a dead ball. The
+  [reset](#resetting-after-a-new-play) moves both sides whatever they were doing.
 
 **After a goal**, once the reset is done, the conceding team must also get a meeple onto the
 **kickoff space** to restart -- nothing guarantees their coach's arrangement puts anybody on

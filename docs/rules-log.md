@@ -45,23 +45,6 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
-### Does winning a contest exempt the winner from running back?
-
-Raised by the answer below: a contest winner is now the [ball
-carrier](living-rules.md#the-ball-carrier), but only a *steal* exempts a player from
-[running back](living-rules.md#running-back-after-a-steal), and the exemption names two
-resolutions -- Steal Intercept and a Defender's Pressure steal. A loose ball won by a
-contestant whose card is assigned to another zone therefore runs them back out of the ball's
-zone, off the ball they just won, and the carry is dropped: the game says they are holding it
-and then moves them.
-
-Reproduced, and it predates the carrier rule -- the run back could always pull the ball's
-holder away, it just went unnoticed while the next turn was a free choice among whoever
-remained. The two readings: winning a live ball off the other side *is* a steal (the turnover
-table already calls it one), so the exemption should follow; or the exemption is deliberately
-the two named resolutions and a contestant who ran in from another zone is out of position
-whatever they are holding. **This is the one thing the ball-carrier work left inconsistent.**
-
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
 
@@ -72,7 +55,29 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-09 (latest) -- author, a contest winner carries the ball
+### 2026-08-09 (ball carrier, 3 of 3) -- author, the ball's holder does not run back
+
+*Answering the question the entry below raised, and generalising the run-back exemption in
+the process.*
+
+- **The exemption is the ball, not the steal.** It had named two resolutions -- Steal
+  Intercept and a Defender's Pressure steal. The author's answer is that the **ball handler**
+  does not run back, whoever they are and however they came to be holding it. So the winner
+  of a loose ball or a long High Pass is exempt too, which is what the entry below left
+  inconsistent.
+- **The two rules are now one fact read from either end.** The ball's holder keeps it into
+  the next turn, and keeping it is why they stay put. `begin_run_back` reads the exemption off
+  `ball_carrier_id` instead of taking a `stays_player_id` argument, so a resolution that names
+  a carrier cannot forget to name the exempt player as well -- which is exactly how the old
+  gap arose.
+- **A new play exempts nobody**, since nobody carries a dead ball, and its reset moves both
+  sides regardless. Worth stating because a goal scored off a High Pass set-up leaves a
+  receiver recorded as holding a ball that is already on its way back to the kickoff space.
+- **Nothing else changes about the run back**: the rate is still a token a space, the
+  coverage requirement is unchanged, and where a stack has to be separated the exempt player
+  is still the one who stays.
+
+### 2026-08-09 (ball carrier, 2 of 3) -- author, a contest winner carries the ball
 
 *Answering the question the entry below left open, and extending it to the loose ball in the
 same breath.*
@@ -87,13 +92,12 @@ same breath.*
 - **What is left free is now only the dead ball**: a new play and its reset, the kickoff, the
   two placements a restart owes, and a Block Deflect, which sends the ball to a space rather
   than to anyone.
-- **This exposed an inconsistency in the run back**, recorded in
-  [Still open](#does-winning-a-contest-exempt-the-winner-from-running-back). Only a steal
-  exempts a player from running back, and the exemption names Steal Intercept and a
-  Defender's Pressure steal -- so a contest winner assigned to another zone is run back off
-  the ball they just won. Left as it was, pending an answer.
+- **This exposed an inconsistency in the run back.** Only a steal exempted a player from
+  running back, and the exemption named Steal Intercept and a Defender's Pressure steal -- so
+  a contest winner assigned to another zone was run back off the ball they had just won. Left
+  as it was at the time, and answered by the entry above.
 
-### 2026-08-09 (later still, again) -- author, the ball is carried by a player
+### 2026-08-09 (ball carrier, 1 of 3) -- author, the ball is carried by a player
 
 *Given as three cases; the general rule behind them, and the two edges it reaches, were
 confirmed in the same exchange.*
@@ -623,6 +627,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Nothing about a Low Pass with no legal destination | The ball goes a space forward, loose, speed still +1 |
 | A score attempt from wherever the ball is | Only from within shooting range, set-ups included |
 | Possession is a team's, and any player on the ball's space may act | The ball is carried by a player, who takes the next turn; the coach only chooses when it came free |
+| Nothing about anyone being exempt from running back | The player holding the ball does not run back, however they came to be holding it |
 
 ---
 
