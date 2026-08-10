@@ -96,14 +96,14 @@ class CoachingModelTests(unittest.TestCase):
     def test_setup_sends_an_outgoing_player_back_to_the_bench(self) -> None:
         match = self.build_match()
         outgoing = match.home.field_players[0]
-        incoming = match.home.player_board.bench[0]
+        incoming = match.home.team_board.bench[0]
 
         match.substitute(
             TeamSide.HOME, outgoing, incoming, retire_outgoing=False,
         )
 
-        self.assertIn(outgoing, match.home.player_board.bench)
-        self.assertEqual(match.home.player_board.back_bench, [])
+        self.assertIn(outgoing, match.home.team_board.bench)
+        self.assertEqual(match.home.team_board.back_bench, [])
         # And so they can come straight back on, which is the whole
         # point of setup's exception.
         self.assertIn(
@@ -113,12 +113,12 @@ class CoachingModelTests(unittest.TestCase):
     def test_every_other_occasion_retires_them(self) -> None:
         match = self.build_match()
         outgoing = match.home.field_players[0]
-        incoming = match.home.player_board.bench[0]
+        incoming = match.home.team_board.bench[0]
 
         match.substitute(TeamSide.HOME, outgoing, incoming)
 
-        self.assertIn(outgoing, match.home.player_board.back_bench)
-        self.assertNotIn(outgoing, match.home.player_board.bench)
+        self.assertIn(outgoing, match.home.team_board.back_bench)
+        self.assertNotIn(outgoing, match.home.team_board.bench)
 
     def test_the_occasion_decides_which_way(self) -> None:
         self.assertFalse(
@@ -416,13 +416,13 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cog.substitution_button_label(match), "no limit")
 
         outgoing = match.home.field_players[0]
-        incoming = match.home.player_board.bench[0]
+        incoming = match.home.team_board.bench[0]
         cog.apply_substitution(match, TeamSide.HOME, outgoing, incoming)
 
         # Straight back to the bench, so they can be brought on again,
         # and the half's own two are untouched.
-        self.assertIn(outgoing, match.home.player_board.bench)
-        self.assertEqual(match.home.player_board.back_bench, [])
+        self.assertIn(outgoing, match.home.team_board.bench)
+        self.assertEqual(match.home.team_board.back_bench, [])
         self.assertEqual(match.half_substitutions_used, {})
         self.assertIsNone(match.substitutions_remaining())
 

@@ -129,7 +129,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
             match,
             TeamSide.HOME,
             "orange_blazebulk",
-            match.home.player_board.bench[0],
+            match.home.team_board.bench[0],
         )
 
         self.assertEqual(match.pending_coaching_substitutions, 1)
@@ -148,7 +148,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
             match,
             TeamSide.HOME,
             "orange_kindlefoot",
-            match.home.player_board.bench[0],
+            match.home.team_board.bench[0],
         )
 
         self.assertIn("(injured)", text)
@@ -163,7 +163,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.declare_coaching()
         for outgoing in (returning, "orange_sizzik", "orange_scorchit"):
             match.substitute(
-                TeamSide.HOME, outgoing, match.home.player_board.bench[0],
+                TeamSide.HOME, outgoing, match.home.team_board.bench[0],
             )
         match.mark_injured("orange_kindlefoot")
 
@@ -309,13 +309,13 @@ class DinkySubstitutionTests(unittest.TestCase):
         self.assertIsNotNone(choice)
         outgoing, incoming = choice
         self.assertEqual(outgoing, "orange_kindlefoot")
-        self.assertIn(incoming, match.home.player_board.bench)
+        self.assertIn(incoming, match.home.team_board.bench)
 
     def test_dinky_passes_when_there_is_nobody_to_bring_on(self) -> None:
         match = self.build_match()
         for outgoing in ("orange_hellguard", "orange_sizzik", "orange_scorchit"):
             match.substitute(
-                TeamSide.HOME, outgoing, match.home.player_board.bench[0],
+                TeamSide.HOME, outgoing, match.home.team_board.bench[0],
             )
         match.mark_injured("orange_kindlefoot")
 
@@ -326,7 +326,7 @@ class DinkySubstitutionTests(unittest.TestCase):
             self.ai.choose_substitution(match, TeamSide.HOME)
         )
 
-        for player_id in list(match.home.player_board.back_bench):
+        for player_id in list(match.home.team_board.back_bench):
             match.injured.add(player_id)
         self.assertIsNone(
             self.ai.choose_substitution(match, TeamSide.HOME)

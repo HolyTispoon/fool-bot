@@ -317,7 +317,7 @@ class DieDefinition:
 
 
 @dataclass(frozen=True)
-class PlayerBoardDefinition:
+class TeamBoardDefinition:
     areas: tuple[str, ...]
     offense_die: DieDefinition
     defense_die: DieDefinition
@@ -325,7 +325,7 @@ class PlayerBoardDefinition:
 
 
 @dataclass
-class PlayerBoardState:
+class TeamBoardState:
     bench: list[str]
     back_bench: list[str] = field(default_factory=list)
     offense_die_value: Optional[int] = None
@@ -338,7 +338,7 @@ class TeamSetup:
     team: Team
     side: TeamSide
     zones: dict[Zone, list[str]]
-    player_board: PlayerBoardState
+    team_board: TeamBoardState
 
     @property
     def assignment_edge(self) -> AssignmentEdge:
@@ -378,8 +378,8 @@ class TeamSetup:
 
         assigned = (
             self.field_players
-            + self.player_board.bench
-            + self.player_board.back_bench
+            + self.team_board.bench
+            + self.team_board.back_bench
         )
         if len(set(assigned)) != len(assigned):
             raise ValueError("Every roster player must be assigned once.")
@@ -397,22 +397,26 @@ class TeamSetup:
                 zone.value: list(players)
                 for zone, players in self.zones.items()
             },
-            "player_board": {
-                "bench": list(self.player_board.bench),
-                "back_bench": list(self.player_board.back_bench),
+            "team_board": {
+                "bench": list(self.team_board.bench),
+                "back_bench": list(self.team_board.back_bench),
                 "offense_die_value": (
-                    self.player_board.offense_die_value
+                    self.team_board.offense_die_value
                 ),
                 "defense_die_value": (
-                    self.player_board.defense_die_value
+                    self.team_board.defense_die_value
                 ),
-                "team_die_value": self.player_board.team_die_value,
+                "team_die_value": self.team_board.team_die_value,
             },
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "TeamSetup":
-        board_data = data["player_board"]
+        # `player_board` is what this key was called before the board was
+        # renamed, and a game saved under the old name outlives the rename
+        # -- both developers run the bot against their own saves. Written
+        # only as `team_board`, so the old name dies out on its own.
+        board_data = data.get("team_board") or data["player_board"]
         return cls(
             team=Team(data["team"]),
             side=TeamSide(data["side"]),
@@ -420,7 +424,7 @@ class TeamSetup:
                 Zone(zone): list(players)
                 for zone, players in data["zones"].items()
             },
-            player_board=PlayerBoardState(
+            team_board=TeamBoardState(
                 bench=list(board_data["bench"]),
                 back_bench=list(board_data.get("back_bench", [])),
                 offense_die_value=board_data.get("offense_die_value"),
@@ -473,7 +477,7 @@ class BasicRuleset:
     board_layouts: dict[int, BoardLayout]
     formations: dict[Formation, FormationShape]
     standard_setup: dict[str, tuple[PlayerRole, ...]]
-    player_board: PlayerBoardDefinition
+    team_board: TeamBoardDefinition
 
 
 @dataclass(frozen=True)
@@ -1413,8 +1417,8 @@ class MatchState:
         setup = self.setup_for_side(side)
         roster_ids = (
             setup.field_players
-            + setup.player_board.bench
-            + setup.player_board.back_bench
+            + setup.team_board.bench
+            + setup.team_board.back_bench
         )
         if player_id not in roster_ids:
             raise ValueError(f"{player_id} is not assigned to this team.")
@@ -1422,14 +1426,14 @@ class MatchState:
         for zone_players in setup.zones.values():
             if player_id in zone_players:
                 zone_players.remove(player_id)
-        if player_id in setup.player_board.bench:
-            setup.player_board.bench.remove(player_id)
-        if player_id in setup.player_board.back_bench:
-            setup.player_board.back_bench.remove(player_id)
+        if player_id in setup.team_board.bench:
+            setup.team_board.bench.remove(player_id)
+        if player_id in setup.team_board.back_bench:
+            setup.team_board.back_bench.remove(player_id)
         self.board.remove_meeple(player_id, required=False)
 
         if destination in ("bench", "back_bench"):
-            getattr(setup.player_board, destination).append(player_id)
+            getattr(setup.team_board, destination).append(player_id)
             return
 
         zone = Zone(destination)
@@ -1895,15 +1899,15 @@ class MatchState:
         the field injured is one way.
         """
         setup = self.setup_for_side(side)
-        if setup.player_board.bench:
-            return list(setup.player_board.bench)
+        if setup.team_board.bench:
+            return list(setup.team_board.bench)
         if outgoing_player_id is None:
             return []
         if outgoing_player_id not in self.injured:
             return []
         return [
             player_id
-            for player_id in setup.player_board.back_bench
+            for player_id in setup.team_board.back_bench
             if player_id not in self.injured
         ]
 
@@ -1950,7 +1954,7 @@ class MatchState:
                 raise ValueError(
                     "An injured player can never be subbed back in."
                 )
-            if setup.player_board.bench:
+            if setup.team_board.bench:
                 raise ValueError(
                     "The incoming player card is not on the bench."
                 )
@@ -1970,18 +1974,18 @@ class MatchState:
         zone_index = setup.zones[zone].index(fielded_player_id)
         setup.zones[zone][zone_index] = incoming_player_id
 
-        if incoming_player_id in setup.player_board.bench:
-            setup.player_board.bench.remove(incoming_player_id)
+        if incoming_player_id in setup.team_board.bench:
+            setup.team_board.bench.remove(incoming_player_id)
         else:
-            setup.player_board.back_bench.remove(incoming_player_id)
+            setup.team_board.back_bench.remove(incoming_player_id)
             tokens = self.exhaustion.get(incoming_player_id, 0)
             if tokens:
                 self.exhaustion[incoming_player_id] = tokens // 2
             self.exhausted.discard(incoming_player_id)
         if retire_outgoing:
-            setup.player_board.back_bench.append(fielded_player_id)
+            setup.team_board.back_bench.append(fielded_player_id)
         else:
-            setup.player_board.bench.append(fielded_player_id)
+            setup.team_board.bench.append(fielded_player_id)
 
         self.board.remove_meeple(fielded_player_id)
         self.board.place_meeple(incoming_player_id, position[0], space_index)
@@ -2303,10 +2307,10 @@ class MatchState:
             )
 
         benched_players = set(
-            self.home.player_board.bench
-            + self.home.player_board.back_bench
-            + self.visiting.player_board.bench
-            + self.visiting.player_board.back_bench
+            self.home.team_board.bench
+            + self.home.team_board.back_bench
+            + self.visiting.team_board.bench
+            + self.visiting.team_board.back_bench
         )
         if benched_players.intersection(meeples):
             raise ValueError("Benched players cannot have fielded meeples.")
@@ -2658,9 +2662,9 @@ def load_basic_ruleset(
     if set(standard_setup) != set(SETUP_AREAS):
         raise ValueError("The standard setup has invalid areas.")
 
-    dice = data["player_board"]["head_coach_dice"]
-    player_board = PlayerBoardDefinition(
-        areas=tuple(data["player_board"]["areas"]),
+    dice = data["team_board"]["head_coach_dice"]
+    team_board = TeamBoardDefinition(
+        areas=tuple(data["team_board"]["areas"]),
         offense_die=DieDefinition(**dice["offense"]),
         defense_die=DieDefinition(**dice["defense"]),
         team_die=DieDefinition(**dice["team"]),
@@ -2671,7 +2675,7 @@ def load_basic_ruleset(
         board_layouts=layouts,
         formations=formations,
         standard_setup=standard_setup,
-        player_board=player_board,
+        team_board=team_board,
     )
 
 
@@ -2852,7 +2856,7 @@ def create_standard_setup(
         team=roster.team,
         side=side,
         zones=zones,
-        player_board=PlayerBoardState(bench=bench),
+        team_board=TeamBoardState(bench=bench),
     )
     setup.validate(roster)
     return setup

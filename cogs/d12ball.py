@@ -3053,7 +3053,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         was_injured = outgoing_player_id in match.injured
         from_back_bench = (
             incoming_player_id
-            in match.setup_for_side(side).player_board.back_bench
+            in match.setup_for_side(side).team_board.back_bench
         )
         occasion = match.coaching_occasion or CoachingOccasion.NEW_PLAY
 
@@ -5449,8 +5449,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             for zone in Zone
         ]
         for bench, benched in (
-            ("bench", setup.player_board.bench),
-            ("back_bench", setup.player_board.back_bench),
+            ("bench", setup.team_board.bench),
+            ("back_bench", setup.team_board.back_bench),
         ):
             groups.append(
                 (
@@ -6893,8 +6893,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 setup = match.setup_for_side(candidate_side)
                 roster_ids = (
                     setup.field_players
-                    + setup.player_board.bench
-                    + setup.player_board.back_bench
+                    + setup.team_board.bench
+                    + setup.team_board.back_bench
                 )
                 if player_card in roster_ids:
                     side = candidate_side
@@ -6947,8 +6947,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             for setup in setups
             for player_id in (
                 setup.field_players
-                + setup.player_board.bench
-                + setup.player_board.back_bench
+                + setup.team_board.bench
+                + setup.team_board.back_bench
             )
         ]
         options = [
@@ -7061,8 +7061,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             for setup in (match.home, match.visiting)
             for player_id in (
                 setup.field_players
-                + setup.player_board.bench
-                + setup.player_board.back_bench
+                + setup.team_board.bench
+                + setup.team_board.back_bench
             )
         ]
         return filter_choices(current, options)
