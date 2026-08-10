@@ -86,13 +86,17 @@ class ManeuverPromptLifetimeTests(unittest.IsolatedAsyncioTestCase):
 
     async def refresh(self, cog, game, match, prompt_message) -> None:
         with mock.patch("cogs.d12ball.save_games"):
-            await cog.refresh_maneuver_prompt(
+            await cog.close_maneuver_prompt(
                 build_interaction(prompt_message), game, match,
             )
 
     async def test_the_prompt_stays_up_while_one_side_is_still_picking(
         self,
     ) -> None:
+        # And is not touched: the message names who it is waiting on
+        # and both sides share one button, so re-editing it after a
+        # pick changed nothing a coach could see -- it only spent a
+        # request out of the bucket the board refresh needs.
         cog = build_cog()
         game = build_game()
         game.turn_message_id = 555
@@ -102,7 +106,7 @@ class ManeuverPromptLifetimeTests(unittest.IsolatedAsyncioTestCase):
         prompt_message = self.build_prompt_message()
         await self.refresh(cog, game, match, prompt_message)
 
-        prompt_message.edit.assert_awaited_once()
+        prompt_message.edit.assert_not_awaited()
         prompt_message.delete.assert_not_awaited()
         self.assertEqual(game.turn_message_id, 555)
 

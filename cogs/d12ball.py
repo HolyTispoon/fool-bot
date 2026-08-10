@@ -77,6 +77,7 @@ from cogs.d12ball_helpers import (
     add_full_image_button,
     add_full_image_button_to_response,
     board_image_filename,
+    build_full_image_button,
     build_full_time_summary,
     build_game_channel_name,
     contest_noun,
@@ -87,6 +88,7 @@ from cogs.d12ball_helpers import (
     format_player_with_team,
     format_role_bracket,
     format_team_side_label,
+    full_image_link_button,
     get_exhaust_emoji,
     get_exhausted_emoji,
     get_injured_emoji,
@@ -175,13 +177,15 @@ MAX_RUN_BACK_PASSES = 60
 # The arithmetic, because it is not obvious: `message_id` is not one of
 # Discord's major rate-limit parameters, so every
 # `PATCH /channels/{id}/messages/{id}` in a game's channel shares one
-# bucket -- about five requests in five seconds. A refresh costs *two*
-# of them (the attachment, then the link button), and
-# refresh_maneuver_prompt spends more of the same bucket during a turn.
-# Holding refreshes more than five seconds apart is what keeps the
-# board to one refresh per window, which leaves the rest of that
-# budget for the prompts. See "The board message is one bucket" in
-# CLAUDE.md.
+# bucket -- about five requests in five seconds. Holding refreshes more
+# than five seconds apart is what keeps the board to one refresh per
+# window, which leaves the rest of that budget for the prompts. See
+# "The board message is one bucket" in CLAUDE.md.
+#
+# It is also how long the board goes without its full-image link: an
+# interim write strips the link rather than paying a second edit to
+# re-cut it, and the settling write scheduled at this interval is what
+# puts it back. See write_board_message.
 BOARD_REFRESH_INTERVAL = 6.0
 
 
@@ -224,6 +228,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.board_refreshed_at: dict[str, float] = {}
         self.board_refresh_tasks: dict[str, "asyncio.Task[None]"] = {}
         self.board_png_digests: dict[str, bytes] = {}
+        # The full-image URL an interim write took the link off and has
+        # not put back yet, by game. A game is in here only while its
+        # board message is carrying a board it has no link to, which is
+        # what the settling write is for -- see settle_board_link.
+        self.board_link_owed: dict[str, str] = {}
 
         restored_views = 0
 
@@ -331,6 +340,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         Drop any board refresh still waiting on its window. The reload
         that follows builds a new cog with its own games, so a task
         holding the old one would edit from state nothing else can see.
+
+        A board whose settling write is cancelled here keeps the board
+        it has and loses its full-image link until the next write puts
+        one back -- the same trade the link is under everywhere else.
         """
         for task in list(self.board_refresh_tasks.values()):
             task.cancel()
@@ -3917,7 +3930,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         A restart only ever re-arms **one** message per game, the one
         recorded in `turn_message_id`, so a game that lost that message
-        -- deleted by `refresh_maneuver_prompt` once both sides had
+        -- deleted by `close_maneuver_prompt` once both sides had
         picked, or never recorded because the process died before the
         prompt was sent -- comes back with nothing live in its channel
         at all. This posts a new one.
@@ -5424,19 +5437,29 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         except ValueError as error:
             await interaction.followup.send(str(error), ephemeral=True)
 
-    async def refresh_maneuver_prompt(
+    async def close_maneuver_prompt(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
     ) -> None:
         """
-        Re-render the public "choose your maneuver" prompt after one
-        side picks, and delete it once every side it was waiting on
-        has: its button has nothing left to open, and the resolution
-        posted underneath it is what the channel should end on. An
-        uncontested maneuver is waiting on the offense alone, so its
-        prompt goes on that one pick.
+        Delete the public "choose your maneuver" prompt once every
+        side it was waiting on has picked: its button has nothing left
+        to open, and the resolution posted underneath it is what the
+        channel should end on. An uncontested maneuver is waiting on
+        the offense alone, so its prompt goes on that one pick.
+
+        Until then it is left alone. It used to be re-edited with a
+        fresh `ManeuverActionPromptView` on each pick, which changed
+        nothing a coach could see -- the message says who it is waiting
+        on and both sides share one button, so the prompt reads the
+        same after one pick as before it, and the view is built from
+        the game id alone. That edit was a request out of the tightest
+        bucket in the game (see "Discord's rate limits" in CLAUDE.md),
+        spent once a maneuver, immediately before the resolution's own
+        board refresh, for nothing. Who has picked is announced in its
+        own message.
 
         Deleting clears `turn_message_id` with it, so nothing tries to
         edit or re-attach a view to a message that is gone; whatever
@@ -5445,24 +5468,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if game.turn_message_id is None or interaction.channel is None:
             return
 
-        all_chosen = match.maneuver_selections_complete
+        if not match.maneuver_selections_complete:
+            return
 
         try:
-            prompt_message = interaction.channel.get_partial_message(
+            await interaction.channel.get_partial_message(
                 game.turn_message_id,
-            )
-            if all_chosen:
-                await prompt_message.delete()
-            else:
-                await prompt_message.edit(
-                    view=ManeuverActionPromptView(self, game.game_id),
-                )
+            ).delete()
         except (discord.NotFound, discord.HTTPException):
             pass
 
-        if all_chosen:
-            game.turn_message_id = None
-            save_games(self.games)
+        game.turn_message_id = None
+        save_games(self.games)
 
     def retest_exhausted(self, match: MatchState, player_id: str) -> bool:
         """
@@ -5703,7 +5720,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Delete the prompt whose choice has just been made, the same way
-        refresh_maneuver_prompt drops the maneuver prompt once both
+        close_maneuver_prompt drops the maneuver prompt once both
         sides have picked: what it asked for is settled, and the
         challenge image posted underneath says who is involved better
         than the "has chosen to..." line the message would otherwise be
@@ -5760,7 +5777,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         self.board_refreshed_at[game.game_id] = now
-        await self.write_board_message(interaction.channel, game, png)
+        await self.write_board_message(
+            interaction.channel, game, png, relink=False,
+        )
+
+        # That write left the board without its full-image link, so a
+        # settling pass is owed whether or not anything else asks for
+        # one -- and it is the same pass that draws whatever the rest
+        # of this click still has to move.
+        if game.game_id in self.board_link_owed:
+            self.schedule_board_refresh(
+                interaction.channel, game, BOARD_REFRESH_INTERVAL,
+            )
 
     def schedule_board_refresh(
         self,
@@ -5807,18 +5835,34 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         channel: discord.TextChannel,
         game: D12BallGame,
         png: Optional[bytes] = None,
+        *,
+        relink: bool = True,
     ) -> None:
         """
-        The two edits a board refresh actually costs: the attachment,
-        and then the link button that could not be cut until the
-        attachment had a URL.
+        Put a board on the persistent message.
+
+        The full-image link is what makes this expensive. Its URL only
+        exists once Discord has stored the upload, so re-cutting it is
+        always a second edit -- and the upload above it has already
+        invalidated the link the message is carrying, so the choice is
+        not "one edit or two", it is "two edits or no link". At two a
+        turn's worth of refreshes on its own comes to about what the
+        bucket has, which is what the 429s were.
+
+        So `relink` splits it. An interim write says False: it strips
+        the dead link in the edit it was already paying for, and
+        records the URL as owed. The settling write -- the trailing
+        refresh, once the state has stopped moving -- says True and
+        pays for the live link once, however many boards went past in
+        between. The board is linkless for BOARD_REFRESH_INTERVAL
+        rather than dead-linked for it, which is the honest of the two.
 
         A board identical to the one already on the message is not
         written at all. Plenty of steps refresh without moving anything
         a coach can see -- picking a receiver, choosing a maneuver --
         and the render is deterministic, so byte-equality is the whole
-        test. Those refreshes cost two requests out of a bucket that
-        only has about five, and bought nothing.
+        test. A settling write still has its link to pay, though, since
+        the board it is settling is the one an interim write stripped.
 
         This is a nicety layered on top of state that has already been
         saved, not the thing carrying the turn forward -- a dropped
@@ -5835,12 +5879,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         digest = hashlib.sha256(png).digest()
         if self.board_png_digests.get(game.game_id) == digest:
+            if relink:
+                await self.settle_board_link(channel, game)
             return
+
+        # Setting a view replaces the one already there, so the
+        # message's own home/visiting buttons get rebuilt with it.
+        # Those are inert once the assignment is made, which is the
+        # only state a board refresh runs in; before it, this message
+        # is still the team/coin prompt, its buttons are live, and it
+        # has no link on it to go stale -- so it is left alone.
+        strip_link = not relink and game.home_and_visiting_selected
 
         try:
             board_message = channel.get_partial_message(game.message_id)
             updated_message = await board_message.edit(
                 attachments=[self.match_file_from_png(game, png)],
+                view=(
+                    HomeAwaySelectionView(cog=self, game_id=game.game_id)
+                    if strip_link
+                    else discord.utils.MISSING
+                ),
             )
         except (discord.NotFound, discord.HTTPException, aiohttp.ClientError):
             return
@@ -5848,18 +5907,52 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # Recorded only once the upload has landed, so a failed edit
         # leaves the next refresh believing it still has work to do.
         self.board_png_digests[game.game_id] = digest
+        # Whatever was owed was owed against the upload this one just
+        # replaced, so it dies with it either way.
+        self.board_link_owed.pop(game.game_id, None)
 
-        # The link has to be re-cut because the edit above uploaded a
-        # new file, and setting a view replaces the one already there,
-        # so the message's own home/visiting buttons get rebuilt with
-        # it. Those are inert once the assignment is made, which is the
-        # only state a board refresh runs in; before it, this message
-        # is still the team/coin prompt and its buttons are live.
-        if game.home_and_visiting_selected:
+        if not game.home_and_visiting_selected:
+            return
+
+        if relink:
             await add_full_image_button(
                 updated_message,
                 HomeAwaySelectionView(cog=self, game_id=game.game_id),
             )
+            return
+
+        button = build_full_image_button(updated_message)
+        if button is not None:
+            self.board_link_owed[game.game_id] = button.url
+
+    async def settle_board_link(
+        self,
+        channel: discord.TextChannel,
+        game: D12BallGame,
+    ) -> None:
+        """
+        Put the full-image link back on a board an interim write took
+        it off, when there is no new board to carry it.
+
+        The URL was read off the upload at the time, so this needs
+        neither a fresh render nor the message back -- one edit, and
+        only when something is actually owed.
+        """
+        url = self.board_link_owed.pop(game.game_id, None)
+
+        if url is None or game.message_id is None:
+            return
+
+        view = HomeAwaySelectionView(cog=self, game_id=game.game_id)
+        view.add_item(full_image_link_button(url))
+
+        try:
+            await channel.get_partial_message(game.message_id).edit(view=view)
+        except (discord.NotFound, discord.HTTPException, aiohttp.ClientError):
+            # As everywhere else the link is concerned: the board is
+            # already up, and a missing link is worth less than
+            # anything it would take down with it.
+            pass
 
     def format_roster_player(self, player_id: str) -> str:
         player = self.get_player_definition(player_id)
@@ -7185,7 +7278,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         A restart re-arms exactly one message per game -- the one in
         `turn_message_id` -- so a game can come back with no working
         button anywhere: the prompt was deleted once both sides picked
-        (`refresh_maneuver_prompt`), or the process died before the
+        (`close_maneuver_prompt`), or the process died before the
         prompt it was about to send was recorded, or it died in the
         middle of a cascade whose next step was the bot's own. See
         `resume_pending_prompt`.

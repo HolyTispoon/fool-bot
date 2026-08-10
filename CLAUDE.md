@@ -678,11 +678,26 @@ same budget. So:
   displaced, and a channel with no board to roll off simply leaves the new one
   unpinned. Every failure is swallowed: a missing pin is worth less than the
   turn it would take down with it.
-- **A board refresh is two requests, and that is unavoidable.** Editing the
+- **The full-image link is paid once a burst, not once a board.** Editing the
   message uploads a new attachment, which invalidates the old one, so the
   "View full image" link has to be re-cut in a second edit -- the URL does not
-  exist until the upload lands. Budget for two, and prefer not refreshing at
-  all over refreshing twice.
+  exist until the upload lands. That is two edits a board, and a turn's worth
+  of boards is more than the bucket has. So `write_board_message` takes
+  `relink`: an **interim** write (the immediate one, `relink=False`) strips the
+  now-dead link in the edit it was already paying for and records the URL in
+  `board_link_owed`, and the **settling** write (the trailing refresh) puts a
+  live one back. The board is linkless for `BOARD_REFRESH_INTERVAL` rather than
+  dead-linked for it.
+  - **The settling pass is owed as soon as a link is stripped**, so
+    `refresh_match_image` schedules one after an immediate write whenever
+    something is in `board_link_owed` -- not only when a second refresh asks.
+    Without it a quiet board would keep the link the interim write took off.
+  - **A settling write with nothing new to draw still pays the link**, from the
+    URL it was handed rather than by re-fetching the message: one edit, and the
+    common case, since the last step of a click usually moves nothing. That is
+    `settle_board_link`, and it spends no request when nothing is owed.
+  - Before the home/visiting choice the message is still the setup prompt: its
+    buttons are live, it has no link to go stale, and its view is left alone.
 - **Channel message edits are one bucket, and it is the one that runs out.**
   Every 429 in two logged sessions of play was a `PATCH` on
   `/channels/{id}/messages/{id}`. **`message_id` is not one of Discord's major
@@ -693,26 +708,37 @@ same budget. So:
   - Only edits reached *through the channel* land there.
     `interaction.response.edit_message` is the interaction-callback route and
     `followup.send(...).edit()` is the webhook route, so neither competes.
-    `channel.get_partial_message(...).edit()` does, and there are two of
-    those: the board refresh and `refresh_maneuver_prompt`.
-  - **A board refresh spends two of the five** (the attachment, then the link
-    button), so `refresh_match_image` is rate-gated per game: the first goes
-    out at once and any that arrive within `BOARD_REFRESH_INTERVAL` collapse
-    into **one** trailing refresh rather than queueing.
+    `channel.get_partial_message(...).edit()` does, and after the second round
+    of 429s **the board message is the only thing that does it** -- every
+    request in that bucket, all game, is a write to one message.
+  - **Nothing else may be edited through the channel without a reason.**
+    `close_maneuver_prompt` used to re-edit the "Choose Your Maneuver" prompt
+    on each pick with a freshly built `ManeuverActionPromptView`. Nothing about
+    that message changes when a side picks -- it names who it is waiting on,
+    both sides share the one button, and the view is built from the game id
+    alone -- so it was a request out of this bucket, once a maneuver,
+    immediately before the resolution's own board refresh, for nothing. It now
+    only deletes, once both sides have picked, and a delete is a route of its
+    own. Who has picked is announced in its own message.
+  - **A board refresh spends one of the five**, two when it is the settling
+    one, so `refresh_match_image` is rate-gated per game: the first goes out at
+    once and any that arrive within `BOARD_REFRESH_INTERVAL` collapse into
+    **one** trailing refresh rather than queueing.
   - **`BOARD_REFRESH_INTERVAL` must stay above Discord's five-second window**,
-    or two refreshes fall inside one window and, with the prompt edit that
-    shares the bucket, a single turn spends exactly five -- measured, and
-    exactly what was still earning 429s at three seconds. Six leaves the turn
-    at three. Adding a call site is free; shortening the interval is not.
+    or two refreshes fall inside one window. At three seconds a turn spent
+    exactly five and was still earning 429s -- measured. Six leaves a turn at
+    three requests: one interim board, then the settling board and its link.
+    Adding a call site is free; shortening the interval is not.
   - A trailing refresh **draws when it runs**, never from a `png=` handed to it
     earlier -- the board it was offered is stale by the time it fires, and
     re-drawing is exactly what lets one pending refresh stand in for every
     request behind it.
   - **A board identical to the one already up is not written at all.** The
     render is deterministic, so `write_board_message` keeps a digest of what
-    it last uploaded and skips both edits when the new bytes match. Plenty of
-    steps refresh without moving anything visible -- picking a receiver,
-    choosing a maneuver -- and those were costing two of five for nothing. The
+    it last uploaded and skips the upload when the new bytes match (a settling
+    write still owes its link). Plenty of steps refresh without moving anything
+    visible -- picking a receiver, choosing a maneuver -- and those were
+    costing two of five for nothing. The
     digest is recorded only after the upload lands, so a rejected edit does
     not convince the next refresh its work is done, and it is in memory only:
     after a restart the first refresh always writes, because nothing records
@@ -881,7 +907,7 @@ fresh menu.
 
 Three more ways a restart strands a game, none of them about ephemerality:
 
-- The prompt was **deleted** before the restart. `refresh_maneuver_prompt` drops
+- The prompt was **deleted** before the restart. `close_maneuver_prompt` drops
   the maneuver prompt once both sides have picked and clears `turn_message_id`
   with it, and so does `delete_choice_prompt`. There is then nothing to re-arm.
 - The process died **before the prompt it was about to send was recorded**.
@@ -982,7 +1008,9 @@ as a bug.
 - **The "View full image" button dies after 24 hours, by design.** Discord
   signs attachment URLs and stops honouring a signature a day after issuing it,
   so the link baked into a board or maneuver-reference message goes dead once
-  the message sits untouched that long. The next board update re-cuts it. This
+  the message sits untouched that long. The next board update re-cuts it --
+  a few seconds after the board itself, during which the persistent message
+  carries no link at all; see "Discord's rate limits" for why. This
   is an accepted trade for a one-tap link; the alternative was a callback
   button that fetches a fresh URL on click at the cost of an extra tap. See
   `add_full_image_button` in `cogs/d12ball.py`.
