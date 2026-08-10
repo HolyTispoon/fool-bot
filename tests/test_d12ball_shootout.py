@@ -385,6 +385,28 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("extreme shootout", texts[1])
         self.assertIn("set the order", texts[2])
 
+    async def test_the_whistle_recovers_no_exhaustion(self) -> None:
+        # Halftime takes a token off every fielded player; full time
+        # takes nothing off anybody, so a side goes to the shootout
+        # still holding what the second half left it with -- and its
+        # Exhausted players still owe a check on every test.
+        cog = build_cog()
+        game = build_game()
+        match = self.build_match()
+        tired = match.home.field_players[0]
+        match.add_exhaustion(tired, 4)
+        match.exhausted.add(tired)
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.end_period(interaction, game, match)
+
+        reloaded = cog.load_match_state(game)
+        self.assertEqual(reloaded.exhaustion.get(tired), 4)
+        self.assertIn(tired, reloaded.exhausted)
+
     async def test_an_uneven_full_time_still_just_ends(self) -> None:
         cog = build_cog()
         game = build_game()
