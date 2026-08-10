@@ -61,8 +61,10 @@ the author directly.
 answered the four things the shootout section did not say: the six who shoot are "the six on
 the field at full time"; a shootout test "does not cost exhaustion tokens, but does involve
 injury checks for exhausted players"; shootout goals are "added to the match score"; and in
-sudden death, once all six have gone, eligibility resets and each pick is free. Separately:
-"the term 'clash' is an old reference", to be replaced with "skill test" throughout.*
+sudden death, once all six have gone, eligibility resets and each pick is free. Then, asked
+whether the whistle recovers anything the way halftime does: "noone recovers exhaustion at
+full time". Separately: "the term 'clash' is an old reference", to be replaced with "skill
+test" throughout.*
 
 - **League mode is gone, and with it the tie-mode setting.** Every game is now settled: a
   level score at full time goes to the extreme shootout, full stop. Setup no longer asks, and
@@ -76,6 +78,12 @@ sudden death, once all six have gone, eligibility resets and each pick is free. 
   the ways to gain a token, so nothing is charged; an Exhausted player taking part in one
   still rolls a check when it resolves, which is the ordinary rule for a skill test read
   straight. An injury landing in one round withholds that player's skill in a later one.
+- **Full time recovers nothing**, unlike halftime, which takes a token off every fielded
+  player and a second off one of them. A side goes to the shootout holding everything the
+  second half left it with, so players who finished over their defensive skill are still
+  Exhausted and owe a check on every test they take part in. This is what makes the two
+  answers above bite: with no tokens charged and no recovery either, who is Exhausted in a
+  shootout was settled before the whistle, and the only thing that can change it is an injury.
 - **Shootout goals go on the scoreboard.** A game level at 2:2 and settled 4-3 is a 6:5 win.
   The shootout's own tally is kept alongside it, because that is what decides when there is no
   point rolling on -- and because 6:5 says nothing about how the game was won.

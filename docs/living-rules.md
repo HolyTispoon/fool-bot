@@ -1001,6 +1001,11 @@ How a game level at full time is settled. It is played by **the six players each
 the field** at the whistle, in the state the second period left them -- exhaustion counts,
 injuries and all. Nobody comes on for it and nobody is substituted.
 
+**Nobody recovers exhaustion at full time.** Halftime takes a token off every fielded player
+and a second off one of them; the whistle takes nothing off anybody. A side that finished the
+second half with players over their defensive skill goes to the shootout with them still
+**Exhausted**, owing an injury check on every test they take part in.
+
 Each coach secretly arranges their six in any order they wish. Once the order is set they may
 look at it but not reorder it.
 
