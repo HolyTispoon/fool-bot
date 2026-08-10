@@ -349,6 +349,69 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(kwargs["view"], CoachingHubView)
         self.assertIsNotNone(kwargs["file"])
 
+    async def test_a_halftime_window_opens_on_the_settled_arrangement(
+        self,
+    ) -> None:
+        # The first half ended wherever it ended, and a run back never
+        # updates the arrangement -- so a coach opening their halftime
+        # window is looking at a scramble unless the window puts them
+        # back on their own shape first. See "Coaching Choice" in
+        # docs/living-rules.md.
+        cog = build_cog()
+        del cog.begin_substitution_window  # exercise the real one
+        game = build_human_game()
+        cog.games[game.game_id] = game
+        match = self.build_match()
+        player_id = match.home.field_players[0]
+        settled = match.board.meeple_position(player_id)
+        match.board.place_meeple(
+            player_id, settled[0], 1 if settled[1] == 0 else 0,
+        )
+        game.match_state = match.to_dict()
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_substitution_window(
+                interaction,
+                game,
+                match,
+                TeamSide.HOME,
+                occasion=CoachingOccasion.HALFTIME,
+            )
+
+        self.assertEqual(match.board.meeple_position(player_id), settled)
+        # And the board above the menu is brought in line, so the two
+        # views of the same side cannot disagree.
+        cog.refresh_match_image.assert_awaited_once()
+        self.assertIn(
+            "back on the arrangement you last set",
+            interaction.followup.send.await_args.args[0],
+        )
+
+    async def test_a_window_that_moves_nobody_costs_no_refresh(
+        self,
+    ) -> None:
+        # A new play has already reset both sides by the time it offers
+        # the window, and setup runs on a fresh deal -- neither should
+        # spend a board refresh on a restore with nothing to do.
+        cog = build_cog()
+        del cog.begin_substitution_window
+        game = build_human_game()
+        cog.games[game.game_id] = game
+        match = self.build_match()
+        game.match_state = match.to_dict()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_substitution_window(
+                build_interaction(),
+                game,
+                match,
+                TeamSide.HOME,
+                occasion=CoachingOccasion.NEW_PLAY,
+            )
+
+        cog.refresh_match_image.assert_not_awaited()
+
     async def test_an_ordinary_window_still_spends_the_declaration(
         self,
     ) -> None:

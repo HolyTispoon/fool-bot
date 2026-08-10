@@ -71,6 +71,18 @@ def build_interaction() -> SimpleNamespace:
     )
 
 
+def build_click(user_id: int = 111) -> SimpleNamespace:
+    """An interaction a view can answer, for the flow's own buttons."""
+    return SimpleNamespace(
+        user=SimpleNamespace(id=user_id, display_name="One"),
+        response=SimpleNamespace(
+            edit_message=mock.AsyncMock(),
+            send_message=mock.AsyncMock(),
+        ),
+        followup=SimpleNamespace(send=mock.AsyncMock()),
+    )
+
+
 class CoachingModelTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -403,6 +415,30 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(match.pending_coaching_side)
         cog.send_turn_prompt.assert_awaited_once()
 
+    async def test_the_board_waits_for_both_coaches(self) -> None:
+        # Nothing has been played, so a board posted before the windows
+        # shows a deal neither coach has finished with. The kickoff
+        # board is the line-up the game actually starts from, which is
+        # not known until the second coach is done.
+        cog, game, _ = self.build()
+        cog.pin_board = mock.AsyncMock()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_setup_coaching(build_interaction(), game)
+            match = cog.load_match_state(game)
+            await cog.finish_substitution_window(
+                build_interaction(), game, match,
+            )
+            cog.refresh_match_image.assert_not_awaited()
+            cog.pin_board.assert_not_awaited()
+
+            await cog.finish_substitution_window(
+                build_interaction(), game, match,
+            )
+
+        cog.refresh_match_image.assert_awaited_once()
+        cog.pin_board.assert_awaited_once()
+
     async def test_a_setup_substitution_is_unlimited_and_reversible(
         self,
     ) -> None:
@@ -481,6 +517,134 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertEqual(
             len([text for text in posted if "Before kickoff" in text]), 1,
+        )
+
+
+class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
+    """
+    What a window says when it closes. The whole flow lives on one
+    message, so every note a step leaves is written over by the next
+    one -- "so-and-so comes on for so-and-so" most of all. The Done
+    message is the only place those survive.
+    """
+
+    def build(self):
+        cog = build_cog()
+        game = build_game()
+        cog.games[game.game_id] = game
+        match = cog.initialize_standard_match(game)
+        match.open_coaching_window(
+            TeamSide.HOME,
+            CoachingOccasion.NEW_PLAY,
+            formation=Formation.TWO_TWO_TWO.value,
+        )
+        match.declare_coaching()
+        game.match_state = match.to_dict()
+        return cog, game, match
+
+    def test_a_window_that_changed_nothing_has_nothing_to_report(
+        self,
+    ) -> None:
+        cog, _, match = self.build()
+
+        self.assertEqual(cog.coaching_summary(match, TeamSide.HOME), [])
+
+    def test_the_shape_is_reported_as_the_change_it_was(self) -> None:
+        cog, _, match = self.build()
+
+        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
+
+        self.assertEqual(
+            cog.coaching_summary(match, TeamSide.HOME),
+            ["Formation: **2-2-2 → 2-3-1**."],
+        )
+
+    def test_a_shape_changed_and_changed_back_is_not_a_change(
+        self,
+    ) -> None:
+        # The summary is what the window did, not what it passed
+        # through: it is read against the shape the side opened in.
+        cog, _, match = self.build()
+
+        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
+        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_TWO_TWO)
+
+        self.assertEqual(cog.coaching_summary(match, TeamSide.HOME), [])
+
+    def test_every_swap_is_named(self) -> None:
+        cog, _, match = self.build()
+        first_off = match.home.field_players[0]
+        first_on = match.home.team_board.bench[0]
+        cog.apply_substitution(match, TeamSide.HOME, first_off, first_on)
+        second_off = match.home.field_players[1]
+        second_on = match.home.team_board.bench[0]
+        cog.apply_substitution(match, TeamSide.HOME, second_off, second_on)
+
+        summary = cog.coaching_summary(match, TeamSide.HOME)
+
+        self.assertEqual(len(summary), 2)
+        for player_id, line in (
+            (first_on, summary[0]),
+            (second_on, summary[1]),
+        ):
+            self.assertIn(
+                cog.get_player_definition(player_id).name, line,
+            )
+        self.assertIn(
+            cog.get_player_definition(first_off).name, summary[0],
+        )
+
+    async def test_done_puts_the_summary_where_it_survives(self) -> None:
+        cog, game, match = self.build()
+        cog.finish_substitution_window = mock.AsyncMock()
+        outgoing = match.home.field_players[0]
+        incoming = match.home.team_board.bench[0]
+        cog.apply_substitution(match, TeamSide.HOME, outgoing, incoming)
+        game.match_state = match.to_dict()
+
+        click = build_click()
+        with mock.patch("cogs.d12ball_views.save_games"):
+            await CoachingHubView(cog, game.game_id).finish(click)
+
+        content = click.response.edit_message.await_args.kwargs["content"]
+        self.assertIn("are done.", content)
+        self.assertIn(
+            cog.get_player_definition(incoming).name, content,
+        )
+        self.assertIn(
+            cog.get_player_definition(outgoing).name, content,
+        )
+        cog.finish_substitution_window.assert_awaited_once()
+
+    async def test_a_window_used_for_nothing_says_so(self) -> None:
+        cog, game, _ = self.build()
+        cog.finish_substitution_window = mock.AsyncMock()
+
+        click = build_click()
+        with mock.patch("cogs.d12ball_views.save_games"):
+            await CoachingHubView(cog, game.game_id).finish(click)
+
+        self.assertIn(
+            "No substitutions",
+            click.response.edit_message.await_args.kwargs["content"],
+        )
+
+    def test_the_record_survives_a_save_and_reload(self) -> None:
+        # A restart mid-window resumes the same Coaching Choice, so it
+        # has to close with what the coach did before the restart.
+        cog, _, match = self.build()
+        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
+        outgoing = match.home.field_players[0]
+        incoming = match.home.team_board.bench[0]
+        cog.apply_substitution(match, TeamSide.HOME, outgoing, incoming)
+
+        reloaded = MatchState.from_dict(
+            match.to_dict(), load_basic_ruleset(),
+        )
+
+        self.assertEqual(
+            cog.coaching_summary(reloaded, TeamSide.HOME),
+            cog.coaching_summary(match, TeamSide.HOME),
         )
 
 
