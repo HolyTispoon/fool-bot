@@ -329,10 +329,12 @@ whole rule, over `BoardState.is_in_shooting_range`.
   contest are the same landing space asked two different questions, so a pass of
   2 that is refused a set-up has to resolve as an ordinary pass rather than fall
   through to a contest it has never had to win.
-- **A Block Deflect that overshoots is the one set-up the rule cannot bite.** It
-  puts the ball on the space closest to the offense's own goal, always deep in
-  the deflecting team's range, so it asks `scoring_opportunity_candidates`
-  directly -- a branch that can never be taken reads as if it could.
+- **An overshoot is the set-up the rule cannot bite**, whichever maneuver made
+  it. A Block Deflect's puts the ball on the space closest to the offense's own
+  goal and a High Pass's on the space closest to the goal they attack; both are
+  as deep into the shooting team's range as the field goes. So both ask
+  `scoring_opportunity_candidates` directly rather than `set_up_shot_candidates`
+  -- a branch that can never be taken reads as if it could.
 - **Nothing gates `begin_score_attempt` itself.** The rule is enforced where the
   shot is *chosen*: `PlayerActionView` omits the button (and `build_turn_prompt`
   says why), `choose_action` refuses a stale click, `DinkyAI` only ever shoots
@@ -341,6 +343,60 @@ whole rule, over `BoardState.is_in_shooting_range`.
   -- one dash column on board 6, two on 7 and 9 bracketing the space in nobody's
   range. The rule is positional and the board is where both coaches read
   position.
+
+## A High Pass that runs out of field
+
+An overshot High Pass offers a shot **or** a contest for the ball, and pays the
+ball speed modifier against both -- see "High Pass" and "Ball speed" in the
+living rules. `MatchState.pending_high_pass_overshoot` is the flag and
+`MatchState.ball_speed_modifier` is the only place the sign is decided.
+
+- **A coach is only offered a distance that fits on the field.**
+  `MatchState.high_pass_distances` drops any that would clamp, because a longer
+  pass landing where a shorter one already would is that pass at a
+  disadvantage -- negative modifier, contest owed. `D12Ball.high_pass_distance_options`
+  wraps it with the handler's own maximum (the Fullback's 4), and is the single
+  home three things read: the menu `HighPassChoiceView` builds, what the AI
+  picks from, and `choose`'s refusal of a click on a menu the ball has moved out
+  from under. Those buttons carry no message id, so an older prompt in the
+  channel does dispatch.
+- **An overshoot is therefore only ever the no-menu case.** When even the
+  shortest pass runs out of field -- the ball 0 or 1 spaces from the end --
+  `resolve_high_pass` skips the prompt and applies the minimum distance
+  directly, because 2, 3 and 4 are the same pass. `high_pass_distance_is_moot`
+  is that test; it agrees with "`high_pass_distances` is empty" and exists
+  because the moot check should not have to know the handler's role.
+  **This is what makes `contest_on_decline` unconditional for an overshoot**: a
+  chosen 2 can only overshoot from a position where no distance was offered, so
+  the "a pass of 2 is received, full stop" rule and this one never meet.
+- **`ball_speed_modifier` is the whole of the sign, and three sites ask it**:
+  the score attempt's roll, the image that composes it, and the long-pass
+  contest in `LooseBallSkillTestView.roll`. Each used to halve `ball.speed`
+  itself. The fourth site is deliberately left alone -- the modifier a *defense*
+  adds to a maneuver skill test it won with Steal Intercept, which is settled
+  before any pass is thrown and is not the offense's to lose.
+- **Every detail string is `:+d`**, because a modifier that can be negative can
+  no longer be printed under a hardcoded `+`.
+- **The flag is set only when a set-up is actually offered**, in
+  `offer_overshoot_set_up`. An overshoot with nobody from the offense on the
+  landing space has no shooter, falls through to the ordinary loose-ball paths,
+  and would carry an inert flag for the rest of the turn if it were set earlier.
+- **It is persisted**, unlike the overshoot test itself, which is a local read of
+  `relative_flat_index` against the requested distance the way Block Deflect
+  reads its own. Both things the flag governs outlive the effect that sets it: a
+  score attempt is a view a restart re-attaches, and the contest is rolled a
+  click later. `reset_maneuver` clears it with the rest of the turn.
+- **The shot and the contest are two halves of one choice.** Declining an
+  overshoot lands in the long-pass contest, still with the modifier against it;
+  nothing about an overshoot settles the ball quietly.
+  `begin_high_pass_contest` is that contest, reached both from the ordinary
+  3-or-4 path and from `decline_scoring_attempt(contest=True)`.
+- **`contest_on_decline` rides on the view, not on the match.** By the time the
+  decline arrives, an overshot pass and an ordinary 2-space one have left the
+  match in the same state, and `SetUpAttemptChoiceView` was already the one view
+  a restart cannot reconstruct -- so this adds nothing new to that gap. It also
+  relabels the decline button, because "resolve as a normal pass" would be a lie
+  there.
 
 ## The ball carrier
 

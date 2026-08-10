@@ -1845,7 +1845,7 @@ class ScoreAttemptView(SafeView):
         offense_skill = self.cog.player_catalog.effective_profile(
             shooter,
         ).offense
-        speed_modifier = match.ball.speed // 2
+        speed_modifier = match.ball_speed_modifier()
         defenders = self.cog.intervening_defenders(match)
         defense_skill_total = sum(skill for _, skill in defenders)
 
@@ -1855,6 +1855,8 @@ class ScoreAttemptView(SafeView):
         # Two dice, one per human: the attacker adds the shooting
         # player's offensive skill and the ball-speed modifier, the
         # defence adds the defensive skill of every meeple in the way.
+        # The speed modifier is signed -- an overshot High Pass pays it
+        # against the shot -- so it is added, never abs()'d.
         attack_roll = random.randint(1, 12)
         defense_roll = random.randint(1, 12)
         attack_total = attack_roll + offense_skill + speed_modifier
@@ -1881,7 +1883,7 @@ class ScoreAttemptView(SafeView):
             f"Offensive skill +{offense_skill}",
         ]
         if speed_modifier:
-            attack_detail.append(f"+{speed_modifier} ball speed modifier")
+            attack_detail.append(f"{speed_modifier:+d} ball speed modifier")
         if striker_bonus:
             attack_detail.append("+3 Striker ability")
 
@@ -2252,6 +2254,14 @@ class HighPassChoiceView(SafeView):
     Fullback (their ability extends the max, not the min).
     Reconstructible on restart purely from match state, the same
     pattern every other persistent view in this cog follows.
+
+    **Only distances that fit on the field are offered** (2026-08-10),
+    from D12Ball.high_pass_distance_options: a longer pass that lands
+    where a shorter one already would is the same pass at a
+    disadvantage, so a Fullback near the end is not offered 4 and
+    nobody is offered 3 when a 2 fits. When nothing fits the view is
+    not shown at all -- resolve_high_pass sends the pass straight to
+    its overshoot rather than putting up one answer three times.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -2263,10 +2273,8 @@ class HighPassChoiceView(SafeView):
         if game is None or game.match_state is None:
             return
         match = cog.load_match_state(game)
-        handler = cog.get_player_definition(match.active_player_id)
-        max_distance = 4 if handler.role == PlayerRole.FULLBACK else 3
 
-        for distance in range(2, max_distance + 1):
+        for distance in cog.high_pass_distance_options(match):
             ability_note = " (Fullback ability)" if distance == 4 else ""
             button = discord.ui.Button(
                 label=f"{distance} spaces{ability_note}",
@@ -2306,6 +2314,18 @@ class HighPassChoiceView(SafeView):
             )
             return
 
+        # A click on a menu the ball has since moved out from under --
+        # an older prompt still sitting in the channel, since these
+        # buttons carry no message id. The distances are read off the
+        # match rather than off the view for exactly that reason.
+        if distance not in self.cog.high_pass_distance_options(match):
+            await interaction.response.send_message(
+                f"A {distance}-space pass runs off the end of the field "
+                "from where the ball is now.",
+                ephemeral=True,
+            )
+            return
+
         await interaction.response.edit_message(
             content=f"Chose **{distance} spaces**.",
             view=None,
@@ -2316,10 +2336,14 @@ class HighPassChoiceView(SafeView):
 class SetUpAttemptChoiceView(SafeView):
     """
     Whether to take an offered scoring-opportunity shot -- a High
-    Pass's own 2-space pass, or a Winger's Low Pass ability -- or let
-    the maneuver resolve as a normal pass instead. Declining means the
-    same thing either way since 2026-08-07, when a 2-space High Pass
-    stopped forcing a contest for the ball it had just delivered.
+    Pass's own 2-space pass, a High Pass that overshoots the field, or
+    a Winger's Low Pass ability -- or let the maneuver resolve as a
+    normal pass instead. Declining meant the same thing everywhere
+    between 2026-08-07, when a 2-space High Pass stopped forcing a
+    contest for the ball it had just delivered, and 2026-08-10, when an
+    overshoot started offering a shot *or* a contest, both at the same
+    disadvantage: `contest_on_decline` is that one case, and the button
+    says so rather than promising a normal pass it will not deliver.
 
     Not reconstructible on restart the way the rest of this cog's
     views are -- match state doesn't record which maneuver offered
@@ -2334,12 +2358,14 @@ class SetUpAttemptChoiceView(SafeView):
         game_id: str,
         shooter_id: str,
         distance_moved: int,
+        contest_on_decline: bool = False,
     ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
         self.shooter_id = shooter_id
         self.distance_moved = distance_moved
+        self.contest_on_decline = contest_on_decline
 
         shooter = cog.get_player_definition(shooter_id)
         attempt_button = discord.ui.Button(
@@ -2351,7 +2377,11 @@ class SetUpAttemptChoiceView(SafeView):
         self.add_item(attempt_button)
 
         decline_button = discord.ui.Button(
-            label="Decline -- resolve as a normal pass",
+            label=(
+                "Decline -- contest for the ball"
+                if contest_on_decline
+                else "Decline -- resolve as a normal pass"
+            ),
             style=discord.ButtonStyle.secondary,
             custom_id=f"d12ball:setup_attempt:{game_id}:decline",
         )
@@ -2414,6 +2444,7 @@ class SetUpAttemptChoiceView(SafeView):
         )
         await self.cog.decline_scoring_attempt(
             interaction, game, match, self.distance_moved,
+            contest=self.contest_on_decline,
         )
 
 
@@ -4183,11 +4214,16 @@ class LooseBallSkillTestView(SafeView):
         # A High Pass's receiver adds the ball speed modifier to keep
         # what the pass delivered (2026-08-07). A genuine loose ball is
         # nobody's yet, so neither side gets it there.
+        #
+        # The modifier is signed: this contest is also where a declined
+        # overshoot set-up lands, and an overshoot pays the modifier
+        # against the receiver in the contest exactly as it would have
+        # against the shot (2026-08-10). See ball_speed_modifier.
         modifier_detail = []
         if match.pending_loose_ball_is_high_pass:
-            modifier = match.ball.speed // 2
+            modifier = match.ball_speed_modifier()
             offense_total += modifier
-            modifier_detail = [f"+{modifier} ball speed modifier"]
+            modifier_detail = [f"{modifier:+d} ball speed modifier"]
 
         # No text breakdown alongside: the dice image already names
         # both players and shows every modifier that built the totals.

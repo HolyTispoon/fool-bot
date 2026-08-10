@@ -441,6 +441,13 @@ class TeamSetup:
 SETUP_AREAS = ("own_goal", "midfield", "opponent_goal")
 FIELD_PLAYER_COUNT = 6
 
+# The shortest High Pass a coach may choose. A Fullback's ability
+# raises the maximum to 4, never this -- and this is the one that
+# decides whether there is a choice to make at all, since a position
+# where even a 2 runs out of field makes every distance identical.
+# See MatchState.high_pass_distance_is_moot.
+MIN_HIGH_PASS_DISTANCE = 2
+
 
 @dataclass(frozen=True)
 class FormationShape:
@@ -726,6 +733,14 @@ class MatchState:
     pending_run_back_speed_choice: bool = False
     pending_kickoff_fill: bool = False
     pending_shot_is_set_up: bool = False
+    # A High Pass was clamped short of the distance the coach asked
+    # for, so the ball speed modifier is paid the other way round for
+    # whatever that overshoot leads to -- the set-up's shot, or the
+    # long-pass contest a declined set-up falls into. Persisted
+    # because both of those outlive the effect that set it: the shot
+    # is a view a restart re-attaches, and the contest is rolled a
+    # click later. See ball_speed_modifier.
+    pending_high_pass_overshoot: bool = False
     pending_loose_ball: bool = False
     pending_loose_ball_distance: int = 1
     pending_loose_ball_is_high_pass: bool = False
@@ -947,6 +962,75 @@ class MatchState:
             self.ball.possession if side is None else side,
             self.board.flat_index(self.ball.zone, self.ball.space_index),
         )
+
+    def high_pass_overshoots(self, side: TeamSide, distance: int) -> bool:
+        """
+        Whether a High Pass of `distance` in `side`'s attack direction
+        runs out of field -- the ball is clamped short of where it was
+        aimed. Read before the ball moves, since the clamp is what
+        loses the evidence.
+        """
+        origin_flat = self.board.flat_index(
+            self.ball.zone, self.ball.space_index,
+        )
+        target_flat = self.relative_flat_index(origin_flat, side, distance)
+        return abs(target_flat - origin_flat) < distance
+
+    def high_pass_distances(
+        self, side: TeamSide, max_distance: int,
+    ) -> list[int]:
+        """
+        The distances a High Pass may actually be thrown at from where
+        the ball is: the minimum up to `max_distance`, less any that
+        run out of field. **A distance is dropped when a shorter one
+        already reaches the space it would land on**, because the
+        longer one is then the same pass at a disadvantage -- it
+        counts as an overshoot, so it pays the ball speed modifier the
+        wrong way round and owes a contest the shorter one does not.
+        So a Fullback two spaces from the end is offered 2 and 3 but
+        not 4, and anyone one space further out is offered 2 alone.
+
+        Empty when even the shortest overshoots -- see
+        high_pass_distance_is_moot, which is the same question asked
+        without needing to know the handler's maximum.
+        """
+        return [
+            distance
+            for distance in range(MIN_HIGH_PASS_DISTANCE, max_distance + 1)
+            if not self.high_pass_overshoots(side, distance)
+        ]
+
+    def high_pass_distance_is_moot(self, side: TeamSide) -> bool:
+        """
+        Whether there is anything to choose about a High Pass's
+        distance: there is not when even the shortest one already
+        overshoots, because 2, 3 and 4 then all land on the same
+        space -- the one closest to the goal. That is the ball sitting
+        0 or 1 spaces from the end of the field, and it makes the pass
+        an overshoot before anyone has picked anything. See "High
+        Pass" in the living rules.
+        """
+        return self.high_pass_overshoots(side, MIN_HIGH_PASS_DISTANCE)
+
+    def ball_speed_modifier(self) -> int:
+        """
+        The ball speed modifier as this turn pays it: the speed halved
+        and rounded down, but **negated** when a High Pass overshot the
+        field -- see "Ball speed" and "High Pass" in the living rules.
+        A pass that ran out of field arrives too fast to do anything
+        with, so the speed that would have helped is what makes the
+        shot hard, and the same sign carries into the long-pass contest
+        a declined set-up falls into.
+
+        This is the modifier a *High Pass outcome* pays: the set-up's
+        shot and that contest. The one place the modifier is paid to
+        somebody else -- a skill test the defense won with Steal
+        Intercept -- reads the speed itself, because the overshoot is
+        the offense's problem and the intercept happens before any
+        High Pass has been thrown.
+        """
+        modifier = self.ball.speed // 2
+        return -modifier if self.pending_high_pass_overshoot else modifier
 
     def own_goal_restart_space(self, side: TeamSide) -> tuple[Zone, int]:
         """
@@ -1384,6 +1468,7 @@ class MatchState:
         self.pending_run_back_speed_choice = False
         self.pending_kickoff_fill = False
         self.pending_shot_is_set_up = False
+        self.pending_high_pass_overshoot = False
         self.pending_loose_ball = False
         self.pending_loose_ball_distance = 1
         self.pending_loose_ball_is_high_pass = False
@@ -2437,6 +2522,7 @@ class MatchState:
             ),
             "pending_kickoff_fill": self.pending_kickoff_fill,
             "pending_shot_is_set_up": self.pending_shot_is_set_up,
+            "pending_high_pass_overshoot": self.pending_high_pass_overshoot,
             "pending_loose_ball": self.pending_loose_ball,
             "pending_loose_ball_distance": self.pending_loose_ball_distance,
             "pending_loose_ball_is_high_pass": (
@@ -2540,6 +2626,9 @@ class MatchState:
             pending_kickoff_fill=data.get("pending_kickoff_fill", False),
             pending_shot_is_set_up=data.get(
                 "pending_shot_is_set_up", False
+            ),
+            pending_high_pass_overshoot=data.get(
+                "pending_high_pass_overshoot", False
             ),
             pending_loose_ball=data.get("pending_loose_ball", False),
             pending_loose_ball_distance=data.get(

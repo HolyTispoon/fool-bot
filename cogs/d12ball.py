@@ -13,6 +13,7 @@ from discord.ext import commands
 
 from d12ball.ai import build_ai_strategies, AIStrategy
 from d12ball.components import (
+    MIN_HIGH_PASS_DISTANCE,
     SETUP_AREAS,
     CoachingOccasion,
     FormationShape,
@@ -1751,18 +1752,46 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     # -- High Pass -----------------------------------------------------
 
+    def high_pass_distance_options(self, match: MatchState) -> list[int]:
+        """
+        The distances this High Pass may be thrown at: the handler's
+        maximum -- 4 for a Fullback, 3 for everyone else -- less any
+        that run out of field. Empty when even the shortest does,
+        which is the overshoot-before-anyone-chooses case.
+
+        One home for both halves of that, because three things have to
+        agree about what is on offer: the menu a coach sees, what the
+        AI picks from, and the refusal that catches a click on a menu
+        the ball has moved out from under.
+        """
+        handler = self.get_player_definition(match.active_player_id)
+        max_distance = 4 if handler.role == PlayerRole.FULLBACK else 3
+        return match.high_pass_distances(match.ball.possession, max_distance)
+
     async def resolve_high_pass(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
     ) -> None:
-        handler = self.get_player_definition(match.active_player_id)
-        max_distance = 4 if handler.role == PlayerRole.FULLBACK else 3
+        # There is nothing to choose when even the shortest pass runs
+        # out of field -- 2, 3 and 4 all land on the space closest to
+        # the goal, so the pass is an overshoot before anyone picks
+        # anything (2026-08-10). The prompt is skipped rather than
+        # answered: asking would be putting one answer up three times,
+        # and a Fullback's 4 is no less moot than the 2. The distance
+        # handed on is the minimum, which is what the clock charges
+        # once the clamp has had its say.
+        distances = self.high_pass_distance_options(match)
+        if not distances:
+            await self.apply_high_pass(
+                interaction, game, match, MIN_HIGH_PASS_DISTANCE,
+            )
+            return
 
         if self.side_controlled_by_ai(game, match, "offense"):
             distance = self.get_ai_strategy(game).choose_high_pass_distance(
-                match, max_distance,
+                match, distances,
             )
             await self.apply_high_pass(interaction, game, match, distance)
             return
@@ -1796,6 +1825,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # instead of the usual 2-3 max (see HighPassChoiceView).
         fullback_bonus = handler.role == PlayerRole.FULLBACK and distance == 4
 
+        # Overshoot: the pass is clamped short of the distance asked
+        # for, i.e. it ran out of field. Read before the ball moves,
+        # the same way Block Deflect reads its own -- and by the same
+        # test, so a pass that could not move the ball at all is an
+        # overshoot like any other.
+        overshot = match.high_pass_overshoots(offense_side, distance)
+
         actual_distance = match.move_ball_relative(offense_side, distance)
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -1806,6 +1842,36 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"**High Pass:** the ball moves {actual_distance} {space_word} "
             f"forward{ability_note}."
         )
+
+        # An overshoot sets up a scoring opportunity whatever distance
+        # was asked for (2026-08-10), on the space closest to the goal
+        # -- which is where the clamp has just put the ball. The shot
+        # is always legal there, as deep into the offense's own
+        # shooting range as the field goes, so this asks
+        # scoring_opportunity_candidates rather than
+        # set_up_shot_candidates: the range check could never fail
+        # here, and a branch that cannot be taken reads as if it could.
+        # Checked ahead of the ordinary 2-space set-up below, which it
+        # subsumes -- the same shot is offered, but with the modifier
+        # the other way round and a contest behind it.
+        if overshot:
+            overshoot_candidates = self.scoring_opportunity_candidates(
+                match, offense_side,
+            )
+            if overshoot_candidates:
+                await self.offer_overshoot_set_up(
+                    interaction,
+                    game,
+                    match,
+                    shooter_id=overshoot_candidates[0],
+                    distance_moved=actual_distance,
+                    lead_in=content,
+                )
+                return
+        # Nobody from the offense on the landing space leaves nothing
+        # to set up, so an overshoot falls through to the ordinary
+        # paths below and ends as a loose ball or a clean turnover,
+        # exactly as it did before this rule.
 
         # A pass of 2 is received cleanly: no contest at all
         # (2026-08-07), and it may set up a scoring opportunity for
@@ -1881,22 +1947,109 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # took the set-up branch above, since both branches ask
         # scoring_opportunity_candidates the same question. A long
         # High Pass still forces a skill test to keep the ball, unlike
-        # any other maneuver. That receiver is the automatic offense
-        # contestant, and a defender already sharing the same space
-        # (spaces are shared between both sides -- see
-        # defenders_between_ball_and_goal) is likewise automatic; only
-        # a side with nobody exactly there still has to pick someone
-        # nearby to send.
+        # any other maneuver.
+        await self.refresh_match_image(interaction, game)
+        await self.begin_high_pass_contest(
+            interaction, game, match, actual_distance, lead_in=content,
+        )
+
+    async def offer_overshoot_set_up(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        *,
+        shooter_id: str,
+        distance_moved: int,
+        lead_in: str,
+    ) -> None:
+        """
+        The scoring opportunity a High Pass that ran out of field sets
+        up (2026-08-10) -- see "High Pass" in the living rules.
+
+        The pass arrived faster than the receiver could settle it, so
+        `pending_high_pass_overshoot` turns the ball speed modifier
+        around for everything the overshoot leads to: this shot, and
+        the long-pass contest behind it. It is set before either is
+        offered, and cleared with the rest of the turn by
+        reset_maneuver.
+
+        **The two are one choice, not an offer and a fallback.** An
+        overshoot is a shot at a disadvantage or a contest to keep the
+        ball, both paying the modifier, so declining always lands in
+        the contest -- there is no distance here that resolves as a
+        settled pass. A distance of 2 could only overshoot from a
+        position where no distance was ever offered (see
+        resolve_high_pass), so the ordinary "a pass of 2 is received,
+        full stop" rule and this one never meet.
+        """
+        match.pending_high_pass_overshoot = True
+        # Received, so the receiver carries it -- set before the
+        # set-up is offered, for the same reason the ordinary 2-space
+        # set-up does it: declining can resolve this as a completed
+        # pass, and the carrier has to survive that.
+        match.set_ball_carrier(shooter_id)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        penalty = match.ball_speed_modifier()
+        speed_note = (
+            " The ball comes in too fast to settle -- the ball speed "
+            f"modifier counts **against** what follows ({penalty})."
+            if penalty
+            else ""
+        )
+        await self.refresh_match_image(interaction, game)
+        await self.offer_scoring_attempt_choice(
+            interaction,
+            game,
+            match,
+            shooter_id=shooter_id,
+            distance_moved=distance_moved,
+            contest_on_decline=True,
+            lead_in=(
+                f"{lead_in} That overshoots the field -- a scoring "
+                f"opportunity!{speed_note}"
+            ),
+        )
+
+    async def begin_high_pass_contest(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        distance_moved: int,
+        lead_in: str = "",
+    ) -> None:
+        """
+        The long-pass contest: the receiver standing where the pass
+        landed still has to win a skill test to keep the ball. They are
+        the automatic offense contestant, and a defender already
+        sharing the same space (spaces are shared between both sides --
+        see defenders_between_ball_and_goal) is likewise automatic;
+        only a side with nobody exactly there still has to pick someone
+        nearby to send.
+
+        Two paths reach it, and callers of both have already found the
+        receiver on the landing space: an unclamped pass of 3 or 4, and
+        an overshoot whose set-up the coach declined (2026-08-10). The
+        second still carries `pending_high_pass_overshoot`, so the
+        contest is rolled with the ball speed modifier against the
+        receiver rather than for them -- the same sign the declined
+        shot would have paid.
+        """
+        receiver_candidates = self.scoring_opportunity_candidates(
+            match, match.ball.possession,
+        )
         defender_on_space = self.scoring_opportunity_candidates(
             match, match.defending_side(),
         )
-        await self.refresh_match_image(interaction, game)
         await self.begin_loose_ball(
             interaction,
             game,
             match,
-            actual_distance,
-            lead_in=content,
+            distance_moved,
+            lead_in=lead_in,
             headline=HIGH_PASS_CONTEST_HEADLINE,
             is_high_pass=True,
             forced_offense_player=receiver_candidates[0],
@@ -1914,13 +2067,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         shooter_id: str,
         distance_moved: int,
         lead_in: str,
+        contest_on_decline: bool = False,
     ) -> None:
         """
         Offer the offense a chance to attempt a scoring-opportunity
         shot instead of letting a maneuver resolve normally -- used by
-        a High Pass's 2-space pass and a Winger's Low Pass. Declining
-        always resolves the maneuver as a normal pass; a 2-space High
-        Pass stopped forcing a contest instead on 2026-08-07.
+        a High Pass's 2-space pass, a High Pass that overshoots, and a
+        Winger's Low Pass.
+
+        Declining nearly always resolves the maneuver as a normal pass;
+        a 2-space High Pass stopped forcing a contest instead on
+        2026-08-07. `contest_on_decline` is the one exception: an
+        overshoot is a shot or a contest, both at the same
+        disadvantage, so declining lands in the contest rather than
+        settling the ball (2026-08-10). It is passed rather than
+        derived because by the time this runs, an overshot pass and an
+        ordinary 2-space one have left the match in the same state.
         """
         if self.side_controlled_by_ai(game, match, "offense"):
             attempt = self.get_ai_strategy(
@@ -1935,6 +2097,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else:
                 await self.decline_scoring_attempt(
                     interaction, game, match, distance_moved,
+                    contest=contest_on_decline,
                 )
             return
 
@@ -1945,6 +2108,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "the scoring opportunity, or let it go:",
             view=SetUpAttemptChoiceView(
                 self, game.game_id, shooter_id, distance_moved,
+                contest_on_decline=contest_on_decline,
             ),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -1960,11 +2124,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
         distance_moved: int,
+        contest: bool = False,
     ) -> None:
         """
         Let go of a scoring opportunity: the maneuver that offered it
         resolves as it otherwise would have.
+
+        For an overshot High Pass that is the long-pass contest, not a
+        settled ball -- the shot and the contest are the two halves of
+        one choice. See offer_scoring_attempt_choice.
         """
+        if contest:
+            await self.begin_high_pass_contest(
+                interaction,
+                game,
+                match,
+                distance_moved,
+                lead_in="The scoring opportunity is let go -- but the "
+                "pass still has to be kept.",
+            )
+            return
         await self.finish_maneuver_resolution(
             interaction, game, match, distance_moved=distance_moved,
         )
@@ -5214,14 +5393,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         and the Striker's +3 only applies off a set-up.
         """
         shooter = self.get_player_definition(match.active_player_id)
-        speed_modifier = match.ball.speed // 2
+        speed_modifier = match.ball_speed_modifier()
         defenders = self.intervening_defenders(match)
         defending_setup = match.setup_for_side(match.defending_side())
 
         modifiers = []
         if speed_modifier:
             modifiers.append(
-                f"+{speed_modifier} ball speed ({match.ball.speed})"
+                f"{speed_modifier:+d} ball speed ({match.ball.speed})"
             )
         if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
             modifiers.append("+3 Striker ability")

@@ -2529,9 +2529,12 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         pick required. The standard formation also has a visiting
         defender already on that same space (spaces are shared
         between both sides), which is likewise automatic rather than
-        a zone-wide pick. Distance 3 never offers a scoring-
-        opportunity setup, so this isolates the forced-contest branch
-        from that earlier one.
+        a zone-wide pick.
+
+        The pass is placed to land two short of the edge: a distance
+        of 3 offers no scoring-opportunity setup unless it overshoots
+        (2026-08-10), so landing with room to spare is what isolates
+        the forced-contest branch from that one.
         """
         cog = self.build_cog()
         match = self.build_match()
@@ -2540,17 +2543,28 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7
-        receiver = match.home.field_players[0]
-        match.move_meeple(receiver, Zone.VISITORS_GOAL, 2)  # flat 8, landing
-        defender_on_space = match.board.spaces[Zone.VISITORS_GOAL][2][0]
+        match.set_ball_space(Zone.MIDFIELD, 1)  # flat 4, landing on flat 7
+        landing = match.board.spaces[Zone.VISITORS_GOAL][1]
+        receiver = next(
+            player_id for player_id in landing
+            if player_id in match.home.field_players
+        )
+        defender_on_space = next(
+            player_id for player_id in landing
+            if player_id in match.visiting.field_players
+        )
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with mock.patch("cogs.d12ball.save_games"):
             await cog.apply_high_pass(interaction, game, match, 3)
 
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index),
+            (Zone.VISITORS_GOAL, 1),
+        )
         cog.offer_scoring_attempt_choice.assert_not_awaited()
+        self.assertFalse(match.pending_high_pass_overshoot)
         cog.begin_loose_ball.assert_awaited_once()
         _, kwargs = cog.begin_loose_ball.await_args
         self.assertEqual(kwargs["headline"], HIGH_PASS_CONTEST_HEADLINE)
@@ -2598,9 +2612,15 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         _, kwargs = cog.offer_scoring_attempt_choice.await_args
         self.assertEqual(kwargs["shooter_id"], shooter)
 
-    async def test_apply_high_pass_distance_three_never_offers_setup(
+    async def test_apply_high_pass_distance_three_overshoot_offers_setup(
         self,
     ) -> None:
+        """
+        2026-08-10: a distance of 3 offers no set-up on its own, but an
+        overshoot offers one whatever distance was asked for, on the
+        space closest to the goal -- which is where the clamp puts the
+        ball. The ball speed modifier is turned around for it.
+        """
         cog = self.build_cog()
         match = self.build_match()
         handler = self.player_with_role(
@@ -2608,11 +2628,191 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
-        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7
-        # A shooter candidate is standing right where a 3-space pass
-        # would overshoot to -- still shouldn't matter at distance 3.
+        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 3 overshoots
+        match.ball.speed = 4  # a +2 modifier, so the sign is visible
         shooter = match.home.field_players[0]
-        match.move_meeple(shooter, Zone.VISITORS_GOAL, 2)
+        match.move_meeple(shooter, Zone.VISITORS_GOAL, 2)  # flat 8, landing
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_high_pass(interaction, game, match, 3)
+
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index),
+            (Zone.VISITORS_GOAL, 2),
+        )
+        cog.begin_loose_ball.assert_not_awaited()
+        cog.offer_scoring_attempt_choice.assert_awaited_once()
+        _, kwargs = cog.offer_scoring_attempt_choice.await_args
+        self.assertEqual(kwargs["shooter_id"], shooter)
+        # The contest is still owed at 3, so declining lands there
+        # rather than settling the ball.
+        self.assertTrue(kwargs["contest_on_decline"])
+        self.assertTrue(match.pending_high_pass_overshoot)
+        self.assertEqual(match.ball_speed_modifier(), -2)
+        self.assertEqual(match.ball_carrier_id, shooter)
+
+    async def test_a_moot_high_pass_distance_is_never_asked_for(
+        self,
+    ) -> None:
+        """
+        2026-08-10: from 0 or 1 spaces off the end of the field every
+        distance lands on the same space, so the pass is an overshoot
+        before anyone picks anything and the distance prompt is
+        skipped rather than answered -- for a Fullback's 4 as much as
+        for the 2.
+        """
+        cog = self.build_cog()
+        cog.apply_high_pass = mock.AsyncMock()
+        cog.side_controlled_by_ai = mock.Mock(return_value=False)
+        match = self.build_match()
+        match.ball.possession = TeamSide.HOME
+        match.active_player_id = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.FULLBACK,
+        )
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        for space_index in (1, 2):  # flat 7 and flat 8: 1 away, then 0
+            match.set_ball_space(Zone.VISITORS_GOAL, space_index)
+            self.assertTrue(match.high_pass_distance_is_moot(TeamSide.HOME))
+            with mock.patch("cogs.d12ball.save_games"):
+                await cog.resolve_high_pass(interaction, game, match)
+
+        self.assertEqual(cog.apply_high_pass.await_count, 2)
+        for call in cog.apply_high_pass.await_args_list:
+            self.assertEqual(call.args[-1], 2)
+        cog.side_controlled_by_ai.assert_not_called()
+
+    def test_a_high_pass_distance_two_spaces_out_is_a_real_choice(
+        self,
+    ) -> None:
+        # The other side of it: from 2 away a 2 lands exactly and only
+        # a 3 or a 4 overshoots, so the coach is asked.
+        match = self.build_match()
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.VISITORS_GOAL, 0)  # flat 6 of 0..8
+        self.assertFalse(match.high_pass_distance_is_moot(TeamSide.HOME))
+        self.assertFalse(match.high_pass_overshoots(TeamSide.HOME, 2))
+        self.assertTrue(match.high_pass_overshoots(TeamSide.HOME, 3))
+
+        # And the same reading from the other end of the board, where
+        # the attack direction is reversed.
+        match.ball.possession = TeamSide.VISITING
+        match.set_ball_space(Zone.HOME_GOAL, 1)  # flat 1, 1 away
+        self.assertTrue(match.high_pass_distance_is_moot(TeamSide.VISITING))
+        match.set_ball_space(Zone.HOME_GOAL, 2)  # flat 2, 2 away
+        self.assertFalse(match.high_pass_distance_is_moot(TeamSide.VISITING))
+
+    def test_a_distance_that_runs_off_the_field_is_not_on_offer(self) -> None:
+        """
+        2026-08-10: a longer pass that lands where a shorter one
+        already would is the same pass at a disadvantage, so it is
+        dropped from the menu rather than offered. A Fullback's 4 is
+        no more protected than anyone's 3.
+        """
+        match = self.build_match()
+        match.ball.possession = TeamSide.HOME  # attacking toward flat 8
+
+        for space, expected_3, expected_4 in (
+            ((Zone.MIDFIELD, 1), [2, 3], [2, 3, 4]),      # flat 4, 4 away
+            ((Zone.MIDFIELD, 2), [2, 3], [2, 3]),         # flat 5, 3 away
+            ((Zone.VISITORS_GOAL, 0), [2], [2]),          # flat 6, 2 away
+            ((Zone.VISITORS_GOAL, 1), [], []),            # flat 7, 1 away
+            ((Zone.VISITORS_GOAL, 2), [], []),            # flat 8, at the end
+        ):
+            with self.subTest(space=space):
+                match.set_ball_space(*space)
+                self.assertEqual(
+                    match.high_pass_distances(TeamSide.HOME, 3), expected_3,
+                )
+                self.assertEqual(
+                    match.high_pass_distances(TeamSide.HOME, 4), expected_4,
+                )
+                # The two readings of "nothing fits" agree, and the
+                # cheaper one is what resolve_high_pass asks.
+                self.assertEqual(
+                    match.high_pass_distance_is_moot(TeamSide.HOME),
+                    not match.high_pass_distances(TeamSide.HOME, 4),
+                )
+
+    def test_the_menu_reads_the_handler_s_own_maximum(self) -> None:
+        # The Fullback's ability raises the maximum, and the field
+        # takes it away again three spaces from the end.
+        cog = self.build_cog()
+        match = self.build_match()
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)  # flat 4, four spaces of room
+
+        match.active_player_id = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.FULLBACK,
+        )
+        self.assertEqual(cog.high_pass_distance_options(match), [2, 3, 4])
+        match.active_player_id = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        self.assertEqual(cog.high_pass_distance_options(match), [2, 3])
+
+        match.set_ball_space(Zone.MIDFIELD, 2)  # flat 5, three of room
+        match.active_player_id = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.FULLBACK,
+        )
+        self.assertEqual(cog.high_pass_distance_options(match), [2, 3])
+
+    async def test_apply_high_pass_overshoot_always_contests_on_decline(
+        self,
+    ) -> None:
+        """
+        An overshoot is a shot at a disadvantage or a contest to keep
+        the ball -- two halves of one choice, not an offer and a
+        fallback -- so declining lands in the contest whatever
+        distance reached here. A 2 can only overshoot from a position
+        where no distance was offered at all.
+        """
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 2 overshoots
+        shooter = match.home.field_players[0]
+        match.move_meeple(shooter, Zone.VISITORS_GOAL, 2)  # flat 8, landing
+
+        interaction = SimpleNamespace()
+        game = SimpleNamespace(match_state=None)
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_high_pass(interaction, game, match, 2)
+
+        cog.offer_scoring_attempt_choice.assert_awaited_once()
+        _, kwargs = cog.offer_scoring_attempt_choice.await_args
+        self.assertTrue(kwargs["contest_on_decline"])
+        self.assertTrue(match.pending_high_pass_overshoot)
+
+    async def test_apply_high_pass_overshoot_with_nobody_there_sets_up_nothing(
+        self,
+    ) -> None:
+        """
+        An overshoot with no offense player on the landing space has
+        nobody to shoot, so it falls through to the ordinary paths and
+        ends as a loose ball or a clean turnover, exactly as it did
+        before the rule. Nothing turns the speed modifier around
+        either -- there is no set-up for it to apply to.
+        """
+        cog = self.build_cog()
+        match = self.build_match()
+        handler = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.DEFENDER,
+        )
+        match.active_player_id = handler
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 3 overshoots
+        # The standard deal leaves only a visiting player on flat 8.
+        for player_id in list(match.board.spaces[Zone.VISITORS_GOAL][2]):
+            if player_id in match.home.field_players:
+                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
@@ -2620,7 +2820,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             await cog.apply_high_pass(interaction, game, match, 3)
 
         cog.offer_scoring_attempt_choice.assert_not_awaited()
-        cog.begin_loose_ball.assert_awaited_once()
+        self.assertFalse(match.pending_high_pass_overshoot)
+        cog.finish_maneuver_resolution.assert_awaited_once()
 
     async def test_apply_high_pass_fullback_ability_note_at_distance_four(
         self,
