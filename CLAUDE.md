@@ -321,7 +321,8 @@ Both are now places a turn can **stop**, and that is the whole cost of it:
   `pending_injury_resume`, which is the contest's continuation -- a maneuver's
   skill test resumes into its winner's effect, a loose ball (or the long High
   Pass borrowing its machinery) into its run back, with the two arguments that
-  run back needs. Neither is derivable after the fact: `settled_maneuver_winner`
+  run back needs, and a shootout skill test into the next one. Neither is
+  derivable after the fact: `settled_maneuver_winner`
   answers None while a test is owed, and the contest that knew the distance has
   already cleared itself. Both are persisted, and `reset_maneuver` clears them
   with everything else the turn set.
@@ -340,6 +341,63 @@ Both are now places a turn can **stop**, and that is the whole cost of it:
 - **The player is in the injury button's custom_id as well as in the queue**, so
   a coach who scrolls back to the first of two prompts cannot roll the second
   player's test with it.
+
+## The extreme shootout
+
+**Every game is settled.** A level score at full time opens the shootout -- see
+"Extreme shootout" in the living rules -- and there is no setting for it: league
+mode and the `tie_mode` field went with it, so `end_period` branches on the
+score alone. A saved game still carrying `tie_mode` loads without it rather than
+being skipped, which is what the retired-field filter in
+`gamesaves/d12ball/storage.py` is for; nothing writes the key any more, so it
+dies out on its own.
+
+- **`D12Ball.advance_shootout` is the only reading of "what is this shootout
+  waiting on?"**, and `pending_turn_view` answers the same three questions in
+  the same order. Two of the four steps are the bot's own -- the reveal, and
+  setting the next test up -- so a restart between them has no button anywhere,
+  which is why `resume_pending_prompt` hands a shootout back to
+  `advance_shootout` rather than posting a view. Same shape as the run back and
+  the halftime sequence, and the same reason.
+- **The first round records no shooter.** `shootout_shooter` reads it off the
+  coach's order and the count of who has been out, so the reveal has no state of
+  its own to lose. Sudden death has no order to read, so there it is exactly
+  what the coach picked -- and that is the only case
+  `shootout_shooters_complete` can be false in.
+- **The roll retires its own shooters**, in the same save as the goal
+  (`finish_shootout_test`). That is what stops a restart between the roll and the
+  injury tests re-rolling a test already paid for, and it is why
+  `continue_shootout` may not call it again: round 1 derives its shooter, so a
+  second call would quietly retire the next pair as well.
+- **A part-built order lives on the match, not on the view.** Both menus are
+  ephemeral for the same reason the maneuver pick is -- neither coach may see the
+  other's -- so a restart cannot re-attach to them and
+  `restore_shootout_menus` re-registers them message-agnostically, exactly as
+  `restore_maneuver_menus` does. A view rebuilt that way starts empty, so a coach
+  who had ordered five would come back to none if the order lived there.
+- **`shootout_winner` is the whole of "is it over?"**, both rounds in one
+  predicate: in round 1 a lead bigger than the tests still to come (which it
+  counts by asking who is left, hence the retirement above), and in sudden death
+  any lead at all, since that round started level by construction.
+- **A shootout goal is a goal**, so `award_shootout_goal` writes the scoreboard
+  *and* a separate tally. The tally is not the score: it is what the "cannot be
+  caught" stop counts and what `shootout_score_line` reads for the summary,
+  because 6:5 says nothing about how the game was won.
+- **`shootout_heading` is only ever a question.** It names the test about to be
+  rolled, and by the time a result is posted the shooters have been retired and
+  that number has moved on -- so a result carries `shootout_running_score`
+  instead.
+- **"Your Order" is on the roll prompt**, not on the order prompt, because the
+  order prompt is deleted the moment both sides have set theirs and the roll
+  prompt is what a coach is looking at for the rest of the shootout. A coach may
+  look at their own order whenever they like -- they just may not reorder it --
+  so it answers ephemerally, and in sudden death, which has no order, it lists
+  who they have left this round.
+- **A shootout test costs no exhaustion and still owes injury checks**, which is
+  the author's ruling and not a shortcut: it is not one of the ways to gain a
+  token, but an Exhausted participant rolls a check like any other skill test.
+  It goes through `begin_injury_tests` with a resume of its own, so the queue is
+  the same one every contest uses.
 
 ## Where a shot may be taken from
 
@@ -882,15 +940,18 @@ its channel. `/d12ball resume` puts the question back up and
 to either player in the game, or to anyone with `manage_channels`
 (`may_administer_game`).
 
-**There is exactly one ephemeral view in the game, and it is the maneuver
-pick.** `ManeuverActionSelectView` has to be ephemeral — a coach must not see
-the other side's choice before the reveal, and it is the only thing Discord
-offers that hides it. Everywhere else `ephemeral=True` carries an error reply
-with no buttons on it. That one view is also the only one a restart cannot
-re-attach to its message: the bot never holds a durable handle to an ephemeral
-message, so there is no id to give `add_view`.
+**The ephemeral views in the game are the three secret picks**, and they are
+ephemeral for one reason: a coach must not see the other side's choice before
+the reveal, and it is the only thing Discord offers that hides it.
+`ManeuverActionSelectView` is the maneuver pick; `ShootoutOrderSelectView` and
+`ShootoutPickSelectView` are the shootout's shooting order and its sudden-death
+shooter. Everywhere else `ephemeral=True` carries an error reply with no buttons
+on it. Those three are also the only views a restart cannot re-attach to their
+message: the bot never holds a durable handle to an ephemeral message, so there
+is no id to give `add_view`.
 
-`restore_maneuver_menus` is the way round it. `add_view` **without** a
+`restore_maneuver_menus` is the way round it, and `restore_shootout_menus` does
+the identical thing for the other two. `add_view` **without** a
 message_id lands the view under a `None` key, and discord.py's
 `ViewStore.dispatch_view` looks a click up by `(message_id, custom_id)` and then
 falls back to `(None, custom_id)` — so the menu a coach already has open starts
@@ -909,12 +970,14 @@ Three more ways a restart strands a game, none of them about ephemerality:
 
 - The prompt was **deleted** before the restart. `close_maneuver_prompt` drops
   the maneuver prompt once both sides have picked and clears `turn_message_id`
-  with it, and so does `delete_choice_prompt`. There is then nothing to re-arm.
+  with it, and `close_shootout_prompt` does the same for the shootout's order
+  and shooter prompts. There is then nothing to re-arm.
 - The process died **before the prompt it was about to send was recorded**.
 - The process died **in the middle of a cascade whose next step was the bot's
   own**. This is the one that strands a game hardest: `continue_run_back`, the
-  setup sequence and the halftime sequence are driven from a live interaction,
-  so there is no button anywhere and nothing will ever pick the state back up.
+  setup sequence, the halftime sequence and the shootout are driven from a live
+  interaction, so there is no button anywhere and nothing will ever pick the
+  state back up.
 
 Two things follow from that:
 
@@ -929,9 +992,9 @@ Two things follow from that:
 - **A state whose next step is the bot's is handed back to the routine that
   drives it**, not re-asked: `continue_run_back`, `begin_ball_recovery`,
   `advance_setup_stage`, `advance_halftime_stage`,
-  `run_ai_substitution_window`. That is the whole difference between resume's
-  two callers, and the reason `pending_turn_view` returns a view rather than
-  posting it.
+  `run_ai_substitution_window`, `advance_shootout`. That is the whole difference
+  between resume's two callers, and the reason `pending_turn_view` returns a
+  view rather than posting it.
 
 - **An open Coaching Choice is re-posted, never re-opened.**
   `repost_coaching_prompt` exists because `begin_substitution_window` calls
@@ -941,8 +1004,10 @@ Two things follow from that:
   their coaching through that one window.
 - **`resume force:true` clears the turn**, via `reset_maneuver` and
   `close_coaching_window`, and asks the offense to choose again. It refuses
-  during setup and halftime: those are real positions in the game rather than a
-  turn gone wrong, and clearing them would drop a coach's window on the floor.
+  during setup, halftime and the shootout: those are real positions in the game
+  rather than a turn gone wrong, and clearing them would drop a coach's window
+  -- or both coaches' shooting orders -- on the floor. `offensive_choice`
+  refuses in a shootout for the same reason; there is no turn under it.
 - **`/d12ball offensive_choice`'s refusals all point at resume.** "A score
   attempt is already in progress" was the symptom that started this:
   `pending_action` stays `"shoot"` for the whole post-goal sequence, since only

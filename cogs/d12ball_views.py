@@ -28,7 +28,6 @@ from d12ball.game import (
     GameStatus,
     HomeChoice,
     Team,
-    TieMode,
 )
 from d12ball.render import (
     TEAM_COLORS,
@@ -42,7 +41,6 @@ from cogs.d12ball_helpers import (
     AI_OPPONENT_NAMES,
     LOGGER,
     ROLE_INITIALS,
-    TIE_MODE_LABELS,
     add_full_image_button_to_response,
     build_home_choice_message,
     build_setup_message,
@@ -94,8 +92,8 @@ class GameConfigurationView(SafeView):
         The action row the settings block starts on. A view that puts
         its own buttons above the settings (team selection) overrides
         this. Discord only gives us five rows and the block is up to
-        four of them -- mode, board size, tie mode, and, for a solo
-        game, the AI opponent -- so there is no room to spare.
+        three of them -- mode, board size, and, for a solo game, the
+        AI opponent -- so there is little room to spare.
         """
         return 0
 
@@ -103,7 +101,6 @@ class GameConfigurationView(SafeView):
         game = self.cog.games.get(self.game_id)
         selected_mode = game.mode if game else GameMode.BASIC
         selected_board_size = game.board_size if game else 7
-        selected_tie_mode = game.tie_mode if game else TieMode.LEAGUE
         configuration_closed = bool(
             game and game.status != GameStatus.SETUP
         )
@@ -164,32 +161,6 @@ class GameConfigurationView(SafeView):
             button.callback = board_size_callback
             self.add_item(button)
 
-        for tie_mode, label in TIE_MODE_LABELS.items():
-            button = discord.ui.Button(
-                label=label,
-                style=(
-                    discord.ButtonStyle.secondary
-                    if tie_mode == selected_tie_mode
-                    else discord.ButtonStyle.primary
-                ),
-                custom_id=(
-                    f"d12ball:tie_mode:{self.game_id}:{tie_mode.value}"
-                ),
-                disabled=(
-                    configuration_closed or tie_mode == selected_tie_mode
-                ),
-                row=first_row + 2,
-            )
-
-            async def tie_mode_callback(
-                interaction: discord.Interaction,
-                selected: TieMode = tie_mode,
-            ) -> None:
-                await self.select_tie_mode(interaction, selected)
-
-            button.callback = tie_mode_callback
-            self.add_item(button)
-
         if game is None or not game.is_solo_game:
             return
 
@@ -207,7 +178,7 @@ class GameConfigurationView(SafeView):
                     f"d12ball:ai_opponent:{self.game_id}:{ai_type.value}"
                 ),
                 disabled=configuration_closed or ai_type == selected_ai,
-                row=first_row + 3,
+                row=first_row + 2,
             )
 
             async def ai_opponent_callback(
@@ -269,37 +240,6 @@ class GameConfigurationView(SafeView):
             return
 
         game.mode = GameMode.BASIC
-        save_games(self.cog.games)
-
-        refreshed_view = type(self)(
-            cog=self.cog,
-            game_id=self.game_id,
-        )
-        await interaction.response.edit_message(
-            content=build_setup_message(game),
-            view=refreshed_view,
-        )
-
-    async def select_tie_mode(
-        self,
-        interaction: discord.Interaction,
-        selected_tie_mode: TieMode,
-    ) -> None:
-        game = await self.validate_configuration_change(interaction)
-        if game is None:
-            return
-
-        if selected_tie_mode == TieMode.TOURNAMENT:
-            # Refused for the same reason advanced mode is: the extreme
-            # shootout a tournament tie goes to isn't implemented yet.
-            await interaction.response.send_message(
-                "tournament mode is not yet ready, please play in "
-                "league mode",
-                ephemeral=True,
-            )
-            return
-
-        game.tie_mode = TieMode.LEAGUE
         save_games(self.cog.games)
 
         refreshed_view = type(self)(
@@ -4530,3 +4470,658 @@ class LooseBallSkillTestView(SafeView):
         )
 
 
+
+
+class ShootoutView(SafeView):
+    """
+    Shared plumbing for the shootout's public prompts: load the game,
+    and work out which side the person clicking coaches.
+
+    Every prompt in the shootout is **one button both coaches share**,
+    the way the maneuver prompt is: which menu opens depends only on
+    who clicked, so nobody has to find "which button is mine" first.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+    def load(self) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            return None, None
+        return game, self.cog.load_match_state(game)
+
+    def owes(self, match: MatchState, side: TeamSide) -> bool:
+        """Whether this prompt is still waiting on `side`."""
+        raise NotImplementedError
+
+    async def claim(
+        self,
+        interaction: discord.Interaction,
+    ) -> Optional[tuple[D12BallGame, MatchState, TeamSide]]:
+        """
+        Which side the person clicking is answering for.
+
+        **A side that still owes an answer wins**, because in a test
+        game one user coaches both and would otherwise never be able
+        to answer for the second: the home side is theirs, so the
+        visiting order could never be set. The maneuver prompt picks
+        its ephemeral menu the same way and for the same reason.
+        """
+        game, match = self.load()
+        if game is None or match is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return None
+
+        if not match.pending_shootout:
+            await interaction.response.send_message(
+                "This game is not in the extreme shootout.",
+                ephemeral=True,
+            )
+            return None
+
+        theirs = [
+            side
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+            if self.cog.side_controller_id(game, side) == interaction.user.id
+        ]
+        if not theirs:
+            await interaction.response.send_message(
+                "Only a coach in this game can do that.",
+                ephemeral=True,
+            )
+            return None
+
+        for side in theirs:
+            if self.owes(match, side):
+                return game, match, side
+
+        return game, match, theirs[0]
+
+
+class ShootoutOrderPromptView(ShootoutView):
+    """The public button that opens a coach's own ordering menu."""
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(cog, game_id)
+
+        button = discord.ui.Button(
+            label="Set Your Shooting Order",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:shootout_order_prompt:{game_id}",
+        )
+        button.callback = self.open_menu
+        self.add_item(button)
+
+    def owes(self, match: MatchState, side: TeamSide) -> bool:
+        return not match.shootout_order_complete(side)
+
+    async def open_menu(self, interaction: discord.Interaction) -> None:
+        claimed = await self.claim(interaction)
+        if claimed is None:
+            return
+        game, match, side = claimed
+
+        if match.shootout_order_complete(side):
+            # A coach may look at their order but not reorder it, so
+            # this shows it rather than reopening the menu.
+            await interaction.response.send_message(
+                "Your order is set:\n"
+                f"{self.cog.shootout_order_text(match, side)}",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            content=self.cog.shootout_order_text(match, side),
+            view=ShootoutOrderSelectView(self.cog, self.game_id, side),
+            ephemeral=True,
+        )
+
+
+class ShootoutOrderSelectView(SafeView):
+    """
+    A coach putting their six in order, one click at a time, on an
+    ephemeral message -- the other coach must not see it, and
+    ephemeral is the only thing Discord offers that hides it. That
+    makes this and `ShootoutPickSelectView` the shootout's share of
+    the problem the maneuver menu has: no durable message id, so a
+    restart re-registers them message-agnostically instead (see
+    `D12Ball.restore_shootout_menus`, which is also why `timeout` is
+    an argument rather than a constant).
+
+    **The part-built order is on the match, not on this view**, so a
+    coach who ordered five and lost the bot comes back to five rather
+    than to an empty menu -- see `MatchState.add_to_shootout_order`.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        side: TeamSide,
+        timeout: Optional[float] = 600,
+    ):
+        super().__init__(timeout=timeout)
+
+        self.cog = cog
+        self.game_id = game_id
+        self.side = TeamSide(side)
+
+        game = cog.games.get(game_id)
+        match = (
+            cog.load_match_state(game)
+            if game is not None and game.match_state is not None
+            else None
+        )
+        remaining = (
+            match.shootout_order_remaining(self.side)
+            if match is not None
+            else []
+        )
+
+        for player_id in remaining:
+            button = discord.ui.Button(
+                label=cog.shootout_button_label(match, player_id),
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:shootout_order:{game_id}:"
+                    f"{self.side.value}:{player_id}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_id: str = player_id,
+            ) -> None:
+                await self.pick(interaction, chosen_id)
+
+            button.callback = callback
+            self.add_item(button)
+
+        restart = discord.ui.Button(
+            label="Start Over",
+            style=discord.ButtonStyle.secondary,
+            custom_id=(
+                f"d12ball:shootout_order_restart:{game_id}:{self.side.value}"
+            ),
+            row=1,
+        )
+        restart.callback = self.restart
+        self.add_item(restart)
+
+    async def load(
+        self,
+        interaction: discord.Interaction,
+    ) -> Optional[tuple[D12BallGame, MatchState]]:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return None
+
+        match = self.cog.load_match_state(game)
+        if (
+            not match.pending_shootout
+            or self.cog.side_controller_id(game, self.side)
+            != interaction.user.id
+        ):
+            await interaction.response.edit_message(
+                content="That order is no longer being asked for.",
+                view=None,
+            )
+            return None
+
+        return game, match
+
+    async def restart(self, interaction: discord.Interaction) -> None:
+        loaded = await self.load(interaction)
+        if loaded is None:
+            return
+        game, match = loaded
+
+        if match.shootout_order_complete(self.side):
+            await interaction.response.edit_message(
+                content=(
+                    "Your order is already set, and an order cannot be "
+                    "changed once it is."
+                ),
+                view=None,
+            )
+            return
+
+        match.clear_shootout_order(self.side)
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        await interaction.response.edit_message(
+            content=self.cog.shootout_order_text(match, self.side),
+            view=ShootoutOrderSelectView(self.cog, self.game_id, self.side),
+        )
+
+    async def pick(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        loaded = await self.load(interaction)
+        if loaded is None:
+            return
+        game, match = loaded
+
+        try:
+            match.add_to_shootout_order(self.side, player_id)
+        except ValueError as error:
+            # A click on a stale copy of the menu -- a coach who
+            # scrolled back, or one restored after a restart.
+            await interaction.response.edit_message(
+                content=(
+                    f"{error}\n\n"
+                    f"{self.cog.shootout_order_text(match, self.side)}"
+                ),
+                view=(
+                    None
+                    if match.shootout_order_complete(self.side)
+                    else ShootoutOrderSelectView(
+                        self.cog, self.game_id, self.side,
+                    )
+                ),
+            )
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        settled = match.shootout_order_complete(self.side)
+        await interaction.response.edit_message(
+            content=self.cog.shootout_order_text(match, self.side),
+            view=(
+                None
+                if settled
+                else ShootoutOrderSelectView(
+                    self.cog, self.game_id, self.side,
+                )
+            ),
+        )
+
+        if not settled:
+            return
+
+        await interaction.followup.send(
+            f"{format_team_side_label(match.setup_for_side(self.side))} "
+            "has set their shooting order."
+        )
+
+        if match.shootout_orders_complete:
+            await self.cog.close_shootout_prompt(interaction, game)
+            await self.cog.advance_shootout(interaction, game, match)
+
+
+class ShootoutPickPromptView(ShootoutView):
+    """The public button that opens a sudden-death shooter pick."""
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(cog, game_id)
+
+        button = discord.ui.Button(
+            label="Choose Your Shooter",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:shootout_pick_prompt:{game_id}",
+        )
+        button.callback = self.open_menu
+        self.add_item(button)
+
+    def owes(self, match: MatchState, side: TeamSide) -> bool:
+        return match.shootout_shooter(side) is None
+
+    async def open_menu(self, interaction: discord.Interaction) -> None:
+        claimed = await self.claim(interaction)
+        if claimed is None:
+            return
+        game, match, side = claimed
+
+        if match.shootout_shooter(side) is not None:
+            await interaction.response.send_message(
+                "You have already chosen your shooter.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            content=(
+                "Choose who goes out next. Everyone who has not shot "
+                "yet this round is eligible."
+            ),
+            view=ShootoutPickSelectView(self.cog, self.game_id, side),
+            ephemeral=True,
+        )
+
+
+class ShootoutPickSelectView(SafeView):
+    """
+    The sudden-death shooter pick, ephemeral for the same reason the
+    ordering menu is: neither coach may see the other's before the
+    reveal.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        side: TeamSide,
+        timeout: Optional[float] = 600,
+    ):
+        super().__init__(timeout=timeout)
+
+        self.cog = cog
+        self.game_id = game_id
+        self.side = TeamSide(side)
+
+        game = cog.games.get(game_id)
+        match = (
+            cog.load_match_state(game)
+            if game is not None and game.match_state is not None
+            else None
+        )
+        eligible = (
+            match.shootout_eligible(self.side) if match is not None else []
+        )
+
+        for player_id in eligible:
+            button = discord.ui.Button(
+                label=cog.shootout_button_label(match, player_id),
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:shootout_pick:{game_id}:"
+                    f"{self.side.value}:{player_id}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_id: str = player_id,
+            ) -> None:
+                await self.pick(interaction, chosen_id)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def pick(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+        if (
+            not match.pending_shootout
+            or self.cog.side_controller_id(game, self.side)
+            != interaction.user.id
+        ):
+            await interaction.response.edit_message(
+                content="That pick is no longer being asked for.",
+                view=None,
+            )
+            return
+
+        if match.shootout_shooter(self.side) is not None:
+            await interaction.response.edit_message(
+                content="You have already chosen your shooter.",
+                view=None,
+            )
+            return
+
+        try:
+            match.set_shootout_shooter(self.side, player_id)
+        except ValueError as error:
+            await interaction.response.edit_message(
+                content=str(error),
+                view=None,
+            )
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        player = self.cog.get_player_definition(player_id)
+        await interaction.response.edit_message(
+            content=(
+                "You send out "
+                f"{format_role_bracket(player, self.cog.team_emojis)}."
+            ),
+            view=None,
+        )
+        await interaction.followup.send(
+            f"{format_team_side_label(match.setup_for_side(self.side))} "
+            "has chosen their shooter."
+        )
+
+        if match.shootout_shooters_complete:
+            await self.cog.close_shootout_prompt(interaction, game)
+            await self.cog.advance_shootout(interaction, game, match)
+
+
+class ShootoutTestView(ShootoutView):
+    """
+    The roll that settles one shootout skill test. Either coach may
+    press it, like every other roll in the game.
+
+    It carries the "look at your order" button as well, because this
+    is the message a coach is looking at for most of a shootout: the
+    order prompt is deleted once both sides have set theirs, and a
+    coach may look at their own order any time they like -- they just
+    may not reorder it.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(cog, game_id)
+
+        button = discord.ui.Button(
+            label="Roll the skill test",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:shootout_test:{game_id}",
+        )
+        button.callback = self.roll
+        self.add_item(button)
+
+        review = discord.ui.Button(
+            label="Your Order",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:shootout_review:{game_id}",
+        )
+        review.callback = self.review
+        self.add_item(review)
+
+    def owes(self, match: MatchState, side: TeamSide) -> bool:
+        # Nothing is owed here -- both coaches may look at their own,
+        # so whichever side is theirs is the answer.
+        return True
+
+    async def review(self, interaction: discord.Interaction) -> None:
+        """
+        A coach's own order, or -- in sudden death, which has none --
+        who they have left to send out this round. Ephemeral, so the
+        other coach learns nothing from it.
+        """
+        claimed = await self.claim(interaction)
+        if claimed is None:
+            return
+        _, match, side = claimed
+
+        if match.shootout_round > 1:
+            remaining = [
+                format_role_bracket(
+                    self.cog.get_player_definition(player_id),
+                    self.cog.team_emojis,
+                )
+                for player_id in match.shootout_eligible(side)
+            ]
+            await interaction.response.send_message(
+                "\n".join(
+                    [
+                        "Still to go out this round:",
+                        *remaining,
+                    ]
+                ),
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            self.cog.shootout_order_text(match, side),
+            ephemeral=True,
+        )
+
+    async def roll(self, interaction: discord.Interaction) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+        if not match.pending_shootout or not match.shootout_shooters_complete:
+            await interaction.response.send_message(
+                "That skill test has already been rolled.",
+                ephemeral=True,
+            )
+            return
+
+        participant_ids = {game.player_1_id}
+        if game.player_2_id is not None:
+            participant_ids.add(game.player_2_id)
+        if interaction.user.id not in participant_ids:
+            await interaction.response.send_message(
+                "Only a player in this game can roll the skill test.",
+                ephemeral=True,
+            )
+            return
+
+        # Deferred before the dice are rendered, for the reason spelled
+        # out in SkillTestView.roll.
+        await interaction.response.defer()
+
+        rolls: dict[TeamSide, int] = {}
+        totals: dict[TeamSide, int] = {}
+        players = {}
+        dice = []
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            player = self.cog.get_player_definition(
+                match.shootout_shooter(side),
+            )
+            players[side] = player
+            # Both sides add their **offensive** skill -- a shootout
+            # has no defender -- and an injured player adds none at
+            # all, the same withholding the loose ball and the long
+            # High Pass make. See "Extreme shootout" in
+            # docs/living-rules.md.
+            injured = player.player_id in match.injured
+            skill = (
+                0
+                if injured
+                else self.cog.player_catalog.effective_profile(player).offense
+            )
+            rolls[side] = random.randint(1, 12)
+            totals[side] = rolls[side] + skill
+            dice.append(
+                (
+                    rolls[side],
+                    TEAM_COLORS[player.team],
+                    player.team.value.title(),
+                    [
+                        f"{player.name} "
+                        f"[{ROLE_INITIALS[player.role.value]}]",
+                        "Injured — no skill modifier"
+                        if injured
+                        else f"Offensive skill +{skill}",
+                    ],
+                    totals[side],
+                )
+            )
+
+        dice_file = discord.File(
+            await asyncio.to_thread(render_skill_test_dice, dice),
+            filename="shootout_dice.png",
+        )
+
+        home_total = totals[TeamSide.HOME]
+        visiting_total = totals[TeamSide.VISITING]
+        if home_total == visiting_total:
+            # **A shootout skill test is not re-rolled.** A tie scores
+            # for nobody and the shootout moves on, which is the one
+            # place the game settles a tied skill test by leaving it
+            # tied.
+            winner = None
+            outcome = (
+                f"**A tie, {home_total}-{visiting_total}.** Neither "
+                "side scores."
+            )
+        else:
+            winner = (
+                TeamSide.HOME
+                if home_total > visiting_total
+                else TeamSide.VISITING
+            )
+            match.award_shootout_goal(winner)
+            scorer = players[winner]
+            outcome = (
+                "## "
+                f"{format_role_bracket(scorer, self.cog.team_emojis)} "
+                "scores!"
+            )
+
+        # The goal and the retirement go out in one save, so a restart
+        # between this roll and what follows it can never re-roll a
+        # test that has already been paid for -- see
+        # finish_shootout_test.
+        match.finish_shootout_test()
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        # Result under the dice, not above them, for the reason
+        # SkillTestView.roll gives: attachments render below content.
+        await interaction.edit_original_response(
+            content=None,
+            attachments=[dice_file],
+            view=None,
+        )
+        await interaction.followup.send(
+            f"{outcome}\n"
+            f"Extreme shootout: {self.cog.shootout_running_score(match)}"
+        )
+        if winner is not None:
+            await self.cog.refresh_match_image(interaction, game)
+
+        # A shootout skill test costs no exhaustion -- it is not in the
+        # game's list of ways to gain a token -- but an already
+        # Exhausted shooter still owes an injury check for taking part
+        # in one (the author, 2026-08-10). An injury lands in time to
+        # withhold that player's skill in a later round.
+        exhausted_participants = [
+            player
+            for player in players.values()
+            if player.player_id in match.exhausted
+        ]
+        await self.cog.begin_injury_tests(
+            interaction,
+            game,
+            match,
+            exhausted_participants,
+            {"kind": "shootout_test"},
+        )

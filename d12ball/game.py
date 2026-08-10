@@ -35,18 +35,6 @@ class Formation(str, Enum):
     ONE_THREE_TWO = "1-3-2"
 
 
-class TieMode(str, Enum):
-    """
-    What happens when the scores are level at full time: a league game
-    is allowed to end in a tie, a tournament game goes to the extreme
-    shootout (docs/living-rules.md, "The clock, halftime and full
-    time").
-    """
-
-    LEAGUE = "league"
-    TOURNAMENT = "tournament"
-
-
 class AIOpponent(str, Enum):
     DINKY = "dinky"
     DECENT = "decent"
@@ -102,7 +90,6 @@ class D12BallGame:
 
     # Game configuration
     mode: GameMode = GameMode.BASIC
-    tie_mode: TieMode = TieMode.LEAGUE
     status: GameStatus = GameStatus.SETUP
     board_size: int = 7
 
@@ -138,7 +125,6 @@ class D12BallGame:
             self.player_2_team = Team(self.player_2_team)
 
         self.mode = GameMode(self.mode)
-        self.tie_mode = TieMode(self.tie_mode)
         self.status = GameStatus(self.status)
 
         if self.ai_opponent is not None:

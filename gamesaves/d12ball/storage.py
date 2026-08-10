@@ -1,6 +1,6 @@
 import json
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Optional
 from d12ball.game import D12BallGame
@@ -29,8 +29,29 @@ def load_games() -> dict[str, D12BallGame]:
         return {}
 
     games: dict[str, D12BallGame] = {}
+    known_fields = {field.name for field in fields(D12BallGame)}
 
     for game_id, game_data in raw_data.items():
+        # A key the record no longer has is a field that was removed
+        # while games saved under it were still half-played --
+        # `tie_mode`, when league mode went. Dropping it keeps those
+        # games loading; passing it through would raise TypeError and
+        # take the whole game out of the bot's view. Console-only,
+        # because nobody can act on it and every restart would repeat
+        # it.
+        retired = sorted(set(game_data) - known_fields)
+        if retired:
+            LOGGER.info(
+                "Ignoring retired field(s) %s on saved game %s.",
+                ", ".join(retired),
+                game_id,
+            )
+            game_data = {
+                key: value
+                for key, value in game_data.items()
+                if key in known_fields
+            }
+
         try:
             games[game_id] = D12BallGame(**game_data)
         except TypeError as error:

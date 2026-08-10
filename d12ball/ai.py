@@ -149,6 +149,18 @@ class AIStrategy(ABC):
         "offense" or "defense", matching the skill the test uses."""
         ...
 
+    @abstractmethod
+    def choose_shootout_order(self, field_players: list[str]) -> list[str]:
+        """The six, in the order they shoot in the shootout's first
+        round. Must be a permutation of what it was given."""
+        ...
+
+    @abstractmethod
+    def choose_shootout_shooter(self, candidates: list[str]) -> str:
+        """Who goes out next in a sudden-death round, from those who
+        have not shot yet this round."""
+        ...
+
 
 class DinkyAI(AIStrategy):
     """
@@ -329,6 +341,23 @@ class DinkyAI(AIStrategy):
             return -skill
 
         return min(candidates, key=sort_key)
+
+    def choose_shootout_order(self, field_players: list[str]) -> list[str]:
+        """
+        Best offensive skill first. Only the first round is ordered,
+        and the shootout's early stop means the later cards may never
+        be reached -- so the shooters worth having are the ones at the
+        top. Dinky does not try to guess what the other coach set.
+        """
+        return sorted(
+            field_players,
+            key=lambda player_id: -self.player_catalog.effective_profile(
+                self.player_catalog.player_by_id(player_id)
+            ).offense,
+        )
+
+    def choose_shootout_shooter(self, candidates: list[str]) -> str:
+        return self.choose_shootout_order(candidates)[0]
 
 
 def build_ai_strategies(

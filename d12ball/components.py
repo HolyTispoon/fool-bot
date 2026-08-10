@@ -791,6 +791,26 @@ class MatchState:
     # Where each coach last *put* their meeples, as player_id ->
     # [zone, space_index]. See set_assigned_positions.
     assigned_positions: dict[str, list] = field(default_factory=dict)
+    # The extreme shootout, which settles a game level at full time.
+    # See "Extreme shootout" in docs/living-rules.md and begin_shootout
+    # below. Every one of these is keyed by TeamSide *value*, so it
+    # survives a round trip through JSON.
+    pending_shootout: bool = False
+    # 1 is the ordered round; 2 and up are sudden death, where each
+    # shooter is chosen a test at a time. 0 is "no shootout".
+    shootout_round: int = 0
+    # The six, in the order their coach set them. First round only:
+    # sudden death chooses instead, so it writes nothing here.
+    shootout_orders: dict[str, list[str]] = field(default_factory=dict)
+    # Who has already shot this round, which is what a sudden-death
+    # round's eligibility is read from. Cleared when a round ends.
+    shootout_used: dict[str, list[str]] = field(default_factory=dict)
+    # The player each side has revealed for the test being rolled.
+    shootout_shooters: dict[str, str] = field(default_factory=dict)
+    # Goals scored in the shootout. They go on the scoreboard as well,
+    # so this is not the score -- it is what the "cannot be caught"
+    # stop counts, and what the full-time summary reports.
+    shootout_goals: dict[str, int] = field(default_factory=dict)
 
     @classmethod
     def standard(
@@ -2414,6 +2434,236 @@ class MatchState:
         elif carrier_id == other_player_id:
             self.ball_carrier_id = player_id
 
+    # -- The extreme shootout -------------------------------------
+
+    def begin_shootout(self) -> None:
+        """
+        Open the shootout that settles a game level at full time.
+
+        **The six who shoot are the six on the field**, in the state
+        the second period left them: exhaustion counts, injuries and
+        all. Nobody comes off the bench for it, so there is no squad
+        to record here -- every method below reads
+        `setup_for_side(...).field_players`, which is the same six
+        until the game ends.
+        """
+        self.pending_shootout = True
+        self.shootout_round = 1
+        self.shootout_orders = {}
+        self.shootout_used = {}
+        self.shootout_shooters = {}
+        self.shootout_goals = {}
+
+    def shootout_squad(self, side: TeamSide) -> list[str]:
+        return list(self.setup_for_side(side).field_players)
+
+    def set_shootout_order(
+        self,
+        side: TeamSide,
+        player_ids: list[str],
+    ) -> None:
+        """Record a whole order at once -- how the AI sets its own."""
+        squad = self.shootout_squad(side)
+        if sorted(player_ids) != sorted(squad):
+            raise ValueError(
+                "A shootout order has to be all six field players."
+            )
+        self.shootout_orders[TeamSide(side).value] = list(player_ids)
+
+    def add_to_shootout_order(self, side: TeamSide, player_id: str) -> None:
+        """
+        Put one more player at the back of a coach's order.
+
+        **A part-built order lives here, not on the view building it**
+        -- unlike a part-made coaching pick, which restarts at the hub.
+        The menu is ephemeral, so a restart cannot re-attach to it (see
+        restore_shootout_menus), and a coach who had ordered five would
+        otherwise come back to an empty list with no way to tell that
+        from having ordered none.
+        """
+        if player_id not in self.shootout_order_remaining(side):
+            raise ValueError(
+                "That player is not still to be put in the order."
+            )
+        self.shootout_orders.setdefault(
+            TeamSide(side).value, []
+        ).append(player_id)
+
+    def clear_shootout_order(self, side: TeamSide) -> None:
+        self.shootout_orders.pop(TeamSide(side).value, None)
+
+    def shootout_order(self, side: TeamSide) -> list[str]:
+        return list(self.shootout_orders.get(TeamSide(side).value, []))
+
+    def shootout_order_remaining(self, side: TeamSide) -> list[str]:
+        ordered = set(self.shootout_order(side))
+        return [
+            player_id
+            for player_id in self.shootout_squad(side)
+            if player_id not in ordered
+        ]
+
+    def shootout_order_complete(self, side: TeamSide) -> bool:
+        return not self.shootout_order_remaining(side)
+
+    @property
+    def shootout_orders_complete(self) -> bool:
+        return all(
+            self.shootout_order_complete(side)
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+        )
+
+    def shootout_tests_taken(self, side: TeamSide) -> int:
+        return len(self.shootout_used.get(TeamSide(side).value, []))
+
+    def shootout_eligible(self, side: TeamSide) -> list[str]:
+        """
+        Who this side may still send out this round -- the field
+        players who have not gone yet. In the first round the order
+        already answers that; this is what a sudden-death round
+        chooses from, and it resets every time a round does.
+        """
+        gone = set(self.shootout_used.get(TeamSide(side).value, []))
+        return [
+            player_id
+            for player_id in self.shootout_squad(side)
+            if player_id not in gone
+        ]
+
+    def set_shootout_shooter(self, side: TeamSide, player_id: str) -> None:
+        if player_id not in self.shootout_eligible(side):
+            raise ValueError(
+                "That player has already shot in this round."
+            )
+        self.shootout_shooters[TeamSide(side).value] = player_id
+
+    def shootout_shooter(self, side: TeamSide) -> Optional[str]:
+        """
+        Who this side has out for the test about to be rolled.
+
+        **Round 1 never chooses one.** The order already says who is
+        next, so it is read off the order rather than written down --
+        which is what makes the first round's reveal a step with no
+        state of its own to lose. Sudden death has no order to read,
+        so there it is exactly what the coach picked.
+        """
+        chosen = self.shootout_shooters.get(TeamSide(side).value)
+        if chosen is not None:
+            return chosen
+
+        if self.shootout_round != 1:
+            return None
+        order = self.shootout_order(side)
+        index = self.shootout_tests_taken(side)
+        if index >= len(order):
+            return None
+        return order[index]
+
+    @property
+    def shootout_shooters_complete(self) -> bool:
+        return all(
+            self.shootout_shooter(side) is not None
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+        )
+
+    def shootout_goals_for(self, side: TeamSide) -> int:
+        return self.shootout_goals.get(TeamSide(side).value, 0)
+
+    def award_shootout_goal(self, side: TeamSide) -> None:
+        """
+        A shootout goal is a goal: it goes on the scoreboard like any
+        other (the author, 2026-08-10), so a 2:2 game settled 4-3 is
+        announced as 6:5. The separate tally is what the "cannot be
+        caught" stop counts and what the summary reads to say how the
+        game was won.
+        """
+        side = TeamSide(side)
+        self.shootout_goals[side.value] = self.shootout_goals_for(side) + 1
+        if side == TeamSide.HOME:
+            self.scoreboard.home_score += 1
+        else:
+            self.scoreboard.visiting_score += 1
+
+    def finish_shootout_test(self) -> None:
+        """
+        Retire both revealed shooters and start the next round when
+        everybody has been out. A round is over when all six have
+        gone, whichever round it is -- the first one ends after its
+        six, and a sudden-death round resets eligibility rather than
+        ending the shootout.
+
+        **The roll calls it, in the same save as the goal it scored**,
+        so a restart between the roll and what follows it comes back
+        to the next test rather than re-rolling one already paid for.
+        Nothing else may call it: the first round derives its shooter
+        from the order rather than recording one, so a second call
+        would quietly retire the next pair as well. In particular the
+        injury queue's continuation (`continue_shootout`) does not --
+        the retirement has already happened by the time it runs, which
+        is what lets it count the tests still to come by asking who is
+        left.
+        """
+        shooters = {
+            side: self.shootout_shooter(side)
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+        }
+        for side, shooter_id in shooters.items():
+            self.shootout_shooters.pop(TeamSide(side).value, None)
+            if shooter_id is not None:
+                self.shootout_used.setdefault(
+                    TeamSide(side).value, []
+                ).append(shooter_id)
+
+        if all(
+            not self.shootout_eligible(side)
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+        ):
+            self.shootout_round += 1
+            self.shootout_used = {}
+
+    def shootout_winner(self) -> Optional[TeamSide]:
+        """
+        Who has won the shootout, or None while it is still open.
+
+        The two rounds are decided differently and both are here
+        because "is it over?" is one question. In the **first** round a
+        lead bigger than the tests still to come settles it -- there is
+        no point rolling a sixth at 4-1 -- and so does any lead once
+        all six have gone. **Sudden death** starts level by
+        construction, so any lead at all is the test that just won it.
+        """
+        home = self.shootout_goals_for(TeamSide.HOME)
+        visiting = self.shootout_goals_for(TeamSide.VISITING)
+        lead = abs(home - visiting)
+        if not lead:
+            return None
+
+        leader = TeamSide.HOME if home > visiting else TeamSide.VISITING
+        if self.shootout_round > 1:
+            return leader
+
+        remaining = len(self.shootout_eligible(TeamSide.HOME))
+        if lead > remaining:
+            return leader
+        return None
+
+    def shootout_score_line(self) -> str:
+        """
+        How the shootout went, for the full-time summary. Empty until
+        one has been played, and it reports the score at the whistle
+        as well, since the scoreboard no longer shows it.
+        """
+        if not self.shootout_goals:
+            return ""
+
+        home = self.shootout_goals_for(TeamSide.HOME)
+        visiting = self.shootout_goals_for(TeamSide.VISITING)
+        return (
+            f"({self.scoreboard.home_score - home}:"
+            f"{self.scoreboard.visiting_score - visiting} at full time, "
+            f"settled {home}-{visiting} on the extreme shootout)"
+        )
+
     def validate(self, catalog: PlayerCatalog) -> None:
         self.home.validate(catalog.teams[self.home.team])
         self.visiting.validate(catalog.teams[self.visiting.team])
@@ -2576,6 +2826,18 @@ class MatchState:
                 player_id: list(position)
                 for player_id, position in self.assigned_positions.items()
             },
+            "pending_shootout": self.pending_shootout,
+            "shootout_round": self.shootout_round,
+            "shootout_orders": {
+                side: list(order)
+                for side, order in self.shootout_orders.items()
+            },
+            "shootout_used": {
+                side: list(used)
+                for side, used in self.shootout_used.items()
+            },
+            "shootout_shooters": dict(self.shootout_shooters),
+            "shootout_goals": dict(self.shootout_goals),
         }
 
     @classmethod
@@ -2737,6 +2999,18 @@ class MatchState:
                     "assigned_positions", {},
                 ).items()
             },
+            pending_shootout=data.get("pending_shootout", False),
+            shootout_round=data.get("shootout_round", 0),
+            shootout_orders={
+                side: list(order)
+                for side, order in data.get("shootout_orders", {}).items()
+            },
+            shootout_used={
+                side: list(used)
+                for side, used in data.get("shootout_used", {}).items()
+            },
+            shootout_shooters=dict(data.get("shootout_shooters", {})),
+            shootout_goals=dict(data.get("shootout_goals", {})),
         )
 
 

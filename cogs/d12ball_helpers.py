@@ -23,7 +23,6 @@ from d12ball.game import (
     CoinFace,
     D12BallGame,
     Team,
-    TieMode,
 )
 
 
@@ -104,13 +103,6 @@ def contest_noun(match: MatchState) -> str:
 AI_OPPONENT_NAMES = {
     AIOpponent.DINKY: "Dinky AI",
     AIOpponent.DECENT: "Decent AI",
-}
-
-# Doubles as the setup buttons' labels and the setup message's wording,
-# so the choice reads the same either place.
-TIE_MODE_LABELS = {
-    TieMode.LEAGUE: "League mode",
-    TieMode.TOURNAMENT: "Tournament mode",
 }
 
 # The exhaustion token emoji is uploaded to the application (via the
@@ -458,12 +450,13 @@ def build_full_time_summary(
     """
     The final score and who won it, for the full-time announcement.
 
-    A level score reads differently per tie mode: a league game is
-    allowed to end tied and does, while a tournament game goes to the
-    extreme shootout -- which isn't implemented, so it is handed over
-    as a hand-apply step the way the rest of the unautomated rules
-    are. Tournament mode can't be chosen in setup yet, so that branch
-    is only reachable by a game whose mode was set some other way.
+    Called twice for a game that goes to the
+    [extreme shootout](docs/living-rules.md): once at the whistle,
+    where a level score is not a result but the thing that sends the
+    game there, and again when the shootout has settled it. There is
+    no third reading -- a shootout always produces a winner, and its
+    goals go on the scoreboard, so the second call takes the ordinary
+    branch below and only the parenthetical says how it was won.
     """
     home_score = match.scoreboard.home_score
     visiting_score = match.scoreboard.visiting_score
@@ -472,18 +465,15 @@ def build_full_time_summary(
         f"{visiting_score} {match.visiting.team.value.title()}"
     )
 
+    shootout = match.shootout_score_line()
+    if shootout:
+        score_line = f"{score_line}\n{shootout}"
+
     if home_score == visiting_score:
-        if game.tie_mode == TieMode.TOURNAMENT:
-            return (
-                f"{score_line}\n\n"
-                "**It's a tie!** Tournament mode takes this to the "
-                "extreme shootout, which isn't implemented yet -- play "
-                "it out by hand."
-            )
         return (
             f"{score_line}\n\n"
-            "**It's a tie!** League mode lets a game end level, so "
-            "that's the result."
+            "**It's a tie!** The game goes to the "
+            "**extreme shootout**."
         )
 
     home_won = home_score > visiting_score
@@ -522,8 +512,7 @@ def build_setup_message(
         f"**Player 2:** {player_2}\n\n"
         "### Game settings\n\n"
         f"Game Mode: {game.mode.value.title()}\n"
-        f"Board size: {game.board_size}\n"
-        f"Ties: {TIE_MODE_LABELS[game.tie_mode]}\n\n"
+        f"Board size: {game.board_size}\n\n"
     )
 
     if game.coin_flipped:
