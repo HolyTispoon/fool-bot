@@ -353,19 +353,6 @@ def format_role_bracket(
     return f"{team_emoji} {player.name} [{initials}]"
 
 
-def area_display_name(area: str) -> str:
-    """
-    A setup area, as a coach reads it. These are not board zones --
-    they are written from the coach's own end forward, which is how a
-    coach reads their own formation whichever side they are playing.
-    """
-    if area == "opponent_goal":
-        return "the opponent's goal"
-    if area == "own_goal":
-        return "their own goal"
-    return area.replace("_", " ")
-
-
 def destination_display_name(destination: str) -> str:
     if destination in BENCH_DESTINATIONS:
         return destination.replace("_", " ").title()

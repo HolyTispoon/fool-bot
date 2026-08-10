@@ -49,6 +49,38 @@ PLAYER_BOARD_TOP = 1030
 PLAYER_BOARD_BOTTOM = IMAGE_HEIGHT - 25
 PLAYER_BOARD_GAP = 30
 
+# The coaching image: the field cut in half horizontally, showing one
+# coach their own band of it. Narrower than the match image on purpose
+# -- it carries one row of meeples instead of two, so at the match
+# image's 2200 it would arrive in Discord as an unreadable sliver.
+# 1280 keeps a meeple legible inline without a click.
+#
+# The width still has to fit a stack. The widest case is board 6's
+# two-space midfield holding three cards under 2-3-1 or 1-3-2, which
+# is two meeples on one space -- 115px into a 200px space. Every other
+# board and shape puts one card a space, and board 9's spaces are the
+# narrowest at 133px. So one MEEPLE_SIZE token always fits and the one
+# stack that exists fits too.
+COACHING_WIDTH = 1280
+COACHING_BOARD_LEFT = 40
+COACHING_BOARD_RIGHT = COACHING_WIDTH - 40
+COACHING_BOARD_TOP = 64
+COACHING_BOARD_BOTTOM = COACHING_BOARD_TOP + 250
+# The card rows below the board: each zone's assigned cards under that
+# zone, then the two benches. Cards are the only place exhaustion
+# counts and the Exhausted and Injured badges are drawn, and all three
+# decide what a coach does with this menu, so the flow would be asking
+# them to remember numbers off a board they cannot see otherwise.
+COACHING_CARD_GAP = 12
+COACHING_ZONE_CARDS_TOP = COACHING_BOARD_BOTTOM + 18
+COACHING_BENCH_LABEL_TOP = COACHING_ZONE_CARDS_TOP + CARD_SIZE[1] + 22
+COACHING_BENCH_CARDS_TOP = COACHING_BENCH_LABEL_TOP + 40
+COACHING_HEIGHT = COACHING_BENCH_CARDS_TOP + CARD_SIZE[1] + 20
+# Where the back bench starts. The two benches always hold three cards
+# between them -- nine players, six on the field -- so the split never
+# needs more room than this.
+COACHING_BACK_BENCH_LEFT = COACHING_WIDTH // 2 + 40
+
 TEAM_COLORS = {
     Team.ORANGE: "#f28c28",
     Team.TEAL: "#19b5a5",
@@ -64,6 +96,14 @@ ZONE_LABELS = {
     Zone.HOME_GOAL: "HOME GOAL",
     Zone.MIDFIELD: "MIDFIELD",
     Zone.VISITORS_GOAL: "VISITORS GOAL",
+}
+# The H1/M1/V1 space codes written in the corner of every space. Kept
+# in step with ZONE_LETTERS in cogs/d12ball_helpers.py, which is where
+# the same codes are built for button labels and prompts.
+ZONE_CODES = {
+    Zone.HOME_GOAL: "H",
+    Zone.MIDFIELD: "M",
+    Zone.VISITORS_GOAL: "V",
 }
 
 
@@ -116,6 +156,10 @@ FONT_HEADING = load_font(40, bold=True)
 FONT_BODY = load_font(32)
 FONT_SMALL = load_font(19)
 FONT_MEEPLE = load_font(27, bold=True)
+# The coaching image draws the same three zone headings across 1280px
+# rather than 2200, and "VISITORS GOAL" at FONT_HEADING overruns a
+# two-space zone there. Its own smaller size fits every board.
+FONT_COACHING_ZONE = load_font(28, bold=True)
 FONT_TOKEN = load_font(19, bold=True)
 FONT_BADGE_COUNT = load_font(16, bold=True)
 FONT_MANEUVER_TITLE = load_font(30, bold=True)
@@ -509,20 +553,35 @@ def player_index(
     }
 
 
-def zone_bounds(match: MatchState) -> dict[Zone, tuple[int, int]]:
-    space_width = (
-        BOARD_RIGHT - BOARD_LEFT
-    ) / match.board.layout.board_size
+def space_code(zone: Zone, space_index: int) -> str:
+    return f"{ZONE_CODES[zone]}{space_index + 1}"
+
+
+def zone_bounds_between(
+    match: MatchState,
+    left: int,
+    right: int,
+) -> dict[Zone, tuple[int, int]]:
+    """
+    Where each zone starts and ends, given the horizontal span the
+    board is drawn across. The coaching image draws the same field
+    narrower than the match image does, so the span is a parameter.
+    """
+    space_width = (right - left) / match.board.layout.board_size
     bounds: dict[Zone, tuple[int, int]] = {}
-    cursor = BOARD_LEFT
+    cursor = left
 
     for zone in Zone:
         width = match.board.layout.zone_spaces[zone] * space_width
-        right = round(cursor + width)
-        bounds[zone] = (round(cursor), right)
+        zone_right = round(cursor + width)
+        bounds[zone] = (round(cursor), zone_right)
         cursor += width
 
     return bounds
+
+
+def zone_bounds(match: MatchState) -> dict[Zone, tuple[int, int]]:
+    return zone_bounds_between(match, BOARD_LEFT, BOARD_RIGHT)
 
 
 def draw_card(
@@ -715,13 +774,14 @@ def draw_assignment_cards(
     exhaustion: dict[str, int],
     exhausted: set[str] = frozenset(),
     injured: set[str] = frozenset(),
+    gap: int = 12,
 ) -> None:
     for zone in Zone:
         left, right = bounds[zone]
         player_ids = setup.zones[zone]
         total_width = len(player_ids) * CARD_SIZE[0] + (
             len(player_ids) - 1
-        ) * 12
+        ) * gap
         x = left + (right - left - total_width) // 2
 
         for player_id in player_ids:
@@ -737,7 +797,7 @@ def draw_assignment_cards(
                 exhausted=player_id in exhausted,
                 injured=player_id in injured,
             )
-            x += CARD_SIZE[0] + 12
+            x += CARD_SIZE[0] + gap
 
 
 def draw_board(
@@ -789,14 +849,9 @@ def draw_board(
                 outline="#9aabbc",
                 width=2,
             )
-            zone_letter = {
-                Zone.HOME_GOAL: "H",
-                Zone.MIDFIELD: "M",
-                Zone.VISITORS_GOAL: "V",
-            }[zone]
             draw.text(
                 (space_left + 15, BOARD_TOP + 66),
-                f"{zone_letter}{space_index + 1}",
+                space_code(zone, space_index),
                 font=FONT_SMALL,
                 fill="#c8d1dc",
             )
@@ -872,6 +927,8 @@ def draw_shooting_range_edges(
     draw: ImageDraw.ImageDraw,
     match: MatchState,
     bounds: dict[Zone, tuple[int, int]],
+    top: int = BOARD_TOP,
+    bottom: int = BOARD_BOTTOM,
 ) -> None:
     """
     Where each side's shooting range begins, dashed down the field,
@@ -899,10 +956,10 @@ def draw_shooting_range_edges(
         space_width = (right - left) / len(match.board.spaces[zone])
         x = round(left + space_index * space_width)
 
-        y = BOARD_TOP + 50
-        while y < BOARD_BOTTOM - 4:
+        y = top + 50
+        while y < bottom - 4:
             draw.line(
-                (x, y, x, min(y + 16, BOARD_BOTTOM - 4)),
+                (x, y, x, min(y + 16, bottom - 4)),
                 fill="#f2f6fa",
                 width=3,
             )
@@ -2294,6 +2351,198 @@ def draw_player_board(
                 injured=player_id in injured,
             )
             card_x += CARD_SIZE[0] + 14
+
+
+def render_coaching_image(
+    match: MatchState,
+    catalog: PlayerCatalog,
+    side: TeamSide,
+    title: str,
+) -> BytesIO:
+    """
+    One coach's own half of the field, for the
+    [Coaching Choice](docs/living-rules.md) flow: the same board, cut
+    horizontally through the middle so only that side's band of it is
+    drawn, and only that side's meeples on it.
+
+    Deliberately *not* mirrored. The zones keep their real names and
+    the spaces their real numbers, left to right, so a coach reads the
+    same field here as on the match image and on the board they are
+    both looking at -- flipping it for the visiting coach would make
+    "V1" the space on the right in one image and the left in the
+    other.
+
+    The ball is left off. Where it is has no bearing on any of the
+    four actions, and a Coaching Choice happens with play stopped.
+    """
+    side = TeamSide(side)
+    players = player_index(catalog)
+    setup = match.setup_for_side(side)
+    team_players = set(setup.field_players)
+
+    canvas = Image.new(
+        "RGBA",
+        (COACHING_WIDTH, COACHING_HEIGHT),
+        "#111820",
+    )
+    draw = ImageDraw.Draw(canvas)
+    draw.text((COACHING_BOARD_LEFT, 16), title, font=FONT_HEADING, fill="#ffffff")
+
+    bounds = zone_bounds_between(
+        match, COACHING_BOARD_LEFT, COACHING_BOARD_RIGHT,
+    )
+    draw.rounded_rectangle(
+        (
+            COACHING_BOARD_LEFT,
+            COACHING_BOARD_TOP,
+            COACHING_BOARD_RIGHT,
+            COACHING_BOARD_BOTTOM,
+        ),
+        radius=18,
+        fill="#14202b",
+        outline="#d7dde5",
+        width=4,
+    )
+
+    for zone in Zone:
+        left, right = bounds[zone]
+        draw.rectangle(
+            (left, COACHING_BOARD_TOP, right, COACHING_BOARD_BOTTOM),
+            fill=ZONE_COLORS[zone],
+            outline="#d7dde5",
+            width=3,
+        )
+        label_width = draw.textlength(
+            ZONE_LABELS[zone], font=FONT_COACHING_ZONE,
+        )
+        draw.text(
+            (
+                left + (right - left - label_width) / 2,
+                COACHING_BOARD_TOP + 10,
+            ),
+            ZONE_LABELS[zone],
+            font=FONT_COACHING_ZONE,
+            fill="#ffffff",
+        )
+
+        spaces = match.board.spaces[zone]
+        space_width = (right - left) / len(spaces)
+        for space_index, occupants in enumerate(spaces):
+            space_left = round(left + space_index * space_width)
+            space_right = round(left + (space_index + 1) * space_width)
+            draw.rectangle(
+                (
+                    space_left + 8,
+                    COACHING_BOARD_TOP + 46,
+                    space_right - 8,
+                    COACHING_BOARD_BOTTOM - 12,
+                ),
+                outline="#9aabbc",
+                width=2,
+            )
+            draw.text(
+                (space_left + 15, COACHING_BOARD_TOP + 52),
+                space_code(zone, space_index),
+                font=FONT_SMALL,
+                fill="#c8d1dc",
+            )
+
+            draw_meeple_group(
+                draw,
+                [
+                    player_id
+                    for player_id in occupants
+                    if player_id in team_players
+                ],
+                players,
+                space_left,
+                space_right,
+                COACHING_BOARD_TOP + 78,
+                alignment="left" if side == TeamSide.HOME else "right",
+                reserve_ball=False,
+                label_bottom=COACHING_BOARD_BOTTOM - 14,
+            )
+
+    draw_shooting_range_edges(
+        draw,
+        match,
+        bounds,
+        top=COACHING_BOARD_TOP,
+        bottom=COACHING_BOARD_BOTTOM,
+    )
+    draw_assignment_cards(
+        canvas,
+        draw,
+        setup,
+        players,
+        catalog,
+        bounds,
+        COACHING_ZONE_CARDS_TOP,
+        match.exhaustion,
+        match.exhausted,
+        match.injured,
+        gap=COACHING_CARD_GAP,
+    )
+    draw_coaching_benches(canvas, draw, setup, players, catalog, match)
+
+    output = BytesIO()
+    canvas.convert("RGB").save(output, format="PNG")
+    output.seek(0)
+    return output
+
+
+def draw_coaching_benches(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    setup: TeamSetup,
+    players: dict[str, PlayerDefinition],
+    catalog: PlayerCatalog,
+    match: MatchState,
+) -> None:
+    """
+    The coach's two pools under the card rows. Which pool a player is
+    in is the whole of who may come on -- the bench while it has
+    anyone, the back bench only for an injured swap -- so a coach
+    choosing a substitution needs to see both.
+    """
+    for left, label, player_ids in (
+        (COACHING_BOARD_LEFT, "BENCH", setup.player_board.bench),
+        (
+            COACHING_BACK_BENCH_LEFT,
+            "BACK BENCH",
+            setup.player_board.back_bench,
+        ),
+    ):
+        draw.text(
+            (left, COACHING_BENCH_LABEL_TOP),
+            label,
+            font=FONT_BODY,
+            fill="#ffffff",
+        )
+        if not player_ids:
+            draw.text(
+                (left, COACHING_BENCH_CARDS_TOP + 40),
+                "Empty",
+                font=FONT_BODY,
+                fill="#9eabb8",
+            )
+            continue
+
+        card_x = left
+        for player_id in player_ids:
+            player = players[player_id]
+            draw_card(
+                canvas,
+                draw,
+                player,
+                catalog.effective_profile(player),
+                card_x,
+                COACHING_BENCH_CARDS_TOP,
+                exhaustion=match.exhaustion.get(player_id, 0),
+                exhausted=player_id in match.exhausted,
+                injured=player_id in match.injured,
+            )
+            card_x += CARD_SIZE[0] + COACHING_CARD_GAP
 
 
 def render_match_image(

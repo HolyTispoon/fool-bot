@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from cogs.d12ball import HIGH_PASS_CONTEST_HEADLINE, D12Ball
 from d12ball.components import (
+    CoachingOccasion,
     AssignmentEdge,
     AttackDirection,
     BoardState,
@@ -20,25 +21,34 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.game import Team
+from d12ball.game import Formation, Team
 from d12ball.render import (
+    CARD_SIZE,
+    COACHING_BOARD_LEFT,
+    COACHING_BOARD_RIGHT,
+    COACHING_CARD_GAP,
+    COACHING_HEIGHT,
+    COACHING_WIDTH,
     FONT_BODY,
     FONT_DIR,
     FONT_HEADING,
     FONT_SCORE,
     FONT_SMALL,
     FONT_TITLE,
+    MEEPLE_SIZE,
     PORTRAIT_IMAGE_SIZE,
     fit_meeple_labels,
     OWN_GOAL_DIE_RADIUS,
     SKILL_TEST_DIE_RADIUS,
     load_font,
+    render_coaching_image,
     render_injury_test_die,
     render_own_goal_dice,
     render_skill_test_dice,
     render_maneuver_reference_image,
     render_match_image,
     render_player_portrait,
+    zone_bounds_between,
 )
 
 
@@ -520,61 +530,6 @@ class D12BallComponentTests(unittest.TestCase):
             match.pending_run_back_stays_player_id, "orange_blazebulk",
         )
 
-    def test_reposition_player_moves_within_their_assigned_zone(
-        self,
-    ) -> None:
-        # Board size 9 gives every zone 3 spaces for 2-2-2's 2 native
-        # players, leaving slack to step into -- board 6 (and board
-        # 7's goal zones) are fully packed instead, covered separately
-        # by test_swap_meeple_positions_resolves_a_fully_packed_zone.
-        match = self.standard_match(board_size=9)
-        first, second = "orange_hellguard", "orange_kindlefoot"
-        match.swap_field_positions(TeamSide.HOME, first, second)
-        self.assertEqual(
-            match.home.assigned_zone(first), Zone.VISITORS_GOAL,
-        )
-
-        open_space = match.open_spaces_in_zone(
-            TeamSide.HOME, Zone.VISITORS_GOAL,
-        )[0]
-        match.reposition_player(TeamSide.HOME, first, open_space)
-
-        self.assertEqual(
-            match.board.meeple_position(first),
-            (Zone.VISITORS_GOAL, open_space),
-        )
-        self.assertEqual(match.exhaustion, {})
-        match.validate(self.catalog)
-
-    def test_run_back_player_rejects_the_wrong_zone(self) -> None:
-        match = self.standard_match()
-        # orange_hellguard is a Home Goal native, so Visitors Goal is
-        # not a zone they can be sent back to. (reposition_player
-        # reads the zone off the card and so can never mismatch; only
-        # run_back_player takes one from a caller.)
-        home_zone = match.home.assigned_zone("orange_hellguard")
-        self.assertNotEqual(home_zone, Zone.VISITORS_GOAL)
-
-        with self.assertRaises(ValueError):
-            match.run_back_player(
-                "orange_hellguard", Zone.VISITORS_GOAL, 0,
-            )
-
-    def test_reposition_player_rejects_leaving_a_space_uncovered(
-        self,
-    ) -> None:
-        # Board 9's three-space zones give 2-2-2 a space to spare, so
-        # stepping onto a teammate would leave that space with nobody
-        # on it -- which is exactly what the coverage rule forbids.
-        match = self.standard_match(board_size=9)
-        player_id, teammate_id = match.home.zones[Zone.HOME_GOAL]
-        teammate_space = match.board.meeple_position(teammate_id)[1]
-
-        with self.assertRaises(ValueError):
-            match.reposition_player(
-                TeamSide.HOME, player_id, teammate_space,
-            )
-
     def test_swap_meeple_positions_resolves_a_fully_packed_zone(
         self,
     ) -> None:
@@ -618,32 +573,88 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_declaration_is_once_a_half_but_a_reply_is_free(self) -> None:
         match = self.standard_match()
-        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
 
         # Being offered the window spends nothing; passing on it
         # leaves the declaration in hand for a later turnover.
-        match.open_substitution_window(TeamSide.HOME)
-        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
-        match.close_substitution_window()
-        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
+        match.close_coaching_window()
+        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
 
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
         self.assertEqual(match.substitutions_remaining(), 2)
-        match.pending_substitution_used = 2
+        match.record_substitution()
+        match.record_substitution()
         self.assertEqual(match.substitutions_remaining(), 0)
-        match.close_substitution_window()
+        match.close_coaching_window()
 
-        self.assertFalse(match.may_declare_substitution(TeamSide.HOME))
+        self.assertFalse(match.may_declare_coaching(TeamSide.HOME))
 
-        # Answering the other team's declaration is one sub and costs
-        # the answering team nothing, so the visitors can still
-        # declare their own later in the half.
-        match.open_substitution_window(TeamSide.VISITING, is_response=True)
-        match.declare_substitution()
-        self.assertEqual(match.substitutions_remaining(), 1)
-        match.close_substitution_window()
-        self.assertTrue(match.may_declare_substitution(TeamSide.VISITING))
+        # Answering the other team's declaration costs the answering
+        # team nothing, so the visitors can still declare their own
+        # later in the half -- and they answer with the same two the
+        # declaring side had, not a smaller allowance.
+        match.open_coaching_window(
+            TeamSide.VISITING,
+            CoachingOccasion.NEW_PLAY,
+            is_response=True,
+        )
+        match.declare_coaching()
+        self.assertEqual(match.substitutions_remaining(), 2)
+        match.close_coaching_window()
+        self.assertTrue(match.may_declare_coaching(TeamSide.VISITING))
+
+    def test_the_two_substitutions_are_spent_across_the_whole_half(
+        self,
+    ) -> None:
+        # The count is per side per half, not per window: a side that
+        # answers someone else's declaration with both of theirs has
+        # none left when their own declaration comes round, and gets
+        # the rearrangement without the swaps.
+        match = self.standard_match()
+        match.open_coaching_window(
+            TeamSide.VISITING,
+            CoachingOccasion.NEW_PLAY,
+            is_response=True,
+        )
+        match.declare_coaching()
+        match.record_substitution()
+        match.record_substitution()
+        match.close_coaching_window()
+
+        match.open_coaching_window(
+            TeamSide.VISITING, CoachingOccasion.NEW_PLAY,
+        )
+        self.assertTrue(match.may_declare_coaching(TeamSide.VISITING))
+        self.assertEqual(match.substitutions_remaining(), 0)
+        self.assertFalse(match.may_substitute())
+
+    def test_halftime_and_setup_do_not_touch_the_half_count(self) -> None:
+        match = self.standard_match()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.record_substitution()
+        match.close_coaching_window()
+
+        # Halftime carries its own two, so a side that has already
+        # spent one in the half still gets both of halftime's.
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
+        self.assertEqual(match.substitutions_remaining(), 2)
+        match.record_substitution()
+        match.record_substitution()
+        self.assertEqual(match.substitutions_remaining(), 0)
+        match.close_coaching_window()
+        self.assertEqual(match.half_substitutions_used, {"home": 1})
+
+        # Setup has no limit at all, which callers have to tell apart
+        # from a limit of zero.
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.SETUP)
+        self.assertIsNone(match.substitutions_remaining())
+        self.assertTrue(match.may_substitute())
+        match.record_substitution()
+        self.assertIsNone(match.substitutions_remaining())
+        self.assertEqual(match.half_substitutions_used, {"home": 1})
 
     def test_an_injury_never_forces_a_declaration(self) -> None:
         # An injured player used to compel their team to sub them off
@@ -651,17 +662,17 @@ class D12BallComponentTests(unittest.TestCase):
         # declaration is the only gate there is, and a coach may leave
         # them on, disadvantaged, for the rest of the game.
         match = self.standard_match()
-        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
 
         match.mark_injured("orange_kindlefoot")
-        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
+        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
         self.assertEqual(
             match.injured_field_players(TeamSide.HOME), ["orange_kindlefoot"],
         )
         self.assertFalse(hasattr(match, "must_declare_substitution"))
 
         match.declared_substitution.add(TeamSide.HOME.value)
-        self.assertFalse(match.may_declare_substitution(TeamSide.HOME))
+        self.assertFalse(match.may_declare_coaching(TeamSide.HOME))
 
     def test_setup_is_the_first_arrangement_a_new_play_restores(
         self,
@@ -744,12 +755,16 @@ class D12BallComponentTests(unittest.TestCase):
             restored.restore_assigned_positions(TeamSide.HOME), [],
         )
 
-    def test_substitution_state_round_trips(self) -> None:
+    def test_coaching_state_round_trips(self) -> None:
         match = self.standard_match()
         match.declared_substitution.add(TeamSide.HOME.value)
-        match.open_substitution_window(TeamSide.VISITING, is_response=True)
-        match.declare_substitution()
-        match.pending_substitution_used = 1
+        match.open_coaching_window(
+            TeamSide.VISITING,
+            CoachingOccasion.NEW_PLAY,
+            is_response=True,
+        )
+        match.declare_coaching()
+        match.record_substitution()
 
         restored = MatchState.from_dict(match.to_dict(), self.rules)
 
@@ -757,25 +772,55 @@ class D12BallComponentTests(unittest.TestCase):
             restored.declared_substitution, {TeamSide.HOME.value},
         )
         self.assertEqual(
-            restored.pending_substitution_side, TeamSide.VISITING.value,
+            restored.pending_coaching_side, TeamSide.VISITING.value,
         )
-        self.assertTrue(restored.pending_substitution_is_response)
-        self.assertEqual(restored.substitutions_remaining(), 0)
+        self.assertEqual(
+            restored.coaching_occasion, CoachingOccasion.NEW_PLAY,
+        )
+        self.assertTrue(restored.pending_coaching_is_response)
+        self.assertEqual(restored.half_substitutions_used, {"visiting": 1})
+        self.assertEqual(restored.substitutions_remaining(), 1)
 
-    def test_saved_games_without_substitution_state_still_load(
+    def test_saved_games_without_coaching_state_still_load(
         self,
     ) -> None:
         match = self.standard_match()
         data = match.to_dict()
         for key in list(data):
-            if "substitution" in key:
+            if "substitution" in key or "coaching" in key:
                 del data[key]
 
         restored = MatchState.from_dict(data, self.rules)
 
         self.assertEqual(restored.declared_substitution, set())
-        self.assertIsNone(restored.pending_substitution_side)
-        self.assertTrue(restored.may_declare_substitution(TeamSide.HOME))
+        self.assertIsNone(restored.pending_coaching_side)
+        self.assertIsNone(restored.coaching_occasion)
+        self.assertTrue(restored.may_declare_coaching(TeamSide.HOME))
+
+    def test_a_window_saved_under_the_old_field_names_still_loads(
+        self,
+    ) -> None:
+        # A game saved mid-window before the three occasions became one
+        # Coaching Choice. Both developers run the bot from their own
+        # tree against their own saves, so a half-finished game outlives
+        # the rename. It comes back as a new play's window, the only
+        # kind the old code could leave open mid-game.
+        match = self.standard_match()
+        data = match.to_dict()
+        for key in list(data):
+            if "coaching" in key:
+                del data[key]
+        data["pending_substitution_side"] = TeamSide.HOME.value
+        data["pending_substitution_declared"] = True
+        data["pending_substitution_used"] = 1
+
+        restored = MatchState.from_dict(data, self.rules)
+
+        self.assertEqual(restored.pending_coaching_side, "home")
+        self.assertEqual(
+            restored.coaching_occasion, CoachingOccasion.NEW_PLAY,
+        )
+        self.assertTrue(restored.pending_coaching_declared)
 
     def test_match_state_round_trip(self) -> None:
         match = MatchState.standard(
@@ -972,6 +1017,87 @@ class D12BallComponentTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
             self.assertEqual(image.size, (3300, 1920))
+
+    def test_the_coaching_image_renders_one_side_only(self) -> None:
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+        )
+        image_data = render_coaching_image(
+            match, self.catalog, TeamSide.HOME, title="Orange (Home)",
+        )
+
+        with Image.open(image_data) as image:
+            self.assertEqual(image.format, "PNG")
+            self.assertEqual(
+                image.size, (COACHING_WIDTH, COACHING_HEIGHT),
+            )
+
+    def test_a_zone_of_three_cards_fits_under_its_zone(self) -> None:
+        # The coaching image draws each zone's assigned cards under
+        # that zone, centred on it. Three in a zone is the most any
+        # basic shape allows, and midfield -- the only zone that ever
+        # holds three -- is the narrowest on board 9, where every zone
+        # is the same width.
+        for board_size in (6, 7, 9):
+            match = MatchState.standard(
+                catalog=self.catalog,
+                ruleset=self.rules,
+                board_size=board_size,
+                home_team=Team.ORANGE,
+                visiting_team=Team.TEAL,
+                home_formation=Formation.TWO_THREE_ONE,
+            )
+            bounds = zone_bounds_between(
+                match, COACHING_BOARD_LEFT, COACHING_BOARD_RIGHT,
+            )
+            left, right = bounds[Zone.MIDFIELD]
+            row = 3 * CARD_SIZE[0] + 2 * COACHING_CARD_GAP
+            self.assertLessEqual(
+                row, right - left,
+                f"three cards overflow midfield on board {board_size}",
+            )
+
+    def test_a_stacked_coaching_space_still_fits_its_meeples(self) -> None:
+        # Board 6's two-space midfield under 2-3-1 is the only place a
+        # Coaching Choice can put two of a side's meeples on one space,
+        # and the coaching image's width is chosen to fit exactly that
+        # -- see COACHING_WIDTH. If a future board or shape stacks more,
+        # or the image narrows, the tokens start overlapping the space
+        # border and this is the check that notices.
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=6,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+            home_formation=Formation.TWO_THREE_ONE,
+        )
+        bounds = zone_bounds_between(
+            match, COACHING_BOARD_LEFT, COACHING_BOARD_RIGHT,
+        )
+        deepest = max(
+            len(
+                [
+                    player_id
+                    for player_id in occupants
+                    if player_id in set(match.home.field_players)
+                ]
+            )
+            for zone in Zone
+            for occupants in match.board.spaces[zone]
+        )
+        self.assertEqual(deepest, 2)
+
+        narrowest = min(
+            (right - left) / len(match.board.spaces[zone])
+            for zone, (left, right) in bounds.items()
+        )
+        stack_width = deepest * MEEPLE_SIZE + (deepest - 1) * 3
+        self.assertLess(stack_width, narrowest - 20)
 
     def test_meeple_names_shrink_to_fit_a_stacked_space(self) -> None:
         # A formation can put a whole zone's players on one space, so

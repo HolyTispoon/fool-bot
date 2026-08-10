@@ -82,9 +82,9 @@ leaves the answers versioned.
 ## Formations and occupancy
 
 Basic mode has three shapes -- **2-2-2, 2-3-1 and 1-3-2**, read from a coach's
-own goal forward, six cards either way. **Every game kicks off in 2-2-2**:
-setup does not ask, and a coach changes shape only by rearranging in a
-substitution window (which halftime reuses).
+own goal forward, six cards either way. **Every team is dealt 2-2-2**, and a
+coach changes shape only in a [Coaching Choice](#the-coaching-choice) -- of
+which setup is now one, so a game need not kick off in the shape it was dealt.
 
 **Stacking is board-dependent.** Three in midfield fits board 7 and board 9 one
 card a space; only board 6, whose midfield has two spaces, makes 2-3-1 or 1-3-2
@@ -100,26 +100,86 @@ see a stack.
   rules. `MatchState.placement_spaces_in_zone` is the whole of it: a team's
   uncovered spaces in a zone, or every space once its other meeples cover them
   all. It discounts the meeple being moved, since the space it is leaving is
-  about to be uncovered. Everything that puts a meeple down goes through it --
-  the run back, the free placement in a substitution window, halftime's
-  any-zone placement. `open_spaces_in_zone` still means "spaces this team has
-  not covered" and is the input to `crowded_players`.
-- **A coach assigns every card; only the counts are fixed.** A change is written
-  as an assignment keyed by *area* (`own_goal` / `midfield` / `opponent_goal`)
-  rather than by board zone, which `zone_for_area` maps to the side's actual
-  zones -- the areas are how a coach reads their own shape.
-  `MatchState.reassign_field_zones` applies it and `apply_formation_change`
-  checks the resulting shape against the ruleset;
-  `swap_field_positions` stays the shape-preserving move it always was.
-- **A part-filled change lives on the view**, like `SubstitutionSwapView`'s
-  first pick: nothing reaches the match until every zone has its cards, so a
-  coach who wanders off mid-change leaves the formation they had.
+  about to be uncovered. **The run back is now its only caller.** A Coaching
+  Choice satisfies coverage by construction instead of by checking (see
+  `position_meeple`), which is why it can offer every space of a zone.
+  `open_spaces_in_zone` still means "spaces this team has not covered" and is
+  the input to `crowded_players`.
+- **A formation change re-deals the whole side, and nothing else does.**
+  `D12Ball.formation_placement` orders the six by defensive skill and
+  `formation_space_order` gives each a space, working outward from the coach's
+  own end; `MatchState.deploy_side` puts cards and meeples down together, so
+  nothing partial ever reaches the match. A coach who wants a particular card
+  somewhere particular moves it afterwards. This replaced an assignment keyed
+  by *area* (`own_goal` / `midfield` / `opponent_goal`) that a coach filled one
+  select at a time -- `zone_for_area` and `SETUP_AREAS` survive from it, and are
+  still how a shape is read from a coach's own end.
+- **Board 6's midfield is the only zone whose stack space is a judgement call.**
+  A surplus goes on the middle space of a three-space zone, or the
+  centre-nearer space of a two-space one -- except there, where the two spaces
+  straddle the centre. `formation_stack_space` breaks that tie toward the
+  coach's own goal, which is the author's call and the only stack the three
+  basic shapes can produce.
 - **A Low Pass into a stack asks who receives it.** Several teammates on one
   space is ordinary under a stacking shape, and the receiver is what a Winger's
   set-up hands the shot to, so `low_pass_receivers` lists them and
   `LowPassReceiverView` puts the choice to the passer. `low_pass_candidates`
   still names one player per destination -- that is a button label, not the
   receiver.
+
+## The Coaching Choice
+
+Setup, a new play's substitution window and halftime are **one flow offering
+the same four actions** -- formation, substitution, zone assignment, space
+positioning. See "Coaching Choice" in the living rules. They were three flows
+offering overlapping subsets of those four; a coach should not have to learn
+three menus to do one job.
+
+- **`CoachingOccasion` carries every difference between the three**, as
+  properties rather than as flags at the call sites: the substitution
+  allowance, whether the declare-or-pass offer is put at all (and charged), and
+  whether a player taken off is retired to the back bench. Anything that
+  differs by occasion belongs on that enum, not in an `if` in the cog.
+- **Three substitution budgets, not one.** Setup is unlimited, so
+  `substitutions_remaining()` returns **None** there -- callers have to tell
+  that apart from a limit of zero, which is what `may_substitute()` and
+  `substitution_allowance_label` are for. A new play's come out of
+  `half_substitutions_used`, per side, cleared at halftime; halftime's two are
+  counted inside the window and charged to neither half. So a side can
+  substitute six times in a game.
+- **The declaration and the counter are separate gates.**
+  `may_declare_coaching` is once a half and decides whether a side is *offered*
+  a new play's window at all; the counter decides how many swaps they get in
+  it. A side that spent both answering someone else's declaration can still
+  declare later and get the rearrangement without the swaps.
+- **The whole flow lives on one message.** Every step is an
+  `interaction.response.edit_message`, and nothing in it ever sends another.
+  That is the interaction-callback route, so unlike the board refresh it does
+  not compete for the five-in-five bucket -- see "Discord's rate limits". It
+  used to be a message per step, and a coach making two substitutions and a
+  rearrangement put eight into the channel plus a board refresh apiece. One
+  message also cannot go stale: every older prompt used to keep a live view, so
+  a coach could scroll up and click a menu from three steps ago.
+- **`CoachingView.show(..., moved=)` decides whether the image is re-sent.**
+  Passing no `attachments` leaves the one already on the message alone, so only
+  a step that actually moved something re-uploads. Opening a submenu does not.
+- **A part-made pick lives on the view**, so a restart comes back to the hub.
+  That costs almost nothing now: every action is one or two clicks, and a
+  formation change is atomic.
+- **Setup and halftime each have their own stage sequence** (`SETUP_STAGES`,
+  `HALFTIME_STAGES`), and `finish_substitution_window` routes back into
+  whichever is running instead of offering the other side a response. Both run
+  **the side kicking off first** -- home at setup, the visitors at halftime.
+- **The kickoff space is the only thing that can hold a coach in the flow.**
+  `coaching_finish_refusal` refuses Done until the side kicking off the coming
+  period has somebody on it. An AI has no menu to be held in, so
+  `cover_kickoff_space` does the same job at the end of its window.
+- **`LEGACY_HALFTIME_STAGES` is not dead weight.** Halftime used to run
+  substitutions and any-zone repositioning as two stages a side; a game saved
+  in either resumes at that side's hub. `from_dict` reads the old
+  `pending_substitution_*` keys for the same reason. Both developers run the
+  bot from their own tree against their own saves, so a half-finished game
+  outlives the change that renamed things.
 
 ## The maneuver with nobody to challenge it
 
@@ -226,7 +286,8 @@ whole rule, over `BoardState.is_in_shooting_range`.
 ## Turnovers: steals and new plays
 
 Every turnover resets the ball's speed and puts players back in position, but
-*how* differs, and only one of the two opens a substitution window.
+*how* differs, and only one of the two opens a
+[Coaching Choice](#the-coaching-choice).
 `begin_run_back`'s `new_play` flag is the whole distinction -- see "Steals and
 new plays" in the living rules for which is which.
 
@@ -276,11 +337,10 @@ new plays" in the living rules for which is which.
 with the rest of the match, and it is what a new play restores.
 
 - **Only a deliberate placement sets it**, via `set_assigned_positions`: the
-  standard setup, the close of a substitution window a side actually declared,
-  and the end of halftime repositioning (both the human and the AI paths). A
-  run back must never write to it -- the scramble a steal forces is not a
-  shape a coach chose, and the whole point is that the next new play undoes
-  it.
+  standard deal, and the close of any [Coaching Choice](#the-coaching-choice) a
+  side actually took up. A run back must never write to it -- the scramble a
+  steal forces is not a shape a coach chose, and the whole point is that the
+  next new play undoes it.
 - **A player with no entry is left where they stand.** That is how a game
   saved before this field existed keeps working: `restore_assigned_positions`
   moves nobody, the ordinary run back still finds them displaced, and the
@@ -485,6 +545,7 @@ output is a PNG of the expected dimensions.
 ```bash
 python3 scripts/render_sample.py --home purple --visiting teal --out board.png
 python3 scripts/render_sample.py --home-formation 2-3-1 --board-size 6  # stacked meeples
+python3 scripts/render_sample.py --coaching home       # a coach's own half
 python3 scripts/render_sample.py --list-games
 python3 scripts/render_sample.py --game <game_id>      # reproduce a real board
 ```
@@ -493,6 +554,28 @@ python3 scripts/render_sample.py --game <game_id>      # reproduce a real board
 which is how to reproduce a board someone reported a problem with rather than
 guessing at the state. Saved games are local to each machine, so a fresh clone
 lists none until the bot has been run.
+
+**There are two board images, and they are drawn to different widths.**
+`render_match_image` is the 2200px one everybody sees;
+`render_coaching_image` is the 1280px half-field a
+[Coaching Choice](#the-coaching-choice) keeps up, and the two do not share a
+layout. The coaching image carries one row of meeples instead of two, so at the
+match image's width it arrives in Discord as an unreadable sliver. **It is
+deliberately not mirrored for the visiting coach**: the zones keep their real
+names and the spaces their real numbers, so V1 is the same space on both images
+and on the board the coaches are looking at.
+
+Two things set its width, and both are three cards wide. A zone's **assigned
+cards** are drawn under that zone, and midfield holds three under 2-3-1 and
+1-3-2; a space has to fit a **stack**, which is board 6's two-space midfield
+under those same shapes. `D12BallComponentTests` checks both, because the
+suite cannot see the image and an overflow here is silent.
+
+**The cards and the two benches are on it for a reason.** Exhaustion counts and
+the Exhausted and Injured badges are drawn nowhere else, and which pool a
+player is in is the whole of who may come on -- so without them the flow would
+be asking a coach to remember numbers off a board they cannot see while the
+menu is up.
 
 ### Fonts
 

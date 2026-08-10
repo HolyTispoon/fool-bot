@@ -14,6 +14,7 @@ from discord.ext import commands
 from d12ball.ai import build_ai_strategies, AIStrategy
 from d12ball.components import (
     SETUP_AREAS,
+    CoachingOccasion,
     FormationShape,
     MatchPeriod,
     MatchState,
@@ -22,6 +23,7 @@ from d12ball.components import (
     TeamSetup,
     TeamSide,
     Zone,
+    formation_space_order,
     kickoff_space_index,
     load_basic_ruleset,
     load_maneuver_catalog,
@@ -42,6 +44,7 @@ from d12ball.render import (
     TEAM_COLORS,
     ZONE_LABELS,
     ChallengeSide,
+    render_coaching_image,
     render_injury_test_die,
     render_maneuver_challenge,
     render_maneuver_reference_image,
@@ -66,7 +69,6 @@ from cogs.d12ball_helpers import (
     ROLE_INITIALS,
     add_full_image_button,
     add_full_image_button_to_response,
-    area_display_name,
     board_image_filename,
     build_full_time_summary,
     build_game_channel_name,
@@ -99,7 +101,6 @@ from cogs.d12ball_views import (
     CoinFlipView,
     DribbleAdvanceChoiceView,
     HalftimeExtraTokenView,
-    HalftimeRepositionView,
     HighPassChoiceView,
     HomeAwaySelectionView,
     LooseBallChoiceView,
@@ -115,24 +116,42 @@ from cogs.d12ball_views import (
     ShooterChoiceView,
     SkillTestView,
     SpeedDeltaChoiceView,
-    SubstitutionMenuView,
-    SubstitutionOfferView,
+    CoachingHubView,
+    CoachingOfferView,
     TeamSelectionView,
 )
 
 
-# The halftime sequence's stages, in order -- see D12Ball.advance_halftime_stage.
-# Each side gets its own extra-exhaustion-token choice, its own full
-# substitution declaration (see begin_halftime_substitutions), and its own
-# free repositioning pass, home before visiting throughout.
+# The halftime sequence's stages, in order -- see
+# D12Ball.advance_halftime_stage. Each side gets its own
+# extra-exhaustion-token choice and its own Coaching Choice, **the
+# visitors first** throughout: they kick off the second half, so they
+# are the side whose arrangement the restart depends on.
 HALFTIME_STAGES = (
-    "extra_token_home",
     "extra_token_visiting",
-    "subs_home",
-    "subs_visiting",
-    "reposition_home",
-    "reposition_visiting",
+    "extra_token_home",
+    "coaching_visiting",
+    "coaching_home",
 )
+
+# Both coaches get a Coaching Choice before kickoff -- see
+# D12Ball.advance_setup_stage. **Home first**, since they kick off the
+# first half, the same reason the visitors go first at halftime.
+SETUP_STAGES = (
+    "coaching_home",
+    "coaching_visiting",
+)
+
+# What a game saved mid-halftime under the old sequence comes back as.
+# Halftime used to run substitutions and free any-zone repositioning as
+# two stages a side; the Coaching Choice is one, so both old stages map
+# onto it. A game paused in either resumes at that side's hub.
+LEGACY_HALFTIME_STAGES = {
+    "subs_home": "coaching_home",
+    "subs_visiting": "coaching_visiting",
+    "reposition_home": "coaching_home",
+    "reposition_visiting": "coaching_visiting",
+}
 
 
 # The most placements one run back may make before it is treated as
@@ -251,12 +270,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         game.game_id, error,
                     )
                     continue
-                if match.pending_halftime_stage is not None:
+                if match.pending_setup_stage is not None:
+                    # Before kickoff, so active_player_id is None and
+                    # the "no ball handler yet" branch below would
+                    # otherwise misread this as the kickoff prompt --
+                    # the same reason halftime is checked ahead of it.
+                    turn_view = CoachingHubView(self, game.game_id)
+                elif match.pending_halftime_stage is not None:
                     # Halftime resets active_player_id before its own
                     # stages run, so it has to be checked ahead of the
                     # "no ball handler yet" branch below, which would
                     # otherwise misread halftime as kickoff.
-                    stage = match.pending_halftime_stage
+                    stage = self.halftime_stage(match)
                     if stage == "extra_token_home":
                         turn_view = HalftimeExtraTokenView(
                             self, game.game_id, TeamSide.HOME,
@@ -265,37 +290,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         turn_view = HalftimeExtraTokenView(
                             self, game.game_id, TeamSide.VISITING,
                         )
-                    elif stage in ("subs_home", "subs_visiting"):
-                        # Always the menu: halftime never asks whether
-                        # to declare, so there is no offer to come back
-                        # to, unlike an ordinary turnover's window
-                        # below.
-                        turn_view = SubstitutionMenuView(self, game.game_id)
                     else:
-                        # reposition_home / reposition_visiting -- a
-                        # part-made zone/space pick is not persisted
-                        # and restarts at the reposition menu, the
-                        # same simplification a run-back choice makes.
-                        side = (
-                            TeamSide.HOME
-                            if stage == "reposition_home"
-                            else TeamSide.VISITING
-                        )
-                        turn_view = HalftimeRepositionView(
-                            self, game.game_id, side,
-                        )
+                        # coaching_home / coaching_visiting. Always the
+                        # hub: halftime never asks whether to declare,
+                        # so there is no offer to come back to, unlike
+                        # an ordinary turnover's window below. A
+                        # part-made pick inside the flow is not
+                        # persisted and restarts here, the same
+                        # simplification a run-back choice makes.
+                        turn_view = CoachingHubView(self, game.game_id)
                 elif match.active_player_id is None:
                     turn_view = BallHandlerSelectionView(self, game.game_id)
-                elif match.pending_substitution_side is not None:
+                elif match.pending_coaching_side is not None:
                     # A window mid-flight comes back as either the
                     # offer or the menu. A part-made choice (picked
                     # who goes off, not yet who comes on) is not
                     # persisted and restarts at the menu, the same way
                     # a run-back choice does.
                     turn_view = (
-                        SubstitutionMenuView(self, game.game_id)
-                        if match.pending_substitution_declared
-                        else SubstitutionOfferView(self, game.game_id)
+                        CoachingHubView(self, game.game_id)
+                        if match.pending_coaching_declared
+                        else CoachingOfferView(self, game.game_id)
                     )
                 elif match.pending_run_back:
                     turn_view = self.build_run_back_view(
@@ -2839,9 +2854,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             incoming_player_id
             in match.setup_for_side(side).player_board.back_bench
         )
+        occasion = match.coaching_occasion or CoachingOccasion.NEW_PLAY
 
-        match.substitute(side, outgoing_player_id, incoming_player_id)
-        match.pending_substitution_used += 1
+        match.substitute(
+            side,
+            outgoing_player_id,
+            incoming_player_id,
+            retire_outgoing=occasion.retires_outgoing_players,
+        )
+        match.record_substitution()
 
         outgoing = self.get_player_definition(outgoing_player_id)
         incoming = self.get_player_definition(incoming_player_id)
@@ -2873,10 +2894,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     f"defensive skill of {defense_skill}."
                 )
 
-        remaining_subs = match.substitutions_remaining()
-        if remaining_subs:
-            text += f"\n{remaining_subs} substitution left."
+        text += f"\n{self.substitution_allowance_label(match)}."
         return text
+
+    def substitution_allowance_label(self, match: MatchState) -> str:
+        """
+        What the open window has left, for a button label or a prompt.
+        Setup has no limit at all, which is not the same as a large
+        number and reads differently.
+        """
+        remaining = match.substitutions_remaining()
+        if remaining is None:
+            return "No substitution limit"
+        if not remaining:
+            return "No substitutions left"
+        return (
+            f"{remaining} substitution"
+            f"{'s' if remaining != 1 else ''} left"
+        )
 
     def apply_position_swap(
         self,
@@ -2885,19 +2920,112 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player_id: str,
         other_player_id: str,
     ) -> str:
-        match.swap_field_positions(side, player_id, other_player_id)
+        """
+        The Coaching Choice's zone assignment: trade two players'
+        zones, meeples included, and describe it.
+        """
+        match.exchange_field_players(side, player_id, other_player_id)
 
         setup = match.setup_for_side(side)
         first = self.get_player_definition(player_id)
         second = self.get_player_definition(other_player_id)
         return (
-            f"{format_role_bracket(first, self.team_emojis)} is now "
-            f"assigned to "
+            f"{format_role_bracket(first, self.team_emojis)} and "
+            f"{format_role_bracket(second, self.team_emojis)} change "
+            "places: "
+            f"{format_role_bracket(first, self.team_emojis)} to "
             f"{destination_display_name(setup.assigned_zone(player_id).value)}"
-            f" and {format_role_bracket(second, self.team_emojis)} to "
+            f", {format_role_bracket(second, self.team_emojis)} to "
             f"{destination_display_name(setup.assigned_zone(other_player_id).value)}"
-            ". Rearranging costs no exhaustion -- place their meeples below."
+            ". No exhaustion cost."
         )
+
+    def defense_ordered_field_players(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> list[str]:
+        """
+        A side's six, best defender first. Ties break at random, which
+        never happens between the six standard roles -- their defences
+        are 1 to 6 -- but a shuffled tie is better than one settled by
+        whatever order the zones happened to be in.
+        """
+        players = list(match.setup_for_side(side).field_players)
+        random.shuffle(players)
+        return sorted(
+            players,
+            key=lambda player_id: -self.player_catalog.effective_profile(
+                self.get_player_definition(player_id)
+            ).defense,
+        )
+
+    def formation_placement(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        formation: Formation,
+    ) -> list[tuple[str, Zone, int]]:
+        """
+        Where a side's six stand after switching to `formation`: the
+        whole line-up, cards and spaces together, dealt by defensive
+        skill from the coach's own goal forward -- see "Changing
+        formation" in docs/living-rules.md.
+
+        This is the whole of what a formation change asks of a coach.
+        It used to put each zone's cards to them one select at a time,
+        six picks to change shape; a coach who wants a particular card
+        somewhere particular now moves it afterwards, with zone
+        assignment and space positioning.
+        """
+        side = TeamSide(side)
+        shape = self.formation_shape(formation)
+        ordered = self.defense_ordered_field_players(match, side)
+
+        placement: list[tuple[str, Zone, int]] = []
+        cursor = 0
+        for area in SETUP_AREAS:
+            count = shape.count(area)
+            zone = zone_for_area(side, area)
+            spaces = formation_space_order(
+                side, zone, len(match.board.spaces[zone]), count,
+            )
+            for offset in range(count):
+                placement.append(
+                    (ordered[cursor + offset], zone, spaces[offset])
+                )
+            cursor += count
+        return placement
+
+    def apply_formation(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        formation: Formation,
+    ) -> str:
+        """Switch a side into `formation` and describe where they land."""
+        side = TeamSide(side)
+        placement = self.formation_placement(match, side, formation)
+        match.deploy_side(side, placement)
+
+        setup = match.setup_for_side(side)
+        lines = [
+            f"**{format_team_side_label(setup)} switch to "
+            f"{formation.value}.** Best defenders furthest back; "
+            "rearranging costs no exhaustion."
+        ]
+        for area in SETUP_AREAS:
+            zone = zone_for_area(side, area)
+            names = ", ".join(
+                f"{self.format_roster_player(player_id)} "
+                f"({space_label(zone, space_index)})"
+                for player_id, placed_zone, space_index in placement
+                if placed_zone == zone
+            )
+            lines.append(
+                f"{destination_display_name(zone.value)}: {names}"
+            )
+        return "\n".join(lines)
 
     def current_formation(
         self,
@@ -2919,89 +3047,72 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 return formation
         return None
 
-    def apply_formation_change(
-        self,
-        match: MatchState,
-        side: TeamSide,
-        formation: Formation,
-        assignment: dict[str, list[str]],
-    ) -> str:
-        """
-        Move a side into `formation`, with `assignment` saying which
-        of their six fielded cards fills each area. Nobody's meeple
-        moves: whoever now stands outside their new zone is displaced,
-        and the coach either places them by hand (free, right after
-        this) or leaves it to the next run back.
-        """
-        side = TeamSide(side)
-        shape = self.formation_shape(formation)
-
-        for area in SETUP_AREAS:
-            if len(assignment.get(area, [])) != shape.count(area):
-                raise ValueError(
-                    f"{formation.value} puts {shape.count(area)} "
-                    f"players in {area_display_name(area)}."
-                )
-
-        match.reassign_field_zones(
-            side,
-            {
-                zone_for_area(side, area): list(assignment[area])
-                for area in SETUP_AREAS
-            },
-        )
-
-        setup = match.setup_for_side(side)
-        lines = [
-            f"**{format_team_side_label(setup)} switch to "
-            f"{formation.value}.**"
-        ]
-        for area in SETUP_AREAS:
-            zone = zone_for_area(side, area)
-            names = ", ".join(
-                self.format_roster_player(player_id)
-                for player_id in assignment[area]
-            )
-            lines.append(
-                f"{destination_display_name(zone.value)}: {names}"
-            )
-        lines.append(
-            "Rearranging costs no exhaustion -- place their meeples below."
-        )
-        return "\n".join(lines)
-
     def apply_reposition(
         self,
         match: MatchState,
         side: TeamSide,
         player_id: str,
         space_index: int,
+        swap_with: Optional[str] = None,
     ) -> str:
+        """
+        The Coaching Choice's space positioning: move one meeple within
+        its own zone, trading with whoever is already there when the
+        rule says so, and describe what happened.
+        """
         setup = match.setup_for_side(side)
         zone = setup.assigned_zone(player_id)
-        match.reposition_player(side, player_id, space_index)
-
-        player = self.get_player_definition(player_id)
-        return (
-            f"{format_role_bracket(player, self.team_emojis)} moves to "
-            f"{space_label(zone, space_index)}. No exhaustion cost."
+        partner = match.position_meeple(
+            side, player_id, space_index, swap_with=swap_with,
         )
 
-    def apply_meeple_swap(
+        player = self.get_player_definition(player_id)
+        if partner is None:
+            return (
+                f"{format_role_bracket(player, self.team_emojis)} moves "
+                f"to {space_label(zone, space_index)}. No exhaustion cost."
+            )
+        other = self.get_player_definition(partner)
+        return (
+            f"{format_role_bracket(player, self.team_emojis)} moves to "
+            f"{space_label(zone, space_index)} and "
+            f"{format_role_bracket(other, self.team_emojis)} takes their "
+            "place. No exhaustion cost."
+        )
+
+    def coaching_title(
         self,
         match: MatchState,
         side: TeamSide,
-        player_id: str,
-        other_player_id: str,
     ) -> str:
-        match.swap_meeple_positions(side, player_id, other_player_id)
+        """The line drawn across the top of a coach's own half-field."""
+        setup = match.setup_for_side(side)
+        formation = self.current_formation(match, side)
+        shape = f" - {formation.value}" if formation else ""
+        return f"{format_team_side_label(setup)}{shape}"
 
-        first = self.get_player_definition(player_id)
-        second = self.get_player_definition(other_player_id)
-        return (
-            f"{format_role_bracket(first, self.team_emojis)} and "
-            f"{format_role_bracket(second, self.team_emojis)} trade "
-            "places. No exhaustion cost."
+    async def coaching_file(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+    ) -> discord.File:
+        """
+        The coach's own half of the field, as an attachment for their
+        Coaching Choice message. Rendered in a worker thread like every
+        other image: Pillow is pure CPU and the event loop is shared by
+        every game at once.
+        """
+        png = await asyncio.to_thread(
+            render_coaching_image,
+            match,
+            self.player_catalog,
+            side,
+            self.coaching_title(match, side),
+        )
+        return discord.File(
+            io.BytesIO(png.getvalue()),
+            filename=f"d12ball-coaching-{game.game_number}.png",
         )
 
     async def begin_substitution_window(
@@ -3010,10 +3121,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
         side: TeamSide,
+        occasion: CoachingOccasion = CoachingOccasion.NEW_PLAY,
         is_response: bool = False,
         lead_in: str = "",
-        spends_declaration: bool = True,
-        auto_declare: bool = False,
     ) -> None:
         """
         Offer `side` the window. A declaration is once a half, so a
@@ -3021,18 +3131,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         injured player on the field is named in the heading but
         compels nothing -- leaving them on is the coach's call.
 
-        `auto_declare` skips the declare-or-pass offer and opens the
-        substitution menu directly, and `spends_declaration` False
-        leaves the side's once-a-half declaration unspent. Halftime
-        passes both: its substitutions are not a declaration anyone
-        chose to make, so there is nothing to ask and nothing to
-        charge for (see begin_halftime_substitutions).
+        `occasion` carries every difference between the three -- the
+        substitution allowance, whether the declare-or-pass offer is
+        put at all, and where a player taken off goes. Setup and
+        halftime are given rather than declared, so both skip the
+        offer and open the menu directly.
         """
         side = TeamSide(side)
-        match.open_substitution_window(
+        occasion = CoachingOccasion(occasion)
+        match.open_coaching_window(
             side,
+            occasion,
             is_response=is_response,
-            spends_declaration=spends_declaration,
         )
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -3043,31 +3153,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        setup = match.setup_for_side(side)
-        controller_id = self.side_controller_id(game, side)
-        mention = f"<@{controller_id}>" if controller_id else "Someone"
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-
-        if auto_declare:
-            match.declare_substitution()
-            game.match_state = match.to_dict()
-            save_games(self.games)
-            await self.prompt_substitution_menu(
-                interaction, game, match, lead_in=lead_in,
-            )
-            return
-
-        if is_response:
-            heading = (
-                f"{format_team_side_label(setup)} may answer with **one** "
-                "substitution and rearrange their formation."
+        if occasion.spends_declaration:
+            note = (
+                "Answering the other team's declaration, which costs "
+                "your own nothing."
+                if is_response
+                else "Declaring is once a half. Coach, or pass?"
             )
         else:
-            heading = (
-                f"{format_team_side_label(setup)} restart play and may "
-                "declare substitutions -- up to **two** swaps and a "
-                "rearrangement, once a half."
-            )
+            note = "Take as long as you like; nothing here costs exhaustion."
 
         # An injured player is worth pointing out, but only as a
         # nudge: nothing compels a side to get them off, and a coach
@@ -3081,11 +3175,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 for player_id in injured_ids
             )
             verb = "is" if len(injured_ids) == 1 else "are"
-            heading += f"\n{injured} {verb} injured and still on the field."
+            note += f"\n{injured} {verb} injured and still on the field."
 
         prompt = await interaction.followup.send(
-            f"{prefix}# Substitutions\n{mention}, {heading}",
-            view=SubstitutionOfferView(self, game.game_id),
+            self.coaching_prompt(game, match, side, note, lead_in=lead_in),
+            file=await self.coaching_file(game, match, side),
+            view=(
+                CoachingOfferView(self, game.game_id)
+                if occasion.spends_declaration
+                else CoachingHubView(self, game.game_id)
+            ),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
@@ -3094,48 +3193,75 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt.id
         save_games(self.games)
 
-    async def prompt_substitution_menu(
+    def coaching_prompt(
         self,
-        interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        side: TeamSide,
+        note: str = "",
         lead_in: str = "",
-    ) -> None:
+    ) -> str:
         """
-        Put the take-off / rearrange / done menu back up after every
-        action, so a side can use its whole allowance without the flow
-        deciding for them when they are finished.
-
-        `lead_in` rides above the menu on the first prompt of a window
-        that was never offered as a choice (halftime's), which is the
-        only place the window's own heading has nowhere else to go.
+        The text above the coaching image. Rebuilt on every step, so
+        `note` is whatever that step has to say -- the question it is
+        asking, or what the last action did.
         """
-        if match.pending_substitution_side is None:
-            return
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(side)
         setup = match.setup_for_side(side)
         controller_id = self.side_controller_id(game, side)
         mention = f"<@{controller_id}>" if controller_id else "Someone"
+        header = (
+            f"{mention}, **{format_team_side_label(setup)}** -- "
+            f"{self.substitution_allowance_label(match)}."
+        )
+        return "\n".join(
+            part
+            for part in (lead_in, "# Coaching Choice", header, note)
+            if part
+        )
 
+    def substitution_button_label(self, match: MatchState) -> str:
+        """
+        The bracket on the hub's Substitution button. Which allowance
+        is being counted down is worth saying: halftime's two are its
+        own rather than either half's, and setup has no limit at all.
+        """
         remaining = match.substitutions_remaining()
-        allowance = (
-            f"{remaining} substitution{'s' if remaining != 1 else ''} left"
-            if remaining
-            else "No substitutions left"
+        if remaining is None:
+            return "no limit"
+        if not remaining:
+            return "none left"
+        where = (
+            "at halftime"
+            if match.coaching_occasion == CoachingOccasion.HALFTIME
+            else "this half"
         )
-        prefix = f"{lead_in}\n" if lead_in else ""
-        prompt = await interaction.followup.send(
-            f"{prefix}{mention}, {format_team_side_label(setup)}: "
-            f"{allowance}. "
-            "Take a player off, exchange two positions, or finish.",
-            view=SubstitutionMenuView(self, game.game_id),
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
+        return f"{remaining} left {where}"
+
+    def coaching_finish_refusal(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> Optional[str]:
+        """
+        Why this side may not finish yet, or None. The only thing that
+        can hold a coach in the flow is the kickoff space: whoever
+        kicks off the coming period has to have somebody standing on
+        it, and nothing else in a Coaching Choice guarantees it.
+        """
+        kicking = {
+            CoachingOccasion.SETUP: TeamSide.HOME,
+            CoachingOccasion.HALFTIME: TeamSide.VISITING,
+        }.get(match.coaching_occasion)
+        if kicking is None or TeamSide(side) != kicking:
+            return None
+        if match.kickoff_space_occupied_by(kicking):
+            return None
+        return (
+            f"{kicking.value.title()} kick off, so they need a player on "
+            f"{space_label(match.ball.zone, match.ball.space_index)} "
+            "before finishing."
         )
-        game.turn_message_id = prompt.id
-        save_games(self.games)
 
     async def run_ai_substitution_window(
         self,
@@ -3144,16 +3270,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         lead_in: str = "",
     ) -> None:
-        side = TeamSide(match.pending_substitution_side)
+        side = TeamSide(match.pending_coaching_side)
+        occasion = match.coaching_occasion or CoachingOccasion.NEW_PLAY
         strategy = self.get_ai_strategy(game)
         lines: list[str] = []
 
-        while match.substitutions_remaining():
+        while match.may_substitute():
             choice = strategy.choose_substitution(match, side)
             if choice is None:
                 break
-            if not match.pending_substitution_declared:
-                match.declare_substitution()
+            if not match.pending_coaching_declared:
+                match.declare_coaching()
             outgoing_player_id, incoming_player_id = choice
             try:
                 lines.append(
@@ -3168,6 +3295,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 )
                 break
 
+        covered = self.cover_kickoff_space(match, side)
+        if covered:
+            lines.append(covered)
+
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -3176,14 +3307,73 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if lines:
             body = "\n".join(lines)
             await interaction.followup.send(
-                f"{prefix}# Substitutions\n"
-                f"{format_team_side_label(setup)} declares:\n{body}"
+                f"{prefix}# Coaching Choice\n"
+                f"{format_team_side_label(setup)}:\n{body}"
             )
             await self.refresh_match_image(interaction, game)
-        elif prefix:
+        elif lead_in and occasion.spends_declaration:
+            # A new play's lead-in is the announcement that opened the
+            # window -- the goal, the miss -- and has to be posted
+            # whatever the AI decided. Setup's and halftime's are
+            # instructions to a coach, so an AI that changed nothing
+            # says nothing rather than posting a menu heading with no
+            # menu under it.
             await interaction.followup.send(lead_in)
 
         await self.finish_substitution_window(interaction, game, match)
+
+    def cover_kickoff_space(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> Optional[str]:
+        """
+        Put one of an AI side's meeples on the kickoff space when they
+        are the ones kicking off and nobody is standing on it, and
+        describe the move -- or None when there is nothing to do.
+
+        A human coach is refused the Done button until they have
+        covered it (see coaching_finish_refusal); the AI has no menu to
+        be held in, so it does the same thing here. The kickoff space
+        is always in midfield and every basic shape puts at least one
+        card there, so the mover is always somebody whose own zone it
+        is.
+        """
+        side = TeamSide(side)
+        if self.coaching_finish_refusal(match, side) is None:
+            return None
+
+        setup = match.setup_for_side(side)
+        kickoff_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        candidates = [
+            player_id
+            for player_id in setup.field_players
+            if setup.assigned_zone(player_id) == match.ball.zone
+        ]
+        if not candidates:
+            LOGGER.error(
+                "No %s card is assigned to %s, so nobody can take the "
+                "kickoff space.",
+                side.value, match.ball.zone.value,
+            )
+            return None
+
+        def distance(player_id: str) -> int:
+            position = match.board.meeple_position(player_id)
+            if position is None:
+                return 10**6
+            return abs(match.board.flat_index(*position) - kickoff_flat)
+
+        nearest = min(candidates, key=distance)
+        match.position_meeple(side, nearest, match.ball.space_index)
+        player = self.get_player_definition(nearest)
+        return (
+            f"{format_role_bracket(player, self.team_emojis)} takes the "
+            "kickoff spot at "
+            f"{space_label(match.ball.zone, match.ball.space_index)}."
+        )
 
     async def finish_substitution_window(
         self,
@@ -3202,24 +3392,33 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         play restores. A side that passed changed nothing, so their
         existing arrangement stands untouched.
         """
-        declared = match.pending_substitution_declared
-        was_response = match.pending_substitution_is_response
+        declared = match.pending_coaching_declared
+        was_response = match.pending_coaching_is_response
         side = (
-            TeamSide(match.pending_substitution_side)
-            if match.pending_substitution_side
+            TeamSide(match.pending_coaching_side)
+            if match.pending_coaching_side
             else None
         )
-        match.close_substitution_window()
+        match.close_coaching_window()
         if declared and side is not None:
             match.set_assigned_positions(side)
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        if match.pending_halftime_stage in ("subs_home", "subs_visiting"):
-            # Halftime gives each side its own independent declaration
-            # rather than a turnover's declare-then-respond pairing, so
-            # this always moves on to the next halftime stage instead
-            # of offering the other side a response.
+        # Setup and halftime give each side its own window rather than
+        # a turnover's declare-then-respond pairing, so both move on to
+        # the next stage of their own sequence instead of offering the
+        # other side a response.
+        if match.pending_setup_stage is not None:
+            self.next_setup_stage(match)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await self.advance_setup_stage(interaction, game, match)
+            return
+
+        if self.halftime_stage(match) in (
+            "coaching_home", "coaching_visiting",
+        ):
             self.next_halftime_stage(match)
             game.match_state = match.to_dict()
             save_games(self.games)
@@ -3347,7 +3546,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.announce_new_play_reset(interaction, game, match, lead_in)
             lead_in = ""
             winning_side = match.ball.possession
-            if match.may_declare_substitution(winning_side):
+            if match.may_declare_coaching(winning_side):
                 await self.begin_substitution_window(
                     interaction, game, match, winning_side,
                 )
@@ -3994,9 +4193,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.scoreboard.last_possession = False
             # A declaration is once every half, so both sides get
             # theirs back -- including a side that had to spend the
-            # first half's on an injury.
+            # first half's on an injury. Their two substitutions for
+            # the half come back with it; halftime's own two are
+            # counted separately and are not touched here.
             match.declared_substitution.clear()
-            match.close_substitution_window()
+            match.half_substitutions_used.clear()
+            match.close_coaching_window()
             kickoff_index = kickoff_space_index(
                 len(match.board.spaces[Zone.MIDFIELD]),
                 TeamSide.VISITING,
@@ -4092,13 +4294,110 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
         await self.advance_halftime_stage(interaction, game, match)
 
+    async def begin_setup_coaching(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        """
+        Offer both coaches a Coaching Choice before kickoff, home
+        first -- see "Setting up a game" in docs/living-rules.md. Both
+        teams are dealt the standard 2-2-2 and, in basic mode, dealt
+        identically; this is where a coach may change any of it rather
+        than waiting for their first window.
+
+        Substitutions here are unlimited and a player taken off goes
+        back to the bench: nobody has played, so nothing is used up.
+        A coach happy with the deal finishes without changing anything.
+        """
+        match = self.load_match_state(game)
+        match.pending_setup_stage = SETUP_STAGES[0]
+        game.match_state = match.to_dict()
+        save_games(self.games)
+        await self.advance_setup_stage(interaction, game, match)
+
+    def next_setup_stage(self, match: MatchState) -> None:
+        stage = match.pending_setup_stage
+        if stage not in SETUP_STAGES:
+            match.pending_setup_stage = None
+            return
+        index = SETUP_STAGES.index(stage)
+        match.pending_setup_stage = (
+            SETUP_STAGES[index + 1]
+            if index + 1 < len(SETUP_STAGES)
+            else None
+        )
+
+    async def advance_setup_stage(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """Hand the next coach their pre-kickoff window, or kick off."""
+        stage = match.pending_setup_stage
+        if stage in ("coaching_home", "coaching_visiting"):
+            side = (
+                TeamSide.HOME
+                if stage == "coaching_home"
+                else TeamSide.VISITING
+            )
+            setup = match.setup_for_side(side)
+            await self.begin_substitution_window(
+                interaction,
+                game,
+                match,
+                side,
+                occasion=CoachingOccasion.SETUP,
+                lead_in=(
+                    f"## Before kickoff\n{format_team_side_label(setup)} "
+                    "set their line-up. Substitutions are unlimited here "
+                    "and anyone taken off goes back to the bench -- the "
+                    "game has not started, so nothing is used up."
+                ),
+            )
+            return
+
+        await self.finish_setup_coaching(interaction, game, match)
+
+    async def finish_setup_coaching(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Both coaches are done, so the game can start. The board was
+        pinned before either of them touched it, so it is brought up to
+        date here rather than pinned again -- see "Discord's rate
+        limits" in CLAUDE.md for why a second pin is not free.
+        """
+        match.pending_setup_stage = None
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await self.refresh_match_image(interaction, game)
+        try:
+            await self.send_turn_prompt(interaction, game)
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+
+    @staticmethod
+    def halftime_stage(match: MatchState) -> Optional[str]:
+        """
+        The stage a match is at, with a stage saved under the old
+        sequence translated -- see LEGACY_HALFTIME_STAGES.
+        """
+        stage = match.pending_halftime_stage
+        return LEGACY_HALFTIME_STAGES.get(stage, stage)
+
     def next_halftime_stage(self, match: MatchState) -> None:
         """
         Advance `match.pending_halftime_stage` to the next entry in
         HALFTIME_STAGES, or clear it once the sequence is exhausted.
         Callers are responsible for saving the match afterward.
         """
-        stage = match.pending_halftime_stage
+        stage = self.halftime_stage(match)
         if stage not in HALFTIME_STAGES:
             match.pending_halftime_stage = None
             return
@@ -4116,7 +4415,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         """Dispatch to whichever halftime stage comes next, or finish."""
-        stage = match.pending_halftime_stage
+        stage = self.halftime_stage(match)
         if stage == "extra_token_home":
             await self.begin_halftime_extra_token(
                 interaction, game, match, TeamSide.HOME,
@@ -4125,20 +4424,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.begin_halftime_extra_token(
                 interaction, game, match, TeamSide.VISITING,
             )
-        elif stage == "subs_home":
+        elif stage == "coaching_home":
             await self.begin_halftime_substitutions(
                 interaction, game, match, TeamSide.HOME,
             )
-        elif stage == "subs_visiting":
+        elif stage == "coaching_visiting":
             await self.begin_halftime_substitutions(
-                interaction, game, match, TeamSide.VISITING,
-            )
-        elif stage == "reposition_home":
-            await self.begin_halftime_reposition(
-                interaction, game, match, TeamSide.HOME,
-            )
-        elif stage == "reposition_visiting":
-            await self.begin_halftime_reposition(
                 interaction, game, match, TeamSide.VISITING,
             )
         else:
@@ -4238,103 +4529,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game,
             match,
             side,
-            spends_declaration=False,
-            auto_declare=True,
+            occasion=CoachingOccasion.HALFTIME,
             lead_in=(
-                f"# Substitutions\n{format_team_side_label(setup)} may "
-                "substitute for the second half -- up to **two** swaps and "
-                "a rearrangement. Halftime is free: this doesn't spend "
-                "their once-a-half declaration."
+                f"## Halftime\n{format_team_side_label(setup)} set up for "
+                "the second half. Halftime is free: it does not spend "
+                "their once-a-half declaration, and its two substitutions "
+                "are its own rather than either half's."
             ),
         )
-
-    async def begin_halftime_reposition(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        side: TeamSide,
-    ) -> None:
-        """
-        Free placement of any of `side`'s fielded meeples to any open
-        board space, not limited to their assigned zone -- "the coach
-        can change... the players' assignment as they please" (End of
-        Time). The visiting side alone is gated on finishing with a
-        player standing on the kickoff space, since they're the ones
-        who have to kick off the second half.
-        """
-        setup = match.setup_for_side(side)
-
-        if self.side_is_ai(game, side):
-            lines = []
-            if (
-                side == TeamSide.VISITING
-                and not match.kickoff_space_occupied_by(TeamSide.VISITING)
-            ):
-                kickoff_flat = match.board.flat_index(
-                    match.ball.zone, match.ball.space_index,
-                )
-
-                def distance(player_id: str) -> int:
-                    position = match.board.meeple_position(player_id)
-                    if position is None:
-                        return 10**6
-                    return abs(
-                        match.board.flat_index(*position) - kickoff_flat
-                    )
-
-                nearest = min(setup.field_players, key=distance)
-                match.reposition_meeple_anywhere(
-                    TeamSide.VISITING,
-                    nearest,
-                    match.ball.zone,
-                    match.ball.space_index,
-                )
-                player = self.get_player_definition(nearest)
-                lines.append(
-                    f"{format_role_bracket(player, self.team_emojis)} "
-                    "takes the kickoff spot at "
-                    f"{space_label(match.ball.zone, match.ball.space_index)}."
-                )
-
-            # Same as the human path (HalftimeRepositionView.finish):
-            # wherever this side finishes halftime is the arrangement a
-            # new play restores.
-            match.set_assigned_positions(side)
-            self.next_halftime_stage(match)
-            game.match_state = match.to_dict()
-            save_games(self.games)
-
-            if lines:
-                await interaction.followup.send(
-                    f"{format_team_side_label(setup)} repositions:\n"
-                    + "\n".join(lines)
-                )
-                await self.refresh_match_image(interaction, game)
-            await self.advance_halftime_stage(interaction, game, match)
-            return
-
-        controller_id = self.side_controller_id(game, side)
-        mention = f"<@{controller_id}>" if controller_id else "Someone"
-        kickoff_note = (
-            " The visiting team must have a player on "
-            f"{space_label(match.ball.zone, match.ball.space_index)} to "
-            "kick off the second half before finishing."
-            if side == TeamSide.VISITING
-            else ""
-        )
-        prompt = await interaction.followup.send(
-            f"{mention}, {format_team_side_label(setup)}: reposition any "
-            "fielded meeple to any space on the board, free of "
-            f"exhaustion, or finish.{kickoff_note}",
-            view=HalftimeRepositionView(self, game.game_id, side),
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt.id
-        save_games(self.games)
 
     async def finish_halftime(
         self,
@@ -4345,8 +4547,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         The last step of halftime -- the visiting kickoff-space
         guarantee is already enforced before this is reached (see
-        HalftimeRepositionView.finish), so this just clears the
-        halftime flag and hands play to the second half.
+        coaching_finish_refusal), so this just clears the halftime flag
+        and hands play to the second half.
         """
         match.pending_halftime_stage = None
         game.match_state = match.to_dict()

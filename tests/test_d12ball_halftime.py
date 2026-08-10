@@ -12,7 +12,9 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import HALFTIME_STAGES, D12Ball
+from cogs.d12ball_views import CoachingHubView
 from d12ball.components import (
+    CoachingOccasion,
     MatchState,
     TeamSide,
     Zone,
@@ -114,6 +116,29 @@ class HalftimeStageSequenceTests(unittest.TestCase):
             visiting_team=Team.PURPLE,
         )
 
+    def test_a_game_paused_under_the_old_sequence_resumes(self) -> None:
+        # Halftime used to run substitutions and free any-zone
+        # repositioning as two stages a side, home first. Both map onto
+        # that side's single Coaching Choice, so a game paused in
+        # either picks up there rather than falling out of halftime.
+        cog = build_cog()
+        match = self.build_match()
+
+        for legacy, expected in (
+            ("subs_home", "coaching_home"),
+            ("subs_visiting", "coaching_visiting"),
+            ("reposition_home", "coaching_home"),
+            ("reposition_visiting", "coaching_visiting"),
+        ):
+            match.pending_halftime_stage = legacy
+            self.assertEqual(cog.halftime_stage(match), expected)
+
+        # And advancing from one lands on the next real stage rather
+        # than clearing the sequence.
+        match.pending_halftime_stage = "subs_visiting"
+        cog.next_halftime_stage(match)
+        self.assertEqual(match.pending_halftime_stage, "coaching_home")
+
     def test_next_halftime_stage_cycles_through_and_terminates(self) -> None:
         cog = build_cog()
         match = self.build_match()
@@ -207,7 +232,9 @@ class HalftimeExtraTokenTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(match.exhaustion[high], 3)
         self.assertEqual(match.exhaustion[low], 1)
-        self.assertEqual(match.pending_halftime_stage, "subs_home")
+        # The visitors go first at halftime, since they kick off the
+        # second half, so home's extra token comes next.
+        self.assertEqual(match.pending_halftime_stage, "extra_token_home")
         cog.advance_halftime_stage.assert_awaited_once()
 
     async def test_human_side_is_prompted_and_does_not_advance_yet(
@@ -250,9 +277,10 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_human_game()
         match = self.build_match()
-        match.pending_halftime_stage = "subs_home"
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.pending_halftime_stage = "coaching_visiting"
+        match.open_coaching_window(
+            TeamSide.VISITING, CoachingOccasion.HALFTIME,
+        )
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.finish_substitution_window(
@@ -264,7 +292,7 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_substitution_window.assert_not_awaited()
         cog.announce_run_back.assert_not_awaited()
         cog.advance_halftime_stage.assert_awaited_once()
-        self.assertEqual(match.pending_halftime_stage, "subs_visiting")
+        self.assertEqual(match.pending_halftime_stage, "coaching_home")
 
     async def test_a_window_used_for_nothing_still_advances_the_stage(
         self,
@@ -274,8 +302,8 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_human_game()
         match = self.build_match()
-        match.pending_halftime_stage = "subs_visiting"
-        match.open_substitution_window(TeamSide.VISITING)
+        match.pending_halftime_stage = "coaching_home"
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.finish_substitution_window(
@@ -284,20 +312,21 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
 
         cog.begin_substitution_window.assert_not_awaited()
         cog.announce_run_back.assert_not_awaited()
-        self.assertEqual(match.pending_halftime_stage, "reposition_home")
+        self.assertIsNone(match.pending_halftime_stage)
 
     async def test_halftime_substitutes_without_asking_or_charging(
         self,
     ) -> None:
-        # Nobody is asked whether to declare: the menu comes straight
+        # Nobody is asked whether to declare: the hub comes straight
         # up. And the window is free -- the side keeps its once-a-half
         # declaration for the second half's open play.
         cog = build_cog()
         del cog.begin_substitution_window  # exercise the real one
-        cog.prompt_substitution_menu = mock.AsyncMock()
         game = build_human_game()
+        cog.games[game.game_id] = game
         match = self.build_match()
         match.pending_halftime_stage = "subs_home"
+        game.match_state = match.to_dict()
         interaction = build_interaction()
 
         with mock.patch("cogs.d12ball.save_games"):
@@ -305,39 +334,46 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
                 interaction, game, match, TeamSide.HOME,
             )
 
-        self.assertEqual(match.pending_substitution_side, "home")
-        self.assertTrue(match.pending_substitution_declared)
+        self.assertEqual(match.pending_coaching_side, "home")
+        self.assertEqual(
+            match.coaching_occasion, CoachingOccasion.HALFTIME,
+        )
+        self.assertTrue(match.pending_coaching_declared)
         self.assertEqual(match.declared_substitution, set())
-        self.assertTrue(match.may_declare_substitution(TeamSide.HOME))
-        # No declare-or-pass prompt of its own -- the menu carries the
-        # window's heading instead.
-        interaction.followup.send.assert_not_awaited()
-        cog.prompt_substitution_menu.assert_awaited_once()
-        _, kwargs = cog.prompt_substitution_menu.await_args
-        self.assertIn("Substitutions", kwargs["lead_in"])
+        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
+
+        # One message, carrying the hub rather than a declare-or-pass
+        # offer, with the coach's own half of the field attached.
+        interaction.followup.send.assert_awaited_once()
+        _, kwargs = interaction.followup.send.await_args
+        self.assertIsInstance(kwargs["view"], CoachingHubView)
+        self.assertIsNotNone(kwargs["file"])
 
     async def test_an_ordinary_window_still_spends_the_declaration(
         self,
     ) -> None:
         # Regression guard: only halftime's window is free.
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
 
         self.assertEqual(match.declared_substitution, {"home"})
-        self.assertFalse(match.may_declare_substitution(TeamSide.HOME))
+        self.assertFalse(match.may_declare_coaching(TeamSide.HOME))
 
     def test_a_free_window_survives_a_save_and_reload(self) -> None:
         match = self.build_match()
-        match.open_substitution_window(
-            TeamSide.HOME, spends_declaration=False,
-        )
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
 
         reloaded = MatchState.from_dict(match.to_dict(), self.rules)
 
-        self.assertFalse(reloaded.pending_substitution_spends_declaration)
-        reloaded.declare_substitution()
+        self.assertEqual(
+            reloaded.coaching_occasion, CoachingOccasion.HALFTIME,
+        )
+        # Halftime's window opens already taken up, so a reload finds a
+        # declared window that still cost the side nothing.
+        self.assertTrue(reloaded.pending_coaching_declared)
         self.assertEqual(reloaded.declared_substitution, set())
+        self.assertTrue(reloaded.may_declare_coaching(TeamSide.HOME))
 
     async def test_ordinary_turnover_windows_are_unaffected(self) -> None:
         """
@@ -349,8 +385,8 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_human_game()
         match = self.build_match()
-        match.open_substitution_window(TeamSide.HOME)
-        match.declare_substitution()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.finish_substitution_window(
@@ -361,7 +397,16 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         cog.advance_halftime_stage.assert_not_awaited()
 
 
-class HalftimeRepositionTests(unittest.IsolatedAsyncioTestCase):
+class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
+    """
+    Halftime no longer has a repositioning stage of its own -- the
+    Coaching Choice's space positioning covers it. What survives is the
+    kickoff-space guarantee: the visitors kick off the second half, so
+    somebody of theirs has to be standing on it. A human coach is
+    refused Done until they are (coaching_finish_refusal); an AI has no
+    menu to be held in, so cover_kickoff_space does it for them.
+    """
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.catalog = load_player_catalog()
@@ -377,53 +422,71 @@ class HalftimeRepositionTests(unittest.IsolatedAsyncioTestCase):
         )
         # Move the ball to the second-half kickoff space, the way
         # end_period does before halftime begins, and clear any
-        # visiting meeple off of it so the AI has something to fix.
+        # visiting meeple off of it so there is something to fix.
         kickoff_index = kickoff_space_index(
             len(match.board.spaces[Zone.MIDFIELD]), TeamSide.VISITING,
         )
         match.ball.zone = Zone.MIDFIELD
         match.ball.space_index = kickoff_index
-        for player_id in list(match.board.spaces[Zone.MIDFIELD][kickoff_index]):
+        for player_id in list(
+            match.board.spaces[Zone.MIDFIELD][kickoff_index]
+        ):
             if player_id in match.visiting.field_players:
                 match.board.remove_meeple(player_id)
                 match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
         return match
 
-    async def test_ai_visiting_side_fills_an_empty_kickoff_space(
-        self,
-    ) -> None:
+    def test_the_visitors_are_held_until_they_cover_it(self) -> None:
         cog = build_cog()
-        game = build_solo_game()
         match = self.build_match()
-        match.pending_halftime_stage = "reposition_visiting"
+        match.open_coaching_window(
+            TeamSide.VISITING, CoachingOccasion.HALFTIME,
+        )
+
+        refusal = cog.coaching_finish_refusal(match, TeamSide.VISITING)
+
+        self.assertIsNotNone(refusal)
+        self.assertIn("kick off", refusal)
+
+    def test_home_is_never_held_at_halftime(self) -> None:
+        # Home kicks off the first half, not the second.
+        cog = build_cog()
+        match = self.build_match()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
+
+        self.assertIsNone(
+            cog.coaching_finish_refusal(match, TeamSide.HOME),
+        )
+
+    def test_an_ai_visiting_side_covers_it_itself(self) -> None:
+        cog = build_cog()
+        match = self.build_match()
+        match.open_coaching_window(
+            TeamSide.VISITING, CoachingOccasion.HALFTIME,
+        )
         self.assertFalse(match.kickoff_space_occupied_by(TeamSide.VISITING))
 
-        with mock.patch("cogs.d12ball.save_games"):
-            await cog.begin_halftime_reposition(
-                build_interaction(), game, match, TeamSide.VISITING,
-            )
+        note = cog.cover_kickoff_space(match, TeamSide.VISITING)
 
+        self.assertIsNotNone(note)
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.VISITING))
-        self.assertIsNone(match.pending_halftime_stage)
-        cog.advance_halftime_stage.assert_awaited_once()
+        # And whoever moved is a midfielder by assignment, so the move
+        # stayed inside their own zone the way positioning has to.
+        self.assertIsNone(
+            cog.coaching_finish_refusal(match, TeamSide.VISITING),
+        )
 
-    async def test_ai_home_side_does_not_need_the_kickoff_space(
-        self,
-    ) -> None:
+    def test_a_covered_space_is_left_alone(self) -> None:
         cog = build_cog()
-        game = build_solo_game_home_ai()
         match = self.build_match()
-        match.pending_halftime_stage = "reposition_home"
+        match.open_coaching_window(
+            TeamSide.VISITING, CoachingOccasion.HALFTIME,
+        )
+        cog.cover_kickoff_space(match, TeamSide.VISITING)
 
-        with mock.patch("cogs.d12ball.save_games"):
-            await cog.begin_halftime_reposition(
-                build_interaction(), game, match, TeamSide.HOME,
-            )
-
-        # Home's AI reposition doesn't touch the kickoff space at all,
-        # and just moves on to visiting's own reposition stage.
-        self.assertEqual(match.pending_halftime_stage, "reposition_visiting")
-        cog.advance_halftime_stage.assert_awaited_once()
+        self.assertIsNone(
+            cog.cover_kickoff_space(match, TeamSide.VISITING),
+        )
 
 
 class HalftimeKickoffBoardTests(unittest.IsolatedAsyncioTestCase):
@@ -515,37 +578,6 @@ class HalftimeEngineTests(unittest.TestCase):
         removed = match.recover_exhaustion(player_id, 1, defense_skill=3)
 
         self.assertEqual(removed, 0)
-
-    def test_reposition_meeple_anywhere_moves_across_zones(self) -> None:
-        match = self.build_match()
-        player_id = match.home.field_players[0]
-        # Board 9's 2-2-2 setup only fills 2 of Visitors Goal's 3
-        # spaces for home, leaving index 2 open regardless of which
-        # player is being moved.
-        open_index = match.open_spaces_in_zone(
-            TeamSide.HOME, Zone.VISITORS_GOAL,
-        )[0]
-
-        match.reposition_meeple_anywhere(
-            TeamSide.HOME, player_id, Zone.VISITORS_GOAL, open_index,
-        )
-
-        self.assertEqual(
-            match.board.meeple_position(player_id),
-            (Zone.VISITORS_GOAL, open_index),
-        )
-
-    def test_reposition_meeple_anywhere_rejects_a_teammates_space(
-        self,
-    ) -> None:
-        match = self.build_match()
-        mover, occupant = match.home.field_players[:2]
-        zone, space_index = match.board.meeple_position(occupant)
-
-        with self.assertRaises(ValueError):
-            match.reposition_meeple_anywhere(
-                TeamSide.HOME, mover, zone, space_index,
-            )
 
     def test_kickoff_space_occupied_by_reflects_the_board(self) -> None:
         match = self.build_match()

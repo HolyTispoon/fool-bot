@@ -18,8 +18,6 @@ from d12ball.components import (
     PlayerRole,
     TeamSide,
     Zone,
-    fill_forced_areas,
-    next_unfilled_area,
 )
 from d12ball.game import (
     AIOpponent,
@@ -47,7 +45,6 @@ from cogs.d12ball_helpers import (
     TIE_MODE_LABELS,
     add_full_image_button,
     add_full_image_button_to_response,
-    area_display_name,
     build_home_choice_message,
     build_setup_message,
     contest_noun,
@@ -692,7 +689,7 @@ class CoinFlipView(GameConfigurationView):
             # current: this is the persistent message every later
             # refresh edits, so the pin never needs re-cutting.
             await pin_board_message(choice_message)
-            await self.cog.send_turn_prompt(interaction, game)
+            await self.cog.begin_setup_coaching(interaction, game)
 
 
 class HomeAwaySelectionView(SafeView):
@@ -811,7 +808,7 @@ class HomeAwaySelectionView(SafeView):
             f"{format_player_with_team(game, winner_player_number)} chose "
             f"**{choice.value.title()}**."
         )
-        await self.cog.send_turn_prompt(interaction, game)
+        await self.cog.begin_setup_coaching(interaction, game)
 
 
 class RematchView(SafeView):
@@ -2737,11 +2734,31 @@ class RunBackChoiceView(SafeView):
         await self.cog.continue_run_back(interaction, game, match)
 
 
-class SubstitutionView(SafeView):
+class CoachingView(SafeView):
     """
-    Shared plumbing for the substitution window's prompts: they all
-    belong to whichever side currently holds the window, and they all
-    have to refuse a click from anyone else.
+    Shared plumbing for the Coaching Choice flow -- the four actions a
+    coach may take at setup, at a new play's window, and at halftime,
+    which are the same four every time. See "Coaching Choice" in
+    docs/living-rules.md.
+
+    **The whole flow lives on one message.** Every step edits it
+    through `interaction.response.edit_message`, and nothing in the
+    flow ever sends another. Two reasons:
+
+    - It used to be a message per step, and a coach making two
+      substitutions and a rearrangement put eight of them into the
+      channel plus a board refresh apiece. See "Discord's rate limits"
+      in CLAUDE.md: the fix for that is always fewer requests.
+    - Only the newest message could be restored after a restart, but
+      every older one kept a live view. A coach could scroll up and
+      click a menu from three steps ago, and it would act on the
+      current state.
+
+    `interaction.response.edit_message` is the interaction-callback
+    route, so unlike `channel.get_partial_message().edit()` it does not
+    compete for the five-in-five bucket the board refresh spends.
+    Passing no `attachments` leaves the image alone, so only a step
+    that actually moved something re-uploads it.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -2754,6 +2771,9 @@ class SubstitutionView(SafeView):
         if game is None or game.match_state is None:
             return None, None
         return game, self.cog.load_match_state(game)
+
+    def side(self, match: MatchState) -> TeamSide:
+        return TeamSide(match.pending_coaching_side)
 
     async def claim(
         self,
@@ -2770,15 +2790,15 @@ class SubstitutionView(SafeView):
                 ephemeral=True,
             )
             return None, None
-        if match.pending_substitution_side is None:
+        if match.pending_coaching_side is None:
             await interaction.response.send_message(
-                "That substitution window has already closed.",
+                "That coaching window has already closed.",
                 ephemeral=True,
             )
             return None, None
-
-        side = TeamSide(match.pending_substitution_side)
-        if interaction.user.id != self.cog.side_controller_id(game, side):
+        if interaction.user.id != self.cog.side_controller_id(
+            game, self.side(match),
+        ):
             await interaction.response.send_message(
                 "Only that team's coach can choose this.",
                 ephemeral=True,
@@ -2786,30 +2806,302 @@ class SubstitutionView(SafeView):
             return None, None
         return game, match
 
-    def add_roster_button(
+    async def show(
         self,
-        custom_id: str,
-        row: Optional[int] = None,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        view: "CoachingView",
+        note: str = "",
+        moved: bool = False,
     ) -> None:
         """
-        A "Team Roster" button for a substitution prompt: who is on the
-        field, where, and how exhausted they are is exactly what the
-        decision turns on, and the board image scrolls away above it.
-        Answers privately, so it doesn't push the prompt out of view.
+        Put `view` up on the coaching message, with `note` under the
+        heading. `moved` re-renders the half-field image; without it
+        the attachment already there is left alone, which is most
+        steps -- opening a submenu changes nothing on the board.
         """
+        payload = {
+            "content": self.cog.coaching_prompt(
+                game, match, self.side(match), note,
+            ),
+            "view": view,
+        }
+        if moved:
+            payload["attachments"] = [
+                await self.cog.coaching_file(game, match, self.side(match))
+            ]
+        await interaction.response.edit_message(**payload)
+
+    async def back_to_hub(
+        self,
+        interaction: discord.Interaction,
+        note: str = "",
+        moved: bool = False,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingHubView(self.cog, self.game_id),
+            note=note,
+            moved=moved,
+        )
+
+    def add_back_button(self, row: Optional[int] = None) -> None:
+        # Named for the view it sits on: a custom_id has to be unique
+        # within its message, and every one of these steps puts its
+        # Back button on the same message as the last.
         button = discord.ui.Button(
-            label="Team Roster",
+            label="Back",
             style=discord.ButtonStyle.secondary,
-            custom_id=custom_id,
+            custom_id=(
+                f"d12ball:coach_back:{self.game_id}:"
+                f"{type(self).__name__}"
+            ),
             row=row,
         )
-        button.callback = self.show_roster
+
+        async def callback(interaction: discord.Interaction) -> None:
+            await self.back_to_hub(interaction)
+
+        button.callback = callback
         self.add_item(button)
 
+    def player_label(
+        self,
+        match: MatchState,
+        player_id: str,
+        with_space: bool = False,
+    ) -> str:
+        """
+        A fielded player on a button: who they are, and where they are.
+        Both matter to every choice in this flow and neither is on the
+        button otherwise.
+        """
+        setup = match.setup_for_side(self.side(match))
+        zone = setup.assigned_zone(player_id)
+        where = destination_display_name(zone.value)
+        if with_space:
+            position = match.board.meeple_position(player_id)
+            where = space_label(*position) if position else where
+        return f"{self.cog.format_roster_player(player_id)} - {where}"[:80]
+
+
+class CoachingOfferView(CoachingView):
+    """
+    Declare-or-pass, for the side a new play has just handed the window
+    to. Only a new play asks: setup and halftime are given rather than
+    declared, so both open straight onto the hub.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(cog, game_id)
+
+        declare = discord.ui.Button(
+            label="Coach",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:coach_declare:{game_id}",
+        )
+        declare.callback = self.declare
+        self.add_item(declare)
+
+        # Passing is always on offer -- nothing forces a declaration,
+        # an injured player included.
+        decline = discord.ui.Button(
+            label="Pass",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:coach_pass:{game_id}",
+        )
+        decline.callback = self.decline
+        self.add_item(decline)
+
+    async def declare(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        match.declare_coaching()
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        # No attachments: the offer this replaces already carried the
+        # image, and taking the window up moves nobody.
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingHubView(self.cog, self.game_id),
+        )
+
+    async def decline(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        setup = match.setup_for_side(self.side(match))
+        await interaction.response.edit_message(
+            content=(
+                f"# Coaching Choice\n**{interaction.user.display_name} "
+                f"({setup.team.value.title()}) passed.**"
+            ),
+            view=None,
+        )
+        await self.cog.finish_substitution_window(interaction, game, match)
+
+
+class CoachingHubView(CoachingView):
+    """
+    The six buttons a Coaching Choice offers. Each opens its own menu
+    on this same message and every one of those comes back here.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(cog, game_id)
+
+        game, match = self.load()
+        if match is None or match.pending_coaching_side is None:
+            return
+        side = self.side(match)
+
+        formation = cog.current_formation(match, side)
+        # The shape in brackets is the one they are in now, not the one
+        # the button switches to, so it says so -- a bare "(2-2-2)"
+        # reads as the destination.
+        self.add_action(
+            "Formation"
+            + (f" (currently {formation.value})" if formation else ""),
+            f"d12ball:coach_formation:{game_id}",
+            self.open_formation,
+        )
+        self.add_action(
+            f"Substitution ({cog.substitution_button_label(match)})",
+            f"d12ball:coach_sub:{game_id}",
+            self.open_substitution,
+            enabled=match.may_substitute()
+            and any(
+                match.substitution_pool(side, player_id)
+                for player_id in match.setup_for_side(side).field_players
+            ),
+        )
+        self.add_action(
+            "Zone Assignment",
+            f"d12ball:coach_zone:{game_id}",
+            self.open_zone_assignment,
+        )
+        self.add_action(
+            "Space Positioning",
+            f"d12ball:coach_space:{game_id}",
+            self.open_space_positioning,
+            row=1,
+        )
+        self.add_action(
+            "Team roster",
+            f"d12ball:coach_roster:{game_id}",
+            self.show_roster,
+            row=1,
+            style=discord.ButtonStyle.secondary,
+        )
+        self.add_action(
+            "Done coaching",
+            f"d12ball:coach_done:{game_id}",
+            self.finish,
+            row=1,
+            style=discord.ButtonStyle.success,
+        )
+
+    def add_action(
+        self,
+        label: str,
+        custom_id: str,
+        callback,
+        row: int = 0,
+        enabled: bool = True,
+        style: discord.ButtonStyle = discord.ButtonStyle.primary,
+    ) -> None:
+        button = discord.ui.Button(
+            label=label[:80],
+            style=style if enabled else discord.ButtonStyle.secondary,
+            custom_id=custom_id,
+            row=row,
+            disabled=not enabled,
+        )
+        button.callback = callback
+        self.add_item(button)
+
+    async def open_formation(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingFormationView(self.cog, self.game_id),
+            note=(
+                "Which formation? The numbers read from your own goal "
+                "forward. Changing shape re-deals your six by defensive "
+                "skill, best defenders furthest back -- move anyone you "
+                "want elsewhere afterwards."
+            ),
+        )
+
+    async def open_substitution(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingSubstitutionOutView(self.cog, self.game_id),
+            note="Who comes off?",
+        )
+
+    async def open_zone_assignment(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingZoneView(self.cog, self.game_id),
+            note=(
+                "Which two change places? Their meeples move with them, "
+                "so the shape is unchanged."
+            ),
+        )
+
+    async def open_space_positioning(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingPlaceView(self.cog, self.game_id),
+            note="Whose meeple moves?",
+        )
+
     async def show_roster(self, interaction: discord.Interaction) -> None:
-        # Deliberately not gated on claim(): reading your own roster is
-        # not acting on the window, so the coach who is waiting on the
-        # other side can look too.
+        # Deliberately not gated on claim(): reading a roster is not
+        # acting on the window, so the coach who is waiting on the
+        # other side can look too. Answers privately, so the coaching
+        # message stays where it is.
         game, match = self.load()
         if game is None or match is None:
             await interaction.response.send_message(
@@ -2837,158 +3129,138 @@ class SubstitutionView(SafeView):
             ephemeral=True,
         )
 
-
-class SubstitutionOfferView(SubstitutionView):
-    """
-    Declare-or-pass, for the side a new play has just handed the
-    window to. Both are always on offer.
-    """
-
-    def __init__(self, cog: "D12Ball", game_id: str):
-        super().__init__(cog, game_id)
-
-        game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
-            return
-
-        declare = discord.ui.Button(
-            label=(
-                "Substitute" if match.pending_substitution_is_response
-                else "Declare substitutions"
-            ),
-            style=discord.ButtonStyle.primary,
-            custom_id=f"d12ball:sub_declare:{game_id}",
-        )
-        declare.callback = self.declare
-        self.add_item(declare)
-
-        # Passing is always on offer -- nothing forces a declaration,
-        # an injured player included.
-        decline = discord.ui.Button(
-            label="Pass",
-            style=discord.ButtonStyle.secondary,
-            custom_id=f"d12ball:sub_pass:{game_id}",
-        )
-        decline.callback = self.decline
-        self.add_item(decline)
-
-        self.add_roster_button(f"d12ball:sub_offer_roster:{game_id}")
-
-    async def declare(self, interaction: discord.Interaction) -> None:
+    async def finish(self, interaction: discord.Interaction) -> None:
         game, match = await self.claim(interaction)
         if game is None or match is None:
             return
 
-        match.declare_substitution()
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
-
-        await interaction.response.edit_message(
-            content=interaction.message.content + "\n\n**Declared.**",
-            view=None,
-        )
-        await self.cog.prompt_substitution_menu(interaction, game, match)
-
-    async def decline(self, interaction: discord.Interaction) -> None:
-        game, match = await self.claim(interaction)
-        if game is None or match is None:
+        side = self.side(match)
+        refusal = self.cog.coaching_finish_refusal(match, side)
+        if refusal is not None:
+            await interaction.response.send_message(refusal, ephemeral=True)
             return
 
-        side = TeamSide(match.pending_substitution_side)
-        team_name = match.setup_for_side(side).team.value.title()
-        coach_name = interaction.user.display_name
-
+        setup = match.setup_for_side(side)
         await interaction.response.edit_message(
             content=(
-                interaction.message.content
-                + f"\n\n**{coach_name} ({team_name}) passed on "
-                "substitution.**"
+                f"# Coaching Choice\n**{format_team_side_label(setup)} "
+                "are done.**"
             ),
             view=None,
         )
         await self.cog.finish_substitution_window(interaction, game, match)
 
 
-class SubstitutionMenuView(SubstitutionView):
+class CoachingFormationView(CoachingView):
     """
-    What the side holding the window can still do: take a player off
-    (while swaps remain and somebody is available to replace them),
-    exchange two players' positions, or finish.
+    Pick a shape. Applying it re-deals the whole side by defensive
+    skill and places every meeple, so this is one click rather than the
+    six it used to take -- see D12Ball.formation_placement.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
         super().__init__(cog, game_id)
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
-        setup = match.setup_for_side(side)
+        current = cog.current_formation(match, self.side(match))
 
-        if match.substitutions_remaining() > 0:
-            for player_id in setup.field_players:
-                if not match.substitution_pool(side, player_id):
-                    continue
-                label = cog.format_roster_player(player_id)
-                button = discord.ui.Button(
-                    label=f"Off: {label}"[:80],
-                    style=(
-                        discord.ButtonStyle.danger
-                        if player_id in match.injured
-                        else discord.ButtonStyle.secondary
-                    ),
-                    custom_id=(
-                        f"d12ball:sub_off:{game_id}:{player_id}"
-                    ),
-                )
+        for choice in Formation:
+            button = discord.ui.Button(
+                label=(
+                    f"{choice.value}"
+                    + (" (current)" if choice == current else "")
+                ),
+                style=(
+                    discord.ButtonStyle.secondary
+                    if choice == current
+                    else discord.ButtonStyle.primary
+                ),
+                custom_id=(
+                    f"d12ball:coach_formation_pick:{game_id}:{choice.value}"
+                ),
+                # Picking the shape you are already in changes nothing,
+                # and re-dealing would shuffle a coach's own
+                # arrangement out from under them.
+                disabled=choice == current,
+            )
 
-                async def callback(
-                    interaction: discord.Interaction,
-                    outgoing: str = player_id,
-                ) -> None:
-                    await self.choose_outgoing(interaction, outgoing)
+            async def callback(
+                interaction: discord.Interaction,
+                picked: Formation = choice,
+            ) -> None:
+                await self.choose(interaction, picked)
 
-                button.callback = callback
-                self.add_item(button)
+            button.callback = callback
+            self.add_item(button)
 
-        swap = discord.ui.Button(
-            label="Swap two positions",
-            style=discord.ButtonStyle.primary,
-            custom_id=f"d12ball:sub_rearrange:{game_id}",
-            row=2,
-        )
-        swap.callback = self.begin_swap
-        self.add_item(swap)
+        self.add_back_button(row=1)
 
-        # The shape in brackets is the one they are in now, not the one
-        # the button switches to, so it says so -- a bare "(2-2-2)"
-        # reads as the destination.
-        formation = cog.current_formation(match, side)
-        change = discord.ui.Button(
-            label=(
-                "Change formation"
-                if formation is None
-                else f"Change formation (currently {formation.value})"
-            ),
-            style=discord.ButtonStyle.primary,
-            custom_id=f"d12ball:sub_formation:{game_id}",
-            row=2,
-        )
-        change.callback = self.begin_formation_change
-        self.add_item(change)
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        formation: Formation,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
 
-        self.add_roster_button(f"d12ball:sub_menu_roster:{game_id}", row=2)
+        try:
+            note = self.cog.apply_formation(
+                match, self.side(match), formation,
+            )
+        except ValueError as error:
+            await interaction.response.send_message(
+                str(error), ephemeral=True,
+            )
+            return
 
-        done = discord.ui.Button(
-            label="Done",
-            style=discord.ButtonStyle.success,
-            custom_id=f"d12ball:sub_done:{game_id}",
-            row=2,
-        )
-        done.callback = self.finish
-        self.add_item(done)
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+        await self.back_to_hub(interaction, note=note, moved=True)
 
-    async def choose_outgoing(
+
+class CoachingSubstitutionOutView(CoachingView):
+    """Who comes off. Injured players are marked."""
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(cog, game_id)
+
+        game, match = self.load()
+        if match is None or match.pending_coaching_side is None:
+            return
+        side = self.side(match)
+
+        for player_id in match.setup_for_side(side).field_players:
+            if not match.substitution_pool(side, player_id):
+                continue
+            injured = player_id in match.injured
+            button = discord.ui.Button(
+                label=(
+                    f"{self.player_label(match, player_id)}"
+                    f"{' - injured' if injured else ''}"
+                )[:80],
+                style=(
+                    discord.ButtonStyle.danger
+                    if injured
+                    else discord.ButtonStyle.secondary
+                ),
+                custom_id=f"d12ball:coach_sub_off:{game_id}:{player_id}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                outgoing: str = player_id,
+            ) -> None:
+                await self.choose(interaction, outgoing)
+
+            button.callback = callback
+            self.add_item(button)
+
+        self.add_back_button(row=4)
+
+    async def choose(
         self,
         interaction: discord.Interaction,
         outgoing_player_id: str,
@@ -2998,56 +3270,22 @@ class SubstitutionMenuView(SubstitutionView):
             return
 
         player = self.cog.get_player_definition(outgoing_player_id)
-        await interaction.response.edit_message(
-            content=(
-                f"Who comes on for "
-                f"{format_role_bracket(player, self.cog.team_emojis)}?"
-            ),
-            view=SubstitutionIncomingView(
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingSubstitutionInView(
                 self.cog, self.game_id, outgoing_player_id,
             ),
-        )
-
-    async def begin_swap(self, interaction: discord.Interaction) -> None:
-        game, match = await self.claim(interaction)
-        if game is None or match is None:
-            return
-
-        await interaction.response.edit_message(
-            content="Pick the first of the two players to exchange:",
-            view=SubstitutionSwapView(self.cog, self.game_id),
-        )
-
-    async def begin_formation_change(
-        self,
-        interaction: discord.Interaction,
-    ) -> None:
-        game, match = await self.claim(interaction)
-        if game is None or match is None:
-            return
-
-        await interaction.response.edit_message(
-            content=(
-                "Which formation? The numbers read from your own goal "
-                "forward, and a zone given more players than it has "
-                "spaces stacks the surplus."
+            note=(
+                "Who comes on for "
+                f"{format_role_bracket(player, self.cog.team_emojis)}? "
+                "They take their zone and their space exactly."
             ),
-            view=SubstitutionFormationView(self.cog, self.game_id),
         )
 
-    async def finish(self, interaction: discord.Interaction) -> None:
-        game, match = await self.claim(interaction)
-        if game is None or match is None:
-            return
 
-        await interaction.response.edit_message(
-            content=interaction.message.content + "\n\n**Done.**",
-            view=None,
-        )
-        await self.cog.finish_substitution_window(interaction, game, match)
-
-
-class SubstitutionIncomingView(SubstitutionView):
+class CoachingSubstitutionInView(CoachingView):
     """Who comes on for the player just taken off."""
 
     def __init__(
@@ -3060,29 +3298,30 @@ class SubstitutionIncomingView(SubstitutionView):
         self.outgoing_player_id = outgoing_player_id
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
 
-        for player_id in match.substitution_pool(side, outgoing_player_id):
+        for player_id in match.substitution_pool(
+            self.side(match), outgoing_player_id,
+        ):
             button = discord.ui.Button(
                 label=cog.format_roster_player(player_id)[:80],
                 style=discord.ButtonStyle.primary,
-                custom_id=f"d12ball:sub_on:{game_id}:{player_id}",
+                custom_id=f"d12ball:coach_sub_on:{game_id}:{player_id}",
             )
 
             async def callback(
                 interaction: discord.Interaction,
                 incoming: str = player_id,
             ) -> None:
-                await self.choose_incoming(interaction, incoming)
+                await self.choose(interaction, incoming)
 
             button.callback = callback
             self.add_item(button)
 
-        self.add_roster_button(f"d12ball:sub_incoming_roster:{game_id}", row=4)
+        self.add_back_button(row=4)
 
-    async def choose_incoming(
+    async def choose(
         self,
         interaction: discord.Interaction,
         incoming_player_id: str,
@@ -3091,10 +3330,12 @@ class SubstitutionIncomingView(SubstitutionView):
         if game is None or match is None:
             return
 
-        side = TeamSide(match.pending_substitution_side)
         try:
-            summary = self.cog.apply_substitution(
-                match, side, self.outgoing_player_id, incoming_player_id,
+            note = self.cog.apply_substitution(
+                match,
+                self.side(match),
+                self.outgoing_player_id,
+                incoming_player_id,
             )
         except ValueError as error:
             await interaction.response.send_message(
@@ -3104,16 +3345,15 @@ class SubstitutionIncomingView(SubstitutionView):
 
         game.match_state = match.to_dict()
         save_games(self.cog.games)
-
-        await interaction.response.edit_message(content=summary, view=None)
-        await self.cog.refresh_match_image(interaction, game)
-        await self.cog.prompt_substitution_menu(interaction, game, match)
+        await self.back_to_hub(interaction, note=note, moved=True)
 
 
-class SubstitutionSwapView(SubstitutionView):
+class CoachingZoneView(CoachingView):
     """
-    Exchange two fielded players. Picking the first re-renders with
-    the rest as the second pick, so the whole swap is two clicks.
+    Exchange two players' zones. Picking the first re-renders with
+    everyone in a *different* zone as the second pick -- an exchange
+    inside one zone would change nothing about the assignment, and
+    moving a meeple within its zone is what space positioning is for.
     """
 
     def __init__(
@@ -3126,22 +3366,27 @@ class SubstitutionSwapView(SubstitutionView):
         self.first_player_id = first_player_id
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
-        setup = match.setup_for_side(side)
+        setup = match.setup_for_side(self.side(match))
+        first_zone = (
+            setup.assigned_zone(first_player_id)
+            if first_player_id
+            else None
+        )
 
         for player_id in setup.field_players:
             if player_id == first_player_id:
                 continue
-            zone = setup.assigned_zone(player_id)
+            if (
+                first_zone is not None
+                and setup.assigned_zone(player_id) == first_zone
+            ):
+                continue
             button = discord.ui.Button(
-                label=(
-                    f"{cog.format_roster_player(player_id)} "
-                    f"- {destination_display_name(zone.value)}"
-                )[:80],
+                label=self.player_label(match, player_id),
                 style=discord.ButtonStyle.secondary,
-                custom_id=f"d12ball:sub_swap:{game_id}:{player_id}",
+                custom_id=f"d12ball:coach_zone_pick:{game_id}:{player_id}",
             )
 
             async def callback(
@@ -3152,6 +3397,8 @@ class SubstitutionSwapView(SubstitutionView):
 
             button.callback = callback
             self.add_item(button)
+
+        self.add_back_button(row=4)
 
     async def pick(
         self,
@@ -3164,22 +3411,22 @@ class SubstitutionSwapView(SubstitutionView):
 
         if self.first_player_id is None:
             player = self.cog.get_player_definition(player_id)
-            await interaction.response.edit_message(
-                content=(
+            await self.show(
+                interaction,
+                game,
+                match,
+                CoachingZoneView(self.cog, self.game_id, player_id),
+                note=(
                     "Who does "
                     f"{format_role_bracket(player, self.cog.team_emojis)} "
                     "change places with?"
                 ),
-                view=SubstitutionSwapView(
-                    self.cog, self.game_id, player_id,
-                ),
             )
             return
 
-        side = TeamSide(match.pending_substitution_side)
         try:
-            summary = self.cog.apply_position_swap(
-                match, side, self.first_player_id, player_id,
+            note = self.cog.apply_position_swap(
+                match, self.side(match), self.first_player_id, player_id,
             )
         except ValueError as error:
             await interaction.response.send_message(
@@ -3189,270 +3436,40 @@ class SubstitutionSwapView(SubstitutionView):
 
         game.match_state = match.to_dict()
         save_games(self.cog.games)
-
-        await interaction.response.edit_message(content=summary, view=None)
-        await self.cog.refresh_match_image(interaction, game)
-        await interaction.followup.send(
-            "Place their meeples, or leave it for the run back:",
-            view=SubstitutionRepositionView(self.cog, self.game_id),
-        )
+        await self.back_to_hub(interaction, note=note, moved=True)
 
 
-class SubstitutionFormationView(SubstitutionView):
-    """
-    Change the shape a side is standing in, mid-game: pick a
-    formation, then fill its zones from the six cards already on the
-    field. Substitutions and halftime both come through here, since
-    halftime runs the same window.
-
-    The part-filled assignment rides on the view rather than on the
-    saved game, the way SubstitutionSwapView carries its first pick:
-    nothing is written to the match until every zone has its cards, so
-    a coach who walks away mid-change leaves the formation they had.
-    """
-
-    def __init__(
-        self,
-        cog: "D12Ball",
-        game_id: str,
-        formation: Optional[Formation] = None,
-        assignment: Optional[dict[str, list[str]]] = None,
-    ):
-        super().__init__(cog, game_id)
-        self.formation = formation
-        self.assignment = dict(assignment or {})
-
-        game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
-            return
-        side = TeamSide(match.pending_substitution_side)
-
-        if formation is None:
-            current = cog.current_formation(match, side)
-            for choice in Formation:
-                shape = cog.formation_shape(choice)
-                button = discord.ui.Button(
-                    label=(
-                        f"{choice.value}"
-                        + (" (current)" if choice == current else "")
-                    ),
-                    style=(
-                        discord.ButtonStyle.secondary
-                        if choice == current
-                        else discord.ButtonStyle.primary
-                    ),
-                    custom_id=(
-                        f"d12ball:sub_formation_pick:{game_id}:"
-                        f"{choice.value}"
-                    ),
-                )
-
-                async def callback(
-                    interaction: discord.Interaction,
-                    picked: Formation = choice,
-                ) -> None:
-                    await self.pick_formation(interaction, picked)
-
-                button.callback = callback
-                self.add_item(button)
-            return
-
-        area = next_unfilled_area(self.assignment)
-        candidates = self.remaining_cards(match, side)
-
-        if area is None or not candidates:
-            return
-
-        count = min(
-            cog.formation_shape(formation).count(area),
-            len(candidates),
-        )
-        select = discord.ui.Select(
-            placeholder=(
-                f"Pick {count} for {area_display_name(area)}"
-            )[:150],
-            min_values=count,
-            max_values=count,
-            options=[
-                discord.SelectOption(
-                    label=cog.format_roster_player(player_id)[:100],
-                    value=player_id,
-                )
-                for player_id in candidates
-            ],
-            custom_id=(
-                f"d12ball:sub_formation_cards:{game_id}:{area}"
-            ),
-        )
-
-        async def select_callback(
-            interaction: discord.Interaction,
-            chosen_area: str = area,
-            menu: discord.ui.Select = select,
-        ) -> None:
-            await self.pick_cards(
-                interaction, chosen_area, list(menu.values),
-            )
-
-        select.callback = select_callback
-        self.add_item(select)
-
-    def remaining_cards(
-        self,
-        match: MatchState,
-        side: TeamSide,
-    ) -> list[str]:
-        placed = {
-            player_id
-            for players in self.assignment.values()
-            for player_id in players
-        }
-        return [
-            player_id
-            for player_id in match.setup_for_side(side).field_players
-            if player_id not in placed
-        ]
-
-    async def pick_formation(
-        self,
-        interaction: discord.Interaction,
-        formation: Formation,
-    ) -> None:
-        game, match = await self.claim(interaction)
-        if game is None or match is None:
-            return
-
-        side = TeamSide(match.pending_substitution_side)
-        self.formation = formation
-        self.assignment = fill_forced_areas(
-            {},
-            self.cog.formation_shape(formation),
-            match.setup_for_side(side).field_players,
-        )
-        await self.continue_change(interaction, game, match)
-
-    async def pick_cards(
-        self,
-        interaction: discord.Interaction,
-        area: str,
-        player_ids: list[str],
-    ) -> None:
-        game, match = await self.claim(interaction)
-        if game is None or match is None:
-            return
-
-        side = TeamSide(match.pending_substitution_side)
-        self.assignment[area] = player_ids
-        self.assignment = fill_forced_areas(
-            self.assignment,
-            self.cog.formation_shape(self.formation),
-            match.setup_for_side(side).field_players,
-        )
-        await self.continue_change(interaction, game, match)
-
-    async def continue_change(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> None:
-        """
-        Ask for the next zone's cards, or -- once every zone has them
-        -- apply the change and hand over to repositioning.
-        """
-        side = TeamSide(match.pending_substitution_side)
-
-        if next_unfilled_area(self.assignment) is not None:
-            await interaction.response.edit_message(
-                content=(
-                    f"**{self.formation.value}.** Now fill the zones:"
-                ),
-                view=SubstitutionFormationView(
-                    self.cog,
-                    self.game_id,
-                    self.formation,
-                    self.assignment,
-                ),
-            )
-            return
-
-        try:
-            summary = self.cog.apply_formation_change(
-                match, side, self.formation, self.assignment,
-            )
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error), ephemeral=True,
-            )
-            return
-
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
-
-        await interaction.response.edit_message(content=summary, view=None)
-        await self.cog.refresh_match_image(interaction, game)
-        await interaction.followup.send(
-            "Place their meeples, or leave it for the run back:",
-            view=SubstitutionRepositionView(self.cog, self.game_id),
-        )
-
-
-class SubstitutionRepositionView(SubstitutionView):
-    """
-    Free placement of any of the declaring side's meeples into an open
-    space in their own currently-assigned zone. Offered right after a
-    formation swap, since swapping two players' zone assignments alone
-    can leave either meeple (or both) standing outside their new zone
-    -- this is the coach's chance to place them by hand instead of
-    leaving it for the next turnover's run back. Costs no exhaustion,
-    and can be used as many times as wanted before finishing.
-    """
+class CoachingPlaceView(CoachingView):
+    """Whose meeple moves, within its own assigned zone."""
 
     def __init__(self, cog: "D12Ball", game_id: str):
         super().__init__(cog, game_id)
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
-        setup = match.setup_for_side(side)
 
-        for player_id in setup.field_players:
-            zone = setup.assigned_zone(player_id)
-            position = match.board.meeple_position(player_id)
-            out_of_position = position is None or position[0] != zone
-            label = (
-                f"{cog.format_roster_player(player_id)} - "
-                f"{destination_display_name(zone.value)}"
-            )
+        for player_id in match.setup_for_side(
+            self.side(match),
+        ).field_players:
             button = discord.ui.Button(
-                label=label[:80],
-                style=(
-                    discord.ButtonStyle.danger if out_of_position
-                    else discord.ButtonStyle.secondary
-                ),
-                custom_id=f"d12ball:sub_reposition:{game_id}:{player_id}",
+                label=self.player_label(match, player_id, with_space=True),
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"d12ball:coach_place:{game_id}:{player_id}",
             )
 
             async def callback(
                 interaction: discord.Interaction,
                 picked: str = player_id,
             ) -> None:
-                await self.choose_player(interaction, picked)
+                await self.choose(interaction, picked)
 
             button.callback = callback
             self.add_item(button)
 
-        done = discord.ui.Button(
-            label="Done repositioning",
-            style=discord.ButtonStyle.success,
-            custom_id=f"d12ball:sub_reposition_done:{game_id}",
-            row=4,
-        )
-        done.callback = self.finish
-        self.add_item(done)
+        self.add_back_button(row=4)
 
-    async def choose_player(
+    async def choose(
         self,
         interaction: discord.Interaction,
         player_id: str,
@@ -3461,106 +3478,70 @@ class SubstitutionRepositionView(SubstitutionView):
         if game is None or match is None:
             return
 
-        side = TeamSide(match.pending_substitution_side)
-        zone = match.setup_for_side(side).assigned_zone(player_id)
         player = self.cog.get_player_definition(player_id)
-
-        position = match.board.meeple_position(player_id)
-        destinations = [
-            space_index
-            for space_index in match.placement_spaces_in_zone(
-                side, zone, player_id,
-            )
-            if position is None
-            or position != (zone, space_index)
-        ]
-
-        if destinations:
-            await interaction.response.edit_message(
-                content=(
-                    "Where should "
-                    f"{format_role_bracket(player, self.cog.team_emojis)} "
-                    "stand?"
-                ),
-                view=SubstitutionRepositionSpaceView(
-                    self.cog, self.game_id, player_id,
-                ),
-            )
-            return
-
-        # Nowhere for them to go: their zone's spaces are covered by
-        # exactly as many teammates as it has, so stepping onto one
-        # would leave another empty. Typical on a 6-board, where 2-2-2
-        # leaves no slack. Trading positions with a teammate sidesteps
-        # it, since an even exchange never uncovers a space.
-        await interaction.response.edit_message(
-            content=(
-                f"Nowhere free in {destination_display_name(zone.value)} "
-                "-- who should "
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingPlaceSpaceView(self.cog, self.game_id, player_id),
+            note=(
+                "Where should "
                 f"{format_role_bracket(player, self.cog.team_emojis)} "
-                "trade places with?"
-            ),
-            view=SubstitutionMeepleSwapView(
-                self.cog, self.game_id, player_id,
+                "stand? A space one of your own is already on trades "
+                "places with them."
             ),
         )
 
-    async def finish(self, interaction: discord.Interaction) -> None:
-        game, match = await self.claim(interaction)
-        if game is None or match is None:
-            return
 
-        await interaction.response.edit_message(
-            content="Repositioning done.", view=None,
-        )
-        await self.cog.prompt_substitution_menu(interaction, game, match)
-
-
-class SubstitutionRepositionSpaceView(SubstitutionView):
+class CoachingPlaceSpaceView(CoachingView):
     """
-    Which space in their own zone a repositioned player stands on --
-    the ones the coverage rule leaves them, minus the one they are
-    already standing on.
+    Which space in their own zone. **Every space is offered**, because
+    the trade rule keeps coverage satisfied whichever one is picked --
+    see MatchState.position_meeple.
     """
 
-    def __init__(
-        self,
-        cog: "D12Ball",
-        game_id: str,
-        player_id: str,
-    ):
+    def __init__(self, cog: "D12Ball", game_id: str, player_id: str):
         super().__init__(cog, game_id)
         self.player_id = player_id
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
+        side = self.side(match)
         zone = match.setup_for_side(side).assigned_zone(player_id)
         position = match.board.meeple_position(player_id)
+        team_players = set(match.setup_for_side(side).field_players)
 
-        for space_index in match.placement_spaces_in_zone(
-            side, zone, player_id,
-        ):
+        for space_index in range(len(match.board.spaces[zone])):
             if position == (zone, space_index):
                 continue
+            here = [
+                occupant
+                for occupant in match.board.spaces[zone][space_index]
+                if occupant in team_players
+            ]
             button = discord.ui.Button(
-                label=space_label(zone, space_index),
+                label=(
+                    space_label(zone, space_index)
+                    + (f" - {len(here)} of yours" if here else " - free")
+                ),
                 style=discord.ButtonStyle.primary,
                 custom_id=(
-                    f"d12ball:sub_reposition_space:{game_id}:"
+                    f"d12ball:coach_place_space:{game_id}:"
                     f"{player_id}:{space_index}"
                 ),
             )
 
             async def callback(
                 interaction: discord.Interaction,
-                chosen_space: int = space_index,
+                chosen: int = space_index,
             ) -> None:
-                await self.choose(interaction, chosen_space)
+                await self.choose(interaction, chosen)
 
             button.callback = callback
             self.add_item(button)
+
+        self.add_back_button(row=4)
 
     async def choose(
         self,
@@ -3571,36 +3552,68 @@ class SubstitutionRepositionSpaceView(SubstitutionView):
         if game is None or match is None:
             return
 
-        side = TeamSide(match.pending_substitution_side)
-        try:
-            summary = self.cog.apply_reposition(
-                match, side, self.player_id, space_index,
-            )
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error), ephemeral=True,
+        side = self.side(match)
+        candidates = match.positioning_swap_candidates(
+            side, self.player_id, space_index,
+        )
+        if len(candidates) > 1:
+            player = self.cog.get_player_definition(self.player_id)
+            await self.show(
+                interaction,
+                game,
+                match,
+                CoachingPlaceSwapView(
+                    self.cog, self.game_id, self.player_id, space_index,
+                ),
+                note=(
+                    "More than one of yours is standing there. Who "
+                    "comes back to make room for "
+                    f"{format_role_bracket(player, self.cog.team_emojis)}?"
+                ),
             )
             return
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
-
-        await interaction.response.edit_message(content=summary, view=None)
-        await self.cog.refresh_match_image(interaction, game)
-        await interaction.followup.send(
-            "Move another meeple, or finish:",
-            view=SubstitutionRepositionView(self.cog, self.game_id),
+        await apply_positioning(
+            self, interaction, game, match, self.player_id, space_index,
         )
 
 
-class SubstitutionMeepleSwapView(SubstitutionView):
+async def apply_positioning(
+    view: CoachingView,
+    interaction: discord.Interaction,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    space_index: int,
+    swap_with: Optional[str] = None,
+) -> None:
     """
-    Trade two meeples' physical positions directly -- the fallback
-    offered when a repositioned player's zone has no open space to
-    step into (typical on a 6-board, where 2-2-2 leaves no slack).
-    Unlike moving one meeple at a time, an even exchange never needs
-    an intermediate open space, so it's the only thing that can
-    actually resolve a swap between two fully-packed zones.
+    Make a space-positioning move and go back to the hub. Shared by the
+    two views that can arrive at one: the space pick, and the extra
+    pick a stacked target needs.
+    """
+    try:
+        note = view.cog.apply_reposition(
+            match,
+            view.side(match),
+            player_id,
+            space_index,
+            swap_with=swap_with,
+        )
+    except ValueError as error:
+        await interaction.response.send_message(str(error), ephemeral=True)
+        return
+
+    game.match_state = match.to_dict()
+    save_games(view.cog.games)
+    await view.back_to_hub(interaction, note=note, moved=True)
+
+
+class CoachingPlaceSwapView(CoachingView):
+    """
+    Which of several teammates on the target space comes back. Only
+    reachable where a zone is stacked, which on the three basic shapes
+    means board 6's two-space midfield.
     """
 
     def __init__(
@@ -3608,28 +3621,24 @@ class SubstitutionMeepleSwapView(SubstitutionView):
         cog: "D12Ball",
         game_id: str,
         player_id: str,
+        space_index: int,
     ):
         super().__init__(cog, game_id)
         self.player_id = player_id
+        self.space_index = space_index
 
         game, match = self.load()
-        if match is None or match.pending_substitution_side is None:
+        if match is None or match.pending_coaching_side is None:
             return
-        side = TeamSide(match.pending_substitution_side)
-        setup = match.setup_for_side(side)
 
-        for other_id in setup.field_players:
-            if other_id == player_id:
-                continue
-            zone = setup.assigned_zone(other_id)
+        for other_id in match.positioning_swap_candidates(
+            self.side(match), player_id, space_index,
+        ):
             button = discord.ui.Button(
-                label=(
-                    f"{cog.format_roster_player(other_id)} - "
-                    f"{destination_display_name(zone.value)}"
-                )[:80],
-                style=discord.ButtonStyle.secondary,
+                label=self.cog.format_roster_player(other_id)[:80],
+                style=discord.ButtonStyle.primary,
                 custom_id=(
-                    f"d12ball:sub_reposition_trade:{game_id}:{other_id}"
+                    f"d12ball:coach_place_swap:{game_id}:{other_id}"
                 ),
             )
 
@@ -3642,6 +3651,8 @@ class SubstitutionMeepleSwapView(SubstitutionView):
             button.callback = callback
             self.add_item(button)
 
+        self.add_back_button(row=4)
+
     async def choose(
         self,
         interaction: discord.Interaction,
@@ -3650,26 +3661,14 @@ class SubstitutionMeepleSwapView(SubstitutionView):
         game, match = await self.claim(interaction)
         if game is None or match is None:
             return
-
-        side = TeamSide(match.pending_substitution_side)
-        try:
-            summary = self.cog.apply_meeple_swap(
-                match, side, self.player_id, other_player_id,
-            )
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error), ephemeral=True,
-            )
-            return
-
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
-
-        await interaction.response.edit_message(content=summary, view=None)
-        await self.cog.refresh_match_image(interaction, game)
-        await interaction.followup.send(
-            "Move another meeple, or finish:",
-            view=SubstitutionRepositionView(self.cog, self.game_id),
+        await apply_positioning(
+            self,
+            interaction,
+            game,
+            match,
+            self.player_id,
+            self.space_index,
+            swap_with=other_player_id,
         )
 
 
@@ -3793,260 +3792,6 @@ class HalftimeExtraTokenView(HalftimeView):
         await interaction.response.edit_message(content=text, view=None)
         await self.cog.refresh_match_image(interaction, game)
         await self.cog.advance_halftime_stage(interaction, game, match)
-
-
-class HalftimeRepositionView(HalftimeView):
-    """
-    Halftime-only free placement: move any of a side's fielded meeples
-    to any open space on the board, not just their own assigned zone
-    the way SubstitutionRepositionView stays -- "the coach can
-    change... the players' assignment as they please" (End of Time).
-    No exhaustion cost. The visiting side alone is gated on finishing
-    with a player on the kickoff space, since they kick off the second
-    half.
-    """
-
-    def __init__(self, cog: "D12Ball", game_id: str, side: TeamSide):
-        super().__init__(cog, game_id, side, f"reposition_{side.value}")
-
-        game, match = self.load()
-        if match is None or match.pending_halftime_stage != self.stage:
-            return
-        setup = match.setup_for_side(side)
-
-        for player_id in setup.field_players:
-            position = match.board.meeple_position(player_id)
-            location = space_label(*position) if position else "?"
-            button = discord.ui.Button(
-                label=(
-                    f"{cog.format_roster_player(player_id)} - {location}"
-                )[:80],
-                style=discord.ButtonStyle.secondary,
-                custom_id=(
-                    f"d12ball:halftime_reposition:{game_id}:{player_id}"
-                ),
-            )
-
-            async def callback(
-                interaction: discord.Interaction,
-                picked: str = player_id,
-            ) -> None:
-                await self.choose_player(interaction, picked)
-
-            button.callback = callback
-            self.add_item(button)
-
-        done = discord.ui.Button(
-            label="Done repositioning",
-            style=discord.ButtonStyle.success,
-            custom_id=f"d12ball:halftime_reposition_done:{game_id}",
-            row=4,
-        )
-        done.callback = self.finish
-        self.add_item(done)
-
-    async def choose_player(
-        self,
-        interaction: discord.Interaction,
-        player_id: str,
-    ) -> None:
-        game, match = await self.claim(interaction)
-        if game is None or match is None:
-            return
-
-        player = self.cog.get_player_definition(player_id)
-        await interaction.response.edit_message(
-            content=(
-                "Which zone should "
-                f"{format_role_bracket(player, self.cog.team_emojis)} "
-                "move to?"
-            ),
-            view=HalftimeRepositionZoneView(
-                self.cog, self.game_id, self.side, player_id,
-            ),
-        )
-
-    async def finish(self, interaction: discord.Interaction) -> None:
-        game, match = await self.claim(interaction)
-        if game is None or match is None:
-            return
-
-        if self.side == TeamSide.VISITING and not match.kickoff_space_occupied_by(
-            TeamSide.VISITING,
-        ):
-            await interaction.response.send_message(
-                "The visiting team needs a player on "
-                f"{space_label(match.ball.zone, match.ball.space_index)} "
-                "to kick off the second half before finishing.",
-                ephemeral=True,
-            )
-            return
-
-        await interaction.response.edit_message(
-            content="Repositioning done.", view=None,
-        )
-        # Halftime's free placement is the coach setting their shape,
-        # so it is what a new play in the second half restores.
-        match.set_assigned_positions(self.side)
-        self.cog.next_halftime_stage(match)
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
-        await self.cog.advance_halftime_stage(interaction, game, match)
-
-
-class HalftimeRepositionZoneView(HalftimeView):
-    """Which zone a freely-repositioned player's meeple moves to."""
-
-    def __init__(
-        self,
-        cog: "D12Ball",
-        game_id: str,
-        side: TeamSide,
-        player_id: str,
-    ):
-        super().__init__(cog, game_id, side, f"reposition_{side.value}")
-        self.player_id = player_id
-
-        for zone in Zone:
-            button = discord.ui.Button(
-                label=destination_display_name(zone.value),
-                style=discord.ButtonStyle.primary,
-                custom_id=(
-                    f"d12ball:halftime_reposition_zone:{game_id}:"
-                    f"{player_id}:{zone.value}"
-                ),
-            )
-
-            async def callback(
-                interaction: discord.Interaction,
-                picked: Zone = zone,
-            ) -> None:
-                await self.choose_zone(interaction, picked)
-
-            button.callback = callback
-            self.add_item(button)
-
-    async def choose_zone(
-        self,
-        interaction: discord.Interaction,
-        zone: Zone,
-    ) -> None:
-        game, match = await self.claim(interaction)
-        if game is None or match is None:
-            return
-
-        position = match.board.meeple_position(self.player_id)
-        destinations = [
-            space_index
-            for space_index in match.placement_spaces_in_zone(
-                self.side, zone, self.player_id,
-            )
-            if position != (zone, space_index)
-        ]
-        if not destinations:
-            await interaction.response.send_message(
-                "Nowhere free for that team in that zone.",
-                ephemeral=True,
-            )
-            return
-
-        player = self.cog.get_player_definition(self.player_id)
-        await interaction.response.edit_message(
-            content=(
-                "Which space should "
-                f"{format_role_bracket(player, self.cog.team_emojis)} "
-                "stand on?"
-            ),
-            view=HalftimeRepositionSpaceView(
-                self.cog, self.game_id, self.side, self.player_id, zone,
-            ),
-        )
-
-
-class HalftimeRepositionSpaceView(HalftimeView):
-    """
-    Which space in the chosen zone a repositioned player stands on.
-    Halftime frees the zone, not the space: the coverage rule still
-    decides which spaces of that zone are open to them.
-    """
-
-    def __init__(
-        self,
-        cog: "D12Ball",
-        game_id: str,
-        side: TeamSide,
-        player_id: str,
-        zone: Zone,
-    ):
-        super().__init__(cog, game_id, side, f"reposition_{side.value}")
-        self.player_id = player_id
-        self.zone = zone
-
-        game, match = self.load()
-        if match is None or match.pending_halftime_stage != self.stage:
-            return
-
-        position = match.board.meeple_position(player_id)
-
-        for space_index in match.placement_spaces_in_zone(
-            side, zone, player_id,
-        ):
-            if position == (zone, space_index):
-                continue
-            button = discord.ui.Button(
-                label=space_label(zone, space_index),
-                style=discord.ButtonStyle.primary,
-                custom_id=(
-                    f"d12ball:halftime_reposition_space:{game_id}:"
-                    f"{player_id}:{zone.value}:{space_index}"
-                ),
-            )
-
-            async def callback(
-                interaction: discord.Interaction,
-                chosen_space: int = space_index,
-            ) -> None:
-                await self.choose(interaction, chosen_space)
-
-            button.callback = callback
-            self.add_item(button)
-
-    async def choose(
-        self,
-        interaction: discord.Interaction,
-        space_index: int,
-    ) -> None:
-        game, match = await self.claim(interaction)
-        if game is None or match is None:
-            return
-
-        try:
-            match.reposition_meeple_anywhere(
-                self.side, self.player_id, self.zone, space_index,
-            )
-        except ValueError as error:
-            await interaction.response.send_message(
-                str(error), ephemeral=True,
-            )
-            return
-
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
-
-        player = self.cog.get_player_definition(self.player_id)
-        await interaction.response.edit_message(
-            content=(
-                f"{format_role_bracket(player, self.cog.team_emojis)} "
-                f"moves to {space_label(self.zone, space_index)}. No "
-                "exhaustion cost."
-            ),
-            view=None,
-        )
-        await self.cog.refresh_match_image(interaction, game)
-        await interaction.followup.send(
-            "Move another meeple, or finish:",
-            view=HalftimeRepositionView(self.cog, self.game_id, self.side),
-        )
 
 
 class LooseBallChoiceView(SafeView):

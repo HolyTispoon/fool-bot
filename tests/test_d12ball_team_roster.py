@@ -6,7 +6,7 @@ they", so it is grouped by place -- each board zone in board order,
 then the benches -- rather than by the catalog's order. The grouping
 follows the meeple, not the player card's assigned zone, since a
 maneuver can leave a player standing outside their zone until they run
-back. Substitution prompts carry a button to the same text, because
+back. The Coaching Choice hub carries a button to the same text, because
 that is the decision it exists for.
 """
 
@@ -16,11 +16,10 @@ from unittest import mock
 
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
-    SubstitutionIncomingView,
-    SubstitutionMenuView,
-    SubstitutionOfferView,
+    CoachingHubView,
 )
 from d12ball.components import (
+    CoachingOccasion,
     MatchState,
     TeamSide,
     Zone,
@@ -213,7 +212,7 @@ class RosterVisibilityTests(unittest.TestCase):
         )
 
 
-class SubstitutionRosterButtonTests(unittest.IsolatedAsyncioTestCase):
+class CoachingRosterButtonTests(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.catalog = load_player_catalog()
@@ -228,7 +227,7 @@ class SubstitutionRosterButtonTests(unittest.IsolatedAsyncioTestCase):
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
-        match.open_substitution_window(TeamSide.HOME)
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         game = build_game()
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
@@ -237,26 +236,23 @@ class SubstitutionRosterButtonTests(unittest.IsolatedAsyncioTestCase):
     def labels(self, view) -> list[str]:
         return [child.label for child in view.children]
 
-    def test_every_substitution_prompt_offers_the_roster(self) -> None:
+    def test_the_coaching_hub_offers_the_roster(self) -> None:
+        # One message means one place the button has to be, rather
+        # than one on every prompt in the flow.
         cog, game, match = self.build_open_window()
-
-        offer = SubstitutionOfferView(cog, game.game_id)
-        self.assertIn("Team Roster", self.labels(offer))
-
-        match.declare_substitution()
+        match.declare_coaching()
         game.match_state = match.to_dict()
-        menu = SubstitutionMenuView(cog, game.game_id)
-        self.assertIn("Team Roster", self.labels(menu))
 
-        outgoing = match.home.field_players[0]
-        incoming = SubstitutionIncomingView(cog, game.game_id, outgoing)
-        self.assertIn("Team Roster", self.labels(incoming))
+        self.assertIn(
+            "Team roster",
+            self.labels(CoachingHubView(cog, game.game_id)),
+        )
 
     async def test_the_button_answers_privately_with_your_own_team(
         self,
     ) -> None:
         cog, game, match = self.build_open_window()
-        view = SubstitutionOfferView(cog, game.game_id)
+        view = CoachingHubView(cog, game.game_id)
 
         interaction = SimpleNamespace(
             user=SimpleNamespace(id=game.player_1_id),
@@ -272,9 +268,9 @@ class SubstitutionRosterButtonTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_waiting_coach_can_read_theirs_too(self) -> None:
         # Reading a roster is not acting on the window, so it is not
-        # gated on holding it -- see SubstitutionView.show_roster.
+        # gated on holding it -- see CoachingHubView.show_roster.
         cog, game, match = self.build_open_window()
-        view = SubstitutionOfferView(cog, game.game_id)
+        view = CoachingHubView(cog, game.game_id)
 
         interaction = SimpleNamespace(
             user=SimpleNamespace(id=game.player_2_id),
