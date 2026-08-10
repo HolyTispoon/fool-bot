@@ -1788,10 +1788,150 @@ class SkillTestView(SafeView):
         )
         await self.cog.refresh_match_image(interaction, game)
 
-        for player in exhausted_participants:
-            await self.cog.run_injury_test(interaction, game, match, player)
+        # The effect is on the far side of the injury tests now that
+        # each of those is a click of its own, so it is handed over as
+        # the queue's continuation rather than awaited here -- see
+        # begin_injury_tests. With nobody exhausted this still resolves
+        # in the same breath as the roll.
+        await self.cog.begin_injury_tests(
+            interaction,
+            game,
+            match,
+            exhausted_participants,
+            {"kind": "maneuver_effect", "winner_name": winner_name},
+        )
 
-        await self.cog.begin_effect_resolution(interaction, game, match, winner_name)
+
+class InjuryTestView(SafeView):
+    """
+    The injury test one exhausted participant owes after a contest.
+    Posted one at a time by `continue_injury_tests`, which is also what
+    the click hands the turn back to.
+
+    The player is in the custom_id as well as the queue, so a coach who
+    scrolls back to the first of two prompts and clicks it again cannot
+    roll the second player's test with it.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        player_id: str,
+    ):
+        super().__init__(timeout=None)
+
+        self.cog = cog
+        self.game_id = game_id
+        self.player_id = player_id
+
+        button = discord.ui.Button(
+            label="Roll the injury test",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:injury_test:{game_id}:{player_id}",
+        )
+        button.callback = self.roll
+        self.add_item(button)
+
+    async def roll(self, interaction: discord.Interaction) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+        if self.player_id not in match.pending_injury_tests:
+            await interaction.response.send_message(
+                "This injury test is no longer active.",
+                ephemeral=True,
+            )
+            return
+
+        participant_ids = {game.player_1_id}
+        if game.player_2_id is not None:
+            participant_ids.add(game.player_2_id)
+
+        if interaction.user.id not in participant_ids:
+            await interaction.response.send_message(
+                "Only a player in this game can roll the injury test.",
+                ephemeral=True,
+            )
+            return
+
+        # Deferred before the die is rendered, for the reason spelled
+        # out in SkillTestView.roll.
+        await interaction.response.defer()
+
+        await self.cog.run_injury_test(
+            interaction,
+            game,
+            match,
+            self.cog.get_player_definition(self.player_id),
+        )
+
+
+class OwnGoalRollView(SafeView):
+    """
+    The roll that decides an own goal Pressure has pushed a side into.
+    One roll, by one player, but any coach in the game may press it --
+    the same as the skill test and the score attempt, and what keeps a
+    solo game moving when the risk is the AI's.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+    ):
+        super().__init__(timeout=None)
+
+        self.cog = cog
+        self.game_id = game_id
+
+        button = discord.ui.Button(
+            label="Roll for the own goal",
+            style=discord.ButtonStyle.danger,
+            custom_id=f"d12ball:own_goal:{game_id}",
+        )
+        button.callback = self.roll
+        self.add_item(button)
+
+    async def roll(self, interaction: discord.Interaction) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        match = self.cog.load_match_state(game)
+        if not match.pending_own_goal or match.active_player_id is None:
+            await interaction.response.send_message(
+                "This own goal roll is no longer active.",
+                ephemeral=True,
+            )
+            return
+
+        participant_ids = {game.player_1_id}
+        if game.player_2_id is not None:
+            participant_ids.add(game.player_2_id)
+
+        if interaction.user.id not in participant_ids:
+            await interaction.response.send_message(
+                "Only a player in this game can roll for the own goal.",
+                ephemeral=True,
+            )
+            return
+
+        # Deferred before the dice are rendered, for the reason spelled
+        # out in SkillTestView.roll.
+        await interaction.response.defer()
+
+        await self.cog.run_own_goal_roll(interaction, game, match)
 
 
 class ScoreAttemptView(SafeView):
@@ -4335,16 +4475,22 @@ class LooseBallSkillTestView(SafeView):
         )
         await self.cog.refresh_match_image(interaction, game)
 
-        for player in exhausted_participants:
-            await self.cog.run_injury_test(interaction, game, match, player)
-
         # Winning a live ball off the other side -- a loose ball or a
         # long High Pass -- is a steal however it was contested, so no
-        # substitution window either way.
-        await self.cog.begin_run_back(
-            interaction, game, match,
-            distance_moved=distance_moved,
-            turnover_occurred=turnover_occurred,
+        # substitution window either way. The run back waits behind
+        # whatever injury tests this contest owes, and carries its two
+        # arguments through the queue because nothing left in the match
+        # still says what they were -- see begin_injury_tests.
+        await self.cog.begin_injury_tests(
+            interaction,
+            game,
+            match,
+            exhausted_participants,
+            {
+                "kind": "run_back",
+                "distance_moved": distance_moved,
+                "turnover_occurred": turnover_occurred,
+            },
         )
 
 

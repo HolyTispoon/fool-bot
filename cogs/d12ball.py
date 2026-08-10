@@ -109,12 +109,14 @@ from cogs.d12ball_views import (
     HalftimeExtraTokenView,
     HighPassChoiceView,
     HomeAwaySelectionView,
+    InjuryTestView,
     LooseBallChoiceView,
     LooseBallSkillTestView,
     LowPassChoiceView,
     ManeuverActionPromptView,
     ManeuverActionSelectView,
     ManeuverChallengeView,
+    OwnGoalRollView,
     PlayerActionView,
     RematchView,
     RunBackChoiceView,
@@ -961,6 +963,139 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = test_message.id
         save_games(self.games)
 
+    async def begin_injury_tests(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        players: list[PlayerDefinition],
+        resume: dict,
+    ) -> None:
+        """
+        Hand the injury tests a resolved contest owes to the coaches,
+        one button each, and remember what the contest was going to do
+        next.
+
+        **A contest cannot simply carry on into its effect any more**:
+        the tests are now clicks, and the last of them may be several
+        minutes after the roll that owed them. `resume` is that
+        continuation, persisted with the queue because a restart in
+        between has nothing else to reconstruct it from -- the skill
+        test's winner is not derivable once the roll has happened
+        (`settled_maneuver_winner` answers None while a test is owed),
+        and a loose ball's distance is gone with the state that
+        cleared it. `dispatch_injury_resume` is the other half.
+
+        A player already injured owes nothing, so the queue is
+        filtered here rather than refused at the prompt -- an injured
+        player gains no exhaustion tokens and can never be asked
+        again.
+        """
+        owed = [
+            player.player_id
+            for player in players
+            if player.player_id not in match.injured
+        ]
+        if not owed:
+            # Nothing owed is the common case, and it writes nothing:
+            # the contest carries straight on into its continuation,
+            # exactly as it did before the tests became clicks.
+            await self.dispatch_injury_resume(interaction, game, match, resume)
+            return
+
+        match.pending_injury_tests = owed
+        match.pending_injury_resume = resume
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await self.continue_injury_tests(interaction, game, match)
+
+    async def continue_injury_tests(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Ask for the next injury test still owed, or -- when there are
+        none left -- do what the contest that owed them was going to
+        do. The one exit from the queue, so a test that is rolled and
+        a test that turns out not to be owed leave by the same door.
+        """
+        while match.pending_injury_tests:
+            player_id = match.pending_injury_tests[0]
+            if player_id in match.injured:
+                # Injured since the queue was built -- by the other
+                # participant's test, which cannot happen today, but a
+                # player who cannot be injured twice should never be
+                # asked to roll for it.
+                match.pending_injury_tests.pop(0)
+                continue
+
+            player = self.get_player_definition(player_id)
+            controller_id = self.controlling_user_id(game, match, player_id)
+            mention = f"<@{controller_id}>" if controller_id else "Someone"
+            tokens = match.exhaustion.get(player_id, 0)
+            prompt_message = await interaction.followup.send(
+                f"{mention}, "
+                f"{format_role_bracket(player, self.team_emojis)} is "
+                "exhausted and owes an injury test: a d12 that has to "
+                f"beat their {tokens} exhaustion "
+                f"{'token' if tokens == 1 else 'tokens'}.",
+                view=InjuryTestView(self, game.game_id, player_id),
+                wait=True,
+                allowed_mentions=discord.AllowedMentions(
+                    users=True, roles=False, everyone=False,
+                ),
+            )
+            game.turn_message_id = prompt_message.id
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            return
+
+        resume = match.pending_injury_resume
+        match.pending_injury_resume = None
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await self.dispatch_injury_resume(interaction, game, match, resume)
+
+    async def dispatch_injury_resume(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        resume: Optional[dict],
+    ) -> None:
+        """
+        Pick the turn back up where the injury tests interrupted it.
+        The two kinds are the two contests that hand them out: a
+        maneuver's skill test goes on to the winner's effect, a loose
+        ball (or the long High Pass that borrows its machinery) goes on
+        to its run back.
+        """
+        kind = (resume or {}).get("kind")
+        if kind == "maneuver_effect":
+            await self.begin_effect_resolution(
+                interaction, game, match, resume["winner_name"],
+            )
+            return
+        if kind == "run_back":
+            await self.begin_run_back(
+                interaction,
+                game,
+                match,
+                distance_moved=resume.get("distance_moved", 1),
+                turnover_occurred=resume.get("turnover_occurred", True),
+            )
+            return
+        LOGGER.error(
+            "Game %s finished its injury tests with nothing to resume "
+            "(%r); it needs /d12ball resume.",
+            game.game_id,
+            resume,
+        )
+
     async def run_injury_test(
         self,
         interaction: discord.Interaction,
@@ -969,11 +1104,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player: PlayerDefinition,
     ) -> None:
         """
-        Automatic injury test for an exhausted player who has just
-        taken part in a skill test: roll a d12, and if it doesn't beat
-        their current exhaustion token count, they become injured.
+        One injury test, off the button `continue_injury_tests` posted
+        for it: roll a d12, and if it doesn't beat the player's current
+        exhaustion token count, they become injured.
 
-        Exhausted is judged when the test resolves, not when it
+        Exhausted is judged when the contest resolves, not when it
         started, and against every token they hold by then -- the one
         each participant pays to enter the test and one more each time
         a tie sends it back to be rolled again, all of which count. A
@@ -981,6 +1116,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         this check for that same test.
         """
         if player.player_id in match.injured:
+            # Nothing to roll, and nothing to announce either -- an
+            # injured player cannot be injured again. Back to the queue
+            # rather than out of it, so this can never be where a turn
+            # stops.
+            if player.player_id in match.pending_injury_tests:
+                match.pending_injury_tests.remove(player.player_id)
+                game.match_state = match.to_dict()
+                save_games(self.games)
+            await self.continue_injury_tests(interaction, game, match)
             return
 
         roll = random.randint(1, 12)
@@ -998,7 +1142,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             filename="injury_test_die.png",
         )
 
+        if player.player_id in match.pending_injury_tests:
+            match.pending_injury_tests.remove(player.player_id)
+
         if safe:
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
             content = (
                 f"{format_role_bracket(player, self.team_emojis)} is exhausted and rolls "
                 f"an injury test: {roll} beats their {current_tokens} "
@@ -1020,9 +1170,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "cannot gain more exhaustion tokens or make another "
                 "injury check."
             )
+
+        # The prompt becomes the die, and what it says follows in its
+        # own message rather than riding above it -- see
+        # SkillTestView.roll for why every result is announced this way
+        # round.
+        await interaction.edit_original_response(
+            content=None,
+            attachments=[dice_file],
+            view=None,
+        )
+        await interaction.followup.send(content)
+        if not safe:
             await self.refresh_match_image(interaction, game)
 
-        await interaction.followup.send(content, file=dice_file)
+        await self.continue_injury_tests(interaction, game, match)
 
     def controlling_user_id(
         self,
@@ -1200,6 +1362,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
           maneuver is under way, not `pending_action`, which
           `choose_challenger` clears the moment a challenger is
           picked.
+        - An owed injury test and an owed own-goal roll come next,
+          ahead of everything else, because both are interruptions of
+          a turn whose own state is still set underneath them and
+          would otherwise answer first.
 
         The three `or PlayerActionView` fallbacks are states whose
         next step is the bot's, not a coach's -- a run back with only
@@ -1246,6 +1412,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return (
                 CoachingHubView(self, game_id),
                 "Halftime Coaching Choice:",
+            )
+
+        if match.pending_injury_tests:
+            # Ahead of everything a contest leaves set, because that is
+            # all still set: a maneuver's skill test comes back here
+            # with its challenger and both picks in place, and a loose
+            # ball with no active player at all, which the kickoff
+            # branch below would misread.
+            player = self.get_player_definition(match.pending_injury_tests[0])
+            return (
+                InjuryTestView(self, game_id, player.player_id),
+                f"{format_role_bracket(player, self.team_emojis)} still "
+                "owes an injury test:",
+            )
+
+        if match.pending_own_goal:
+            # Same reason: the Pressure that risked it is still the
+            # live maneuver, so the effect branch would otherwise offer
+            # to resolve it a second time.
+            return (
+                OwnGoalRollView(self, game_id),
+                "Either player can roll for the own goal.",
             )
 
         if match.active_player_id is None:
@@ -2764,7 +2952,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # ability below: if it's conceded, the point is already
             # over, and stealing a ball that was just kicked off from
             # the restart wouldn't mean anything.
-            await self.run_own_goal_roll(
+            await self.begin_own_goal_roll(
                 interaction, game, match, distance_moved=1,
             )
             return
@@ -2899,7 +3087,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     # -- Own goal ----------------------------------------------------
 
-    async def run_own_goal_roll(
+    async def begin_own_goal_roll(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
@@ -2907,15 +3095,66 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         distance_moved: int,
     ) -> None:
         """
-        Automatic: 2d12 at an advantage (take the higher), plus the
-        ball-handler's offensive skill, safe on 7+. No button -- there's
-        no opposing roll to wait for.
+        Put the own-goal roll behind a button, the way a score attempt
+        is: the coach whose player is about to concede rolls it
+        themselves rather than reading what the bot already rolled for
+        them.
+
+        Nothing is decided here, so everything the roll needs is
+        persisted first -- `pending_own_goal` says one is owed and
+        `pending_own_goal_distance` carries the clock cost of the
+        maneuver that risked it, which the resolution spends whichever
+        way the roll goes. A restart between the two comes back to this
+        prompt through `pending_turn_view`.
+        """
+        match.pending_own_goal = True
+        match.pending_own_goal_distance = distance_moved
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        offense_player = self.get_player_definition(match.active_player_id)
+        offense_skill = self.player_catalog.effective_profile(
+            offense_player,
+        ).offense
+        controller_id = self.controlling_user_id(
+            game, match, offense_player.player_id,
+        )
+        mention = f"<@{controller_id}>" if controller_id else "Someone"
+
+        prompt_message = await interaction.followup.send(
+            f"**Own goal risk!** {mention}, "
+            f"{format_role_bracket(offense_player, self.team_emojis)} "
+            "rolls two d12 at an advantage — the higher of the two, plus "
+            f"their offensive skill ({offense_skill}). A total of 7 or "
+            "more and the own goal is avoided.",
+            view=OwnGoalRollView(self, game.game_id),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
+
+    async def run_own_goal_roll(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        The roll itself, off the button `begin_own_goal_roll` posted:
+        2d12 at an advantage (take the higher), plus the ball-handler's
+        offensive skill, safe on 7+.
 
         Making the attempt costs the rolling player 1 exhaust token,
         win or lose, on top of whatever the maneuver that triggered the
         risk already charged. It is not a skill test, so it owes no
         injury check.
         """
+        distance_moved = match.pending_own_goal_distance
+        match.pending_own_goal = False
+
         offense_player = self.get_player_definition(match.active_player_id)
         offense_skill = self.player_catalog.effective_profile(
             offense_player,
@@ -2972,10 +3211,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{exhaustion_text}"
             )
 
-        # The verdict follows the dice in its own message rather than
-        # riding above them -- see SkillTestView.roll for why every
-        # result is announced this way round.
-        await interaction.followup.send(breakdown, file=dice_file)
+        # The prompt becomes the dice, taking its own explanation with
+        # it once the roll it was asking for has happened -- the same
+        # trade a score attempt makes. The arithmetic rides above the
+        # image because it is what built it; the verdict follows in a
+        # message of its own, since a message's attachments render
+        # below its content and a verdict written here would be read
+        # before the roll that decided it. See SkillTestView.roll.
+        await interaction.edit_original_response(
+            content=breakdown,
+            attachments=[dice_file],
+            view=None,
+        )
         await interaction.followup.send(verdict)
         await self.refresh_match_image(interaction, game)
         if safe:
@@ -6675,6 +6922,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await interaction.followup.send(
                 "A score attempt is already in progress for this turn. "
                 "Use `/d12ball resume` to put its prompt back up, or "
+                "`/d12ball resume force:true` to abandon the turn and "
+                "start the offensive choice over.",
+                ephemeral=True,
+            )
+            return
+
+        # A third of the same: an owed roll leaves `pending_action`
+        # clear (`choose_challenger` cleared it when the maneuver
+        # started), so without this the turn's reset below would throw
+        # the roll away without saying so.
+        owed_roll = (
+            "an own goal roll"
+            if match.pending_own_goal
+            else "an injury test" if match.pending_injury_tests else None
+        )
+        if owed_roll is not None:
+            await interaction.followup.send(
+                f"This turn is still waiting on {owed_roll}. Use "
+                "`/d12ball resume` to put its button back up, or "
                 "`/d12ball resume force:true` to abandon the turn and "
                 "start the offensive choice over.",
                 ephemeral=True,

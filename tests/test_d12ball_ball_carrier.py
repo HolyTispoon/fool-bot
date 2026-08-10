@@ -444,7 +444,6 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         self, is_high_pass: bool,
     ) -> tuple[D12Ball, D12BallGame, MatchState, str, str]:
         cog = build_cog()
-        cog.run_injury_test = mock.AsyncMock()
         cog.announce_run_back = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         cog.begin_substitution_window = mock.AsyncMock()
