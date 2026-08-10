@@ -237,6 +237,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # board message is carrying a board it has no link to, which is
         # what the settling write is for -- see settle_board_link.
         self.board_link_owed: dict[str, str] = {}
+        # Held for the length of a board write, so two of them can
+        # never be in flight on the same message at once, and the set
+        # of games whose board has been asked for since the write
+        # covering it began. See refresh_match_image.
+        self.board_refresh_locks: dict[str, asyncio.Lock] = {}
+        self.board_refresh_wanted: set[str] = set()
 
         restored_views = 0
 
@@ -325,6 +331,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             restored_views,
         )
 
+        # discord.py reports a 429 as a bare method and URL, and the
+        # only thing in it that identifies the game is the channel and
+        # message id. Three rounds of these warnings were read by
+        # inferring which message that was; one line a live game at
+        # startup makes it a lookup instead. See "Discord's rate
+        # limits" in CLAUDE.md.
+        for game in self.games.values():
+            if game.status == GameStatus.FINISHED:
+                continue
+            LOGGER.info(
+                "D12 Ball game %s (pbd%s): channel %s, board message %s, "
+                "prompt message %s.",
+                game.game_id,
+                game.game_number,
+                game.channel_id,
+                game.message_id,
+                game.turn_message_id,
+            )
+
     async def cog_load(self) -> None:
         # One fetch, three lookups. Each loader used to make its own
         # call to the same endpoint, so every startup asked Discord for
@@ -359,6 +384,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         for task in list(self.board_refresh_tasks.values()):
             task.cancel()
+
+        self.board_refresh_wanted.clear()
 
     async def cog_app_command_error(
         self,
@@ -6255,6 +6282,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         it *replaces* it -- one trailing refresh is scheduled, and by
         the time it runs it draws whatever the state has become.
 
+        A write already in flight does not stand in for a request that
+        arrives during it. Drawing and uploading a board is most of a
+        second, and the state the caller wants on the message changed
+        after that render began -- so this asks for a trailing pass
+        rather than assuming it is covered, and takes
+        `board_refresh_locks` for the write itself so two edits can
+        never be in the air on one message at once. That is the pair of
+        holes the interval alone left: a board left showing a state a
+        click had already moved on from, and two PATCHes landing in the
+        same instant against a bucket that allows about five in five
+        seconds.
+
         `png` is an already-rendered board, for a caller that is
         posting the same one somewhere else in the same breath and
         should not pay to draw it twice. It is only used when the
@@ -6262,6 +6301,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         board it was handed will be stale by the time it runs.
         """
         if game.message_id is None or interaction.channel is None:
+            return
+
+        lock = self.board_refresh_locks.setdefault(
+            game.game_id, asyncio.Lock(),
+        )
+
+        if lock.locked():
+            self.schedule_board_refresh(
+                interaction.channel, game, BOARD_REFRESH_INTERVAL,
+            )
             return
 
         now = time.monotonic()
@@ -6273,10 +6322,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        self.board_refreshed_at[game.game_id] = now
-        await self.write_board_message(
-            interaction.channel, game, png, relink=False,
-        )
+        async with lock:
+            self.board_refresh_wanted.discard(game.game_id)
+            self.board_refreshed_at[game.game_id] = now
+            await self.write_board_message(
+                interaction.channel, game, png, relink=False,
+            )
 
         # That write left the board without its full-image link, so a
         # settling pass is owed whether or not anything else asks for
@@ -6299,16 +6350,45 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         One pending refresh per game is all that is ever needed: it
         renders when it runs, so a refresh asked for after it was
-        scheduled but before it fired is already covered by it.
+        scheduled but before it fired is already covered by it. What is
+        *not* covered is a request that arrives while that refresh is
+        drawing and uploading -- the board it is putting up predates the
+        request -- so the want is recorded rather than the task counted,
+        and a pass that finds the flag set again when it lands waits out
+        another interval and goes round once more. Without that the
+        request was dropped on the floor: the task was still in
+        `board_refresh_tasks` and nothing rescheduled it, so the board
+        kept a state the click had already moved past until somebody
+        clicked again.
         """
+        self.board_refresh_wanted.add(game.game_id)
+
         if game.game_id in self.board_refresh_tasks:
             return
 
         async def run() -> None:
             try:
                 await asyncio.sleep(delay)
-                self.board_refreshed_at[game.game_id] = time.monotonic()
-                await self.write_board_message(channel, game)
+
+                while True:
+                    lock = self.board_refresh_locks.setdefault(
+                        game.game_id, asyncio.Lock(),
+                    )
+                    async with lock:
+                        self.board_refresh_wanted.discard(game.game_id)
+                        self.board_refreshed_at[game.game_id] = (
+                            time.monotonic()
+                        )
+                        await self.write_board_message(channel, game)
+
+                    # Nothing awaits between the check and the `finally`
+                    # below, so a want recorded after this reads False
+                    # cannot be lost -- it arrives to find the task gone
+                    # and schedules its own.
+                    if game.game_id not in self.board_refresh_wanted:
+                        return
+
+                    await asyncio.sleep(BOARD_REFRESH_INTERVAL)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -6322,6 +6402,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 )
             finally:
                 self.board_refresh_tasks.pop(game.game_id, None)
+                self.board_refresh_wanted.discard(game.game_id)
 
         # The loop keeps only a weak reference to a task, so the handle
         # is held here to keep this one from being collected mid-sleep.
@@ -8008,6 +8089,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             task.cancel()
         self.board_refreshed_at.pop(game.game_id, None)
         self.board_png_digests.pop(game.game_id, None)
+        self.board_refresh_wanted.discard(game.game_id)
+        self.board_refresh_locks.pop(game.game_id, None)
+        self.board_link_owed.pop(game.game_id, None)
 
         game.abandon()
         game.message_id = None

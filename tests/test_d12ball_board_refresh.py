@@ -65,6 +65,8 @@ def build_cog() -> D12Ball:
     cog.board_refresh_tasks = {}
     cog.board_png_digests = {}
     cog.board_link_owed = {}
+    cog.board_refresh_locks = {}
+    cog.board_refresh_wanted = set()
     # Every render differs, so these tests see the write path. The
     # identical-board case has its own class below.
     cog.render_match_png = mock.AsyncMock(
@@ -195,6 +197,106 @@ class BoardRefreshCoalescingTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(task.cancelled())
         # The immediate one, and nothing from the cancelled task.
         self.assertEqual(channel.message.edits, 1)
+
+
+class GatedMessage(FakeMessage):
+    """
+    A board message whose edit does not land until the test lets it,
+    which is what a real one is like: drawing and uploading a 2200px
+    board is most of a second, and everything the interval is protecting
+    happens inside that second.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+        self.in_flight = 0
+        self.most_in_flight = 0
+
+    async def edit(self, **fields):
+        self.in_flight += 1
+        self.most_in_flight = max(self.most_in_flight, self.in_flight)
+        self.started.set()
+        await self.release.wait()
+        self.in_flight -= 1
+        return await super().edit(**fields)
+
+
+class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
+    """
+    What happens to a refresh asked for while the board is being
+    written. The interval alone answered this wrongly in both
+    directions -- it could drop the request, and it could let a second
+    edit into the air alongside the first.
+    """
+
+    def build(self):
+        cog, game, channel = build_cog(), build_game(), FakeChannel()
+        channel.message = GatedMessage()
+        return cog, game, channel, SimpleNamespace(channel=channel)
+
+    async def test_a_request_during_a_write_is_not_dropped(self) -> None:
+        # A trailing pass puts up a board it drew before this request
+        # arrived, so it does not stand in for it. This used to be lost:
+        # the pass was still registered in `board_refresh_tasks`, so the
+        # request scheduled nothing, and the board kept a state the
+        # click had already moved past until somebody clicked again.
+        cog, game, channel, interaction = self.build()
+        message = channel.message
+
+        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+            # The immediate write, straight through.
+            message.release.set()
+            await cog.refresh_match_image(interaction, game)
+            message.release.clear()
+            message.started.clear()
+
+            # A second request in the same window, which becomes the
+            # trailing pass -- and hangs mid-upload.
+            await cog.refresh_match_image(interaction, game)
+            trailing = cog.board_refresh_tasks[game.game_id]
+            await message.started.wait()
+
+            # A third, while that upload is still in the air.
+            await cog.refresh_match_image(interaction, game)
+
+            message.release.set()
+            await trailing
+
+        self.assertEqual(message.edits, 3)
+
+    async def test_two_writes_are_never_in_the_air_at_once(self) -> None:
+        # An upload slower than the window -- which a 2200px board on a
+        # bad connection is -- used to let the trailing pass start while
+        # the immediate write was still going. Two PATCHes in the same
+        # instant is the one thing the interval cannot space out, and
+        # every 429 in three sessions of play was a PATCH on this
+        # message.
+        cog, game, channel, interaction = self.build()
+        message, real_sleep = channel.message, asyncio.sleep
+
+        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+            writing = asyncio.create_task(
+                cog.refresh_match_image(interaction, game),
+            )
+            await message.started.wait()
+
+            await cog.refresh_match_image(interaction, game)
+            trailing = cog.board_refresh_tasks[game.game_id]
+
+            # The trailing pass's window is up (its sleep is mocked), so
+            # this is where it would join the write already in flight.
+            for _ in range(4):
+                await real_sleep(0)
+
+            self.assertEqual(message.most_in_flight, 1)
+
+            message.release.set()
+            await writing
+            await trailing
+
+        self.assertEqual(message.most_in_flight, 1)
 
 
 class UnchangedBoardTests(unittest.IsolatedAsyncioTestCase):
