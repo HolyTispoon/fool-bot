@@ -318,6 +318,22 @@ class D12BallGame:
 
         self.status = GameStatus.FINISHED
 
+    def abandon(self) -> None:
+        """
+        End a game nobody is going to finish -- see
+        D12Ball.abandon_game.
+
+        Unlike `finish_game` this accepts a game still in setup: a
+        game gets stuck before kickoff as easily as after it, and a
+        half-configured game is exactly the kind nobody comes back to.
+        Only a game that has already ended is refused, so that
+        abandoning twice cannot un-finish a real result.
+        """
+        if self.status == GameStatus.FINISHED:
+            raise ValueError("This game has already finished.")
+
+        self.status = GameStatus.FINISHED
+
     def to_dict(self) -> dict:
         """
         Convert the game into JSON-friendly data.

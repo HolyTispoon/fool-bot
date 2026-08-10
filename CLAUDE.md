@@ -613,6 +613,78 @@ and reused by the rematch button), or the two sides otherwise —
   a game's channel keeps the name it was created with for the rest of its life.
   Nothing renames a channel when a player's display name changes.
 
+## Recovering a stuck game
+
+A restart re-arms exactly **one** message per game — the one recorded in
+`turn_message_id` — so a game can come back with no working button anywhere in
+its channel. `/d12ball resume` puts the question back up and
+`/d12ball abandon_game` ends the ones nobody is going to finish. Both are open
+to either player in the game, or to anyone with `manage_channels`
+(`may_administer_game`).
+
+Three ways a restart strands a game, none of which is an ephemeral message —
+**no view in this cog is ever attached to one**; `ephemeral=True` is only ever
+used for error replies with no buttons on them:
+
+- The prompt was **deleted** before the restart. `refresh_maneuver_prompt` drops
+  the maneuver prompt once both sides have picked and clears `turn_message_id`
+  with it, and so does `delete_choice_prompt`. There is then nothing to re-arm.
+- The process died **before the prompt it was about to send was recorded**.
+- The process died **in the middle of a cascade whose next step was the bot's
+  own**. This is the one that strands a game hardest: `continue_run_back`, the
+  setup sequence and the halftime sequence are driven from a live interaction,
+  so there is no button anywhere and nothing will ever pick the state back up.
+
+Two things follow from that:
+
+- **`pending_turn_view` is the only reading of "what is this match waiting
+  on?"** Startup re-attaches the view it returns to the message the prompt is
+  already on; `resume_pending_prompt` posts the same one on a fresh message. A
+  second copy of that branch chain is how a resume comes to offer a different
+  prompt from the one a restart restores. Its ordering carries real decisions —
+  setup and halftime are checked ahead of "no ball handler yet" because both
+  leave `active_player_id` None, and a maneuver is recognised by `challenger_id`
+  rather than `pending_action`, which `choose_challenger` clears.
+- **A state whose next step is the bot's is handed back to the routine that
+  drives it**, not re-asked: `continue_run_back`, `begin_ball_recovery`,
+  `advance_setup_stage`, `advance_halftime_stage`,
+  `run_ai_substitution_window`. That is the whole difference between resume's
+  two callers, and the reason `pending_turn_view` returns a view rather than
+  posting it.
+
+- **An open Coaching Choice is re-posted, never re-opened.**
+  `repost_coaching_prompt` exists because `begin_substitution_window` calls
+  `open_coaching_window`, which resets the substitution counter — resuming
+  through it would hand a coach back the swaps they had already spent. It is
+  checked ahead of the setup and halftime stages for the same reason: both run
+  their coaching through that one window.
+- **`resume force:true` clears the turn**, via `reset_maneuver` and
+  `close_coaching_window`, and asks the offense to choose again. It refuses
+  during setup and halftime: those are real positions in the game rather than a
+  turn gone wrong, and clearing them would drop a coach's window on the floor.
+- **`/d12ball offensive_choice`'s two refusals point at resume.** "A score
+  attempt is already in progress" was the symptom that started this:
+  `pending_action` stays `"shoot"` for the whole post-goal sequence, since only
+  `reset_maneuver` at the end of the turn clears it, so a restart during the new
+  play's coaching window leaves it set with the window still open.
+- **Abandoning archives, it does not delete.** The channel is the record of what
+  happened, deleting one is the tightest rate limit Discord has, and keeping the
+  saved game is what stops the PBD number being handed out twice (see the
+  pruning note under Gotchas). `abandon_and_archive_game` moves the channel
+  first because that is the only step that can fail — a half-ended game is worse
+  than one still stuck — then clears `message_id` and `turn_message_id`, since
+  startup restores views off those two and reads nothing about status.
+  `D12BallGame.abandon()` accepts a game still in setup, which `finish_game`
+  refuses; a game gets stuck before kickoff as easily as after it.
+
+**A bot run out of a git worktree keeps its own saved games.** `PROJECT_ROOT` in
+`gamesaves/d12ball/storage.py` is resolved from that file's own path, so
+`<checkout>/data/d12ball_games.json` is per checkout. Restarting "with updates"
+from a different tree loads a different set of games, which looks exactly like a
+game breaking on restart and is not something `/d12ball resume` can help with.
+Check which tree the bot is actually running from before treating a missing game
+as a bug.
+
 ## Gotchas
 
 - **`data/d12ball_games.json` is runtime state and is deliberately untracked.**
@@ -620,6 +692,9 @@ and reused by the rematch button), or the two sides otherwise —
   meant it showed as modified more or less permanently and was a standing
   source of merge conflicts. Don't re-add it. Each developer's saved games are
   local to their own machine, and `data/` is created at startup if missing.
+  `data/d12ball_games.tmp` — the file `save_games` writes and then renames over
+  the JSON — had been committed by accident and was doing exactly the same
+  thing. Both are ignored now; neither belongs in a commit.
 - **Startup drops finished games whose channel was deleted.** The archiving
   sweep in `on_ready` prunes a finished game when Discord answers its channel
   lookup with a 404, because there is nothing left to archive and the record
