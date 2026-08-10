@@ -43,7 +43,6 @@ from cogs.d12ball_helpers import (
     LOGGER,
     ROLE_INITIALS,
     TIE_MODE_LABELS,
-    add_full_image_button,
     add_full_image_button_to_response,
     build_home_choice_message,
     build_setup_message,
@@ -54,7 +53,6 @@ from cogs.d12ball_helpers import (
     format_player_with_team,
     format_role_bracket,
     format_team_side_label,
-    pin_board_message,
     refresh_player_names,
     send_error_fallback,
     space_label,
@@ -668,27 +666,21 @@ class CoinFlipView(GameConfigurationView):
             ),
         )
 
-        followup_arguments = {
-            "view": refreshed_view,
-            "wait": True,
-        }
-        if game.match_state is not None:
-            followup_arguments["file"] = await self.cog.build_match_file(game)
-
+        # No board yet, even when the match already exists (a solo game
+        # whose AI won the toss and chose for itself). This message is
+        # the persistent one every later refresh edits, and the board
+        # it carries is the kickoff board -- so it is not drawn until
+        # both coaches have finished setting up and there is a kickoff
+        # to show. See D12Ball.finish_setup_coaching.
         choice_message = await interaction.followup.send(
             build_home_choice_message(game),
-            **followup_arguments,
+            view=refreshed_view,
+            wait=True,
         )
         game.message_id = choice_message.id
         save_games(self.cog.games)
 
-        await add_full_image_button(choice_message, refreshed_view)
-
         if game.match_state is not None:
-            # The kickoff board, and the only pinned one that stays
-            # current: this is the persistent message every later
-            # refresh edits, so the pin never needs re-cutting.
-            await pin_board_message(choice_message)
             await self.cog.begin_setup_coaching(interaction, game)
 
 
@@ -796,13 +788,13 @@ class HomeAwaySelectionView(SafeView):
             cog=self.cog,
             game_id=self.game_id,
         )
+        # The match exists from here, but its board does not go up
+        # until both coaches are done setting up -- see the same note
+        # on the coin flip, and D12Ball.finish_setup_coaching.
         await interaction.response.edit_message(
             content=build_home_choice_message(game),
             view=refreshed_view,
-            attachments=[await self.cog.build_match_file(game)],
         )
-
-        await add_full_image_button_to_response(interaction, refreshed_view)
 
         await interaction.followup.send(
             f"{format_player_with_team(game, winner_player_number)} chose "
@@ -3159,11 +3151,22 @@ class CoachingHubView(CoachingView):
             await interaction.response.send_message(refusal, ephemeral=True)
             return
 
+        # What they did, while the window still remembers it: closing
+        # it clears the record, and every note the flow put up along
+        # the way was written over by the step after it -- this
+        # message is the only place a coach's substitutions survive.
         setup = match.setup_for_side(side)
+        changes = self.cog.coaching_summary(match, side)
         await interaction.response.edit_message(
-            content=(
-                f"# Coaching Choice\n**{format_team_side_label(setup)} "
-                "are done.**"
+            content="\n".join(
+                [
+                    "# Coaching Choice",
+                    f"**{format_team_side_label(setup)} are done.**",
+                    *(
+                        changes
+                        or ["No substitutions, and no change of shape."]
+                    ),
+                ]
             ),
             view=None,
         )

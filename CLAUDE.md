@@ -202,6 +202,29 @@ three menus to do one job.
 - **A part-made pick lives on the view**, so a restart comes back to the hub.
   That costs almost nothing now: every action is one or two clicks, and a
   formation change is atomic.
+- **What the coach *did*, though, lives on the match**, because the one message
+  is also the thing that destroys it: each step's note is written over by the
+  next, so "so-and-so comes on for so-and-so" is gone by the time the coach
+  clicks Done. `pending_coaching_formation` (the shape at the open) and
+  `pending_coaching_swaps` are what survive it, and `coaching_summary` reads
+  them into the message the window closes with. Both are persisted, so a window
+  resumed after a restart still closes with what was done before it, and both
+  are cleared by `close_coaching_window` -- so the summary has to be built
+  *before* the window is closed.
+  - **Only the shape and the swaps.** Zone assignment and space positioning are
+    on the board, and the board goes up the moment coaching ends. Reporting the
+    shape as a change (`2-2-2 → 2-3-1`) rather than as a state is why the
+    opening shape is recorded at all: a coach who changes shape and changes back
+    did nothing.
+- **A window opens on the arrangement its coach last settled**, restored by
+  `begin_substitution_window` before anything else -- never on the scramble a
+  run back left. A new play resets both sides before offering the window and
+  setup runs on a fresh deal, so this only ever moves anybody at halftime, and
+  the board refresh it asks for is conditional on having moved somebody. It is
+  the guarantee for every occasion rather than a halftime step because the
+  half-field a coach works from should show their own shape whatever brought
+  them there. `repost_coaching_prompt` deliberately does *not* restore: that is
+  a resume, and the window's own moves have already happened.
 - **Setup and halftime each have their own stage sequence** (`SETUP_STAGES`,
   `HALFTIME_STAGES`), and `finish_substitution_window` routes back into
   whichever is running instead of offering the other side a response. Both run
@@ -438,7 +461,9 @@ new plays" in the living rules for which is which.
 ### The arrangement
 
 `MatchState.assigned_positions` is `player_id -> [zone, space]`, persisted
-with the rest of the match, and it is what a new play restores.
+with the rest of the match, and it is what a new play restores -- and what any
+[Coaching Choice](#the-coaching-choice) opens on, which is the same restore
+read from the other end.
 
 - **Only a deliberate placement sets it**, via `set_assigned_positions`: the
   standard deal, and the close of any [Coaching Choice](#the-coaching-choice) a
@@ -547,9 +572,12 @@ same budget. So:
   `post_new_play_board`.
 - **Only new-play boards are pinned.** A pin is a request of its own *and* a
   "pinned a message" system post in the channel, so `pin_board_message` is
-  called from three places and no more: the kickoff board, the second-half
-  board, and `post_new_play_board`. Pinning every board a turn puts out would
-  roughly double the channel's traffic and fill the 50-pin cap inside a game.
+  called from three places and no more: the second-half board,
+  `post_new_play_board`, and the kickoff board via `D12Ball.pin_board`, which is
+  the odd one out -- the kickoff board *is* the persistent message rather than a
+  snapshot of its own, so it is pinned in place and the pin never needs
+  re-cutting. Pinning every board a turn puts out would roughly double the
+  channel's traffic and fill the 50-pin cap inside a game.
   At the cap the pin fails with error 30003 and the helper unpins the oldest
   board *it* pinned -- read off `channel.pins(oldest_first=True)` and matched
   by the `d12ball-pbd` filename -- so a pin somebody else put there is never
@@ -658,6 +686,14 @@ python3 scripts/render_sample.py --game <game_id>      # reproduce a real board
 which is how to reproduce a board someone reported a problem with rather than
 guessing at the state. Saved games are local to each machine, so a fresh clone
 lists none until the bot has been run.
+
+**The first board of a game goes up when setup coaching ends**, not when the
+match is created. `finish_setup_coaching` posts it (and pins it); the coin toss
+and the home/visiting choice leave the persistent message imageless, and an AI
+setup window skips its own refresh while `pending_setup_stage` is set. Nothing
+has been played before that point, so a board posted earlier shows a deal
+neither coach has finished with and is redrawn twice over before anyone acts on
+it -- the one worth looking at is the line-up the game kicks off from.
 
 **There are two board images, and they are drawn to different widths.**
 `render_match_image` is the 2200px one everybody sees;

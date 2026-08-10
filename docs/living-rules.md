@@ -817,6 +817,13 @@ satisfies [occupancy](#occupancy) as a matter of course.
 [new play](#resetting-after-a-new-play) from then on puts them back on it. A side that
 declines the offer sets nothing and keeps the arrangement it had.
 
+**A Coaching Choice opens on that arrangement**, whichever occasion it is: the side takes the
+field on the spaces its coach last set, free of exhaustion, before the first choice is made.
+A new play has [already reset](#resetting-after-a-new-play) both sides by the time it offers
+the window, so this is only ever felt at halftime, where the first half ended wherever it
+ended. A coach rearranges from their own shape and never from a scramble open play left them
+in.
+
 ### When a Coaching Choice is offered
 
 Three occasions offer it, and they differ only in **how many substitutions** they allow and
@@ -926,6 +933,10 @@ period ends.
    they kick off the second half, then the home coach. Each gets **two** substitutions of
    halftime's own allowance, and neither spends their once-a-half declaration, so both go
    into the second half still holding it.
+
+   Each side takes the field on the arrangement its coach last set, free of exhaustion, as
+   [any Coaching Choice opens](#coaching-choice): the first half ended wherever it ended, and
+   nobody coaches out of a scramble.
 
    The visiting coach must finish with a player on the kickoff space, since they kick off.
    Where each side finishes is their arrangement for the second half.

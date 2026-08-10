@@ -748,6 +748,15 @@ class MatchState:
     pending_coaching_substitutions: int = 0
     pending_coaching_is_response: bool = False
     pending_coaching_declared: bool = False
+    # What the open window has changed, for the summary it closes with.
+    # The whole flow lives on one message, so every note a step leaves
+    # -- "so-and-so comes on for so-and-so" above all -- is written
+    # over by the next step and gone by the time the coach is done.
+    # These two are what survives it: the shape the side was in when
+    # the window opened, as a Formation value, and every swap made in
+    # it as an [outgoing, incoming] pair.
+    pending_coaching_formation: Optional[str] = None
+    pending_coaching_swaps: list[list[str]] = field(default_factory=list)
     pending_halftime_stage: Optional[str] = None
     # Which side is still to take their Coaching Choice before kickoff,
     # as a SETUP_STAGES value. None once both have, which is every
@@ -1791,6 +1800,7 @@ class MatchState:
         side: TeamSide,
         occasion: CoachingOccasion,
         is_response: bool = False,
+        formation: Optional[str] = None,
     ) -> None:
         """
         Offer the window to `side`, who has not taken it up yet. Kept
@@ -1801,6 +1811,12 @@ class MatchState:
         substitution allowance, whether a declaration is asked for and
         charged, and where a player taken off goes. Only a new play
         asks -- setup and halftime are given, so both open declared.
+
+        `formation` is the shape the side is in as the window opens,
+        kept so that closing it can say whether they changed it. It is
+        given rather than derived because which shape a set of zone
+        counts is belongs to the ruleset, which the match does not
+        hold -- see D12Ball.current_formation.
         """
         occasion = CoachingOccasion(occasion)
         self.pending_coaching_side = TeamSide(side).value
@@ -1808,6 +1824,8 @@ class MatchState:
         self.pending_coaching_substitutions = 0
         self.pending_coaching_is_response = is_response
         self.pending_coaching_declared = False
+        self.pending_coaching_formation = formation
+        self.pending_coaching_swaps = []
         if not occasion.spends_declaration:
             self.declare_coaching()
 
@@ -1841,6 +1859,8 @@ class MatchState:
         self.pending_coaching_substitutions = 0
         self.pending_coaching_is_response = False
         self.pending_coaching_declared = False
+        self.pending_coaching_formation = None
+        self.pending_coaching_swaps = []
 
     def substitutions_remaining(self) -> Optional[int]:
         """
@@ -1869,15 +1889,24 @@ class MatchState:
         remaining = self.substitutions_remaining()
         return remaining is None or remaining > 0
 
-    def record_substitution(self) -> None:
+    def record_substitution(
+        self,
+        outgoing_player_id: Optional[str] = None,
+        incoming_player_id: Optional[str] = None,
+    ) -> None:
         """
         Charge the open window one substitution, to whichever counter
-        the occasion draws on.
+        the occasion draws on, and remember the pair for the summary
+        the window closes with -- see pending_coaching_swaps.
         """
         occasion = self.coaching_occasion
         if self.pending_coaching_side is None or occasion is None:
             raise ValueError("No coaching window is open.")
         self.pending_coaching_substitutions += 1
+        if outgoing_player_id is not None and incoming_player_id is not None:
+            self.pending_coaching_swaps.append(
+                [outgoing_player_id, incoming_player_id]
+            )
         if occasion.counts_against_the_half:
             side_value = self.pending_coaching_side
             self.half_substitutions_used[side_value] = (
@@ -2429,6 +2458,10 @@ class MatchState:
                 self.pending_coaching_is_response
             ),
             "pending_coaching_declared": self.pending_coaching_declared,
+            "pending_coaching_formation": self.pending_coaching_formation,
+            "pending_coaching_swaps": [
+                list(swap) for swap in self.pending_coaching_swaps
+            ],
             "pending_halftime_stage": self.pending_halftime_stage,
             "pending_setup_stage": self.pending_setup_stage,
             "assigned_positions": {
@@ -2565,6 +2598,16 @@ class MatchState:
                 "pending_coaching_declared",
                 data.get("pending_substitution_declared", False),
             ),
+            # A window open when the bot went down keeps its summary,
+            # so a resumed Coaching Choice still closes with what the
+            # coach did before the restart. A game saved before these
+            # existed comes back with nothing recorded, and closes
+            # saying only that the side is done.
+            pending_coaching_formation=data.get("pending_coaching_formation"),
+            pending_coaching_swaps=[
+                list(swap)
+                for swap in data.get("pending_coaching_swaps", [])
+            ],
             pending_halftime_stage=data.get("pending_halftime_stage"),
             pending_setup_stage=data.get("pending_setup_stage"),
             # A game saved before arrangements were remembered has

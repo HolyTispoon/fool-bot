@@ -3063,7 +3063,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             incoming_player_id,
             retire_outgoing=occasion.retires_outgoing_players,
         )
-        match.record_substitution()
+        match.record_substitution(outgoing_player_id, incoming_player_id)
 
         outgoing = self.get_player_definition(outgoing_player_id)
         incoming = self.get_player_definition(incoming_player_id)
@@ -3337,16 +3337,36 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         put at all, and where a player taken off goes. Setup and
         halftime are given rather than declared, so both skip the
         offer and open the menu directly.
+
+        **A window opens on the arrangement its coach last settled**,
+        never on the scramble a run back left behind -- see
+        MatchState.restore_assigned_positions. A new play resets both
+        sides before offering the window, so this only ever does
+        anything at halftime, where the first half ended wherever it
+        ended; but it is the guarantee for every occasion rather than
+        a halftime step, because a coach reading their half-field is
+        reading the shape they set either way.
         """
         side = TeamSide(side)
         occasion = CoachingOccasion(occasion)
+        restored = match.restore_assigned_positions(side)
+        shape = self.current_formation(match, side)
         match.open_coaching_window(
             side,
             occasion,
             is_response=is_response,
+            formation=shape.value if shape else None,
         )
         game.match_state = match.to_dict()
         save_games(self.games)
+
+        # Only when the restore actually moved somebody, so the common
+        # case -- setup, and a new play that has just reset both sides
+        # -- costs nothing. Halftime does move them, and a coach whose
+        # half-field disagrees with the board above it has no way to
+        # tell which one the game thinks is true.
+        if restored:
+            await self.refresh_match_image(interaction, game)
 
         if self.side_is_ai(game, side):
             await self.run_ai_substitution_window(
@@ -3363,6 +3383,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
         else:
             note = "Take as long as you like; nothing here costs exhaustion."
+
+        # Said only when it actually moved somebody, which is halftime
+        # and nowhere else: a coach who left the first half with their
+        # side scattered is looking at their own shape again and
+        # should be told why.
+        if restored:
+            note += (
+                "\nYour side is back on the arrangement you last set, "
+                "free of exhaustion."
+            )
 
         # An injured player is worth pointing out, but only as a
         # nudge: nothing compels a side to get them off, and a coach
@@ -3584,6 +3614,49 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "before finishing."
         )
 
+    def coaching_summary(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> list[str]:
+        """
+        What the open window changed, a line each, for the message it
+        closes with. Asked while the window is still open -- closing
+        it clears what this reads.
+
+        **Only the shape and the swaps.** Zone assignment and space
+        positioning are on the board everyone can see, and the board
+        is posted the moment coaching is over; a substitution changes
+        who is playing, and a formation change is the shape those
+        positions are read against, so both are worth saying in words.
+        The substitution notes especially: each one is written over by
+        the next step of the flow, so without this they are gone by
+        the time the coach clicks Done.
+        """
+        side = TeamSide(side)
+        lines: list[str] = []
+
+        was = match.pending_coaching_formation
+        now = self.current_formation(match, side)
+        if now is not None and now.value != was:
+            lines.append(
+                f"Formation: **{was} → {now.value}**."
+                if was
+                else f"Formation: **{now.value}**."
+            )
+
+        for outgoing_player_id, incoming_player_id in (
+            match.pending_coaching_swaps
+        ):
+            outgoing = self.get_player_definition(outgoing_player_id)
+            incoming = self.get_player_definition(incoming_player_id)
+            lines.append(
+                f"{format_role_bracket(incoming, self.team_emojis)} came "
+                f"on for {format_role_bracket(outgoing, self.team_emojis)}."
+            )
+
+        return lines
+
     async def run_ai_substitution_window(
         self,
         interaction: discord.Interaction,
@@ -3631,7 +3704,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{prefix}# Coaching Choice\n"
                 f"{format_team_side_label(setup)}:\n{body}"
             )
-            await self.refresh_match_image(interaction, game)
+            # Before kickoff there is no board up yet, deliberately --
+            # finish_setup_coaching posts it once both coaches are
+            # done, and an AI window is not the moment to break that.
+            if match.pending_setup_stage is None:
+                await self.refresh_match_image(interaction, game)
         elif lead_in and occasion.spends_declaration:
             # A new play's lead-in is the announcement that opened the
             # window -- the goal, the miss -- and has to be posted
@@ -4712,16 +4789,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         """
-        Both coaches are done, so the game can start. The board was
-        pinned before either of them touched it, so it is brought up to
-        date here rather than pinned again -- see "Discord's rate
-        limits" in CLAUDE.md for why a second pin is not free.
+        Both coaches are done, so the game can start -- and this is
+        where the board first goes up. Nothing has been played yet, so
+        a board posted before the windows would show a deal neither
+        coach had finished with, and be redrawn twice over before
+        anyone acted on it; the one worth looking at is the line-up the
+        game actually kicks off from.
+
+        That makes this the kickoff board, so it is pinned here. It is
+        the persistent message every later refresh edits, so the pin
+        never needs re-cutting -- see "Discord's rate limits" in
+        CLAUDE.md for why a second pin is not free.
         """
         match.pending_setup_stage = None
         game.match_state = match.to_dict()
         save_games(self.games)
 
         await self.refresh_match_image(interaction, game)
+        await self.pin_board(interaction, game)
         try:
             await self.send_turn_prompt(interaction, game)
         except ValueError as error:
@@ -5752,6 +5837,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """Render the board and wrap it for a single upload."""
         return self.match_file_from_png(
             game, await self.render_match_png(game),
+        )
+
+    async def pin_board(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        """
+        Pin the persistent board message itself. Only the kickoff does
+        this: every other pinned board is a snapshot of its own, but
+        the kickoff board *is* the message every later refresh edits,
+        so pinning it once keeps a live board at the top of the
+        channel and never needs re-cutting.
+
+        A pin is a request and a "pinned a message" post, so nothing
+        else may call this -- see "Discord's rate limits" in CLAUDE.md.
+        """
+        if game.message_id is None or interaction.channel is None:
+            return
+        await pin_board_message(
+            interaction.channel.get_partial_message(game.message_id)
         )
 
     async def post_new_play_board(
