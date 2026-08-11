@@ -298,6 +298,43 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(message.most_in_flight, 1)
 
+    async def test_a_write_being_retried_does_not_open_the_window(self) -> None:
+        # The amplifier, and the shape of the third batch of warnings.
+        # discord.py handles a 429 *inside* the single await this code
+        # makes: it sleeps and retries up to five times, so one throttled
+        # PATCH can sit in flight for twenty-odd seconds. The interval was
+        # recorded when the write began, so by the time it was retrying
+        # the window read as long open, and every refresh behind it went
+        # out at once and alongside it -- more requests into the bucket
+        # that was already refusing them. The lock is what breaks that:
+        # the window reopening is not permission to write while a write
+        # is still going.
+        cog, game, channel, interaction = self.build()
+        message, real_sleep = channel.message, asyncio.sleep
+
+        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+            writing = asyncio.create_task(
+                cog.refresh_match_image(interaction, game),
+            )
+            await message.started.wait()
+
+            # Discord has been refusing this PATCH for half a minute.
+            cog.board_refreshed_at[game.game_id] -= BOARD_REFRESH_INTERVAL * 5
+
+            await cog.refresh_match_image(interaction, game)
+            for _ in range(4):
+                await real_sleep(0)
+
+            self.assertEqual(message.most_in_flight, 1)
+
+            message.release.set()
+            await writing
+            await asyncio.gather(*cog.board_refresh_tasks.values())
+
+        # The state that arrived mid-retry still reaches the message.
+        self.assertEqual(message.edits, 2)
+        self.assertEqual(message.most_in_flight, 1)
+
 
 class UnchangedBoardTests(unittest.IsolatedAsyncioTestCase):
     """

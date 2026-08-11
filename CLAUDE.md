@@ -820,6 +820,17 @@ same budget. So:
     two PATCHes on one message in the same instant. That is the one thing an
     interval cannot space out, and it is what a pair of 429s logged in the same
     second was.
+    - **It is also what turns one 429 into a burst of them.** discord.py
+      handles a 429 *inside* the single await this code makes -- it sleeps the
+      `retry_after` and tries again, up to five times -- so one throttled PATCH
+      can hold that await for twenty-odd seconds. The interval is recorded when
+      the write begins, so while it was retrying the window read as long open
+      and every refresh behind it went out at once, into the bucket that was
+      already refusing them. So a burst of warnings is not evidence of a burst
+      of clicks: the third batch is four retries of one request, and the gate
+      fed it. **The window reopening is not permission to write while a write
+      is still going**, which is why the lock and not a shorter interval is the
+      answer.
   - **A write in flight does not stand in for a request that arrives during
     it.** The board it is putting up was drawn before that request, so the want
     is recorded in `board_refresh_wanted` and a pass that finds the flag set
