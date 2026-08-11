@@ -22,6 +22,7 @@ the reason -- see EXTRA_ROLES and EXTRA_NOTES.
 import argparse
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -268,6 +269,17 @@ def role_abilities(
     return rows
 
 
+def arc_rise(move: Move) -> float:
+    """
+    How far above the strip a move's arc peaks. It grows with the
+    distance so a High Pass's three throws out of one space stay told
+    apart, and the diagram is laid out around the tallest of them --
+    which is why this is a function and not a number inside the drawing
+    loop.
+    """
+    return 18 + 20 * abs(move.offset) + move.lift
+
+
 def draw_arrowhead(
     pen: Pen,
     tip: tuple[float, float],
@@ -289,46 +301,91 @@ def draw_arrowhead(
     )
 
 
-# Where each maneuver goes on the strip, as (offset in spaces from the
-# ball, what lands there, colour, dashed) -- dashed being the variant a
-# role ability unlocks rather than the ordinary move. Offsets are in
-# spaces forward for the attacking side, so a defensive push is
-# negative on every card and the diagrams read against each other.
-STRIP_MOVES: dict[str, tuple[tuple[int, str, str, bool], ...]] = {
+class Move(NamedTuple):
+    """
+    One arc on the strip diagram.
+
+    `offset` is in spaces along the offense's attacking direction, which
+    is the diagram's one axis -- so it is where the piece ends up on the
+    picture, never "forward" or "back" from anybody's point of view.
+    Those two words mean opposite things to the two sides and are what
+    got Pressure and Steal Intercept drawn mirrored: a challenger's
+    forward is toward the goal *they* attack, and a steal's back is
+    toward the new possessor's own goal, which is the goal the offense
+    was attacking. Both are verified against `move_player_relative`.
+
+    `start` is the x it leaves from within the ball's space, so an arc
+    departs the token that actually moves rather than the middle of the
+    space. `caption_at` may sit between two spaces, for a caption that
+    covers both. `row` and `lift` keep two arcs out of each other's way.
+    """
+
+    offset: int
+    label: str
+    side: str
+    dashed: bool = False
+    caption_at: float | None = None
+    start: float = 0.0
+    end: float = 0.0
+    lift: float = 0.0
+    row: int | None = None
+
+    @property
+    def caption_space(self) -> float:
+        return self.offset if self.caption_at is None else self.caption_at
+
+    @property
+    def caption_row(self) -> int:
+        return (1 if self.dashed else 0) if self.row is None else self.row
+
+
+# A dashed arc is a role's variant rather than the ordinary move, and
+# that is the only thing the dashes mean -- Low Pass's backward option
+# is solid because it is a choice any passer has.
+STRIP_MOVES: dict[str, tuple[Move, ...]] = {
     "Low Pass": (
-        (2, "nearest ahead", "offense", False),
-        (-2, "or behind", "offense", False),
+        Move(2, "nearest ahead", "offense"),
+        Move(-2, "or behind", "offense"),
     ),
     "Dribble Advance": (
-        (1, "handler + ball", "offense", False),
-        (2, "playmaker", "offense", True),
+        Move(1, "handler + ball", "offense"),
+        Move(2, "playmaker", "offense", dashed=True),
     ),
     "High Pass": (
-        (2, "received", "offense", False),
-        (3, "contested", "offense", False),
-        (4, "fullback", "offense", True),
+        Move(2, "received\nmay set up scoring", "offense"),
+        Move(3, "contested", "offense", caption_at=3.5),
+        Move(4, "fullback", "offense", dashed=True),
     ),
     "Block Deflect": (
-        (-1, "ball back", "defense", False),
-        (-2, "fullback", "defense", True),
+        Move(-1, "ball back", "defense"),
+        Move(-2, "fullback", "defense", dashed=True),
     ),
+    # The interceptor falls back toward their own goal, which is the one
+    # the offense was attacking -- so a steal moves the ball the way the
+    # offense was going, not against it.
     "Steal Intercept": (
-        (-1, "carrier + ball", "defense", False),
+        Move(1, "carrier + ball", "defense", start=19),
     ),
+    # Both end on the same space: the handler is shoved back and the
+    # challenger advances onto them, and a Defender's won Pressure
+    # steals, which it could not do from anywhere else.
+    # Each arc runs token to token, or the two would share an endpoint
+    # and one arrowhead would be drawn under the other.
     "Pressure": (
-        (-1, "handler + ball", "offense", False),
-        (1, "challenger", "defense", False),
+        Move(-1, "handler + ball", "offense", start=-19, end=-19),
+        Move(-1, "challenger", "defense", start=19, end=19, lift=26, row=1),
     ),
 }
 # What stands on the ball's space to begin with, and what a landing
-# space is drawn holding. A blank landing means the ball alone.
+# space is drawn holding. A blank landing means the ball alone, and the
+# space carries the distance instead.
 STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
     "Low Pass": ("H", {2: "R", -2: "R"}),
     "Dribble Advance": ("H", {1: "H", 2: "H"}),
     "High Pass": ("H", {}),
     "Block Deflect": ("H", {}),
-    "Steal Intercept": ("HC", {-1: "C"}),
-    "Pressure": ("HC", {-1: "H", 1: "C"}),
+    "Steal Intercept": ("HC", {1: "C"}),
+    "Pressure": ("HC", {-1: "HC"}),
 }
 
 
@@ -360,10 +417,41 @@ def draw_strip(
         width=2,
     )
 
+    moves = STRIP_MOVES[maneuver.name]
+    standing, landings = STRIP_ACTORS[maneuver.name]
+
     space_width = (right - left) / STRIP_SPACES
     strip_height = 76
-    label_room = 56
-    strip_top = top + height - label_room - strip_height - 10
+    # How deep the caption block is depends on the maneuver: High Pass
+    # says two lines about its 2-space landing and still needs a row
+    # below for the Fullback's. The strip floats up to make room rather
+    # than the captions being squeezed.
+    caption_line = 25
+    rows = sorted({move.caption_row for move in moves})
+    row_lines = {
+        row: max(
+            len(move.label.split("\n"))
+            for move in moves
+            if move.caption_row == row
+        )
+        for row in rows
+    }
+    row_top = {}
+    cursor = 0.0
+    for row in rows:
+        row_top[row] = cursor
+        cursor += row_lines[row] * caption_line
+    label_room = cursor + 12
+
+    # The diagram is centred in the panel rather than sitting on its
+    # floor. How tall it is varies a lot -- High Pass's longest arc
+    # rises four spaces' worth above the strip and Steal Intercept's
+    # one arc barely leaves it -- so a fixed anchor leaves one card or
+    # the other with a band of empty panel.
+    tallest = max(arc_rise(move) for move in moves)
+    ink_above = strip_height / 2 - 30 - tallest - 12
+    block = strip_height + label_room - ink_above
+    strip_top = top + 46 + ((height - 54) - block) / 2 - ink_above
     for index in range(STRIP_SPACES):
         space_left = left + index * space_width
         pen.rect(
@@ -383,7 +471,7 @@ def draw_strip(
     forward = 1 if ATTACK_RIGHT else -1
     here = BALL_SPACE
 
-    def center(index: int) -> tuple[float, float]:
+    def center(index: float) -> tuple[float, float]:
         return (
             left + (index + 0.5) * space_width,
             strip_top + strip_height / 2,
@@ -411,12 +499,14 @@ def draw_strip(
             anchor="mm",
         )
 
-    def arc(offset: int, color: str, dashed: bool) -> None:
+    def arc(move: Move, color: str) -> None:
         x0, y0 = center(here)
-        x1, y1 = center(here + offset * forward)
+        x1, y1 = center(here + move.offset * forward)
+        x0 += move.start
+        x1 += move.end
         y0 -= 30
         y1 -= 30
-        peak = min(y0, y1) - (24 + 15 * abs(offset))
+        peak = min(y0, y1) - arc_rise(move)
         steps = 30
         points = []
         for step in range(steps + 1):
@@ -424,7 +514,7 @@ def draw_strip(
             x = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * (x0 + x1) / 2 + t**2 * x1
             y = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * peak + t**2 * y1
             points.append((x, y))
-        if dashed:
+        if move.dashed:
             for step in range(0, steps - 3, 3):
                 pen.line(points[step : step + 2], fill=color, width=5)
         else:
@@ -434,67 +524,77 @@ def draw_strip(
         length = max((dx * dx + dy * dy) ** 0.5, 0.001)
         draw_arrowhead(pen, tip, (dx / length, dy / length), 19, color)
 
-    def caption(offset: int, text: str, color: str, row: int) -> None:
+    def caption(move: Move, color: str) -> None:
         """
-        Hung under the landing space, on the second row when the move
-        is a role's variant. Two rows is what keeps High Pass legible:
-        its three landings are on consecutive spaces, so three captions
-        on one row have less than a space's width each.
+        Hung under the space the move lands on -- or between two of
+        them, where one caption covers both, as a High Pass's contested
+        3 and 4 do. A second row keeps two captions on neighbouring
+        spaces off each other; a role's variant takes it by default.
         """
-        cx, _ = center(here + offset * forward)
+        cx, _ = center(here + move.caption_space * forward)
         # How much room this caption has is how far the next caption on
         # its row is: High Pass lands on consecutive spaces and gets a
         # space's width each, while a lone caption may run wide.
         neighbours = [
-            abs(other - offset)
-            for other, _, _, other_dashed in STRIP_MOVES[maneuver.name]
-            if other != offset and (1 if other_dashed else 0) == row
+            abs(other.caption_space - move.caption_space)
+            for other in moves
+            if other is not move and other.caption_row == move.caption_row
         ]
         room = space_width * (min(neighbours) if neighbours else 2.4) - 8
+        lines = move.label.split("\n")
         for size in range(17, 11, -1):
             face = font(size, bold=True)
-            width = pen.text_size(text, face)[0]
+            width = max(pen.text_size(line, face)[0] for line in lines)
             if width <= room:
                 break
         # A caption on the first or last space would otherwise hang off
         # the panel, so it slides back inside rather than being cut.
         cx = min(max(cx, left + width / 2), right - width / 2)
-        pen.text(
-            (cx, strip_top + strip_height + 8 + row * 26),
-            text,
-            face,
-            color,
-            anchor="ma",
-        )
+        y = strip_top + strip_height + 8 + row_top[move.caption_row]
+        for line in lines:
+            pen.text((cx, y), line, face, color, anchor="ma")
+            y += caption_line
 
-    moves = STRIP_MOVES[maneuver.name]
-    standing, landings = STRIP_ACTORS[maneuver.name]
-
-    for offset, _, side, dashed in moves:
-        arc(offset, colors[side], dashed)
-
-    for offset, label, side, dashed in moves:
-        who = landings.get(offset)
-        if who is not None:
+    def ghosts(index: float, who: str) -> None:
+        if len(who) == 1:
+            token(index, colors["offense" if who in "HR" else "defense"], who,
+                  ghost=True)
+            return
+        for label, offset in zip(who, (-19, 19)):
             token(
-                here + offset * forward,
-                colors["offense"] if who in "HR" else colors["defense"],
-                who,
+                index,
+                colors["offense" if label in "HR" else "defense"],
+                label,
                 ghost=True,
+                offset=offset,
+                radius=20,
             )
+
+    for move in moves:
+        arc(move, colors[move.side])
+
+    drawn: set[int] = set()
+    for move in moves:
+        who = landings.get(move.offset)
+        if who is not None:
+            # Pressure's two moves land on one space, so its pair of
+            # ghosts is drawn once rather than once per arc.
+            if move.offset not in drawn:
+                ghosts(here + move.offset * forward, who)
+                drawn.add(move.offset)
         else:
             # Nothing lands here but the ball, so the space carries how
             # far it came instead -- the distance is the choice on a
             # High Pass and the ability on a Block Deflect.
-            cx, cy = center(here + offset * forward)
+            cx, cy = center(here + move.offset * forward)
             pen.text(
                 (cx, cy + 1),
-                str(abs(offset)),
+                str(abs(move.offset)),
                 font(30, bold=True),
                 PANEL_EDGE,
                 anchor="mm",
             )
-        caption(offset, label, colors[side], 1 if dashed else 0)
+        caption(move, colors[move.side])
 
     # The ball's own space last, so its tokens sit over the arcs that
     # leave it. Pressure is the one maneuver with both players on it.
@@ -514,16 +614,16 @@ def draw_strip(
     pen.circle((ball_x, ball_y - 19), 12, outline="#f1ebdd", width=2)
 
     pen.text(
-        (right, top + 20),
+        (right, top + 16),
         f"offense attacks {'→' if ATTACK_RIGHT else '←'}",
-        font(17),
+        font(16),
         MUTED,
         anchor="ra",
     )
     pen.text(
-        (left, top + 20),
+        (left, top + 16),
         "H handler   C challenger",
-        font(17),
+        font(16),
         MUTED,
         anchor="la",
     )
@@ -716,7 +816,7 @@ def render_card(
         title_y += title_step
 
     strip_top = header_top + header_height + 22
-    strip_height = 250
+    strip_height = 288
     draw_strip(pen, maneuver, strip_top, strip_height)
 
     # The two bands below are placed from the bottom edge up, so the

@@ -1209,6 +1209,16 @@ python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
   - **A dashed arc is a role's variant and a solid one is the ordinary move.**
     That is the only thing the dashes mean, which is why Low Pass's backward
     option is solid -- it is a choice any passer has, not an ability.
+  - **A move's offset is along the offense's attacking direction, never
+    "forward" or "back".** Those two words mean opposite things to the two
+    sides and are what got Pressure and Steal Intercept drawn mirrored:
+    a challenger's forward is toward the goal *they* attack, so Pressure moves
+    the handler and the challenger onto the **same** space (which is how a
+    Defender's won Pressure can steal at all); and a steal's back is toward the
+    new possessor's own goal, which is the goal the offense was attacking, so
+    the ball travels the way the offense was going. Both are verified against
+    `move_player_relative` rather than reasoned about -- run it and read the
+    flat indices before redrawing an arrow.
   - **Distances are labelled under the space they land on.** High Pass throws
     three arcs out of one space, and labelling those at their peaks stacked
     three captions on top of each other. A caption's font is sized to the gap
