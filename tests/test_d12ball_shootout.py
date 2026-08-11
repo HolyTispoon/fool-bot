@@ -21,6 +21,7 @@ from unittest import mock
 
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
+    CoachingHubView,
     ShootoutOrderPromptView,
     ShootoutOrderSelectView,
     ShootoutPickPromptView,
@@ -28,6 +29,7 @@ from cogs.d12ball_views import (
     ShootoutTestView,
 )
 from d12ball.components import (
+    CoachingOccasion,
     MatchPeriod,
     MatchState,
     TeamSide,
@@ -365,7 +367,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         match.scoreboard.visiting_score = visiting_score
         return match
 
-    async def test_a_level_full_time_opens_the_shootout(self) -> None:
+    async def test_a_level_full_time_opens_the_last_window(self) -> None:
         cog = build_cog()
         game = build_game()
         match = self.build_match()
@@ -376,14 +378,15 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch("cogs.d12ball.save_games"):
             await cog.end_period(interaction, game, match)
 
-        # The game is not over: it is the shootout that ends it.
+        # The game is not over: it is the shootout that ends it, and
+        # one substitution a side comes before the shooting starts.
         self.assertFalse(game.is_finished)
         self.assertIsNone(game.rematch_message_id)
-        self.assertTrue(match.pending_shootout)
+        self.assertEqual(match.pending_full_time_stage, "coaching_home")
+        self.assertFalse(match.pending_shootout)
         texts = sent_texts(interaction)
         self.assertIn("Full time!", texts[0])
-        self.assertIn("extreme shootout", texts[1])
-        self.assertIn("set the order", texts[2])
+        self.assertIn("Before the shootout", texts[1])
 
     async def test_the_whistle_recovers_no_exhaustion(self) -> None:
         # Halftime takes a token off every fielded player; full time
@@ -514,6 +517,246 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         view, ask = cog.pending_turn_view(game.game_id, match)
 
         self.assertIn("injury test", ask)
+
+
+class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The Coaching Choice between the whistle and the shooting: one
+    substitution a side, home first, and nothing else offered. See
+    "Full time" in docs/living-rules.md.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build(self, **game_overrides):
+        cog = build_cog()
+        game = build_game(**game_overrides)
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.scoreboard.period = MatchPeriod.SECOND_HALF
+        match.scoreboard.home_score = 2
+        match.scoreboard.visiting_score = 2
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        return cog, game, match
+
+    async def test_home_coaches_first_then_the_visitors_then_the_shooting(
+        self,
+    ) -> None:
+        cog, game, match = self.build()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_full_time_coaching(
+                build_interaction(), game, match,
+            )
+            self.assertEqual(match.pending_coaching_side, "home")
+            self.assertEqual(
+                match.coaching_occasion, CoachingOccasion.FULL_TIME,
+            )
+            self.assertFalse(match.pending_shootout)
+
+            await cog.finish_substitution_window(
+                build_interaction(), game, match,
+            )
+            self.assertEqual(match.pending_coaching_side, "visiting")
+            self.assertFalse(match.pending_shootout)
+
+            await cog.finish_substitution_window(
+                build_interaction(), game, match,
+            )
+
+        self.assertIsNone(match.pending_full_time_stage)
+        self.assertIsNone(match.pending_coaching_side)
+        self.assertTrue(match.pending_shootout)
+
+    async def test_one_substitution_and_it_is_the_window_s_own(self) -> None:
+        cog, game, match = self.build()
+        # Both halves' allowances are already spent, which changes
+        # nothing here: full time's one is counted inside the window.
+        match.half_substitutions_used = {"home": 2}
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_full_time_coaching(
+                build_interaction(), game, match,
+            )
+
+            self.assertEqual(match.substitutions_remaining(), 1)
+            self.assertEqual(
+                cog.substitution_button_label(match),
+                "1 left before the shootout",
+            )
+
+            cog.apply_substitution(
+                match,
+                TeamSide.HOME,
+                match.home.field_players[0],
+                match.home.team_board.bench[0],
+            )
+
+        self.assertEqual(match.substitutions_remaining(), 0)
+        self.assertFalse(match.may_substitute())
+        self.assertEqual(match.half_substitutions_used, {"home": 2})
+
+    async def test_the_menu_offers_the_substitution_alone(self) -> None:
+        # A shootout is played by who is on the field and by nothing
+        # about where they stand, so the three positional actions are
+        # not built at all -- not built and disabled, since there is
+        # nothing a coach could do to enable them.
+        cog, game, match = self.build()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_full_time_coaching(
+                build_interaction(), game, match,
+            )
+
+        labels = [
+            item.label
+            for item in CoachingHubView(cog, game.game_id).children
+        ]
+        self.assertEqual(
+            labels,
+            [
+                "Substitution (1 left before the shootout)",
+                "Team roster",
+                "Done coaching",
+            ],
+        )
+
+    async def test_a_side_with_nobody_to_bring_on_is_passed_over(
+        self,
+    ) -> None:
+        cog, game, match = self.build()
+        # A drained bench, and nobody injured to open the back bench:
+        # the menu would be a Done button with extra steps.
+        match.home.team_board.back_bench.extend(match.home.team_board.bench)
+        match.home.team_board.bench.clear()
+        game.match_state = match.to_dict()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_full_time_coaching(
+                build_interaction(), game, match,
+            )
+
+        self.assertEqual(match.pending_coaching_side, "visiting")
+        self.assertEqual(match.pending_full_time_stage, "coaching_visiting")
+
+    async def test_the_window_leaves_the_arrangement_alone(self) -> None:
+        # Nothing is played from a position after this, so the window
+        # neither opens on the coach's arrangement -- which would
+        # rearrange the last board of the game -- nor records where the
+        # second half left them over the top of it.
+        cog, game, match = self.build()
+        match.set_assigned_positions(TeamSide.HOME)
+        arrangement = {
+            player_id: list(position)
+            for player_id, position in match.assigned_positions.items()
+        }
+        strayed = match.home.field_players[0]
+        zone, space = match.board.meeple_position(strayed)
+        match.board.remove_meeple(strayed)
+        match.board.place_meeple(strayed, zone, 1 - space)
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_full_time_coaching(
+                build_interaction(), game, match,
+            )
+            self.assertEqual(
+                match.board.meeple_position(strayed), (zone, 1 - space),
+            )
+            await cog.finish_substitution_window(
+                build_interaction(), game, match,
+            )
+
+        self.assertEqual(match.assigned_positions, arrangement)
+
+    async def test_a_substitute_shoots(self) -> None:
+        # The six who shoot are the six on the field when the shootout
+        # starts, which is after this window and not before it.
+        cog, game, match = self.build()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_full_time_coaching(
+                build_interaction(), game, match,
+            )
+            outgoing = match.home.field_players[0]
+            incoming = match.home.team_board.bench[0]
+            cog.apply_substitution(
+                match, TeamSide.HOME, outgoing, incoming,
+            )
+            await cog.finish_substitution_window(
+                build_interaction(), game, match,
+            )
+            await cog.finish_substitution_window(
+                build_interaction(), game, match,
+            )
+
+        squad = match.shootout_squad(TeamSide.HOME)
+        self.assertIn(incoming, squad)
+        self.assertNotIn(outgoing, squad)
+        self.assertEqual(len(squad), 6)
+
+    async def test_a_restart_comes_back_to_the_hub(self) -> None:
+        cog, game, match = self.build()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_full_time_coaching(
+                build_interaction(), game, match,
+            )
+
+        # Through a save and back, since this is what a restart reads.
+        reloaded = cog.load_match_state(game)
+        self.assertEqual(reloaded.pending_full_time_stage, "coaching_home")
+        view, ask = cog.pending_turn_view(game.game_id, reloaded)
+        self.assertIsInstance(view, CoachingHubView)
+        self.assertIn("before the shootout", ask)
+
+    async def test_a_restart_between_the_two_coaches_is_driven_on(
+        self,
+    ) -> None:
+        # The visitors' window is the bot's own next step, so a process
+        # that died after the home coach finished left nothing to
+        # click. Resume hands it back to the sequence.
+        cog, game, match = self.build()
+        match.pending_full_time_stage = "coaching_visiting"
+        game.match_state = match.to_dict()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            where = await cog.resume_pending_prompt(
+                build_interaction(222), game, cog.load_match_state(game),
+            )
+
+        self.assertIn("before the shootout", where)
+        reloaded = cog.load_match_state(game)
+        self.assertEqual(reloaded.pending_coaching_side, "visiting")
+
+    async def test_the_ai_takes_its_own_window(self) -> None:
+        # Dinky only ever substitutes to get an injured player off, so
+        # a healthy side simply finishes -- and either way the shootout
+        # is what it hands on to.
+        cog, game, match = self.build(
+            player_2_id=None,
+            player_2_name=None,
+            ai_opponent=AIOpponent.DINKY,
+        )
+        hurt = match.visiting.field_players[0]
+        match.injured.add(hurt)
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_full_time_coaching(interaction, game, match)
+            self.assertEqual(match.pending_coaching_side, "home")
+            await cog.finish_substitution_window(interaction, game, match)
+
+        self.assertNotIn(hurt, match.visiting.field_players)
+        self.assertTrue(match.pending_shootout)
 
 
 class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):

@@ -36,41 +36,62 @@ class TeamSide(str, Enum):
 
 class CoachingOccasion(str, Enum):
     """
-    The three occasions that offer a coach a Coaching Choice. They run
-    the same four actions and differ only in the three things below --
-    see "Coaching Choice" in docs/living-rules.md.
+    The four occasions that offer a coach a Coaching Choice. They run
+    the same four actions -- save FULL_TIME, which runs one of them --
+    and differ otherwise only in the properties below. See "Coaching
+    Choice" in docs/living-rules.md.
     """
 
     SETUP = "setup"
     NEW_PLAY = "new_play"
     HALFTIME = "halftime"
+    FULL_TIME = "full_time"
 
     @property
     def substitution_allowance(self) -> Optional[int]:
         """
         How many substitutions this occasion allows, or None for no
         limit. Setup is unlimited because nobody has played yet;
-        halftime's 2 are its own, and a new play's come out of the
-        side's 2 for the half.
+        halftime's 2 and full time's 1 are their own, and a new play's
+        come out of the side's 2 for the half.
         """
-        return None if self == CoachingOccasion.SETUP else 2
+        if self == CoachingOccasion.SETUP:
+            return None
+        return 1 if self == CoachingOccasion.FULL_TIME else 2
 
     @property
     def counts_against_the_half(self) -> bool:
         """
         Whether a substitution here spends one of the side's two for
         the half. Only open play's does, which is what lets a side
-        substitute six times in a game -- two a half, plus halftime's
-        own two.
+        substitute seven times in a game -- two a half, plus halftime's
+        own two and full time's one.
         """
         return self == CoachingOccasion.NEW_PLAY
+
+    @property
+    def offers_positioning(self) -> bool:
+        """
+        Whether this occasion offers the three actions that move
+        meeples -- formation, zone assignment, space positioning -- on
+        top of the substitution. Full time does not: the shootout is
+        played by whoever is on the field and by nothing about where
+        they stand, so all three would rearrange a side that never
+        plays from a position again.
+
+        It governs the arrangement as well as the menu, which is the
+        same fact read at both ends: a window with no positioning in it
+        neither opens on the coach's arrangement nor records one.
+        """
+        return self != CoachingOccasion.FULL_TIME
 
     @property
     def spends_declaration(self) -> bool:
         """
         Whether taking this window up costs the side their once-a-half
-        declaration. Setup and halftime are given rather than declared,
-        so neither is asked for and neither is charged.
+        declaration. Setup, halftime and full time are given rather
+        than declared, so none is asked for and none is charged --
+        full time has no half left for a declaration to belong to.
         """
         return self == CoachingOccasion.NEW_PLAY
 
@@ -788,6 +809,11 @@ class MatchState:
     # game saved before setup offered one -- those kicked off on the
     # standard deal and are already past this.
     pending_setup_stage: Optional[str] = None
+    # Which side is still to take their Coaching Choice between the
+    # whistle and the shootout, as a FULL_TIME_STAGES value. Set only
+    # on a level score, and cleared before the shootout opens -- so a
+    # saved game has this or `pending_shootout`, never both.
+    pending_full_time_stage: Optional[str] = None
     # Where each coach last *put* their meeples, as player_id ->
     # [zone, space_index]. See set_assigned_positions.
     assigned_positions: dict[str, list] = field(default_factory=dict)
@@ -1988,8 +2014,8 @@ class MatchState:
         callers have to handle rather than treating as zero.
 
         A new play's come out of the side's two for the half, spent
-        across every window they get in it; halftime's two are its own
-        and are counted within the window.
+        across every window they get in it; halftime's two and full
+        time's one are their own and are counted within the window.
         """
         occasion = self.coaching_occasion
         if self.pending_coaching_side is None or occasion is None:
@@ -2442,10 +2468,11 @@ class MatchState:
 
         **The six who shoot are the six on the field**, in the state
         the second period left them: exhaustion counts, injuries and
-        all. Nobody comes off the bench for it, so there is no squad
-        to record here -- every method below reads
-        `setup_for_side(...).field_players`, which is the same six
-        until the game ends.
+        all. The whistle's own Coaching Choice has already closed by
+        the time this runs, and it is the last substitution either
+        side gets -- so there is no squad to record here. Every method
+        below reads `setup_for_side(...).field_players`, which is the
+        same six until the game ends.
         """
         self.pending_shootout = True
         self.shootout_round = 1
@@ -2822,6 +2849,7 @@ class MatchState:
             ],
             "pending_halftime_stage": self.pending_halftime_stage,
             "pending_setup_stage": self.pending_setup_stage,
+            "pending_full_time_stage": self.pending_full_time_stage,
             "assigned_positions": {
                 player_id: list(position)
                 for player_id, position in self.assigned_positions.items()
@@ -2989,6 +3017,11 @@ class MatchState:
             ],
             pending_halftime_stage=data.get("pending_halftime_stage"),
             pending_setup_stage=data.get("pending_setup_stage"),
+            # None for every game saved before the whistle offered a
+            # window, including one already in a shootout: those went
+            # straight from full time to the order prompt and are past
+            # this either way.
+            pending_full_time_stage=data.get("pending_full_time_stage"),
             # A game saved before arrangements were remembered has
             # none. Left empty, restore_assigned_positions moves
             # nobody, so such a game simply keeps the old behaviour

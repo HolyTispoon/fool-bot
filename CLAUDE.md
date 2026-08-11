@@ -171,18 +171,34 @@ positioning. See "Coaching Choice" in the living rules. They were three flows
 offering overlapping subsets of those four; a coach should not have to learn
 three menus to do one job.
 
-- **`CoachingOccasion` carries every difference between the three**, as
+A fourth occasion joined them: the window between full time and the
+[extreme shootout](#the-extreme-shootout). It is the same flow, with **one
+substitution and none of the other three actions** -- a shootout is played by
+who is on the field and by nothing about where they stand, so formation, zone
+assignment and space positioning would move meeples that never play again.
+
+- **`CoachingOccasion` carries every difference between the four**, as
   properties rather than as flags at the call sites: the substitution
-  allowance, whether the declare-or-pass offer is put at all (and charged), and
-  whether a player taken off is retired to the back bench. Anything that
-  differs by occasion belongs on that enum, not in an `if` in the cog.
-- **Three substitution budgets, not one.** Setup is unlimited, so
+  allowance, whether the declare-or-pass offer is put at all (and charged),
+  whether a player taken off is retired to the back bench, and whether the
+  three positional actions are offered at all. Anything that differs by
+  occasion belongs on that enum, not in an `if` in the cog.
+- **`offers_positioning` governs the arrangement as well as the menu**, which
+  is one fact read at both ends: a window with no positioning in it neither
+  opens on the coach's arrangement (`begin_substitution_window` skips the
+  restore) nor records one (`finish_substitution_window` skips
+  `set_assigned_positions`). Restoring at full time would rearrange the last
+  board of the game, and recording would overwrite an arrangement nothing will
+  ever read. `CoachingHubView` simply does not build the three buttons, rather
+  than building them disabled -- there is nothing a coach could do to enable
+  them.
+- **Four substitution budgets, not one.** Setup is unlimited, so
   `substitutions_remaining()` returns **None** there -- callers have to tell
   that apart from a limit of zero, which is what `may_substitute()` and
   `substitution_allowance_label` are for. A new play's come out of
-  `half_substitutions_used`, per side, cleared at halftime; halftime's two are
-  counted inside the window and charged to neither half. So a side can
-  substitute six times in a game.
+  `half_substitutions_used`, per side, cleared at halftime; halftime's two and
+  full time's one are counted inside the window and charged to neither half.
+  So a side can substitute seven times in a game.
 - **The declaration and the counter are separate gates.**
   `may_declare_coaching` is once a half and decides whether a side is *offered*
   a new play's window at all; the counter decides how many swaps they get in
@@ -225,10 +241,18 @@ three menus to do one job.
   half-field a coach works from should show their own shape whatever brought
   them there. `repost_coaching_prompt` deliberately does *not* restore: that is
   a resume, and the window's own moves have already happened.
-- **Setup and halftime each have their own stage sequence** (`SETUP_STAGES`,
-  `HALFTIME_STAGES`), and `finish_substitution_window` routes back into
-  whichever is running instead of offering the other side a response. Both run
-  **the side kicking off first** -- home at setup, the visitors at halftime.
+- **Setup, halftime and full time each have their own stage sequence**
+  (`SETUP_STAGES`, `HALFTIME_STAGES`, `FULL_TIME_STAGES`), and
+  `finish_substitution_window` routes back into whichever is running instead of
+  offering the other side a response. The first two run **the side kicking off
+  first** -- home at setup, the visitors at halftime. Nobody kicks anything off
+  at full time, so home going first there is the author's call and not the
+  position's.
+- **A full-time window with nothing in it is skipped, silently.** Its only
+  action is the substitution, so a side `side_can_substitute` says no to would
+  get a Done button with extra steps. Halftime's extra-token stage skips the
+  same way for the same reason. Every other occasion has three more actions to
+  fall back on, so none of them skips.
 - **The kickoff space is the only thing that can hold a coach in the flow.**
   `coaching_finish_refusal` refuses Done until the side kicking off the coming
   period has somebody on it. An AI has no menu to be held in, so
@@ -351,6 +375,15 @@ score alone. A saved game still carrying `tie_mode` loads without it rather than
 being skipped, which is what the retired-field filter in
 `gamesaves/d12ball/storage.py` is for; nothing writes the key any more, so it
 dies out on its own.
+
+- **A level score opens a Coaching Choice first, not the shootout.**
+  `end_period` hands off to `begin_full_time_coaching`, one substitution to
+  each coach, and `finish_full_time_coaching` is the only caller of
+  `begin_shootout` -- so **the six who shoot are the six on the field when the
+  shooting starts**, which is after that window and not at the whistle.
+  `pending_full_time_stage` and `pending_shootout` are therefore never both
+  set, and `pending_turn_view` reads the first ahead of everything a turn
+  leaves behind, exactly as it does for setup and halftime.
 
 - **`D12Ball.advance_shootout` is the only reading of "what is this shootout
   waiting on?"**, and `pending_turn_view` answers the same three questions in
@@ -975,9 +1008,9 @@ Three more ways a restart strands a game, none of them about ephemerality:
 - The process died **before the prompt it was about to send was recorded**.
 - The process died **in the middle of a cascade whose next step was the bot's
   own**. This is the one that strands a game hardest: `continue_run_back`, the
-  setup sequence, the halftime sequence and the shootout are driven from a live
-  interaction, so there is no button anywhere and nothing will ever pick the
-  state back up.
+  setup sequence, the halftime sequence, the full-time one and the shootout are
+  driven from a live interaction, so there is no button anywhere and nothing
+  will ever pick the state back up.
 
 Two things follow from that:
 
@@ -986,12 +1019,13 @@ Two things follow from that:
   already on; `resume_pending_prompt` posts the same one on a fresh message. A
   second copy of that branch chain is how a resume comes to offer a different
   prompt from the one a restart restores. Its ordering carries real decisions —
-  setup and halftime are checked ahead of "no ball handler yet" because both
-  leave `active_player_id` None, and a maneuver is recognised by `challenger_id`
-  rather than `pending_action`, which `choose_challenger` clears.
+  setup, halftime and the window before the shootout are checked ahead of "no
+  ball handler yet" because all three leave `active_player_id` None, and a
+  maneuver is recognised by `challenger_id` rather than `pending_action`, which
+  `choose_challenger` clears.
 - **A state whose next step is the bot's is handed back to the routine that
   drives it**, not re-asked: `continue_run_back`, `begin_ball_recovery`,
-  `advance_setup_stage`, `advance_halftime_stage`,
+  `advance_setup_stage`, `advance_halftime_stage`, `advance_full_time_stage`,
   `run_ai_substitution_window`, `advance_shootout`. That is the whole difference
   between resume's two callers, and the reason `pending_turn_view` returns a
   view rather than posting it.
@@ -1000,14 +1034,15 @@ Two things follow from that:
   `repost_coaching_prompt` exists because `begin_substitution_window` calls
   `open_coaching_window`, which resets the substitution counter — resuming
   through it would hand a coach back the swaps they had already spent. It is
-  checked ahead of the setup and halftime stages for the same reason: both run
-  their coaching through that one window.
+  checked ahead of the setup, halftime and full-time stages for the same
+  reason: all three run their coaching through that one window.
 - **`resume force:true` clears the turn**, via `reset_maneuver` and
   `close_coaching_window`, and asks the offense to choose again. It refuses
-  during setup, halftime and the shootout: those are real positions in the game
-  rather than a turn gone wrong, and clearing them would drop a coach's window
-  -- or both coaches' shooting orders -- on the floor. `offensive_choice`
-  refuses in a shootout for the same reason; there is no turn under it.
+  during setup, halftime and the shootout -- the window before it included:
+  those are real positions in the game rather than a turn gone wrong, and
+  clearing them would drop a coach's window -- or both coaches' shooting
+  orders -- on the floor. `offensive_choice` refuses in a shootout and in that
+  window for the same reason; there is no turn under either.
 - **`/d12ball offensive_choice`'s refusals all point at resume.** "A score
   attempt is already in progress" was the symptom that started this:
   `pending_action` stays `"shoot"` for the whole post-goal sequence, since only

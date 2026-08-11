@@ -2859,9 +2859,10 @@ class RunBackChoiceView(SafeView):
 class CoachingView(SafeView):
     """
     Shared plumbing for the Coaching Choice flow -- the four actions a
-    coach may take at setup, at a new play's window, and at halftime,
-    which are the same four every time. See "Coaching Choice" in
-    docs/living-rules.md.
+    coach may take at setup, at a new play's window and at halftime,
+    which are the same four every time; the window between full time
+    and the shootout offers the substitution alone. See "Coaching
+    Choice" in docs/living-rules.md.
 
     **The whole flow lives on one message.** Every step edits it
     through `interaction.response.edit_message`, and nothing in the
@@ -3077,8 +3078,19 @@ class CoachingOfferView(CoachingView):
 
 class CoachingHubView(CoachingView):
     """
-    The six buttons a Coaching Choice offers. Each opens its own menu
-    on this same message and every one of those comes back here.
+    The buttons a Coaching Choice offers -- six of them, or three at
+    full time. Each opens its own menu on this same message and every
+    one of those comes back here.
+
+    **The window before the shootout offers the substitution alone**,
+    so the three positional buttons are not built at all rather than
+    built and disabled: there is nothing a coach could do to enable
+    them, and a shootout is not played on the board. That is the
+    occasion's own property (`offers_positioning`) rather than a check
+    on which occasion this is -- and it is why the three openers below
+    need no stale-click guard, since a window that closes takes its
+    view with it (see `finish`) and every hub is rebuilt from the state
+    it is put up against.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -3088,38 +3100,39 @@ class CoachingHubView(CoachingView):
         if match is None or match.pending_coaching_side is None:
             return
         side = self.side(match)
+        occasion = match.coaching_occasion
+        positioning = occasion is None or occasion.offers_positioning
 
-        formation = cog.current_formation(match, side)
-        # The shape in brackets is the one they are in now, not the one
-        # the button switches to, so it says so -- a bare "(2-2-2)"
-        # reads as the destination.
-        self.add_action(
-            "Formation"
-            + (f" (currently {formation.value})" if formation else ""),
-            f"d12ball:coach_formation:{game_id}",
-            self.open_formation,
-        )
+        if positioning:
+            formation = cog.current_formation(match, side)
+            # The shape in brackets is the one they are in now, not the
+            # one the button switches to, so it says so -- a bare
+            # "(2-2-2)" reads as the destination.
+            self.add_action(
+                "Formation"
+                + (f" (currently {formation.value})" if formation else ""),
+                f"d12ball:coach_formation:{game_id}",
+                self.open_formation,
+            )
         self.add_action(
             f"Substitution ({cog.substitution_button_label(match)})",
             f"d12ball:coach_sub:{game_id}",
             self.open_substitution,
             enabled=match.may_substitute()
-            and any(
-                match.substitution_pool(side, player_id)
-                for player_id in match.setup_for_side(side).field_players
-            ),
+            and cog.side_can_substitute(match, side),
         )
-        self.add_action(
-            "Zone Assignment",
-            f"d12ball:coach_zone:{game_id}",
-            self.open_zone_assignment,
-        )
-        self.add_action(
-            "Space Positioning",
-            f"d12ball:coach_space:{game_id}",
-            self.open_space_positioning,
-            row=1,
-        )
+        if positioning:
+            self.add_action(
+                "Zone Assignment",
+                f"d12ball:coach_zone:{game_id}",
+                self.open_zone_assignment,
+            )
+            self.add_action(
+                "Space Positioning",
+                f"d12ball:coach_space:{game_id}",
+                self.open_space_positioning,
+                row=1,
+            )
         self.add_action(
             "Team roster",
             f"d12ball:coach_roster:{game_id}",
