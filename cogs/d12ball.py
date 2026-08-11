@@ -234,7 +234,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.player_catalog,
             self.maneuver_catalog,
         )
-        # Per game: when its board message was last edited, the
+        # Per game: when its board message was last edited -- the
+        # moment the write *landed*, not the moment it was sent -- the
         # trailing refresh waiting to edit it again, and a digest of
         # the board already sitting on the message. See
         # refresh_match_image.
@@ -6657,6 +6658,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         same instant against a bucket that allows about five in five
         seconds.
 
+        The interval runs from the moment a write **lands**, which is
+        the whole of what makes it an interval. Timed from when a write
+        was sent it measures nothing: a board is nearly a megabyte of
+        PNG, so the request itself is seconds long on an ordinary
+        connection and twenty-odd when discord.py is sleeping off a 429
+        inside it -- and for all of that time the window reads as
+        having been open for ages. The next write then goes out the
+        instant the lock frees, into the bucket that was refusing the
+        last one. The lock stopped two writes being *concurrent*; only
+        this stops them being *consecutive*, which is the same feedback
+        loop one step along. See "Discord's rate limits" in CLAUDE.md.
+
         `png` is an already-rendered board, for a caller that is
         posting the same one somewhere else in the same breath and
         should not pay to draw it twice. It is only used when the
@@ -6687,10 +6700,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         async with lock:
             self.board_refresh_wanted.discard(game.game_id)
-            self.board_refreshed_at[game.game_id] = now
-            await self.write_board_message(
-                interaction.channel, game, png, relink=False,
-            )
+            try:
+                await self.write_board_message(
+                    interaction.channel, game, png, relink=False,
+                )
+            finally:
+                self.board_refreshed_at[game.game_id] = time.monotonic()
 
         # That write left the board without its full-image link, so a
         # settling pass is owed whether or not anything else asks for
@@ -6723,6 +6738,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         `board_refresh_tasks` and nothing rescheduled it, so the board
         kept a state the click had already moved past until somebody
         clicked again.
+
+        `delay` is when to *look*, not when to write. This pass is
+        usually queued behind a write that is still going, and its
+        sleep runs alongside that write rather than after it -- so by
+        the time the lock frees, the wait is already spent and the
+        board would be written twice in the same instant. What the
+        interval is owed is settled once the lock is held, against the
+        moment the last write landed.
         """
         self.board_refresh_wanted.add(game.game_id)
 
@@ -6738,11 +6761,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         game.game_id, asyncio.Lock(),
                     )
                     async with lock:
+                        await self.wait_out_board_interval(game)
+                        # Discarded after the wait and before the write,
+                        # so this pass covers everything asked for up to
+                        # the moment it starts drawing, and anything
+                        # asked for during the write is left to the next.
                         self.board_refresh_wanted.discard(game.game_id)
-                        self.board_refreshed_at[game.game_id] = (
-                            time.monotonic()
-                        )
-                        await self.write_board_message(channel, game)
+                        try:
+                            await self.write_board_message(channel, game)
+                        finally:
+                            self.board_refreshed_at[game.game_id] = (
+                                time.monotonic()
+                            )
 
                     # Nothing awaits between the check and the `finally`
                     # below, so a want recorded after this reads False
@@ -6770,6 +6800,32 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # The loop keeps only a weak reference to a task, so the handle
         # is held here to keep this one from being collected mid-sleep.
         self.board_refresh_tasks[game.game_id] = asyncio.create_task(run())
+
+    async def wait_out_board_interval(self, game: D12BallGame) -> None:
+        """
+        Sleep whatever is left of this game's window, measured from the
+        moment its last board write landed.
+
+        The caller holds `board_refresh_locks`, so nothing else can
+        write or restamp the clock while this waits -- and a refresh
+        arriving meanwhile finds the lock held and books itself in
+        rather than going out alongside.
+
+        This is the only place the bot sleeps *before* a request, and
+        it is not the pacing "fewer requests, never slower ones" rules
+        out: nobody is waiting on the board this pass is going to draw,
+        because it has not been drawn yet. Every other write it might
+        stand in for is one it is about to make unnecessary.
+        """
+        last = self.board_refreshed_at.get(game.game_id)
+
+        if last is None:
+            return
+
+        remaining = last + BOARD_REFRESH_INTERVAL - time.monotonic()
+
+        if remaining > 0:
+            await asyncio.sleep(remaining)
 
     async def write_board_message(
         self,

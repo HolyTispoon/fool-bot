@@ -12,6 +12,7 @@ actually written, and whether the write says anything new.
 
 import asyncio
 import itertools
+import time
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -205,12 +206,16 @@ class GatedMessage(FakeMessage):
     which is what a real one is like: drawing and uploading a 2200px
     board is most of a second, and everything the interval is protecting
     happens inside that second.
+
+    `duration` is the other half of the same fact -- an edit that takes
+    a measurable time to land rather than one held open indefinitely.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, duration: float = 0.0) -> None:
         super().__init__()
         self.started = asyncio.Event()
         self.release = asyncio.Event()
+        self.duration = duration
         self.in_flight = 0
         self.most_in_flight = 0
 
@@ -219,6 +224,8 @@ class GatedMessage(FakeMessage):
         self.most_in_flight = max(self.most_in_flight, self.in_flight)
         self.started.set()
         await self.release.wait()
+        if self.duration:
+            await asyncio.sleep(self.duration)
         self.in_flight -= 1
         return await super().edit(**fields)
 
@@ -302,38 +309,80 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
         # The amplifier, and the shape of the third batch of warnings.
         # discord.py handles a 429 *inside* the single await this code
         # makes: it sleeps and retries up to five times, so one throttled
-        # PATCH can sit in flight for twenty-odd seconds. The interval was
-        # recorded when the write began, so by the time it was retrying
-        # the window read as long open, and every refresh behind it went
-        # out at once and alongside it -- more requests into the bucket
-        # that was already refusing them. The lock is what breaks that:
-        # the window reopening is not permission to write while a write
-        # is still going.
+        # PATCH can sit in flight for twenty-odd seconds. The lock keeps
+        # a second write from joining it -- but the trailing pass's own
+        # wait runs alongside that write rather than after it, so when
+        # the lock finally frees the wait is already spent and the next
+        # write goes out in the same instant, into the bucket that was
+        # refusing the last one.
+        #
+        # So the window is measured from when a write *lands*: however
+        # long Discord holds one, the next is still an interval behind
+        # it. Real sleeps and a short interval here, because what is
+        # being asserted is the spacing itself.
         cog, game, channel, interaction = self.build()
-        message, real_sleep = channel.message, asyncio.sleep
+        message = channel.message
+        interval = 0.3
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("cogs.d12ball.BOARD_REFRESH_INTERVAL", interval):
             writing = asyncio.create_task(
                 cog.refresh_match_image(interaction, game),
             )
             await message.started.wait()
+            message.started.clear()
 
-            # Discord has been refusing this PATCH for half a minute.
-            cog.board_refreshed_at[game.game_id] -= BOARD_REFRESH_INTERVAL * 5
-
-            await cog.refresh_match_image(interaction, game)
+            # Refreshes keep arriving while Discord refuses that PATCH.
             for _ in range(4):
-                await real_sleep(0)
+                await cog.refresh_match_image(interaction, game)
+            await asyncio.sleep(interval * 4)
 
-            self.assertEqual(message.most_in_flight, 1)
+            # None of them went out alongside it, or behind it.
+            self.assertEqual(message.edits, 0)
 
             message.release.set()
             await writing
+            landed = time.monotonic()
+
+            await message.started.wait()
+            gap = time.monotonic() - landed
+
             await asyncio.gather(*cog.board_refresh_tasks.values())
 
-        # The state that arrived mid-retry still reaches the message.
-        self.assertEqual(message.edits, 2)
+        # The state that arrived mid-retry still reaches the message,
+        # a full window after the write it was queued behind landed.
         self.assertEqual(message.most_in_flight, 1)
+        self.assertGreaterEqual(gap, interval)
+
+    async def test_a_slow_write_still_spaces_the_next_one(self) -> None:
+        # The same hole without a 429 in it. A board is nearly a
+        # megabyte of PNG, so the write is seconds long on an ordinary
+        # connection -- and timed from when it was *sent*, an interval
+        # of six seconds spent on a four-second upload spaces the next
+        # write by two. Timed from when it lands, six means six.
+        cog, game, channel, interaction = self.build()
+        interval = 0.3
+        # An upload that takes longer than the window it is spending.
+        channel.message = GatedMessage(duration=interval * 2)
+        message = channel.message
+        message.release.set()
+
+        with mock.patch("cogs.d12ball.BOARD_REFRESH_INTERVAL", interval):
+            await cog.refresh_match_image(interaction, game)
+            landed = time.monotonic()
+
+            # Started rather than awaited: what is being timed is when
+            # the next write reaches the message, not when it lands.
+            message.started.clear()
+            pending = asyncio.create_task(
+                cog.refresh_match_image(interaction, game),
+            )
+            await message.started.wait()
+            gap = time.monotonic() - landed
+
+            await pending
+            await asyncio.gather(*cog.board_refresh_tasks.values())
+
+        self.assertGreaterEqual(gap, interval)
 
 
 class UnchangedBoardTests(unittest.IsolatedAsyncioTestCase):

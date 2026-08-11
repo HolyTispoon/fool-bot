@@ -936,24 +936,37 @@ same budget. So:
     re-drawing is exactly what lets one pending refresh stand in for every
     request behind it.
   - **Only one write per game is ever in the air**, held by
-    `board_refresh_locks`. The interval spaces requests out by when they
-    *arrive*, and a write is not instant: drawing a 2200px board and uploading
-    it is most of a second, more on a bad connection, so an upload slower than
-    the window let the trailing pass start alongside the immediate write and put
-    two PATCHes on one message in the same instant. That is the one thing an
-    interval cannot space out, and it is what a pair of 429s logged in the same
-    second was.
-    - **It is also what turns one 429 into a burst of them.** discord.py
-      handles a 429 *inside* the single await this code makes -- it sleeps the
-      `retry_after` and tries again, up to five times -- so one throttled PATCH
-      can hold that await for twenty-odd seconds. The interval is recorded when
-      the write begins, so while it was retrying the window read as long open
-      and every refresh behind it went out at once, into the bucket that was
-      already refusing them. So a burst of warnings is not evidence of a burst
-      of clicks: the third batch is four retries of one request, and the gate
-      fed it. **The window reopening is not permission to write while a write
-      is still going**, which is why the lock and not a shorter interval is the
-      answer.
+    `board_refresh_locks`. A write is not instant: drawing a 2200px board and
+    uploading it is most of a second, more on a bad connection, so an upload
+    slower than the window let the trailing pass start alongside the immediate
+    write and put two PATCHes on one message in the same instant. That is the
+    one thing an interval cannot space out, and it is what a pair of 429s
+    logged in the same second was.
+  - **The interval runs from when a write lands, not from when it was sent**,
+    and that is the whole of what makes it an interval. Timed from the send it
+    measures nothing: the board is nearly a megabyte of PNG, so the request
+    itself is seconds long on an ordinary connection -- and twenty-odd when
+    discord.py is sleeping off a 429 *inside* the single await this code makes
+    (it sleeps the `retry_after` and retries, up to five times). For all of
+    that time the window read as having been open for ages, so the moment the
+    lock freed, the queued write went out on its heels -- into the bucket that
+    had just been refusing the one before it. Measured: **6 microseconds**
+    after a throttled write landed, and **0.7 milliseconds** after a merely
+    slow one. So a burst of warnings is not evidence of a burst of clicks: the
+    third batch is four retries of one request, and the gate fed it.
+    - **The lock stopped two writes being *concurrent*; only this stops them
+      being *consecutive*,** which is the same feedback loop one step along.
+      Both are needed, and neither is a shorter interval.
+    - **A trailing pass's `delay` is when to look, not when to write.** It is
+      queued behind a write that is still going and its sleep runs *alongside*
+      that write, so by the time it holds the lock its wait is already spent.
+      What the interval is still owed is settled under the lock, by
+      `wait_out_board_interval`. It is the only place the bot sleeps before a
+      request, and it is not the pacing ruled out below: nobody is waiting on
+      a board that has not been drawn yet.
+    - **The stamp goes in a `finally`.** A write that raised still spent its
+      place in the bucket, and a window left open by the failure is one more
+      request into a channel that is already unhappy.
   - **A write in flight does not stand in for a request that arrives during
     it.** The board it is putting up was drawn before that request, so the want
     is recorded in `board_refresh_wanted` and a pass that finds the flag set
@@ -979,6 +992,11 @@ same budget. So:
   - **Fewer requests is not the same as slower requests, and this is the
     difference.** Nothing here sleeps before a call anyone is waiting on. The
     gate drops redundant work; the turn does not get slower for it.
+    `wait_out_board_interval` is the one sleep before a request, and it is on
+    the right side of that line: the board it is holding back has not been
+    drawn yet, and every write it delays is one it is about to make
+    unnecessary. A coach waits on prompts and on the messages a turn posts,
+    and none of those go through this gate.
 - **Renders belong in a worker thread.** Everything that draws goes through
   `asyncio.to_thread`; Pillow is pure CPU and blocking the loop stalls the
   rate-limit sleeps and the gateway heartbeat along with everything else. The
