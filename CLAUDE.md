@@ -738,8 +738,11 @@ players back nor restarts play: the ball stays where it was given up, at speed
   fetch it at the usual token a space. Routing it through
   `check_for_loose_ball` instead would let the side that ceded contest the ball
   back -- and, with one of their meeples still on it, take it back
-  uncontested, having bought a window for nothing. The choice is the author's
-  to confirm and is logged under "Still open" in the rules log.
+  uncontested, having bought a window for nothing. The author settled this on
+  2026-08-10: "the team that gains possession has to send a player to the space
+  where the ball was ceded." So `finish_cede` must keep deciding this itself --
+  falling through to `finish_maneuver_resolution` with nobody on the ball would
+  hand it to the loose-ball check, which is the reading that was rejected.
 - **The clock cost rides on `pending_run_back_distance`, set to 0.** That field
   is what every tail step reads back for the clock, and the pickup spans a
   restart, so a cede has to say 0 there rather than pass it down a call chain.

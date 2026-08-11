@@ -37,25 +37,6 @@ copy is in git at commit `5e05bdd` if a future pull wants to diff against upstre
 
 ## Still open
 
-### A ceded ball nobody is standing on: picked up, or contested?
-
-The side receiving a ceded ball usually will not have anybody on the ball's space -- their
-arrangement covers their zones, not wherever open play left the ball -- so something has to
-settle it. Two readings were available, and the second was taken:
-
-- The ordinary [loose-ball check](living-rules.md#loose-ball), which "happens after every
-  maneuver resolves" and would make the ball a **contest** the ceding side could win back
-  (using offensive skill, as the side that last had possession). That also means a ceding
-  player still standing on the ball takes it straight back, uncontested, having bought a
-  Coaching Choice with nothing.
-- The **out-of-bounds pick-up**: the side with the ball sends a player from anywhere on the
-  field at a token a space, no contest. Chosen, because "cede possession" reads as the other
-  team having it, and because the alternative makes the rule self-defeating in the one case
-  that will happen most.
-
-Worth confirming, since it is the difference between ceding being a concession and ceding
-being a gamble.
-
 ### Is the exhaustion work in PR #9 the intended scope?
 
 The author's answer to "exhaustion accumulates but does nothing" was "yet, it's in my PR"
@@ -82,7 +63,8 @@ allotment." Then, asked what that does to the ball, the clock and the other coac
 stays "same place where it was ceded"; the rearrangement is exhaustion-free; "the other coach
 gets to sub"; ball speed resets to 1 and there is no time cost; under last possession it ends
 the game; and a side with both benches spent is still offered it, that state being "very
-rare".*
+rare". Then, asked what settles a ceded ball nobody is standing on: "the team that gains
+possession has to send a player to the space where the ball was ceded."*
 
 - **A third choice on the turn**, offered exactly where the score attempt is not: out of
   [shooting range](living-rules.md#shooting-range), and only while the side still holds its
@@ -100,7 +82,13 @@ rare".*
 - **A ball nobody is standing on is picked up**, from anywhere on the field at a token a
   space, once both windows have closed. The receiving side's arrangement covers their zones,
   not wherever open play left the ball, so this will be the common case -- and it is the same
-  step an out-of-bounds ball already asks for.
+  step an out-of-bounds ball already asks for. It is a **requirement, not an offer**: the side
+  gaining possession sends somebody, and cannot decline and leave the ball lying there.
+- **It is not a loose ball.** The other reading was to let the general loose-ball check answer
+  it, which would have made the ceded ball a contest the ceding side could win back -- and,
+  with one of their own meeples still standing on it, win back uncontested, having bought a
+  Coaching Choice with nothing. The author's answer settles it the other way: ceding is a
+  concession, not a gamble.
 - **Under last possession it ends the period**, with no window on either side: the first
   turnover under last possession ends it whatever the turnover was.
 - **A side with nobody to bring on may still cede.** The window is the whole Coaching Choice,

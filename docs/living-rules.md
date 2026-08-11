@@ -749,10 +749,12 @@ stuck, and this is the rule for a team that is.
 - **Both coaches get a window**: the side ceding first, then the side receiving, as a reply.
   The reply does not spend the answering side's own declaration, exactly as a reply to a new
   play's declaration does not. Substitutions on both sides come out of their two for the half.
-- **A ball nobody is standing on is picked up.** If, once both windows have closed, the side
-  receiving it has no player on the ball's space, they send one of their field players -- from
-  anywhere on the field, at 1 exhaust token per space travelled. The same thing an
-  [out-of-bounds ball](#loose-ball) asks of the side that wins it.
+- **A ball nobody is standing on is picked up, and must be.** If, once both windows have
+  closed, the side receiving it has no player on the ball's space, they **have to** send one of
+  their field players there -- from anywhere on the field, at 1 exhaust token per space
+  travelled. The same thing an [out-of-bounds ball](#loose-ball) asks of the side that wins it,
+  and not a [loose ball](#loose-ball): the ball was given to them, so there is nothing to
+  contest and nothing for the ceding side to win back.
 - **Under [last possession](#the-clock-halftime-and-full-time) it ends the period**, and there
   is no window on either side. Ceding is a turnover, and the first turnover under last
   possession ends the period whatever it was.
