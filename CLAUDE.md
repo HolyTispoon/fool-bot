@@ -713,13 +713,18 @@ same budget. So:
 - **Read a 429 by looking the ids up, not by reasoning about them.** All the
   warning gives you is a method and a URL, and the only thing in it that names
   the game is the channel and message id. Three batches of these were read by
-  inferring which message that must have been, which is exactly the kind of
-  confident wrong answer the note under "Notes for Claude" is about -- one of
-  them is provably not the board message, because a snowflake says it was
-  created an hour and three quarters after its channel and a board message
-  follows its channel by seconds. So `D12Ball.__init__` now logs one INFO line
-  per unfinished game naming its channel, board message and prompt message, and
-  a warning is attributed by grepping the startup block for the id.
+  inferring which message that must have been, and the inference that the
+  board's id sits a few seconds after its channel's is wrong -- **the board
+  message is not the message `create_game` sends.** The coin flip re-points
+  `game.message_id` at the home/visiting choice message it posts (in
+  `CoinFlipView`, `cogs/d12ball_views.py`), because that is the message the
+  buttons and every later board have to live on. Setup is a play-by-Discord
+  affair that can take hours, so the board's snowflake can trail its channel's
+  by any amount at all, and the first message in the channel keeps the setup
+  text for the rest of the game. So `D12Ball.__init__` logs one INFO line per
+  unfinished game naming its channel, board message and prompt message, and a
+  warning is attributed by grepping the startup block for the id rather than by
+  reasoning about it.
 - **Batch what the bot does on its own, and only interrupt for a person.** A
   cascade of automatic steps is one message and one board refresh at the end
   of it, not one of each per step -- see `continue_run_back`. Nobody reads the
@@ -766,6 +771,12 @@ same budget. So:
     `settle_board_link`, and it spends no request when nothing is owed.
   - Before the home/visiting choice the message is still the setup prompt: its
     buttons are live, it has no link to go stale, and its view is left alone.
+    **And it is a different message from the one the channel opens with** --
+    `CoinFlipView` re-points `game.message_id` at the home/visiting choice
+    message, so a board write never touches the "Start playing in this channel"
+    post again. Only the *content* is left alone from then on: a refresh edits
+    attachments and the view, so the persistent message reads as setup text with
+    a board under it for the whole game.
 - **Channel message edits are one bucket, and it is the one that runs out.**
   Every 429 in two logged sessions of play was a `PATCH` on
   `/channels/{id}/messages/{id}`. **`message_id` is not one of Discord's major
