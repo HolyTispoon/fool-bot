@@ -2058,30 +2058,27 @@ class MatchState:
                 self.half_substitutions_used.get(side_value, 0) + 1
             )
 
-    def substitution_pool(
-        self,
-        side: TeamSide,
-        outgoing_player_id: Optional[str] = None,
-    ) -> list[str]:
+    def substitution_pool(self, side: TeamSide) -> list[str]:
         """
-        Who `side` may bring on, given who is going off.
+        Who `side` may bring on -- see "Who may come on" in
+        docs/living-rules.md.
 
-        The bench is the only pool while anyone is still sitting on it.
-        The back bench -- where everyone subbed out ends up -- opens
-        only once the bench is empty *and* the player going off is
-        injured, and it never offers an injured player back: leaving
-        the field injured is one way.
+        The bench is the only pool while anyone is still sitting on it;
+        once it has drained, the back bench opens. Injured players are
+        dropped from whichever pool is in play: leaving the field
+        injured is one way, and that is about the player rather than
+        about which bench they are sitting on.
+
+        **It does not depend on who is going off.** It used to: the
+        back bench opened only to replace an injured player, which is
+        not the rule. Callers that pass an outgoing player are asking
+        the wrong question -- the answer is the same for all six.
         """
         setup = self.setup_for_side(side)
-        if setup.team_board.bench:
-            return list(setup.team_board.bench)
-        if outgoing_player_id is None:
-            return []
-        if outgoing_player_id not in self.injured:
-            return []
+        pool = setup.team_board.bench or setup.team_board.back_bench
         return [
             player_id
-            for player_id in setup.team_board.back_bench
+            for player_id in pool
             if player_id not in self.injured
         ]
 
@@ -2121,20 +2118,18 @@ class MatchState:
         if fielded_player_id not in setup.field_players:
             raise ValueError("The outgoing player is not on the field.")
 
-        if incoming_player_id not in self.substitution_pool(
-            side, fielded_player_id
-        ):
+        if incoming_player_id not in self.substitution_pool(side):
             if incoming_player_id in self.injured:
                 raise ValueError(
                     "An injured player can never be subbed back in."
                 )
             if setup.team_board.bench:
                 raise ValueError(
-                    "The incoming player card is not on the bench."
+                    "The incoming player card is not on the bench, which "
+                    "is the only pool until it has drained."
                 )
             raise ValueError(
-                "With the bench empty, the back bench can only be drawn "
-                "from to replace an injured player."
+                "The incoming player card is not on the back bench."
             )
 
         position = self.board.meeple_position(fielded_player_id)

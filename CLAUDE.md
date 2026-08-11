@@ -199,6 +199,20 @@ assignment and space positioning would move meeples that never play again.
   `half_substitutions_used`, per side, cleared at halftime; halftime's two and
   full time's one are counted inside the window and charged to neither half.
   So a side can substitute seven times in a game.
+- **Who may come on is one question, not six.** `MatchState.substitution_pool`
+  takes a side and nothing else: the bench while anyone is sitting on it, the
+  back bench once it has drained, minus anyone injured. It used to take the
+  outgoing player, because the back bench was thought to open only for an
+  injured swap -- **it does not**, and that reading left a side with three
+  swaps behind them and a healthy six unable to substitute at all. See
+  "Who may come on" in the living rules, and the 2026-08-10 correction in the
+  rules log. Don't reintroduce the parameter: the answer is the same for all
+  six, and a caller passing one is asking a question the rules do not ask.
+  - The one state with nobody to bring on is **both benches spent**: three
+    substitutions to drain the bench, and every one of the three who came off
+    injured, since injury is the only thing that takes a card out of a pool.
+    That is what the full-time window skips on and what disables the hub's
+    Substitution button.
 - **The declaration and the counter are separate gates.**
   `may_declare_coaching` is once a half and decides whether a side is *offered*
   a new play's window at all; the counter decides how many swaps they get in
@@ -249,10 +263,11 @@ assignment and space positioning would move meeples that never play again.
   at full time, so home going first there is the author's call and not the
   position's.
 - **A full-time window with nothing in it is skipped, silently.** Its only
-  action is the substitution, so a side `side_can_substitute` says no to would
+  action is the substitution, so a side with an empty `substitution_pool` would
   get a Done button with extra steps. Halftime's extra-token stage skips the
   same way for the same reason. Every other occasion has three more actions to
-  fall back on, so none of them skips.
+  fall back on, so none of them skips. It is a genuinely rare state -- see
+  "Who may come on is one question, not six" above.
 - **The kickoff space is the only thing that can hold a coach in the flow.**
   `coaching_finish_refusal` refuses Done until the side kicking off the coming
   period has somebody on it. An AI has no menu to be held in, so

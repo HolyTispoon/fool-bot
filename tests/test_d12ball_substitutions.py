@@ -319,13 +319,13 @@ class DinkySubstitutionTests(unittest.TestCase):
             )
         match.mark_injured("orange_kindlefoot")
 
-        # The bench is empty, so the back bench opens -- but everyone
-        # on it was subbed out, which is exactly who may come back for
-        # an injury.
+        # The bench has drained, so the back bench is the pool now.
         self.assertIsNotNone(
             self.ai.choose_substitution(match, TeamSide.HOME)
         )
 
+        # Injure everyone on it and there is genuinely nobody left:
+        # injury is what closes a bench, not who is going off.
         for player_id in list(match.home.team_board.back_bench):
             match.injured.add(player_id)
         self.assertIsNone(

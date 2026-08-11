@@ -634,10 +634,16 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cog, game, match = self.build()
-        # A drained bench, and nobody injured to open the back bench:
-        # the menu would be a Done button with extra steps.
-        match.home.team_board.back_bench.extend(match.home.team_board.bench)
-        match.home.team_board.bench.clear()
+        # It takes both benches: three substitutions to drain the
+        # bench, and every one of the three who came off injured, so
+        # the back bench has nothing to offer back. The menu would
+        # otherwise be a Done button with extra steps.
+        for outgoing in match.home.field_players[:3]:
+            match.mark_injured(outgoing)
+            match.substitute(
+                TeamSide.HOME, outgoing, match.home.team_board.bench[0],
+            )
+        self.assertEqual(match.substitution_pool(TeamSide.HOME), [])
         game.match_state = match.to_dict()
 
         with mock.patch("cogs.d12ball.save_games"):

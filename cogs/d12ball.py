@@ -5673,8 +5673,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # with extra steps, and this window has no other action to
             # fall back on -- so a side with nobody it could bring on
             # is passed over in silence, the way halftime passes over a
-            # side with nobody to take an extra token off.
-            if not self.side_can_substitute(match, side):
+            # side with nobody to take an extra token off. It takes
+            # both benches spent: three substitutions to drain the
+            # bench, and every one of the three who came off injured.
+            if not match.substitution_pool(side):
                 self.next_full_time_stage(match)
                 game.match_state = match.to_dict()
                 save_games(self.games)
@@ -5699,23 +5701,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         await self.finish_full_time_coaching(interaction, game, match)
-
-    def side_can_substitute(
-        self,
-        match: MatchState,
-        side: TeamSide,
-    ) -> bool:
-        """
-        Whether `side` has anybody it could bring on for anybody it has
-        on the field. The pool depends on who is going off -- the back
-        bench opens only for an injured player -- so this is the whole
-        field asked one at a time.
-        """
-        side = TeamSide(side)
-        return any(
-            match.substitution_pool(side, player_id)
-            for player_id in match.setup_for_side(side).field_players
-        )
 
     async def finish_full_time_coaching(
         self,

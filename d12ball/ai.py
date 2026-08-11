@@ -316,10 +316,10 @@ class DinkyAI(AIStrategy):
         reading the position, and Dinky stays a dice-roller: it never
         spends a declaration on a tactical swap and never rearranges.
         """
-        for player_id in match.injured_field_players(side):
-            pool = match.substitution_pool(side, player_id)
-            if pool:
-                return player_id, pool[0]
+        pool = match.substitution_pool(side)
+        injured = match.injured_field_players(side)
+        if pool and injured:
+            return injured[0], pool[0]
         return None
 
     def choose_loose_ball_player(

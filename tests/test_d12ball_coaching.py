@@ -118,9 +118,7 @@ class CoachingModelTests(unittest.TestCase):
         self.assertEqual(match.home.team_board.back_bench, [])
         # And so they can come straight back on, which is the whole
         # point of setup's exception.
-        self.assertIn(
-            outgoing, match.substitution_pool(TeamSide.HOME, incoming),
-        )
+        self.assertIn(outgoing, match.substitution_pool(TeamSide.HOME))
 
     def test_every_other_occasion_retires_them(self) -> None:
         match = self.build_match()

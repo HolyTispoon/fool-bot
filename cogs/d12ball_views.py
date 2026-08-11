@@ -3119,7 +3119,7 @@ class CoachingHubView(CoachingView):
             f"d12ball:coach_sub:{game_id}",
             self.open_substitution,
             enabled=match.may_substitute()
-            and cog.side_can_substitute(match, side),
+            and bool(match.substitution_pool(side)),
         )
         if positioning:
             self.add_action(
@@ -3377,10 +3377,16 @@ class CoachingSubstitutionOutView(CoachingView):
         if match is None or match.pending_coaching_side is None:
             return
         side = self.side(match)
+        # Who may come on does not depend on who goes off, so this is
+        # all-or-nothing: with both benches spent there is nobody to
+        # offer for anybody, and the hub has already disabled the
+        # button that opens this. It used to be a per-player filter,
+        # from when the back bench opened only for an injured swap.
+        if not match.substitution_pool(side):
+            self.add_back_button(row=4)
+            return
 
         for player_id in match.setup_for_side(side).field_players:
-            if not match.substitution_pool(side, player_id):
-                continue
             injured = player_id in match.injured
             button = discord.ui.Button(
                 label=(
@@ -3447,9 +3453,7 @@ class CoachingSubstitutionInView(CoachingView):
         if match is None or match.pending_coaching_side is None:
             return
 
-        for player_id in match.substitution_pool(
-            self.side(match), outgoing_player_id,
-        ):
+        for player_id in match.substitution_pool(self.side(match)):
             button = discord.ui.Button(
                 label=cog.format_roster_player(player_id)[:80],
                 style=discord.ButtonStyle.primary,
