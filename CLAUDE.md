@@ -966,24 +966,74 @@ same budget. So:
     re-drawing is exactly what lets one pending refresh stand in for every
     request behind it.
   - **Only one write per game is ever in the air**, held by
-    `board_refresh_locks`. The interval spaces requests out by when they
-    *arrive*, and a write is not instant: drawing a 2200px board and uploading
-    it is most of a second, more on a bad connection, so an upload slower than
-    the window let the trailing pass start alongside the immediate write and put
-    two PATCHes on one message in the same instant. That is the one thing an
-    interval cannot space out, and it is what a pair of 429s logged in the same
-    second was.
-    - **It is also what turns one 429 into a burst of them.** discord.py
-      handles a 429 *inside* the single await this code makes -- it sleeps the
-      `retry_after` and tries again, up to five times -- so one throttled PATCH
-      can hold that await for twenty-odd seconds. The interval is recorded when
-      the write begins, so while it was retrying the window read as long open
-      and every refresh behind it went out at once, into the bucket that was
-      already refusing them. So a burst of warnings is not evidence of a burst
-      of clicks: the third batch is four retries of one request, and the gate
-      fed it. **The window reopening is not permission to write while a write
-      is still going**, which is why the lock and not a shorter interval is the
-      answer.
+    `board_refresh_locks`. A write is not instant: drawing a 2200px board and
+    uploading it is most of a second, more on a bad connection, so an upload
+    slower than the window let the trailing pass start alongside the immediate
+    write and put two PATCHes on one message in the same instant. That is the
+    one thing an interval cannot space out, and it is what a pair of 429s
+    logged in the same second was.
+  - **The interval runs from when a write lands, not from when it was sent**,
+    and that is the whole of what makes it an interval. Timed from the send it
+    measures nothing: the board is nearly a megabyte of PNG, so the request
+    itself is seconds long on an ordinary connection -- and twenty-odd when
+    discord.py is sleeping off a 429 *inside* the single await this code makes
+    (it sleeps the `retry_after` and retries, up to five times). For all of
+    that time the window read as having been open for ages, so the moment the
+    lock freed, the queued write went out on its heels -- into the bucket that
+    had just been refusing the one before it. Measured: **6 microseconds**
+    after a throttled write landed, and **0.7 milliseconds** after a merely
+    slow one. So a burst of warnings is not evidence of a burst of clicks: the
+    third batch is four retries of one request, and the gate fed it.
+    - **The lock stopped two writes being *concurrent*; only this stops them
+      being *consecutive*,** which is the same feedback loop one step along.
+      Both are needed, and neither is a shorter interval.
+    - **A trailing pass's `delay` is when to look, not when to write.** It is
+      queued behind a write that is still going and its sleep runs *alongside*
+      that write, so by the time it holds the lock its wait is already spent.
+      What the interval is still owed is settled under the lock, by
+      `wait_out_board_interval`. It is the only place the bot sleeps before a
+      request, and it is not the pacing ruled out below: nobody is waiting on
+      a board that has not been drawn yet.
+    - **The stamp goes in a `finally`.** A write that raised still spent its
+      place in the bucket, and a window left open by the failure is one more
+      request into a channel that is already unhappy.
+  - **A refused write backs the game's window off, doubling per refusal in a
+    row to `BOARD_REFRESH_BACKOFF_CEILING`, until one lands.** Every other
+    lever here decides how many writes a turn asks for; this is the only one
+    that says what to do when the answer turns out to be too many anyway --
+    and without it there is no answer at all. A refused write deliberately
+    does not record its digest, so the next refresh redraws the same board and
+    asks again at the next window, and the next, for as long as the game goes
+    on. **The fourth batch of warnings is that loop**: 61 refused uploads on
+    one message, one request about every six seconds, every one of them
+    refused, across three quarters of an hour and a restart in the middle.
+    Nothing in the gate could have ended it.
+    - **The budget in this section is a guess at somebody else's arithmetic,
+      and that batch is the evidence it is wrong.** No five-in-five-seconds
+      bucket refuses one request every six seconds for ninety seconds
+      straight. Whatever the real rule is -- a window longer than the
+      `retry_after` implies, a sub-limit the headers do not describe, a
+      limiter that counts refusals -- the bot cannot read it, so it has to be
+      able to *recover* from being wrong rather than only to avoid it.
+      `discord.http` at DEBUG is what would settle it: it names the
+      sub-ratelimit case outright, and `FOOLBOT_LOG_LEVEL=DEBUG` is enough to
+      see it (console only -- the mirror's threshold is separate).
+    - **One logical write is up to five requests, and that is not ours to
+      change.** discord.py sleeps the `retry_after` and retries five times
+      inside the single await this code makes, so a write that is being
+      refused puts five uploads into the channel before the bot hears about
+      it. `Client(max_ratelimit_timeout=...)` is the only dial and it is
+      clamped to a 30-second floor, well above the ~5s these come back with,
+      so it never fires. What the bot can decide is when to ask next.
+    - **Only a 429 backs off.** A 404 or a dropped connection is a one-off and
+      the next window is the right time to try again; a refusal is precisely
+      the case where the next window is what is too soon. One write landing
+      clears the count outright rather than stepping back down, because what
+      the backoff was waiting for has happened.
+    - **It is announced at WARNING**, which is most of the point: a run of
+      `discord.http` 429s names a channel and a message and nothing else, and
+      this is the line that ties one to a game without anybody having to look
+      an id up. Console-only, like every other WARNING here.
   - **A write in flight does not stand in for a request that arrives during
     it.** The board it is putting up was drawn before that request, so the want
     is recorded in `board_refresh_wanted` and a pass that finds the flag set
@@ -1009,6 +1059,11 @@ same budget. So:
   - **Fewer requests is not the same as slower requests, and this is the
     difference.** Nothing here sleeps before a call anyone is waiting on. The
     gate drops redundant work; the turn does not get slower for it.
+    `wait_out_board_interval` is the one sleep before a request, and it is on
+    the right side of that line: the board it is holding back has not been
+    drawn yet, and every write it delays is one it is about to make
+    unnecessary. A coach waits on prompts and on the messages a turn posts,
+    and none of those go through this gate.
 - **Renders belong in a worker thread.** Everything that draws goes through
   `asyncio.to_thread`; Pillow is pure CPU and blocking the loop stalls the
   rate-limit sleeps and the gateway heartbeat along with everything else. The

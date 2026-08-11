@@ -12,13 +12,20 @@ actually written, and whether the write says anything new.
 
 import asyncio
 import itertools
+import logging
+import time
 import unittest
 from types import SimpleNamespace
 from unittest import mock
 
 import discord
 
-from cogs.d12ball import BOARD_REFRESH_INTERVAL, D12Ball
+from cogs.d12ball import (
+    BOARD_REFRESH_BACKOFF_CEILING,
+    BOARD_REFRESH_INTERVAL,
+    LOGGER,
+    D12Ball,
+)
 
 
 class FakeAttachment:
@@ -66,6 +73,7 @@ def build_cog() -> D12Ball:
     cog.board_png_digests = {}
     cog.board_link_owed = {}
     cog.board_refresh_locks = {}
+    cog.board_writes_refused = {}
     cog.board_refresh_wanted = set()
     # Every render differs, so these tests see the write path. The
     # identical-board case has its own class below.
@@ -205,12 +213,16 @@ class GatedMessage(FakeMessage):
     which is what a real one is like: drawing and uploading a 2200px
     board is most of a second, and everything the interval is protecting
     happens inside that second.
+
+    `duration` is the other half of the same fact -- an edit that takes
+    a measurable time to land rather than one held open indefinitely.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, duration: float = 0.0) -> None:
         super().__init__()
         self.started = asyncio.Event()
         self.release = asyncio.Event()
+        self.duration = duration
         self.in_flight = 0
         self.most_in_flight = 0
 
@@ -219,6 +231,8 @@ class GatedMessage(FakeMessage):
         self.most_in_flight = max(self.most_in_flight, self.in_flight)
         self.started.set()
         await self.release.wait()
+        if self.duration:
+            await asyncio.sleep(self.duration)
         self.in_flight -= 1
         return await super().edit(**fields)
 
@@ -302,38 +316,80 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
         # The amplifier, and the shape of the third batch of warnings.
         # discord.py handles a 429 *inside* the single await this code
         # makes: it sleeps and retries up to five times, so one throttled
-        # PATCH can sit in flight for twenty-odd seconds. The interval was
-        # recorded when the write began, so by the time it was retrying
-        # the window read as long open, and every refresh behind it went
-        # out at once and alongside it -- more requests into the bucket
-        # that was already refusing them. The lock is what breaks that:
-        # the window reopening is not permission to write while a write
-        # is still going.
+        # PATCH can sit in flight for twenty-odd seconds. The lock keeps
+        # a second write from joining it -- but the trailing pass's own
+        # wait runs alongside that write rather than after it, so when
+        # the lock finally frees the wait is already spent and the next
+        # write goes out in the same instant, into the bucket that was
+        # refusing the last one.
+        #
+        # So the window is measured from when a write *lands*: however
+        # long Discord holds one, the next is still an interval behind
+        # it. Real sleeps and a short interval here, because what is
+        # being asserted is the spacing itself.
         cog, game, channel, interaction = self.build()
-        message, real_sleep = channel.message, asyncio.sleep
+        message = channel.message
+        interval = 0.3
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("cogs.d12ball.BOARD_REFRESH_INTERVAL", interval):
             writing = asyncio.create_task(
                 cog.refresh_match_image(interaction, game),
             )
             await message.started.wait()
+            message.started.clear()
 
-            # Discord has been refusing this PATCH for half a minute.
-            cog.board_refreshed_at[game.game_id] -= BOARD_REFRESH_INTERVAL * 5
-
-            await cog.refresh_match_image(interaction, game)
+            # Refreshes keep arriving while Discord refuses that PATCH.
             for _ in range(4):
-                await real_sleep(0)
+                await cog.refresh_match_image(interaction, game)
+            await asyncio.sleep(interval * 4)
 
-            self.assertEqual(message.most_in_flight, 1)
+            # None of them went out alongside it, or behind it.
+            self.assertEqual(message.edits, 0)
 
             message.release.set()
             await writing
+            landed = time.monotonic()
+
+            await message.started.wait()
+            gap = time.monotonic() - landed
+
             await asyncio.gather(*cog.board_refresh_tasks.values())
 
-        # The state that arrived mid-retry still reaches the message.
-        self.assertEqual(message.edits, 2)
+        # The state that arrived mid-retry still reaches the message,
+        # a full window after the write it was queued behind landed.
         self.assertEqual(message.most_in_flight, 1)
+        self.assertGreaterEqual(gap, interval)
+
+    async def test_a_slow_write_still_spaces_the_next_one(self) -> None:
+        # The same hole without a 429 in it. A board is nearly a
+        # megabyte of PNG, so the write is seconds long on an ordinary
+        # connection -- and timed from when it was *sent*, an interval
+        # of six seconds spent on a four-second upload spaces the next
+        # write by two. Timed from when it lands, six means six.
+        cog, game, channel, interaction = self.build()
+        interval = 0.3
+        # An upload that takes longer than the window it is spending.
+        channel.message = GatedMessage(duration=interval * 2)
+        message = channel.message
+        message.release.set()
+
+        with mock.patch("cogs.d12ball.BOARD_REFRESH_INTERVAL", interval):
+            await cog.refresh_match_image(interaction, game)
+            landed = time.monotonic()
+
+            # Started rather than awaited: what is being timed is when
+            # the next write reaches the message, not when it lands.
+            message.started.clear()
+            pending = asyncio.create_task(
+                cog.refresh_match_image(interaction, game),
+            )
+            await message.started.wait()
+            gap = time.monotonic() - landed
+
+            await pending
+            await asyncio.gather(*cog.board_refresh_tasks.values())
+
+        self.assertGreaterEqual(gap, interval)
 
 
 class UnchangedBoardTests(unittest.IsolatedAsyncioTestCase):
@@ -394,6 +450,136 @@ class UnchangedBoardTests(unittest.IsolatedAsyncioTestCase):
         await cog.refresh_match_image(interaction, game)
 
         self.assertEqual(channel.message.edits, 1)
+
+
+def refused() -> discord.HTTPException:
+    """What discord.py raises once it has given up on a 429."""
+    return discord.HTTPException(
+        SimpleNamespace(status=429, reason="Too Many Requests"),
+        "rate limited",
+    )
+
+
+class RefusedWriteBackoffTests(unittest.IsolatedAsyncioTestCase):
+    """
+    What happens when the budget turns out to be wrong.
+
+    A refused write does not record its digest, so the next refresh
+    redraws the same board and asks again. With a fixed interval that
+    is a loop with no exit: one logged session spent three quarters of
+    an hour asking every six seconds and being refused every time, 61
+    uploads, and a restart in the middle of it changed nothing. So a
+    refusal widens that game's window until a write lands.
+    """
+
+    def setUp(self) -> None:
+        # The refusal is announced at WARNING, which is the point of
+        # it -- see test_a_refusal_is_announced. A handler of its own
+        # keeps logging's last-resort one from printing a run of them
+        # through the test output, and leaves assertLogs working.
+        # Read off the module rather than named: the cog shares the
+        # helpers' logger rather than owning one.
+        logger = logging.getLogger(LOGGER.name)
+        handler = logging.NullHandler()
+        logger.addHandler(handler)
+        self.addCleanup(logger.removeHandler, handler)
+
+    def build(self, error=None):
+        cog, game, channel = build_cog(), build_game(), FakeChannel()
+        if error is not None:
+            channel.message.edit = mock.AsyncMock(side_effect=error)
+        return cog, game, channel, SimpleNamespace(channel=channel)
+
+    async def test_a_refusal_is_announced(self) -> None:
+        # A run of `discord.http` 429s names a channel and a message
+        # and nothing else; this is the line that ties one to a game
+        # without anybody having to look an id up.
+        cog, game, _, interaction = self.build(error=refused())
+
+        with self.assertLogs(LOGGER.name, level="WARNING") as caught:
+            await cog.refresh_match_image(interaction, game)
+
+        self.assertIn(game.game_id, caught.output[0])
+
+    async def test_a_settled_board_waits_the_ordinary_interval(self) -> None:
+        cog, game, _, _ = self.build()
+
+        self.assertEqual(
+            cog.board_refresh_interval(game), BOARD_REFRESH_INTERVAL,
+        )
+
+    async def test_each_refusal_doubles_the_window(self) -> None:
+        cog, game, channel, interaction = self.build(error=refused())
+
+        widths = []
+        for _ in range(3):
+            await cog.refresh_match_image(interaction, game)
+            widths.append(cog.board_refresh_interval(game))
+            # Let the next one through the window rather than the
+            # backoff, so what is being measured is the backoff alone.
+            cog.board_refreshed_at[game.game_id] -= widths[-1] + 1
+
+        self.assertEqual(widths, [
+            BOARD_REFRESH_INTERVAL * 2,
+            BOARD_REFRESH_INTERVAL * 4,
+            BOARD_REFRESH_INTERVAL * 8,
+        ])
+
+    async def test_the_backoff_has_a_ceiling(self) -> None:
+        cog, game, _, _ = self.build()
+        cog.board_writes_refused[game.game_id] = 40
+
+        self.assertEqual(
+            cog.board_refresh_interval(game), BOARD_REFRESH_BACKOFF_CEILING,
+        )
+
+    async def test_a_write_that_lands_clears_the_backoff(self) -> None:
+        cog, game, channel, interaction = self.build(error=refused())
+
+        await cog.refresh_match_image(interaction, game)
+        self.assertEqual(cog.board_writes_refused[game.game_id], 1)
+
+        # Discord lets the next one through.
+        channel.message = FakeMessage()
+        cog.board_refreshed_at[game.game_id] -= (
+            cog.board_refresh_interval(game) + 1
+        )
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertNotIn(game.game_id, cog.board_writes_refused)
+        self.assertEqual(
+            cog.board_refresh_interval(game), BOARD_REFRESH_INTERVAL,
+        )
+
+    async def test_the_widened_window_actually_holds_a_refresh_back(
+        self,
+    ) -> None:
+        # The counter is only worth having if the gate reads it.
+        cog, game, channel, interaction = self.build(error=refused())
+
+        await cog.refresh_match_image(interaction, game)
+        self.assertEqual(channel.message.edit.await_count, 1)
+
+        # Far enough past the ordinary interval to have been let
+        # through before, and nowhere near the backed-off one.
+        cog.board_refreshed_at[game.game_id] -= BOARD_REFRESH_INTERVAL + 1
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertEqual(channel.message.edit.await_count, 1)
+
+    async def test_other_failures_do_not_back_off(self) -> None:
+        # A 404 or a dropped connection is a one-off, and the next
+        # window is the right time to try again. Only a refusal says
+        # that the next window is what is too soon.
+        cog, game, _, interaction = self.build(
+            error=discord.HTTPException(
+                SimpleNamespace(status=500, reason="nope"), "nope",
+            ),
+        )
+
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertEqual(cog.board_writes_refused, {})
 
 
 def build_assigned_game(game_id: str = "g") -> SimpleNamespace:
