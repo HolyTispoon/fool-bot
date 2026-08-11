@@ -2502,8 +2502,8 @@ def draw_coaching_benches(
     """
     The coach's two pools under the card rows. Which pool a player is
     in is the whole of who may come on -- the bench while it has
-    anyone, the back bench only for an injured swap -- so a coach
-    choosing a substitution needs to see both.
+    anyone, the back bench once it has drained -- so a coach choosing
+    a substitution needs to see both.
     """
     for left, label, player_ids in (
         (COACHING_BOARD_LEFT, "BENCH", setup.team_board.bench),

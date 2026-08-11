@@ -845,9 +845,11 @@ fielded players to lose an extra one.
 ## Coaching Choice
 
 **A Coaching Choice is the pause in which a coach may change their team**, and it is the same
-four actions wherever it is offered. A coach takes as many of them, in any order, as they
-like, and finishes when they are done. All four are **free of exhaustion** -- a Coaching
-Choice is the one way a meeple moves in this game without paying per space.
+four actions wherever it is offered -- save one, the window before the
+[extreme shootout](#extreme-shootout), which offers the substitution alone. A coach takes as
+many of them, in any order, as they like, and finishes when they are done. All four are
+**free of exhaustion** -- a Coaching Choice is the one way a meeple moves in this game
+without paying per space.
 
 | Action | What it does |
 |---|---|
@@ -872,16 +874,22 @@ the window, so this is only ever felt at halftime, where the first half ended wh
 ended. A coach rearranges from their own shape and never from a scramble open play left them
 in.
 
+The window before the [shootout](#extreme-shootout) is the exception at both ends: it neither
+opens on the arrangement nor sets one. Nothing is ever played from a position again, so the
+board is left showing where the second half ended.
+
 ### When a Coaching Choice is offered
 
-Three occasions offer it, and they differ only in **how many substitutions** they allow and
-in who takes their turn first. The two coaches never coach at the same time.
+Four occasions offer it. They differ in **how many substitutions** they allow and in who takes
+their turn first, and one of them -- the last -- differs in which actions it offers at all.
+The two coaches never coach at the same time.
 
 | Occasion | Substitutions | Order | A player taken off goes to |
 |---|---|---|---|
 | [Setting up](#setting-up-a-game) | unlimited | the side kicking off, then the other | the **bench** |
 | A [new play](#steals-and-new-plays) | out of that side's 2 for the half | the declaring side, then the other | the back bench |
 | [Halftime](#the-clock-halftime-and-full-time) | 2, its own allowance | visitors, then home | the back bench |
+| [Before the shootout](#the-clock-halftime-and-full-time) | 1, its own allowance | home, then visitors | the back bench |
 
 **Setup is before the game**, so nobody has played and nobody is spent: substitutions are
 unlimited and a player taken off goes back to the bench, where they can be brought on again.
@@ -902,7 +910,15 @@ window to the side taking the ball. A steal opens no window, however the ball wa
 **Halftime is not a declaration.** Each coach gets one independently, with no reply, and it
 does not spend that side's once-a-half declaration. Its two substitutions are **its own
 allowance**, not drawn from either half's, so a side that spends two in each half and two at
-halftime substitutes six times in a game.
+halftime substitutes six times before the whistle.
+
+**The window before the shootout offers the substitution and nothing else.** A shootout is
+played by the six who are on the field and by nothing about where they stand, so a formation
+change, a zone assignment or a space positioning there would move meeples that never play
+again. It is offered to each coach independently, like halftime's, spends no declaration --
+there is no half left for one to belong to -- and its single substitution is **its own
+allowance** as well. So a side that spends everything it is given substitutes seven times in
+a game.
 
 ### Changing formation
 
@@ -946,10 +962,13 @@ Striker and so could never replace a Fullback, Midfielder or Winger in kind.
 - Anyone subbed out goes to the **back bench**, injured or not -- except at
   [setup](#setting-up-a-game), where they go back to the bench. The bench only ever drains.
 - While anyone is on the bench, a team may sub in **only** from the bench.
-- The **back bench may be drawn from only when the bench is empty and the team is subbing for
-  an injured player.**
-- **Injured players go to the back bench and can never be subbed in**, whatever the bench
-  looks like.
+- Once the bench is empty, the **back bench** is the pool. Nothing else has to be true of the
+  swap: it replaces anybody, injured or not.
+- **Injured players go to the back bench and can never be subbed in**, whichever pool is in
+  play. That is about the player, not about which bench they are sitting on.
+
+So a side runs out of substitutes only when the bench has drained -- three swaps -- **and**
+every one of the three who came off went off injured.
 
 **A player returning from the back bench loses half their exhaust tokens, rounded up.** They
 are Exhausted or not according to what remains -- a player with enough tokens comes back still
@@ -995,16 +1014,26 @@ period ends.
 [extreme shootout](#extreme-shootout)**, in every game: there is no game in which a tie is
 allowed to stand.
 
+Before the shooting starts, each coach takes a [Coaching Choice](#coaching-choice) -- the
+**home coach first**, then the visitors. It allows **one** substitution and offers nothing
+else: a shootout is played by whoever is on the field and by nothing about where they stand,
+so there is no shape to change and nowhere to move to. It is the last change either side
+gets.
+
 ## Extreme shootout
 
 How a game level at full time is settled. It is played by **the six players each team has on
-the field** at the whistle, in the state the second period left them -- exhaustion counts,
-injuries and all. Nobody comes on for it and nobody is substituted.
+the field**, in the state the second period left them -- exhaustion counts, injuries and all.
+The only change either side may make is the **one substitution** in the
+[Coaching Choice](#coaching-choice) the whistle opens; once the shooting starts, nobody else
+comes on.
 
 **Nobody recovers exhaustion at full time.** Halftime takes a token off every fielded player
 and a second off one of them; the whistle takes nothing off anybody. A side that finished the
 second half with players over their defensive skill goes to the shootout with them still
-**Exhausted**, owing an injury check on every test they take part in.
+**Exhausted**, owing an injury check on every test they take part in. A substitute coming on
+from the back bench still [loses half their tokens](#who-may-come-on) -- that is what a
+substitution does, not something the whistle hands out.
 
 Each coach secretly arranges their six in any order they wish. Once the order is set they may
 look at it but not reorder it.

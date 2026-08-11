@@ -158,6 +158,15 @@ SETUP_STAGES = (
     "coaching_visiting",
 )
 
+# And both get one more between the whistle and the shootout, on a
+# level score -- see D12Ball.advance_full_time_stage. Nobody kicks
+# anything off here, so there is nothing to key the order on; **home
+# first** is the author's call, and it matches setup.
+FULL_TIME_STAGES = (
+    "coaching_home",
+    "coaching_visiting",
+)
+
 # What a game saved mid-halftime under the old sequence comes back as.
 # Halftime used to run substitutions and free any-zone repositioning as
 # two stages a side; the Coaching Choice is one, so both old stages map
@@ -1490,6 +1499,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return (
                 CoachingHubView(self, game_id),
                 "Coaching Choice, before kickoff:",
+            )
+
+        if match.pending_full_time_stage is not None:
+            # Between the whistle and the shootout, so the turn is
+            # already reset and every branch below would misread it.
+            # Always the hub: the window is given rather than declared,
+            # so there is no offer to come back to.
+            return (
+                CoachingHubView(self, game_id),
+                "Coaching Choice, before the shootout:",
             )
 
         if match.pending_halftime_stage is not None:
@@ -3885,11 +3904,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         injured player on the field is named in the heading but
         compels nothing -- leaving them on is the coach's call.
 
-        `occasion` carries every difference between the three -- the
+        `occasion` carries every difference between the four -- the
         substitution allowance, whether the declare-or-pass offer is
-        put at all, and where a player taken off goes. Setup and
-        halftime are given rather than declared, so both skip the
-        offer and open the menu directly.
+        put at all, where a player taken off goes, and whether the
+        three positional actions are offered at all. Setup, halftime
+        and full time are given rather than declared, so all three
+        skip the offer and open the menu directly.
 
         **A window opens on the arrangement its coach last settled**,
         never on the scramble a run back left behind -- see
@@ -3899,10 +3919,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         ended; but it is the guarantee for every occasion rather than
         a halftime step, because a coach reading their half-field is
         reading the shape they set either way.
+
+        Except full time, which has no positioning in it: nothing is
+        played from a position after it, so restoring would rearrange
+        the last board of the game to no purpose.
         """
         side = TeamSide(side)
         occasion = CoachingOccasion(occasion)
-        restored = match.restore_assigned_positions(side)
+        restored = (
+            match.restore_assigned_positions(side)
+            if occasion.offers_positioning
+            else False
+        )
         shape = self.current_formation(match, side)
         match.open_coaching_window(
             side,
@@ -4072,9 +4100,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return "the extreme shootout"
 
         if match.pending_coaching_side is not None:
-            # Ahead of the two stage checks below: setup and halftime
-            # both run their coaching through this same window, and
-            # their own routines would re-open it.
+            # Ahead of the three stage checks below: setup, halftime
+            # and full time all run their coaching through this same
+            # window, and their own routines would re-open it.
             return await self.repost_coaching_prompt(interaction, game, match)
 
         if match.pending_setup_stage is not None:
@@ -4084,6 +4112,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if match.pending_halftime_stage is not None:
             await self.advance_halftime_stage(interaction, game, match)
             return "halftime"
+
+        if match.pending_full_time_stage is not None:
+            # The other side's window, or the shootout itself: either
+            # way the next step was the bot's, and a process that died
+            # between the two coaches left nothing to click.
+            await self.advance_full_time_stage(interaction, game, match)
+            return "the Coaching Choice before the shootout"
 
         if match.pending_run_back:
             await self.continue_run_back(interaction, game, match)
@@ -4136,19 +4171,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     def substitution_button_label(self, match: MatchState) -> str:
         """
         The bracket on the hub's Substitution button. Which allowance
-        is being counted down is worth saying: halftime's two are its
-        own rather than either half's, and setup has no limit at all.
+        is being counted down is worth saying: halftime's two and full
+        time's one are their own rather than either half's, and setup
+        has no limit at all.
         """
         remaining = match.substitutions_remaining()
         if remaining is None:
             return "no limit"
         if not remaining:
             return "none left"
-        where = (
-            "at halftime"
-            if match.coaching_occasion == CoachingOccasion.HALFTIME
-            else "this half"
-        )
+        where = {
+            CoachingOccasion.HALFTIME: "at halftime",
+            CoachingOccasion.FULL_TIME: "before the shootout",
+        }.get(match.coaching_occasion, "this half")
         return f"{remaining} left {where}"
 
     def coaching_finish_refusal(
@@ -4354,21 +4389,38 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         declared = match.pending_coaching_declared
         was_response = match.pending_coaching_is_response
+        occasion = match.coaching_occasion
         side = (
             TeamSide(match.pending_coaching_side)
             if match.pending_coaching_side
             else None
         )
         match.close_coaching_window()
-        if declared and side is not None:
+        # Full time records nothing: the window it closes had no
+        # positioning in it, and nothing is played from a position
+        # again, so writing where the second half left the side would
+        # overwrite the coach's arrangement with a scramble no new play
+        # will ever restore.
+        if (
+            declared
+            and side is not None
+            and (occasion is None or occasion.offers_positioning)
+        ):
             match.set_assigned_positions(side)
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        # Setup and halftime give each side its own window rather than
-        # a turnover's declare-then-respond pairing, so both move on to
-        # the next stage of their own sequence instead of offering the
-        # other side a response.
+        # Setup, halftime and full time give each side its own window
+        # rather than a turnover's declare-then-respond pairing, so all
+        # three move on to the next stage of their own sequence instead
+        # of offering the other side a response.
+        if match.pending_full_time_stage is not None:
+            self.next_full_time_stage(match)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await self.advance_full_time_stage(interaction, game, match)
+            return
+
         if match.pending_setup_stage is not None:
             self.next_setup_stage(match)
             game.match_state = match.to_dict()
@@ -5214,10 +5266,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # Level, so nothing is finished: the summary above says the
             # game goes to the shootout, and the shootout is what ends
             # it -- the game record stays in progress until then, so a
-            # restart mid-shootout comes back to a live game.
+            # restart mid-shootout comes back to a live game. One
+            # substitution a side comes first.
             await interaction.followup.send(whistle)
             await self.refresh_match_image(interaction, game)
-            await self.begin_shootout(interaction, game, match)
+            await self.begin_full_time_coaching(interaction, game, match)
             return
 
         game.finish_game()
@@ -5585,6 +5638,108 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.send_turn_prompt(interaction, game)
         except ValueError as error:
             await interaction.followup.send(str(error), ephemeral=True)
+
+    # -- The window before the shootout --------------------------------
+
+    async def begin_full_time_coaching(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        The last Coaching Choice of a level game, one to each coach
+        before the shootout opens -- see "Full time" in
+        docs/living-rules.md. **One substitution and nothing else**: a
+        shootout is played by who is on the field and by nothing about
+        where they stand, so the three positional actions would
+        rearrange a side that never plays from a position again.
+
+        Home go first, which is the author's call rather than anything
+        the position decides: nobody kicks off here, so the reason
+        setup and halftime have an order does not apply.
+
+        It runs as a stage sequence for the same reason halftime does:
+        two windows one after the other are two live interactions with
+        the bot's own step between them, and a restart in the middle
+        has nothing to click. `pending_full_time_stage` is what a
+        restart reads.
+        """
+        match.pending_full_time_stage = FULL_TIME_STAGES[0]
+        game.match_state = match.to_dict()
+        save_games(self.games)
+        await self.advance_full_time_stage(interaction, game, match)
+
+    def next_full_time_stage(self, match: MatchState) -> None:
+        stage = match.pending_full_time_stage
+        if stage not in FULL_TIME_STAGES:
+            match.pending_full_time_stage = None
+            return
+        index = FULL_TIME_STAGES.index(stage)
+        match.pending_full_time_stage = (
+            FULL_TIME_STAGES[index + 1]
+            if index + 1 < len(FULL_TIME_STAGES)
+            else None
+        )
+
+    async def advance_full_time_stage(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """Hand the next coach their one substitution, or shoot out."""
+        stage = match.pending_full_time_stage
+        if stage in ("coaching_home", "coaching_visiting"):
+            side = (
+                TeamSide.HOME
+                if stage == "coaching_home"
+                else TeamSide.VISITING
+            )
+            # A menu whose only action is disabled is a Done button
+            # with extra steps, and this window has no other action to
+            # fall back on -- so a side with nobody it could bring on
+            # is passed over in silence, the way halftime passes over a
+            # side with nobody to take an extra token off. It takes
+            # both benches spent: three substitutions to drain the
+            # bench, and every one of the three who came off injured.
+            if not match.substitution_pool(side):
+                self.next_full_time_stage(match)
+                game.match_state = match.to_dict()
+                save_games(self.games)
+                await self.advance_full_time_stage(interaction, game, match)
+                return
+
+            setup = match.setup_for_side(side)
+            await self.begin_substitution_window(
+                interaction,
+                game,
+                match,
+                side,
+                occasion=CoachingOccasion.FULL_TIME,
+                lead_in=(
+                    f"## Before the shootout\n{format_team_side_label(setup)} "
+                    "may make **one substitution** -- the last change "
+                    "either side gets. Nothing else is offered: the "
+                    "shootout is played by whoever is on the field, and "
+                    "not by where they are standing."
+                ),
+            )
+            return
+
+        await self.finish_full_time_coaching(interaction, game, match)
+
+    async def finish_full_time_coaching(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """Both coaches are done, so the shooting can start."""
+        match.pending_full_time_stage = None
+        game.match_state = match.to_dict()
+        save_games(self.games)
+        await self.begin_shootout(interaction, game, match)
 
     # -- The extreme shootout ------------------------------------------
 
@@ -7752,11 +7907,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         # The shootout is not a turn and has no offensive choice in it,
         # so this would reset a maneuver that is not being played and
-        # then prompt for a ball nobody is holding.
-        if match.pending_shootout:
+        # then prompt for a ball nobody is holding. The window between
+        # the whistle and the shootout is the same: the second half is
+        # over, and there is no turn under it either.
+        if match.pending_shootout or match.pending_full_time_stage:
             await interaction.followup.send(
-                "This game is in the extreme shootout. Use "
-                "`/d12ball resume` to put its prompt back up.",
+                "This game is in the extreme shootout, or the Coaching "
+                "Choice before it. Use `/d12ball resume` to put its "
+                "prompt back up.",
                 ephemeral=True,
             )
             return
@@ -7900,15 +8058,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # maneuver picks, run back, loose ball, kickoff fill,
             # out-of-bounds pickup -- and the coaching window is closed
             # separately because it is not part of a turn. Setup,
-            # halftime and the shootout are left alone on purpose:
-            # those are real positions in the game rather than a turn
-            # gone wrong, and a plain resume walks them on. The
-            # shootout most of all -- there is no turn under it to
-            # clear, and clearing one would throw away orders both
-            # coaches have already set.
+            # halftime and the shootout -- the window before it
+            # included -- are left alone on purpose: those are real
+            # positions in the game rather than a turn gone wrong, and
+            # a plain resume walks them on. The shootout most of all --
+            # there is no turn under it to clear, and clearing one
+            # would throw away orders both coaches have already set.
             if (
                 match.pending_setup_stage is not None
                 or match.pending_halftime_stage is not None
+                or match.pending_full_time_stage is not None
                 or match.pending_shootout
             ):
                 await interaction.followup.send(

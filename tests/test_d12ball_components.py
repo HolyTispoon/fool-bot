@@ -409,21 +409,18 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertNotIn(incoming, match.home.team_board.bench)
 
         # The bench only ever drains, so it can never be the route
-        # back on for someone who has already been subbed out.
+        # back on for someone who has already been subbed out -- not
+        # while anyone is still sitting on it.
         self.assertNotIn(
-            outgoing,
-            match.substitution_pool(TeamSide.HOME, "orange_kindlefoot"),
+            outgoing, match.substitution_pool(TeamSide.HOME),
         )
 
     def test_back_bench_is_closed_until_the_bench_empties(self) -> None:
         match = self.standard_match()
-        injured = "orange_kindlefoot"
-        match.mark_injured(injured)
 
-        # The bench still has people on it, so it is the only pool --
-        # even for an injured player's replacement.
+        # The bench still has people on it, so it is the only pool.
         self.assertEqual(
-            match.substitution_pool(TeamSide.HOME, injured),
+            match.substitution_pool(TeamSide.HOME),
             match.home.team_board.bench,
         )
 
@@ -435,15 +432,16 @@ class D12BallComponentTests(unittest.TestCase):
             )
         self.assertEqual(match.home.team_board.bench, [])
 
-        # Empty bench: a healthy player has nobody to bring on, but an
-        # injured one reopens the back bench.
+        # Drained, so the back bench opens -- to replace anybody, not
+        # only an injured player.
         self.assertEqual(
-            match.substitution_pool(TeamSide.HOME, "orange_flickerwing"),
-            [],
-        )
-        self.assertEqual(
-            sorted(match.substitution_pool(TeamSide.HOME, injured)),
+            sorted(match.substitution_pool(TeamSide.HOME)),
             sorted(match.home.team_board.back_bench),
+        )
+        match.substitute(
+            TeamSide.HOME,
+            "orange_flickerwing",
+            match.home.team_board.back_bench[0],
         )
 
     def test_injured_players_never_come_back(self) -> None:
@@ -463,13 +461,29 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertEqual(match.home.team_board.bench, [])
         self.assertIn(injured, match.home.team_board.back_bench)
 
-        # A second injury opens the back bench, but not to the player
-        # who limped off it.
-        match.mark_injured("orange_scorchit")
-        pool = match.substitution_pool(TeamSide.HOME, "orange_scorchit")
+        # The back bench is open, but not to the player who limped off
+        # it: that is about them, not about which bench they sit on.
+        pool = match.substitution_pool(TeamSide.HOME)
         self.assertNotIn(injured, pool)
+        self.assertEqual(len(pool), 2)
         with self.assertRaises(ValueError):
             match.substitute(TeamSide.HOME, "orange_scorchit", injured)
+
+    def test_nobody_to_bring_on_takes_both_benches(self) -> None:
+        # The only way a side runs out: the bench drained, and every
+        # one of the three who came off went off injured.
+        match = self.standard_match()
+        for outgoing in ("orange_hellguard", "orange_sizzik", "orange_scorchit"):
+            match.mark_injured(outgoing)
+            match.substitute(
+                TeamSide.HOME,
+                outgoing,
+                match.home.team_board.bench[0],
+            )
+
+        self.assertEqual(match.home.team_board.bench, [])
+        self.assertEqual(len(match.home.team_board.back_bench), 3)
+        self.assertEqual(match.substitution_pool(TeamSide.HOME), [])
 
     def test_returning_player_loses_half_their_tokens(self) -> None:
         match = self.standard_match()
