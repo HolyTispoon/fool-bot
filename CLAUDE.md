@@ -294,7 +294,7 @@ everything but how it was bought.
 
 A maneuver normally needs two players. When the defending team has nobody in
 the ball's zone there is no challenger, and the maneuver the offense picks
-succeeds outright -- see "Maneuver" in the living rules. `MatchState`'s
+succeeds outright -- see "Maneuvers" in the living rules. `MatchState`'s
 `maneuver_uncontested` is the whole of it.
 
 - **It stands in for `challenger_id` everywhere that flag means "a maneuver is
@@ -461,7 +461,8 @@ dies out on its own.
 ## Where a shot may be taken from
 
 A team may only shoot from within **shooting range** -- see "Score attempt" and
-"Shooting range" in the living rules. `MatchState.can_attempt_score` is the
+"Field, direction, and shooting range" in the living rules.
+`MatchState.can_attempt_score` is the
 whole rule, over `BoardState.is_in_shooting_range`.
 
 - **Shooting range is not a zone**, and is deliberately not called a half

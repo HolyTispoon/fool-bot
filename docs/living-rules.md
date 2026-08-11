@@ -89,7 +89,7 @@ The ball is a d12; its face is speed. Coaches use an action-selection d6 for sec
 
 ## The turn
 
-1. The possessing team chooses a player on the ball and an action. A [ball carrier](#ball-carrier) must act. In range: shoot or maneuver. Outside range: maneuver or [cede](#ceding-the-ball).
+1. The possessing team chooses a player on the ball and an action. A [ball carrier](#the-ball-carrier) must act. In range: shoot or maneuver. Outside range: maneuver, or [cede](#ceding-the-ball) if that side still holds its declaration.
 2. Resolve the action and any set-up or own-goal roll.
 3. Resolve a [loose ball](#loose-ball) if the possessing team has no player on the ball.
 4. Resolve a turnover: run back after a steal; reset and offer Coaching Choices after a new play. Then make any outstanding placement.
@@ -119,7 +119,7 @@ Time costs one minute per space to the attacked end, including the starting spac
 
 ### 1. Determine the players
 
-The attacker is a possessing-team player on the ball. An opposing player already on the ball challenges automatically. Otherwise defense may choose a player in the ball's zone; they move to the ball and gain 1 token per space. If the defense has no player in the zone, offense chooses and resolves a maneuver with no reveal or test.
+The attacker is a possessing-team player on the ball. An opposing player already on the ball challenges automatically. Otherwise defense **must** choose a player in the ball's zone; they move to the ball and gain 1 token per space. Unlike a loose ball, there is no declining: a defense with anybody in the zone challenges. If the defense has no player in the zone, offense chooses and resolves a maneuver with no reveal or test.
 
 ### 2. Select and reveal
 
@@ -176,7 +176,9 @@ On an overshoot to a teammate, choose the scoring opportunity or contest. Either
 
 ### Block Deflect
 
-Move ball back one (two for Fullback), never past defending end; reduce speed by 1 (minimum 1). Handler stays. If the full deflection is clamped and a defending player is on landing, that side gets a scoring opportunity. Possession flips and speed resets, but that following shot—not the deflect—creates the new play.
+Move ball back one (two for Fullback), never past defending end; reduce speed by 1 (minimum 1). Handler stays.
+
+A Block Deflect turns nothing over on its own. Only one case does: the full deflection is clamped **and** a defending player is on the landing space. That side then gets a scoring opportunity, and only for it does possession flip and speed reset—and it is the following shot, not the deflect, that creates the new play. Any other deflect leaves possession alone, so if it left no possessing-team player on the ball, the ball is loose.
 
 ### Steal Intercept
 
@@ -249,7 +251,9 @@ Every non-carrier returns to any space in its card's zone, paying 1 token per sp
 
 ### Ceding the ball
 
-Outside range, the possessing side may cede rather than maneuver. It spends that side's once-per-half declaration; gives other side possession on same space at speed 1; costs no time and causes no run back; and opens Coaching Choices for ceding side then receiving side, using ordinary half allowances. After both windows, receiving side must move a field player onto an unattended ball, paying 1 token per space.
+Outside range, the possessing side may cede rather than maneuver. Two conditions, both required: they are out of range, and they still hold their once-per-half declaration. So a side that has already declared this half cannot cede, and a side that cedes cannot declare for the rest of it. Nothing else has to be true—a side with nobody left to bring on may still cede, since the window is the whole Coaching Choice and not the substitution alone.
+
+Ceding spends that declaration; gives other side possession on same space at speed 1; costs no time and causes no run back; and opens Coaching Choices for ceding side then receiving side, using ordinary half allowances. After both windows, receiving side must move a field player onto an unattended ball, paying 1 token per space.
 
 In last possession, ceding ends the period and opens no windows.
 
@@ -271,7 +275,9 @@ When a skill test resolves, every Exhausted participant rolls d12. Higher than c
 
 ### Injured players
 
-Injured players lose all tokens, cannot gain more, and cannot make another check. Until subbed off: against a healthy opponent, a tied maneuver loses outright and a winning maneuver must win a test; in loose-ball or long-pass contests they add no offense or defense, but retain abilities and other modifiers. They need not be removed, but go permanently to back bench if subbed. If both maneuver players are injured, neither suffers this disadvantage.
+Injured players lose all tokens, cannot gain more, and cannot make another check. Until subbed off: against a healthy opponent, a tied maneuver loses outright and a winning maneuver must win a test; in loose-ball or long-pass contests they add no offense or defense, but retain abilities and other modifiers. They need not be removed, but go permanently to back bench if subbed.
+
+The maneuver disadvantage is measured against a healthy opponent, so two cases escape it: both participants injured, which is an ordinary tie and an ordinary win; and an uncontested maneuver, which has no opponent to tie with and nobody to be made to roll, and so succeeds outright as always.
 
 At halftime, every fielded player loses 1 token, then each coach chooses one player to lose 1 more.
 
@@ -320,7 +326,7 @@ Every turn costs at least one minute. Clock stops at 15.
 
 ### Last possession
 
-When clock reaches 15, finish that action fully, even if it turns over. Team gaining ball has last possession. Its next turnover ends period immediately: no run back, reset, window, or remaining turnover effect.
+When clock reaches 15, finish that action fully, even if it turns over. Whichever team holds the ball once it has resolved has last possession—the side that kept it, or the side a turnover just handed it to. Its next turnover ends the period immediately: no run back, reset, window, or remaining turnover effect.
 
 ### Halftime and full time
 

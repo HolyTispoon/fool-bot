@@ -4718,7 +4718,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         A resolution that left possession where it was doesn't run a
         run-back at all: "every time there's a turnover for any
         reason (steal, goal etc.) players have to run back" is the
-        whole of when one happens ("Turnovers and running back",
+        whole of when one happens ("Turnovers, resets, and running back",
         docs/living-rules.md).
         Keeping the ball -- a receiver winning their High Pass, a
         loose ball the possessing side recovers -- leaves whoever is
@@ -5572,7 +5572,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Offer both coaches a Coaching Choice before kickoff, home
-        first -- see "Setting up a game" in docs/living-rules.md. Both
+        first -- see "Setup" in docs/living-rules.md. Both
         teams are dealt the standard 2-2-2 and, in basic mode, dealt
         identically; this is where a coach may change any of it rather
         than waiting for their first window.
