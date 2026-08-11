@@ -36,14 +36,21 @@ class TeamSide(str, Enum):
 
 class CoachingOccasion(str, Enum):
     """
-    The four occasions that offer a coach a Coaching Choice. They run
+    The five occasions that offer a coach a Coaching Choice. They run
     the same four actions -- save FULL_TIME, which runs one of them --
     and differ otherwise only in the properties below. See "Coaching
     Choice" in docs/living-rules.md.
+
+    CEDED is open play's other one: a side out of shooting range may
+    give the ball up to coach (see may_cede_possession), which is the
+    same window a new play offers and is charged the same way. It is
+    its own occasion rather than a flag because the ball was ceded
+    *for* it -- so it is never offered, only opened.
     """
 
     SETUP = "setup"
     NEW_PLAY = "new_play"
+    CEDED = "ceded"
     HALFTIME = "halftime"
     FULL_TIME = "full_time"
 
@@ -52,8 +59,9 @@ class CoachingOccasion(str, Enum):
         """
         How many substitutions this occasion allows, or None for no
         limit. Setup is unlimited because nobody has played yet;
-        halftime's 2 and full time's 1 are their own, and a new play's
-        come out of the side's 2 for the half.
+        halftime's 2 and full time's 1 are their own, and open play's
+        -- a new play's or a ceded ball's -- come out of the side's 2
+        for the half.
         """
         if self == CoachingOccasion.SETUP:
             return None
@@ -67,7 +75,7 @@ class CoachingOccasion(str, Enum):
         substitute seven times in a game -- two a half, plus halftime's
         own two and full time's one.
         """
-        return self == CoachingOccasion.NEW_PLAY
+        return self in (CoachingOccasion.NEW_PLAY, CoachingOccasion.CEDED)
 
     @property
     def offers_positioning(self) -> bool:
@@ -90,8 +98,26 @@ class CoachingOccasion(str, Enum):
         """
         Whether taking this window up costs the side their once-a-half
         declaration. Setup, halftime and full time are given rather
-        than declared, so none is asked for and none is charged --
-        full time has no half left for a declaration to belong to.
+        than declared, so none is charged -- full time has no half left
+        for a declaration to belong to. Ceding is charged like a new
+        play's: it is the same once-a-half, bought with the ball
+        instead of with a turnover.
+        """
+        return self in (CoachingOccasion.NEW_PLAY, CoachingOccasion.CEDED)
+
+    @property
+    def asks_declaration(self) -> bool:
+        """
+        Whether the coach is put the declare-or-pass offer, as opposed
+        to being handed the window already declared. Only a new play
+        asks: setup, halftime and full time are given, and a ceded ball
+        was ceded *to* coach -- the button that gave the ball up is the
+        declaration, and a coach offered the chance to pass after
+        paying for it would have paid for nothing.
+
+        Kept apart from `spends_declaration`, which the two occasions
+        of open play share, because the charge and the question are
+        different facts: ceding charges without asking.
         """
         return self == CoachingOccasion.NEW_PLAY
 
@@ -780,6 +806,14 @@ class MatchState:
     loose_ball_offense_declined: bool = False
     loose_ball_defense_declined: bool = False
     pending_ball_recovery: bool = False
+    # The ball has been given up to coach and neither side's window has
+    # closed yet -- see cede_possession. Persisted because the whole of
+    # a cede happens either side of two coaching windows, and by the
+    # time the second one closes nothing else in the match says how it
+    # got there: the turn was reset before the first one opened, so
+    # without this the tail reads as a run back nobody owes. Cleared by
+    # reset_maneuver with everything else the turn set.
+    pending_cede: bool = False
     declared_substitution: set[str] = field(default_factory=set)
     # How many substitutions each side has spent in the half it is in,
     # keyed by TeamSide value. Halftime's own allowance is not counted
@@ -1018,6 +1052,66 @@ class MatchState:
             self.ball.possession if side is None else side,
             self.board.flat_index(self.ball.zone, self.ball.space_index),
         )
+
+    def may_cede_possession(self) -> bool:
+        """
+        Whether the team in possession may give the ball up to coach --
+        see "Ceding the ball" in docs/living-rules.md. Two conditions
+        and no others:
+
+        - **They are out of shooting range.** A side with a shot on is
+          not stuck, and the rule exists for a side that is. It is the
+          same read as `can_attempt_score`, from the other end, which
+          is why the turn prompt can explain both missing buttons in
+          one sentence.
+        - **They still have their once-a-half declaration.** Ceding is
+          charged exactly like declaring at a new play, so a side that
+          has already declared this half has nothing left to buy the
+          window with.
+
+        Deliberately *not* conditional on having anyone to bring on.
+        The window is the whole Coaching Choice -- formation, zones,
+        spaces -- and a side with both benches spent may still want it;
+        that state needs every one of three substitutions to have come
+        off injured, and is rare enough that hiding the button for it
+        would mislead far more often than it helped.
+        """
+        return (
+            not self.can_attempt_score()
+            and self.may_declare_coaching(self.ball.possession)
+        )
+
+    def cede_possession(self) -> TeamSide:
+        """
+        Give the ball up to coach, and report the side that now has it.
+
+        The ball does not move and play does not stop: possession
+        crosses on the space it was ceded on, at speed 1 like any other
+        turnover, and no time passes -- nothing travelled. The turn
+        that was being taken is cleared, carrier included, because the
+        side that has just been handed the ball chooses their own
+        handler when the coaching is over.
+
+        `pending_cede` is set *after* the reset, which clears it: the
+        two coaching windows and the tail behind them all run off this
+        flag, and reset_maneuver is the last thing to happen before
+        they start.
+
+        `pending_run_back_distance` is the turn's clock cost, which
+        reset_maneuver leaves at 1 and this puts at 0. It is read back
+        by whatever the tail still owes -- an empty ball space sends
+        the receiving side to pick the ball up, and that step spans a
+        restart, so it reads the cost from here rather than from a
+        parameter.
+        """
+        side = self.defending_side()
+        self.reset_maneuver()
+        self.clear_ball_carrier()
+        self.ball.possession = side
+        self.ball.speed = 1
+        self.pending_run_back_distance = 0
+        self.pending_cede = True
+        return side
 
     def high_pass_overshoots(self, side: TeamSide, distance: int) -> bool:
         """
@@ -1537,6 +1631,7 @@ class MatchState:
         self.loose_ball_offense_declined = False
         self.loose_ball_defense_declined = False
         self.pending_ball_recovery = False
+        self.pending_cede = False
 
     def move_meeple(
         self,
@@ -1952,10 +2047,11 @@ class MatchState:
         distinct from `declare_coaching` so that a bot restart
         mid-offer knows whether it is still asking or already coaching.
 
-        `occasion` carries every difference between the three: the
+        `occasion` carries every difference between the five: the
         substitution allowance, whether a declaration is asked for and
-        charged, and where a player taken off goes. Only a new play
-        asks -- setup and halftime are given, so both open declared.
+        whether it is charged, and where a player taken off goes. Only
+        a new play asks -- setup, halftime, full time and a ceded ball
+        all open declared.
 
         `formation` is the shape the side is in as the window opens,
         kept so that closing it can say whether they changed it. It is
@@ -1971,7 +2067,12 @@ class MatchState:
         self.pending_coaching_declared = False
         self.pending_coaching_formation = formation
         self.pending_coaching_swaps = []
-        if not occasion.spends_declaration:
+        # An occasion that does not ask opens declared. For setup,
+        # halftime and full time that costs nothing; for a ceded ball
+        # it charges the declaration the ball was given up for, which
+        # is why this reads `asks_declaration` and not
+        # `spends_declaration` -- the two part company exactly here.
+        if not occasion.asks_declaration:
             self.declare_coaching()
 
     @property
@@ -2827,6 +2928,7 @@ class MatchState:
             "loose_ball_offense_declined": self.loose_ball_offense_declined,
             "loose_ball_defense_declined": self.loose_ball_defense_declined,
             "pending_ball_recovery": self.pending_ball_recovery,
+            "pending_cede": self.pending_cede,
             "declared_substitution": sorted(self.declared_substitution),
             "half_substitutions_used": dict(self.half_substitutions_used),
             "pending_coaching_side": self.pending_coaching_side,
@@ -2963,6 +3065,7 @@ class MatchState:
                 "loose_ball_defense_declined", False
             ),
             pending_ball_recovery=data.get("pending_ball_recovery", False),
+            pending_cede=data.get("pending_cede", False),
             declared_substitution=set(
                 data.get("declared_substitution", [])
             ),

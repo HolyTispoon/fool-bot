@@ -941,12 +941,14 @@ class BallHandlerSelectionView(SafeView):
 
 class PlayerActionView(SafeView):
     """
-    The turn's choice: shoot, or maneuver. **Shooting is only offered
-    from within shooting range**, so short of it a coach is left with
-    the one button -- see `MatchState.can_attempt_score` and
-    `D12Ball.build_turn_prompt`, which says why the shot is missing.
-    Rebuilt from match state on every restart like every other
-    persistent view here, so the ball's position always decides afresh.
+    The turn's choice: shoot, maneuver, or cede the ball to coach.
+    **Shooting is only offered from within shooting range and ceding
+    only from outside it**, so a coach never sees both -- see
+    `MatchState.can_attempt_score`, `MatchState.may_cede_possession`,
+    and `D12Ball.build_turn_prompt`, which says why whichever one is
+    missing is missing. Rebuilt from match state on every restart like
+    every other persistent view here, so the ball's position always
+    decides afresh.
     """
 
     def __init__(
@@ -961,8 +963,11 @@ class PlayerActionView(SafeView):
 
         game = cog.games.get(game_id)
         can_shoot = True
+        can_cede = False
         if game is not None and game.match_state is not None:
-            can_shoot = cog.load_match_state(game).can_attempt_score()
+            match = cog.load_match_state(game)
+            can_shoot = match.can_attempt_score()
+            can_cede = match.may_cede_possession()
 
         actions = [
             (
@@ -978,6 +983,17 @@ class PlayerActionView(SafeView):
                     "Shoot to score",
                     "shoot",
                     discord.ButtonStyle.danger,
+                ),
+            )
+        if can_cede:
+            # Grey, and last: it is the turn a coach takes when there
+            # is nothing else worth taking, and it should never sit
+            # beside Maneuver as an equal.
+            actions.append(
+                (
+                    "Cede ball to coach",
+                    "cede",
+                    discord.ButtonStyle.secondary,
                 ),
             )
 
@@ -1066,6 +1082,29 @@ class PlayerActionView(SafeView):
             await self.cog.begin_score_attempt(interaction, game, match)
             return
 
+        if action == "cede":
+            # Same stale-view guard the shot keeps, and the same two
+            # reasons the button would not have been built: the ball
+            # has moved into shooting range since, or the side has
+            # spent its declaration in another window.
+            if not match.may_cede_possession():
+                await interaction.response.send_message(
+                    "The ball is in shooting range now, so there is "
+                    "nothing to cede for."
+                    if match.can_attempt_score()
+                    else "Your side has already declared this half.",
+                    ephemeral=True,
+                )
+                return
+
+            await interaction.response.edit_message(
+                content=self.cog.cede_confirmation(game, match),
+                view=CedeConfirmView(
+                    self.cog, self.game_id, interaction.message.content,
+                ),
+            )
+            return
+
         # Nobody in the ball's zone to challenge with: the maneuver
         # succeeds automatically, and the offense still picks which one
         # (docs/living-rules.md, "Maneuver"). There is no challenger to
@@ -1148,6 +1187,110 @@ class PlayerActionView(SafeView):
         )
         game.turn_message_id = challenge_message.id
         save_games(self.cog.games)
+
+
+class CedeConfirmView(SafeView):
+    """
+    "Are you sure?" for the one turn action that hands the other team
+    the ball -- see `D12Ball.begin_cede`. Every other choice a coach
+    makes can be argued with afterwards; this one gives the ball away
+    and spends a once-a-half declaration, and it sits one button along
+    from Maneuver.
+
+    **It replaces the turn prompt in place rather than posting a
+    second message**, so Back is genuinely a way out (it puts the
+    prompt back, word for word, which is why `prompt` is carried
+    rather than rebuilt -- `build_turn_prompt` can no longer tell
+    whether the handler was carrying the ball) and the confirmed click
+    can drop the prompt the ordinary way. It is an
+    `interaction.response.edit_message` at both ends, so unlike a board
+    write it costs nothing out of the channel's edit bucket.
+
+    A restart between opening this and answering it leaves the buttons
+    dead -- a restart re-arms the message with `PlayerActionView`, this
+    view being nothing the match records. The coach is one `/d12ball
+    resume` from the turn prompt they started at, and nothing has
+    happened to the match in the meantime.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, prompt: str):
+        super().__init__(timeout=None)
+
+        self.cog = cog
+        self.game_id = game_id
+        self.prompt = prompt
+
+        confirm = discord.ui.Button(
+            label="Cede and coach",
+            style=discord.ButtonStyle.danger,
+            custom_id=f"d12ball:cede_confirm:{game_id}",
+        )
+        confirm.callback = self.confirm
+        self.add_item(confirm)
+
+        back = discord.ui.Button(
+            label="Back",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:cede_cancel:{game_id}",
+        )
+        back.callback = self.back
+        self.add_item(back)
+
+    async def claim(
+        self,
+        interaction: discord.Interaction,
+    ) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
+        """The game and match, if this click may act on them."""
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return None, None
+
+        match = self.cog.load_match_state(game)
+        if not self.cog.user_controls_possession(
+            interaction.user.id, game, match,
+        ):
+            await interaction.response.send_message(
+                "Only the team with the ball can give it up.",
+                ephemeral=True,
+            )
+            return None, None
+        return game, match
+
+    async def back(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        await interaction.response.edit_message(
+            content=self.prompt,
+            view=PlayerActionView(self.cog, self.game_id),
+        )
+
+    async def confirm(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        # Asked again rather than trusted from the click that opened
+        # this: the prompt underneath is a live message and the match
+        # can have moved on under it.
+        if not match.may_cede_possession():
+            await interaction.response.edit_message(
+                content=self.prompt,
+                view=PlayerActionView(self.cog, self.game_id),
+            )
+            await interaction.followup.send(
+                "The ball can no longer be ceded from here.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer()
+        await self.cog.begin_cede(interaction, game, match)
 
 
 class ManeuverChallengeView(SafeView):

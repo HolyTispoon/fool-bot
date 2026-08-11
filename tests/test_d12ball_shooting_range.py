@@ -237,12 +237,14 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
             ["Shoot to score", "Maneuver"],
         )
 
+        # Out of range the cede takes the shot's place -- the two are
+        # the same read, so a coach never sees both.
         cog, game, _ = self.build_turn(Zone.MIDFIELD, 0)
         self.assertEqual(
             [item.label for item in PlayerActionView(
                 cog, game.game_id,
             ).children],
-            ["Maneuver"],
+            ["Maneuver", "Cede ball to coach"],
         )
 
     def test_the_prompt_says_why_the_shot_is_missing(self) -> None:
