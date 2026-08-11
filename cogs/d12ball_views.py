@@ -608,10 +608,11 @@ class CoinFlipView(GameConfigurationView):
 
         # No board yet, even when the match already exists (a solo game
         # whose AI won the toss and chose for itself). This message is
-        # the persistent one every later refresh edits, and the board
-        # it carries is the kickoff board -- so it is not drawn until
-        # both coaches have finished setting up and there is a kickoff
-        # to show. See D12Ball.finish_setup_coaching.
+        # the persistent one every later refresh edits, and the first
+        # board it carries is the one the kickoff posts -- so nothing
+        # is drawn until both coaches have finished setting up and
+        # there is a kickoff to show. See
+        # D12Ball.finish_setup_coaching.
         choice_message = await interaction.followup.send(
             build_home_choice_message(game),
             view=refreshed_view,

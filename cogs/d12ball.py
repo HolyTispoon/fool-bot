@@ -5679,17 +5679,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         anyone acted on it; the one worth looking at is the line-up the
         game actually kicks off from.
 
-        That makes this the kickoff board, so it is pinned here. It is
-        the persistent message every later refresh edits, so the pin
-        never needs re-cutting -- see "Discord's rate limits" in
-        CLAUDE.md for why a second pin is not free.
+        A kickoff is a new play, so it posts its board the way every
+        other one does: as its own message, under the coaching it came
+        out of. It used to attach the board to the persistent message
+        instead, which is a message near the top of the channel -- and
+        Discord leaves an edited message where it was, so the board a
+        coach had just finished setting appeared *above* the windows
+        that set it, looking for all the world like the board had gone
+        up before kickoff coaching rather than after it.
         """
         match.pending_setup_stage = None
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        await self.refresh_match_image(interaction, game)
-        await self.pin_board(interaction, game)
+        kicking_off = match.setup_for_side(match.ball.possession)
+        await self.post_new_play_board(
+            interaction,
+            game,
+            "**Both coaches are set.** The game kicks off with "
+            f"{format_team_side_label(kicking_off)} in possession.",
+        )
         try:
             await self.send_turn_prompt(interaction, game)
         except ValueError as error:
@@ -7476,27 +7485,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """Render the board and wrap it for a single upload."""
         return self.match_file_from_png(
             game, await self.render_match_png(game),
-        )
-
-    async def pin_board(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-    ) -> None:
-        """
-        Pin the persistent board message itself. Only the kickoff does
-        this: every other pinned board is a snapshot of its own, but
-        the kickoff board *is* the message every later refresh edits,
-        so pinning it once keeps a live board at the top of the
-        channel and never needs re-cutting.
-
-        A pin is a request and a "pinned a message" post, so nothing
-        else may call this -- see "Discord's rate limits" in CLAUDE.md.
-        """
-        if game.message_id is None or interaction.channel is None:
-            return
-        await pin_board_message(
-            interaction.channel.get_partial_message(game.message_id)
         )
 
     async def post_new_play_board(

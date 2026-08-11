@@ -40,6 +40,7 @@ def build_cog() -> D12Ball:
         cog.player_catalog, cog.maneuver_catalog,
     )
     cog.refresh_match_image = mock.AsyncMock()
+    cog.post_new_play_board = mock.AsyncMock()
     cog.send_turn_prompt = mock.AsyncMock()
     return cog
 
@@ -417,9 +418,10 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         # Nothing has been played, so a board posted before the windows
         # shows a deal neither coach has finished with. The kickoff
         # board is the line-up the game actually starts from, which is
-        # not known until the second coach is done.
+        # not known until the second coach is done -- and it goes up as
+        # its own message, under the coaching, the way every other new
+        # play's board does.
         cog, game, _ = self.build()
-        cog.pin_board = mock.AsyncMock()
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_setup_coaching(build_interaction(), game)
@@ -428,14 +430,14 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
                 build_interaction(), game, match,
             )
             cog.refresh_match_image.assert_not_awaited()
-            cog.pin_board.assert_not_awaited()
+            cog.post_new_play_board.assert_not_awaited()
 
             await cog.finish_substitution_window(
                 build_interaction(), game, match,
             )
 
-        cog.refresh_match_image.assert_awaited_once()
-        cog.pin_board.assert_awaited_once()
+        cog.refresh_match_image.assert_not_awaited()
+        cog.post_new_play_board.assert_awaited_once()
 
     async def test_a_setup_substitution_is_unlimited_and_reversible(
         self,
