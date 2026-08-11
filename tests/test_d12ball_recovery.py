@@ -61,6 +61,7 @@ def build_cog() -> D12Ball:
     cog.board_png_digests = {}
     cog.board_link_owed = {}
     cog.board_refresh_locks = {}
+    cog.board_writes_refused = {}
     cog.board_refresh_wanted = set()
     cog.refresh_match_image = mock.AsyncMock()
     cog.send_turn_prompt = mock.AsyncMock()

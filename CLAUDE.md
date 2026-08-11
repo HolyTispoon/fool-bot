@@ -967,6 +967,43 @@ same budget. So:
     - **The stamp goes in a `finally`.** A write that raised still spent its
       place in the bucket, and a window left open by the failure is one more
       request into a channel that is already unhappy.
+  - **A refused write backs the game's window off, doubling per refusal in a
+    row to `BOARD_REFRESH_BACKOFF_CEILING`, until one lands.** Every other
+    lever here decides how many writes a turn asks for; this is the only one
+    that says what to do when the answer turns out to be too many anyway --
+    and without it there is no answer at all. A refused write deliberately
+    does not record its digest, so the next refresh redraws the same board and
+    asks again at the next window, and the next, for as long as the game goes
+    on. **The fourth batch of warnings is that loop**: 61 refused uploads on
+    one message, one request about every six seconds, every one of them
+    refused, across three quarters of an hour and a restart in the middle.
+    Nothing in the gate could have ended it.
+    - **The budget in this section is a guess at somebody else's arithmetic,
+      and that batch is the evidence it is wrong.** No five-in-five-seconds
+      bucket refuses one request every six seconds for ninety seconds
+      straight. Whatever the real rule is -- a window longer than the
+      `retry_after` implies, a sub-limit the headers do not describe, a
+      limiter that counts refusals -- the bot cannot read it, so it has to be
+      able to *recover* from being wrong rather than only to avoid it.
+      `discord.http` at DEBUG is what would settle it: it names the
+      sub-ratelimit case outright, and `FOOLBOT_LOG_LEVEL=DEBUG` is enough to
+      see it (console only -- the mirror's threshold is separate).
+    - **One logical write is up to five requests, and that is not ours to
+      change.** discord.py sleeps the `retry_after` and retries five times
+      inside the single await this code makes, so a write that is being
+      refused puts five uploads into the channel before the bot hears about
+      it. `Client(max_ratelimit_timeout=...)` is the only dial and it is
+      clamped to a 30-second floor, well above the ~5s these come back with,
+      so it never fires. What the bot can decide is when to ask next.
+    - **Only a 429 backs off.** A 404 or a dropped connection is a one-off and
+      the next window is the right time to try again; a refusal is precisely
+      the case where the next window is what is too soon. One write landing
+      clears the count outright rather than stepping back down, because what
+      the backoff was waiting for has happened.
+    - **It is announced at WARNING**, which is most of the point: a run of
+      `discord.http` 429s names a channel and a message and nothing else, and
+      this is the line that ties one to a game without anybody having to look
+      an id up. Console-only, like every other WARNING here.
   - **A write in flight does not stand in for a request that arrives during
     it.** The board it is putting up was drawn before that request, so the want
     is recorded in `board_refresh_wanted` and a pass that finds the flag set

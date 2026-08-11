@@ -12,6 +12,7 @@ actually written, and whether the write says anything new.
 
 import asyncio
 import itertools
+import logging
 import time
 import unittest
 from types import SimpleNamespace
@@ -19,7 +20,12 @@ from unittest import mock
 
 import discord
 
-from cogs.d12ball import BOARD_REFRESH_INTERVAL, D12Ball
+from cogs.d12ball import (
+    BOARD_REFRESH_BACKOFF_CEILING,
+    BOARD_REFRESH_INTERVAL,
+    LOGGER,
+    D12Ball,
+)
 
 
 class FakeAttachment:
@@ -67,6 +73,7 @@ def build_cog() -> D12Ball:
     cog.board_png_digests = {}
     cog.board_link_owed = {}
     cog.board_refresh_locks = {}
+    cog.board_writes_refused = {}
     cog.board_refresh_wanted = set()
     # Every render differs, so these tests see the write path. The
     # identical-board case has its own class below.
@@ -443,6 +450,136 @@ class UnchangedBoardTests(unittest.IsolatedAsyncioTestCase):
         await cog.refresh_match_image(interaction, game)
 
         self.assertEqual(channel.message.edits, 1)
+
+
+def refused() -> discord.HTTPException:
+    """What discord.py raises once it has given up on a 429."""
+    return discord.HTTPException(
+        SimpleNamespace(status=429, reason="Too Many Requests"),
+        "rate limited",
+    )
+
+
+class RefusedWriteBackoffTests(unittest.IsolatedAsyncioTestCase):
+    """
+    What happens when the budget turns out to be wrong.
+
+    A refused write does not record its digest, so the next refresh
+    redraws the same board and asks again. With a fixed interval that
+    is a loop with no exit: one logged session spent three quarters of
+    an hour asking every six seconds and being refused every time, 61
+    uploads, and a restart in the middle of it changed nothing. So a
+    refusal widens that game's window until a write lands.
+    """
+
+    def setUp(self) -> None:
+        # The refusal is announced at WARNING, which is the point of
+        # it -- see test_a_refusal_is_announced. A handler of its own
+        # keeps logging's last-resort one from printing a run of them
+        # through the test output, and leaves assertLogs working.
+        # Read off the module rather than named: the cog shares the
+        # helpers' logger rather than owning one.
+        logger = logging.getLogger(LOGGER.name)
+        handler = logging.NullHandler()
+        logger.addHandler(handler)
+        self.addCleanup(logger.removeHandler, handler)
+
+    def build(self, error=None):
+        cog, game, channel = build_cog(), build_game(), FakeChannel()
+        if error is not None:
+            channel.message.edit = mock.AsyncMock(side_effect=error)
+        return cog, game, channel, SimpleNamespace(channel=channel)
+
+    async def test_a_refusal_is_announced(self) -> None:
+        # A run of `discord.http` 429s names a channel and a message
+        # and nothing else; this is the line that ties one to a game
+        # without anybody having to look an id up.
+        cog, game, _, interaction = self.build(error=refused())
+
+        with self.assertLogs(LOGGER.name, level="WARNING") as caught:
+            await cog.refresh_match_image(interaction, game)
+
+        self.assertIn(game.game_id, caught.output[0])
+
+    async def test_a_settled_board_waits_the_ordinary_interval(self) -> None:
+        cog, game, _, _ = self.build()
+
+        self.assertEqual(
+            cog.board_refresh_interval(game), BOARD_REFRESH_INTERVAL,
+        )
+
+    async def test_each_refusal_doubles_the_window(self) -> None:
+        cog, game, channel, interaction = self.build(error=refused())
+
+        widths = []
+        for _ in range(3):
+            await cog.refresh_match_image(interaction, game)
+            widths.append(cog.board_refresh_interval(game))
+            # Let the next one through the window rather than the
+            # backoff, so what is being measured is the backoff alone.
+            cog.board_refreshed_at[game.game_id] -= widths[-1] + 1
+
+        self.assertEqual(widths, [
+            BOARD_REFRESH_INTERVAL * 2,
+            BOARD_REFRESH_INTERVAL * 4,
+            BOARD_REFRESH_INTERVAL * 8,
+        ])
+
+    async def test_the_backoff_has_a_ceiling(self) -> None:
+        cog, game, _, _ = self.build()
+        cog.board_writes_refused[game.game_id] = 40
+
+        self.assertEqual(
+            cog.board_refresh_interval(game), BOARD_REFRESH_BACKOFF_CEILING,
+        )
+
+    async def test_a_write_that_lands_clears_the_backoff(self) -> None:
+        cog, game, channel, interaction = self.build(error=refused())
+
+        await cog.refresh_match_image(interaction, game)
+        self.assertEqual(cog.board_writes_refused[game.game_id], 1)
+
+        # Discord lets the next one through.
+        channel.message = FakeMessage()
+        cog.board_refreshed_at[game.game_id] -= (
+            cog.board_refresh_interval(game) + 1
+        )
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertNotIn(game.game_id, cog.board_writes_refused)
+        self.assertEqual(
+            cog.board_refresh_interval(game), BOARD_REFRESH_INTERVAL,
+        )
+
+    async def test_the_widened_window_actually_holds_a_refresh_back(
+        self,
+    ) -> None:
+        # The counter is only worth having if the gate reads it.
+        cog, game, channel, interaction = self.build(error=refused())
+
+        await cog.refresh_match_image(interaction, game)
+        self.assertEqual(channel.message.edit.await_count, 1)
+
+        # Far enough past the ordinary interval to have been let
+        # through before, and nowhere near the backed-off one.
+        cog.board_refreshed_at[game.game_id] -= BOARD_REFRESH_INTERVAL + 1
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertEqual(channel.message.edit.await_count, 1)
+
+    async def test_other_failures_do_not_back_off(self) -> None:
+        # A 404 or a dropped connection is a one-off, and the next
+        # window is the right time to try again. Only a refusal says
+        # that the next window is what is too soon.
+        cog, game, _, interaction = self.build(
+            error=discord.HTTPException(
+                SimpleNamespace(status=500, reason="nope"), "nope",
+            ),
+        )
+
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertEqual(cog.board_writes_refused, {})
 
 
 def build_assigned_game(game_id: str = "g") -> SimpleNamespace:

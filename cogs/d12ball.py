@@ -201,6 +201,31 @@ MAX_RUN_BACK_PASSES = 60
 # puts it back. See write_board_message.
 BOARD_REFRESH_INTERVAL = 6.0
 
+# What the interval widens to while Discord is refusing board writes,
+# doubling per consecutive refusal, and the ceiling it stops at.
+#
+# The interval above is a budget, and a budget is only ever a guess at
+# somebody else's arithmetic. This is what happens when the guess is
+# wrong: a refused write does not record its digest -- deliberately, so
+# the board it failed to put up is not treated as the one on the
+# message -- so the next refresh redraws the same board and asks again,
+# six seconds later, for as long as anyone keeps playing. Nothing in
+# the gate could ever end that, and one logged session spent
+# three-quarters of an hour in it, 61 refused uploads, every request in
+# the channel refused. Backing off is the only exit: discord.py retries
+# a 429 five times *inside* the one await this code makes, so a write
+# is up to five requests however careful the gate is, and `Client`
+# clamps `max_ratelimit_timeout` to a 30-second floor, so there is no
+# way to ask for fewer. What the bot can decide is when to ask next.
+BOARD_REFRESH_BACKOFF_CEILING = 300.0
+
+# What discord.py raises a refused request as, once it has given up.
+# It sleeps the `retry_after` and retries five times first, so by the
+# time this reaches the bot the channel has already had five uploads
+# refused -- which is the other half of why the answer is to wait
+# rather than to try again promptly.
+TOO_MANY_REQUESTS = 429
+
 
 class D12Ball(commands.GroupCog, group_name="d12ball"):
     ball_group = app_commands.Group(
@@ -253,6 +278,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # covering it began. See refresh_match_image.
         self.board_refresh_locks: dict[str, asyncio.Lock] = {}
         self.board_refresh_wanted: set[str] = set()
+        # Board writes Discord has refused in a row, by game. Widens
+        # that game's interval until one lands. See
+        # board_refresh_interval.
+        self.board_writes_refused: dict[str, int] = {}
 
         restored_views = 0
 
@@ -6683,18 +6712,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.game_id, asyncio.Lock(),
         )
 
+        interval = self.board_refresh_interval(game)
+
         if lock.locked():
-            self.schedule_board_refresh(
-                interaction.channel, game, BOARD_REFRESH_INTERVAL,
-            )
+            self.schedule_board_refresh(interaction.channel, game, interval)
             return
 
         now = time.monotonic()
         last = self.board_refreshed_at.get(game.game_id)
 
-        if last is not None and now - last < BOARD_REFRESH_INTERVAL:
+        if last is not None and now - last < interval:
             self.schedule_board_refresh(
-                interaction.channel, game, last + BOARD_REFRESH_INTERVAL - now,
+                interaction.channel, game, last + interval - now,
             )
             return
 
@@ -6713,7 +6742,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # of this click still has to move.
         if game.game_id in self.board_link_owed:
             self.schedule_board_refresh(
-                interaction.channel, game, BOARD_REFRESH_INTERVAL,
+                interaction.channel, game, self.board_refresh_interval(game),
             )
 
     def schedule_board_refresh(
@@ -6781,7 +6810,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     if game.game_id not in self.board_refresh_wanted:
                         return
 
-                    await asyncio.sleep(BOARD_REFRESH_INTERVAL)
+                    await asyncio.sleep(self.board_refresh_interval(game))
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -6800,6 +6829,53 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # The loop keeps only a weak reference to a task, so the handle
         # is held here to keep this one from being collected mid-sleep.
         self.board_refresh_tasks[game.game_id] = asyncio.create_task(run())
+
+    def board_refresh_interval(self, game: D12BallGame) -> float:
+        """
+        How long this game's board waits between writes: the ordinary
+        interval, doubled once per board write Discord has refused in a
+        row, up to BOARD_REFRESH_BACKOFF_CEILING.
+
+        Every other lever in this file decides *how many* writes a turn
+        asks for. This is the one that decides what to do when the
+        answer turns out to be too many anyway -- and without it there
+        is no answer at all, because a refused write leaves its digest
+        unrecorded and so is retried, identically, at the next window,
+        for as long as the game goes on.
+        """
+        refused = self.board_writes_refused.get(game.game_id, 0)
+
+        if not refused:
+            return BOARD_REFRESH_INTERVAL
+
+        return min(
+            BOARD_REFRESH_INTERVAL * 2 ** refused,
+            BOARD_REFRESH_BACKOFF_CEILING,
+        )
+
+    def note_board_write_refused(self, game: D12BallGame) -> None:
+        """
+        Record that Discord refused a board write, widening the window
+        before the next one.
+
+        Logged at WARNING rather than ERROR: it is console-only, and
+        nobody can act on it in the moment -- but it is the one line
+        that attributes a run of `discord.http` 429s to a game rather
+        than leaving a channel id to be looked up. It is logged per
+        refusal, and there are at most a handful of those now where the
+        unbacked-off gate produced sixty.
+        """
+        self.board_writes_refused[game.game_id] = (
+            self.board_writes_refused.get(game.game_id, 0) + 1
+        )
+
+        LOGGER.warning(
+            "Discord refused the board write for D12 Ball game %s "
+            "(%d in a row); next attempt in %.0fs.",
+            game.game_id,
+            self.board_writes_refused[game.game_id],
+            self.board_refresh_interval(game),
+        )
 
     async def wait_out_board_interval(self, game: D12BallGame) -> None:
         """
@@ -6822,7 +6898,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if last is None:
             return
 
-        remaining = last + BOARD_REFRESH_INTERVAL - time.monotonic()
+        remaining = (
+            last + self.board_refresh_interval(game) - time.monotonic()
+        )
 
         if remaining > 0:
             await asyncio.sleep(remaining)
@@ -6867,6 +6945,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         record on a flaky link) shouldn't abort the caller and strand
         the turn before it reaches the next prompt, any more than a 404
         or a Discord-side HTTP error already doesn't.
+
+        A write Discord *refused* is a different kind of failure from
+        the rest, and the only one this counts: the others are one-offs
+        and the next window is the right time to try again, whereas a
+        429 says the next window is precisely what is too soon. See
+        board_refresh_interval.
         """
         if game.message_id is None:
             return
@@ -6898,12 +6982,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     else discord.utils.MISSING
                 ),
             )
-        except (discord.NotFound, discord.HTTPException, aiohttp.ClientError):
+        except (
+            discord.NotFound, discord.HTTPException, aiohttp.ClientError,
+        ) as error:
+            if getattr(error, "status", None) == TOO_MANY_REQUESTS:
+                self.note_board_write_refused(game)
             return
 
         # Recorded only once the upload has landed, so a failed edit
         # leaves the next refresh believing it still has work to do.
         self.board_png_digests[game.game_id] = digest
+        # One landing is the whole of the recovery: the window goes
+        # straight back to its ordinary width rather than stepping down
+        # through the backoff, because what the backoff was waiting for
+        # has just happened.
+        self.board_writes_refused.pop(game.game_id, None)
         # Whatever was owed was owed against the upload this one just
         # replaced, so it dies with it either way.
         self.board_link_owed.pop(game.game_id, None)
@@ -8541,6 +8634,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.board_refresh_wanted.discard(game.game_id)
         self.board_refresh_locks.pop(game.game_id, None)
         self.board_link_owed.pop(game.game_id, None)
+        self.board_writes_refused.pop(game.game_id, None)
 
         game.abandon()
         game.message_id = None
