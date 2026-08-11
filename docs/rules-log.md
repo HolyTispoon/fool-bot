@@ -55,7 +55,36 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-10 (latest) -- author, every tie goes to the extreme shootout
+### 2026-08-10 (latest) -- author, a coaching window between full time and the shootout
+
+*From the author: "open a coaching window after fulltime and before extreme shootout, allowing
+1 sub", and then the two things that request did not settle. With no kickoff to key the order
+on -- home go first at setup and the visitors at halftime, both because they restart play --
+the **home coach goes first**. And the window offers the **substitution alone** rather than
+the usual four actions.*
+
+- **A level score at full time now opens a Coaching Choice before the shootout**, one to each
+  coach independently, home first. It reverses the "nobody comes on for it and nobody is
+  substituted" line the shootout section had carried since it was written earlier the same
+  day: a side that finished the second half with a spent or injured player gets one chance to
+  take them off before the shooting starts.
+- **One substitution, and it is the window's own allowance.** There is no half left for it to
+  be drawn from, so it is counted inside the window the way halftime's two are. A side that
+  spends everything it is given now substitutes seven times in a game rather than six.
+- **The substitution alone.** A shootout is played by who is on the field and by nothing about
+  where they stand, so a formation change, a zone assignment or a space positioning here would
+  move meeples that never play again. This is the first Coaching Choice that is not the same
+  four actions.
+- **It neither opens on the coach's arrangement nor sets one.** Every other window puts the
+  side back on the spaces its coach last set, and records where they finish. Here nothing is
+  ever played from a position again: restoring would rearrange the last board of the game for
+  no reason, and recording would overwrite an arrangement nothing will read.
+- **Everything about who may come on is unchanged.** The one swap comes off the bench, or off
+  the back bench only when the bench is empty and the player going off is injured. A
+  substitute returning from the back bench still loses half their tokens -- which, at a whistle
+  that recovers nothing, is the only exhaustion in the game that still moves.
+
+### 2026-08-10 (second latest) -- author, every tie goes to the extreme shootout
 
 *From the author, who asked for league mode to be removed and the shootout built, and then
 answered the four things the shootout section did not say: the six who shoot are "the six on
@@ -762,10 +791,11 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Halftime recovery of "1 (or 2, TBD)" | 1 |
 | Halftime lets the coach change assignments "as they please" | A Coaching Choice, the same four actions as any other, with the visiting coach going first and having to cover the kickoff space |
 | Nothing about a coach changing anything before kickoff | Setup offers a Coaching Choice, with unlimited substitutions and players taken off going back to the bench |
-| Substitutions "up to 2", with no period attached | 2 per side per half, plus 2 more of halftime's own allowance |
+| Substitutions "up to 2", with no period attached | 2 per side per half, plus 2 more of halftime's own allowance, plus 1 before the shootout |
 | Substitutions: "if and only if all the players on the bench were subbed out" | Two pools -- bench, then back bench for an injured sub only |
 | "So if they were subbed while exhausted they are no longer exhausted" | Half the tokens, rounded up; Exhausted follows from what remains |
-| The shootout says nothing about who shoots, what it costs, or what its goals do | The six on the field at full time; no exhaustion but injury checks as usual; goals go on the scoreboard |
+| The shootout says nothing about who shoots, what it costs, or what its goals do | The six on the field when it starts, after a one-substitution window; no exhaustion but injury checks as usual; goals go on the scoreboard |
+| Nothing about coaching between full time and the shootout | A Coaching Choice each, home first, offering one substitution and nothing else |
 | A level round "continues one clash at a time" with no end to a round | Eligibility resets when all six have gone, and every sudden-death pick is free |
 | "For now, we need one player of each role on the field" | A property of the standard setup, not a standing rule |
 | Nothing about formations, and a fixed two cards per zone | Games kick off 2-2-2; rearranging can move a team into 2-3-1 or 1-3-2 |
