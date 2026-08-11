@@ -200,50 +200,5 @@ class NewPlayBoardTests(unittest.IsolatedAsyncioTestCase):
         pin.assert_awaited_once_with(snapshot)
 
 
-class KickoffBoardPinTests(unittest.IsolatedAsyncioTestCase):
-    """
-    The kickoff board is the persistent message itself rather than a
-    snapshot of its own, so it is pinned in place -- see
-    D12Ball.pin_board.
-    """
-
-    def build(self, message_id=42, channel=True):
-        cog = object.__new__(D12Ball)
-        board = FakeMessage(message_id=42)
-        interaction = SimpleNamespace(
-            channel=(
-                SimpleNamespace(
-                    get_partial_message=mock.Mock(return_value=board),
-                )
-                if channel
-                else None
-            ),
-        )
-        game = SimpleNamespace(game_id="g", game_number=7, message_id=message_id)
-        return cog, interaction, game, board
-
-    async def test_the_persistent_message_is_the_one_pinned(self) -> None:
-        cog, interaction, game, board = self.build()
-        pin = mock.AsyncMock()
-
-        with mock.patch("cogs.d12ball.pin_board_message", pin):
-            await cog.pin_board(interaction, game)
-
-        interaction.channel.get_partial_message.assert_called_once_with(42)
-        pin.assert_awaited_once_with(board)
-
-    async def test_nothing_to_pin_is_not_an_error(self) -> None:
-        pin = mock.AsyncMock()
-
-        for cog, interaction, game, _ in (
-            self.build(message_id=None),
-            self.build(channel=False),
-        ):
-            with mock.patch("cogs.d12ball.pin_board_message", pin):
-                await cog.pin_board(interaction, game)
-
-        pin.assert_not_awaited()
-
-
 if __name__ == "__main__":
     unittest.main()

@@ -890,14 +890,15 @@ same budget. So:
   result) and so does `announce_board_update`; both draw it once and upload it
   twice. `refresh_match_image` takes a `png=` for exactly this, and so does
   `post_new_play_board`.
-- **Only new-play boards are pinned.** A pin is a request of its own *and* a
-  "pinned a message" system post in the channel, so `pin_board_message` is
-  called from three places and no more: the second-half board,
-  `post_new_play_board`, and the kickoff board via `D12Ball.pin_board`, which is
-  the odd one out -- the kickoff board *is* the persistent message rather than a
-  snapshot of its own, so it is pinned in place and the pin never needs
-  re-cutting. Pinning every board a turn puts out would roughly double the
-  channel's traffic and fill the 50-pin cap inside a game.
+- **Only new-play boards are pinned, and `post_new_play_board` is the only
+  thing that pins.** A pin is a request of its own *and* a "pinned a message"
+  system post in the channel, so `pin_board_message` has exactly one caller and
+  every pinned board is a snapshot of its own -- the kickoff included, which
+  used to be the odd one out. It was the persistent message, pinned in place by
+  a `D12Ball.pin_board` that no longer exists; see "The first board of a game"
+  under "Working on the board image" for why that changed. Pinning every board a
+  turn puts out would roughly double the channel's traffic and fill the 50-pin
+  cap inside a game.
   At the cap the pin fails with error 30003 and the helper unpins the oldest
   board *it* pinned -- read off `channel.pins(oldest_first=True)` and matched
   by the `d12ball-pbd` filename -- so a pin somebody else put there is never
@@ -1123,12 +1124,23 @@ guessing at the state. Saved games are local to each machine, so a fresh clone
 lists none until the bot has been run.
 
 **The first board of a game goes up when setup coaching ends**, not when the
-match is created. `finish_setup_coaching` posts it (and pins it); the coin toss
-and the home/visiting choice leave the persistent message imageless, and an AI
-setup window skips its own refresh while `pending_setup_stage` is set. Nothing
-has been played before that point, so a board posted earlier shows a deal
-neither coach has finished with and is redrawn twice over before anyone acts on
-it -- the one worth looking at is the line-up the game kicks off from.
+match is created. `finish_setup_coaching` posts it; the coin toss and the
+home/visiting choice leave the persistent message imageless, and an AI setup
+window skips its own refresh while `pending_setup_stage` is set. Nothing has
+been played before that point, so a board posted earlier shows a deal neither
+coach has finished with and is redrawn twice over before anyone acts on it --
+the one worth looking at is the line-up the game kicks off from.
+
+**And it goes up through `post_new_play_board`, like every other new play's.**
+A kickoff *is* a new play, so its board is its own message under the coaching
+that produced it, pinned like the rest. It used to attach the board to the
+persistent message instead, which put it in the right order but the wrong
+place: Discord leaves an edited message where it was, so a board finished after
+two coaching windows appeared above them, at the top of the channel, with the
+timestamp of the home/visiting choice. Both developers read that as the change
+never having landed. The persistent message still gets the same render in the
+same breath -- `post_new_play_board` refreshes it from the `png=` it already
+drew -- so this costs one message and one pin per *game*, not per turn.
 
 **There are two board images, and they are drawn to different widths.**
 `render_match_image` is the 2200px one everybody sees;
