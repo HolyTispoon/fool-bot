@@ -111,7 +111,9 @@ Shoot only from [shooting range](#field-direction-and-shooting-range). Choose a 
 | Side | Adds |
 | --- | --- |
 | Attack | Offensive skill + speed modifier; +3 for Striker off set-up |
-| Defense | Defensive skills of all opposing meeples between ball and goal, including the ball space |
+| Defense | Full defensive skill of every opposing meeple on the ball's space, plus half the defensive skill—rounded up, per player—of every opposing meeple between the ball and the goal |
+
+Each defender halves their own skill: two 5s in the way add 3 + 3, not 5.
 
 Attack scores on an equal or higher total. A plain shot costs no exhaustion; a set-up shot gives its shooter 1 token after the roll.
 
@@ -352,7 +354,7 @@ Play six pairings, stopping early if trailing side cannot catch up. If level, pl
 
 | Roll | Dice | Result |
 | --- | --- | --- |
-| Score attempt | 1d12 each | Attack adds offense + speed; ties score. |
+| Score attempt | 1d12 each | Attack adds offense + speed; defense adds full on the ball, half beyond; ties score. |
 | Skill test | 1d12 each | Applicable offense/defense; higher wins; re-roll ties. |
 | Own goal | 2d12, keep higher | Add offense; 7+ avoids. |
 | Injury check | 1d12 | Higher than token count is safe. |
