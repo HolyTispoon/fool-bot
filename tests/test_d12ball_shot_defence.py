@@ -1,0 +1,359 @@
+"""
+What a score attempt is up against.
+
+A defender sharing the ball's space is worth their whole defensive
+skill; anyone else between the ball and the goal is worth half of it,
+rounded up, per player rather than over the group's total. See "Score
+attempt" in docs/living-rules.md and ShotDefender in
+d12ball/components.py.
+
+Three things read that value and none of them may sum raw skills: the
+roll (ScoreAttemptView.roll), the composition image
+(D12Ball.build_score_attempt_file), and the dice image's detail lines.
+"""
+
+import unittest
+from types import SimpleNamespace
+from unittest import mock
+
+from cogs.d12ball import D12Ball
+from cogs.d12ball_views import ScoreAttemptView
+from d12ball.components import (
+    MatchState,
+    PlayerDefinition,
+    PlayerRole,
+    ShotDefender,
+    TeamSide,
+    Zone,
+    load_basic_ruleset,
+    load_maneuver_catalog,
+    load_player_catalog,
+)
+from d12ball.game import D12BallGame, Team
+from d12ball.render import ChallengeSide, group_text_lines, render_score_attempt
+
+
+def build_cog() -> D12Ball:
+    cog = object.__new__(D12Ball)
+    cog.games = {}
+    cog.player_catalog = load_player_catalog()
+    cog.maneuver_catalog = load_maneuver_catalog()
+    cog.basic_ruleset = load_basic_ruleset()
+    cog.team_emojis = {}
+    cog.condition_emojis = {}
+    cog.refresh_match_image = mock.AsyncMock()
+    cog.begin_run_back = mock.AsyncMock()
+    return cog
+
+
+def build_game() -> D12BallGame:
+    return D12BallGame(
+        game_id="g1",
+        game_number=1,
+        guild_id=1,
+        channel_id=1,
+        message_id=None,
+        player_1_id=111,
+        player_2_id=222,
+        player_1_name="One",
+        player_2_name="Two",
+        player_1_team=Team.ORANGE,
+        player_2_team=Team.PURPLE,
+        home_player_number=1,
+        visiting_player_number=2,
+    )
+
+
+def build_interaction() -> SimpleNamespace:
+    return SimpleNamespace(
+        user=SimpleNamespace(id=111, display_name="One"),
+        channel=None,
+        guild=None,
+        followup=SimpleNamespace(
+            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+        ),
+        response=SimpleNamespace(
+            defer=mock.AsyncMock(),
+            edit_message=mock.AsyncMock(),
+            send_message=mock.AsyncMock(),
+        ),
+        edit_original_response=mock.AsyncMock(),
+    )
+
+
+def a_player(name: str) -> PlayerDefinition:
+    return PlayerDefinition(
+        player_id=f"teal_{name.lower()}",
+        name=name,
+        team=Team.TEAL,
+        role=PlayerRole.DEFENDER,
+        stat_overrides={},
+    )
+
+
+class ShotDefenderValueTests(unittest.TestCase):
+    def test_the_ball_space_is_worth_the_whole_skill(self) -> None:
+        for defense in range(1, 7):
+            with self.subTest(defense=defense):
+                self.assertEqual(
+                    ShotDefender(a_player("Bulwark"), defense, True).value,
+                    defense,
+                )
+
+    def test_everyone_else_is_worth_half_rounded_up(self) -> None:
+        # Rounded up, so an odd skill keeps the better half and a
+        # defensive skill of 1 never rounds away to nothing.
+        expected = {1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3}
+        for defense, value in expected.items():
+            with self.subTest(defense=defense):
+                self.assertEqual(
+                    ShotDefender(a_player("Voltus"), defense, False).value,
+                    value,
+                )
+
+    def test_halving_is_per_player_and_not_over_the_total(self) -> None:
+        # Two 5s in the way add 3 + 3, where halving their sum would
+        # give 5. The two readings only agree when at most one defender
+        # rounds up, which is why this is worth its own test.
+        in_the_way = [
+            ShotDefender(a_player("Voltus"), 5, False),
+            ShotDefender(a_player("Flux"), 5, False),
+        ]
+        self.assertEqual(sum(d.value for d in in_the_way), 6)
+
+
+class InterveningDefenderTests(unittest.TestCase):
+    """The cog's reading of the board, against a real standard deal."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=6,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+        )
+
+    def test_only_the_ball_space_keeps_its_whole_skill(self) -> None:
+        cog = build_cog()
+        match = self.build_match()
+        match.ball.zone = Zone.MIDFIELD
+        match.ball.space_index = 1
+
+        defenders = cog.intervening_defenders(match)
+
+        self.assertEqual(
+            [defender.on_ball for defender in defenders],
+            [True] + [False] * (len(defenders) - 1),
+        )
+        self.assertEqual(defenders[0].value, defenders[0].defense)
+        for defender in defenders[1:]:
+            self.assertEqual(
+                defender.value, -(-defender.defense // 2),
+            )
+
+    def test_a_shot_at_an_empty_path_faces_nobody(self) -> None:
+        cog = build_cog()
+        match = self.build_match()
+        match.ball.zone = Zone.VISITORS_GOAL
+        match.ball.space_index = 1
+        for player_id in list(match.visiting.field_players):
+            match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+
+        self.assertEqual(cog.intervening_defenders(match), [])
+
+
+class ShotRollTests(unittest.IsolatedAsyncioTestCase):
+    """The total the defence actually rolls against, and what it says."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_shot(self, cog: D12Ball, defenders: list[ShotDefender]):
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.active_player_id = match.setup_for_side(
+            match.ball.possession
+        ).field_players[0]
+        match.move_meeple(
+            match.active_player_id, match.ball.zone, match.ball.space_index,
+        )
+        match.pending_action = "shoot"
+        cog.intervening_defenders = mock.Mock(return_value=defenders)
+        game = build_game()
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        return game, match
+
+    async def roll(self, cog: D12Ball, game: D12BallGame, rolls: list[int]):
+        """Roll the shot, and hand back what the dice image was told."""
+        interaction = build_interaction()
+        view = ScoreAttemptView(cog, game.game_id)
+        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+            "cogs.d12ball_views.random.randint", side_effect=rolls,
+        ), mock.patch(
+            "cogs.d12ball_views.render_skill_test_dice",
+        ) as dice, mock.patch("cogs.d12ball_views.discord.File"):
+            await view.roll(interaction)
+        return dice.call_args.args[0][1]
+
+    async def test_the_defence_totals_the_halved_values(self) -> None:
+        # 6 on the ball and 5 + 2 in the way is 6 + 3 + 1, not 13.
+        cog = build_cog()
+        game, _ = self.build_shot(
+            cog,
+            [
+                ShotDefender(a_player("Bulwark"), 6, True),
+                ShotDefender(a_player("Voltus"), 5, False),
+                ShotDefender(a_player("Quantor"), 2, False),
+            ],
+        )
+
+        _, _, _, detail, total = await self.roll(cog, game, [12, 1])
+
+        self.assertEqual(total, 1 + 10)
+        self.assertIn("Total defensive skill +10", detail)
+
+    async def test_a_halved_defender_says_what_it_was_halved_from(
+        self,
+    ) -> None:
+        # A bare "+3" beside a card showing 5 reads as a bug.
+        cog = build_cog()
+        game, _ = self.build_shot(
+            cog,
+            [
+                ShotDefender(a_player("Bulwark"), 6, True),
+                ShotDefender(a_player("Voltus"), 5, False),
+            ],
+        )
+
+        _, _, _, detail, total = await self.roll(cog, game, [12, 1])
+
+        self.assertIn("Bulwark [DD] +6", detail)
+        self.assertIn("Voltus [DD] +3 (half of 5)", detail)
+        self.assertEqual(total, 1 + 9)
+
+
+class ShotImageTests(unittest.TestCase):
+    """
+    The composition image. It cannot be read back, so what is asserted
+    is the text it is built from and that it renders at all -- see
+    "Working on the board image" in CLAUDE.md.
+    """
+
+    def side(
+        self, name: str, skill: int, contribution: int, halved: bool,
+    ) -> ChallengeSide:
+        return ChallengeSide(
+            name=name,
+            role="D",
+            team_color="#19b5a5",
+            team_label="Teal",
+            skill_name="Defensive",
+            skill=skill,
+            ability="",
+            contribution=contribution,
+            halved=halved,
+        )
+
+    def test_the_group_sums_contributions_not_skills(self) -> None:
+        lines = group_text_lines(
+            [
+                self.side("Bulwark", 6, 6, False),
+                self.side("Voltus", 5, 3, True),
+                self.side("Quantor", 2, 1, True),
+            ],
+            with_ability=False,
+        )
+
+        self.assertIn(
+            "Defensive skill: 6 + 3 + 1 = 10",
+            [text for text, _, _, _ in lines],
+        )
+
+    def test_a_lone_halved_defender_shows_where_it_came_from(self) -> None:
+        lines = group_text_lines(
+            [self.side("Voltus", 5, 3, True)], with_ability=False,
+        )
+
+        self.assertIn(
+            "Defensive skill +3 (half of 5)",
+            [text for text, _, _, _ in lines],
+        )
+
+    def test_a_lone_defender_on_the_ball_reads_as_it_always_did(
+        self,
+    ) -> None:
+        lines = group_text_lines(
+            [self.side("Bulwark", 6, 6, False)], with_ability=False,
+        )
+
+        self.assertIn(
+            "Defensive skill +6", [text for text, _, _, _ in lines],
+        )
+
+    def test_a_defensive_skill_of_one_still_reads_as_halved(self) -> None:
+        # Halving 1 leaves 1, so the numbers alone cannot say which
+        # band a defender is in -- only the flag can.
+        lines = group_text_lines(
+            [self.side("Pulsar", 1, 1, True)], with_ability=False,
+        )
+
+        self.assertIn(
+            "Defensive skill +1 (half of 1)",
+            [text for text, _, _, _ in lines],
+        )
+
+    def test_the_image_renders_with_both_bands(self) -> None:
+        shooter = ChallengeSide(
+            name="Kindlefoot",
+            role="S",
+            team_color="#f28c28",
+            team_label="Orange",
+            skill_name="Offensive",
+            skill=6,
+            ability="+3 for scoring off setup",
+            modifiers=("+1 ball speed (3)",),
+        )
+
+        image = render_score_attempt(
+            shooter,
+            [
+                self.side("Bulwark", 6, 6, False),
+                self.side("Voltus", 5, 3, True),
+            ],
+            location="V1 → Teal goal",
+        )
+
+        self.assertTrue(image.getvalue().startswith(b"\x89PNG"))
+
+    def test_an_open_goal_still_renders(self) -> None:
+        shooter = ChallengeSide(
+            name="Kindlefoot",
+            role="S",
+            team_color="#f28c28",
+            team_label="Orange",
+            skill_name="Offensive",
+            skill=6,
+            ability="+3 for scoring off setup",
+        )
+
+        image = render_score_attempt(shooter, [], location="V1 → Teal goal")
+
+        self.assertTrue(image.getvalue().startswith(b"\x89PNG"))
+
+
+if __name__ == "__main__":
+    unittest.main()

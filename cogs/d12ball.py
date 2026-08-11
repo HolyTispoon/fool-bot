@@ -21,6 +21,7 @@ from d12ball.components import (
     MatchState,
     PlayerDefinition,
     PlayerRole,
+    ShotDefender,
     TeamSetup,
     TeamSide,
     Zone,
@@ -647,17 +648,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     def intervening_defenders(
         self,
         match: MatchState,
-    ) -> list[tuple[PlayerDefinition, int]]:
+    ) -> list[ShotDefender]:
         """
-        Every defending player between the ball and the goal it is being
-        shot at, each paired with the defensive skill they add to the
-        defence's side of a score attempt.
+        Every defending player between the ball and the goal it is
+        being shot at, with the defensive skill they have and the part
+        of it the shot is up against -- all of it on the ball's own
+        space, half of it further along. `ShotDefender.value` is the
+        rule; the roll and the image both read it rather than the raw
+        skill, and neither may go back to summing `defense`.
         """
         defenders = []
-        for player_id in match.defenders_between_ball_and_goal():
+        for player_id, on_ball in match.defenders_between_ball_and_goal():
             player = self.get_player_definition(player_id)
             defense = self.player_catalog.effective_profile(player).defense
-            defenders.append((player, defense))
+            defenders.append(ShotDefender(player, defense, on_ball))
         return defenders
 
     async def begin_score_attempt(
@@ -6484,6 +6488,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player_id: str,
         attacking: bool,
         modifiers: tuple[str, ...] = (),
+        contribution: Optional[int] = None,
+        halved: bool = False,
     ) -> ChallengeSide:
         """
         A player as a matchup image draws them. The ability is the
@@ -6491,6 +6497,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         another player's, and the sentence version wrapped to three
         lines and set the height of the whole image. The full text is
         still what the roster and the rules listing show.
+
+        `contribution` and `halved` are a score attempt's defenders
+        only -- everyone else adds their whole skill and is drawn
+        without a word about it.
         """
         player = self.get_player_definition(player_id)
         profile = self.player_catalog.effective_profile(player)
@@ -6503,6 +6513,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             skill=profile.offense if attacking else profile.defense,
             ability=profile.short_ability,
             modifiers=modifiers,
+            contribution=contribution,
+            halved=halved,
         )
 
     async def build_maneuver_challenge_file(
@@ -6542,6 +6554,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         into their skill, because both are conditions of this attempt
         and not of the player -- the ball speed is spent on the shot,
         and the Striker's +3 only applies off a set-up.
+
+        The defenders are the other way round: what each one adds is
+        folded in, as their `contribution`, because a coach counting
+        the wall is asking what it comes to and not what it would come
+        to somewhere else on the field.
         """
         shooter = self.get_player_definition(match.active_player_id)
         speed_modifier = match.ball_speed_modifier()
@@ -6565,8 +6582,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     modifiers=tuple(modifiers),
                 ),
                 [
-                    self.challenge_side(player.player_id, attacking=False)
-                    for player, _ in defenders
+                    self.challenge_side(
+                        defender.player.player_id,
+                        attacking=False,
+                        contribution=defender.value,
+                        halved=not defender.on_ball,
+                    )
+                    for defender in defenders
                 ],
                 location=(
                     f"{space_label(match.ball.zone, match.ball.space_index)}"

@@ -2,6 +2,7 @@ import json
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum
+from math import ceil
 from pathlib import Path
 from typing import Optional
 
@@ -187,6 +188,34 @@ class PlayerDefinition:
     team: Team
     role: PlayerRole
     stat_overrides: dict
+
+
+@dataclass(frozen=True)
+class ShotDefender:
+    """
+    A defending player in the way of a score attempt, and how much of
+    their defensive skill the shot is actually up against.
+
+    Standing on the ball is worth all of it; anyone further along the
+    way to goal is worth half, rounded up -- see "Score attempt" in
+    docs/living-rules.md. **The halving is per player, not over the
+    group's total**: two 5s in the way add 3 + 3 = 6, where halving
+    their sum would give 5. That is the author's reading, and the two
+    diverge whenever more than one defender rounds up.
+
+    `defense` is the skill the player has, kept beside the value they
+    contribute because the image and the dice roll both show the
+    arithmetic -- a lone 2 in the way is unreadable without the 4 it
+    came from.
+    """
+
+    player: PlayerDefinition
+    defense: int
+    on_ball: bool
+
+    @property
+    def value(self) -> int:
+        return self.defense if self.on_ball else ceil(self.defense / 2)
 
 
 @dataclass(frozen=True)
@@ -1219,12 +1248,18 @@ class MatchState:
             return self.board.layout.board_size - ball_flat
         return ball_flat + 1
 
-    def defenders_between_ball_and_goal(self) -> list[str]:
+    def defenders_between_ball_and_goal(self) -> list[tuple[str, bool]]:
         """
         Fielded players of the defending team standing anywhere between
         the ball and the goal it is being shot at, including any that
         share the ball's own space. Ordered outwards from the ball, so
         the list reads the way the shot travels.
+
+        Each is paired with whether they are on the ball's own space,
+        because that is what decides how much of their defensive skill
+        the shot is up against -- see ShotDefender. This is the only
+        place that knows it: by the time a caller has the skill in hand
+        the position is gone.
 
         Opposing spaces are one and the same space, so both teams'
         meeples share these occupant lists and only the team a meeple
@@ -1245,8 +1280,8 @@ class MatchState:
             span = list(reversed(ordered[: ball_flat + 1]))
 
         return [
-            player_id
-            for occupants in span
+            (player_id, index == 0)
+            for index, occupants in enumerate(span)
             for player_id in occupants
             if player_id in defending_players
         ]
