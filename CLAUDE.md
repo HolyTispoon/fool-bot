@@ -500,6 +500,36 @@ whole rule, over `BoardState.is_in_shooting_range`.
   range. The rule is positional and the board is where both coaches read
   position.
 
+## What a shot is up against
+
+A defender sharing the ball's space adds their whole defensive skill; a
+defender anywhere else between the ball and the goal adds half of it,
+rounded up -- see "Score attempt" in the living rules.
+`ShotDefender.value` in `d12ball/components.py` is the whole rule.
+
+- **The halving is per player, not over the group's total.** Two 5s in
+  the way add 3 + 3 = 6, where halving their sum would give 5. The two
+  readings agree whenever at most one defender rounds up, which is most
+  positions -- so a change here can pass a playtest and still be wrong.
+  It is the author's, confirmed 2026-08-11.
+- **`MatchState.defenders_between_ball_and_goal` pairs each defender
+  with whether they are on the ball**, because it is the only thing that
+  knows: it walks the spaces from the ball outward, and by the time a
+  caller has the skill in hand the position is gone.
+  `D12Ball.intervening_defenders` turns that into `ShotDefender`s, and
+  the roll and the image both read `.value` -- **neither may go back to
+  summing `defense`.**
+- **The image says which half is which.** A defence of "6 + 3 + 1" names
+  no term, so each defender's portrait carries the value they
+  contribute: a solid badge on the ball, an outlined one and the skill
+  it was halved from beyond it, under a label per band. It rides on two
+  optional fields of `ChallengeSide` (`contribution` and `halved`), so
+  the maneuver challenge -- which shares `render_matchup` -- is drawn
+  exactly as it was.
+- **`halved` cannot be inferred from the two numbers.** A defensive
+  skill of 1 halves to 1, and drawing that as a full value would say the
+  defender is on the ball when they are not.
+
 ## A High Pass that runs out of field
 
 An overshot High Pass offers a shot **or** a contest for the ball, and pays the

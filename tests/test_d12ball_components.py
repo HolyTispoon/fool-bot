@@ -1185,7 +1185,13 @@ class D12BallScoreAttemptTests(unittest.TestCase):
     def defender_roles(self, match: MatchState) -> list[PlayerRole]:
         return [
             self.catalog.player_by_id(player_id).role
-            for player_id in match.defenders_between_ball_and_goal()
+            for player_id, _ in match.defenders_between_ball_and_goal()
+        ]
+
+    def defender_ids(self, match: MatchState) -> list[str]:
+        return [
+            player_id
+            for player_id, _ in match.defenders_between_ball_and_goal()
         ]
 
     def test_spaces_in_order_matches_flat_index(self) -> None:
@@ -1232,14 +1238,21 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         )
 
         # Every defender counted is a visiting player, and the meeple
-        # sharing the ball's own space is one of them.
+        # sharing the ball's own space is one of them -- flagged as
+        # such, because that is what makes them worth their whole skill.
         defenders = match.defenders_between_ball_and_goal()
         self.assertTrue(
-            set(defenders).issubset(set(match.visiting.field_players))
+            set(self.defender_ids(match)).issubset(
+                set(match.visiting.field_players)
+            )
         )
         self.assertIn(
-            defenders[0],
+            defenders[0][0],
             match.board.spaces[match.ball.zone][match.ball.space_index],
+        )
+        self.assertEqual(
+            [on_ball for _, on_ball in defenders],
+            [True, False, False],
         )
 
     def test_visiting_shot_runs_the_other_way(self) -> None:
@@ -1263,7 +1276,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
             ],
         )
         self.assertTrue(
-            set(match.defenders_between_ball_and_goal()).issubset(
+            set(self.defender_ids(match)).issubset(
                 set(match.home.field_players)
             )
         )
@@ -1301,8 +1314,10 @@ class D12BallScoreAttemptTests(unittest.TestCase):
                                 expected,
                             )
 
-                            # Nobody behind the ball is ever counted.
-                            for player_id in (
+                            # Nobody behind the ball is ever counted,
+                            # and only the ball's own space counts as
+                            # on the ball.
+                            for player_id, on_ball in (
                                 match.defenders_between_ball_and_goal()
                             ):
                                 position = match.board.meeple_position(
@@ -1310,6 +1325,10 @@ class D12BallScoreAttemptTests(unittest.TestCase):
                                 )
                                 defender_flat = match.board.flat_index(
                                     *position
+                                )
+                                self.assertEqual(
+                                    on_ball,
+                                    defender_flat == flat,
                                 )
                                 if side == TeamSide.HOME:
                                     self.assertGreaterEqual(

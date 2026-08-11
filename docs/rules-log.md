@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-10.
+**As of:** 2026-08-11.
 
 ## Where the rules come from
 
@@ -55,7 +55,30 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-11 (newest) -- editing pass, the living rules consolidated
+### 2026-08-11 (newest) -- author, a defender off the ball is worth half
+
+*From the author: "When shooting to score, defense players that share space with the ball
+provide their full defensive skill value. All the other players between the ball and the goal
+share half of the defensive value (rounded up)." Asked whether the halving is per player or
+over the group's total, the author confirmed per player.*
+
+- **Standing on the ball is now worth more than standing in front of it.** The defence used to
+  add every intervening meeple's whole defensive skill, so a wall four deep was worth as much
+  wherever it stood; now only the meeple contesting the shooter's own space is worth its face,
+  and the rest are worth half, rounded up.
+- **Each defender halves their own skill.** Two 5s in the way add 3 + 3 = 6, not 5. The two
+  readings agree whenever at most one defender rounds up, which is most positions -- so this
+  is written down rather than left to be re-derived from a board where it happened not to
+  matter.
+- **Rounded up, so a defensive skill of 1 never rounds away.** Every card in the way is worth
+  at least 1, which is what keeps a Striker between the ball and the goal from being worth
+  nothing at all.
+- **The shot's own image had to change with it**, because a defence of "6 + 3 + 1" says
+  nothing about which term was halved or whose it was. Each defender's portrait now carries
+  the value they contribute -- a solid badge on the ball, an outlined one and the skill it was
+  halved from beyond it -- under a label naming each band.
+
+### 2026-08-11 -- editing pass, the living rules consolidated
 
 *No rule changed here.* [living-rules.md](living-rules.md) was rewritten for length -- 1153
 lines to about 360 -- folding the standalone sections into eight top-level ones and replacing
@@ -901,6 +924,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Cleanup restarts "from the middle (back of the midfield)" | The same kickoff space rule, for every restart |
 | "Clash" / "clash roll" | Skill test |
 | A score attempt's "each player rolls a d12" | Exactly two dice, one per coach; the defence sums intervening meeples |
+| Every meeple in the way adds its whole defensive skill | Full on the ball's own space, half rounded up beyond it |
 | Nothing about what a score attempt costs | Nothing for a plain attempt; 1 token to a shooter off a set-up, after the roll |
 | The own goal is triggered by a deflected pass, and rolled at a **disadvantage** | Triggered by Pressure's overshoot only, rolled at an **advantage**, and costs 1 token |
 | Setting a scoring opportunity describes only the old fixed-2 High Pass overshoot | Four set-ups (High Pass of 2, a High Pass that overshoots, a Winger's Low Pass, a Block Deflect overshoot), each a choice |

@@ -170,6 +170,12 @@ FONT_DICE_VALUE = load_font(26, bold=True)
 # The one line on a matchup image that is a sum rather than a fact
 # about a player -- see group_text_lines.
 FONT_CHALLENGE_TOTAL = load_font(23, bold=True)
+# The value badge a score attempt draws on a defender's portrait, the
+# skill it was halved from underneath it, and the label over a band of
+# them -- see CHALLENGE_FULL_COLOR.
+FONT_CHALLENGE_BADGE = load_font(20, bold=True)
+FONT_CHALLENGE_BADGE_NOTE = load_font(13, bold=True)
+FONTS_CHALLENGE_BAND = [load_font(size, bold=True) for size in (15, 14, 13, 12, 11)]
 FONT_SCORE = load_font(64, bold=True)
 FONT_CARD_STAT = load_font(46, bold=True)
 FONT_CARD_ROLE = load_font(46, bold=True)
@@ -1518,6 +1524,33 @@ CHALLENGE_SKILL_COLOR = "#c7ced6"
 CHALLENGE_ABILITY_COLOR = "#9aa5b1"
 CHALLENGE_TOTAL_COLOR = "#ffffff"
 CHALLENGE_TOTAL_LINE_HEIGHT = 30
+# A score attempt's defenders are worth their skill on the ball's own
+# space and half of it further along (see ShotDefender), so the group is
+# two kinds of number stood in a row. The value each one contributes is
+# drawn on their own portrait -- a solid disc for a full one, an outline
+# and the skill it was halved from for the rest -- because the sum
+# underneath is unreadable otherwise: nothing in "6 + 3 + 1" says which
+# term was halved or whose it is.
+CHALLENGE_FULL_COLOR = "#f0b429"
+CHALLENGE_HALF_COLOR = "#7fa8c9"
+CHALLENGE_BADGE_TEXT_COLOR = "#111820"
+CHALLENGE_BADGE_RADIUS = 19
+CHALLENGE_BADGE_INSET = 2
+CHALLENGE_BADGE_OUTLINE = 3
+# What a banded group costs the layout: a label above the portraits, and
+# room under them for the "1/2 of 5" that hangs off a halved badge.
+CHALLENGE_BAND_GAP = 26
+CHALLENGE_BADGE_NOTE_GAP = 16
+CHALLENGE_BAND_UNDERLINE_GAP = 20
+# Longest first: a band gives up words only once shrinking the type has
+# run out, because "FULL" over a gold badge says less than "ON THE BALL"
+# does about why it is gold. A band of one has 96px to say it in.
+CHALLENGE_BAND_FULL = ("ON THE BALL — FULL", "ON THE BALL", "FULL")
+CHALLENGE_BAND_HALF = (
+    "IN THE WAY — HALF, ROUNDED UP",
+    "IN THE WAY — HALVED",
+    "HALVED",
+)
 
 
 @dataclass(frozen=True)
@@ -1534,6 +1567,14 @@ class ChallengeSide:
     numbers up into one line. `modifiers` are the extras that only some
     rolls have (a ball speed bonus, a role ability that applies to this
     one), listed under the skill in the order they should be read.
+
+    `contribution` is what this player actually adds when that is not
+    their whole skill -- a score attempt's defenders, half of whom are
+    halved. None means the skill itself, which is every other player on
+    every other image, and nothing extra is drawn about it. `halved`
+    cannot be inferred from the two numbers: a defensive skill of 1
+    halves to 1, and drawing that as a full value would say the
+    defender is on the ball when they are not.
     """
 
     name: str
@@ -1544,6 +1585,13 @@ class ChallengeSide:
     skill: int
     ability: str
     modifiers: tuple[str, ...] = ()
+    contribution: Optional[int] = None
+    halved: bool = False
+
+    @property
+    def value(self) -> int:
+        """What this player's side adds for them."""
+        return self.skill if self.contribution is None else self.contribution
 
 
 def join_names(names: list[str]) -> str:
@@ -1563,11 +1611,16 @@ def group_text_lines(
 
     One player reads as themselves: name, the skill they roll on, and
     their ability. Several read as a wall: the team once, the names in
-    a line, and their skills added up, because that sum is the only
-    number the roll uses and nobody is choosing between them. The sum
-    is set bold and a size up for that reason -- it is the one line
+    a line, and their contributions added up, because that sum is the
+    only number the roll uses and nobody is choosing between them. The
+    sum is set bold and a size up for that reason -- it is the one line
     here that is a result rather than a fact about a player, and it is
     what the shot is actually up against.
+
+    A lone player carrying a halved contribution says where it came
+    from, since a "+2" with no second term to read it against is a
+    number out of nowhere. In a group the badges on the portraits do
+    that job -- see CHALLENGE_FULL_COLOR.
     """
     if not sides:
         return []
@@ -1589,9 +1642,11 @@ def group_text_lines(
 
     skill_name = sides[0].skill_name
     if len(sides) == 1:
+        only = sides[0]
+        halved_from = f" (half of {only.skill})" if only.halved else ""
         sized.append(
             (
-                f"{skill_name} skill +{sides[0].skill}",
+                f"{skill_name} skill +{only.value}{halved_from}",
                 CHALLENGE_SKILL_COLOR,
                 FONT_SMALL,
                 CHALLENGE_LINE_HEIGHT,
@@ -1602,8 +1657,8 @@ def group_text_lines(
             for modifier in sides[0].modifiers
         )
     else:
-        skills = " + ".join(str(side.skill) for side in sides)
-        total = sum(side.skill for side in sides)
+        skills = " + ".join(str(side.value) for side in sides)
+        total = sum(side.value for side in sides)
         sized.append(
             (
                 f"{skill_name} skill: {skills} = {total}",
@@ -1626,6 +1681,136 @@ def group_text_lines(
             ),
         )
     return sized
+
+
+def draw_contribution_badge(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    x: float,
+    y: float,
+    side: ChallengeSide,
+) -> None:
+    """
+    The number this player adds, on the portrait it belongs to.
+
+    A full value is a solid disc and a halved one is an outline
+    carrying the skill it was halved from, so every term of the sum
+    below can be checked against a face -- which is the whole reason
+    the badge exists rather than a longer arithmetic line.
+    """
+    radius = CHALLENGE_BADGE_RADIUS
+    center_x = x + CHALLENGE_PORTRAIT_SIZE - radius - CHALLENGE_BADGE_INSET
+    center_y = y + CHALLENGE_PORTRAIT_SIZE - radius - CHALLENGE_BADGE_INSET
+    box = (
+        center_x - radius,
+        center_y - radius,
+        center_x + radius,
+        center_y + radius,
+    )
+    if side.halved:
+        draw.ellipse(
+            box,
+            fill="#111820",
+            outline=CHALLENGE_HALF_COLOR,
+            width=CHALLENGE_BADGE_OUTLINE,
+        )
+        text_color = CHALLENGE_HALF_COLOR
+    else:
+        draw.ellipse(
+            box,
+            fill=CHALLENGE_FULL_COLOR,
+            outline="#111820",
+            width=CHALLENGE_BADGE_OUTLINE,
+        )
+        text_color = CHALLENGE_BADGE_TEXT_COLOR
+    draw_centered_text(
+        draw,
+        center_x,
+        center_y - 13,
+        str(side.value),
+        FONT_CHALLENGE_BADGE,
+        text_color,
+    )
+    if side.halved:
+        draw_centered_text(
+            draw,
+            center_x,
+            center_y + radius + 2,
+            f"½ of {side.skill}",
+            FONT_CHALLENGE_BADGE_NOTE,
+            CHALLENGE_HALF_COLOR,
+        )
+
+
+def draw_contribution_bands(
+    draw: ImageDraw.ImageDraw,
+    placed: list[tuple[ChallengeSide, float]],
+    band_top: float,
+) -> None:
+    """
+    Label each run of like-valued portraits: the ones on the ball,
+    worth their whole skill, and the ones further along, worth half.
+
+    The runs come out of the order the portraits are already in, which
+    is the order the shot travels -- so the ball space is the first run
+    and there are never more than two. Labelling the runs rather than
+    the players is what keeps the rule on the image once a badge alone
+    would have to be read one at a time.
+    """
+    banded = [(side, x) for side, x in placed if side.contribution is not None]
+    if not banded:
+        return
+
+    spans: list[tuple[bool, float, float]] = []
+    for side, x in banded:
+        right = x + CHALLENGE_PORTRAIT_SIZE
+        if spans and spans[-1][0] == side.halved:
+            halved, start, _ = spans.pop()
+            spans.append((halved, start, right))
+        else:
+            spans.append((side.halved, x, right))
+
+    for halved, start, end in spans:
+        color = CHALLENGE_HALF_COLOR if halved else CHALLENGE_FULL_COLOR
+        labels = CHALLENGE_BAND_HALF if halved else CHALLENGE_BAND_FULL
+        # A label may lean into the gap beside its band, but not so far
+        # that two of them touch.
+        room = (end - start) + (
+            CHALLENGE_PORTRAIT_SPACING
+            if len(spans) > 1
+            else CHALLENGE_TEXT_PADDING * 2
+        )
+        text, font = labels[-1], FONTS_CHALLENGE_BAND[-1]
+        for candidate in labels:
+            fits = next(
+                (
+                    option
+                    for option in FONTS_CHALLENGE_BAND
+                    if draw.textlength(candidate, font=option) <= room
+                ),
+                None,
+            )
+            if fits is not None:
+                text, font = candidate, fits
+                break
+        draw_centered_text(
+            draw,
+            (start + end) / 2,
+            band_top,
+            shorten_to_width(draw, text, font, room),
+            font,
+            color,
+        )
+        draw.line(
+            (
+                start,
+                band_top + CHALLENGE_BAND_UNDERLINE_GAP,
+                end,
+                band_top + CHALLENGE_BAND_UNDERLINE_GAP,
+            ),
+            fill=color,
+            width=2,
+        )
 
 
 def render_matchup(
@@ -1762,10 +1947,19 @@ def render_matchup(
         defending, defending_note, defending_abilities, defending_width,
     )
 
+    # Badges and their band labels are drawn around the portraits, so
+    # an image carrying them starts its portrait row lower and its text
+    # lower again. Both groups move together: the two rows of portraits
+    # are read as one line and the "vs" sits between them.
+    banded = any(
+        side.contribution is not None for side in attacking + defending
+    )
+    portrait_top = CHALLENGE_PORTRAIT_TOP + (CHALLENGE_BAND_GAP if banded else 0)
     text_top = (
-        CHALLENGE_PORTRAIT_TOP
+        portrait_top
         + CHALLENGE_PORTRAIT_SIZE
         + CHALLENGE_PORTRAIT_GAP
+        + (CHALLENGE_BADGE_NOTE_GAP if banded else 0)
     )
     body_bottom = text_top + max(
         sum(line_height for _, _, _, line_height in lines)
@@ -1787,7 +1981,7 @@ def render_matchup(
     draw_centered_text(
         draw,
         attacking_width + CHALLENGE_GUTTER / 2,
-        CHALLENGE_PORTRAIT_TOP + CHALLENGE_PORTRAIT_SIZE / 2 - 14,
+        portrait_top + CHALLENGE_PORTRAIT_SIZE / 2 - 14,
         CHALLENGE_VERSUS_TEXT,
         FONT_DICE_TOTAL,
         CHALLENGE_VERSUS_COLOR,
@@ -1805,7 +1999,9 @@ def render_matchup(
             + max(len(sides) - 1, 0) * CHALLENGE_PORTRAIT_SPACING
         )
         portrait_x = center_x - strip / 2
+        placed: list[tuple[ChallengeSide, float]] = []
         for side in sides:
+            placed.append((side, portrait_x))
             portrait = load_player_portrait(side.name)
             if portrait is not None:
                 sized = portrait.copy()
@@ -1821,12 +2017,17 @@ def render_matchup(
                             + (CHALLENGE_PORTRAIT_SIZE - sized.width) / 2
                         ),
                         round(
-                            CHALLENGE_PORTRAIT_TOP
+                            portrait_top
                             + (CHALLENGE_PORTRAIT_SIZE - sized.height) / 2
                         ),
                     ),
                 )
             portrait_x += CHALLENGE_PORTRAIT_SIZE + CHALLENGE_PORTRAIT_SPACING
+
+        for side, x in placed:
+            if side.contribution is not None:
+                draw_contribution_badge(canvas, draw, x, portrait_top, side)
+        draw_contribution_bands(draw, placed, portrait_top - CHALLENGE_BAND_GAP)
 
         y = text_top
         for text, color, font, line_height in lines:
@@ -1865,6 +2066,12 @@ def render_score_attempt(
 ) -> BytesIO:
     """
     The shooter, and everyone between them and the goal as one group.
+
+    The defenders carry a `contribution` apiece, so the group is drawn
+    with a badge on each portrait and a band label over each run of
+    them: on the ball is worth a whole defensive skill and the rest are
+    worth half, and a coach reading "6 + 3 + 1" has no way to tell
+    which was which. See CHALLENGE_FULL_COLOR and ShotDefender.
 
     Nothing here says what the dice did -- this is the composition of
     the attempt, posted before anyone rolls, and the roll gets its own

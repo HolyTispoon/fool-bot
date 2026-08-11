@@ -2070,7 +2070,10 @@ class ScoreAttemptView(SafeView):
         ).offense
         speed_modifier = match.ball_speed_modifier()
         defenders = self.cog.intervening_defenders(match)
-        defense_skill_total = sum(skill for _, skill in defenders)
+        # What each defender is worth here, not what they are worth --
+        # a defender off the ball adds half their skill, rounded up.
+        # See ShotDefender.
+        defense_skill_total = sum(defender.value for defender in defenders)
 
         attacking_setup = match.setup_for_side(match.ball.possession)
         defending_setup = match.setup_for_side(match.defending_side())
@@ -2112,8 +2115,11 @@ class ScoreAttemptView(SafeView):
 
         if defenders:
             defense_detail = [
-                f"{player.name} [{ROLE_INITIALS[player.role.value]}] +{skill}"
-                for player, skill in defenders
+                f"{defender.player.name} "
+                f"[{ROLE_INITIALS[defender.player.role.value]}] "
+                f"+{defender.value}"
+                + ("" if defender.on_ball else f" (half of {defender.defense})")
+                for defender in defenders
             ]
             if len(defenders) > 1:
                 defense_detail.append(
