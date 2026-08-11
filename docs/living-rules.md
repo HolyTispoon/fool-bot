@@ -47,15 +47,15 @@ minutes. The team with the most goals at the end wins.
 |---|---|
 | **Space** | One area of the field. The ball and every meeple are always located on a space. |
 | **Zone** | A group of adjacent spaces: home goal, midfield, visitors goal. |
-| **Shooting range** | The far part of the field, from the middle to the goal a team attacks -- the only place they may [shoot](#score-attempt) from. Measured from the middle of the board, so it is not a zone: see [shooting range](#shooting-range). |
+| **Shooting range** | The far part of the field, from the middle to the goal a team attacks -- the only place they may [shoot](#score-attempt) from. see [shooting range](#shooting-range). |
 | **Player card** | contain a player's information including their role, skill scores and ability. Its position on the team board shows the **zone** that player is assigned to. |
 | **Meeple** | A player's token on the field. Shows the **space** that player is standing on right now. |
-| **Field player** | One of the six players a team has on the field. |
+| **Fielded player** | One of the six players a team has on the field. |
 | **Forward / back** | Forward is toward the goal a team is attacking; back is toward the goal it defends. Always relative to the team being spoken about. |
 | **Possession** | Which team holds the ball. Tracked separately from the ball's space. |
 | **Ball carrier** | The individual player holding the ball, when the last resolution left it with somebody in particular. They take their team's next turn: see [the ball carrier](#the-ball-carrier). |
-| **Arrangement** | The spaces a coach last *put* their meeples on, at a [Coaching Choice](#coaching-choice). A [new play](#resetting-after-a-new-play) puts them back on it. |
-| **Turnover** | Possession changing hands, for any reason. |
+| **Arrangement** | The spaces a coach last *placed* their meeples on, at a [Coaching Choice](#coaching-choice). A [new play](#resetting-after-a-new-play) returns them to it. |
+| **Turnover** | Possession changing hands. |
 | **Skill test** | The opposed d12 roll used to settle a tied maneuver, a loose ball, and a long High Pass. |
 | **Space minute** | The unit of game time. A period is 15 of them. |
 
@@ -126,8 +126,10 @@ The kicking team is whichever team takes possession at that restart.
 ### Player cards
 
 A player card carries the player's role, skills and ability. The number on the card is the
-player's **offensive skill**, 1 to 6. Their **defensive skill** is its d6 inverse -- the two
+player's **offensive skill**, 1 to 6. Their **defensive skill** is its d6 inverse -- in the basic game, the two
 always sum to 7. The better a player is on offense, the worse they are on defense.
+
+Basic game abilities:
 
 | Role | Offense | Defense | Ability |
 |---|---|---|---|
@@ -142,7 +144,7 @@ Each ability is described in full with the maneuver it modifies, below.
 
 ### Teams
 
-There are four teams -- Orange, Teal, Purple and Slime. Each has nine players: one Fullback,
+There are four teams -- Orange, Teal, Purple and Slime. In the basic game, they have the same roles and abilities. Each has nine players: one Fullback,
 two Defenders, one Midfielder, two Playmakers, one Winger and two Strikers. Six start on the
 field and three sit on the bench.
 
