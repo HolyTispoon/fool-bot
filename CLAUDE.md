@@ -710,6 +710,21 @@ WARNING, so it is console-only and never reaches #logs); adding our own
 pacing on top would only make a turn take ten seconds and still spend the
 same budget. So:
 
+- **Read a 429 by looking the ids up, not by reasoning about them.** All the
+  warning gives you is a method and a URL, and the only thing in it that names
+  the game is the channel and message id. Three batches of these were read by
+  inferring which message that must have been, and the inference that the
+  board's id sits a few seconds after its channel's is wrong -- **the board
+  message is not the message `create_game` sends.** The coin flip re-points
+  `game.message_id` at the home/visiting choice message it posts (in
+  `CoinFlipView`, `cogs/d12ball_views.py`), because that is the message the
+  buttons and every later board have to live on. Setup is a play-by-Discord
+  affair that can take hours, so the board's snowflake can trail its channel's
+  by any amount at all, and the first message in the channel keeps the setup
+  text for the rest of the game. So `D12Ball.__init__` logs one INFO line per
+  unfinished game naming its channel, board message and prompt message, and a
+  warning is attributed by grepping the startup block for the id rather than by
+  reasoning about it.
 - **Batch what the bot does on its own, and only interrupt for a person.** A
   cascade of automatic steps is one message and one board refresh at the end
   of it, not one of each per step -- see `continue_run_back`. Nobody reads the
@@ -756,6 +771,12 @@ same budget. So:
     `settle_board_link`, and it spends no request when nothing is owed.
   - Before the home/visiting choice the message is still the setup prompt: its
     buttons are live, it has no link to go stale, and its view is left alone.
+    **And it is a different message from the one the channel opens with** --
+    `CoinFlipView` re-points `game.message_id` at the home/visiting choice
+    message, so a board write never touches the "Start playing in this channel"
+    post again. Only the *content* is left alone from then on: a refresh edits
+    attachments and the view, so the persistent message reads as setup text with
+    a board under it for the whole game.
 - **Channel message edits are one bucket, and it is the one that runs out.**
   Every 429 in two logged sessions of play was a `PATCH` on
   `/channels/{id}/messages/{id}`. **`message_id` is not one of Discord's major
@@ -791,6 +812,34 @@ same budget. So:
     earlier -- the board it was offered is stale by the time it fires, and
     re-drawing is exactly what lets one pending refresh stand in for every
     request behind it.
+  - **Only one write per game is ever in the air**, held by
+    `board_refresh_locks`. The interval spaces requests out by when they
+    *arrive*, and a write is not instant: drawing a 2200px board and uploading
+    it is most of a second, more on a bad connection, so an upload slower than
+    the window let the trailing pass start alongside the immediate write and put
+    two PATCHes on one message in the same instant. That is the one thing an
+    interval cannot space out, and it is what a pair of 429s logged in the same
+    second was.
+    - **It is also what turns one 429 into a burst of them.** discord.py
+      handles a 429 *inside* the single await this code makes -- it sleeps the
+      `retry_after` and tries again, up to five times -- so one throttled PATCH
+      can hold that await for twenty-odd seconds. The interval is recorded when
+      the write begins, so while it was retrying the window read as long open
+      and every refresh behind it went out at once, into the bucket that was
+      already refusing them. So a burst of warnings is not evidence of a burst
+      of clicks: the third batch is four retries of one request, and the gate
+      fed it. **The window reopening is not permission to write while a write
+      is still going**, which is why the lock and not a shorter interval is the
+      answer.
+  - **A write in flight does not stand in for a request that arrives during
+    it.** The board it is putting up was drawn before that request, so the want
+    is recorded in `board_refresh_wanted` and a pass that finds the flag set
+    again when it lands waits out another interval and goes round once more.
+    Counting the *task* instead dropped the request on the floor -- it was still
+    in `board_refresh_tasks`, so nothing rescheduled, and the board kept a state
+    the click had already moved past until somebody clicked again. Anything
+    added to the gate has to keep the discard *before* the write, or the same
+    hole reopens.
   - **A board identical to the one already up is not written at all.** The
     render is deterministic, so `write_board_message` keeps a digest of what
     it last uploaded and skips the upload when the new bytes match (a settling
