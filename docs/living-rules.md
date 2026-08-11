@@ -962,10 +962,13 @@ Striker and so could never replace a Fullback, Midfielder or Winger in kind.
 - Anyone subbed out goes to the **back bench**, injured or not -- except at
   [setup](#setting-up-a-game), where they go back to the bench. The bench only ever drains.
 - While anyone is on the bench, a team may sub in **only** from the bench.
-- The **back bench may be drawn from only when the bench is empty and the team is subbing for
-  an injured player.**
-- **Injured players go to the back bench and can never be subbed in**, whatever the bench
-  looks like.
+- Once the bench is empty, the **back bench** is the pool. Nothing else has to be true of the
+  swap: it replaces anybody, injured or not.
+- **Injured players go to the back bench and can never be subbed in**, whichever pool is in
+  play. That is about the player, not about which bench they are sitting on.
+
+So a side runs out of substitutes only when the bench has drained -- three swaps -- **and**
+every one of the three who came off went off injured.
 
 **A player returning from the back bench loses half their exhaust tokens, rounded up.** They
 are Exhausted or not according to what remains -- a player with enough tokens comes back still

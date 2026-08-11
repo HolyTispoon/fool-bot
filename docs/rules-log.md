@@ -55,7 +55,29 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-10 (latest) -- author, a coaching window between full time and the shootout
+### 2026-08-10 (latest) -- author, an empty bench is the whole of what opens the back bench
+
+*From the author, correcting the two-pool rule as it had stood since 2026-08-04, when asked
+what could leave a side with nobody to bring on: "It's not true that the back bench only open
+for injured players. Rather, as a general matter for substitutions at any window: if there are
+any players on the bench, you can only sub by bringing one of them in. If there are no players
+on the bench, you can sub for someone on the back bench. Injured players can never come back
+on to the field."*
+
+- **The back bench opens on an empty bench and nothing else.** It used to also require that the
+  player going off was injured, which meant a side with three swaps behind them and a healthy
+  six had no substitution left in the game. Who is going off never mattered.
+- **Injury bites on the player coming *on*, not on the swap.** An injured player can never
+  return, whichever pool they are sitting in; that is the only thing that takes anybody out of
+  a pool.
+- **So a side runs out only when both benches are spent**: three substitutions to drain the
+  bench, and every one of the three who came off went off injured. That is the case the window
+  before the shootout skips, and it is now the only case in the game where a coach has nobody
+  to bring on.
+- `MatchState.substitution_pool` no longer takes the outgoing player. The answer is the same
+  for all six, so a caller passing one was asking a question the rules do not ask.
+
+### 2026-08-10 (also) -- author, a coaching window between full time and the shootout
 
 *From the author: "open a coaching window after fulltime and before extreme shootout, allowing
 1 sub", and then the two things that request did not settle. With no kickoff to key the order
@@ -82,7 +104,8 @@ the usual four actions.*
 - **Everything about who may come on is unchanged.** The one swap comes off the bench, or off
   the back bench only when the bench is empty and the player going off is injured. A
   substitute returning from the back bench still loses half their tokens -- which, at a whistle
-  that recovers nothing, is the only exhaustion in the game that still moves.
+  that recovers nothing, is the only exhaustion in the game that still moves. (Superseded
+  hours later, in the entry above: the injured-swap requirement was never the rule.)
 
 ### 2026-08-10 (second latest) -- author, every tie goes to the extreme shootout
 
@@ -666,6 +689,8 @@ Both `Sheet1` and `maneuvers` were reworded:
 - **The bench and the back bench are two separate pools.** Anyone subbed out goes to the back
   bench; a team subs from the bench while it has anyone; the back bench is drawn from only when
   the bench is empty and the sub is for an injured player; injured players never return.
+  (Superseded on 2026-08-10: an empty bench is the whole of what opens the back bench. Who is
+  going off has nothing to do with it.)
 - **A player returning from the back bench just loses half their tokens, rounded up** -- they are
   Exhausted or not according to what remains.
 
@@ -792,7 +817,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Halftime lets the coach change assignments "as they please" | A Coaching Choice, the same four actions as any other, with the visiting coach going first and having to cover the kickoff space |
 | Nothing about a coach changing anything before kickoff | Setup offers a Coaching Choice, with unlimited substitutions and players taken off going back to the bench |
 | Substitutions "up to 2", with no period attached | 2 per side per half, plus 2 more of halftime's own allowance, plus 1 before the shootout |
-| Substitutions: "if and only if all the players on the bench were subbed out" | Two pools -- bench, then back bench for an injured sub only |
+| Substitutions: "if and only if all the players on the bench were subbed out" | The same condition, now that the injured-swap requirement is gone -- plus injured players never returning |
 | "So if they were subbed while exhausted they are no longer exhausted" | Half the tokens, rounded up; Exhausted follows from what remains |
 | The shootout says nothing about who shoots, what it costs, or what its goals do | The six on the field when it starts, after a one-substitution window; no exhaustion but injury checks as usual; goals go on the scoreboard |
 | Nothing about coaching between full time and the shootout | A Coaching Choice each, home first, offering one substitution and nothing else |
