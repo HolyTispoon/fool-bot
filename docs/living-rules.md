@@ -213,7 +213,9 @@ Each turn runs in this order:
 
 1. **The team in possession chooses** either a [score attempt](#score-attempt) or a
    [maneuver](#maneuver), and which of their players on the ball's space takes it -- unless
-   there is a [ball carrier](#the-ball-carrier), who takes it themselves.
+   there is a [ball carrier](#the-ball-carrier), who takes it themselves. Out of
+   [shooting range](#shooting-range) there is a third choice: [cede the ball](#ceding-the-ball)
+   to coach, which ends the turn there and then.
 2. **Resolve it**, including any scoring opportunity or own-goal roll it produces.
 3. **Check for a loose ball.** If the ball's space has no player from the team in possession,
    resolve it as a [loose ball](#loose-ball).
@@ -706,6 +708,7 @@ Every turnover is one of two things, and which it is decides both whether a
 | An **own goal** | new play | yes | reset |
 | A **missed score attempt** | new play | yes | reset |
 | The ball goes **out of bounds** | new play | yes | reset |
+| The team in possession [cedes it](#ceding-the-ball) | cede | yes, both sides | reset |
 
 A **steal** is the other team taking a live ball. Play never stopped, so neither coach gets
 the pause: the ball's speed resets, everyone displaced [runs back](#running-back-after-a-steal)
@@ -715,6 +718,10 @@ A **new play** is the ball going dead and being brought back into play. Both sid
 [reset to the arrangement their coaches set](#resetting-after-a-new-play), free of exhaustion,
 and the side restarting gets a substitution window.
 
+A **cede** is a team giving the ball up on purpose, to buy the pause. Nothing was contested and
+nothing went dead, so the ball does not move and nobody runs back -- see
+[ceding the ball](#ceding-the-ball).
+
 A **Block Deflect that overshoots** turns possession over without being either: the deflecting
 team's shot follows immediately, and that shot is a goal or a miss, so the new play -- and its
 window -- comes from the shot. The deflect's own turnover does neither.
@@ -723,6 +730,36 @@ window -- comes from the shot. The deflect's own turnover does neither.
 back, resets nobody and charges nobody, however far out of position it left them -- a receiver
 who wins their High Pass contest, or a loose ball the possessing side recovers, both keep the
 ball and both skip it. Whoever is displaced stays displaced until a turnover comes.
+
+### Ceding the ball
+
+**A team out of [shooting range](#shooting-range) may give the ball up rather than play it**,
+and take a [Coaching Choice](#coaching-choice) instead. It is the turn's third choice, offered
+in place of the score attempt and exactly where the shot is not: a team with a shot on is not
+stuck, and this is the rule for a team that is.
+
+- **It spends that side's once-a-half declaration**, exactly as declaring at a new play does.
+  A side that has already declared this half cannot cede, and a side that cedes cannot declare
+  for the rest of it.
+- **The ball does not move.** The other team takes possession on the space it was given up on,
+  at ball speed 1 like any other turnover.
+- **No time passes.** Nothing travelled, and no turn was played.
+- **Nobody runs back.** Both sides take the field on their coaches' arrangement, free of
+  exhaustion, as each window opens -- which is what a Coaching Choice does anyway.
+- **Both coaches get a window**: the side ceding first, then the side receiving, as a reply.
+  The reply does not spend the answering side's own declaration, exactly as a reply to a new
+  play's declaration does not. Substitutions on both sides come out of their two for the half.
+- **A ball nobody is standing on is picked up, and must be.** If, once both windows have
+  closed, the side receiving it has no player on the ball's space, they **have to** send one of
+  their field players there -- from anywhere on the field, at 1 exhaust token per space
+  travelled. The same thing an [out-of-bounds ball](#loose-ball) asks of the side that wins it,
+  and not a [loose ball](#loose-ball): the ball was given to them, so there is nothing to
+  contest and nothing for the ceding side to win back.
+- **Under [last possession](#the-clock-halftime-and-full-time) it ends the period**, and there
+  is no window on either side. Ceding is a turnover, and the first turnover under last
+  possession ends the period whatever it was.
+- **Nothing else has to be true.** A side with [nobody left to bring on](#who-may-come-on) may
+  still cede: the window is the whole Coaching Choice, not the substitution alone.
 
 ### Resetting after a new play
 
@@ -880,7 +917,7 @@ board is left showing where the second half ended.
 
 ### When a Coaching Choice is offered
 
-Four occasions offer it. They differ in **how many substitutions** they allow and in who takes
+Five occasions offer it. They differ in **how many substitutions** they allow and in who takes
 their turn first, and one of them -- the last -- differs in which actions it offers at all.
 The two coaches never coach at the same time.
 
@@ -888,6 +925,7 @@ The two coaches never coach at the same time.
 |---|---|---|---|
 | [Setting up](#setting-up-a-game) | unlimited | the side kicking off, then the other | the **bench** |
 | A [new play](#steals-and-new-plays) | out of that side's 2 for the half | the declaring side, then the other | the back bench |
+| A [ceded ball](#ceding-the-ball) | out of that side's 2 for the half | the side ceding, then the other | the back bench |
 | [Halftime](#the-clock-halftime-and-full-time) | 2, its own allowance | visitors, then home | the back bench |
 | [Before the shootout](#the-clock-halftime-and-full-time) | 1, its own allowance | home, then visitors | the back bench |
 
@@ -906,6 +944,12 @@ window to the side taking the ball. A steal opens no window, however the ball wa
 - Answering someone else's declaration does not spend a side's own, so a coach who has already
   declared this half can still be offered the window as a reply -- with whatever is left of
   their two substitutions, which may be none.
+
+**A ceded ball is a declaration**, bought with the ball instead of with somebody else's
+turnover. It is charged the same once-a-half and answered by the same reply, and the only
+difference is that neither coach is asked whether to take it: the side ceding has already said
+so by ceding, and the side receiving has been handed the ball and the window together, with
+nothing to weigh up.
 
 **Halftime is not a declaration.** Each coach gets one independently, with no reply, and it
 does not spend that side's once-a-half declaration. Its two substitutions are **its own

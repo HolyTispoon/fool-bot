@@ -1583,6 +1583,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "Either player can roll the shootout skill test:",
             )
 
+        if match.pending_cede:
+            # A ceded ball resets the turn before either window opens,
+            # so active_player_id is None and the kickoff branch below
+            # would misread it -- the same reason setup and halftime
+            # are checked ahead of that one. Always the hub: ceding is
+            # what bought the window, so neither coach is ever asked
+            # whether to take it. With no window open the cascade died
+            # between the second one closing and the tail behind it,
+            # which is resume's to re-drive rather than a click's.
+            if match.pending_coaching_side is not None:
+                return (
+                    CoachingHubView(self, game_id),
+                    "Coaching Choice, on the ceded ball:",
+                )
+            return (
+                PlayerActionView(self, game_id),
+                "Settle the ceded ball:",
+            )
+
         if match.active_player_id is None:
             return (
                 BallHandlerSelectionView(self, game_id),
@@ -3904,12 +3923,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         injured player on the field is named in the heading but
         compels nothing -- leaving them on is the coach's call.
 
-        `occasion` carries every difference between the four -- the
+        `occasion` carries every difference between the five -- the
         substitution allowance, whether the declare-or-pass offer is
         put at all, where a player taken off goes, and whether the
         three positional actions are offered at all. Setup, halftime
-        and full time are given rather than declared, so all three
-        skip the offer and open the menu directly.
+        and full time are given rather than declared, so all three skip
+        the offer and open the menu directly; a ceded ball skips it for
+        the opposite reason, having already been paid for.
 
         **A window opens on the arrangement its coach last settled**,
         never on the scramble a run back left behind -- see
@@ -3955,12 +3975,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        if occasion.spends_declaration:
+        if occasion.asks_declaration:
             note = (
                 "Answering the other team's declaration, which costs "
                 "your own nothing."
                 if is_response
                 else "Declaring is once a half. Coach, or pass?"
+            )
+        elif occasion == CoachingOccasion.CEDED:
+            note = (
+                "The ball bought this, so there is nothing to decide "
+                "-- the window is open."
+                if not is_response
+                else "The other team gave the ball up to coach. Yours "
+                "is open too, and costs your own declaration nothing."
             )
         else:
             note = "Take as long as you like; nothing here costs exhaustion."
@@ -3994,7 +4022,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             file=await self.coaching_file(game, match, side),
             view=(
                 CoachingOfferView(self, game.game_id)
-                if occasion.spends_declaration
+                if occasion.asks_declaration
                 else CoachingHubView(self, game.game_id)
             ),
             wait=True,
@@ -4119,6 +4147,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # between the two coaches left nothing to click.
             await self.advance_full_time_stage(interaction, game, match)
             return "the Coaching Choice before the shootout"
+
+        if match.pending_cede:
+            # Both windows have closed -- the branch above would have
+            # caught one still open -- so what is left is the tail, and
+            # that was the bot's own next step.
+            await self.finish_cede(interaction, game, match)
+            return "the ceded ball"
 
         if match.pending_run_back:
             await self.continue_run_back(interaction, game, match)
@@ -4443,12 +4478,178 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 if side == TeamSide.HOME
                 else TeamSide.HOME
             )
+            # The reply is the same occasion as the declaration it
+            # answers -- a ceded ball opens the other coach's window
+            # already declared too, since there is nothing for them to
+            # pass on: they have been handed the ball and the window
+            # both, and neither costs them anything.
             await self.begin_substitution_window(
-                interaction, game, match, other_side, is_response=True,
+                interaction,
+                game,
+                match,
+                other_side,
+                occasion=occasion or CoachingOccasion.NEW_PLAY,
+                is_response=True,
             )
             return
 
+        if match.pending_cede:
+            # Nobody ran anywhere and nothing is displaced: both sides
+            # took the field on their own arrangement as their windows
+            # opened. So this skips the run back entirely rather than
+            # letting it charge for a scramble that never happened.
+            await self.finish_cede(interaction, game, match)
+            return
+
         await self.announce_run_back(interaction, game, match)
+
+    # -- Ceding the ball to coach --------------------------------------
+
+    def cede_confirmation(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> str:
+        """
+        What the coach is agreeing to, in place of the turn prompt --
+        see CedeConfirmView. Everything it names is a cost or a
+        consequence the button label has no room for: who gets the
+        ball, where, that the declaration goes with it, and that the
+        other coach is handed a window of their own on the back of it.
+        """
+        receiving = format_team_side_label(
+            match.setup_for_side(match.defending_side())
+        )
+        lines = [
+            "# Cede the ball?",
+            f"{receiving} take possession at "
+            f"{space_label(match.ball.zone, match.ball.space_index)}, where "
+            "it stands, and you open a Coaching Choice -- formation, "
+            "substitutions, zone assignment, space positioning, free of "
+            "exhaustion.",
+            "It spends your declaration for this half, and "
+            f"{receiving} get a window of their own to answer it.",
+        ]
+        if match.scoreboard.last_possession:
+            # The one case where the window never happens: a turnover
+            # under last possession is the end of the period, and
+            # ceding is a turnover.
+            lines.append(
+                "**The clock is at 15, so this ends the period instead --"
+                " there is no window on either side.**"
+            )
+        return "\n".join(lines)
+
+    async def begin_cede(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        The offense gives the ball up to coach -- see "Ceding the ball"
+        in docs/living-rules.md, and `MatchState.may_cede_possession`
+        for when it is on offer at all. The caller has acknowledged the
+        interaction and is responsible for the prompt the click came
+        from.
+
+        It is a turnover with none of a turnover's machinery: the ball
+        does not move, nobody runs back, and no time passes. What the
+        ceding side is buying is the window, so this opens it for them
+        at once, and `finish_substitution_window` hands the other coach
+        theirs exactly as a declaration's reply -- which is what it is.
+
+        **Under last possession it ends the period instead.** A
+        turnover then is the end of the half either way, and ceding is
+        a turnover; the window would be a coach rearranging a side that
+        has no possession left to play. `pending_cede` is cleared with
+        it, or the flag would follow the game into the second half.
+        """
+        ceding_side = match.ball.possession
+        ceding_label = format_team_side_label(
+            match.setup_for_side(ceding_side)
+        )
+        receiving_side = match.cede_possession()
+        receiving_label = format_team_side_label(
+            match.setup_for_side(receiving_side)
+        )
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        await self.drop_turn_prompt(interaction, game)
+
+        lead_in = (
+            f"# {ceding_label} cede the ball\n"
+            f"{receiving_label} take possession at "
+            f"{space_label(match.ball.zone, match.ball.space_index)}, "
+            "where it was given up. The ball speed goes down to **1** "
+            "and no time passes."
+        )
+
+        if match.scoreboard.last_possession:
+            match.pending_cede = False
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await self.end_period(interaction, game, match, lead_in=lead_in)
+            return
+
+        await self.refresh_match_image(interaction, game)
+        await self.begin_substitution_window(
+            interaction,
+            game,
+            match,
+            ceding_side,
+            occasion=CoachingOccasion.CEDED,
+            lead_in=lead_in,
+        )
+
+    async def finish_cede(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        The tail of a cede, once both coaches have closed their
+        windows. There is no run back to run: each window opened on its
+        own coach's arrangement, so both sides are already standing
+        where they mean to.
+
+        What is left is whether anybody is standing on the ball. A
+        ceded ball is handed over where it lies, and the side receiving
+        it may have nobody there -- their arrangement covers their
+        zones, not wherever open play left the ball -- so they send
+        somebody to pick it up, from anywhere on the field at the usual
+        token a space. That is the same thing an out-of-bounds ball
+        asks of the side that wins it, for the same reason, so it is
+        the same step.
+
+        `pending_cede` is cleared before either branch: from here on
+        the state says what is owed on its own, and leaving it set
+        would have `pending_turn_view` answering for a window that has
+        closed.
+        """
+        match.pending_cede = False
+        needs_recovery = not match.eligible_ball_handlers()
+        match.pending_ball_recovery = needs_recovery
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        if needs_recovery:
+            await self.begin_ball_recovery(interaction, game, match)
+            return
+
+        # distance_moved 0: ceding costs no time. turnover_occurred is
+        # true because it is one -- it is what makes this the end of
+        # the period when last possession was already in force, which
+        # begin_cede has caught already and this keeps honest.
+        await self.finish_maneuver_resolution(
+            interaction,
+            game,
+            match,
+            distance_moved=0,
+            turnover_occurred=True,
+        )
 
     async def begin_run_back(
         self,
@@ -5182,13 +5383,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.refresh_match_image(interaction, game, png=png)
 
         prefix = f"{lead_in}\n\n" if lead_in else ""
+        # A ceded ball is the one turn that costs no time at all, and
+        # "Time has advanced 0" reads as a bug rather than as a rule.
+        clock = (
+            f"Time has advanced {distance_moved}, now "
+            f"at {match.scoreboard.time:02d}."
+            if distance_moved
+            else f"No time has passed; still at {match.scoreboard.time:02d}."
+        )
         snapshot = await interaction.followup.send(
             content=(
                 f"{prefix}Ball is now "
                 f"{space_label(match.ball.zone, match.ball.space_index)}, "
                 f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
-                f"has possession. Time has advanced {distance_moved}, now "
-                f"at {match.scoreboard.time:02d}."
+                f"has possession. {clock}"
             ),
             file=self.match_file_from_png(game, png),
             wait=True,
@@ -6875,16 +7083,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else f"{handler} will be handling the ball."
         )
         # PlayerActionView drops the shoot button short of shooting
-        # range, so say why rather than leaving a coach to wonder where
-        # it went.
-        action_line = (
-            "Choose an action:"
-            if match.can_attempt_score()
-            else (
+        # range and offers the cede in its place, so say why rather
+        # than leaving a coach to wonder where either went. The two are
+        # the same read: out of range is exactly when ceding is on
+        # offer, and the only thing that can take it away as well is a
+        # declaration already spent.
+        if match.can_attempt_score():
+            action_line = "Choose an action:"
+        elif match.may_cede_possession():
+            action_line = (
                 "The ball is out of shooting range, so there is no shot "
-                "from here -- only a maneuver:"
+                "from here. Maneuver, or cede the ball to coach:"
             )
-        )
+        else:
+            action_line = (
+                "The ball is out of shooting range and your side has "
+                "already declared this half, so there is no shot and no "
+                "cede -- only a maneuver:"
+            )
         return (
             f"{controller}, it is your turn.\n\n"
             f"{handler_line}\n\n"
@@ -7919,6 +8135,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
+        # A ceded ball is the same again: the turn was reset before
+        # either window opened, so nothing below would notice, and the
+        # reset would drop a coach's open Coaching Choice on the floor
+        # along with the pick-up the ball may still owe.
+        if match.pending_cede:
+            await interaction.followup.send(
+                "The ball has been ceded and the Coaching Choice it "
+                "bought is still running. Use `/d12ball resume` to put "
+                "its prompt back up.",
+                ephemeral=True,
+            )
+            return
+
         # Both refusals point at /d12ball resume, which is what these
         # two states actually want: it re-posts the maneuver or score
         # attempt prompt this turn is still owed rather than throwing
@@ -8058,22 +8287,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # maneuver picks, run back, loose ball, kickoff fill,
             # out-of-bounds pickup -- and the coaching window is closed
             # separately because it is not part of a turn. Setup,
-            # halftime and the shootout -- the window before it
-            # included -- are left alone on purpose: those are real
-            # positions in the game rather than a turn gone wrong, and
-            # a plain resume walks them on. The shootout most of all --
-            # there is no turn under it to clear, and clearing one
-            # would throw away orders both coaches have already set.
+            # halftime, a ceded ball and the shootout -- the window
+            # before it included -- are left alone on purpose: those
+            # are real positions in the game rather than a turn gone
+            # wrong, and a plain resume walks them on. The shootout
+            # most of all -- there is no turn under it to clear, and
+            # clearing one would throw away orders both coaches have
+            # already set. A cede has already turned the ball over, so
+            # clearing it would also leave the turn prompt asking the
+            # receiving side to act with nobody on the ball.
             if (
                 match.pending_setup_stage is not None
                 or match.pending_halftime_stage is not None
                 or match.pending_full_time_stage is not None
                 or match.pending_shootout
+                or match.pending_cede
             ):
                 await interaction.followup.send(
-                    "This game is in setup, at halftime, or in the "
-                    "extreme shootout, which `force` cannot skip past. "
-                    "Run `/d12ball resume` without it.",
+                    "This game is in setup, at halftime, in the extreme "
+                    "shootout, or on a ceded ball -- none of which "
+                    "`force` can skip past. Run `/d12ball resume` "
+                    "without it.",
                     ephemeral=True,
                 )
                 return

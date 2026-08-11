@@ -55,6 +55,46 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-08-10 (newest) -- author, a team out of shooting range may cede the ball to coach
+
+*From the author: "During offensive choice, if the team is not in shooting range - it has an
+option to cede possession to call for a substitution. That takes up their 'once per halftime'
+allotment." Then, asked what that does to the ball, the clock and the other coach: the ball
+stays "same place where it was ceded"; the rearrangement is exhaustion-free; "the other coach
+gets to sub"; ball speed resets to 1 and there is no time cost; under last possession it ends
+the game; and a side with both benches spent is still offered it, that state being "very
+rare". Then, asked what settles a ceded ball nobody is standing on: "the team that gains
+possession has to send a player to the space where the ball was ceded."*
+
+- **A third choice on the turn**, offered exactly where the score attempt is not: out of
+  [shooting range](living-rules.md#shooting-range), and only while the side still holds its
+  once-a-half declaration. The two reads are the same one, which is why the turn prompt can
+  explain either missing button in a sentence.
+- **It is a turnover with none of a turnover's machinery.** The ball does not move, ball speed
+  resets to 1, no time passes, and nobody runs back -- each coach's window opens on their own
+  arrangement, free of exhaustion, which is what a Coaching Choice does anyway. So it is a
+  third kind of turnover beside the steal and the new play, and the first that neither runs
+  players back nor restarts play.
+- **It is charged like a declaration and answered like one**, the reply costing the answering
+  side's own declaration nothing. The only difference is that neither coach is *asked*: the
+  side ceding said so by ceding, and the side receiving has been handed the ball and the
+  window together.
+- **A ball nobody is standing on is picked up**, from anywhere on the field at a token a
+  space, once both windows have closed. The receiving side's arrangement covers their zones,
+  not wherever open play left the ball, so this will be the common case -- and it is the same
+  step an out-of-bounds ball already asks for. It is a **requirement, not an offer**: the side
+  gaining possession sends somebody, and cannot decline and leave the ball lying there.
+- **It is not a loose ball.** The other reading was to let the general loose-ball check answer
+  it, which would have made the ceded ball a contest the ceding side could win back -- and,
+  with one of their own meeples still standing on it, win back uncontested, having bought a
+  Coaching Choice with nothing. The author's answer settles it the other way: ceding is a
+  concession, not a gamble.
+- **Under last possession it ends the period**, with no window on either side: the first
+  turnover under last possession ends it whatever the turnover was.
+- **A side with nobody to bring on may still cede.** The window is the whole Coaching Choice,
+  and hiding the button for a state that needs all three substitutes to have come off injured
+  would mislead far more often than it helped.
+
 ### 2026-08-10 (latest) -- author, an empty bench is the whole of what opens the back bench
 
 *From the author, correcting the two-pool rule as it had stood since 2026-08-04, when asked
@@ -809,6 +849,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | A High Pass is a free choice of 2 or 3 (or 4) | Only distances that fit on the field are offered, and none is offered at all with the ball 0 or 1 spaces from the end |
 | A turnover says nothing about ball speed | Every turnover resets it to 1 |
 | Substitutions "when they win possession", with no split between kinds of turnover | Only a new play (goal, own goal, missed attempt, out of bounds) opens a window; a steal opens none |
+| Nothing about giving the ball up on purpose | A side out of shooting range may cede it to coach, spending their once-a-half declaration; both coaches then get a window |
 | A loose ball's contestant "gains 1 exhaustion" | 1 token per space travelled |
 | Nothing about the loose-ball check at all, beyond a pass landing on an empty space | A general check after every maneuver, with four cases |
 | Nothing about which space a player runs back to, or what it costs | After a steal the coach picks, covering every space of the zone their players can fill and stacking the surplus, 1 token per space |
@@ -922,13 +963,19 @@ From the author, for `foolbot.py`'s generic commands:
 - **Loose ball**, all four cases, including the ask-one-side-at-a-time order and declining.
 - **The High Pass contest**, distinct from a loose ball, with the ball-speed modifier to the
   offense.
-- **The Coaching Choice**, end to end, and the same four actions at all three occasions:
+- **Ceding the ball**, end to end: the third button on the turn out of shooting range, behind
+  a confirmation that names what it costs; the ball left where it stands at speed 1 with no
+  time cost; a window for each coach, charged as a declaration and answered as one; the
+  receiving side sending somebody to pick a ball up that nobody is standing on; and the period
+  ending instead under last possession.
+- **The Coaching Choice**, end to end, and the same four actions at all four board occasions:
   formation, substitution, zone assignment, space positioning, on one message a coach edits
   their way through. Setup offers one to each coach before kickoff (home first, unlimited
   substitutions, outgoing players back to the bench); a new play offers one to the side taking
   the ball, gated on the once-a-half declaration, with a reply for the other coach if they take
-  it and 2 substitutions a side for the half; halftime offers one to each coach independently
-  (visitors first) with its own 2. A formation change re-deals the side by defensive skill.
+  it and 2 substitutions a side for the half; a ceded ball opens the same window for both
+  coaches on the same allowance, asking neither; halftime offers one to each coach
+  independently (visitors first) with its own 2. A formation change re-deals the side by defensive skill.
   Dinky substitutes only to get an injured player off, never rearranges, and covers the kickoff
   space itself when it is the side kicking off.
 - **Halftime**, end to end: recovery, the coach's extra token, and each side's Coaching Choice,

@@ -651,6 +651,21 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
                     getattr(cog.load_match_state(game), stage_field),
                 )
 
+    async def test_force_will_not_skip_a_ceded_ball(self) -> None:
+        """
+        Same reason, plus one of its own: the ball has already changed
+        hands, so a cleared turn would ask the receiving side to act
+        with nobody standing on it.
+        """
+        cog, game, match = self.build()
+        match.pending_cede = True
+        game.match_state = match.to_dict()
+
+        await self.run_resume(cog, build_interaction(), force=True)
+
+        cog.send_turn_prompt.assert_not_awaited()
+        self.assertTrue(cog.load_match_state(game).pending_cede)
+
     async def test_a_state_that_will_not_load_says_so(self) -> None:
         cog, _, _ = self.build()
         cog.resume_pending_prompt.side_effect = ValueError("nope")

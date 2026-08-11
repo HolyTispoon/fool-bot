@@ -177,12 +177,22 @@ substitution and none of the other three actions** -- a shootout is played by
 who is on the field and by nothing about where they stand, so formation, zone
 assignment and space positioning would move meeples that never play again.
 
-- **`CoachingOccasion` carries every difference between the four**, as
+A fifth is [a ceded ball](#ceding-the-ball), which is a new play's window in
+everything but how it was bought.
+
+- **`CoachingOccasion` carries every difference between the five**, as
   properties rather than as flags at the call sites: the substitution
-  allowance, whether the declare-or-pass offer is put at all (and charged),
-  whether a player taken off is retired to the back bench, and whether the
-  three positional actions are offered at all. Anything that differs by
-  occasion belongs on that enum, not in an `if` in the cog.
+  allowance, whether the declare-or-pass offer is put at all, whether the
+  declaration is charged, whether a player taken off is retired to the back
+  bench, and whether the three positional actions are offered at all. Anything
+  that differs by occasion belongs on that enum, not in an `if` in the cog.
+- **`spends_declaration` and `asks_declaration` are two facts, not one.** They
+  agreed for the first four occasions and part company at `CEDED`, which is
+  charged the once-a-half without ever being offered -- the button that gave
+  the ball up *was* the declaration. `open_coaching_window` reads the second
+  (open declared, however that came about) and `declare_coaching` the first
+  (charge, unless this is a reply), which is why an occasion given for free
+  and one paid for in advance can share the same code path.
 - **`offers_positioning` governs the arrangement as well as the menu**, which
   is one fact read at both ends: a window with no positioning in it neither
   opens on the coach's arrangement (`begin_substitution_window` skips the
@@ -195,7 +205,8 @@ assignment and space positioning would move meeples that never play again.
 - **Four substitution budgets, not one.** Setup is unlimited, so
   `substitutions_remaining()` returns **None** there -- callers have to tell
   that apart from a limit of zero, which is what `may_substitute()` and
-  `substitution_allowance_label` are for. A new play's come out of
+  `substitution_allowance_label` are for. Open play's -- a new play's or a
+  ceded ball's, which draw on the same pot -- come out of
   `half_substitutions_used`, per side, cleared at halftime; halftime's two and
   full time's one are counted inside the window and charged to neither half.
   So a side can substitute seven times in a game.
@@ -616,7 +627,9 @@ Every turnover resets the ball's speed and puts players back in position, but
 *how* differs, and only one of the two opens a
 [Coaching Choice](#the-coaching-choice).
 `begin_run_back`'s `new_play` flag is the whole distinction -- see "Steals and
-new plays" in the living rules for which is which.
+new plays" in the living rules for which is which. (A third kind,
+[ceding](#ceding-the-ball), goes nowhere near `begin_run_back`: nothing was
+contested and nothing went dead, so nobody runs back and nothing restarts.)
 
 - **A steal runs back; a new play resets.** A steal keeps the old behaviour --
   the stealer stays, everyone else displaced picks a space in their zone at a
@@ -682,6 +695,67 @@ read from the other end.
 - **The two placements a restart owes still cost**: the post-goal kickoff fill
   and the out-of-bounds pickup run after the reset, at the usual rate, because
   nothing guarantees a coach's arrangement covers the space in question.
+
+## Ceding the ball
+
+A side out of [shooting range](#where-a-shot-may-be-taken-from) may hand the
+ball over rather than play it, to buy a
+[Coaching Choice](#the-coaching-choice) -- see "Ceding the ball" in the living
+rules. It is the third kind of turnover, and the only one that neither runs
+players back nor restarts play: the ball stays where it was given up, at speed
+1, and no time passes.
+
+- **`MatchState.may_cede_possession` is the whole of when it is offered**, and
+  it is `can_attempt_score` read from the other end plus the once-a-half
+  declaration. So one sentence in `build_turn_prompt` explains both missing
+  buttons, and `PlayerActionView` never builds the shot and the cede together.
+  It is deliberately **not** conditional on having anyone to bring on: the
+  window is the whole Coaching Choice, and the state with nobody to bring on
+  needs all three substitutes to have come off injured.
+- **The confirm replaces the turn prompt rather than posting under it.**
+  Ceding is the one turn action that hands the opponent the ball, and it sits
+  one button along from Maneuver, so `CedeConfirmView` puts the cost in front
+  of the coach first. Both ends are `interaction.response.edit_message`, so it
+  costs nothing out of the channel's edit bucket (see "Discord's rate limits"),
+  and Back restores the prompt **verbatim** from a string the view carries --
+  `build_turn_prompt` can no longer tell whether the handler was carrying the
+  ball, so rebuilding it would quietly lose that line.
+- **`pending_cede` is persisted, and it means "a cede's windows are still
+  running".** The whole of a cede happens either side of two Coaching Choices,
+  and `cede_possession` resets the turn before the first one opens -- so by the
+  time the second closes, nothing else in the match says how it got there and
+  `finish_substitution_window` would fall through to a run back nobody owes. It
+  is checked in `pending_turn_view` ahead of the "no ball handler yet" branch
+  for exactly the reason setup and halftime are, and `finish_cede` clears it
+  before dispatching so the state that follows speaks for itself.
+- **A cede is charged as a declaration and answered as one.** The reply is the
+  same occasion (`finish_substitution_window` passes the occasion through
+  rather than defaulting to `NEW_PLAY`), and neither coach is asked -- see
+  `asks_declaration` under "The Coaching Choice".
+- **The tail is the out-of-bounds pickup, not the loose-ball check.** The
+  receiving side's arrangement covers their zones, not wherever open play left
+  the ball, so usually nobody is standing on it; `finish_cede` sends them to
+  fetch it at the usual token a space. Routing it through
+  `check_for_loose_ball` instead would let the side that ceded contest the ball
+  back -- and, with one of their meeples still on it, take it back
+  uncontested, having bought a window for nothing. The author settled this on
+  2026-08-10: "the team that gains possession has to send a player to the space
+  where the ball was ceded." So `finish_cede` must keep deciding this itself --
+  falling through to `finish_maneuver_resolution` with nobody on the ball would
+  hand it to the loose-ball check, which is the reading that was rejected.
+- **The clock cost rides on `pending_run_back_distance`, set to 0.** That field
+  is what every tail step reads back for the clock, and the pickup spans a
+  restart, so a cede has to say 0 there rather than pass it down a call chain.
+  `finish_maneuver_resolution` prints "No time has passed" for it, because
+  "Time has advanced 0" reads as a bug.
+- **Under last possession it ends the period**, in `begin_cede` and before any
+  window opens, clearing `pending_cede` on the way out so the flag does not
+  follow the game into the second half.
+- **Dinky never cedes.** `DinkyAI.choose_action` still answers shoot or
+  maneuver, so in a solo game the option is the human's alone. Nothing about
+  the flow assumes that -- an AI *receiving* a ceded ball runs its reply window
+  through `run_ai_substitution_window` like any other -- it is just that giving
+  the ball away is a judgement call and Dinky makes none.
 
 ## Logging and the #logs channel
 
@@ -1083,15 +1157,16 @@ Two things follow from that:
   already on; `resume_pending_prompt` posts the same one on a fresh message. A
   second copy of that branch chain is how a resume comes to offer a different
   prompt from the one a restart restores. Its ordering carries real decisions —
-  setup, halftime and the window before the shootout are checked ahead of "no
-  ball handler yet" because all three leave `active_player_id` None, and a
-  maneuver is recognised by `challenger_id` rather than `pending_action`, which
-  `choose_challenger` clears.
+  setup, halftime, the window before the shootout and a
+  [ceded ball](#ceding-the-ball) are checked ahead of "no ball handler yet"
+  because all four leave `active_player_id` None, and a maneuver is recognised
+  by `challenger_id` rather than `pending_action`, which `choose_challenger`
+  clears.
 - **A state whose next step is the bot's is handed back to the routine that
   drives it**, not re-asked: `continue_run_back`, `begin_ball_recovery`,
   `advance_setup_stage`, `advance_halftime_stage`, `advance_full_time_stage`,
-  `run_ai_substitution_window`, `advance_shootout`. That is the whole difference
-  between resume's two callers, and the reason `pending_turn_view` returns a
+  `run_ai_substitution_window`, `advance_shootout`, `finish_cede`. That is the
+  whole difference between resume's two callers, and the reason `pending_turn_view` returns a
   view rather than posting it.
 
 - **An open Coaching Choice is re-posted, never re-opened.**
@@ -1102,11 +1177,13 @@ Two things follow from that:
   reason: all three run their coaching through that one window.
 - **`resume force:true` clears the turn**, via `reset_maneuver` and
   `close_coaching_window`, and asks the offense to choose again. It refuses
-  during setup, halftime and the shootout -- the window before it included:
-  those are real positions in the game rather than a turn gone wrong, and
-  clearing them would drop a coach's window -- or both coaches' shooting
-  orders -- on the floor. `offensive_choice` refuses in a shootout and in that
-  window for the same reason; there is no turn under either.
+  during setup, halftime, a [ceded ball](#ceding-the-ball) and the shootout --
+  the window before it included: those are real positions in the game rather
+  than a turn gone wrong, and clearing them would drop a coach's window -- or
+  both coaches' shooting orders -- on the floor. A cede has a second reason:
+  the ball has already changed hands, so the prompt a cleared turn puts up
+  would be asking the receiving side to act with nobody on the ball.
+  `offensive_choice` refuses in all the same states for the same reasons.
 - **`/d12ball offensive_choice`'s refusals all point at resume.** "A score
   attempt is already in progress" was the symptom that started this:
   `pending_action` stays `"shoot"` for the whole post-goal sequence, since only
@@ -1114,7 +1191,9 @@ Two things follow from that:
   play's coaching window leaves it set with the window still open. The third
   refusal is a roll a coach still owes (see "Every roll is a coach's"), which
   `pending_action` says nothing about -- `choose_challenger` cleared it when the
-  maneuver that led there began.
+  maneuver that led there began. The fourth is a cede, which leaves
+  `pending_action` clear for the same kind of reason: the turn was reset before
+  either window opened.
 - **Abandoning archives, it does not delete.** The channel is the record of what
   happened, deleting one is the tightest rate limit Discord has, and keeping the
   saved game is what stops the PBD number being handed out twice (see the
