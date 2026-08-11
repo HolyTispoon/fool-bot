@@ -188,7 +188,7 @@ Flip possession and reset speed; move interceptor and ball one space back for th
 
 ### Pressure
 
-Move handler and ball back one, challenger forward one. If handler is nearest own goal, resolve an [own goal](#own-goal). A Defender's won Pressure also steals unless own goal occurs.
+Move handler and ball back one, challenger forward one. If handler is nearest own goal, resolve an [own goal](#own-goal). A Defender's won Pressure also steals unless own goal occurs (whether scored or avoided).
 
 ## Ball speed, loose balls, and set-ups
 
