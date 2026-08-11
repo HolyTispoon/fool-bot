@@ -1894,7 +1894,8 @@ class MatchState:
         other meeples cover them all -- every space in the zone, since
         the surplus a formation like 2-3-1 leaves over has to stack
         somewhere. This is the run back's coverage rule (see
-        "Turnovers and running back" in docs/living-rules.md) and the
+        "Turnovers, resets, and running back" in docs/living-rules.md)
+        and the
         same rule governs the free placements at a substitution window
         and at halftime.
 

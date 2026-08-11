@@ -933,7 +933,7 @@ def draw_shooting_range_edges(
     """
     Where each side's shooting range begins, dashed down the field,
     because that is now what decides whether a team may shoot -- see
-    "Shooting range" in the living rules.
+    "Field, direction, and shooting range" in the living rules.
 
     Never a zone boundary: on every board size the edge falls
     somewhere inside midfield. An odd-sized board has a middle space

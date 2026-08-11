@@ -55,7 +55,66 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-10 (newest) -- author, a team out of shooting range may cede the ball to coach
+### 2026-08-11 (newest) -- editing pass, the living rules consolidated
+
+*No rule changed here.* [living-rules.md](living-rules.md) was rewritten for length -- 1153
+lines to about 360 -- folding the standalone sections into eight top-level ones and replacing
+prose with tables wherever the prose was only listing cases. Every mechanic was checked against
+the code on the way through. Recorded because the section names moved, and a later pull from
+upstream will be read against headings that no longer exist:
+
+| Was | Now |
+| --- | --- |
+| Setting up a game | Setup |
+| Components › The field › Shooting range | Field, teams, and terms › Field, direction, and shooting range |
+| Components › The field › The kickoff space | folded into the same section |
+| Maneuver | Maneuvers |
+| Ball speed / Loose ball / Scoring opportunities / Own goal | subsections of Ball speed, loose balls, and set-ups |
+| Turnovers and running back › Steals and new plays | Turnovers, resets, and running back (the table at its head) |
+| The clock, halftime and full time | Clock, halftime, and full time |
+
+Two things the pass settled rather than carried over, both places the old document disagreed
+with itself:
+
+- **A Winger's Low Pass set-up is range-gated like any other.** The Low Pass section said the
+  ability had "no position requirement of any kind" while Scoring opportunities said a set-up
+  is offered only where the shot is legal. The second is the rule and the code
+  (`set_up_shot_candidates`); the Low Pass section now says "if in range".
+- **Re-picking the formation a side is already in is no longer described as a no-op.** It
+  re-deals, which discards any zone assignment and space positioning the coach has done since.
+
+Two corrections and three clarifications came out of reviewing the pass, all restoring what
+the old document said:
+
+- **The defense must challenge** when it has anyone in the ball's zone -- the compression had
+  it as "may", which reads across from the loose ball, where declining really is always legal.
+- **Ceding needs the declaration in hand**, not just a side out of range. Both conditions are
+  back in the turn sequence and in Ceding the ball.
+- **Block Deflect turns nothing over** except the clamped-with-a-defender-on-the-landing-space
+  case. The compression had "possession flips and speed resets" reading as unconditional.
+- **Last possession belongs to whoever holds the ball** once the action that reached 15 has
+  resolved, which is not always a side that just gained it.
+- **An uncontested maneuver escapes the injured player's disadvantage**, alongside the
+  both-injured case it was already recorded with (2026-08-09).
+
+Four more the compression dropped, restored after review:
+
+- **A side that positions nothing keeps the arrangement it had.** Only a coach who actually
+  moves somebody sets a new one, so the scramble a half ends in never becomes a side's shape
+  by default. The bot reaches this by putting a side back on its arrangement as the window
+  opens, which is presentation; the rule is the outcome.
+- **The injured player's withheld skill is only the loose ball and the long High Pass.** The
+  compression left it next to the forced maneuver test, which reads as though that test were
+  withheld too. It is not -- an injured player made to roll for their own maneuver adds their
+  skill in full, and a score attempt is untouched. Recorded because this was read backwards
+  once before.
+- **A won Pressure names two different carriers**, on opposite teams: ordinarily the handler,
+  own-goal roll survived included, and the Defender where their ability also stole it.
+- **Only a turnover moves anyone.** A resolution that leaves possession where it was runs
+  nobody back, resets nobody and charges nobody, so displacement persists until a turnover --
+  which is where a scramble at halftime comes from in the first place.
+
+### 2026-08-10 -- author, a team out of shooting range may cede the ball to coach
 
 *From the author: "During offensive choice, if the team is not in shooting range - it has an
 option to cede possession to call for a substitution. That takes up their 'once per halftime'
@@ -67,7 +126,7 @@ rare". Then, asked what settles a ceded ball nobody is standing on: "the team th
 possession has to send a player to the space where the ball was ceded."*
 
 - **A third choice on the turn**, offered exactly where the score attempt is not: out of
-  [shooting range](living-rules.md#shooting-range), and only while the side still holds its
+  [shooting range](living-rules.md#field-direction-and-shooting-range), and only while the side still holds its
   once-a-half declaration. The two reads are the same one, which is why the turn prompt can
   explain either missing button in a sentence.
 - **It is a turnover with none of a turnover's machinery.** The ball does not move, ball speed
