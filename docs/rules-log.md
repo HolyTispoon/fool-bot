@@ -97,6 +97,23 @@ the old document said:
 - **An uncontested maneuver escapes the injured player's disadvantage**, alongside the
   both-injured case it was already recorded with (2026-08-09).
 
+Four more the compression dropped, restored after review:
+
+- **A side that positions nothing keeps the arrangement it had.** Only a coach who actually
+  moves somebody sets a new one, so the scramble a half ends in never becomes a side's shape
+  by default. The bot reaches this by putting a side back on its arrangement as the window
+  opens, which is presentation; the rule is the outcome.
+- **The injured player's withheld skill is only the loose ball and the long High Pass.** The
+  compression left it next to the forced maneuver test, which reads as though that test were
+  withheld too. It is not -- an injured player made to roll for their own maneuver adds their
+  skill in full, and a score attempt is untouched. Recorded because this was read backwards
+  once before.
+- **A won Pressure names two different carriers**, on opposite teams: ordinarily the handler,
+  own-goal roll survived included, and the Defender where their ability also stole it.
+- **Only a turnover moves anyone.** A resolution that leaves possession where it was runs
+  nobody back, resets nobody and charges nobody, so displacement persists until a turnover --
+  which is where a scramble at halftime comes from in the first place.
+
 ### 2026-08-10 -- author, a team out of shooting range may cede the ball to coach
 
 *From the author: "During offensive choice, if the team is not in shooting range - it has an

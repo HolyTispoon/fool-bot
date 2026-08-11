@@ -100,7 +100,9 @@ The ball is a d12; its face is speed. Coaches use an action-selection d6 for sec
 
 A player specifically left holding the ball takes their team's next turn. A carry lasts one turn; if that player is no longer on the ball, choose normally.
 
-Dribble Advance, Pressure, Steal Intercept, a completed Low Pass, a received 2-space High Pass, a won long-pass contest, and a loose-ball winner create a carrier. Block Deflect, restarts, kickoffs, and required pickups do not. A carrier is exempt from running back.
+Dribble Advance, Steal Intercept, a completed Low Pass, a received 2-space High Pass, a won long-pass contest, and a loose-ball winner create a carrier. Block Deflect, restarts, kickoffs, and required pickups do not. A carrier is exempt from running back.
+
+Pressure creates one too, but names a different player either side of the Defender's ability: ordinarily the handler, shoved back still holding the ball—including where they survived the own-goal roll—and, where a Defender's Pressure also stole it, the Defender.
 
 ## Score attempt
 
@@ -241,6 +243,8 @@ Every possession change resets speed.
 
 An overshot Block Deflect changes possession for its immediate scoring opportunity, but its goal or miss creates the new play.
 
+**Only a turnover moves anyone.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them—a receiver who won their long-pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is displaced stays displaced, and pays nothing for it, until a turnover comes.
+
 ### Resetting after a new play
 
 Return every fielded meeple to its saved arrangement, free and before Coaching Choices. A run back never changes an arrangement. After a goal, conceding side must also put a player on kickoff, paying 1 token per space. After out of bounds, gaining side makes its required pickup after reset.
@@ -277,13 +281,15 @@ When a skill test resolves, every Exhausted participant rolls d12. Higher than c
 
 Injured players lose all tokens, cannot gain more, and cannot make another check. Until subbed off: against a healthy opponent, a tied maneuver loses outright and a winning maneuver must win a test; in loose-ball or long-pass contests they add no offense or defense, but retain abilities and other modifiers. They need not be removed, but go permanently to back bench if subbed.
 
+**The withheld skill is only ever in those two contests.** Everything else rolls in full, the forced test above included: an injured player made to win a skill test for their own maneuver still adds their offensive or defensive skill to it, and a score attempt is untouched.
+
 The maneuver disadvantage is measured against a healthy opponent, so two cases escape it: both participants injured, which is an ordinary tie and an ordinary win; and an uncontested maneuver, which has no opponent to tie with and nobody to be made to roll, and so succeeds outright as always.
 
 At halftime, every fielded player loses 1 token, then each coach chooses one player to lose 1 more.
 
 ## Coaching Choice
 
-A Coaching Choice is a free pause. Take any number of actions in any order, then finish. It cannot put a meeple outside its card's zone or violate [coverage](#occupancy). Final positions become the arrangement.
+A Coaching Choice is a free pause. Take any number of actions in any order, then finish. It cannot put a meeple outside its card's zone or violate [coverage](#occupancy). Final positions become the arrangement—but only where the coach positioned something. A side that makes no positional change keeps the arrangement it already had, whatever open play left its meeples standing on. So a scramble never becomes a shape by default; it takes a coach to set one.
 
 | Action | Rule |
 | --- | --- |
