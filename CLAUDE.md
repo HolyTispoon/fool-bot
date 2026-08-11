@@ -1164,6 +1164,65 @@ player is in is the whole of who may come on -- so without them the flow would
 be asking a coach to remember numbers off a board they cannot see while the
 menu is up.
 
+### The maneuver cards
+
+`scripts/render_maneuver_cards.py` renders the six maneuvers as physical cards
+-- print-ready faces at 2.5 x 3.5in poker size, plus one shared back. They are for the
+tabletop game rather than the bot, and they exist because a selection d6 makes
+a coach hold the rules in their head: the die says "3-4" and the coach has to
+remember that is Dribble Advance if they have the ball and Steal Intercept if
+they do not.
+
+```bash
+python3 scripts/render_maneuver_cards.py --out cards/ --sheet
+python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
+```
+
+- **Nothing on a face is written in the script.** The effect, the time cost and
+  the beats/ties/loses row come from `maneuvers.json` through
+  `load_maneuver_catalog` and `ManeuverCatalog.relationships`; the abilities
+  come from `players.json`. So a card cannot claim a rule the bot does not
+  play, and an import is carried onto the cards by re-running this rather than
+  by editing them.
+- **Which roles a card lists is mostly matched, not tabulated.** A role is on
+  the card when its ability sentence names that maneuver, which is why the
+  Fullback is on both High Pass and Block Deflect, carrying its whole sentence
+  to each. The sentence is never cut down here -- see "Every ability is
+  imported twice". A new ability that mentions a maneuver reaches its card
+  without anything in the script being touched.
+  - **Two things the match cannot find are listed explicitly**, and both are
+    the author's call rather than an oversight in the data. `EXTRA_ROLES` puts
+    the **Striker** on High Pass: its +3 is for scoring off a set-up, one step
+    removed from the maneuver, and three maneuvers can produce a set-up -- a
+    High Pass is much the most common way, so it goes there and nowhere else.
+    `EXTRA_NOTES` gives **Steal Intercept** the ball speed modifier its
+    defender adds to the skill test, which decides the maneuver and which no
+    role ability names, so its card would otherwise be the only blank one.
+  - **Neither can live in `maneuvers.json`**: `scripts/import_d12ball_maneuvers.py`
+    rewrites that file whole from the sheet, so a field added to it survives
+    until the next import and no longer.
+- **The strip diagram is what a card can say that a die face cannot**, so it
+  carries the geometry and the effect text carries the wording. It is the
+  standard seven-space board with the ball on the third space, which is the
+  only position from which every maneuver fits: a High Pass of 4 lands on the
+  last space and a Fullback's Block Deflect of 2 on the first.
+  - **A dashed arc is a role's variant and a solid one is the ordinary move.**
+    That is the only thing the dashes mean, which is why Low Pass's backward
+    option is solid -- it is a choice any passer has, not an ability.
+  - **Distances are labelled under the space they land on.** High Pass throws
+    three arcs out of one space, and labelling those at their peaks stacked
+    three captions on top of each other. A caption's font is sized to the gap
+    to the next caption on its row, and ability variants get a second row.
+- **The offense red and defense green are the maneuver reference image's**, so
+  a coach reading a card and a coach reading the bot's hexagon are looking at
+  the same two colours.
+- **One back for all six.** A coach holding both sets must not show which side
+  of the ball they are reading. It carries the defeat cycle, which is public
+  and which every coach may look at anyway.
+- **The die faces stay printed on each face**, small, so a table with the
+  selection die and a table with these cards are playing the same game.
+- `cards/` is generated output and is gitignored, like `board.png`.
+
 ### Fonts
 
 Fonts are bundled in `d12ball/fonts/` and loaded by absolute path. **Do not go
