@@ -530,11 +530,11 @@ whole rule, over `BoardState.is_in_shooting_range`.
   restart ever begins in range.
 - **A set-up's shot obeys it too.** A scoring opportunity sends a player into an
   ordinary score attempt, so what it buys is the shot out of turn, not a shot
-  from anywhere. `set_up_shot_candidates` is `scoring_opportunity_candidates`
-  plus the range check, and the two are separate because only some callers are
-  asking about a shot -- a long High Pass asks the latter to find the receiver
-  who has to contest for the ball, which has nothing to do with where the goal
-  is.
+  from anywhere. Only the 2-space High Pass's set-up still checks it --
+  `can_attempt_score` over `high_pass_receiver_candidates`, in `apply_high_pass`
+  -- because it is the only set-up whose landing space can be short of range.
+  There used to be a `set_up_shot_candidates` wrapping the two, which never had
+  a second caller.
 - **A 2-space High Pass that lands short of range is still received.** The range
   rule takes away the shot, not the catch. The set-up branch and the long-pass
   contest are the same landing space asked two different questions, so a pass of
@@ -543,13 +543,14 @@ whole rule, over `BoardState.is_in_shooting_range`.
 - **An overshoot is the set-up the rule cannot bite**, whichever maneuver made
   it. A Block Deflect's puts the ball on the space closest to the offense's own
   goal and a High Pass's on the space closest to the goal they attack; both are
-  as deep into the shooting team's range as the field goes. So both ask
-  `scoring_opportunity_candidates` directly rather than `set_up_shot_candidates`
-  -- a branch that can never be taken reads as if it could.
+  as deep into the shooting team's range as the field goes. So neither puts a
+  range check over its candidates -- a branch that can never be taken reads as
+  if it could.
 - **Nothing gates `begin_score_attempt` itself.** The rule is enforced where the
   shot is *chosen*: `PlayerActionView` omits the button (and `build_turn_prompt`
   says why), `choose_action` refuses a stale click, `DinkyAI` only ever shoots
-  from the scoring space, and the set-ups ask `set_up_shot_candidates`.
+  from the scoring space, and the 2-space High Pass's set-up asks
+  `can_attempt_score`.
 - **The board image draws where range begins**, in `draw_shooting_range_edges`
   -- one dash column on board 6, two on 7 and 9 bracketing the space in nobody's
   range. The rule is positional and the board is where both coaches read
@@ -592,6 +593,23 @@ ball speed modifier against both -- see "High Pass" and "Ball speed" in the
 living rules. `MatchState.pending_high_pass_overshoot` is the flag and
 `MatchState.ball_speed_modifier` is the only place the sign is decided.
 
+- **A passer never receives their own pass**, which is the whole of
+  `D12Ball.high_pass_receiver_candidates` -- `scoring_opportunity_candidates`
+  less `active_player_id`. It is asked by all three High Pass branches (the
+  overshoot's set-up, the ordinary 2-space one, and the long-pass contest behind
+  both), because they have to agree on who the pass reached and the occupant
+  list is in no particular order. It can **only bite on a pass clamped to 0
+  spaces**: a High Pass moves the ball and not the handler, so nowhere else is
+  the passer still standing on it when it lands. Stating it as a rule about
+  every High Pass rather than about that one case is deliberate -- see the
+  2026-08-12 entry in the rules log.
+  - **That is the one overshoot that can set nothing up while the offense is
+    still on the ball.** It is neither loose (the passer is standing there) nor
+    a contest (there is no receiver to fight for what they never let go of), so
+    it falls all the way through `apply_high_pass` to
+    `finish_maneuver_resolution` and the passer keeps the ball. It is also why
+    that function words a 0-space result rather than reporting "the ball moves 0
+    spaces forward", which no coach saw until this rule.
 - **A coach is only offered a distance that fits on the field.**
   `MatchState.high_pass_distances` drops any that would clamp, because a longer
   pass landing where a shorter one already would is that pass at a

@@ -2286,53 +2286,71 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        space_word = "space" if actual_distance == 1 else "spaces"
         ability_note = " (Fullback ability)" if fullback_bonus else ""
-        content = (
-            f"**High Pass:** the ball moves {actual_distance} {space_word} "
-            f"forward{ability_note}."
+        if actual_distance:
+            space_word = "space" if actual_distance == 1 else "spaces"
+            content = (
+                f"**High Pass:** the ball moves {actual_distance} "
+                f"{space_word} forward{ability_note}."
+            )
+        else:
+            # Thrown from the final space, so the clamp leaves the ball
+            # exactly where it was. Worth saying in words rather than
+            # as "moves 0 spaces forward", which reads as a bug -- and
+            # a coach sees it now that the passer cannot shoot off it.
+            content = (
+                "**High Pass:** the ball is thrown up from the last space "
+                "and comes straight back down on it."
+            )
+
+        # Who this pass reached, read once now the ball has landed and
+        # asked by every branch below -- the passer is not among them,
+        # whatever the distance. See high_pass_receiver_candidates.
+        receiver_candidates = self.high_pass_receiver_candidates(
+            match, offense_side,
         )
 
         # An overshoot sets up a scoring opportunity whatever distance
         # was asked for (2026-08-10), on the space closest to the goal
         # -- which is where the clamp has just put the ball. The shot
         # is always legal there, as deep into the offense's own
-        # shooting range as the field goes, so this asks
-        # scoring_opportunity_candidates rather than
-        # set_up_shot_candidates: the range check could never fail
-        # here, and a branch that cannot be taken reads as if it could.
-        # Checked ahead of the ordinary 2-space set-up below, which it
-        # subsumes -- the same shot is offered, but with the modifier
-        # the other way round and a contest behind it.
-        if overshot:
-            overshoot_candidates = self.scoring_opportunity_candidates(
-                match, offense_side,
+        # shooting range as the field goes, so no range check: it could
+        # never fail here, and a branch that cannot be taken reads as
+        # if it could. Checked ahead of the ordinary 2-space set-up
+        # below, which it subsumes -- the same shot is offered, but
+        # with the modifier the other way round and a contest behind
+        # it.
+        if overshot and receiver_candidates:
+            await self.offer_overshoot_set_up(
+                interaction,
+                game,
+                match,
+                shooter_id=receiver_candidates[0],
+                distance_moved=actual_distance,
+                lead_in=content,
             )
-            if overshoot_candidates:
-                await self.offer_overshoot_set_up(
-                    interaction,
-                    game,
-                    match,
-                    shooter_id=overshoot_candidates[0],
-                    distance_moved=actual_distance,
-                    lead_in=content,
-                )
-                return
-        # Nobody from the offense on the landing space leaves nothing
-        # to set up, so an overshoot falls through to the ordinary
-        # paths below and ends as a loose ball or a clean turnover,
-        # exactly as it did before this rule.
+            return
+        # Nobody the pass could reach on the landing space leaves
+        # nothing to set up, so an overshoot falls through to the
+        # ordinary paths below: a loose ball, a clean turnover, or --
+        # the case the passer exclusion opened (2026-08-12) -- the
+        # passer keeping a ball that never left them.
 
         # A pass of 2 is received cleanly: no contest at all
         # (2026-08-07), and it may set up a scoring opportunity for
         # whoever it lands on -- unlike the old fixed-2 High Pass,
         # this no longer requires overshooting the field. A longer
         # pass never offers it, whether or not it happens to overshoot.
+        #
+        # A set-up's shot is an ordinary score attempt and obeys the
+        # same rule about where a shot may be taken from: what the
+        # set-up buys is the shot out of turn, not a shot from
+        # anywhere. Out of range the pass is still received, which the
+        # branch below settles -- the range rule takes away the shot,
+        # not the catch.
         setup_candidates = []
-        if distance == 2:
-            setup_candidates = self.set_up_shot_candidates(
-                match, offense_side,
-            )
+        if distance == 2 and match.can_attempt_score(offense_side):
+            setup_candidates = receiver_candidates
 
         if setup_candidates:
             # Received, so the receiver carries it -- set before the
@@ -2356,14 +2374,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         # No scoring-opportunity option (or the requested distance
-        # wasn't a 2). If nobody from the offense is standing where the
-        # pass landed, this isn't the High Pass "receiver must win a
-        # skill test" contest at all -- it's a plain loose ball (or an
-        # uncontested turnover), exactly like any other maneuver that
-        # overshoots into empty or enemy territory.
-        receiver_candidates = self.scoring_opportunity_candidates(
-            match, offense_side,
-        )
+        # wasn't a 2). If the pass reached nobody, this isn't the High
+        # Pass "receiver must win a skill test" contest at all -- it's
+        # a plain loose ball (or an uncontested turnover), exactly like
+        # any other maneuver that overshoots into empty or enemy
+        # territory. Or, if the passer is the one standing there, a
+        # ball that never left them and is not loose either.
 
         # A 2-space pass that found its receiver but not shooting range
         # is just a pass: it was received cleanly, and the only thing
@@ -2488,7 +2504,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         receiver rather than for them -- the same sign the declined
         shot would have paid.
         """
-        receiver_candidates = self.scoring_opportunity_candidates(
+        receiver_candidates = self.high_pass_receiver_candidates(
             match, match.ball.possession,
         )
         defender_on_space = self.scoring_opportunity_candidates(
@@ -2598,27 +2614,43 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             interaction, game, match, distance_moved=distance_moved,
         )
 
-    def set_up_shot_candidates(
+    def high_pass_receiver_candidates(
         self,
         match: MatchState,
         offense_side: TeamSide,
     ) -> list[str]:
         """
-        Who could take a set-up's shot where the ball has landed:
-        `scoring_opportunity_candidates`, and nobody at all unless the
-        ball is within shooting range, since a set-up's shot is an
-        ordinary score attempt and obeys the same rule about where a
-        shot may be taken from.
+        Who a High Pass reached: the offense on the space it landed
+        on, less the passer -- **a passer never receives their own
+        pass** (2026-08-12). See "High Pass" in the living rules.
 
-        The two are separate because only some callers of
-        `scoring_opportunity_candidates` are asking about a shot -- a
-        long High Pass asks it to find the receiver who has to contest
-        for the ball, and that has nothing to do with where the goal
-        is.
+        It is the one reading of that, asked by the overshoot's
+        set-up, the ordinary 2-space one, and the long-pass contest
+        behind both. They have to agree: the receiver who fights to
+        keep the ball is the same player the shot was offered to, and
+        the occupant list is in no particular order.
+
+        **The exclusion can only ever bite on a pass the field clamped
+        to 0 spaces**, since a High Pass moves the ball and not the
+        handler -- that is the only way the passer is still standing on
+        it when it lands. It is written as a rule about every High Pass
+        rather than about that one case so a later maneuver that moves
+        a handler cannot reopen the hole quietly. With nobody else on
+        the space the pass reaches no one: not a loose ball, since the
+        offense is standing on it, and not a contest either.
+
+        Distinct from `scoring_opportunity_candidates`, which this
+        reads and which still means "everyone of that side on the
+        ball" -- Block Deflect's set-up asks it about the *defense*,
+        where the passer exclusion would mean nothing.
         """
-        if not match.can_attempt_score(offense_side):
-            return []
-        return self.scoring_opportunity_candidates(match, offense_side)
+        return [
+            player_id
+            for player_id in self.scoring_opportunity_candidates(
+                match, offense_side,
+            )
+            if player_id != match.active_player_id
+        ]
 
     def scoring_opportunity_candidates(
         self,
@@ -3263,9 +3295,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # is: an overshoot means the ball reached the space closest to
         # the offense's own goal, which is as deep into the deflecting
         # team's range as the field goes. So this asks
-        # scoring_opportunity_candidates rather than
-        # set_up_shot_candidates -- the range check could never fail
-        # here, and a branch that cannot be taken reads as if it could.
+        # scoring_opportunity_candidates with no range check over it --
+        # the check could never fail here, and a branch that cannot be
+        # taken reads as if it could.
         candidates = []
         if overshot:
             candidates = self.scoring_opportunity_candidates(
