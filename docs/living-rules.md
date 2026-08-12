@@ -178,6 +178,8 @@ For a long-pass contest, receiver attacks. A defender already there contests aut
 
 On an overshoot to a teammate, choose the scoring opportunity or contest. Either subtracts speed from receiver's side. Without a teammate, it is loose.
 
+**A passer never receives their own pass.** From the final space the throw moves the ball nowhere and is an overshoot like any other: a teammate sharing that space receives it and is offered the choice above. With no other teammate there the passer simply keeps the ball — nothing is set up and nothing is contested.
+
 ### Block Deflect
 
 Move ball back one (two for Fullback), never past defending end; reduce speed by 1 (minimum 1). Handler stays.
