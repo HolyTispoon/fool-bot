@@ -591,5 +591,141 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(total, 7 + skill - 3)
 
 
+class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
+    """
+    A High Pass thrown from the final space moves the ball nowhere and
+    overshoots like any other -- but the passer is not who it reaches
+    (2026-08-12). It is the only position where the question comes up:
+    a High Pass moves the ball and not the handler, so nowhere else is
+    the passer still standing on it when it lands.
+
+    See D12Ball.high_pass_receiver_candidates and "High Pass" in
+    docs/living-rules.md.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_last_space_pass(self, *, teammate: bool):
+        """
+        The ball on the space closest to the goal the offense attacks,
+        with the passer standing on it -- and a teammate beside them or
+        not. The passer goes down first, so the landing space's
+        occupant list starts with the one player who may not receive.
+        """
+        cog = build_cog()
+        cog.offer_scoring_attempt_choice = mock.AsyncMock()
+        game = build_game()
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        offense = match.ball.possession
+        zone, space = match.own_goal_restart_space(match.defending_side())
+        match.set_ball_space(zone, space)
+        # The standard deal already stands two of the offense in the
+        # zone they attack, so clear the landing space before staffing
+        # it -- otherwise "the passer alone" is nothing of the kind.
+        back = match.own_goal_restart_space(offense)
+        for occupant in list(match.board.spaces[zone][space]):
+            match.move_meeple(occupant, *back)
+
+        field = match.setup_for_side(offense).field_players
+        passer, mate = field[0], (field[1] if teammate else None)
+        match.move_meeple(passer, zone, space)
+        match.active_player_id = passer
+        if mate:
+            match.move_meeple(mate, zone, space)
+
+        # The premise: from here every distance is the same pass, and
+        # the shortest already runs out of field.
+        self.assertTrue(match.high_pass_distance_is_moot(offense))
+
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        return cog, game, match, passer, mate
+
+    async def apply(self, cog, game, match):
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_high_pass(
+                build_interaction(), game, match, 2,
+            )
+
+    async def test_a_teammate_on_the_space_receives_the_overshoot(
+        self,
+    ) -> None:
+        cog, game, match, passer, mate = self.build_last_space_pass(
+            teammate=True,
+        )
+
+        await self.apply(cog, game, match)
+
+        cog.offer_scoring_attempt_choice.assert_awaited_once()
+        kwargs = cog.offer_scoring_attempt_choice.await_args.kwargs
+        self.assertEqual(kwargs["shooter_id"], mate)
+        self.assertNotEqual(kwargs["shooter_id"], passer)
+        # Still an overshoot: the modifier turns around and declining
+        # the shot owes the contest.
+        self.assertTrue(kwargs["contest_on_decline"])
+        self.assertTrue(match.pending_high_pass_overshoot)
+        self.assertEqual(match.ball_carrier_id, mate)
+
+    async def test_the_passer_alone_keeps_a_ball_that_never_left_them(
+        self,
+    ) -> None:
+        cog, game, match, passer, _ = self.build_last_space_pass(
+            teammate=False,
+        )
+        possession_before = match.ball.possession
+        space_before = (match.ball.zone, match.ball.space_index)
+
+        await self.apply(cog, game, match)
+
+        # Nothing set up, nothing contested, and not a loose ball --
+        # the offense is standing on it.
+        cog.offer_scoring_attempt_choice.assert_not_awaited()
+        cog.finish_maneuver_resolution.assert_awaited_once()
+        self.assertFalse(match.pending_high_pass_overshoot)
+        self.assertEqual(match.ball.possession, possession_before)
+        self.assertEqual((match.ball.zone, match.ball.space_index),
+                         space_before)
+        self.assertIn(passer, match.eligible_ball_handlers())
+
+    async def test_the_result_does_not_report_a_move_of_zero_spaces(
+        self,
+    ) -> None:
+        cog, game, match, _, _ = self.build_last_space_pass(teammate=False)
+
+        await self.apply(cog, game, match)
+
+        lead_in = cog.finish_maneuver_resolution.await_args.kwargs["lead_in"]
+        self.assertNotIn("0 spaces", lead_in)
+        self.assertIn("last space", lead_in)
+
+    async def test_the_contest_behind_it_names_the_same_receiver(
+        self,
+    ) -> None:
+        # Declining the set-up lands in the long-pass contest, which
+        # has to send in the player the shot was offered to rather than
+        # whoever the occupant list starts with.
+        cog, game, match, passer, mate = self.build_last_space_pass(
+            teammate=True,
+        )
+        cog.begin_loose_ball = mock.AsyncMock()
+
+        await cog.begin_high_pass_contest(
+            build_interaction(), game, match, 0,
+        )
+
+        kwargs = cog.begin_loose_ball.await_args.kwargs
+        self.assertEqual(kwargs["forced_offense_player"], mate)
+        self.assertNotEqual(kwargs["forced_offense_player"], passer)
+
+
 if __name__ == "__main__":
     unittest.main()
