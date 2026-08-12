@@ -783,6 +783,28 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
   `notes` and `continue`, not send. `MAX_RUN_BACK_PASSES` bounds it: as a
   recursion the interpreter did that, and a loop that will not settle would
   hang the event loop for every game at once.
+- **A coach's run-back prompt carries the board, and prices every space it
+  offers.** "Where does this player run back to" is a question about where
+  everybody is standing and how far each space is -- the same reasoning as
+  [a loose ball](#loose-balls-and-the-board), and the persistent board has
+  scrolled away up the channel by the time a turn has resolved. So the prompt
+  is sent with a snapshot of its own, from the render the persistent message is
+  settled with (one draw, two uploads), and `RunBackChoiceView`'s buttons read
+  `M2 (4 spaces)` -- a run back costs a token a space, so the distance *is* the
+  price and the two spaces of a zone are rarely the same offer.
+  `MatchState.run_back_distance` is the one reading of it, asked by the labels
+  and spent by `run_back_player`, so what a button promises and what the coach
+  is charged cannot drift; `travel_space_label` is the wording, shared by the
+  buttons and by `describe_run_back_options` beside them.
+  - **The board goes when the question does.** The click edits the prompt into
+    its answer, and `attachments=[]` takes the snapshot with it -- it shows the
+    player still displaced, so leaving it under the result would put a stale
+    position in the channel for the rest of the game. The board they moved to
+    is the persistent message's, refreshed a line later.
+  - The full-image link is added with the view handed over, or the edit that
+    adds it drops the buttons the prompt exists for -- see
+    `add_full_image_button`. That edit is the webhook route, not the channel's;
+    see "Discord's rate limits".
 
 ### The arrangement
 

@@ -54,6 +54,7 @@ from cogs.d12ball_helpers import (
     refresh_player_names,
     send_error_fallback,
     space_label,
+    travel_space_label,
 )
 
 if TYPE_CHECKING:
@@ -2994,7 +2995,15 @@ class RunBackChoiceView(SafeView):
             side, zone, player_id,
         ):
             button = discord.ui.Button(
-                label=space_label(zone, space_index),
+                # The distance is on the label because it is the price:
+                # a run back costs a token a space, so the two spaces of
+                # a zone are rarely the same offer. See
+                # travel_space_label.
+                label=travel_space_label(
+                    zone,
+                    space_index,
+                    match.run_back_distance(player_id, zone, space_index),
+                ),
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:run_back:{game_id}:{player_id}:{space_index}"
@@ -3065,6 +3074,11 @@ class RunBackChoiceView(SafeView):
                 f"\n{exhaustion_text}"
             ),
             view=None,
+            # The board this prompt was asked over shows the player
+            # still displaced, so it goes with the question rather than
+            # standing under the answer. The refresh below puts the
+            # board they moved to on the persistent message.
+            attachments=[],
         )
         await self.cog.refresh_match_image(interaction, game)
         await self.cog.continue_run_back(interaction, game, match)

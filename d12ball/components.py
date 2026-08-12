@@ -2067,6 +2067,33 @@ class MatchState:
             return uncovered
         return list(range(len(self.board.spaces[zone])))
 
+    def run_back_distance(
+        self,
+        player_id: str,
+        zone: Zone,
+        space_index: int,
+    ) -> int:
+        """
+        How far `player_id` would travel to reach that space, and so
+        what running back there costs them in exhaustion tokens.
+
+        Asked before the move as well as measured by it: the run-back
+        prompt labels each destination with its cost, so a coach
+        choosing between two spaces is choosing between two prices.
+        `run_back_player` charges what this reports, which is why it is
+        one reading and not two.
+
+        A player with no meeple on the board (nothing places one until
+        setup) is nowhere, and travels nothing.
+        """
+        origin = self.board.meeple_position(player_id)
+        if origin is None:
+            return 0
+        return abs(
+            self.board.flat_index(Zone(zone), space_index)
+            - self.board.flat_index(*origin)
+        )
+
     def run_back_player(
         self,
         player_id: str,
@@ -2098,12 +2125,7 @@ class MatchState:
                 "That zone still has a space with nobody on it."
             )
 
-        origin_flat = self.board.flat_index(
-            *self.board.meeple_position(player_id)
-        )
-        destination_flat = self.board.flat_index(zone, space_index)
-        distance = abs(destination_flat - origin_flat)
-
+        distance = self.run_back_distance(player_id, zone, space_index)
         self.board.place_meeple(player_id, zone, space_index)
         return distance
 

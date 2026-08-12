@@ -359,6 +359,19 @@ def space_label(zone: Zone, space_index: int) -> str:
     return f"{ZONE_LETTERS[zone]}{space_index + 1}"
 
 
+def travel_space_label(zone: Zone, space_index: int, distance: int) -> str:
+    """
+    A destination with what reaching it costs -- "H1 (2 spaces)".
+
+    A run back is charged a token a space, so the distance *is* the
+    price, and a coach picking between the spaces of a zone is picking
+    between prices. The number is on the button as well as in the list
+    beside it, because the button is the thing being pressed.
+    """
+    unit = "space" if distance == 1 else "spaces"
+    return f"{space_label(zone, space_index)} ({distance} {unit})"
+
+
 def ball_space_label(match: MatchState) -> str:
     """Where the ball is standing, as a space code -- e.g. "M2"."""
     return space_label(match.ball.zone, match.ball.space_index)
