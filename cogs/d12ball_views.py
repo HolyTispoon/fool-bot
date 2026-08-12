@@ -3516,6 +3516,11 @@ class CoachingFormationView(CoachingView):
     Pick a shape. Applying it re-deals the whole side by defensive
     skill and places every meeple, so this is one click rather than the
     six it used to take -- see D12Ball.formation_placement.
+
+    Only the shapes this match's board plays are offered
+    (D12Ball.available_formations): 3-2-1 and 1-2-3 are the nine-space
+    board's, so on 6 and 7 there is nothing to grey out and three
+    buttons is the whole menu.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -3526,7 +3531,7 @@ class CoachingFormationView(CoachingView):
             return
         current = cog.current_formation(match, self.side(match))
 
-        for choice in Formation:
+        for choice in cog.available_formations(match):
             button = discord.ui.Button(
                 label=(
                     f"{choice.value}"

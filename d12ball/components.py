@@ -532,6 +532,12 @@ class FormationShape:
     own_goal: int
     midfield: int
     opponent_goal: int
+    # Which board sizes the shape may be played on, or None for every
+    # board -- which is what the three shapes every game has always had
+    # carry. It is data rather than a rule read off the geometry
+    # because the two disagree: 2-3-1 overfills a six-space midfield and
+    # is played there anyway. See Formation in d12ball/game.py.
+    board_sizes: Optional[tuple[int, ...]] = None
 
     def __post_init__(self) -> None:
         if self.total != FIELD_PLAYER_COUNT:
@@ -540,6 +546,11 @@ class FormationShape:
             )
         if min(self.own_goal, self.midfield, self.opponent_goal) < 1:
             raise ValueError("A formation must fill every zone.")
+        if self.board_sizes is not None and not self.board_sizes:
+            raise ValueError(
+                "A formation restricted to no board at all cannot be "
+                "played; leave board_sizes out to allow every board."
+            )
 
     @property
     def total(self) -> int:
@@ -553,6 +564,14 @@ class FormationShape:
     def counts(self) -> dict[str, int]:
         return {area: self.count(area) for area in SETUP_AREAS}
 
+    def allows_board(self, board_size: int) -> bool:
+        return self.board_sizes is None or board_size in self.board_sizes
+
+    def board_size_label(self) -> str:
+        """Which boards the shape is played on, for a refusal."""
+        sizes = self.board_sizes or ()
+        return " or ".join(f"{size}-space" for size in sorted(sizes))
+
 
 @dataclass(frozen=True)
 class BasicRuleset:
@@ -561,6 +580,44 @@ class BasicRuleset:
     formations: dict[Formation, FormationShape]
     standard_setup: dict[str, tuple[PlayerRole, ...]]
     team_board: TeamBoardDefinition
+
+    def formations_for_board(
+        self,
+        board_size: int,
+    ) -> dict[Formation, FormationShape]:
+        """
+        The shapes a coach may pick on a board this size, in the
+        ruleset's own order. **This is the only reading of which
+        formations a board offers** -- the menu builds from it, the
+        board a side is standing in is named from it, and
+        `formation_shape` refuses on it, so a shape cannot be offered
+        in one place and refused in another.
+        """
+        return {
+            formation: shape
+            for formation, shape in self.formations.items()
+            if shape.allows_board(board_size)
+        }
+
+    def formation_shape(
+        self,
+        formation: Formation,
+        board_size: int,
+    ) -> FormationShape:
+        """
+        A formation's counts, refusing one this board does not play.
+        Every caller has a board in hand, so the check costs nothing and
+        the refusal is worded once.
+        """
+        formation = Formation(formation)
+        shape = self.formations[formation]
+        if not shape.allows_board(board_size):
+            raise ValueError(
+                f"{formation.value} is played on a "
+                f"{shape.board_size_label()} board, and this one has "
+                f"{board_size} spaces."
+            )
+        return shape
 
 
 @dataclass(frozen=True)
@@ -936,6 +993,11 @@ class MatchState:
         visiting_assignment: Optional[dict[str, list[str]]] = None,
     ) -> "MatchState":
         layout = ruleset.board_layouts[board_size]
+        # create_standard_setup deals a shape without knowing what board
+        # it is dealt onto, so this is where the two meet and the only
+        # place a match can be built in a shape its board does not play.
+        for formation in (home_formation, visiting_formation):
+            ruleset.formation_shape(formation, board_size)
         board = BoardState.empty(layout)
         home = create_standard_setup(
             catalog.teams[Team(home_team)],
@@ -3300,13 +3362,52 @@ def load_basic_ruleset(
     if set(layouts) != {6, 7, 9}:
         raise ValueError("Basic rules must define board sizes 6, 7, and 9.")
 
-    formations = {
-        Formation(name): FormationShape(**counts)
-        for name, counts in data["formations"].items()
-    }
+    formations: dict[Formation, FormationShape] = {}
+    for name, entry in data["formations"].items():
+        counts = dict(entry)
+        sizes = counts.pop("board_sizes", None)
+        formations[Formation(name)] = FormationShape(
+            board_sizes=(
+                tuple(int(size) for size in sizes)
+                if sizes is not None
+                else None
+            ),
+            **counts,
+        )
     if set(formations) != set(Formation):
         raise ValueError(
             "Basic rules must give a shape for every formation."
+        )
+    # A shape is named by its counts, read own goal forward, which is
+    # what lets the printed team board list the names alone and what
+    # makes "2-3-1" mean the same thing in a button label and in the
+    # data behind it.
+    for formation, shape in formations.items():
+        dealt = "-".join(str(shape.count(area)) for area in SETUP_AREAS)
+        if formation.value != dealt:
+            raise ValueError(
+                f"Formation {formation.value} is dealt {dealt}; a "
+                "formation is named by its own counts."
+            )
+    unknown = sorted(
+        {
+            size
+            for shape in formations.values()
+            for size in (shape.board_sizes or ())
+            if size not in layouts
+        }
+    )
+    if unknown:
+        raise ValueError(
+            "A formation is restricted to board sizes with no layout: "
+            f"{', '.join(str(size) for size in unknown)}."
+        )
+    # Every team is dealt 2-2-2, whatever board they are dealt onto, so
+    # it is the one shape that cannot be restricted to some of them.
+    if formations[Formation.TWO_TWO_TWO].board_sizes is not None:
+        raise ValueError(
+            "2-2-2 is the shape every team is dealt, so it must be "
+            "open to every board."
         )
 
     standard_setup = {

@@ -19,20 +19,28 @@ class Formation(str, Enum):
     """
     How many of a team's six fielded cards sit in each zone, read own
     goal / midfield / opponent's goal. Every game kicks off in 2-2-2;
-    the other two are reached by rearranging in a substitution window.
+    the others are reached by rearranging in a substitution window.
     The shapes themselves (and the check that each fields six) live in
     `basic_rules.json`, so the two have to be changed together.
 
-    2-3-1 and 1-3-2 put three cards in midfield, which is more than a
-    six-space board's midfield has spaces, so those cards stack. That
-    is what the run back's coverage rule is written for -- see
-    "Occupancy" in docs/living-rules.md. On a seven- or nine-space
-    board every shape fits one card a space.
+    **Not every shape is played on every board.** The first three are,
+    and `basic_rules.json` says so by giving them no `board_sizes`;
+    3-2-1 and 1-2-3 put three cards in a goal zone, which only the
+    nine-space board has three spaces for, so those two are listed for
+    board 9 alone. That is the author's call and not a consequence of
+    the geometry -- 2-3-1 and 1-3-2 overfill a six-space board's
+    midfield and are played there anyway, stacking, which is what the
+    run back's coverage rule is written for (see "Occupancy" in
+    docs/living-rules.md). Which board a shape may be picked on is
+    `BasicRuleset.formations_for_board`, never a size test written out
+    somewhere else.
     """
 
     TWO_TWO_TWO = "2-2-2"
     TWO_THREE_ONE = "2-3-1"
     ONE_THREE_TWO = "1-3-2"
+    THREE_TWO_ONE = "3-2-1"
+    ONE_TWO_THREE = "1-2-3"
 
 
 class AIOpponent(str, Enum):

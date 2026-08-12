@@ -1094,27 +1094,34 @@ class D12BallComponentTests(unittest.TestCase):
     def test_a_zone_of_three_cards_fits_under_its_zone(self) -> None:
         # The coaching image draws each zone's assigned cards under
         # that zone, centred on it. Three in a zone is the most any
-        # basic shape allows, and midfield -- the only zone that ever
-        # holds three -- is the narrowest on board 9, where every zone
-        # is the same width.
+        # basic shape allows: midfield holds three under 2-3-1 and
+        # 1-3-2 on every board, and a goal zone does under board 9's
+        # own 3-2-1 and 1-2-3. So every shape the board plays is asked,
+        # of every zone it fills with three.
+        row = 3 * CARD_SIZE[0] + 2 * COACHING_CARD_GAP
         for board_size in (6, 7, 9):
-            match = MatchState.standard(
-                catalog=self.catalog,
-                ruleset=self.rules,
-                board_size=board_size,
-                home_team=Team.ORANGE,
-                visiting_team=Team.TEAL,
-                home_formation=Formation.TWO_THREE_ONE,
-            )
-            bounds = zone_bounds_between(
-                match, COACHING_BOARD_LEFT, COACHING_BOARD_RIGHT,
-            )
-            left, right = bounds[Zone.MIDFIELD]
-            row = 3 * CARD_SIZE[0] + 2 * COACHING_CARD_GAP
-            self.assertLessEqual(
-                row, right - left,
-                f"three cards overflow midfield on board {board_size}",
-            )
+            for formation in self.rules.formations_for_board(board_size):
+                match = MatchState.standard(
+                    catalog=self.catalog,
+                    ruleset=self.rules,
+                    board_size=board_size,
+                    home_team=Team.ORANGE,
+                    visiting_team=Team.TEAL,
+                    home_formation=formation,
+                )
+                bounds = zone_bounds_between(
+                    match, COACHING_BOARD_LEFT, COACHING_BOARD_RIGHT,
+                )
+                for zone, players in match.home.zones.items():
+                    if len(players) < 3:
+                        continue
+                    left, right = bounds[zone]
+                    with self.subTest(
+                        board_size=board_size,
+                        formation=formation.value,
+                        zone=zone.value,
+                    ):
+                        self.assertLessEqual(row, right - left)
 
     def test_a_stacked_coaching_space_still_fits_its_meeples(self) -> None:
         # Board 6's two-space midfield under 2-3-1 is the only place a
