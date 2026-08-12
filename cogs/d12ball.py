@@ -2286,6 +2286,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        # Time always advances at least 1 space minute (2026-08-12),
+        # the same minimum Low Pass has carried for the same shape of
+        # move. It only ever bites on a throw the field clamped to 0,
+        # since every distance a coach is offered is at least 2 -- and
+        # a maneuver that costs no clock is one a coach could take all
+        # afternoon. Kept apart from `actual_distance`, which is what
+        # the pass actually did and what the result says.
+        distance_moved = max(actual_distance, 1)
+
         ability_note = " (Fullback ability)" if fullback_bonus else ""
         if actual_distance:
             space_word = "space" if actual_distance == 1 else "spaces"
@@ -2326,7 +2335,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 game,
                 match,
                 shooter_id=receiver_candidates[0],
-                distance_moved=actual_distance,
+                distance_moved=distance_moved,
                 lead_in=content,
             )
             return
@@ -2367,7 +2376,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 game,
                 match,
                 shooter_id=setup_candidates[0],
-                distance_moved=actual_distance,
+                distance_moved=distance_moved,
                 lead_in=f"{content} That reaches a teammate -- a scoring "
                 "opportunity!",
             )
@@ -2395,7 +2404,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
             await self.refresh_match_image(interaction, game)
             await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=actual_distance,
+                interaction, game, match, distance_moved=distance_moved,
                 lead_in=content,
             )
             return
@@ -2403,7 +2412,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if not receiver_candidates:
             await self.refresh_match_image(interaction, game)
             await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=actual_distance,
+                interaction, game, match, distance_moved=distance_moved,
                 lead_in=content,
             )
             return
@@ -2411,12 +2420,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # A teammate is standing right where the pass landed, and the
         # pass went 3 or more -- a distance of 2 with a teammate there
         # took the set-up branch above, since both branches ask
-        # scoring_opportunity_candidates the same question. A long
+        # high_pass_receiver_candidates the same question. A long
         # High Pass still forces a skill test to keep the ball, unlike
         # any other maneuver.
         await self.refresh_match_image(interaction, game)
         await self.begin_high_pass_contest(
-            interaction, game, match, actual_distance, lead_in=content,
+            interaction, game, match, distance_moved, lead_in=content,
         )
 
     async def offer_overshoot_set_up(
