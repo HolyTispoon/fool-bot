@@ -14,6 +14,8 @@ from unittest import mock
 import discord
 
 from cogs.d12ball import D12Ball
+from cogs.d12ball_views import ManeuverActionPromptView
+from d12ball.cards import render_maneuver_hand
 from d12ball.components import (
     MatchState,
     load_basic_ruleset,
@@ -273,6 +275,94 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
             await cog.drop_turn_prompt(interaction, game)
 
         self.assertIsNone(game.turn_message_id)
+
+
+class ManeuverPickShowsTheCardsTests(unittest.IsolatedAsyncioTestCase):
+    """
+    Opening the pick puts a side's three cards in front of the coach.
+    It used to be a paragraph per maneuver, which said the same things
+    and made a coach read three sentences to compare three options.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+        # Drawn once for the whole class, as the cog draws it once for
+        # the whole process -- six cards a test is most of a second.
+        catalog = load_maneuver_catalog()
+        cls.hands = {
+            side: render_maneuver_hand(catalog, cls.catalog, side).read()
+            for side in ("offense", "defense")
+        }
+
+    def build_ready_cog(self) -> D12Ball:
+        cog = build_cog()
+        cog.maneuver_hand_image_bytes = dict(self.hands)
+        return cog
+
+    async def open_menu(self, cog: D12Ball, offense: bool):
+        game = build_game()
+        game.match_state = {}
+        cog.games[game.game_id] = game
+
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.active_player_id = match.home.field_players[0]
+        match.challenger_id = match.visiting.field_players[0]
+
+        cog.load_match_state = mock.Mock(return_value=match)
+        cog.user_controls_possession = mock.Mock(return_value=offense)
+        cog.user_controls_defense = mock.Mock(return_value=not offense)
+
+        interaction = SimpleNamespace(
+            user=SimpleNamespace(id=111),
+            response=SimpleNamespace(send_message=mock.AsyncMock()),
+        )
+        view = ManeuverActionPromptView(cog, game.game_id)
+        with mock.patch(
+            "cogs.d12ball_views.add_full_image_button_to_response",
+            new=mock.AsyncMock(),
+        ):
+            await view.open_action_menu(interaction)
+        return interaction.response.send_message.await_args.kwargs
+
+    async def test_the_offense_is_shown_its_own_three_cards(self) -> None:
+        sent = await self.open_menu(self.build_ready_cog(), offense=True)
+
+        self.assertEqual(sent["file"].filename, "maneuver_hand_offense.png")
+        self.assertTrue(sent["ephemeral"])
+
+    async def test_the_defense_is_shown_its_own_three_cards(self) -> None:
+        sent = await self.open_menu(self.build_ready_cog(), offense=False)
+
+        self.assertEqual(sent["file"].filename, "maneuver_hand_defense.png")
+
+    async def test_the_effect_prose_is_gone_from_the_message(self) -> None:
+        # The cards carry it, and repeating it under them is what this
+        # replaced rather than something to keep alongside.
+        sent = await self.open_menu(self.build_ready_cog(), offense=True)
+
+        self.assertEqual(sent["content"], "Pick your maneuver:")
+
+    async def test_the_hand_is_drawn_once_and_re_wrapped_per_send(
+        self,
+    ) -> None:
+        # Uploading a discord.File consumes the stream inside it, so a
+        # second open must not be handed the emptied one.
+        cog = self.build_ready_cog()
+        first = await self.open_menu(cog, offense=True)
+        second = await self.open_menu(cog, offense=True)
+
+        self.assertIsNot(first["file"], second["file"])
+        self.assertEqual(
+            first["file"].fp.getvalue(), second["file"].fp.getvalue()
+        )
 
 
 if __name__ == "__main__":

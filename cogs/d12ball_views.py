@@ -1412,32 +1412,6 @@ class ManeuverChallengeView(SafeView):
         )
 
 
-def build_maneuver_choice_text(cog: "D12Ball", side: str) -> str:
-    """
-    A text summary of the three maneuvers available to `side`, each
-    with its effect and how it fares against the other side's three --
-    stands in for the full reference image next to the buttons that
-    actually make the pick, so a player doesn't have to cross-reference
-    a separate image to know what they're choosing.
-    """
-    maneuvers = (
-        cog.maneuver_catalog.offense
-        if side == "offense"
-        else cog.maneuver_catalog.defense
-    )
-    lines = []
-    for maneuver in sorted(maneuvers, key=lambda item: item.rank):
-        defeats, defeated_by, ties_with = cog.maneuver_catalog.relationships(
-            maneuver.name, side,
-        )
-        lines.append(
-            f"**{maneuver.name}:** {maneuver.effect} "
-            f"(defeats {defeats}, defeated by {defeated_by}, ties with "
-            f"{ties_with})"
-        )
-    return "\n\n".join(lines)
-
-
 class ManeuverActionPromptView(SafeView):
     def __init__(
         self,
@@ -1514,14 +1488,24 @@ class ManeuverActionPromptView(SafeView):
             )
             return
 
+        # The three cards themselves rather than a paragraph about
+        # them. Everything the paragraph carried is on a card and in
+        # the same place on each one, so a coach compares three cards
+        # instead of reading three sentences -- and it is the same
+        # picture as the printed card, so the two ways of playing teach
+        # each other.
+        view = ManeuverActionSelectView(self.cog, self.game_id, side)
         await interaction.response.send_message(
-            content=(
-                "Pick your maneuver:\n\n"
-                f"{build_maneuver_choice_text(self.cog, side)}"
-            ),
-            view=ManeuverActionSelectView(self.cog, self.game_id, side),
+            content="Pick your maneuver:",
+            file=self.cog.build_maneuver_hand_file(side),
+            view=view,
             ephemeral=True,
         )
+        # The abilities are small print at the size Discord shows an
+        # image inline, so the link is worth the extra round trip. It
+        # is the webhook route, not the channel's edit bucket -- see
+        # "Discord's rate limits".
+        await add_full_image_button_to_response(interaction, view)
 
 
 class ManeuverActionSelectView(SafeView):

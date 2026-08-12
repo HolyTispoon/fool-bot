@@ -29,6 +29,7 @@ python3 -m unittest discover -s tests
 | `d12ball/components.py` | Game state model — `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog` |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board image rendering (Pillow) |
+| `d12ball/cards.py` | The six maneuvers as cards — the printed face and the hand the bot shows |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
 | `d12ball/data/` | `players.json`, `basic_rules.json` |
 | `d12ball/images/` | Card art and emoji |
@@ -1166,17 +1167,42 @@ menu is up.
 
 ### The maneuver cards
 
-`scripts/render_maneuver_cards.py` renders the six maneuvers as physical cards
--- print-ready faces at 2.5 x 3.5in poker size, plus one shared back. They are for the
-tabletop game rather than the bot, and they exist because a selection d6 makes
-a coach hold the rules in their head: the die says "3-4" and the coach has to
-remember that is Dribble Advance if they have the ball and Steal Intercept if
-they do not.
+`d12ball/cards.py` draws the six maneuvers as cards. They exist because a
+selection d6 makes a coach hold the rules in their head: the die says "3-4" and
+the coach has to remember that is Dribble Advance if they have the ball and
+Steal Intercept if they do not, what it beats, and which role changes it.
+
+**One layout serves two things, on purpose.** `render_maneuver_card` is the
+print-ready face for the tabletop game -- 2.5 x 3.5in at 300dpi, plus one
+shared back -- and `render_maneuver_hand` puts a side's three side by side,
+which is what the bot shows a coach who has clicked "Choose Your Maneuver".
+A coach who has played at the table and a coach playing by Discord should be
+reading the same card, so neither gets a design of its own.
 
 ```bash
 python3 scripts/render_maneuver_cards.py --out cards/ --sheet
 python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
+python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
 ```
+
+- **The hand replaced a paragraph per maneuver.** `build_maneuver_choice_text`
+  listed each maneuver's effect and matchups next to the buttons; every word of
+  it is on a card and in the same place on each one, so a coach now compares
+  three cards instead of reading three sentences. It went with the change --
+  don't reintroduce it alongside the image.
+- **Both hands are drawn once in `D12Ball.__init__`**, like the maneuver
+  reference image and for the same two reasons: startup is the one place a
+  render can block the loop harmlessly, and the alternative is drawing three
+  cards on every click of a button pressed several times a turn. Nothing about
+  a card depends on the match, so they cannot go stale.
+  `build_maneuver_hand_file` re-wraps the bytes per send, because uploading a
+  `discord.File` consumes the stream inside it.
+- **The hand is drawn at a third of the print card's width.** Discord scales an
+  inline image down whatever it is sent, so the extra pixels would only be
+  payload -- and this send is ephemeral, once per coach per maneuver. The
+  abilities are small print at that size, which is what the full-image link on
+  the message is for. That link is the webhook route, not the channel's edit
+  bucket; see "Discord's rate limits".
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through
@@ -1229,8 +1255,10 @@ python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
 - **One back for all six.** A coach holding both sets must not show which side
   of the ball they are reading. It carries the defeat cycle, which is public
   and which every coach may look at anyway.
-- **The die faces stay printed on each face**, small, so a table with the
-  selection die and a table with these cards are playing the same game.
+- **The header's corner names the mode, not the die faces.** It printed
+  "die 1-2" while the cards and the selection die had to coexist; it now reads
+  "BASIC MANEUVER", which is what will still mean something once a second set
+  of maneuvers exists.
 - `cards/` is generated output and is gitignored, like `board.png`.
 
 ### Fonts
