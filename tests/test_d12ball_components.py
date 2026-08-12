@@ -10,6 +10,11 @@ from d12ball.cards import (
     HAND_CARD_WIDTH,
     HAND_GAP,
     HAND_MARGIN,
+    SHEET_COLUMNS,
+    SHEET_MARGIN,
+    print_sheet,
+    render_maneuver_card,
+    render_maneuver_card_back,
     render_maneuver_hand,
     role_abilities,
 )
@@ -1864,6 +1869,56 @@ class D12BallManeuverTests(unittest.TestCase):
                 with Image.open(hand) as image:
                     self.assertEqual(image.format, "PNG")
                     self.assertEqual(image.width, expected)
+
+    def test_a_print_sheet_divides_evenly_into_its_cards(self) -> None:
+        """
+        The sheet is cut by dividing it into an even grid, by hand or
+        by a splitter, so every cell has to be the same size and every
+        card centred in one. The old sheet had a gutter round the
+        outside as well as between the cards, which put every cut but
+        the first off-centre.
+        """
+        players = load_player_catalog()
+        cards = [
+            render_maneuver_card(
+                self.catalog, players, maneuver, is_offense, bleed=False
+            )
+            for maneuvers, is_offense in (
+                (self.catalog.offense, True),
+                (self.catalog.defense, False),
+            )
+            for maneuver in maneuvers
+        ]
+        back = render_maneuver_card_back(self.catalog, bleed=False)
+        while len(cards) % SHEET_COLUMNS:
+            cards.append(back)
+
+        sheet = print_sheet(cards)
+        rows = len(cards) // SHEET_COLUMNS
+        self.assertEqual(sheet.width % SHEET_COLUMNS, 0)
+        self.assertEqual(sheet.height % rows, 0)
+
+        cell = (sheet.width // SHEET_COLUMNS, sheet.height // rows)
+        for index in range(len(cards)):
+            column, row = index % SHEET_COLUMNS, index // SHEET_COLUMNS
+            piece = sheet.crop(
+                (
+                    column * cell[0],
+                    row * cell[1],
+                    (column + 1) * cell[0],
+                    (row + 1) * cell[1],
+                )
+            )
+            with self.subTest(cell=index):
+                # The card sits dead centre: the margin is the same on
+                # both sides and on top and bottom.
+                self.assertEqual(
+                    piece.size,
+                    (
+                        cards[index].width + SHEET_MARGIN * 2,
+                        cards[index].height + SHEET_MARGIN * 2,
+                    ),
+                )
 
     def test_a_card_names_every_ability_that_touches_its_maneuver(
         self,

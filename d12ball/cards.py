@@ -46,20 +46,37 @@ BLEED = 38
 SUPERSAMPLE = 2
 
 MARGIN = 34
-FRAME = 16
-CORNER = 34
+# The card is drawn as a rounded rectangle inset by FRAME, and what
+# lies outside that corner is the sheet, not the card. It used to be
+# the maneuver's colour, edge to edge -- a saturated border around
+# every card and a black back, which is a lot of ink for a print run
+# and the first thing a home printer runs out of. The colour is now
+# the outline and the header band; the rest is paper.
+FRAME = 6
+CORNER = 40
+# The rounded edge, drawn in the maneuver's colour, is also the cut
+# line: it is what says where the card ends now that the face and the
+# sheet are the same white.
+EDGE_WIDTH = 5
 
 # The offense/defense colours the maneuver reference image already
 # uses, so a coach reading a card and a coach reading the bot's
 # hexagon are looking at the same two colours.
 OFFENSE_COLOR = "#E24B4A"
 DEFENSE_COLOR = "#97C459"
+# The paper tone the boards are printed on. The cards are white
+# instead -- they are printed nine to a page and a tinted face is a
+# full page of ink for nothing, where a board is one sheet a game.
 FACE_COLOR = "#f6f1e6"
+CARD_FACE = "#ffffff"
 PANEL_COLOR = "#e6ded0"
 PANEL_EDGE = "#c3b7a3"
 INK = "#14202b"
 MUTED = "#5d6b78"
-BACK_COLOR = "#111820"
+# The back is white for the same reason, and is the one card printed
+# six times over.
+BACK_COLOR = "#ffffff"
+BACK_EDGE = "#8c9aa6"
 
 # The strip diagram is the standard seven-space board with the ball on
 # the third space, which is the only position from which every maneuver
@@ -753,17 +770,21 @@ def render_maneuver_card(
     bleed: bool,
 ) -> Image.Image:
     color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
-    pen = Pen((CARD_WIDTH, CARD_HEIGHT), color)
+    pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
 
+    # The card is a rounded rectangle on the sheet's white, outlined in
+    # the maneuver's colour: the outline is the card's edge and the cut
+    # line at once.
     pen.rect(
         (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
         radius=CORNER,
-        fill=FACE_COLOR,
+        fill=CARD_FACE,
+        outline=color,
+        width=EDGE_WIDTH,
     )
 
-    # Header: the rank badge, the name, and the die faces this card
-    # stands in for -- printed small, so a table with the selection die
-    # and a table with these cards are playing the same game.
+    # Header: the rank badge and the name, in a band whose top corners
+    # follow the card's own.
     header_top = FRAME
     header_height = 152
     pen.rect(
@@ -783,7 +804,7 @@ def render_maneuver_card(
 
     rank_label = f"{'O' if is_offense else 'D'}{maneuver.rank}"
     badge_center = (FRAME + 82, header_top + header_height / 2)
-    pen.circle(badge_center, 46, fill=FACE_COLOR)
+    pen.circle(badge_center, 46, fill=CARD_FACE)
     pen.text(badge_center, rank_label, font(38, bold=True), color, anchor="mm")
 
     # What kind of card this is, rather than which die faces it stands
@@ -867,7 +888,7 @@ def render_maneuver_card(
         (CARD_WIDTH / 2, y + 20), time_text, time_font, MUTED, anchor="mm"
     )
 
-    return pen.finish(bleed, color)
+    return pen.finish(bleed, CARD_FACE)
 
 
 def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Image:
@@ -884,21 +905,21 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
         radius=CORNER,
         fill=BACK_COLOR,
-        outline="#2b3b4a",
-        width=4,
+        outline=BACK_EDGE,
+        width=EDGE_WIDTH,
     )
     pen.text(
         (CARD_WIDTH / 2, 118),
         "D12 BALL",
         font(46, bold=True),
-        "#f6f1e6",
+        INK,
         anchor="mm",
     )
     pen.text(
         (CARD_WIDTH / 2, 166),
         "MANEUVERS",
         font(22, bold=True),
-        "#7d8e9c",
+        MUTED,
         anchor="mm",
     )
 
@@ -923,8 +944,8 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         ux, uy = dx / length, dy / length
         start = (point[0] + ux * 58, point[1] + uy * 58)
         end = (nxt[0] - ux * 62, nxt[1] - uy * 62)
-        pen.line([start, end], fill="#3f5162", width=5)
-        draw_arrowhead(pen, end, (ux, uy), 20, "#3f5162")
+        pen.line([start, end], fill=MUTED, width=5)
+        draw_arrowhead(pen, end, (ux, uy), 20, MUTED)
 
     for (maneuver, is_offense), point in zip(order, points):
         color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
@@ -933,7 +954,7 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
             (point[0], point[1] - 14),
             f"{'O' if is_offense else 'D'}{maneuver.rank}",
             font(26, bold=True),
-            "#14202b",
+            INK,
             anchor="mm",
         )
         for line_index, word in enumerate(maneuver.name.split(" ")):
@@ -941,7 +962,7 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
                 (point[0], point[1] + 10 + line_index * 19),
                 word,
                 font(14, bold=True),
-                "#14202b",
+                INK,
                 anchor="mm",
             )
 
@@ -949,7 +970,7 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         (CARD_WIDTH / 2, CARD_HEIGHT - 118),
         "each beats what it points to · same rank ties",
         font(20),
-        "#7d8e9c",
+        MUTED,
         anchor="mm",
     )
     return pen.finish(bleed, BACK_COLOR)
@@ -1018,27 +1039,46 @@ def render_maneuver_hand(
     return buffer
 
 
-def contact_sheet(cards: list[Image.Image]) -> Image.Image:
-    gap = 30
-    columns = 4
-    rows = (len(cards) + columns - 1) // columns
-    width = cards[0].width
-    height = cards[0].height
+# A cell is a card plus this much white on every side, so cards are
+# evenly spaced and there is something to cut through.
+SHEET_MARGIN = 24
+SHEET_COLUMNS = 4
+
+
+def print_sheet(
+    cards: list[Image.Image],
+    columns: int = SHEET_COLUMNS,
+) -> Image.Image:
+    """
+    The cards laid out as an exact grid, for a print run or for the
+    splitters that cut a sheet into cards by dividing it evenly.
+
+    **Every cell is the same size and every card is centred in its
+    own**, which is the whole point: divide the sheet into `columns`
+    across and as many rows as it has, and each piece is one card with
+    an even white margin round it. The old sheet put a gutter between
+    the cards *and* around the outside, so a quarter of its width was a
+    card and a quarter of a gutter -- every cut but the first came out
+    off-centre, and the last card was clipped.
+
+    A short last row is padded with blank cells rather than a narrower
+    row, for the same reason.
+    """
+    width = max(card.width for card in cards)
+    height = max(card.height for card in cards)
+    cell = (width + SHEET_MARGIN * 2, height + SHEET_MARGIN * 2)
+    rows = -(-len(cards) // columns)
+
     sheet = Image.new(
-        "RGB",
-        (
-            columns * width + gap * (columns + 1),
-            rows * height + gap * (rows + 1),
-        ),
-        "#333c45",
+        "RGB", (columns * cell[0], rows * cell[1]), CARD_FACE
     )
     for index, card in enumerate(cards):
         column, row = index % columns, index // columns
         sheet.paste(
             card,
             (
-                gap + column * (width + gap),
-                gap + row * (height + gap),
+                column * cell[0] + (cell[0] - card.width) // 2,
+                row * cell[1] + (cell[1] - card.height) // 2,
             ),
         )
     return sheet

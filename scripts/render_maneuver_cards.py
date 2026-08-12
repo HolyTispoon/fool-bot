@@ -22,7 +22,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.cards import (  # noqa: E402
-    contact_sheet,
+    SHEET_COLUMNS,
+    print_sheet,
     render_maneuver_card,
     render_maneuver_card_back,
     render_maneuver_hand,
@@ -51,7 +52,10 @@ def main() -> None:
     parser.add_argument(
         "--sheet",
         action="store_true",
-        help="Also write contact-sheet.png with all seven side by side.",
+        help=(
+            "Also write print-sheet.png: every card in an even grid "
+            f"{SHEET_COLUMNS} across, each centred in its own cell."
+        ),
     )
     parser.add_argument(
         "--hands",
@@ -90,8 +94,14 @@ def main() -> None:
     print(f"wrote {back_path}")
 
     if args.sheet:
-        sheet_path = args.out / "contact-sheet.png"
-        contact_sheet(cards).save(sheet_path)
+        # Padded to a full grid with spare backs: the six faces and one
+        # back leave a hole in a 4-wide sheet, and a splitter cutting
+        # it into equal cells would hand back a blank. Backs are what
+        # you need more of anyway.
+        while len(cards) % SHEET_COLUMNS:
+            cards.append(back)
+        sheet_path = args.out / "print-sheet.png"
+        print_sheet(cards).save(sheet_path, dpi=(300, 300))
         print(f"wrote {sheet_path}")
 
     if args.hands:

@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Render the field board and the team board for the physical game.
+"""Render the three boards of the physical game.
 
 Print-ready at 300dpi, A3 landscape by default -- which is the size the
 team board's card areas take a real poker card at:
 
     python3 scripts/render_boards.py --out print/
-    python3 scripts/render_boards.py --all-boards --teams --bleed --pdf
-    python3 scripts/render_boards.py --board-size 9 --paper tabloid
+    python3 scripts/render_boards.py --teams --bleed --pdf
+    python3 scripts/render_boards.py --board-size 9
+
+Every field board the ruleset defines is written unless --board-size
+narrows it to one, so a print run comes out with the 6-, 7- and
+9-space fields, the jumbotron, and a team board.
 
 The layout lives in `d12ball/boards.py`. Everything on either board is
 read from the same data the bot plays from, so re-running this is how a
@@ -24,10 +28,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from d12ball.boards import (  # noqa: E402
     CARD_INCHES,
     DEFAULT_PAPER,
+    MIN_TOKEN_INCHES,
     PAPERS,
     PRINT_DPI,
     card_slot_inches,
+    cell_inches,
     render_field_board,
+    render_jumbotron_board,
     render_team_board,
 )
 from d12ball.components import (  # noqa: E402
@@ -57,7 +64,7 @@ def size_note(image: Image.Image) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Render the field board and the team board, print-ready."
+            "Render the field, jumbotron and team boards, print-ready."
         ),
     )
     parser.add_argument(
@@ -69,14 +76,11 @@ def main() -> None:
     parser.add_argument(
         "--board-size",
         type=int,
-        default=7,
         choices=(6, 7, 9),
-        help="Which field board to render (default: 7)",
-    )
-    parser.add_argument(
-        "--all-boards",
-        action="store_true",
-        help="Render a field board for all three board sizes.",
+        help=(
+            "Render only this field board. Every size the ruleset "
+            "defines is written otherwise."
+        ),
     )
     parser.add_argument(
         "--teams",
@@ -113,12 +117,22 @@ def main() -> None:
     maneuvers = load_maneuver_catalog()
     args.out.mkdir(parents=True, exist_ok=True)
 
-    sizes = (6, 7, 9) if args.all_boards else (args.board_size,)
+    sizes = (
+        (args.board_size,)
+        if args.board_size
+        else tuple(sorted(rules.board_layouts))
+    )
     for board_size in sizes:
         board = render_field_board(
             rules, board_size, paper=args.paper, bleed=args.bleed
         )
         save(board, args.out / f"field-board-{board_size}.png", args.pdf)
+
+    save(
+        render_jumbotron_board(paper=args.paper, bleed=args.bleed),
+        args.out / "jumbotron-board.png",
+        args.pdf,
+    )
 
     teams = tuple(Team) if args.teams else (None,)
     for team in teams:
@@ -144,6 +158,17 @@ def main() -> None:
             "rather than plays"
         )
     )
+    cells = cell_inches(args.paper)
+    for name, (width, height) in cells.items():
+        note = (
+            ""
+            if min(width, height) >= MIN_TOKEN_INCHES
+            else "  -- too small to stand a token in"
+        )
+        print(
+            f"jumbotron {name} cells are {width:.2f} x {height:.2f} in"
+            + note
+        )
 
 
 if __name__ == "__main__":

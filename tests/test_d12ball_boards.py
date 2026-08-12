@@ -1,5 +1,5 @@
 """
-The two printed boards.
+The three printed boards.
 
 The suite cannot see a picture any more than it can see the bot's own
 board, so what it checks is the two things a print gets wrong silently:
@@ -9,21 +9,29 @@ on. A board that has quietly shrunk its card slots below poker size
 still renders, and nobody finds out until it comes off a printer.
 """
 import unittest
+from pathlib import Path
 
 from PIL import Image
+
+from d12ball import boards
 
 from d12ball.boards import (
     BLEED_INCHES,
     CARD_INCHES,
     CARDS_PER_AREA,
+    CLOCK_COLUMNS,
     CLOCK_MINUTES,
+    MIN_TOKEN_INCHES,
     PRINT_DPI,
+    SCORE_TRACK_MAX,
+    FieldGeometry,
     Sheet,
     TeamBoardGeometry,
     card_slot_inches,
-    die_face_label,
+    cell_inches,
     kickoff_marks,
     render_field_board,
+    render_jumbotron_board,
     render_team_board,
     roster_line,
     sheet_pixels,
@@ -113,8 +121,25 @@ class D12BallFieldBoardTests(unittest.TestCase):
                             board.is_in_shooting_range(side, flat)
                         )
 
-    def test_the_clock_track_is_a_period(self) -> None:
-        self.assertEqual(CLOCK_MINUTES, 15)
+    def test_a_space_is_big_enough_to_stand_meeples_on(self) -> None:
+        """
+        Both sides can be on one space, so a space that is only wide
+        enough for one meeple is the failure this board exists to
+        avoid -- and giving them the room the clock and score used to
+        take is why those moved to the jumbotron.
+        """
+        for board_size in sorted(self.rules.board_layouts):
+            sheet = Sheet(*sheet_pixels("a3", True))
+            geometry = FieldGeometry.for_sheet(
+                sheet, self.rules.board_layouts[board_size]
+            )
+            width, height = geometry.space_inches
+            with self.subTest(board_size=board_size):
+                self.assertGreaterEqual(width, 1.5)
+                self.assertGreaterEqual(height, 4.0)
+                self.assertLessEqual(
+                    geometry.range_bottom, sheet.height
+                )
 
 
 class D12BallTeamBoardTests(unittest.TestCase):
@@ -199,27 +224,25 @@ class D12BallTeamBoardTests(unittest.TestCase):
             len(Zone) + len(("bench", "back bench")) + 1,
         )
 
-    def test_the_die_faces_are_the_catalog_s(self) -> None:
+    def test_no_die_value_is_printed_anywhere(self) -> None:
         """
-        The legend is the whole reason the head coach cell is there,
-        and it is read off the catalog: an import that re-cut the die
-        would change the board rather than leaving it wrong.
+        Maneuvers are chosen with the cards, so the selection d6 is off
+        this board and so is every face it had. The ruleset still
+        defines the two d6s -- that is the bot's model and the rules'
+        component list -- which is exactly why the board has to be
+        checked rather than assumed: it reads `team_board` and could
+        pick them up again without anyone noticing.
         """
-        labels = {
-            maneuver.name: die_face_label(maneuver)
-            for maneuver in self.maneuvers.offense + self.maneuvers.defense
-        }
-        self.assertEqual(
-            labels,
-            {
-                "Low Pass": "1–2",
-                "Dribble Advance": "3–4",
-                "High Pass": "5–6",
-                "Block Deflect": "1–2",
-                "Steal Intercept": "3–4",
-                "Pressure": "5–6",
-            },
-        )
+        source = Path(boards.__file__).read_text(encoding="utf-8")
+        for reference in ("offense_die", "defense_die", "die_values"):
+            with self.subTest(reference=reference):
+                self.assertNotIn(reference, source)
+
+    def test_the_head_coach_keeps_only_the_team_die(self) -> None:
+        """
+        One die, and it is the d12 every roll in the game is made with.
+        """
+        self.assertEqual(self.rules.team_board.team_die.sides, 12)
 
     def test_the_roster_line_counts_the_nine_cards(self) -> None:
         line = roster_line(self.players)
@@ -238,6 +261,41 @@ class D12BallTeamBoardTests(unittest.TestCase):
             "Striker",
         ):
             self.assertIn(role, line)
+
+
+class D12BallJumbotronTests(unittest.TestCase):
+    def test_the_board_is_rendered_at_print_size(self) -> None:
+        self.assertEqual(
+            render_jumbotron_board().size, sheet_pixels("a3", True)
+        )
+
+    def test_every_cell_can_hold_a_token(self) -> None:
+        """
+        The whole reason the clock and the score are a board of their
+        own. On the field board the clock was sixteen cells across one
+        sheet with the field already on it, which is an inch a cell
+        with nothing to spare; two rows of eight on a sheet of their
+        own is what makes a cell something a token stands in.
+        """
+        for name, (width, height) in cell_inches().items():
+            with self.subTest(cell=name):
+                self.assertGreaterEqual(width, MIN_TOKEN_INCHES)
+                self.assertGreaterEqual(height, MIN_TOKEN_INCHES)
+
+    def test_the_clock_is_a_period_and_the_rows_are_even(self) -> None:
+        """
+        Sixteen cells for 0 to 15, in whole rows -- a part-filled row
+        reads as a track that ran out rather than one that ended.
+        """
+        self.assertEqual(CLOCK_MINUTES, 15)
+        self.assertEqual((CLOCK_MINUTES + 1) % CLOCK_COLUMNS, 0)
+
+    def test_the_score_track_outruns_a_shootout(self) -> None:
+        """
+        A shootout adds six pairings to a score that was already level,
+        so a track has to hold a plausible match score plus six.
+        """
+        self.assertGreaterEqual(SCORE_TRACK_MAX, 6 + 6)
 
 
 class D12BallPrintSizeTests(unittest.TestCase):
