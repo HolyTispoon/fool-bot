@@ -30,7 +30,7 @@ python3 -m unittest discover -s tests
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board image rendering (Pillow) |
 | `d12ball/cards.py` | The six maneuvers as cards — the printed face and the hand the bot shows |
-| `d12ball/boards.py` | The field board and the team board, print-ready for the tabletop game |
+| `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
 | `d12ball/data/` | `players.json`, `basic_rules.json` |
 | `d12ball/images/` | Card art and emoji |
@@ -1258,7 +1258,7 @@ A coach who has played at the table and a coach playing by Discord should be
 reading the same card, so neither gets a design of its own.
 
 ```bash
-python3 scripts/render_maneuver_cards.py --out cards/ --sheet
+python3 scripts/render_maneuver_cards.py --out cards/ --sheet  # print-sheet.png
 python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
 python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
 ```
@@ -1330,9 +1330,30 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
 - **The offense red and defense green are the maneuver reference image's**, so
   a coach reading a card and a coach reading the bot's hexagon are looking at
   the same two colours.
+- **A card is white, and the colour is its edge and its header.** It used to
+  be a saturated frame edge to edge on a cream face, with a near-black back --
+  which is a page of ink per sheet of nine and the first thing a home printer
+  runs out of. The face and the back are now `CARD_FACE` white, the maneuver's
+  colour is a `EDGE_WIDTH` outline, and `BACK_COLOR` is white with a grey
+  edge. **`FACE_COLOR` is still the boards' cream** and is deliberately not
+  the cards': a board is one sheet a game, where cards are printed by the
+  page.
+- **The rounded outline is the cut line.** With the face and the sheet both
+  white there is nothing else to say where a card ends, which is why the
+  corner radius is drawn rather than implied and why `FRAME` is small enough
+  that the outline is the card's own edge.
 - **One back for all six.** A coach holding both sets must not show which side
   of the ball they are reading. It carries the defeat cycle, which is public
   and which every coach may look at anyway.
+- **`print_sheet` is an exact grid, because splitters cut by dividing.**
+  Every cell is one card plus `SHEET_MARGIN` on all four sides, the sheet is
+  `SHEET_COLUMNS` cells wide and whole rows deep, and a short last row is
+  padded with spare backs. So dividing the image into quarters across gives a
+  card dead centre in each piece. The old `contact_sheet` put a gutter
+  between the cards *and* around the outside, which made a quarter of its
+  width a card plus a quarter of a gutter -- every cut but the first came out
+  off-centre. `D12BallManeuverTests` divides a rendered sheet and checks the
+  pieces, since nothing else would notice.
 - **The header's corner names the mode, not the die faces.** It printed
   "die 1-2" while the cards and the selection die had to coexist; it now reads
   "BASIC MANEUVER", which is what will still mean something once a second set
@@ -1341,21 +1362,45 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
 
 ### The printed boards
 
-`d12ball/boards.py` draws the two boards the tabletop game is played on -- the
-**field board** and a coach's **team board** -- print-ready at 300dpi.
+`d12ball/boards.py` draws the three boards the tabletop game is played on --
+the **field board**, the **jumbotron board** and a coach's **team board** --
+print-ready at 300dpi, A3 landscape.
 
 ```bash
-python3 scripts/render_boards.py --out print/
-python3 scripts/render_boards.py --all-boards --teams --bleed --pdf
+python3 scripts/render_boards.py --out print/          # every field size
+python3 scripts/render_boards.py --teams --bleed --pdf
+python3 scripts/render_boards.py --board-size 9        # just the one field
 ```
 
 - **They follow `cards.py`, not `render.py`.** The palette is the maneuver
-  cards' -- dark ink on a light face, in the same six colours -- because a
-  print goes on paper and the bot's dark board is the wrong thing to hand a
-  printer. The zone tints are the bot's three hues lightened, so a coach reads
-  one board as the other. Everything is measured in inches, with the same
-  1/8in bleed the cards carry.
-- **A3 landscape, both of them, and that is a constraint rather than a
+  cards' -- dark ink on a light face -- because a print goes on paper and the
+  bot's dark board is the wrong thing to hand a printer. The zone tints are the
+  bot's three hues lightened, so a coach reads one board as the other.
+  Everything is measured in inches, with the same 1/8in bleed the cards carry.
+  The boards keep `FACE_COLOR`'s cream where the cards went white: a board is
+  one sheet a game.
+- **The clock and the score are the jumbotron's, not the field's.** They were
+  bands under the field, where sixteen minutes across a sheet that was already
+  carrying the field left a cell an inch wide -- too small to stand a token in,
+  which is the only thing those cells are for. On their own board the clock is
+  two rows of eight (`CLOCK_COLUMNS`) and both tracks clear `MIN_TOKEN_INCHES`;
+  `cell_inches` is that measurement, reported by the CLI and asserted by
+  `D12BallJumbotronTests`. The field board got the whole of that space back,
+  which is what makes a space tall enough for two sides' meeples --
+  `FieldGeometry.space_inches`, asserted the same way. It is the split the bot's
+  own board already makes: a jumbotron is the state of the match, the field is
+  the position.
+- **No die value is printed anywhere.** Maneuvers are chosen with the cards, so
+  the two selection d6s are off the team board and the head coach cell lists
+  the six maneuvers by rank (O1, D2) instead of by face. The **ruleset still
+  defines those dice** -- `basic_rules.json`, `TeamBoardDefinition`, and the
+  living rules' own component list -- so this is a divergence and not a
+  deletion: `draw_die_slot` reads `team_die` alone and says why, and a test
+  greps the module for `offense_die`/`die_values` because the data is still
+  right there to pick up again by accident. **If the selection die is retired
+  upstream, that is a rules change and wants its own commit** -- living rules,
+  a dated rules-log entry, and then the data.
+- **A3 landscape, all three, and that is a constraint rather than a
   preference.** Five of the team board's six cells have to hold a 3.5in card:
   two rows of them plus a header and a footer is 11.3 inches, which is most of
   an A3's shorter side and more than a tabloid's. So the head coach is a cell
@@ -1365,11 +1410,16 @@ python3 scripts/render_boards.py --all-boards --teams --bleed --pdf
   sheet scales the whole board down rather than overflowing its areas.
   `D12BallTeamBoardTests` asserts it, because a band added above the areas
   takes them under a card silently: it renders fine and prints useless.
-- **Nothing on either board is written in the module.** The layouts, the
-  formations, the standard deal and the head coach's three dice come from
-  `basic_rules.json`, the selection die's faces from `maneuvers.json`, and the
-  roster from `players.json` -- so a printed board cannot claim a rule the bot
-  does not play, and an import reaches the boards by re-running the script.
+- **A panel that has to fit divides what it is given.** The head coach cell
+  sizes its three maneuver rows from the height left under the die rather than
+  from a fixed measurement, because three rows that fit one sheet run off the
+  bottom of another -- and that overflow is the one thing on these boards a
+  reader would take for a bug rather than a layout that scaled.
+- **Nothing on any board is written in the module.** The layouts, the
+  formations, the standard deal and the coach's die come from
+  `basic_rules.json`, the six maneuvers from `maneuvers.json`, and the roster
+  from `players.json` -- so a printed board cannot claim a rule the bot does
+  not play, and an import reaches the boards by re-running the script.
 - **The geometry a board asserts is read off the same code the bot enforces.**
   `shooting_range_bands` walks `BoardState.is_in_shooting_range` a space at a
   time and `kickoff_marks` reads `kickoff_space_index`, rather than either
@@ -1377,6 +1427,10 @@ python3 scripts/render_boards.py --all-boards --teams --bleed --pdf
   marks on board 6 (its midfield has no middle, so each side kicks off from
   the space nearer its own goal) and one on 7 and 9, and what leaves the
   bracket under the field agreeing with the living rules' own table.
+- **Every field size is rendered by default.** A print run wants the 6-, 7- and
+  9-space boards; `--board-size` narrows it to one. The sizes come from
+  `rules.board_layouts`, so a fourth layout added upstream is printed without
+  the script being touched.
 - **Zones keep their real names on the team board.** A coach's own goal is the
   home goal for one of them and the visitors goal for the other, and one
   design is printed for both, so the areas read HOME GOAL / MIDFIELD /
@@ -1391,7 +1445,8 @@ python3 scripts/render_boards.py --all-boards --teams --bleed --pdf
   supersample, unlike `cards.Pen`: a board is tens of megapixels at 300dpi,
   where a card is under one, and a stepped edge that small does not survive
   the print. Its canvas is allocated on first use, which is what lets
-  `card_slot_inches` ask how a layout comes out without drawing it.
+  `card_slot_inches` and `cell_inches` ask how a layout comes out without
+  drawing it.
 - `print/` is generated output and is gitignored, like `cards/`.
 
 ### Fonts

@@ -1,6 +1,6 @@
 """
-The two boards the physical game is played on: the **field board** and
-a coach's **team board**, print-ready.
+The three boards the physical game is played on: the **field board**,
+the **jumbotron board**, and a coach's **team board**, print-ready.
 
 They are the tabletop counterpart of the images the bot posts, and they
 follow `d12ball/cards.py` rather than `d12ball/render.py`: a print goes
@@ -10,12 +10,19 @@ at 300dpi with an optional bleed for a print shop to trim into. The
 bot's own board is drawn dark because it is read on a screen; a dark
 board is the wrong thing to hand a printer.
 
-Everything either board asserts is read from the data the bot plays
-from -- `basic_rules.json` for the layouts, the formations and the head
-coach's three dice, `maneuvers.json` for the selection die's faces, and
-`players.json` for the roster -- so a printed board cannot claim a rule
-the bot does not play, and an import reaches the boards by re-running
-`scripts/render_boards.py`.
+**The clock and the score are the jumbotron's**, exactly as they are
+the jumbotron's on the bot's board: they are the state of the match
+rather than the position, they want a cell a token can stand in, and
+sharing the field board cost both of them room.
+
+Everything the boards assert is read from the data the bot plays
+from -- `basic_rules.json` for the layouts, the formations and the
+coach's die, `maneuvers.json` for the six maneuvers, and `players.json`
+for the roster -- so a printed board cannot claim a rule the bot does
+not play, and an import reaches the boards by re-running
+`scripts/render_boards.py`. The one thing deliberately left off is the
+selection d6: maneuvers are chosen with the cards, so no die value is
+printed anywhere here.
 
 **Zones keep their real names on the team board.** A coach's own goal
 is the home goal for one of them and the visitors goal for the other,
@@ -107,6 +114,13 @@ ZONE_TINTS = {
 # six goals to a side that was already level.
 CLOCK_MINUTES = 15
 SCORE_TRACK_MAX = 12
+# Two rows of eight rather than one of sixteen. Sixteen across a sheet
+# gives a cell an inch wide and a token needs to stand in it, which is
+# what took these tracks off the field board in the first place.
+CLOCK_COLUMNS = 8
+# What a cell has to measure for a token to sit in it without covering
+# its neighbours. A meeple's base is about half an inch.
+MIN_TOKEN_INCHES = 0.75
 
 
 def sheet_pixels(paper: str, landscape: bool) -> tuple[int, int]:
@@ -278,11 +292,14 @@ def add_bleed(image: Image.Image, background: str = FACE_COLOR) -> Image.Image:
 @dataclass(frozen=True)
 class FieldGeometry:
     """
-    Where the field board's five bands sit, and how wide a space is.
+    Where the field board's four bands sit, and how wide a space is.
 
-    The bands either side of the strip are a fixed share of the sheet
-    and the strip takes what is left, so the spaces -- the only part a
+    The three bands around the strip are a fixed share of the sheet and
+    the strip takes what is left, so the spaces -- the only part a
     meeple has to fit in -- get every pixel the rest does not need.
+    **The clock and the score are not among them**: they went to the
+    [jumbotron board](#the-jumbotron-board), which is what leaves the
+    strip nearly half the sheet again taller.
     """
 
     left: float
@@ -295,8 +312,6 @@ class FieldGeometry:
     strip_bottom: float
     range_top: float
     range_bottom: float
-    clock_top: float
-    clock_bottom: float
     space_width: float
     board_size: int
 
@@ -310,11 +325,10 @@ class FieldGeometry:
         content = bottom - top
 
         gap = content * 0.018
-        header = content * 0.115
+        header = content * 0.085
         direction = content * 0.05
         ranges = content * 0.085
-        clock = content * 0.175
-        strip = content - header - direction - ranges - clock - 4 * gap
+        strip = content - header - direction - ranges - 3 * gap
 
         header_bottom = top + header
         direction_top = header_bottom + gap
@@ -322,8 +336,6 @@ class FieldGeometry:
         strip_top = direction_bottom + gap
         strip_bottom = strip_top + strip
         range_top = strip_bottom + gap
-        range_bottom = range_top + ranges
-        clock_top = range_bottom + gap
 
         return cls(
             left=left,
@@ -335,11 +347,20 @@ class FieldGeometry:
             strip_top=strip_top,
             strip_bottom=strip_bottom,
             range_top=range_top,
-            range_bottom=range_bottom,
-            clock_top=clock_top,
-            clock_bottom=clock_top + clock,
+            range_bottom=range_top + ranges,
             space_width=(right - left) / layout.board_size,
             board_size=layout.board_size,
+        )
+
+    @property
+    def space_inches(self) -> tuple[float, float]:
+        """
+        How big a space prints, which is what says whether meeples fit
+        on it -- the reason the clock and score moved off this board.
+        """
+        return (
+            self.space_width / PRINT_DPI,
+            (self.strip_bottom - self.strip_top) / PRINT_DPI,
         )
 
     def space_bounds(self, index: int) -> tuple[float, float]:
@@ -360,12 +381,8 @@ def render_field_board(
 ) -> Image.Image:
     """
     The field: one row of spaces, split into the three zones, with the
-    kickoff space marked, each side's shooting range bracketed under
-    it, and a clock and score track for the coaches to mark.
-
-    The tracks are printed aids rather than components the rules name.
-    Everything they count -- fifteen space-minutes, a clock that stops
-    there, a score a shootout can add six to -- is a rule.
+    kickoff space marked and each side's shooting range bracketed under
+    it. Nothing else -- the clock and the score are their own board.
     """
     if board_size not in rules.board_layouts:
         raise ValueError(
@@ -383,7 +400,6 @@ def render_field_board(
     draw_attack_directions(sheet, geometry, board)
     draw_field_strip(sheet, geometry, layout)
     draw_shooting_ranges(sheet, geometry, board)
-    draw_clock_track(sheet, geometry)
 
     return add_bleed(sheet.image) if bleed else sheet.image
 
@@ -408,80 +424,20 @@ def draw_field_header(
         MUTED,
     )
     sheet.text(
-        (geometry.left, top + sheet.u(68)),
-        "Two periods of 15. Home kicks off the first, the visitors the "
-        "second.",
-        sheet.font(14),
+        (geometry.right, bottom - sheet.u(38)),
+        "Two periods of 15 space minutes. Home kicks off the first, the "
+        "visitors the second.",
+        sheet.font(15),
         MUTED,
-    )
-
-    draw_score_track(sheet, geometry, top, bottom)
-
-
-def draw_score_track(
-    sheet: Sheet,
-    geometry: FieldGeometry,
-    top: float,
-    bottom: float,
-) -> None:
-    """
-    Two rows of numbers for the coaches to mark the score on. A
-    shootout goal is a goal, so the track has to run past what a match
-    alone would ever reach.
-    """
-    panel_left = geometry.right - (geometry.right - geometry.left) * 0.46
-    sheet.rect(
-        (panel_left, top, geometry.right, bottom),
-        radius=sheet.u(8),
-        fill=PANEL_COLOR,
-        outline=PANEL_EDGE,
-        width=sheet.u(1.6),
+        anchor="ra",
     )
     sheet.text(
-        (panel_left + sheet.u(14), top + sheet.u(8)),
-        "SCORE",
-        sheet.font(14, bold=True),
+        (geometry.right, bottom - sheet.u(17)),
+        "The clock and the score are kept on the jumbotron board.",
+        sheet.font(15),
         MUTED,
+        anchor="ra",
     )
-
-    label_width = sheet.u(96)
-    cells_left = panel_left + sheet.u(14) + label_width
-    cells_right = geometry.right - sheet.u(14)
-    cell_width = (cells_right - cells_left) / (SCORE_TRACK_MAX + 1)
-    row_height = (bottom - top - sheet.u(34)) / 2
-    face = sheet.font(15, bold=True)
-    number_face = sheet.fitted_font(
-        str(SCORE_TRACK_MAX), cell_width * 0.8, 15, bold=True
-    )
-
-    for row, label in enumerate(("HOME", "VISITORS")):
-        row_top = top + sheet.u(30) + row * row_height
-        row_bottom = row_top + row_height - sheet.u(4)
-        sheet.text(
-            (panel_left + sheet.u(14), (row_top + row_bottom) / 2),
-            label,
-            face,
-            INK,
-            anchor="lm",
-        )
-        for value in range(SCORE_TRACK_MAX + 1):
-            cell_left = cells_left + value * cell_width
-            sheet.rect(
-                (cell_left, row_top, cell_left + cell_width, row_bottom),
-                fill=FACE_COLOR,
-                outline=PANEL_EDGE,
-                width=sheet.u(1.2),
-            )
-            sheet.text(
-                (
-                    cell_left + cell_width / 2,
-                    (row_top + row_bottom) / 2,
-                ),
-                str(value),
-                number_face,
-                MUTED,
-                anchor="mm",
-            )
 
 
 def draw_attack_directions(
@@ -776,11 +732,10 @@ def draw_shooting_ranges(
             INK if side else MUTED,
             anchor="mm",
         )
-        note = (
-            "shoot only from here"
-            if side
-            else "the kickoff space is in nobody's range"
-        )
+        # The neither band is one space wide and the two ranges are
+        # three or four, so its note is the short one -- fitted to a
+        # single space, the longer wording comes out unreadably small.
+        note = "shoot only from here" if side else "the kickoff space"
         sheet.text(
             ((left + right) / 2, (top + bottom) / 2 + sheet.u(13)),
             note,
@@ -790,102 +745,330 @@ def draw_shooting_ranges(
         )
 
 
-def draw_clock_track(sheet: Sheet, geometry: FieldGeometry) -> None:
-    top = geometry.clock_top
-    bottom = geometry.clock_bottom
-    sheet.rect(
-        (geometry.left, top, geometry.right, bottom),
-        radius=sheet.u(8),
-        fill=PANEL_COLOR,
-        outline=PANEL_EDGE,
-        width=sheet.u(1.6),
+# ------------------------------------------------------------ jumbotron
+
+
+@dataclass(frozen=True)
+class JumbotronGeometry:
+    """
+    The clock and the two score tracks, on a board of their own.
+
+    They were bands on the field board, where sixteen minutes across a
+    sheet already carrying the field left a cell too small to stand a
+    token in. On their own sheet the clock runs two rows of eight
+    instead of one of sixteen, which is what turns an inch-wide cell
+    into a two-inch one -- `cell_inches` is that measurement, and the
+    suite holds it above `MIN_TOKEN_INCHES`.
+    """
+
+    left: float
+    right: float
+    header_top: float
+    header_bottom: float
+    clock_top: float
+    clock_bottom: float
+    score_top: float
+    score_bottom: float
+    footer_y: float
+
+    @classmethod
+    def for_sheet(cls, sheet: Sheet) -> "JumbotronGeometry":
+        margin = sheet.u(28)
+        left = margin
+        right = sheet.width - margin
+        top = margin
+        bottom = sheet.height - margin
+        content = bottom - top
+
+        gap = content * 0.03
+        header = content * 0.1
+        footer = content * 0.04
+        panels = content - header - footer - 2 * gap
+        # The clock is two rows to the score's two, but its cells are
+        # the ones a minute token sits in all game.
+        clock = panels * 0.56
+
+        header_bottom = top + header
+        clock_top = header_bottom + gap
+        clock_bottom = clock_top + clock
+        score_top = clock_bottom + gap
+
+        return cls(
+            left=left,
+            right=right,
+            header_top=top,
+            header_bottom=header_bottom,
+            clock_top=clock_top,
+            clock_bottom=clock_bottom,
+            score_top=score_top,
+            score_bottom=score_top + panels - clock,
+            footer_y=bottom - footer / 2,
+        )
+
+    def clock_cell(self) -> tuple[float, float]:
+        rows = -(-(CLOCK_MINUTES + 1) // CLOCK_COLUMNS)
+        return (
+            (self.right - self.left) / CLOCK_COLUMNS,
+            (self.clock_bottom - self.clock_top - self.label_height) / rows,
+        )
+
+    def score_cell(self) -> tuple[float, float]:
+        return (
+            (self.right - self.left - self.score_label_width)
+            / (SCORE_TRACK_MAX + 1),
+            (self.score_bottom - self.score_top - self.label_height) / 2,
+        )
+
+    @property
+    def label_height(self) -> float:
+        return (self.header_bottom - self.header_top) * 0.42
+
+    @property
+    def score_label_width(self) -> float:
+        return (self.right - self.left) * 0.11
+
+
+def cell_inches(paper: str = DEFAULT_PAPER) -> dict[str, tuple[float, float]]:
+    """
+    How big the clock's and the score's cells print. This is the whole
+    reason the jumbotron is its own board, so it is a number the CLI
+    reports and the suite asserts rather than something read off a
+    render.
+    """
+    geometry = JumbotronGeometry.for_sheet(
+        Sheet(*sheet_pixels(paper, landscape=True))
+    )
+    return {
+        "clock": tuple(value / PRINT_DPI for value in geometry.clock_cell()),
+        "score": tuple(value / PRINT_DPI for value in geometry.score_cell()),
+    }
+
+
+def render_jumbotron_board(
+    paper: str = DEFAULT_PAPER,
+    bleed: bool = False,
+) -> Image.Image:
+    """
+    The jumbotron: the game clock and both scores, each cell big enough
+    to stand a token in.
+
+    Like the bot's own jumbotron this is the state of the match rather
+    than the position -- which is why it comes off the field board
+    rather than sharing it. The tracks are printed aids and not
+    components the rules name; everything they count is a rule.
+    """
+    sheet = Sheet(*sheet_pixels(paper, landscape=True))
+    geometry = JumbotronGeometry.for_sheet(sheet)
+
+    draw_jumbotron_header(sheet, geometry)
+    draw_clock_track(sheet, geometry)
+    draw_score_tracks(sheet, geometry)
+    sheet.text(
+        ((geometry.left + geometry.right) / 2, geometry.footer_y),
+        "Every turn costs at least one minute, and a score attempt one "
+        "per space to the attacked end. The clock stops at 15.",
+        sheet.font(15),
+        MUTED,
+        anchor="mm",
+    )
+
+    return add_bleed(sheet.image) if bleed else sheet.image
+
+
+def draw_jumbotron_header(sheet: Sheet, geometry: JumbotronGeometry) -> None:
+    top = geometry.header_top
+    bottom = geometry.header_bottom
+    sheet.text(
+        (geometry.left, top),
+        "JUMBOTRON",
+        sheet.font(40, bold=True),
+        INK,
     )
     sheet.text(
-        (geometry.left + sheet.u(16), top + sheet.u(10)),
-        "CLOCK  ·  SPACE MINUTES",
-        sheet.font(15, bold=True),
+        (geometry.left, top + sheet.u(46)),
+        "CLOCK AND SCORE  ·  BASIC MODE",
+        sheet.font(16, bold=True),
         MUTED,
     )
 
-    period_face = sheet.font(14, bold=True)
-    box = sheet.u(20)
-    cursor = geometry.right - sheet.u(16)
+    # The period, as two boxes rather than a track: a game has two of
+    # them and nothing moves between them.
+    face = sheet.font(19, bold=True)
+    box = sheet.u(34)
+    cursor = geometry.right
     for label in ("2ND HALF", "1ST HALF"):
-        text_width = sheet.text_width(label, period_face)
         sheet.text(
-            (cursor, top + sheet.u(11)),
+            (cursor, (top + bottom) / 2),
             label,
-            period_face,
+            face,
             INK,
-            anchor="ra",
+            anchor="rm",
         )
-        cursor -= text_width + sheet.u(8)
+        cursor -= sheet.text_width(label, face) + sheet.u(12)
         sheet.rect(
-            (cursor - box, top + sheet.u(9), cursor, top + sheet.u(9) + box),
+            (
+                cursor - box,
+                (top + bottom) / 2 - box / 2,
+                cursor,
+                (top + bottom) / 2 + box / 2,
+            ),
+            radius=sheet.u(4),
+            fill=FACE_COLOR,
             outline=INK,
-            width=sheet.u(1.6),
+            width=sheet.u(2),
         )
-        cursor -= box + sheet.u(22)
+        cursor -= box + sheet.u(34)
 
-    cells_left = geometry.left + sheet.u(16)
-    cells_right = geometry.right - sheet.u(16)
-    cells_top = top + sheet.u(32)
-    cells_bottom = bottom - sheet.u(44)
-    cell_width = (cells_right - cells_left) / (CLOCK_MINUTES + 1)
-    number_face = sheet.fitted_font(
-        "00", cell_width * 0.55, 26, bold=True
+
+def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
+    """
+    Sixteen minutes in two rows of eight. The last is bordered and
+    captioned, because reaching it is the one thing on this board that
+    changes what a coach may do -- see "Last possession".
+    """
+    sheet.rect(
+        (
+            geometry.left,
+            geometry.clock_top,
+            geometry.right,
+            geometry.clock_bottom,
+        ),
+        radius=sheet.u(10),
+        fill=PANEL_COLOR,
+        outline=PANEL_EDGE,
+        width=sheet.u(2),
+    )
+    sheet.text(
+        (geometry.left + sheet.u(18), geometry.clock_top + sheet.u(12)),
+        "CLOCK  ·  SPACE MINUTES",
+        sheet.font(17, bold=True),
+        MUTED,
     )
 
+    cells_left = geometry.left + sheet.u(18)
+    cells_right = geometry.right - sheet.u(18)
+    cells_top = geometry.clock_top + geometry.label_height
+    cell_width = (cells_right - cells_left) / CLOCK_COLUMNS
+    rows = -(-(CLOCK_MINUTES + 1) // CLOCK_COLUMNS)
+    cell_height = (geometry.clock_bottom - sheet.u(14) - cells_top) / rows
+    number_face = sheet.font(52, bold=True)
+
     for minute in range(CLOCK_MINUTES + 1):
-        cell_left = cells_left + minute * cell_width
+        column = minute % CLOCK_COLUMNS
+        row = minute // CLOCK_COLUMNS
+        cell_left = cells_left + column * cell_width
+        cell_top = cells_top + row * cell_height
         last = minute == CLOCK_MINUTES
         sheet.rect(
-            (cell_left, cells_top, cell_left + cell_width, cells_bottom),
+            (
+                cell_left + sheet.u(4),
+                cell_top + sheet.u(4),
+                cell_left + cell_width - sheet.u(4),
+                cell_top + cell_height - sheet.u(4),
+            ),
+            radius=sheet.u(8),
             fill=FACE_COLOR,
             outline=OFFENSE_COLOR if last else PANEL_EDGE,
-            width=sheet.u(2.4 if last else 1.2),
+            width=sheet.u(3.5 if last else 1.6),
         )
         sheet.text(
-            (
-                cell_left + cell_width / 2,
-                (cells_top + cells_bottom) / 2,
-            ),
+            (cell_left + cell_width / 2, cell_top + cell_height * 0.46),
             f"{minute:02d}",
             number_face,
             INK if last else MUTED,
             anchor="mm",
         )
-        if minute == 0:
+        caption = (
+            "kickoff"
+            if minute == 0
+            else "last possession"
+            if last
+            else None
+        )
+        if caption:
             sheet.text(
-                (cell_left + cell_width / 2, cells_bottom + sheet.u(6)),
-                "kickoff",
-                sheet.fitted_font("kickoff", cell_width * 0.9, 12),
-                MUTED,
-                anchor="ma",
-            )
-        if last:
-            sheet.text(
-                (cell_left + cell_width / 2, cells_bottom + sheet.u(6)),
-                "last possession",
+                (cell_left + cell_width / 2, cell_top + cell_height * 0.78),
+                caption,
                 sheet.fitted_font(
-                    "last possession", cell_width * 0.95, 12, bold=True
+                    caption, cell_width * 0.8, 16, bold=last
                 ),
-                OFFENSE_COLOR,
-                anchor="ma",
+                OFFENSE_COLOR if last else MUTED,
+                anchor="mm",
             )
 
-    sheet.text(
+
+def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
+    """
+    A row each. It runs to 12 because a shootout goal is a goal: six
+    pairings can be added to a score that was already level, so a track
+    cut to what a match alone reaches would run out exactly when the
+    game is being decided.
+    """
+    sheet.rect(
         (
-            (geometry.left + geometry.right) / 2,
-            bottom - sheet.u(19),
+            geometry.left,
+            geometry.score_top,
+            geometry.right,
+            geometry.score_bottom,
         ),
-        "Every turn costs at least one minute. A score attempt costs one "
-        "per space to the attacked end, counting the space it is taken "
-        "from.",
-        sheet.font(13),
-        MUTED,
-        anchor="ma",
+        radius=sheet.u(10),
+        fill=PANEL_COLOR,
+        outline=PANEL_EDGE,
+        width=sheet.u(2),
     )
+    sheet.text(
+        (geometry.left + sheet.u(18), geometry.score_top + sheet.u(12)),
+        "SCORE  ·  SHOOTOUT GOALS COUNT",
+        sheet.font(17, bold=True),
+        MUTED,
+    )
+
+    label_width = geometry.score_label_width
+    cells_left = geometry.left + sheet.u(18) + label_width
+    cells_right = geometry.right - sheet.u(18)
+    rows_top = geometry.score_top + geometry.label_height
+    cell_width = (cells_right - cells_left) / (SCORE_TRACK_MAX + 1)
+    row_height = (geometry.score_bottom - sheet.u(14) - rows_top) / 2
+    number_face = sheet.fitted_font(
+        str(SCORE_TRACK_MAX), cell_width * 0.5, 34, bold=True
+    )
+    # "VISITORS" is the long one and the cells start where the label
+    # column ends, so it is fitted rather than sized -- an overrun here
+    # runs the word straight through the 0 cell.
+    label_face = sheet.fitted_font(
+        "VISITORS", label_width - sheet.u(16), 22, bold=True
+    )
+
+    for row, label in enumerate(("HOME", "VISITORS")):
+        row_top = rows_top + row * row_height
+        sheet.text(
+            (geometry.left + sheet.u(18), row_top + row_height / 2),
+            label,
+            label_face,
+            INK,
+            anchor="lm",
+        )
+        for value in range(SCORE_TRACK_MAX + 1):
+            cell_left = cells_left + value * cell_width
+            sheet.rect(
+                (
+                    cell_left + sheet.u(3),
+                    row_top + sheet.u(4),
+                    cell_left + cell_width - sheet.u(3),
+                    row_top + row_height - sheet.u(4),
+                ),
+                radius=sheet.u(6),
+                fill=FACE_COLOR,
+                outline=PANEL_EDGE,
+                width=sheet.u(1.6),
+            )
+            sheet.text(
+                (cell_left + cell_width / 2, row_top + row_height / 2),
+                str(value),
+                number_face,
+                MUTED,
+                anchor="mm",
+            )
 
 
 # ----------------------------------------------------------- team board
@@ -1017,9 +1200,8 @@ def render_team_board(
     """
     One coach's board: the five areas a card can be in -- the three
     zones across the top, the bench and the back bench under them --
-    and the head coach in the sixth cell, holding the three dice, what
-    the selection die's faces mean, and the shapes a Coaching Choice
-    can re-deal into.
+    and the head coach in the sixth cell, holding the coach's d12 and
+    the six maneuvers they choose between.
 
     `team` only colours it. The areas and their names are the same for
     every side, which is what lets one design be printed four times.
@@ -1124,13 +1306,6 @@ def roster_line(players: PlayerCatalog) -> str:
     )
 
 
-def die_face_label(maneuver: ManeuverDefinition) -> str:
-    values = maneuver.die_values
-    if len(values) == 1:
-        return str(values[0])
-    return f"{min(values)}–{max(values)}"
-
-
 def draw_head_coach_panel(
     sheet: Sheet,
     geometry: TeamBoardGeometry,
@@ -1139,13 +1314,15 @@ def draw_head_coach_panel(
     accent: str,
 ) -> None:
     """
-    The sixth cell: a slot for each of the three dice a coach keeps,
-    and what the selection die's six faces mean on either side of the
-    ball.
+    The sixth cell: the coach's own d12, and the six maneuvers they
+    choose between.
 
-    The die faces are here for the same reason the maneuver cards
-    exist -- a selection d6 otherwise asks a coach to remember that a 3
-    is Dribble Advance with the ball and Steal Intercept without it.
+    **No selection die, and no die faces anywhere on this board.** The
+    maneuver cards are how a maneuver is chosen -- a coach holds three
+    of each and plays one face down -- so printing "3-4 Dribble
+    Advance" beside them would name a component the table does not use.
+    What is left is the roster of maneuvers under the rank the matchup
+    table calls them by.
     """
     draw_cell_label(
         sheet,
@@ -1153,7 +1330,7 @@ def draw_head_coach_panel(
         column=2,
         row=1,
         title="HEAD COACH",
-        caption="your dice, and what they say",
+        caption="your die, and your maneuvers",
     )
     area = geometry.area(2, 1)
     sheet.rect(
@@ -1166,15 +1343,20 @@ def draw_head_coach_panel(
 
     inner_left = area[0] + sheet.u(20)
     inner_right = area[2] - sheet.u(20)
-    cursor = draw_die_slots(
-        sheet, rules, inner_left, area[1] + sheet.u(22), inner_right, accent
+    cursor = draw_die_slot(
+        sheet, rules, inner_left, area[1] + sheet.u(24), inner_right, accent
     )
-    draw_die_legend(
-        sheet, maneuvers, inner_left, cursor + sheet.u(20), inner_right
+    draw_maneuver_legend(
+        sheet,
+        maneuvers,
+        inner_left,
+        cursor + sheet.u(10),
+        inner_right,
+        area[3] - sheet.u(16),
     )
 
 
-def draw_die_slots(
+def draw_die_slot(
     sheet: Sheet,
     rules: BasicRuleset,
     left: float,
@@ -1183,124 +1365,127 @@ def draw_die_slots(
     accent: str,
 ) -> float:
     """
-    The three dice the team board holds, as `basic_rules.json` defines
-    them: which side each belongs to, how many faces it has, and its
-    colour -- the team die's being the team's, which is what `accent`
+    The die a coach keeps, read from `basic_rules.json`: how many faces
+    it has and whose colour it is -- the team's, which is what `accent`
     stands in for.
+
+    **Only the team die is drawn.** The ruleset still defines the two
+    selection d6s beside it, because that data is the bot's model and
+    the rules' component list; the printed board is where they have
+    stopped being used, and drawing an unused component is worse than
+    the divergence. See "The printed boards" in CLAUDE.md.
     """
-    dice = (
-        (rules.team_board.offense_die, "OFFENSE", OFFENSE_COLOR),
-        (rules.team_board.defense_die, "DEFENSE", DEFENSE_COLOR),
-        (rules.team_board.team_die, "TEAM", accent),
+    die = rules.team_board.team_die
+    size = min((right - left) * 0.10, sheet.u(40))
+    center_x = left + size + sheet.u(6)
+    center_y = top + size
+
+    sheet.polygon(
+        polygon_points(center_x, center_y, size, die.sides),
+        fill=FACE_COLOR,
+        outline=accent,
+        width=sheet.u(3),
     )
-    slot_width = (right - left) / len(dice)
-    size = min(slot_width * 0.24, sheet.u(34))
-
-    for index, (die, label, color) in enumerate(dice):
-        center_x = left + slot_width * (index + 0.5)
-        center_y = top + size
-        if die.sides == 12:
-            sheet.polygon(
-                polygon_points(center_x, center_y, size, 12),
-                fill=FACE_COLOR,
-                outline=color,
-                width=sheet.u(3),
-            )
-        else:
-            sheet.rect(
-                (
-                    center_x - size * 0.86,
-                    center_y - size * 0.86,
-                    center_x + size * 0.86,
-                    center_y + size * 0.86,
-                ),
-                radius=size * 0.22,
-                fill=FACE_COLOR,
-                outline=color,
-                width=sheet.u(3),
-            )
-        sheet.text(
-            (center_x, center_y),
-            f"d{die.sides}",
-            sheet.fitted_font(f"d{die.sides}", size * 1.25, 22, bold=True),
-            color,
-            anchor="mm",
-        )
-        sheet.text(
-            (center_x, center_y + size + sheet.u(12)),
-            label,
-            sheet.fitted_font(label, slot_width * 0.9, 15, bold=True),
-            INK,
-            anchor="ma",
-        )
-    return top + 2 * size + sheet.u(24)
+    sheet.text(
+        (center_x, center_y),
+        f"d{die.sides}",
+        sheet.fitted_font(f"d{die.sides}", size * 1.3, 22, bold=True),
+        accent,
+        anchor="mm",
+    )
+    sheet.text(
+        (center_x + size + sheet.u(22), center_y - sheet.u(20)),
+        "YOUR TEAM DIE",
+        sheet.font(19, bold=True),
+        INK,
+    )
+    note = "Every roll in the game is a d12: skill tests, shots, injury checks."
+    sheet.text(
+        (center_x + size + sheet.u(22), center_y + sheet.u(6)),
+        note,
+        sheet.fitted_font(
+            note, right - center_x - size - sheet.u(22), 15
+        ),
+        MUTED,
+    )
+    return top + 2 * size + sheet.u(6)
 
 
-def draw_die_legend(
+def draw_maneuver_legend(
     sheet: Sheet,
     maneuvers: ManeuverCatalog,
     left: float,
     top: float,
     right: float,
+    bottom: float,
 ) -> float:
+    """
+    The six maneuvers, by the rank the matchup table names them by.
+    This is a coach's hand, not a die's faces -- the cards carry the
+    effects, so what belongs here is only which three are which.
+
+    **The rows divide what is left of the cell rather than measuring a
+    fixed height.** Three rows at a size that fits one sheet run off
+    the bottom of the panel on another, and the panel is the only thing
+    on this board a reader would take for a mistake rather than a
+    layout that scaled.
+    """
+    heading = "MANEUVER CARDS  ·  BOTH COACHES PLAY ONE FACE DOWN"
     sheet.text(
         (left, top),
-        "SELECTION DIE  ·  BOTH COACHES CHOOSE IN SECRET",
-        sheet.fitted_font(
-            "SELECTION DIE  ·  BOTH COACHES CHOOSE IN SECRET",
-            right - left,
-            14,
-            bold=True,
-        ),
+        heading,
+        sheet.fitted_font(heading, right - left, 14, bold=True),
         MUTED,
     )
     column_width = (right - left) / 2
-    row_height = sheet.u(26)
-    face_face = sheet.font(18, bold=True)
-    # The face label is the widest thing in its column ("1-2"), and
-    # the names are what has to give: "Steal Intercept" is twice the
-    # length of "Pressure", so each is fitted to what is left rather
-    # than the column being sized for the longest.
-    name_left = sheet.u(40)
+    rows_top = top + sheet.u(58)
+    row_height = (bottom - rows_top) / len(maneuvers.offense)
+    # Sized to the row rather than to the sheet, so the three lines
+    # breathe on a board with room and close up on one without.
+    body_size = min(20, row_height / sheet.unit * 0.5)
+    rank_face = sheet.font(body_size, bold=True)
+    rank_left = sheet.u(44)
 
     columns = (
-        ("WITH THE BALL", maneuvers.offense, OFFENSE_COLOR),
-        ("CHALLENGING", maneuvers.defense, DEFENSE_COLOR),
+        ("WITH THE BALL", maneuvers.offense, OFFENSE_COLOR, "O"),
+        ("CHALLENGING", maneuvers.defense, DEFENSE_COLOR, "D"),
     )
     # All six names at one size, fitted to the longest of them. Fitting
     # each on its own left "Steal Intercept" half the height of
     # "Pressure" beside it, which reads as emphasis rather than as the
     # accident of length it is.
-    name_width = column_width - name_left - sheet.u(10)
-    name_face = sheet.font(18)
+    name_width = column_width - rank_left - sheet.u(10)
+    name_face = sheet.font(body_size)
     for maneuver in maneuvers.offense + maneuvers.defense:
-        candidate = sheet.fitted_font(maneuver.name, name_width, 18)
+        candidate = sheet.fitted_font(maneuver.name, name_width, body_size)
         if candidate.size < name_face.size:
             name_face = candidate
 
-    for index, (heading, side, color) in enumerate(columns):
+    for index, (heading, side, color, letter) in enumerate(columns):
         column_left = left + index * column_width
         sheet.text(
-            (column_left, top + sheet.u(24)),
+            (column_left, top + sheet.u(28)),
             heading,
             sheet.fitted_font(heading, column_width * 0.9, 15, bold=True),
             color,
         )
-        for row, maneuver in enumerate(side):
-            row_y = top + sheet.u(50) + row * row_height
+        for row, maneuver in enumerate(sorted(side, key=lambda m: m.rank)):
+            row_y = rows_top + row_height * (row + 0.5)
             sheet.text(
                 (column_left, row_y),
-                die_face_label(maneuver),
-                face_face,
+                f"{letter}{maneuver.rank}",
+                rank_face,
                 color,
+                anchor="lm",
             )
             sheet.text(
-                (column_left + name_left, row_y),
+                (column_left + rank_left, row_y),
                 maneuver.name,
                 name_face,
                 INK,
+                anchor="lm",
             )
-    return top + sheet.u(50) + len(maneuvers.offense) * row_height
+    return bottom
 
 
 def draw_formation_strip(
