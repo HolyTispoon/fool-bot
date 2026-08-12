@@ -907,12 +907,21 @@ def draw_board(
             )
 
             if ball_is_here:
-                if match.ball.possession.value == "home":
-                    ball_x = home_bounds[1] + BALL_RADIUS + 3
-                    ball_y = BOARD_BOTTOM - 135 + MEEPLE_SIZE // 2
-                else:
-                    ball_x = visiting_bounds[0] - BALL_RADIUS - 3
-                    ball_y = BOARD_TOP + 88 + MEEPLE_SIZE // 2
+                home_has_it = match.ball.possession.value == "home"
+                ball_x = ball_token_x(
+                    space_left,
+                    space_right,
+                    home_bounds if home_has_it else visiting_bounds,
+                    carrying_side_present=bool(
+                        home_occupants if home_has_it else visiting_occupants
+                    ),
+                    home_side=home_has_it,
+                )
+                ball_y = (
+                    BOARD_BOTTOM - 135 + MEEPLE_SIZE // 2
+                    if home_has_it
+                    else BOARD_TOP + 88 + MEEPLE_SIZE // 2
+                )
                 draw_d12_polygon(
                     draw,
                     ball_x,
@@ -970,6 +979,38 @@ def draw_shooting_range_edges(
                 width=3,
             )
             y += 30
+
+
+def ball_token_x(
+    space_left: int,
+    space_right: int,
+    group_bounds: tuple[int, int],
+    carrying_side_present: bool,
+    home_side: bool,
+) -> int:
+    """
+    Where the ball token sits on its space, horizontally.
+
+    Normally it is tucked against the possessing side's meeples, on the
+    open side of the row -- the home side reads left to right and the
+    visitors right to left, so the ball is on the right of one group
+    and the left of the other, and stays next to whoever is holding it
+    however many of them are on the space.
+
+    **A space with none of that side's meeples on it centres the
+    ball.** An empty group reports the whole space as its bounds, so
+    anchoring to its edge draws the ball a radius *outside* the space,
+    on top of the next space's tokens or off the board -- which meant a
+    loose ball, the one position whose whole question is where the ball
+    is lying, was the one thing the board did not show. Centred,
+    it is unmistakably in the space it is in, and there are no meeples
+    of that side there for it to collide with.
+    """
+    if not carrying_side_present:
+        return (space_left + space_right) // 2
+    if home_side:
+        return group_bounds[1] + BALL_RADIUS + 3
+    return group_bounds[0] - BALL_RADIUS - 3
 
 
 def draw_meeple_group(

@@ -42,8 +42,10 @@ from d12ball.render import (
     FONT_SCORE,
     FONT_SMALL,
     FONT_TITLE,
+    BALL_RADIUS,
     MEEPLE_SIZE,
     PORTRAIT_IMAGE_SIZE,
+    ball_token_x,
     fit_meeple_labels,
     OWN_GOAL_DIE_RADIUS,
     SKILL_TEST_DIE_RADIUS,
@@ -1167,6 +1169,43 @@ class D12BallComponentTests(unittest.TestCase):
                 draw.textlength(name, font=stacked_font), 400,
             )
 
+    def test_a_loose_ball_is_drawn_inside_its_own_space(self) -> None:
+        # A space with none of the possessing side's meeples on it is
+        # exactly the loose ball, and the ball has to be visible there
+        # -- anchored to an empty group's bounds it was drawn a radius
+        # outside the space, under the next space's tokens. The suite
+        # cannot see the image, so this checks the placement rule.
+        space_left, space_right = 1000, 1300
+        empty_group = (space_left, space_right)
+
+        for home_side in (True, False):
+            loose = ball_token_x(
+                space_left, space_right, empty_group,
+                carrying_side_present=False,
+                home_side=home_side,
+            )
+            self.assertGreater(loose - BALL_RADIUS, space_left)
+            self.assertLess(loose + BALL_RADIUS, space_right)
+
+        # Held, it still sits against the side's own group of meeples,
+        # on the open side of the row.
+        held_group = (space_left + 12, space_left + 12 + MEEPLE_SIZE)
+        self.assertGreater(
+            ball_token_x(
+                space_left, space_right, held_group,
+                carrying_side_present=True, home_side=True,
+            ),
+            held_group[1],
+        )
+        held_group = (space_right - 12 - MEEPLE_SIZE, space_right - 12)
+        self.assertLess(
+            ball_token_x(
+                space_left, space_right, held_group,
+                carrying_side_present=True, home_side=False,
+            ),
+            held_group[0],
+        )
+
 
 class D12BallScoreAttemptTests(unittest.TestCase):
     """
@@ -1926,6 +1965,7 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog.player_catalog = self.catalog
         cog.team_emojis = {}
         cog.refresh_match_image = mock.AsyncMock()
+        cog.announce_board_update = mock.AsyncMock()
         cog.begin_loose_ball = mock.AsyncMock()
         cog.begin_run_back = mock.AsyncMock()
         return cog
@@ -2029,10 +2069,14 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
             interaction, game, match,
             distance_moved=1, turnover_occurred=True,
         )
-        announcement = interaction.followup.send.await_args.args[0]
+        # It goes out with the board, and names the space: "already
+        # there" is only readable next to where "there" is.
+        cog.announce_board_update.assert_awaited_once()
+        announcement = cog.announce_board_update.await_args.args[2]
         self.assertIn("Block Deflect happened.", announcement)
         self.assertIn("# Turnover!", announcement)
         self.assertIn("uncontested", announcement)
+        self.assertIn("M3", announcement)
 
 
 class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):

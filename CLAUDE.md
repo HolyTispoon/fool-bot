@@ -597,6 +597,33 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
   relabels the decline button, because "resolve as a normal pass" would be a lie
   there.
 
+## Loose balls and the board
+
+A loose ball is announced **with the board under it and the space named**, and
+those two are one decision: the ball is lying somewhere nothing else in the
+channel has named, and the question that immediately follows -- who to send
+after it -- is a question about how far away everybody is.
+
+- **`begin_loose_ball` posts through `announce_board_update`**, which is why
+  that helper is no longer only for manual corrections. The snapshot is drawn
+  once and the persistent message is brought in line from the same bytes, so it
+  costs the render everything else costs; the callers that used to refresh
+  immediately before it (the receiverless Low Pass) no longer do, or the same
+  board would be written twice. See "Discord's rate limits".
+- **A High Pass is not a loose ball, here as everywhere else.** It borrows the
+  same contest, but the ball is on a receiver both coaches watched catch it, so
+  that branch sends its headline plainly and pays no upload. `is_high_pass` is
+  the test, the same one `contest_noun` reads.
+- **The pick prompt names the space as well**, because it outlives the message
+  that announced it: `/d12ball resume` puts that prompt back up on its own, and
+  a restart re-arms it wherever it has scrolled to.
+- The uncontested turnover -- the ball landing on a space only the *other* side
+  occupies -- goes out the same way. "So-and-so is already there" cannot be read
+  without knowing where there is.
+- `ball_location_line` and `ball_space_label` in `cogs/d12ball_helpers.py` are
+  the wording, over `space_label`. The line spells the zone out beside the code
+  because "M2" alone means nothing to anyone not already looking at the board.
+
 ## The ball carrier
 
 Possession is a team's, but the ball is a *player's*: a resolution that
@@ -1176,6 +1203,18 @@ the Exhausted and Injured badges are drawn nowhere else, and which pool a
 player is in is the whole of who may come on -- so without them the flow would
 be asking a coach to remember numbers off a board they cannot see while the
 menu is up.
+
+**The ball token hangs off the possessing side's meeples, except when they have
+none there.** `ball_token_x` is the whole of the placement: normally it tucks
+against that side's group on the open end of the row, which keeps it next to
+whoever is holding it however many of them share the space. An empty group
+reports the whole space as its bounds, so anchoring to its edge drew the ball a
+radius *outside* the space, under the next space's tokens -- which meant
+[a loose ball](#loose-balls-and-the-board), the one position whose whole
+question is where the ball is lying, was the one thing the board did not show.
+With nobody of that side there it is centred in the space instead. The suite
+cannot see the image, so `D12BallComponentTests` asserts the placement rule
+rather than the pixels.
 
 ### The maneuver cards
 
