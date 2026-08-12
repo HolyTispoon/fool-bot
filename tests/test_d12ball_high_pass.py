@@ -707,6 +707,31 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("0 spaces", lead_in)
         self.assertIn("last space", lead_in)
 
+    async def test_a_throw_that_moves_nothing_still_costs_a_minute(
+        self,
+    ) -> None:
+        # 2026-08-12: High Pass's time cost gained Low Pass's "min. 1",
+        # so the one throw that moves the ball nowhere is not free.
+        cog, game, match, _, _ = self.build_last_space_pass(teammate=False)
+
+        await self.apply(cog, game, match)
+
+        kwargs = cog.finish_maneuver_resolution.await_args.kwargs
+        self.assertEqual(kwargs["distance_moved"], 1)
+
+    async def test_the_minute_follows_the_set_up_the_throw_offers(
+        self,
+    ) -> None:
+        # The clock is charged wherever the turn ends up, so the
+        # set-up -- and the contest behind a decline -- carry the
+        # minimum too, not just the branch that resolves quietly.
+        cog, game, match, _, _ = self.build_last_space_pass(teammate=True)
+
+        await self.apply(cog, game, match)
+
+        kwargs = cog.offer_scoring_attempt_choice.await_args.kwargs
+        self.assertEqual(kwargs["distance_moved"], 1)
+
     async def test_the_contest_behind_it_names_the_same_receiver(
         self,
     ) -> None:

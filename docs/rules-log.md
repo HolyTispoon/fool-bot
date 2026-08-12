@@ -45,14 +45,6 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
-### Does a High Pass that moves the ball 0 spaces cost any time?
-
-Its time cost is "Distance" with no minimum, where Low Pass's is "Distance, min. 1". Since
-2026-08-12 a passer cannot shoot off their own set-up, so a coach on the final space with no
-teammate beside them can throw the ball up and have it land back at their feet for nothing:
-no shot, no contest, no clock. Playing it as written until the author says whether High Pass
-wants the same minimum Low Pass has.
-
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
 
@@ -66,7 +58,9 @@ the author directly.
 ### 2026-08-12 (newest) -- author, a passer never receives their own High Pass
 
 *From the author: "an overshot high pass sets up a scoring opportunity even if the ball travels
-0 spaces but the player who passes cannot score off their own set up".*
+0 spaces but the player who passes cannot score off their own set up"; and, asked whether a
+throw that moves the ball nowhere should therefore be free, "high pass cost should also be
+minimum 1".*
 
 - **The 0-space overshoot is confirmed, and it is the half of this that was already right.**
   2026-08-10 settled that "clamped short is clamped short" -- a High Pass thrown from the final
@@ -87,11 +81,19 @@ the author directly.
   is standing on it -- and not a contest either, since there is no receiver to fight for what
   they were already holding. The maneuver resolves having achieved nothing, which is the
   coach's own lookout.
-- **Open: does a High Pass that moves the ball 0 spaces cost any time?** Its time cost is
-  "Distance" with no minimum, so as written it is free, and now that the passer cannot shoot
-  off it there is a position where a coach may throw the ball up and put it back down for
-  nothing. Low Pass carries an explicit "min. 1" for the same shape of move (its shared-space
-  pass) and High Pass does not. Left as it reads until the author says otherwise.
+- **A High Pass costs a minute at the least**, which is the second half of the same answer.
+  Its time cost was "Distance" with no minimum, so the throw the first half of this entry
+  creates -- the ball up off the last space and back down at the passer's feet -- would have
+  been free, and a maneuver that costs no clock is a maneuver a coach can take all afternoon.
+  It now reads "Distance, min. 1", exactly as Low Pass has for the same shape of move (its
+  shared-space pass, which also moves the ball nowhere). **The minimum only ever applies to
+  that one throw**: every distance a coach is offered is at least 2, so nothing short of the
+  clamp can come in under it.
+- **Upstream never had the case.** The sheet's own time column reads "distance traveled (2-4
+  space minutes)", which says a High Pass is worth 2 to 4 and does not contemplate 0 -- a
+  clamp at the end of the field is a thing the board does, not a distance anybody chooses. So
+  this is a gap being filled rather than upstream being contradicted, and `maneuvers.json`
+  needs no edit.
 
 ### 2026-08-12 -- author, board 9 gains 3-2-1 and 1-2-3
 

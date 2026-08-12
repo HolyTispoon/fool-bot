@@ -610,6 +610,13 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
     `finish_maneuver_resolution` and the passer keeps the ball. It is also why
     that function words a 0-space result rather than reporting "the ball moves 0
     spaces forward", which no coach saw until this rule.
+  - **It still costs a minute**, which is why `apply_high_pass` carries a
+    `distance_moved` (`max(actual_distance, 1)`) apart from the `actual_distance`
+    the result reports -- the same minimum Low Pass has always had for its own
+    move-the-ball-nowhere case. Every distance a coach is offered is at least 2,
+    so nothing but the clamp can come in under it, and a maneuver costing no
+    clock is one a coach could take all afternoon. **Every clock argument out of
+    that function is the first**; only the wording reads the second.
 - **A coach is only offered a distance that fits on the field.**
   `MatchState.high_pass_distances` drops any that would clamp, because a longer
   pass landing where a shorter one already would is that pass at a

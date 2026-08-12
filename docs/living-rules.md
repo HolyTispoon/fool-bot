@@ -149,7 +149,7 @@ Each player gains 1 token. Both roll d12 + attacker offense or challenger defens
 | --- | --- | --- | --- |
 | Low Pass | O1, 1–2 | Nearest teammate ahead/behind within 2, or teammate sharing ball; speed +1. | Distance, min. 1 |
 | Dribble Advance | O2, 3–4 | Handler and ball forward 1; adjust speed by offensive skill. | 1 |
-| High Pass | O3, 5–6 | Throw forward 2–3 (Fullback 4); long throws can be contested. | Distance |
+| High Pass | O3, 5–6 | Throw forward 2–3 (Fullback 4); long throws can be contested. | Distance, min. 1 |
 | Block Deflect | D1, 1–2 | Ball back 1 (Fullback 2); speed −1. | 1 |
 | Steal Intercept | D2, 3–4 | Turnover; interceptor and ball back 1; adjust speed. | 1 |
 | Pressure | D3, 5–6 | Handler and ball back 1; challenger forward 1. | 1 |
@@ -178,7 +178,7 @@ For a long-pass contest, receiver attacks. A defender already there contests aut
 
 On an overshoot to a teammate, choose the scoring opportunity or contest. Either subtracts speed from receiver's side. Without a teammate, it is loose.
 
-**A passer never receives their own pass.** From the final space the throw moves the ball nowhere and is an overshoot like any other: a teammate sharing that space receives it and is offered the choice above. With no other teammate there the passer simply keeps the ball — nothing is set up and nothing is contested.
+**A passer never receives their own pass.** From the final space the throw moves the ball nowhere and is an overshoot like any other: a teammate sharing that space receives it and is offered the choice above. With no other teammate there the passer simply keeps the ball — nothing is set up and nothing is contested. The throw still costs its minute.
 
 ### Block Deflect
 
