@@ -55,7 +55,30 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-12 (newest) -- author, board 9's deal spreads the goal zones and clumps midfield
+### 2026-08-12 (newest) -- author, a challenge that costs exhaustion may be declined
+
+*From the author: "it's no longer mandatory to challenge a maneuver if your player has to run
+towards it and gain exhaustion. you can send no one, in which case the other team just gets to
+do their maneuver."*
+
+- **The mandatory challenge is now the exception, not the rule.** A defense with somebody in
+  the ball's zone may keep them where they are and let the maneuver succeed unchallenged --
+  the same outcome as having nobody in the zone at all, which the rules already had a branch
+  for.
+- **A defender already standing on the ball still challenges, and is the only one who does.**
+  The line the author drew is exhaustion: that defender pays nothing to challenge, so there is
+  nothing to weigh and nothing to decline. Everyone else pays 1 token per space to walk in,
+  and paying it is now a choice.
+- **This makes the maneuver challenge the same shape as the long-pass contest**, which has
+  read "a defender already there contests automatically; otherwise defense may send a zone
+  player, paying 1 token per space, or decline" all along. The 2026-08-11 pass had corrected
+  the maneuver's wording from "may" to "must" to match the old document; that correction was
+  right about what the rules then said and is now superseded by the author.
+- **Nothing about the uncontested maneuver itself changed.** No challenger still means no
+  secret pick from the defense, no reveal, no skill test, and no disadvantage for an injured
+  attacker -- there is no opponent to be disadvantaged against.
+
+### 2026-08-12 -- author, board 9's deal spreads the goal zones and clumps midfield
 
 *From the author: "for boards that are size 9, the starting set up should spread out the
 defender and attacks so that home team defender is in H3 and their striker is in V3," and
@@ -958,6 +981,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | A turnover says nothing about ball speed | Every turnover resets it to 1 |
 | Substitutions "when they win possession", with no split between kinds of turnover | Only a new play (goal, own goal, missed attempt, out of bounds) opens a window; a steal opens none |
 | Nothing about giving the ball up on purpose | A side out of shooting range may cede it to coach, spending their once-a-half declaration; both coaches then get a window |
+| The defense must challenge a maneuver whenever it has anyone in the ball's zone | Only a defender already on the ball must; anyone who would have to walk in may be kept back, and the maneuver goes unchallenged |
 | A loose ball's contestant "gains 1 exhaustion" | 1 token per space travelled |
 | Nothing about the loose-ball check at all, beyond a pass landing on an empty space | A general check after every maneuver, with four cases |
 | Nothing about which space a player runs back to, or what it costs | After a steal the coach picks, covering every space of the zone their players can fill and stacking the surplus, 1 token per space |

@@ -1108,9 +1108,11 @@ class PlayerActionView(SafeView):
 
         # Nobody in the ball's zone to challenge with: the maneuver
         # succeeds automatically, and the offense still picks which one
-        # (docs/living-rules.md, "Maneuver"). There is no challenger to
+        # (docs/living-rules.md, "Maneuvers"). There is no challenger to
         # choose and nothing for the defense to do, so this skips
-        # straight to the offense's pick.
+        # straight to the offense's pick. A defense that is offered a
+        # challenge and sends nobody lands in the same place, from
+        # ManeuverChallengeView.decline.
         eligible_challengers = match.eligible_challengers()
         if not eligible_challengers:
             match.begin_uncontested_maneuver()
@@ -1129,14 +1131,11 @@ class PlayerActionView(SafeView):
         defender_number = self.cog.defending_player_number(game, match)
 
         # A defender already sharing the ball's exact space leaves
-        # nothing to choose -- the 1-per-team-per-space rule means
-        # there's at most one, so it's automatic, the same way it's
-        # automatic when the AI is the one picking.
-        on_ball_space = [
-            player_id
-            for player_id in eligible_challengers
-            if match.distance_to_ball(player_id) == 0
-        ]
+        # nothing to choose -- they pay nothing to challenge, so the
+        # challenge is neither theirs to decline nor a choice between
+        # players, and it goes ahead the same way it does when the AI
+        # is the one picking. See MatchState.automatic_challengers.
+        on_ball_space = match.automatic_challengers()
         if on_ball_space or (game.is_solo_game and defender_number == 2):
             challenger_id = (
                 on_ball_space[0]
@@ -1177,7 +1176,8 @@ class PlayerActionView(SafeView):
             f"{format_role_bracket(handler, self.cog.team_emojis)} will "
             f"maneuver for {handler.team.value.title()}.\n\n"
             f"{defender_mention}, choose which player will maneuver "
-            "to challenge for the ball.",
+            "to challenge for the ball, or send nobody and let the "
+            "maneuver through.",
             view=challenge_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -1295,6 +1295,15 @@ class CedeConfirmView(SafeView):
 
 
 class ManeuverChallengeView(SafeView):
+    """
+    Who the defense sends in to challenge -- or nobody. Walking in
+    costs 1 token per space, and the author's 2026-08-12 ruling is that
+    a defense may refuse to pay it and let the maneuver through; see
+    "Maneuvers" in docs/living-rules.md. A defender already on the ball
+    pays nothing and so challenges automatically, without ever reaching
+    this prompt.
+    """
+
     def __init__(
         self,
         cog: "D12Ball",
@@ -1334,31 +1343,53 @@ class ManeuverChallengeView(SafeView):
             button.callback = callback
             self.add_item(button)
 
-    async def select_challenger(
+        # Asked rather than assumed: this view is normally only built
+        # where the choice is real, but a restart can re-attach it to a
+        # prompt saved with a defender standing on the ball -- and that
+        # challenge is not the defense's to refuse.
+        if match.may_decline_challenge():
+            decline = discord.ui.Button(
+                label="Send nobody",
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"d12ball:challenge_decline:{game_id}",
+                row=4,
+            )
+            decline.callback = self.decline
+            self.add_item(decline)
+
+    async def claim(
         self,
         interaction: discord.Interaction,
-        player_id: str,
-    ) -> None:
+    ) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
+        """
+        The game and match if this click may still settle the
+        challenge, or (None, None) after replying with why it may not.
+        Both answers come through here, because either one closes the
+        question: a challenger walks in, or the defense sends nobody
+        and the maneuver goes unchallenged.
+        """
         game = self.cog.games.get(self.game_id)
         if game is None or game.match_state is None:
             await interaction.response.send_message(
                 "I could not find the saved data for this game.",
                 ephemeral=True,
             )
-            return
+            return None, None
 
         match = self.cog.load_match_state(game)
 
-        if match.challenger_id is not None:
+        if match.challenger_id is not None or match.maneuver_uncontested:
             await interaction.response.edit_message(
                 content=self.cog.build_turn_prompt(game, match),
                 view=PlayerActionView(self.cog, self.game_id),
             )
             await interaction.followup.send(
-                "A defender has already been chosen.",
+                "A defender has already been chosen."
+                if match.challenger_id is not None
+                else "This maneuver has already gone unchallenged.",
                 ephemeral=True,
             )
-            return
+            return None, None
 
         if not self.cog.user_controls_defense(
             interaction.user.id,
@@ -1370,6 +1401,17 @@ class ManeuverChallengeView(SafeView):
                 "this choice.",
                 ephemeral=True,
             )
+            return None, None
+
+        return game, match
+
+    async def select_challenger(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
             return
 
         try:
@@ -1409,6 +1451,36 @@ class ManeuverChallengeView(SafeView):
             interaction,
             game,
             match,
+        )
+
+    async def decline(self, interaction: discord.Interaction) -> None:
+        """
+        Send nobody: the maneuver goes unchallenged, exactly as it does
+        when the defense had nobody in the zone to send. Nothing moves
+        and nobody is charged, so there is no board to refresh -- the
+        one thing a challenge would have cost is the walk-in this
+        refuses to pay.
+        """
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        try:
+            match.begin_uncontested_maneuver()
+        except ValueError as error:
+            await interaction.response.send_message(
+                str(error),
+                ephemeral=True,
+            )
+            return
+
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        await interaction.response.defer()
+        await self.cog.drop_turn_prompt(interaction, game)
+        await self.cog.announce_uncontested_maneuver(
+            interaction, game, match,
         )
 
 
@@ -1469,9 +1541,17 @@ class ManeuverActionPromptView(SafeView):
         ):
             side = "defense"
         elif is_defense_player and match.maneuver_uncontested:
+            # Which way this side ended up unchallenged is read off the
+            # zone, the same way announce_uncontested_maneuver reads it
+            # -- somebody still standing there means they were offered
+            # the challenge and sent nobody.
             await interaction.response.send_message(
-                "You have nobody in the ball's zone, so there is no "
-                "defensive maneuver to pick.",
+                (
+                    "You sent nobody in to challenge"
+                    if match.eligible_challengers()
+                    else "You have nobody in the ball's zone"
+                )
+                + ", so there is no defensive maneuver to pick.",
                 ephemeral=True,
             )
             return

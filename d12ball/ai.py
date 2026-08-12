@@ -29,6 +29,10 @@ class AIStrategy(ABC):
 
     @abstractmethod
     def choose_challenger(self, match: MatchState) -> str:
+        """Which zone player walks in to challenge a maneuver. A
+        human defense may also send nobody and let the maneuver
+        through; no strategy is offered that, so this returns a player
+        rather than an Optional -- see DinkyAI.choose_challenger."""
         ...
 
     @abstractmethod
@@ -176,6 +180,12 @@ class DinkyAI(AIStrategy):
         """
         Always the player closest to the ball, with ties broken in
         favor of the higher defensive skill.
+
+        Dinky always challenges. Sending nobody rather than paying the
+        walk-in's exhaustion is legal since 2026-08-12, and it is a
+        judgement about a game two turns from now -- the same kind of
+        call Dinky does not make when it declines to cede or to leave a
+        loose ball alone.
         """
         candidates = match.eligible_challengers()
         if not candidates:

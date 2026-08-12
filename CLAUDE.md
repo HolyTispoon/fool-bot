@@ -305,11 +305,34 @@ everything but how it was bought.
 
 ## The maneuver with nobody to challenge it
 
-A maneuver normally needs two players. When the defending team has nobody in
-the ball's zone there is no challenger, and the maneuver the offense picks
-succeeds outright -- see "Maneuvers" in the living rules. `MatchState`'s
-`maneuver_uncontested` is the whole of it.
+A maneuver normally needs two players. When the defense has no challenger the
+maneuver the offense picks succeeds outright -- see "Maneuvers" in the living
+rules. `MatchState`'s `maneuver_uncontested` is the whole of it.
 
+**There are two ways to have no challenger and they are deliberately one
+state.** The defense has nobody in the ball's zone, or it has somebody and
+**sends nobody**: walking in costs 1 token per space, and since 2026-08-12
+paying it is a choice. `begin_uncontested_maneuver` is the only way in either
+way, so nothing downstream has to know which happened.
+
+- **Exhaustion is where the line is drawn**, which is why the choice is not
+  offered to everybody. A defender already standing on the ball pays nothing
+  to challenge, so there is nothing to weigh and nothing to refuse: they
+  challenge automatically, as they always did. `automatic_challengers` is that
+  reading -- it is what the two offense branches use to skip the prompt and
+  what `begin_uncontested_maneuver` refuses on -- and `may_decline_challenge`
+  is the same fact from the defense's end, asked by `ManeuverChallengeView`
+  before it builds the Send nobody button. The view is normally only built
+  where the choice is real; a restart can re-attach it to a prompt saved
+  before a defender walked onto the ball, which is the state that check is for.
+- **Which way it happened is read off the zone, never stored.** Anybody still
+  eligible to challenge means the defense was offered the challenge and passed,
+  since a defense with nobody there is never asked. `announce_uncontested_maneuver`
+  and the "no defensive maneuver to pick" reply both word themselves from that,
+  so nothing has to be persisted to word a message after a restart.
+- **Dinky never declines.** `choose_challenger` still returns a player, so in a
+  solo game keeping somebody back is the human's option alone -- the same call
+  as never ceding and never leaving a loose ball uncontested.
 - **It stands in for `challenger_id` everywhere that flag means "a maneuver is
   under way".** `challenger_id` is what tells `validate()` that the handler is
   allowed to be off the ball mid-effect, and what tells `on_ready` which
@@ -323,11 +346,14 @@ succeeds outright -- see "Maneuvers" in the living rules. `MatchState`'s
 - **`maneuver_selections_complete` is the only "are we ready to resolve"
   test.** Two call sites used to check `offense_maneuver and defense_maneuver`
   directly and would have hung the turn; anything new should ask the property.
-- **Both entry points go through the same branch** --
-  `PlayerActionView.choose_action` for a human and `play_ai_turn` for the AI
-  -- and both then use the ordinary maneuver prompt, so a coach reads the menu
-  they always read. What is skipped is the challenger pick, the matchup image
-  (it draws two players against each other), the reveal, and the skill test.
+- **Three entry points go through the same branch** --
+  `PlayerActionView.choose_action` for a human offense, `play_ai_turn` for the
+  AI, and `ManeuverChallengeView.decline` for a defense that sends nobody --
+  and all of them then use the ordinary maneuver prompt, so a coach reads the
+  menu they always read. What is skipped is the challenger pick, the matchup
+  image (it draws two players against each other), the reveal, and the skill
+  test. A decline moves nobody and charges nobody, so it is also the one of
+  the three that asks for no board refresh.
 
 ## Who wins a maneuver
 
