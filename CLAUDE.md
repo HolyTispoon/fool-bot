@@ -129,6 +129,18 @@ overfill a zone. So the occupancy machinery below is exercised on board 6 and
 by `/coach`, not by the default board -- render a sample at `--board-size 6` to
 see a stack.
 
+**The deal spreads a goal zone's pair and packs midfield**, which is
+`setup_space_order` and only ever visible on board 9 -- the one board whose
+zones are deeper than 2-2-2 fills them. A goal zone's two cards take its two
+end spaces and midfield clumps toward that side's own goal, so home deals H1,
+H3, M1, M2, V1, V3 (see "Setup" in the living rules, and the 2026-08-12 entry
+in the rules log). The clumped half is not an oversight: the kickoff space is
+in midfield and the side kicking off has to be standing on one, so spreading
+two cards over a three-space midfield would empty the middle and hold the coach
+in the setup window (`coaching_finish_refusal`). That is why the function takes
+the zone. **This is the standard deal only**; a formation change re-deals through
+`formation_space_order`, which packs and then stacks.
+
 - **The shapes live in two places on purpose.** `Formation` in `d12ball/game.py`
   names the three; the counts are in `basic_rules.json`, with the rest of the
   ruleset data. `load_basic_ruleset` checks the two agree, so neither can drift
