@@ -1361,6 +1361,15 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
 - **One back for all six.** A coach holding both sets must not show which side
   of the ball they are reading. It carries the defeat cycle, which is public
   and which every coach may look at anyway.
+  - **The cycle draws both relations: a solid arrow to what a maneuver beats,
+    a dashed line to what it ties with.** The ties were left to the caption
+    ("same rank ties"), which made them the one thing on the card a coach had
+    to work out rather than look up -- and a tie is the branch that costs a
+    skill test and a token each. `tie_pairs` asks `ManeuverCatalog.resolve`
+    rather than pairing equal ranks or joining opposite nodes: on six
+    maneuvers the ties happen to be the hexagon's three diagonals, but that
+    is a property of a six-node cycle, so a seventh would move the lines
+    without moving what they mean.
 - **`print_sheet` is an exact grid, because splitters cut by dividing.**
   Every cell is one card plus `SHEET_MARGIN` on all four sides, the sheet is
   `SHEET_COLUMNS` cells wide and whole rows deep, and a short last row is
