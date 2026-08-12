@@ -265,38 +265,6 @@ def role_abilities(
     return rows
 
 
-def arc_rise(move: Move) -> float:
-    """
-    How far above the strip a move's arc peaks. It grows with the
-    distance so a High Pass's three throws out of one space stay told
-    apart, and the diagram is laid out around the tallest of them --
-    which is why this is a function and not a number inside the drawing
-    loop.
-    """
-    return 18 + 20 * abs(move.offset) + move.lift
-
-
-def draw_arrowhead(
-    pen: Pen,
-    tip: tuple[float, float],
-    direction: tuple[float, float],
-    size: float,
-    fill: str,
-) -> None:
-    dx, dy = direction
-    back = (tip[0] - dx * size, tip[1] - dy * size)
-    perp = (-dy, dx)
-    half = size * 0.55
-    pen.polygon(
-        [
-            tip,
-            (back[0] + perp[0] * half, back[1] + perp[1] * half),
-            (back[0] - perp[0] * half, back[1] - perp[1] * half),
-        ],
-        fill=fill,
-    )
-
-
 class Move(NamedTuple):
     """
     One arc on the strip diagram.
@@ -333,6 +301,38 @@ class Move(NamedTuple):
     @property
     def caption_row(self) -> int:
         return (1 if self.dashed else 0) if self.row is None else self.row
+
+
+def arc_rise(move: Move) -> float:
+    """
+    How far above the strip a move's arc peaks. It grows with the
+    distance so a High Pass's three throws out of one space stay told
+    apart, and the diagram is laid out around the tallest of them --
+    which is why this is a function and not a number inside the drawing
+    loop.
+    """
+    return 18 + 20 * abs(move.offset) + move.lift
+
+
+def draw_arrowhead(
+    pen: Pen,
+    tip: tuple[float, float],
+    direction: tuple[float, float],
+    size: float,
+    fill: str,
+) -> None:
+    dx, dy = direction
+    back = (tip[0] - dx * size, tip[1] - dy * size)
+    perp = (-dy, dx)
+    half = size * 0.55
+    pen.polygon(
+        [
+            tip,
+            (back[0] + perp[0] * half, back[1] + perp[1] * half),
+            (back[0] - perp[0] * half, back[1] - perp[1] * half),
+        ],
+        fill=fill,
+    )
 
 
 # A dashed arc is a role's variant rather than the ordinary move, and
