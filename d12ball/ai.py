@@ -315,12 +315,55 @@ class DinkyAI(AIStrategy):
         game -- but it is still the one swap worth making without
         reading the position, and Dinky stays a dice-roller: it never
         spends a declaration on a tactical swap and never rearranges.
+
+        Who comes on is the nearest replacement for the player going
+        off rather than whoever is at the front of the bench -- see
+        closest_role_replacement. Replacing a striker with a defender
+        is a change of shape, and Dinky does not make those.
         """
         pool = match.substitution_pool(side)
         injured = match.injured_field_players(side)
         if pool and injured:
-            return injured[0], pool[0]
+            outgoing_player_id = injured[0]
+            return (
+                outgoing_player_id,
+                self.closest_role_replacement(outgoing_player_id, pool),
+            )
         return None
+
+    def closest_role_replacement(
+        self,
+        outgoing_player_id: str,
+        pool: list[str],
+    ) -> str:
+        """
+        Whoever in `pool` plays nearest the outgoing player's role --
+        the same role when the pool has one, and otherwise the closest
+        role to it.
+
+        The six roles are a single spectrum, fullback (1/6) through to
+        striker (6/1), so a role's *offensive skill is* its place on it
+        and the distance between two roles is the gap between those.
+        That is read off `role_profiles` rather than off the two
+        players, because a stat_override moves one player's numbers
+        without moving their role, and it is the role being matched.
+
+        A tie -- a midfielder with a defender and a playmaker to choose
+        between, either of them one step away -- goes to whichever the
+        pool lists first, which is bench order. There is no rules
+        answer to which way a coach should lean, and Dinky does not
+        read the position to invent one.
+        """
+        rank = self.role_rank(outgoing_player_id)
+        return min(
+            pool,
+            key=lambda player_id: abs(self.role_rank(player_id) - rank),
+        )
+
+    def role_rank(self, player_id: str) -> int:
+        return self.player_catalog.role_profiles[
+            self.player_catalog.player_by_id(player_id).role
+        ].offense
 
     def choose_loose_ball_player(
         self,

@@ -311,6 +311,55 @@ class DinkySubstitutionTests(unittest.TestCase):
         self.assertEqual(outgoing, "orange_kindlefoot")
         self.assertIn(incoming, match.home.team_board.bench)
 
+    def test_dinky_brings_on_the_same_role(self) -> None:
+        # A striker for a striker, over the defender the bench lists
+        # first.
+        match = self.build_match()
+        match.mark_injured("orange_kindlefoot")
+
+        _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
+
+        self.assertEqual(incoming, "orange_emberdash")
+
+    def test_dinky_brings_on_the_closest_role_when_it_must(self) -> None:
+        # Nobody on the bench is a fullback, and the defender is the
+        # next role along the spectrum.
+        match = self.build_match()
+        match.mark_injured("orange_hellguard")
+
+        _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
+
+        self.assertEqual(incoming, "orange_inferno")
+
+    def test_dinky_breaks_a_role_tie_on_bench_order(self) -> None:
+        # A winger sits one step from both the playmaker and the
+        # striker, and the playmaker is on the bench first.
+        match = self.build_match()
+        match.mark_injured("orange_flickerwing")
+
+        _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
+
+        self.assertEqual(incoming, "orange_blazekick")
+
+    def test_dinky_matches_roles_off_the_back_bench_too(self) -> None:
+        # The same question, asked of the other pool. Three swaps
+        # drain the bench and put a fullback, a defender and a
+        # playmaker on the back bench; an injured striker takes the
+        # playmaker, who is the nearest of the three.
+        match = self.build_match()
+        for outgoing in (
+            "orange_hellguard", "orange_blazebulk", "orange_scorchit",
+        ):
+            match.substitute(
+                TeamSide.HOME, outgoing, match.home.team_board.bench[0],
+            )
+        match.mark_injured("orange_kindlefoot")
+
+        _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
+
+        self.assertIn(incoming, match.home.team_board.back_bench)
+        self.assertEqual(incoming, "orange_scorchit")
+
     def test_dinky_passes_when_there_is_nobody_to_bring_on(self) -> None:
         match = self.build_match()
         for outgoing in ("orange_hellguard", "orange_sizzik", "orange_scorchit"):
