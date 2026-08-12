@@ -316,11 +316,15 @@ At a new play, restarting side may declare once per half. If it does, other side
 
 ### Changing formation
 
-| Formation | Own goal | Midfield | Opponent's goal |
-| --- | ---: | ---: | ---: |
-| 2-2-2 | 2 | 2 | 2 |
-| 2-3-1 | 2 | 3 | 1 |
-| 1-3-2 | 1 | 3 | 2 |
+| Formation | Own goal | Midfield | Opponent's goal | Boards |
+| --- | ---: | ---: | ---: | --- |
+| 2-2-2 | 2 | 2 | 2 | 6, 7, 9 |
+| 2-3-1 | 2 | 3 | 1 | 6, 7, 9 |
+| 1-3-2 | 1 | 3 | 2 | 6, 7, 9 |
+| 3-2-1 | 3 | 2 | 1 | 9 |
+| 1-2-3 | 1 | 2 | 3 | 9 |
+
+3-2-1 and 1-2-3 are played on the nine-space board only, and are offered nowhere else. Every other shape is played on every board, stacking where it has to.
 
 Read formations from own goal forward. Re-deal fielded players by defensive skill, highest first, toward own goal first. Within a zone, place own-goal-nearest outward. Surplus stacks in center of a three-space zone or center-nearer space of a two-space zone; on board-6 midfield, stack toward own goal.
 

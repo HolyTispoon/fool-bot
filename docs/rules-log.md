@@ -55,7 +55,26 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-12 (newest) -- author, a challenge that costs exhaustion may be declined
+### 2026-08-12 (newest) -- author, board 9 gains 3-2-1 and 1-2-3
+
+*From the author: "for 9 space board, include formations: 3-2-1 and 1-2-3".*
+
+- **Two shapes, and the first that are not played on every board.** They put three cards in a
+  goal zone, which only board 9 has three spaces for. The three existing shapes stay open to
+  every board.
+- **This is not "a shape must fit the board one card a space", and must not be turned into
+  one.** 2-3-1 and 1-3-2 overfill a six-space board's midfield and are played there anyway,
+  stacking -- the whole reason the stacking machinery exists. Which boards a shape is played
+  on is the author's call and is written down per shape (`board_sizes` in `basic_rules.json`),
+  not derived from the geometry.
+- **Neither shape stacks.** Board 9's zones are three spaces deep and neither puts more than
+  three cards in one, so nothing about the surplus rules moves. Both cover the kickoff space
+  from either side: two cards in a three-space midfield stand on the two spaces nearest their
+  own goal, and the middle one is the second of those.
+- **2-2-2 stays open to every board** and cannot be restricted, since it is the shape every
+  team is dealt whatever board they are dealt onto.
+
+### 2026-08-12 -- author, a challenge that costs exhaustion may be declined
 
 *From the author: "it's no longer mandatory to challenge a maneuver if your player has to run
 towards it and gain exhaustion. you can send no one, in which case the other team just gets to
@@ -996,7 +1015,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Nothing about coaching between full time and the shootout | A Coaching Choice each, home first, offering one substitution and nothing else |
 | A level round "continues one clash at a time" with no end to a round | Eligibility resets when all six have gone, and every sudden-death pick is free |
 | "For now, we need one player of each role on the field" | A property of the standard setup, not a standing rule |
-| Nothing about formations, and a fixed two cards per zone | Games kick off 2-2-2; rearranging can move a team into 2-3-1 or 1-3-2 |
+| Nothing about formations, and a fixed two cards per zone | Games kick off 2-2-2; rearranging can move a team into 2-3-1 or 1-3-2, and into 3-2-1 or 1-2-3 on the nine-space board |
 | A pass to the ball's own space names one player | The passer picks, when more than one teammate is standing there |
 | Nothing about a Low Pass with no legal destination | The ball goes a space forward, loose, speed still +1 |
 | A score attempt from wherever the ball is | Only from within shooting range, set-ups included |
