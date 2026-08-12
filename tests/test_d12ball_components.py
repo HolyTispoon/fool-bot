@@ -17,6 +17,7 @@ from d12ball.cards import (
     render_maneuver_card_back,
     render_maneuver_hand,
     role_abilities,
+    tie_pairs,
 )
 from d12ball.components import (
     CoachingOccasion,
@@ -1876,6 +1877,27 @@ class D12BallManeuverTests(unittest.TestCase):
                 with Image.open(hand) as image:
                     self.assertEqual(image.format, "PNG")
                     self.assertEqual(image.width, expected)
+
+    def test_the_back_joins_every_pair_that_ties(self) -> None:
+        """
+        The dashed lines on the back are the ties, and they are asked
+        of the catalog rather than paired by rank -- so a re-cut cycle
+        moves the lines instead of leaving them pointing at the wrong
+        maneuvers. Three pairs, each a genuine tie, and every maneuver
+        in exactly one.
+        """
+        pairs = tie_pairs(self.catalog)
+        self.assertEqual(len(pairs), len(self.catalog.offense))
+        for offense, defense in pairs:
+            with self.subTest(pair=(offense.name, defense.name)):
+                self.assertEqual(
+                    self.catalog.resolve(offense.name, defense.name), "tie"
+                )
+        named = [maneuver.name for pair in pairs for maneuver in pair]
+        self.assertEqual(sorted(named), sorted(
+            maneuver.name
+            for maneuver in self.catalog.offense + self.catalog.defense
+        ))
 
     def test_a_print_sheet_divides_evenly_into_its_cards(self) -> None:
         """

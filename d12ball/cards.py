@@ -32,7 +32,7 @@ from d12ball.components import (
     ManeuverDefinition,
     PlayerCatalog,
 )
-from d12ball.render import load_font, wrap_text
+from d12ball.render import draw_dashed_line, load_font, wrap_text
 
 
 # Poker size -- 2.5 x 3.5 inches at 300dpi -- with the 1/8in bleed a
@@ -77,6 +77,9 @@ MUTED = "#5d6b78"
 # six times over.
 BACK_COLOR = "#ffffff"
 BACK_EDGE = "#8c9aa6"
+# The tie lines on the back. Lighter than the arrows they cross, so
+# the cycle still reads as the first thing on the card.
+TIE_COLOR = "#7e8d9a"
 
 # The strip diagram is the standard seven-space board with the ball on
 # the third space, which is the only position from which every maneuver
@@ -168,6 +171,27 @@ class Pen:
 
     def polygon(self, points: list[tuple[float, float]], fill: str) -> None:
         self.draw.polygon([(px(x), px(y)) for x, y in points], fill=fill)
+
+    def dashed_line(
+        self,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        fill: str,
+        width: float = 1,
+        dash: float = 16,
+        gap: float = 12,
+    ) -> None:
+        draw_dashed_line(
+            self.draw,
+            px(start[0]),
+            px(start[1]),
+            px(end[0]),
+            px(end[1]),
+            fill=fill,
+            width=round(px(width)),
+            dash_length=round(px(dash)),
+            gap_length=round(px(gap)),
+        )
 
     def text_size(
         self, text: str, face: ImageFont.ImageFont
@@ -891,12 +915,70 @@ def render_maneuver_card(
     return pen.finish(bleed, CARD_FACE)
 
 
+# How far short of a node's edge a tie line stops, and how it is
+# drawn. The node circles are radius 58; stopping outside them keeps
+# the dashes from running under a label, and the line is thinner than
+# an arrow because it is the quieter relation.
+TIE_NODE_GAP = 64
+TIE_WIDTH = 5
+TIE_DASH = 15
+TIE_GAP = 13
+
+
+def draw_tie_line(
+    pen: Pen,
+    start: tuple[float, float],
+    end: tuple[float, float],
+) -> None:
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length = (dx * dx + dy * dy) ** 0.5
+    if not length:
+        return
+    ux, uy = dx / length, dy / length
+    pen.dashed_line(
+        (start[0] + ux * TIE_NODE_GAP, start[1] + uy * TIE_NODE_GAP),
+        (end[0] - ux * TIE_NODE_GAP, end[1] - uy * TIE_NODE_GAP),
+        fill=TIE_COLOR,
+        width=TIE_WIDTH,
+        dash=TIE_DASH,
+        gap=TIE_GAP,
+    )
+
+
+def tie_pairs(
+    catalog: ManeuverCatalog,
+) -> list[tuple[ManeuverDefinition, ManeuverDefinition]]:
+    """
+    The maneuvers that tie, asked of the catalog rather than read off
+    the diagram.
+
+    On the current six they are the ranks facing each other -- O1/D1,
+    O2/D2, O3/D3 -- which the cycle happens to draw as the three
+    diagonals of the hexagon. That is a property of a six-node cycle
+    and not a rule, so a seventh maneuver would move the lines without
+    moving what they mean; matching on `resolve` is what keeps the
+    picture honest either way.
+    """
+    return [
+        (offense, defense)
+        for offense in catalog.offense
+        for defense in catalog.defense
+        if catalog.resolve(offense.name, defense.name) == "tie"
+    ]
+
+
 def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Image:
     """
     One back for all six, because a coach holding both sets must not
     show which side of the ball they are reading. It carries the defeat
     cycle, which is public information every coach is entitled to see
     at any time.
+
+    The cycle is two relations, not one: a solid arrow to what a
+    maneuver beats, and a dashed line to the one it ties with. The ties
+    used to be left to the caption -- "same rank ties" -- which is the
+    one thing on the card a coach had to work out rather than look up,
+    and a tie is the branch that costs a skill test and a token each.
     """
     from d12ball.render import _maneuver_cycle_order
 
@@ -917,7 +999,7 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
     )
     pen.text(
         (CARD_WIDTH / 2, 166),
-        "MANEUVERS",
+        "BASIC MANEUVERS",
         font(22, bold=True),
         MUTED,
         anchor="mm",
@@ -936,6 +1018,18 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         )
         for angle in angles
     ]
+
+    # The ties first, so the arrows and the nodes sit over them: a
+    # dashed line is the quieter of the two relations and reads as the
+    # background of the cycle rather than a step in it.
+    node_at = {
+        (maneuver.name, is_offense): point
+        for (maneuver, is_offense), point in zip(order, points)
+    }
+    for offense, defense in tie_pairs(catalog):
+        draw_tie_line(
+            pen, node_at[(offense.name, True)], node_at[(defense.name, False)]
+        )
 
     for index, point in enumerate(points):
         nxt = points[(index + 1) % len(points)]
@@ -968,7 +1062,7 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
 
     pen.text(
         (CARD_WIDTH / 2, CARD_HEIGHT - 118),
-        "each beats what it points to · same rank ties",
+        "solid: beats what it points to · dashed: ties",
         font(20),
         MUTED,
         anchor="mm",
