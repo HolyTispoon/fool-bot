@@ -30,6 +30,7 @@ python3 -m unittest discover -s tests
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board image rendering (Pillow) |
 | `d12ball/cards.py` | The six maneuvers as cards — the printed face and the hand the bot shows |
+| `d12ball/boards.py` | The field board and the team board, print-ready for the tabletop game |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
 | `d12ball/data/` | `players.json`, `basic_rules.json` |
 | `d12ball/images/` | Card art and emoji |
@@ -1337,6 +1338,61 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
   "BASIC MANEUVER", which is what will still mean something once a second set
   of maneuvers exists.
 - `cards/` is generated output and is gitignored, like `board.png`.
+
+### The printed boards
+
+`d12ball/boards.py` draws the two boards the tabletop game is played on -- the
+**field board** and a coach's **team board** -- print-ready at 300dpi.
+
+```bash
+python3 scripts/render_boards.py --out print/
+python3 scripts/render_boards.py --all-boards --teams --bleed --pdf
+```
+
+- **They follow `cards.py`, not `render.py`.** The palette is the maneuver
+  cards' -- dark ink on a light face, in the same six colours -- because a
+  print goes on paper and the bot's dark board is the wrong thing to hand a
+  printer. The zone tints are the bot's three hues lightened, so a coach reads
+  one board as the other. Everything is measured in inches, with the same
+  1/8in bleed the cards carry.
+- **A3 landscape, both of them, and that is a constraint rather than a
+  preference.** Five of the team board's six cells have to hold a 3.5in card:
+  two rows of them plus a header and a footer is 11.3 inches, which is most of
+  an A3's shorter side and more than a tabloid's. So the head coach is a cell
+  of the grid rather than a band across the top, the formation table is a
+  footer strip rather than a panel, and **`card_slot_inches` is what says
+  whether a print can be laid cards on** -- the CLI prints it, and a smaller
+  sheet scales the whole board down rather than overflowing its areas.
+  `D12BallTeamBoardTests` asserts it, because a band added above the areas
+  takes them under a card silently: it renders fine and prints useless.
+- **Nothing on either board is written in the module.** The layouts, the
+  formations, the standard deal and the head coach's three dice come from
+  `basic_rules.json`, the selection die's faces from `maneuvers.json`, and the
+  roster from `players.json` -- so a printed board cannot claim a rule the bot
+  does not play, and an import reaches the boards by re-running the script.
+- **The geometry a board asserts is read off the same code the bot enforces.**
+  `shooting_range_bands` walks `BoardState.is_in_shooting_range` a space at a
+  time and `kickoff_marks` reads `kickoff_space_index`, rather than either
+  restating where the middle of the board is. That is what puts two kickoff
+  marks on board 6 (its midfield has no middle, so each side kicks off from
+  the space nearer its own goal) and one on 7 and 9, and what leaves the
+  bracket under the field agreeing with the living rules' own table.
+- **Zones keep their real names on the team board.** A coach's own goal is the
+  home goal for one of them and the visitors goal for the other, and one
+  design is printed for both, so the areas read HOME GOAL / MIDFIELD /
+  VISITORS GOAL exactly as the field and the coaching image do. Only the
+  formation strip is relative, and it says so. `--teams` colours a board per
+  team and changes nothing else.
+- **The clock and score tracks are printed aids, not components the rules
+  name.** What they count is a rule -- fifteen space-minutes, a clock that
+  stops there, a score a shootout can add six to -- but nothing upstream says
+  a board carries a track, so don't read them as one.
+- **`Sheet` measures in thousandths of the sheet's width** and does not
+  supersample, unlike `cards.Pen`: a board is tens of megapixels at 300dpi,
+  where a card is under one, and a stepped edge that small does not survive
+  the print. Its canvas is allocated on first use, which is what lets
+  `card_slot_inches` ask how a layout comes out without drawing it.
+- `print/` is generated output and is gitignored, like `cards/`.
 
 ### Fonts
 

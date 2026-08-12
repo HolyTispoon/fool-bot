@@ -5,6 +5,7 @@ __pycache__/
 .DS_Store
 board.png
 cards/
+print/
 data/d12ball_games.json
 data/d12ball_games.tmp
 data/tethysdeck_decks.json
