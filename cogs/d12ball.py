@@ -515,8 +515,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         return max(existing_numbers) + 1
 
-    def formation_shape(self, formation: Formation) -> FormationShape:
-        return self.basic_ruleset.formations[Formation(formation)]
+    def formation_shape(
+        self,
+        match: MatchState,
+        formation: Formation,
+    ) -> FormationShape:
+        """
+        A formation's counts on this match's board, which refuses a
+        shape that board does not play -- see
+        BasicRuleset.formations_for_board.
+        """
+        return self.basic_ruleset.formation_shape(
+            formation, match.board.layout.board_size,
+        )
+
+    def available_formations(
+        self,
+        match: MatchState,
+    ) -> dict[Formation, FormationShape]:
+        """The shapes a coach may pick on this match's board."""
+        return self.basic_ruleset.formations_for_board(
+            match.board.layout.board_size
+        )
 
     def initialize_standard_match(
         self,
@@ -3874,7 +3894,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         assignment and space positioning.
         """
         side = TeamSide(side)
-        shape = self.formation_shape(formation)
+        shape = self.formation_shape(match, formation)
         ordered = self.defense_ordered_field_players(match, side)
 
         placement: list[tuple[str, Zone, int]] = []
@@ -3931,13 +3951,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         The formation a side is standing in, or None for a shape no
         formation describes -- which /coach and /ref can leave behind,
         since they move cards one at a time and answer to nothing.
+
+        Only the shapes this board plays are candidates, so a side
+        pushed by hand into a shape their board does not offer reads as
+        no shape at all rather than as one the Formation button would
+        refuse.
         """
         setup = match.setup_for_side(side)
         counts = {
             area: len(setup.zones[zone_for_area(side, area)])
             for area in SETUP_AREAS
         }
-        for formation, shape in self.basic_ruleset.formations.items():
+        for formation, shape in self.available_formations(match).items():
             if shape.counts() == counts:
                 return formation
         return None

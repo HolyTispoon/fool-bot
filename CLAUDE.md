@@ -119,16 +119,31 @@ rules change reaches the commands in the commit that makes it, and cannot be hal
 
 ## Formations and occupancy
 
-Basic mode has three shapes -- **2-2-2, 2-3-1 and 1-3-2**, read from a coach's
-own goal forward, six cards either way. **Every team is dealt 2-2-2**, and a
-coach changes shape only in a [Coaching Choice](#the-coaching-choice) -- of
-which setup is now one, so a game need not kick off in the shape it was dealt.
+Basic mode has five shapes -- **2-2-2, 2-3-1 and 1-3-2** on every board, plus
+**3-2-1 and 1-2-3** on the nine-space board -- read from a coach's own goal
+forward, six cards either way. **Every team is dealt 2-2-2**, and a coach
+changes shape only in a [Coaching Choice](#the-coaching-choice) -- of which
+setup is now one, so a game need not kick off in the shape it was dealt.
+
+**Which board plays which shape is data, not geometry.** `board_sizes` on a
+shape in `basic_rules.json` lists the boards it may be picked on, and leaving
+it out means every board. It is not "a shape that would stack is refused":
+2-3-1 and 1-3-2 overfill board 6's midfield and are played there anyway. 3-2-1
+and 1-2-3 need a goal zone three deep, and being board 9's alone is the
+author's call (2026-08-12 in the rules log). `BasicRuleset.formations_for_board`
+is the only reading of it -- `D12Ball.available_formations` for a match, which
+is what the Formation menu builds from and what `current_formation` names a
+side's shape out of -- and `BasicRuleset.formation_shape` is the matching
+refusal, so a shape offered in one place cannot be refused in another.
+**A formation is named by its counts**, which `load_basic_ruleset` checks; that
+is what lets the printed team board list the names and nothing else.
 
 **Stacking is board-dependent.** Three in midfield fits board 7 and board 9 one
 card a space; only board 6, whose midfield has two spaces, makes 2-3-1 or 1-3-2
-overfill a zone. So the occupancy machinery below is exercised on board 6 and
-by `/coach`, not by the default board -- render a sample at `--board-size 6` to
-see a stack.
+overfill a zone. Board 9's two shapes stack nowhere -- its zones are three
+spaces deep and neither puts more than three cards in one. So the occupancy
+machinery below is exercised on board 6 and by `/coach`, not by the default
+board -- render a sample at `--board-size 6` to see a stack.
 
 **The deal spreads a goal zone's pair and packs midfield**, which is
 `setup_space_order` and only ever visible on board 9 -- the one board whose
@@ -143,9 +158,9 @@ the zone. **This is the standard deal only**; a formation change re-deals throug
 `formation_space_order`, which packs and then stacks.
 
 - **The shapes live in two places on purpose.** `Formation` in `d12ball/game.py`
-  names the three; the counts are in `basic_rules.json`, with the rest of the
-  ruleset data. `load_basic_ruleset` checks the two agree, so neither can drift
-  alone.
+  names them; the counts and the boards they are played on are in
+  `basic_rules.json`, with the rest of the ruleset data. `load_basic_ruleset`
+  checks the two agree, so neither can drift alone.
 - **Occupancy is a coverage rule, not a limit** -- see "Occupancy" in the living
   rules. `MatchState.placement_spaces_in_zone` is the whole of it: a team's
   uncovered spaces in a zone, or every space once its other meeples cover them
@@ -1221,7 +1236,8 @@ and on the board the coaches are looking at.
 
 Two things set its width, and both are three cards wide. A zone's **assigned
 cards** are drawn under that zone, and midfield holds three under 2-3-1 and
-1-3-2; a space has to fit a **stack**, which is board 6's two-space midfield
+1-3-2 (a goal zone does under board 9's 3-2-1 and 1-2-3, which is the same
+three); a space has to fit a **stack**, which is board 6's two-space midfield
 under those same shapes. `D12BallComponentTests` checks both, because the
 suite cannot see the image and an overflow here is silent.
 
@@ -1437,6 +1453,15 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   VISITORS GOAL exactly as the field and the coaching image do. Only the
   formation strip is relative, and it says so. `--teams` colours a board per
   team and changes nothing else.
+- **The formation strip lists the shapes and nothing else, and groups the ones
+  only some boards play.** One team board is printed for every field size, so
+  3-2-1 and 1-2-3 are on it under "9-SPACE BOARD ONLY" rather than left off --
+  read from `board_sizes` rather than from a size written into the module. The
+  `(2 / 3 / 1)` that used to follow each name restated the same three digits
+  (a shape is named by its counts, which the ruleset loader checks) and five
+  shapes with it no longer fit the strip. `draw_formation_strip` measures
+  itself and shrinks to fit, because a sixth shape added upstream lands there
+  without anybody measuring.
 - **The clock and score tracks are printed aids, not components the rules
   name.** What they count is a rule -- fifteen space-minutes, a clock that
   stops there, a score a shootout can add six to -- but nothing upstream says

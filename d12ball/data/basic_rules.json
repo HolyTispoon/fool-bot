@@ -32,6 +32,22 @@
       "own_goal": 1,
       "midfield": 3,
       "opponent_goal": 2
+    },
+    "3-2-1": {
+      "own_goal": 3,
+      "midfield": 2,
+      "opponent_goal": 1,
+      "board_sizes": [
+        9
+      ]
+    },
+    "1-2-3": {
+      "own_goal": 1,
+      "midfield": 2,
+      "opponent_goal": 3,
+      "board_sizes": [
+        9
+      ]
     }
   },
   "standard_setup": {

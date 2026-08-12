@@ -29,6 +29,8 @@ from d12ball.boards import (
     TeamBoardGeometry,
     card_slot_inches,
     cell_inches,
+    draw_formation_strip,
+    formation_strip_segments,
     kickoff_marks,
     render_field_board,
     render_jumbotron_board,
@@ -249,6 +251,47 @@ class D12BallTeamBoardTests(unittest.TestCase):
         self.assertIn("1 Fullback", line)
         self.assertIn("2 Defenders", line)
         self.assertIn("2 Strikers", line)
+
+    def test_the_strip_names_every_shape_and_which_board_plays_it(
+        self,
+    ) -> None:
+        """
+        One team board is printed for every field size, so a shape only
+        some boards play has to be on it *and* say so. The names alone
+        are the counts, which is the loader's own invariant.
+        """
+        said = [text for text, _, _ in formation_strip_segments(self.rules)]
+        for formation, shape in self.rules.formations.items():
+            with self.subTest(formation=formation.value):
+                self.assertIn(formation.value, said)
+                if shape.board_sizes is not None:
+                    self.assertIn(
+                        f"{shape.board_size_label().upper()} BOARD ONLY",
+                        said,
+                    )
+
+    def test_the_strip_fits_the_width_it_is_given(self) -> None:
+        """
+        There is no second row under the strip and nothing to catch an
+        overflow, so it measures itself and shrinks. A shape added
+        upstream lands there without anybody measuring, which the
+        narrowed case stands in for.
+        """
+        sheet = Sheet(*sheet_pixels("a3", True))
+        geometry = TeamBoardGeometry.for_sheet(sheet)
+        for share in (1.0, 0.85):
+            with self.subTest(share=share):
+                right = geometry.left + (geometry.right - geometry.left) * share
+                self.assertLessEqual(
+                    draw_formation_strip(
+                        sheet,
+                        self.rules,
+                        geometry.left,
+                        geometry.rows[1][1],
+                        right,
+                    ),
+                    right,
+                )
 
     def test_the_standard_deal_names_every_zone_s_pair(self) -> None:
         line = standard_deal_line(self.rules)

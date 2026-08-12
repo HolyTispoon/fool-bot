@@ -1,8 +1,8 @@
 """
-Formations: the three shapes basic mode allows, how a coach moves
-between them in a Coaching Choice, and the coverage rule that
-decides where a meeple may stand once a zone holds more players than it
-has spaces.
+Formations: the shapes basic mode allows, which boards allow which,
+how a coach moves between them in a Coaching Choice, and the coverage
+rule that decides where a meeple may stand once a zone holds more
+players than it has spaces.
 
 Every game kicks off in 2-2-2, so setup has nothing to ask and nothing
 here drives it. The run back's own flow is covered in
@@ -315,6 +315,142 @@ class FormationShapeTests(unittest.TestCase):
         )
 
 
+class BoardScopedFormationTests(unittest.TestCase):
+    """
+    3-2-1 and 1-2-3 are the nine-space board's alone -- the author's
+    call, and the first thing to make a shape depend on the board it is
+    played on. The rule is data (`board_sizes` in basic_rules.json) and
+    not geometry: 2-3-1 overfills board 6's midfield and is offered
+    there anyway.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def test_board_9_offers_five_shapes_and_the_others_three(self) -> None:
+        self.assertEqual(
+            list(self.rules.formations_for_board(9)), list(Formation),
+        )
+        for board_size in (6, 7):
+            with self.subTest(board_size=board_size):
+                self.assertEqual(
+                    list(self.rules.formations_for_board(board_size)),
+                    [
+                        Formation.TWO_TWO_TWO,
+                        Formation.TWO_THREE_ONE,
+                        Formation.ONE_THREE_TWO,
+                    ],
+                )
+
+    def test_a_shape_a_board_does_not_play_is_refused_by_name(self) -> None:
+        with self.assertRaises(ValueError) as refusal:
+            self.rules.formation_shape(Formation.ONE_TWO_THREE, 7)
+
+        self.assertIn("1-2-3", str(refusal.exception))
+        self.assertIn("9-space", str(refusal.exception))
+        # The three every board plays are never refused.
+        for board_size in (6, 7, 9):
+            self.rules.formation_shape(Formation.TWO_THREE_ONE, board_size)
+
+    def test_a_match_cannot_be_dealt_a_shape_its_board_refuses(self) -> None:
+        with self.assertRaises(ValueError):
+            MatchState.standard(
+                catalog=self.catalog,
+                ruleset=self.rules,
+                board_size=7,
+                home_team=Team.ORANGE,
+                visiting_team=Team.PURPLE,
+                visiting_formation=Formation.THREE_TWO_ONE,
+            )
+
+    def test_board_9_deals_the_new_shapes_one_card_a_space(self) -> None:
+        # Both put three in a goal zone, which is exactly board 9's
+        # depth, so neither stacks -- and midfield's two still cover
+        # the kickoff space, which is what holds a coach in the window.
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+            home_formation=Formation.THREE_TWO_ONE,
+            visiting_formation=Formation.ONE_TWO_THREE,
+        )
+
+        def spaces(side: TeamSide, zone: Zone) -> list[str]:
+            return sorted(
+                space_label(*match.board.meeple_position(player_id))
+                for player_id in match.setup_for_side(side).zones[zone]
+            )
+
+        self.assertEqual(spaces(TeamSide.HOME, Zone.HOME_GOAL),
+                         ["H1", "H2", "H3"])
+        self.assertEqual(spaces(TeamSide.HOME, Zone.VISITORS_GOAL), ["V1"])
+        # 1-2-3 is read from the visitors' own goal, so their three
+        # attackers stand in the home goal zone.
+        self.assertEqual(spaces(TeamSide.VISITING, Zone.HOME_GOAL),
+                         ["H1", "H2", "H3"])
+        self.assertEqual(spaces(TeamSide.VISITING, Zone.VISITORS_GOAL),
+                         ["V3"])
+        self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
+
+    def test_a_shape_off_this_board_names_no_formation(self) -> None:
+        # /coach and /ref can push a side into 3 / 2 / 1 on any board.
+        # On board 7 that is not a shape the game plays, so it reads as
+        # no shape at all rather than as one the button would refuse.
+        cog = build_cog()
+        for board_size, expected in ((9, Formation.THREE_TWO_ONE), (7, None)):
+            with self.subTest(board_size=board_size):
+                match = MatchState.standard(
+                    catalog=self.catalog,
+                    ruleset=self.rules,
+                    board_size=board_size,
+                    home_team=Team.ORANGE,
+                    visiting_team=Team.PURPLE,
+                )
+                setup = match.home
+                setup.zones[Zone.HOME_GOAL].append(
+                    setup.zones[Zone.VISITORS_GOAL].pop()
+                )
+                self.assertEqual(
+                    cog.current_formation(match, TeamSide.HOME), expected,
+                )
+
+    def test_a_change_of_shape_is_refused_off_its_board(self) -> None:
+        cog = build_cog()
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=6,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+        with self.assertRaises(ValueError):
+            cog.apply_formation(match, TeamSide.HOME, Formation.THREE_TWO_ONE)
+
+    def test_the_ruleset_holds_2_2_2_open_to_every_board(self) -> None:
+        # It is the shape every team is dealt, whatever board they are
+        # dealt onto, so it is the one that cannot be restricted.
+        self.assertIsNone(
+            self.rules.formations[Formation.TWO_TWO_TWO].board_sizes
+        )
+        for board_size in self.rules.board_layouts:
+            with self.subTest(board_size=board_size):
+                self.assertIn(
+                    Formation.TWO_TWO_TWO,
+                    self.rules.formations_for_board(board_size),
+                )
+
+    def test_a_restriction_names_a_board_the_ruleset_has(self) -> None:
+        for shape in self.rules.formations.values():
+            for board_size in shape.board_sizes or ():
+                with self.subTest(board_size=board_size):
+                    self.assertIn(board_size, self.rules.board_layouts)
+
+
 class CoverageRuleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -505,12 +641,16 @@ class FormationReassignmentTests(unittest.TestCase):
 
 
 class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
-    def build(self) -> tuple[D12Ball, D12BallGame, MatchState]:
+    def build(
+        self,
+        board_size: int = 7,
+    ) -> tuple[D12Ball, D12BallGame, MatchState]:
         cog = build_cog()
         game = build_game(
             status=GameStatus.IN_PROGRESS,
             home_player_number=1,
             visiting_player_number=2,
+            board_size=board_size,
         )
         cog.games[game.game_id] = game
         match = cog.initialize_standard_match(game)
@@ -536,6 +676,46 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         ]
 
         self.assertIn("Formation (currently 2-2-2)", labels)
+
+    def test_the_menu_offers_what_this_board_plays(self) -> None:
+        # A shape the board does not play is not built at all rather
+        # than built disabled: there is nothing a coach could do to
+        # enable it.
+        def shapes(board_size: int) -> list[str]:
+            cog, game, _ = self.build(board_size=board_size)
+            return [
+                item.label.removesuffix(" (current)")
+                for item in CoachingFormationView(cog, game.game_id).children
+                if item.label != "Back"
+            ]
+
+        self.assertEqual(shapes(7), ["2-2-2", "2-3-1", "1-3-2"])
+        self.assertEqual(
+            shapes(9), ["2-2-2", "2-3-1", "1-3-2", "3-2-1", "1-2-3"],
+        )
+
+    async def test_board_9_can_be_coached_into_a_shape_of_its_own(
+        self,
+    ) -> None:
+        cog, game, _ = self.build(board_size=9)
+        view = CoachingFormationView(cog, game.game_id)
+
+        with mock.patch("cogs.d12ball_views.save_games"):
+            await view.choose(build_interaction(), Formation.THREE_TWO_ONE)
+
+        match = cog.load_match_state(game)
+        self.assertEqual(
+            cog.current_formation(match, TeamSide.HOME),
+            Formation.THREE_TWO_ONE,
+        )
+        # Three cards into a three-space zone, one apiece.
+        self.assertEqual(
+            sorted(
+                space_label(*match.board.meeple_position(player_id))
+                for player_id in match.home.zones[Zone.HOME_GOAL]
+            ),
+            ["H1", "H2", "H3"],
+        )
 
     def test_the_shape_they_are_in_cannot_be_re_picked(self) -> None:
         # Re-dealing the shape a coach is already in would shuffle

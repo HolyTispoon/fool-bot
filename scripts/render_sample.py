@@ -148,15 +148,21 @@ def main() -> None:
     else:
         if arguments.home == arguments.visiting:
             raise SystemExit("--home and --visiting must be different teams.")
-        match = MatchState.standard(
-            catalog=catalog,
-            ruleset=load_basic_ruleset(),
-            board_size=arguments.board_size,
-            home_team=Team(arguments.home),
-            visiting_team=Team(arguments.visiting),
-            home_formation=Formation(arguments.home_formation),
-            visiting_formation=Formation(arguments.visiting_formation),
-        )
+        try:
+            match = MatchState.standard(
+                catalog=catalog,
+                ruleset=load_basic_ruleset(),
+                board_size=arguments.board_size,
+                home_team=Team(arguments.home),
+                visiting_team=Team(arguments.visiting),
+                home_formation=Formation(arguments.home_formation),
+                visiting_formation=Formation(arguments.visiting_formation),
+            )
+        except ValueError as error:
+            # Not every shape is played on every board -- 3-2-1 and
+            # 1-2-3 are the nine-space board's -- and a choices= list
+            # cannot say which, since it depends on --board-size.
+            raise SystemExit(str(error)) from error
         label = "Sample"
 
     if arguments.coaching:

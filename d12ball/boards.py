@@ -57,7 +57,7 @@ from d12ball.components import (
     Zone,
     kickoff_space_index,
 )
-from d12ball.game import Formation, Team
+from d12ball.game import Team
 from d12ball.render import (
     TEAM_COLORS,
     ZONE_LABELS,
@@ -1488,39 +1488,88 @@ def draw_maneuver_legend(
     return bottom
 
 
+def formation_strip_segments(
+    rules: BasicRuleset,
+) -> list[tuple[str, bool, float]]:
+    """
+    What the strip says, as (text, muted, the gap in units that follows
+    it) -- the heading, then the shapes every board plays, then each
+    group of shapes that needs a particular board under a label saying
+    which.
+
+    **A shape's name is its counts**, which `load_basic_ruleset`
+    checks, so the strip prints the names alone: the `(2 / 3 / 1)` that
+    used to follow each one restated the same three digits, and five
+    shapes with it no longer fit the strip.
+
+    One team board is printed for every field size, so the shapes only
+    some boards play are on it, grouped, rather than left off --
+    `board_sizes` in `basic_rules.json`, never a size written out here.
+    """
+    universal: list[str] = []
+    restricted: dict[str, list[str]] = {}
+    for formation, shape in rules.formations.items():
+        if shape.board_sizes is None:
+            universal.append(formation.value)
+        else:
+            restricted.setdefault(
+                f"{shape.board_size_label().upper()} BOARD ONLY", []
+            ).append(formation.value)
+
+    segments: list[tuple[str, bool, float]] = [
+        ("FORMATIONS — READ FROM YOUR OWN GOAL", True, 22)
+    ]
+    segments.extend((name, False, 24) for name in universal)
+    for label, names in restricted.items():
+        segments.append((label, True, 14))
+        segments.extend((name, False, 24) for name in names)
+    return segments
+
+
 def draw_formation_strip(
     sheet: Sheet,
     rules: BasicRuleset,
     left: float,
     top: float,
     right: float,
-) -> None:
+) -> float:
     """
-    The three shapes, as a strip rather than a table -- there is no
-    cell left to put a table in, and three numbers a shape reads
-    perfectly well in a line.
+    The shapes, as a strip rather than a table -- there is no cell left
+    to put a table in, and three numbers a shape reads perfectly well
+    in a line. Returns the x it drew out to, which is what says it fit.
 
     A formation is read from a coach's own goal forward, which is the
     one thing on this board that is not absolute, and is why the label
     says so.
-    """
-    heading = "FORMATIONS — READ FROM YOUR OWN GOAL"
-    heading_face = sheet.font(14, bold=True)
-    sheet.text((left, top), heading, heading_face, MUTED)
 
-    cursor = left + sheet.text_width(heading, heading_face) + sheet.u(22)
-    row_face = sheet.font(16, bold=True)
-    detail_face = sheet.font(15)
-    for formation in Formation:
-        shape = rules.formations[formation]
-        sheet.text((cursor, top), formation.value, row_face, INK)
-        cursor += sheet.text_width(formation.value, row_face) + sheet.u(8)
-        counts = (
-            f"({shape.own_goal} / {shape.midfield} / "
-            f"{shape.opponent_goal})"
-        )
-        sheet.text((cursor, top), counts, detail_face, MUTED)
-        cursor += sheet.text_width(counts, detail_face) + sheet.u(24)
+    **The strip is measured before it is drawn**, and shrinks whole
+    rather than running off the edge of the board: a shape added
+    upstream lands here without anybody measuring, and there is no
+    second row to give it.
+    """
+    segments = formation_strip_segments(rules)
+
+    scale = 1.0
+    while True:
+        faces = {
+            muted: sheet.font((14 if muted else 16) * scale, bold=True)
+            for muted in (True, False)
+        }
+        width = sum(
+            sheet.text_width(text, faces[muted])
+            for text, muted, _ in segments
+        ) + sum(sheet.u(gap * scale) for _, _, gap in segments[:-1])
+        if width <= right - left or scale <= 0.5:
+            break
+        scale -= 0.05
+
+    cursor = left
+    for index, (text, muted, gap) in enumerate(segments):
+        sheet.text((cursor, top), text, faces[muted], MUTED if muted else INK)
+        cursor += sheet.text_width(text, faces[muted])
+        if index < len(segments) - 1:
+            cursor += sheet.u(gap * scale)
+    return cursor
 
 
 def standard_deal_line(rules: BasicRuleset) -> str:
