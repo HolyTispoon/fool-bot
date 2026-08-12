@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
+from cogs.d12ball_helpers import space_label
 from d12ball.components import (
     MatchState,
     TeamSide,
@@ -38,6 +39,7 @@ def build_cog() -> D12Ball:
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
+    cog.announce_board_update = mock.AsyncMock()
     cog.finish_maneuver_resolution = mock.AsyncMock()
     cog.begin_run_back = mock.AsyncMock()
     cog.begin_substitution_window = mock.AsyncMock()
@@ -181,6 +183,58 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             cog.loose_ball_candidates(match, match.defending_side()), [],
         )
+
+    def clear_the_ball_s_space(self, match: MatchState) -> None:
+        """
+        Move everyone off the space the ball is on, without taking
+        them out of the zone -- which is what a pass into an empty
+        space leaves behind, and the only position from which both
+        sides still have somebody to send.
+        """
+        zone = match.ball.zone
+        elsewhere = next(
+            index
+            for index in range(len(match.board.spaces[zone]))
+            if index != match.ball.space_index
+        )
+        for player_id in list(
+            match.board.spaces[zone][match.ball.space_index]
+        ):
+            match.move_meeple(player_id, zone, elsewhere)
+
+    async def test_a_loose_ball_is_announced_with_the_board_and_the_space(
+        self,
+    ) -> None:
+        """
+        Where the ball came to rest is the whole of what the coach
+        being asked has to decide on, and it is the one thing nothing
+        else in the channel says: the announcement names the space and
+        carries the board it is standing on, and the pick prompt names
+        it again, since a resume puts that prompt back up on its own.
+        """
+        cog = build_cog()
+        game = build_game()
+        match = self.build_match()
+        self.clear_the_ball_s_space(match)
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        where = space_label(match.ball.zone, match.ball.space_index)
+
+        interaction = build_interaction()
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_loose_ball(interaction, game, match, 2)
+
+        cog.announce_board_update.assert_awaited_once()
+        announcement = cog.announce_board_update.await_args.args[2]
+        self.assertIn("Loose ball!", announcement)
+        self.assertIn(where, announcement)
+        self.assertIn("Midfield", announcement)
+        # The board goes out with that message rather than as a bare
+        # refresh, or the space it names is not on anything a coach
+        # can see.
+        cog.refresh_match_image.assert_not_awaited()
+
+        self.assertIn(where, interaction.followup.send.await_args.args[0])
 
     async def test_nobody_contesting_is_an_out_of_bounds_turnover(
         self,
