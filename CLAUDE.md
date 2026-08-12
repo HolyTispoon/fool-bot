@@ -783,6 +783,28 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
   `notes` and `continue`, not send. `MAX_RUN_BACK_PASSES` bounds it: as a
   recursion the interpreter did that, and a loop that will not settle would
   hang the event loop for every game at once.
+- **A coach's run-back prompt carries the board, and prices every space it
+  offers.** "Where does this player run back to" is a question about where
+  everybody is standing and how far each space is -- the same reasoning as
+  [a loose ball](#loose-balls-and-the-board), and the persistent board has
+  scrolled away up the channel by the time a turn has resolved. So the prompt
+  is sent with a snapshot of its own, from the render the persistent message is
+  settled with (one draw, two uploads), and `RunBackChoiceView`'s buttons read
+  `M2 (4 spaces)` -- a run back costs a token a space, so the distance *is* the
+  price and the two spaces of a zone are rarely the same offer.
+  `MatchState.run_back_distance` is the one reading of it, asked by the labels
+  and spent by `run_back_player`, so what a button promises and what the coach
+  is charged cannot drift; `travel_space_label` is the wording, shared by the
+  buttons and by `describe_run_back_options` beside them.
+  - **The board goes when the question does.** The click edits the prompt into
+    its answer, and `attachments=[]` takes the snapshot with it -- it shows the
+    player still displaced, so leaving it under the result would put a stale
+    position in the channel for the rest of the game. The board they moved to
+    is the persistent message's, refreshed a line later.
+  - The full-image link is added with the view handed over, or the edit that
+    adds it drops the buttons the prompt exists for -- see
+    `add_full_image_button`. That edit is the webhook route, not the channel's;
+    see "Discord's rate limits".
 
 ### The arrangement
 
@@ -1259,6 +1281,39 @@ With nobody of that side there it is centred in the space instead. The suite
 cannot see the image, so `D12BallComponentTests` asserts the placement rule
 rather than the pixels.
 
+### The matchup image
+
+`render_matchup` draws a contest about to happen, and one layout serves two:
+the maneuver challenge (one against one) and the score attempt (one against a
+wall of defenders). See "What a shot is up against" for the badges only the
+second one carries.
+
+**Its width is content, not a canvas.** Each side is a group as wide as it
+needs to be, held between `CHALLENGE_MIN_GROUP_WIDTH` and
+`CHALLENGE_MAX_GROUP_WIDTH`, and the image is the two plus `CHALLENGE_GUTTER`.
+Discord scales the whole thing down to the message's width, so every pixel of
+empty black is spent making the writing smaller — which is what a 300px
+minimum was doing on a maneuver challenge, where both groups are a two-word
+name and a skill line. The minimum is now little more than the portrait it
+sits under, and it is a floor for a group *carrying an ability*: a wall of
+defenders has none, and packs to its own content.
+
+- **The sum overrides the maximum.** A total broken over two lines with the
+  number stranded on the second is unreadable however narrow it makes the
+  image, so `group_width` floors on it. The maximum caps the *names*, which
+  can wrap.
+- **A matchup has its own fonts** (`FONT_CHALLENGE_TITLE`, `_BODY`,
+  `_ABILITY`, `_TOTAL`) rather than borrowing `FONT_SMALL` and
+  `FONT_DICE_TOTAL`, which size the board and the dice and are not on this
+  image at all. The heading is the one line nobody needs to read — it names a
+  picture a coach is already looking at — so it is set *below* the body, and
+  the room that frees goes to the names, skills and abilities. Changing a size
+  here changes the width: the text is what the groups are measured from.
+- **Look at it.** The suite checks it is a PNG and nothing about how it reads.
+  There is no sample script for this one; render a `ChallengeSide` pair
+  through `render_maneuver_challenge` and `render_score_attempt` (three
+  defenders, one of them halved, is the widest case) and open the result.
+
 ### The maneuver cards
 
 `d12ball/cards.py` draws the six maneuvers as cards. They exist because a
@@ -1284,6 +1339,16 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
   it is on a card and in the same place on each one, so a coach now compares
   three cards instead of reading three sentences. It went with the change --
   don't reintroduce it alongside the image.
+- **The hand is a side's three cards *and the shared back*, which replaced a
+  button.** `ManeuverActionSelectView` carried a "Maneuver Reference" button
+  that posted the defeat cycle as a second ephemeral message -- a click, a
+  round trip and an upload to see the one thing a coach needs *while* they are
+  choosing. The back carries that same cycle, it is public information either
+  coach may look at whenever they like, and at the table it is face up on the
+  deck in front of them. So `render_maneuver_hand` draws it as the fourth card
+  and the button is gone; `/d12ball maneuver_reference` still posts the
+  hexagon for anyone who wants it in the channel, which is why
+  `build_maneuver_reference_file` is still there.
 - **Both hands are drawn once in `D12Ball.__init__`**, like the maneuver
   reference image and for the same two reasons: startup is the one place a
   render can block the loop harmlessly, and the alternative is drawing three

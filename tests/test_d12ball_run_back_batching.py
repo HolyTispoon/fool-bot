@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import MAX_RUN_BACK_PASSES, D12Ball
+from cogs.d12ball_helpers import travel_space_label
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     MatchState,
@@ -54,6 +55,11 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         )
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
+        # A coach's prompt carries a board of its own. It is the same
+        # render the persistent message settles on, which is what the
+        # counts below are asserting -- see continue_run_back.
+        cog.render_match_png = mock.AsyncMock(return_value=b"board")
+        cog.match_file_from_png = mock.Mock(return_value=mock.Mock())
         return cog
 
     def build_match(self) -> MatchState:
@@ -107,7 +113,12 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
 
     async def run_back(self, cog, game, match) -> SimpleNamespace:
         interaction = build_interaction()
-        with mock.patch("cogs.d12ball.save_games"):
+        with (
+            mock.patch("cogs.d12ball.save_games"),
+            mock.patch(
+                "cogs.d12ball.add_full_image_button", mock.AsyncMock(),
+            ),
+        ):
             await cog.continue_run_back(interaction, game, match)
         return interaction
 
@@ -198,6 +209,60 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotEqual(
             cog.run_back_displaced(match, TeamSide.HOME), [],
         )
+
+    async def test_the_prompt_carries_the_board_it_asks_about(self) -> None:
+        # A coach choosing a space is choosing a distance, so the
+        # question goes out with the position under it. The board is
+        # drawn once and uploaded twice -- onto the prompt, and onto
+        # the persistent message, which is handed the same bytes.
+        cog = self.build_cog()
+        game = self.build_game()
+        match = self.build_match()
+        for player_id in list(match.home.zones[Zone.MIDFIELD]):
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
+
+        match.pending_run_back = True
+        game.match_state = match.to_dict()
+
+        interaction = await self.run_back(cog, game, match)
+
+        prompt_call = interaction.followup.send.await_args_list[-1]
+        self.assertIsNotNone(prompt_call.kwargs.get("file"))
+        self.assertEqual(cog.render_match_png.await_count, 1)
+        self.assertEqual(
+            cog.refresh_match_image.await_args.kwargs["png"], b"board",
+        )
+
+    async def test_the_prompt_prices_every_space_it_offers(self) -> None:
+        # The buttons and the options line carry the same labels, and
+        # both name what the run back costs: a token a space.
+        cog = self.build_cog()
+        game = self.build_game()
+        match = self.build_match()
+        midfield = list(match.home.zones[Zone.MIDFIELD])
+        for player_id in midfield:
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
+
+        match.pending_run_back = True
+        game.match_state = match.to_dict()
+
+        interaction = await self.run_back(cog, game, match)
+
+        prompt = interaction.followup.send.await_args_list[-1].args[0]
+        side, player_id = cog.next_run_back_choice(match)
+        zone = match.setup_for_side(side).assigned_zone(player_id)
+        spaces = match.placement_spaces_in_zone(side, zone, player_id)
+        self.assertTrue(spaces)
+        for space_index in spaces:
+            distance = match.run_back_distance(player_id, zone, space_index)
+            self.assertIn(
+                travel_space_label(zone, space_index, distance), prompt,
+            )
+            # Not a label that says nothing: they are standing on M1,
+            # so every space they can be sent to is a real walk.
+            self.assertGreater(distance, 0)
 
 
 class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):

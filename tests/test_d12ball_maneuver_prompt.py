@@ -14,7 +14,10 @@ from unittest import mock
 import discord
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_views import ManeuverActionPromptView
+from cogs.d12ball_views import (
+    ManeuverActionPromptView,
+    ManeuverActionSelectView,
+)
 from d12ball.cards import render_maneuver_hand
 from d12ball.components import (
     MatchState,
@@ -349,6 +352,29 @@ class ManeuverPickShowsTheCardsTests(unittest.IsolatedAsyncioTestCase):
         sent = await self.open_menu(self.build_ready_cog(), offense=True)
 
         self.assertEqual(sent["content"], "Pick your maneuver:")
+
+    def test_the_menu_offers_the_maneuvers_and_nothing_else(self) -> None:
+        # A "Maneuver Reference" button used to sit under them, posting
+        # the defeat cycle as a second ephemeral message. That cycle is
+        # on the card back, which now comes with the hand, so the
+        # button was a click and an upload for something already in
+        # front of the coach.
+        cog = self.build_ready_cog()
+        for side, maneuvers in (
+            ("offense", cog.maneuver_catalog.offense),
+            ("defense", cog.maneuver_catalog.defense),
+        ):
+            with self.subTest(side=side):
+                view = ManeuverActionSelectView(cog, "g1", side)
+                self.assertEqual(
+                    [item.label for item in view.children],
+                    [
+                        maneuver.name
+                        for maneuver in sorted(
+                            maneuvers, key=lambda item: item.rank,
+                        )
+                    ],
+                )
 
     async def test_the_hand_is_drawn_once_and_re_wrapped_per_send(
         self,

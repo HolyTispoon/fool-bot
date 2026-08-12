@@ -106,6 +106,7 @@ from cogs.d12ball_helpers import (
     send_error_fallback,
     space_choices,
     space_label,
+    travel_space_label,
 )
 from cogs.d12ball_views import (
     BallHandlerSelectionView,
@@ -5022,14 +5023,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player_id: str,
     ) -> str:
         """The spaces `player_id` may run back to in their own zone,
-        for the run-back prompt -- so the coach sees every option up
-        front, alongside the buttons that offer the same choice."""
+        with what each costs -- so the coach sees every option up
+        front, alongside the buttons that offer the same choice and
+        carry the same labels."""
         zone = match.setup_for_side(side).assigned_zone(player_id)
         spaces = match.placement_spaces_in_zone(side, zone, player_id)
         if not spaces:
             return "No space in their zone."
-        options = ", ".join(space_label(zone, index) for index in spaces)
-        return f"Options: {options}"
+        options = ", ".join(
+            travel_space_label(
+                zone, index, match.run_back_distance(player_id, zone, index),
+            )
+            for index in spaces
+        )
+        return f"Options: {options} — one exhaustion token per space."
 
     def apply_forced_run_backs(self, match: MatchState) -> None:
         """
@@ -5126,10 +5133,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # look at it.
         remaining_passes = MAX_RUN_BACK_PASSES
 
-        async def flush() -> bool:
+        async def flush(png: Optional[bytes] = None) -> bool:
             """
             Post the automatic placements so far, with the board they
             produced. True when there was something to post.
+
+            `png` is an already-rendered board, for the caller that is
+            about to upload the same one onto the prompt below.
             """
             nonlocal lead_in, notes
 
@@ -5141,7 +5151,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             notes = []
             lead_in = ""
             await interaction.followup.send(f"{prefix}{body}")
-            await self.refresh_match_image(interaction, game)
+            await self.refresh_match_image(interaction, game, png=png)
             return True
 
         while True:
@@ -5190,9 +5200,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     continue
 
                 # A coach's choice ends the cascade here: say what has
-                # happened so far, show the board it left, and ask.
-                if not await flush():
-                    await self.refresh_match_image(interaction, game)
+                # happened so far, show the board it left, and ask --
+                # with the board on the prompt itself, because "which
+                # space does this player run back to" is a question
+                # about where everybody is standing, and the persistent
+                # message has scrolled away up the channel by the time
+                # a turn has resolved. It goes with the prompt: the
+                # click edits both away together, so the board a coach
+                # is reading is never one of a position that has moved
+                # on.
+                #
+                # One render, two uploads -- the same board settles the
+                # persistent message, exactly as announce_board_update
+                # does. See "Discord's rate limits" in CLAUDE.md.
+                png = await self.render_match_png(game)
+                if not await flush(png):
+                    await self.refresh_match_image(interaction, game, png=png)
 
                 controller_number = (
                     game.home_player_number
@@ -5210,16 +5233,23 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     match, side, player_id,
                 )
 
+                prompt_view = RunBackChoiceView(self, game.game_id, player_id)
                 prompt_message = await interaction.followup.send(
                     f"{prefix}{mention}, choose where "
                     f"{format_role_bracket(player, self.team_emojis)} runs "
                     f"back to:\n{options_note}",
-                    view=RunBackChoiceView(self, game.game_id, player_id),
+                    file=self.match_file_from_png(game, png),
+                    view=prompt_view,
                     wait=True,
                     allowed_mentions=discord.AllowedMentions(
                         users=True, roles=False, everyone=False,
                     ),
                 )
+                # The view has to be handed over with the link, or the
+                # edit that adds it drops the buttons this prompt is
+                # for -- see add_full_image_button. Both go when the
+                # choice is made.
+                await add_full_image_button(prompt_message, prompt_view)
                 game.turn_message_id = prompt_message.id
                 save_games(self.games)
                 return

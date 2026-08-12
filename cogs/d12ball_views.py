@@ -54,6 +54,7 @@ from cogs.d12ball_helpers import (
     refresh_player_names,
     send_error_fallback,
     space_label,
+    travel_space_label,
 )
 
 if TYPE_CHECKING:
@@ -1601,6 +1602,14 @@ class ManeuverActionSelectView(SafeView):
     message-agnostically instead -- see
     `D12Ball.restore_maneuver_menus`, which is why `timeout` is an
     argument rather than a constant.
+
+    **The maneuvers and nothing else.** There was a "Maneuver
+    Reference" button here that posted the defeat cycle as a second
+    ephemeral message -- a click and an upload to see the one thing a
+    coach needs while they are choosing. The cycle is on the card back,
+    which now comes with the hand (`render_maneuver_hand`), so it is
+    already in front of them. `/d12ball maneuver_reference` still posts
+    the hexagon for anyone who wants it in the channel.
     """
 
     def __init__(
@@ -1639,21 +1648,6 @@ class ManeuverActionSelectView(SafeView):
 
             button.callback = callback
             self.add_item(button)
-
-        reference_button = discord.ui.Button(
-            label="Maneuver Reference",
-            style=discord.ButtonStyle.secondary,
-            custom_id=f"d12ball:maneuver_reference_button:{game_id}:{side}",
-        )
-        reference_button.callback = self.show_reference
-        self.add_item(reference_button)
-
-    async def show_reference(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_message(
-            file=self.cog.build_maneuver_reference_file(),
-            ephemeral=True,
-        )
-        await add_full_image_button_to_response(interaction)
 
     async def pick(
         self,
@@ -2754,10 +2748,35 @@ class DribbleAdvanceChoiceView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
+        # The two distances are two spaces, and which they are depends
+        # on where the handler is standing and which way their side
+        # attacks -- neither of which "1 or 2" tells a coach. Naming
+        # the destination also shows when the longer dribble buys
+        # nothing, because the field ran out and both clamp to the same
+        # space.
+        game = cog.games.get(game_id)
+        match = (
+            cog.load_match_state(game)
+            if game is not None and game.match_state is not None
+            else None
+        )
+
         for distance in (1, 2):
             space_word = "space" if distance == 1 else "spaces"
+            destination = (
+                match.relative_move_destination(
+                    match.active_player_id, match.ball.possession, distance,
+                )
+                if match is not None and match.active_player_id is not None
+                else None
+            )
+            destination_note = (
+                f" ({space_label(*destination)})"
+                if destination is not None
+                else ""
+            )
             button = discord.ui.Button(
-                label=f"Advance {distance} {space_word}",
+                label=f"Advance {distance} {space_word}{destination_note}",
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:dribble_advance:{game_id}:{distance}",
             )
@@ -2994,7 +3013,15 @@ class RunBackChoiceView(SafeView):
             side, zone, player_id,
         ):
             button = discord.ui.Button(
-                label=space_label(zone, space_index),
+                # The distance is on the label because it is the price:
+                # a run back costs a token a space, so the two spaces of
+                # a zone are rarely the same offer. See
+                # travel_space_label.
+                label=travel_space_label(
+                    zone,
+                    space_index,
+                    match.run_back_distance(player_id, zone, space_index),
+                ),
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:run_back:{game_id}:{player_id}:{space_index}"
@@ -3065,6 +3092,11 @@ class RunBackChoiceView(SafeView):
                 f"\n{exhaustion_text}"
             ),
             view=None,
+            # The board this prompt was asked over shows the player
+            # still displaced, so it goes with the question rather than
+            # standing under the answer. The refresh below puts the
+            # board they moved to on the persistent message.
+            attachments=[],
         )
         await self.cog.refresh_match_image(interaction, game)
         await self.cog.continue_run_back(interaction, game, match)

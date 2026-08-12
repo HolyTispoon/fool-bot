@@ -1088,13 +1088,23 @@ def render_maneuver_hand(
     side: str,
 ) -> BytesIO:
     """
-    One side's three maneuvers, side by side and in rank order -- the
-    hand a coach is choosing from.
+    One side's three maneuvers, side by side and in rank order, with
+    the shared card back beside them -- the hand a coach is choosing
+    from, and what beats what.
 
     It is the same layout as the printed card rather than a second
     design, so a coach who has played at the table recognises what the
     bot is showing them. The bot builds both sides once at startup;
     see `D12Ball.__init__`.
+
+    **The back is the fourth card, and it replaced a button.** The pick
+    menu carried a "Maneuver Reference" button that posted the defeat
+    cycle as a second ephemeral message: a click, a round trip and an
+    upload to see the one thing a coach needs *while* they are choosing.
+    The back carries that same cycle, it is public information either
+    coach may look at whenever they like, and at the table it is face
+    up on the deck in front of them -- so it belongs in the hand rather
+    than behind a button.
     """
     maneuvers = catalog.offense if side == "offense" else catalog.defense
     cards = [
@@ -1103,6 +1113,7 @@ def render_maneuver_hand(
         )
         for maneuver in sorted(maneuvers, key=lambda item: item.rank)
     ]
+    cards.append(render_maneuver_card_back(catalog, bleed=False))
 
     scale = HAND_CARD_WIDTH / CARD_WIDTH
     height = round(CARD_HEIGHT * scale)
