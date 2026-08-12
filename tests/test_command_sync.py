@@ -81,6 +81,16 @@ class BotStateTests(unittest.TestCase):
 
         self.assertIsNone(botstate.read_key("k", self.state_file))
 
+    def test_an_unwritable_folder_reads_as_no_record(self) -> None:
+        # A checkout on a drive that has been unmounted. This runs on
+        # the startup path, so a raise here would cost the bot rather
+        # than the notice it is a note about.
+        unreachable = Path("/nonexistent-mount/fool-bot/data/bot.json")
+
+        botstate.write_key("k", "v", unreachable)
+
+        self.assertIsNone(botstate.read_key("k", unreachable))
+
 
 class CommandFingerprintTests(unittest.TestCase):
     def test_the_same_tree_fingerprints_the_same(self) -> None:

@@ -74,10 +74,14 @@ def write_key(
     Written through a temporary file, the way the saved games are, so
     an interrupted write cannot leave a truncated file behind -- which
     would read as "no record" and cost a duplicate notice or sync.
+
+    A folder that cannot be written to at all -- a checkout on a drive
+    that has been unmounted -- reads the same way round: the record is
+    simply not kept, and the next startup does the work again. This is
+    on the startup path, and taking `setup_hook` down over a note to
+    self would cost the bot rather than the notice.
     """
     state_file = STATE_FILE if state_file is None else state_file
-
-    state_file.parent.mkdir(parents=True, exist_ok=True)
 
     state: dict[str, object] = {}
 
@@ -93,7 +97,15 @@ def write_key(
     state[key] = value
     temporary_file = state_file.with_suffix(".tmp")
 
-    with temporary_file.open("w", encoding="utf-8") as file:
-        json.dump(state, file, indent=2)
+    try:
+        state_file.parent.mkdir(parents=True, exist_ok=True)
 
-    temporary_file.replace(state_file)
+        with temporary_file.open("w", encoding="utf-8") as file:
+            json.dump(state, file, indent=2)
+
+        temporary_file.replace(state_file)
+    except OSError:
+        # Deliberately silent, and deliberately not logged: the one
+        # caller that would care is the deploy notice, and the whole
+        # point of this file is to keep #logs quiet.
+        return

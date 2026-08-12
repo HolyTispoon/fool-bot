@@ -1559,6 +1559,30 @@ as a bug.
   `data/d12ball_games.tmp` — the file `save_games` writes and then renames over
   the JSON — had been committed by accident and was doing exactly the same
   thing. Both are ignored now; neither belongs in a commit.
+- **`save_games` never raises, and a save failure never fails the turn.**
+  It is called from around a hundred and fifty places, most of them part-way
+  through resolving a turn, so a raise lands in whichever callback is running
+  and `SafeView.on_error` tells the coach the click went wrong — after the
+  maneuver has been announced and the board redrawn, so clicking again applies
+  the turn twice. The live game is the one in memory; the file is what a
+  restart reads. So an `OSError` is caught, logged, and swallowed. This is not
+  hypothetical: one developer's checkout is on a mounted Google Drive letter,
+  and when the mount went away mid-game every save raised `FileNotFoundError`
+  from `mkdir` walking the path up to a drive root that no longer existed.
+  `botstate.write_key` does the same for the same reason — silently, since it
+  is on the startup path and its whole job is to keep #logs quiet.
+  - **Only the first failure of a run reaches #logs.** The condition is one
+    thing wrong repeated once or twice a click, and someone has to go and
+    remount the drive; the ones behind it are console-only, and so is the
+    line that says saving is working again. See "The level you log at decides
+    who sees it".
+  - **A file this run could not read is never written over** (`_load_unreadable`).
+    The other half of the same mount going away is the bot *starting* while it
+    is gone: `load_games` comes back empty, and once the mount returns the
+    first save would replace every saved game with the one played since.
+    Saving is blocked until the process is restarted, which is what wants
+    doing anyway. "There is no file yet" is not that case, so a fresh clone
+    saves normally.
 - **Startup drops finished games whose channel was deleted.** The archiving
   sweep in `on_ready` prunes a finished game when Discord answers its channel
   lookup with a 404, because there is nothing left to archive and the record
