@@ -2755,10 +2755,35 @@ class DribbleAdvanceChoiceView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
+        # The two distances are two spaces, and which they are depends
+        # on where the handler is standing and which way their side
+        # attacks -- neither of which "1 or 2" tells a coach. Naming
+        # the destination also shows when the longer dribble buys
+        # nothing, because the field ran out and both clamp to the same
+        # space.
+        game = cog.games.get(game_id)
+        match = (
+            cog.load_match_state(game)
+            if game is not None and game.match_state is not None
+            else None
+        )
+
         for distance in (1, 2):
             space_word = "space" if distance == 1 else "spaces"
+            destination = (
+                match.relative_move_destination(
+                    match.active_player_id, match.ball.possession, distance,
+                )
+                if match is not None and match.active_player_id is not None
+                else None
+            )
+            destination_note = (
+                f" ({space_label(*destination)})"
+                if destination is not None
+                else ""
+            )
             button = discord.ui.Button(
-                label=f"Advance {distance} {space_word}",
+                label=f"Advance {distance} {space_word}{destination_note}",
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:dribble_advance:{game_id}:{distance}",
             )

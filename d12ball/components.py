@@ -1896,6 +1896,32 @@ class MatchState:
         self.board.place_meeple(player_id, zone, space_index)
         return abs(target_flat - origin_flat)
 
+    def relative_move_destination(
+        self,
+        player_id: str,
+        side: TeamSide,
+        spaces: int,
+    ) -> Optional[tuple[Zone, int]]:
+        """
+        Where `player_id` would end up moving `spaces` in `side`'s
+        attacking direction -- the space `move_player_relative` would
+        put them on, asked before the move rather than read off it
+        afterwards, and clamped to the field the same way.
+
+        A coach choosing a distance is choosing a space, and "1 or 2"
+        says nothing about which; the Playmaker's Dribble Advance menu
+        labels its buttons from this. None when the player has no
+        meeple on the field, which the move raises on.
+        """
+        position = self.board.meeple_position(player_id)
+        if position is None:
+            return None
+        return self.board.position_at_flat_index(
+            self.relative_flat_index(
+                self.board.flat_index(*position), side, spaces,
+            )
+        )
+
     def relative_flat_index(
         self,
         origin_flat: int,
