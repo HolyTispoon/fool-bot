@@ -6,6 +6,13 @@ from unittest import mock
 from PIL import Image, ImageDraw, ImageFont
 
 from cogs.d12ball import HIGH_PASS_CONTEST_HEADLINE, D12Ball
+from d12ball.cards import (
+    HAND_CARD_WIDTH,
+    HAND_GAP,
+    HAND_MARGIN,
+    render_maneuver_hand,
+    role_abilities,
+)
 from d12ball.components import (
     CoachingOccasion,
     AssignmentEdge,
@@ -1800,6 +1807,49 @@ class D12BallManeuverTests(unittest.TestCase):
 
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
+
+    def test_each_side_gets_a_hand_of_exactly_three_cards(self) -> None:
+        """
+        The suite cannot see the picture, so what it can check is that
+        the hand is as wide as three cards and no wider -- a fourth
+        maneuver added to a side would otherwise reach a coach's pick
+        silently.
+        """
+        players = load_player_catalog()
+        expected = (
+            HAND_MARGIN * 2 + HAND_CARD_WIDTH * 3 + HAND_GAP * 2
+        )
+        for side in ("offense", "defense"):
+            with self.subTest(side=side):
+                hand = render_maneuver_hand(self.catalog, players, side)
+                with Image.open(hand) as image:
+                    self.assertEqual(image.format, "PNG")
+                    self.assertEqual(image.width, expected)
+
+    def test_a_card_names_every_ability_that_touches_its_maneuver(
+        self,
+    ) -> None:
+        """
+        The match is over the ability sentences, so a re-import that
+        rewords one silently drops it off the card it belongs to.
+        Pressure is the case with two roles and Steal Intercept the one
+        with none, which is why it carries a note instead.
+        """
+        players = load_player_catalog()
+        by_maneuver = {
+            maneuver.name: {
+                label
+                for label, _ in role_abilities(players, maneuver)
+            }
+            for maneuver in self.catalog.offense + self.catalog.defense
+        }
+
+        self.assertEqual(by_maneuver["Low Pass"], {"MIDFIELDER", "WINGER"})
+        self.assertEqual(by_maneuver["Dribble Advance"], {"PLAYMAKER"})
+        self.assertEqual(by_maneuver["High Pass"], {"FULLBACK", "STRIKER"})
+        self.assertEqual(by_maneuver["Block Deflect"], {"FULLBACK"})
+        self.assertEqual(by_maneuver["Steal Intercept"], {"BALL SPEED"})
+        self.assertEqual(by_maneuver["Pressure"], {"DEFENDER", "MIDFIELDER"})
 
     def reference_skill_test_height(self) -> int:
         """A two-detail-line skill test, the size the others match."""

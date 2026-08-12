@@ -29,6 +29,7 @@ python3 -m unittest discover -s tests
 | `d12ball/components.py` | Game state model — `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog` |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board image rendering (Pillow) |
+| `d12ball/cards.py` | The six maneuvers as cards — the printed face and the hand the bot shows |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
 | `d12ball/data/` | `players.json`, `basic_rules.json` |
 | `d12ball/images/` | Card art and emoji |
@@ -1163,6 +1164,102 @@ the Exhausted and Injured badges are drawn nowhere else, and which pool a
 player is in is the whole of who may come on -- so without them the flow would
 be asking a coach to remember numbers off a board they cannot see while the
 menu is up.
+
+### The maneuver cards
+
+`d12ball/cards.py` draws the six maneuvers as cards. They exist because a
+selection d6 makes a coach hold the rules in their head: the die says "3-4" and
+the coach has to remember that is Dribble Advance if they have the ball and
+Steal Intercept if they do not, what it beats, and which role changes it.
+
+**One layout serves two things, on purpose.** `render_maneuver_card` is the
+print-ready face for the tabletop game -- 2.5 x 3.5in at 300dpi, plus one
+shared back -- and `render_maneuver_hand` puts a side's three side by side,
+which is what the bot shows a coach who has clicked "Choose Your Maneuver".
+A coach who has played at the table and a coach playing by Discord should be
+reading the same card, so neither gets a design of its own.
+
+```bash
+python3 scripts/render_maneuver_cards.py --out cards/ --sheet
+python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
+python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
+```
+
+- **The hand replaced a paragraph per maneuver.** `build_maneuver_choice_text`
+  listed each maneuver's effect and matchups next to the buttons; every word of
+  it is on a card and in the same place on each one, so a coach now compares
+  three cards instead of reading three sentences. It went with the change --
+  don't reintroduce it alongside the image.
+- **Both hands are drawn once in `D12Ball.__init__`**, like the maneuver
+  reference image and for the same two reasons: startup is the one place a
+  render can block the loop harmlessly, and the alternative is drawing three
+  cards on every click of a button pressed several times a turn. Nothing about
+  a card depends on the match, so they cannot go stale.
+  `build_maneuver_hand_file` re-wraps the bytes per send, because uploading a
+  `discord.File` consumes the stream inside it.
+- **The hand is drawn at a third of the print card's width.** Discord scales an
+  inline image down whatever it is sent, so the extra pixels would only be
+  payload -- and this send is ephemeral, once per coach per maneuver. The
+  abilities are small print at that size, which is what the full-image link on
+  the message is for. That link is the webhook route, not the channel's edit
+  bucket; see "Discord's rate limits".
+
+- **Nothing on a face is written in the script.** The effect, the time cost and
+  the beats/ties/loses row come from `maneuvers.json` through
+  `load_maneuver_catalog` and `ManeuverCatalog.relationships`; the abilities
+  come from `players.json`. So a card cannot claim a rule the bot does not
+  play, and an import is carried onto the cards by re-running this rather than
+  by editing them.
+- **Which roles a card lists is mostly matched, not tabulated.** A role is on
+  the card when its ability sentence names that maneuver, which is why the
+  Fullback is on both High Pass and Block Deflect, carrying its whole sentence
+  to each. The sentence is never cut down here -- see "Every ability is
+  imported twice". A new ability that mentions a maneuver reaches its card
+  without anything in the script being touched.
+  - **Two things the match cannot find are listed explicitly**, and both are
+    the author's call rather than an oversight in the data. `EXTRA_ROLES` puts
+    the **Striker** on High Pass: its +3 is for scoring off a set-up, one step
+    removed from the maneuver, and three maneuvers can produce a set-up -- a
+    High Pass is much the most common way, so it goes there and nowhere else.
+    `EXTRA_NOTES` gives **Steal Intercept** the ball speed modifier its
+    defender adds to the skill test, which decides the maneuver and which no
+    role ability names, so its card would otherwise be the only blank one.
+  - **Neither can live in `maneuvers.json`**: `scripts/import_d12ball_maneuvers.py`
+    rewrites that file whole from the sheet, so a field added to it survives
+    until the next import and no longer.
+- **The strip diagram is what a card can say that a die face cannot**, so it
+  carries the geometry and the effect text carries the wording. It is the
+  standard seven-space board with the ball on the third space, which is the
+  only position from which every maneuver fits: a High Pass of 4 lands on the
+  last space and a Fullback's Block Deflect of 2 on the first.
+  - **A dashed arc is a role's variant and a solid one is the ordinary move.**
+    That is the only thing the dashes mean, which is why Low Pass's backward
+    option is solid -- it is a choice any passer has, not an ability.
+  - **A move's offset is along the offense's attacking direction, never
+    "forward" or "back".** Those two words mean opposite things to the two
+    sides and are what got Pressure and Steal Intercept drawn mirrored:
+    a challenger's forward is toward the goal *they* attack, so Pressure moves
+    the handler and the challenger onto the **same** space (which is how a
+    Defender's won Pressure can steal at all); and a steal's back is toward the
+    new possessor's own goal, which is the goal the offense was attacking, so
+    the ball travels the way the offense was going. Both are verified against
+    `move_player_relative` rather than reasoned about -- run it and read the
+    flat indices before redrawing an arrow.
+  - **Distances are labelled under the space they land on.** High Pass throws
+    three arcs out of one space, and labelling those at their peaks stacked
+    three captions on top of each other. A caption's font is sized to the gap
+    to the next caption on its row, and ability variants get a second row.
+- **The offense red and defense green are the maneuver reference image's**, so
+  a coach reading a card and a coach reading the bot's hexagon are looking at
+  the same two colours.
+- **One back for all six.** A coach holding both sets must not show which side
+  of the ball they are reading. It carries the defeat cycle, which is public
+  and which every coach may look at anyway.
+- **The header's corner names the mode, not the die faces.** It printed
+  "die 1-2" while the cards and the selection die had to coexist; it now reads
+  "BASIC MANEUVER", which is what will still mean something once a second set
+  of maneuvers exists.
+- `cards/` is generated output and is gitignored, like `board.png`.
 
 ### Fonts
 

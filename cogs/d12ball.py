@@ -41,6 +41,7 @@ from d12ball.game import (
     GameStatus,
     Team,
 )
+from d12ball.cards import render_maneuver_hand
 from d12ball.render import (
     TEAM_COLORS,
     ZONE_LABELS,
@@ -247,6 +248,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.maneuver_reference_image_bytes = render_maneuver_reference_image(
             self.maneuver_catalog
         ).read()
+        # A side's three maneuver cards, which is what a coach is shown
+        # when they open the pick. Both are drawn here for the same
+        # reason the reference image is: it is the one place a render
+        # can block the loop harmlessly, and the alternative is drawing
+        # three cards on every click of a button pressed several times
+        # a turn. They cannot go stale -- nothing about a maneuver card
+        # depends on the match.
+        self.maneuver_hand_image_bytes = {
+            side: render_maneuver_hand(
+                self.maneuver_catalog, self.player_catalog, side
+            ).read()
+            for side in ("offense", "defense")
+        }
         self.coin_emojis: dict[CoinFace, str] = {}
         # When the coin emoji were last asked after, on the monotonic
         # clock -- see ensure_coin_emojis. None, not 0.0: monotonic
@@ -673,6 +687,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return discord.File(
             io.BytesIO(self.maneuver_reference_image_bytes),
             filename="maneuver_reference.png",
+        )
+
+    def build_maneuver_hand_file(self, side: str) -> discord.File:
+        """
+        A side's three cards, wrapped fresh each time: uploading a
+        `discord.File` consumes the stream inside it, so the bytes are
+        what is kept and the file is built per send -- the same reason
+        `render_match_png` returns bytes rather than a File.
+        """
+        return discord.File(
+            io.BytesIO(self.maneuver_hand_image_bytes[side]),
+            filename=f"maneuver_hand_{side}.png",
         )
 
     def intervening_defenders(

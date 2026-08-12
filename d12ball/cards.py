@@ -1,0 +1,1044 @@
+"""
+The six maneuvers as cards.
+
+Two things are drawn from one layout. `render_maneuver_card` is the
+print-ready face for the physical game -- 2.5 x 3.5 inches at 300dpi,
+optionally with the bleed a printer trims into -- and
+`render_maneuver_hand` puts a side's three side by side, which is what
+the bot shows a coach who has just clicked "Choose Your Maneuver".
+They share the layout on purpose: a coach who has played at the table
+and a coach playing by Discord should be reading the same card.
+
+Everything on a face is read from the data the bot plays from --
+`maneuvers.json` for the effect, the time cost and who beats whom, and
+`players.json` for the role abilities. So a card cannot state a rule
+the bot does not, and an import that changes either file changes the
+cards without anything here being edited.
+
+Which roles a card lists is mostly matched, not tabulated: a role is on
+the card when its ability sentence names that maneuver, so the Fullback
+appears on both High Pass and Block Deflect. Abilities are never cut
+down here; see "Every ability is imported twice" in CLAUDE.md. The two
+things that match cannot find are listed explicitly below, each with
+the reason -- see EXTRA_ROLES and EXTRA_NOTES.
+"""
+from io import BytesIO
+from typing import NamedTuple
+
+from PIL import Image, ImageDraw, ImageFont
+
+from d12ball.components import (
+    ManeuverCatalog,
+    ManeuverDefinition,
+    PlayerCatalog,
+)
+from d12ball.render import load_font, wrap_text
+
+
+# Poker size -- 2.5 x 3.5 inches at 300dpi -- with the 1/8in bleed a
+# printer trims into. Everything below is in trimmed-card pixels;
+# SUPERSAMPLE draws it larger and shrinks it down, because Pillow does
+# not antialias the rounded rectangles and circles this is mostly made
+# of.
+CARD_WIDTH = 750
+CARD_HEIGHT = 1050
+BLEED = 38
+SUPERSAMPLE = 2
+
+MARGIN = 34
+FRAME = 16
+CORNER = 34
+
+# The offense/defense colours the maneuver reference image already
+# uses, so a coach reading a card and a coach reading the bot's
+# hexagon are looking at the same two colours.
+OFFENSE_COLOR = "#E24B4A"
+DEFENSE_COLOR = "#97C459"
+FACE_COLOR = "#f6f1e6"
+PANEL_COLOR = "#e6ded0"
+PANEL_EDGE = "#c3b7a3"
+INK = "#14202b"
+MUTED = "#5d6b78"
+BACK_COLOR = "#111820"
+
+# The strip diagram is the standard seven-space board with the ball on
+# the third space, which is the only position from which every maneuver
+# on every card fits: a High Pass of 4 lands on the last space and a
+# Fullback's Block Deflect of 2 on the first.
+STRIP_SPACES = 7
+BALL_SPACE = 2
+ATTACK_RIGHT = True
+
+
+def font(size: int, bold: bool = False) -> ImageFont.ImageFont:
+    return load_font(size * SUPERSAMPLE, bold=bold)
+
+
+def px(value: float) -> float:
+    return value * SUPERSAMPLE
+
+
+class Pen:
+    """
+    Draws in trimmed-card coordinates onto the supersampled canvas, so
+    the layout below reads in the units the card is actually measured
+    in. Every method takes and returns those units.
+    """
+
+    def __init__(self, size: tuple[int, int], background: str) -> None:
+        self.image = Image.new(
+            "RGB",
+            (round(px(size[0])), round(px(size[1]))),
+            background,
+        )
+        self.draw = ImageDraw.Draw(self.image)
+
+    def rect(
+        self,
+        box: tuple[float, float, float, float],
+        radius: float = 0,
+        fill: str | None = None,
+        outline: str | None = None,
+        width: float = 1,
+    ) -> None:
+        scaled = tuple(px(value) for value in box)
+        if radius:
+            self.draw.rounded_rectangle(
+                scaled,
+                radius=px(radius),
+                fill=fill,
+                outline=outline,
+                width=round(px(width)),
+            )
+        else:
+            self.draw.rectangle(
+                scaled, fill=fill, outline=outline, width=round(px(width))
+            )
+
+    def circle(
+        self,
+        center: tuple[float, float],
+        radius: float,
+        fill: str | None = None,
+        outline: str | None = None,
+        width: float = 1,
+    ) -> None:
+        cx, cy = center
+        self.draw.ellipse(
+            (
+                px(cx - radius),
+                px(cy - radius),
+                px(cx + radius),
+                px(cy + radius),
+            ),
+            fill=fill,
+            outline=outline,
+            width=round(px(width)),
+        )
+
+    def line(
+        self,
+        points: list[tuple[float, float]],
+        fill: str,
+        width: float = 1,
+    ) -> None:
+        self.draw.line(
+            [(px(x), px(y)) for x, y in points],
+            fill=fill,
+            width=round(px(width)),
+            joint="curve",
+        )
+
+    def polygon(self, points: list[tuple[float, float]], fill: str) -> None:
+        self.draw.polygon([(px(x), px(y)) for x, y in points], fill=fill)
+
+    def text_size(
+        self, text: str, face: ImageFont.ImageFont
+    ) -> tuple[float, float]:
+        box = self.draw.textbbox((0, 0), text, font=face)
+        return (
+            (box[2] - box[0]) / SUPERSAMPLE,
+            (box[3] - box[1]) / SUPERSAMPLE,
+        )
+
+    def text(
+        self,
+        position: tuple[float, float],
+        text: str,
+        face: ImageFont.ImageFont,
+        fill: str,
+        anchor: str = "la",
+    ) -> None:
+        x, y = position
+        self.draw.text(
+            (px(x), px(y)), text, font=face, fill=fill, anchor=anchor
+        )
+
+    def wrapped(
+        self,
+        text: str,
+        face: ImageFont.ImageFont,
+        max_width: float,
+    ) -> list[str]:
+        return wrap_text(self.draw, text, face, px(max_width))
+
+    def finish(self, bleed: bool, background: str) -> Image.Image:
+        card = self.image.resize(
+            (CARD_WIDTH, CARD_HEIGHT), Image.Resampling.LANCZOS
+        )
+        if not bleed:
+            return card
+        sheet = Image.new(
+            "RGB",
+            (CARD_WIDTH + BLEED * 2, CARD_HEIGHT + BLEED * 2),
+            background,
+        )
+        sheet.paste(card, (BLEED, BLEED))
+        return sheet
+
+
+def line_height(pen: Pen, face: ImageFont.ImageFont) -> float:
+    return pen.text_size("Hg", face)[1] * 1.62
+
+
+def fitted_title(
+    pen: Pen, name: str, max_width: float
+) -> tuple[list[str], ImageFont.ImageFont]:
+    """
+    The largest title that fits the header, on one line if it can and
+    two if it cannot. "Steal Intercept" and "Dribble Advance" are the
+    long ones and both break cleanly at their space.
+    """
+    for size in range(54, 29, -2):
+        face = font(size, bold=True)
+        if pen.text_size(name, face)[0] <= max_width:
+            return [name], face
+    face = font(40, bold=True)
+    return name.split(" ", 1), face
+
+
+# A role whose ability does not name the maneuver but belongs on its
+# card anyway. The Striker's +3 is for scoring off a set-up, one step
+# removed from the maneuver that produced the set-up -- three maneuvers
+# can produce one, and the author's ruling is that a High Pass is much
+# the most common way it happens, so it goes there and nowhere else.
+# The sentence still comes from players.json; only the placement is
+# here.
+EXTRA_ROLES: dict[str, tuple[str, ...]] = {
+    "High Pass": ("striker",),
+}
+
+# What a maneuver's own rules add to it, where no role ability names it
+# and so nothing in the data can be matched against. Steal Intercept's
+# is the one modifier that decides the maneuver and the only maneuver
+# whose card would otherwise be blank; the wording is the author's.
+# It cannot live in maneuvers.json, which the sheet import rewrites
+# whole.
+EXTRA_NOTES: dict[str, tuple[tuple[str, str], ...]] = {
+    "Steal Intercept": (
+        (
+            "BALL SPEED",
+            "The defender adds the ball speed modifier to this skill test.",
+        ),
+    ),
+}
+
+
+def role_abilities(
+    catalog: PlayerCatalog, maneuver: ManeuverDefinition
+) -> list[tuple[str, str]]:
+    """
+    What the abilities band says: the roles whose ability names this
+    maneuver, then any role placed here by hand, then the maneuver's
+    own modifiers. Matching on the name is what keeps the first group
+    in step with an import -- a new ability mentioning a maneuver
+    reaches the card without anything here being edited.
+    """
+    needle = maneuver.name.lower()
+    extra = EXTRA_ROLES.get(maneuver.name, ())
+    rows = [
+        (role.value.upper(), profile.ability)
+        for role, profile in catalog.role_profiles.items()
+        if needle in profile.ability.lower() or role.value in extra
+    ]
+    rows.extend(EXTRA_NOTES.get(maneuver.name, ()))
+    return rows
+
+
+class Move(NamedTuple):
+    """
+    One arc on the strip diagram.
+
+    `offset` is in spaces along the offense's attacking direction, which
+    is the diagram's one axis -- so it is where the piece ends up on the
+    picture, never "forward" or "back" from anybody's point of view.
+    Those two words mean opposite things to the two sides and are what
+    got Pressure and Steal Intercept drawn mirrored: a challenger's
+    forward is toward the goal *they* attack, and a steal's back is
+    toward the new possessor's own goal, which is the goal the offense
+    was attacking. Both are verified against `move_player_relative`.
+
+    `start` is the x it leaves from within the ball's space, so an arc
+    departs the token that actually moves rather than the middle of the
+    space. `caption_at` may sit between two spaces, for a caption that
+    covers both. `row` and `lift` keep two arcs out of each other's way.
+    """
+
+    offset: int
+    label: str
+    side: str
+    dashed: bool = False
+    caption_at: float | None = None
+    start: float = 0.0
+    end: float = 0.0
+    lift: float = 0.0
+    row: int | None = None
+
+    @property
+    def caption_space(self) -> float:
+        return self.offset if self.caption_at is None else self.caption_at
+
+    @property
+    def caption_row(self) -> int:
+        return (1 if self.dashed else 0) if self.row is None else self.row
+
+
+def arc_rise(move: Move) -> float:
+    """
+    How far above the strip a move's arc peaks. It grows with the
+    distance so a High Pass's three throws out of one space stay told
+    apart, and the diagram is laid out around the tallest of them --
+    which is why this is a function and not a number inside the drawing
+    loop.
+    """
+    return 18 + 20 * abs(move.offset) + move.lift
+
+
+def draw_arrowhead(
+    pen: Pen,
+    tip: tuple[float, float],
+    direction: tuple[float, float],
+    size: float,
+    fill: str,
+) -> None:
+    dx, dy = direction
+    back = (tip[0] - dx * size, tip[1] - dy * size)
+    perp = (-dy, dx)
+    half = size * 0.55
+    pen.polygon(
+        [
+            tip,
+            (back[0] + perp[0] * half, back[1] + perp[1] * half),
+            (back[0] - perp[0] * half, back[1] - perp[1] * half),
+        ],
+        fill=fill,
+    )
+
+
+# A dashed arc is a role's variant rather than the ordinary move, and
+# that is the only thing the dashes mean -- Low Pass's backward option
+# is solid because it is a choice any passer has.
+STRIP_MOVES: dict[str, tuple[Move, ...]] = {
+    "Low Pass": (
+        Move(2, "nearest ahead", "offense"),
+        Move(-2, "or behind", "offense"),
+    ),
+    "Dribble Advance": (
+        Move(1, "handler + ball", "offense"),
+        Move(2, "playmaker", "offense", dashed=True),
+    ),
+    "High Pass": (
+        Move(2, "received\nmay set up scoring", "offense"),
+        Move(3, "contested", "offense", caption_at=3.5),
+        Move(4, "fullback", "offense", dashed=True),
+    ),
+    "Block Deflect": (
+        Move(-1, "ball back", "defense"),
+        Move(-2, "fullback", "defense", dashed=True),
+    ),
+    # The interceptor falls back toward their own goal, which is the one
+    # the offense was attacking -- so a steal moves the ball the way the
+    # offense was going, not against it.
+    "Steal Intercept": (
+        Move(1, "carrier + ball", "defense", start=19),
+    ),
+    # Both end on the same space: the handler is shoved back and the
+    # challenger advances onto them, and a Defender's won Pressure
+    # steals, which it could not do from anywhere else.
+    # Each arc runs token to token, or the two would share an endpoint
+    # and one arrowhead would be drawn under the other.
+    "Pressure": (
+        Move(-1, "handler + ball", "offense", start=-19, end=-19),
+        Move(-1, "challenger", "defense", start=19, end=19, lift=26, row=1),
+    ),
+}
+# What stands on the ball's space to begin with, and what a landing
+# space is drawn holding. A blank landing means the ball alone, and the
+# space carries the distance instead.
+STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
+    "Low Pass": ("H", {2: "R", -2: "R"}),
+    "Dribble Advance": ("H", {1: "H", 2: "H"}),
+    "High Pass": ("H", {}),
+    "Block Deflect": ("H", {}),
+    "Steal Intercept": ("HC", {1: "C"}),
+    "Pressure": ("HC", {-1: "HC"}),
+}
+
+
+def draw_strip(
+    pen: Pen,
+    maneuver: ManeuverDefinition,
+    top: float,
+    height: float,
+) -> None:
+    """
+    The seven-space board with the maneuver drawn on it: who moves,
+    where the ball goes, and how far. The diagram is what a card can
+    say that a die face cannot, so it carries the geometry and the
+    effect text below carries the wording.
+
+    Distances are labelled under the space they land on rather than on
+    the arc itself. High Pass draws three arcs out of one space, and
+    labelling those at their peaks stacked three captions on top of
+    each other; hung off the destination they cannot collide, because
+    no two of a maneuver's moves land on the same space.
+    """
+    left = MARGIN + 18
+    right = CARD_WIDTH - MARGIN - 18
+    pen.rect(
+        (MARGIN, top, CARD_WIDTH - MARGIN, top + height),
+        radius=18,
+        fill=PANEL_COLOR,
+        outline=PANEL_EDGE,
+        width=2,
+    )
+
+    moves = STRIP_MOVES[maneuver.name]
+    standing, landings = STRIP_ACTORS[maneuver.name]
+
+    space_width = (right - left) / STRIP_SPACES
+    strip_height = 76
+    # How deep the caption block is depends on the maneuver: High Pass
+    # says two lines about its 2-space landing and still needs a row
+    # below for the Fullback's. The strip floats up to make room rather
+    # than the captions being squeezed.
+    caption_line = 25
+    rows = sorted({move.caption_row for move in moves})
+    row_lines = {
+        row: max(
+            len(move.label.split("\n"))
+            for move in moves
+            if move.caption_row == row
+        )
+        for row in rows
+    }
+    row_top = {}
+    cursor = 0.0
+    for row in rows:
+        row_top[row] = cursor
+        cursor += row_lines[row] * caption_line
+    label_room = cursor + 12
+
+    # The diagram is centred in the panel rather than sitting on its
+    # floor. How tall it is varies a lot -- High Pass's longest arc
+    # rises four spaces' worth above the strip and Steal Intercept's
+    # one arc barely leaves it -- so a fixed anchor leaves one card or
+    # the other with a band of empty panel.
+    tallest = max(arc_rise(move) for move in moves)
+    ink_above = strip_height / 2 - 30 - tallest - 12
+    block = strip_height + label_room - ink_above
+    strip_top = top + 46 + ((height - 54) - block) / 2 - ink_above
+    for index in range(STRIP_SPACES):
+        space_left = left + index * space_width
+        pen.rect(
+            (
+                space_left + 3,
+                strip_top,
+                space_left + space_width - 3,
+                strip_top + strip_height,
+            ),
+            radius=8,
+            fill="#f1ebdd",
+            outline=PANEL_EDGE,
+            width=2,
+        )
+
+    colors = {"offense": OFFENSE_COLOR, "defense": DEFENSE_COLOR}
+    forward = 1 if ATTACK_RIGHT else -1
+    here = BALL_SPACE
+
+    def center(index: float) -> tuple[float, float]:
+        return (
+            left + (index + 0.5) * space_width,
+            strip_top + strip_height / 2,
+        )
+
+    def token(
+        index: int,
+        color: str,
+        label: str,
+        ghost: bool = False,
+        offset: float = 0,
+        radius: float = 23,
+    ) -> None:
+        cx, cy = center(index)
+        cx += offset
+        if ghost:
+            pen.circle((cx, cy), radius, fill="#f1ebdd", outline=color, width=3)
+        else:
+            pen.circle((cx, cy), radius, fill=color, outline="#f1ebdd", width=2)
+        pen.text(
+            (cx, cy + 1),
+            label,
+            font(20, bold=True),
+            color if ghost else "#ffffff",
+            anchor="mm",
+        )
+
+    def arc(move: Move, color: str) -> None:
+        x0, y0 = center(here)
+        x1, y1 = center(here + move.offset * forward)
+        x0 += move.start
+        x1 += move.end
+        y0 -= 30
+        y1 -= 30
+        peak = min(y0, y1) - arc_rise(move)
+        steps = 30
+        points = []
+        for step in range(steps + 1):
+            t = step / steps
+            x = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * (x0 + x1) / 2 + t**2 * x1
+            y = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * peak + t**2 * y1
+            points.append((x, y))
+        if move.dashed:
+            for step in range(0, steps - 3, 3):
+                pen.line(points[step : step + 2], fill=color, width=5)
+        else:
+            pen.line(points[:-1], fill=color, width=5)
+        tail, tip = points[-3], points[-1]
+        dx, dy = tip[0] - tail[0], tip[1] - tail[1]
+        length = max((dx * dx + dy * dy) ** 0.5, 0.001)
+        draw_arrowhead(pen, tip, (dx / length, dy / length), 19, color)
+
+    def caption(move: Move, color: str) -> None:
+        """
+        Hung under the space the move lands on -- or between two of
+        them, where one caption covers both, as a High Pass's contested
+        3 and 4 do. A second row keeps two captions on neighbouring
+        spaces off each other; a role's variant takes it by default.
+        """
+        cx, _ = center(here + move.caption_space * forward)
+        # How much room this caption has is how far the next caption on
+        # its row is: High Pass lands on consecutive spaces and gets a
+        # space's width each, while a lone caption may run wide.
+        neighbours = [
+            abs(other.caption_space - move.caption_space)
+            for other in moves
+            if other is not move and other.caption_row == move.caption_row
+        ]
+        room = space_width * (min(neighbours) if neighbours else 2.4) - 8
+        lines = move.label.split("\n")
+        for size in range(17, 11, -1):
+            face = font(size, bold=True)
+            width = max(pen.text_size(line, face)[0] for line in lines)
+            if width <= room:
+                break
+        # A caption on the first or last space would otherwise hang off
+        # the panel, so it slides back inside rather than being cut.
+        cx = min(max(cx, left + width / 2), right - width / 2)
+        y = strip_top + strip_height + 8 + row_top[move.caption_row]
+        for line in lines:
+            pen.text((cx, y), line, face, color, anchor="ma")
+            y += caption_line
+
+    def ghosts(index: float, who: str) -> None:
+        if len(who) == 1:
+            token(index, colors["offense" if who in "HR" else "defense"], who,
+                  ghost=True)
+            return
+        for label, offset in zip(who, (-19, 19)):
+            token(
+                index,
+                colors["offense" if label in "HR" else "defense"],
+                label,
+                ghost=True,
+                offset=offset,
+                radius=20,
+            )
+
+    for move in moves:
+        arc(move, colors[move.side])
+
+    drawn: set[int] = set()
+    for move in moves:
+        who = landings.get(move.offset)
+        if who is not None:
+            # Pressure's two moves land on one space, so its pair of
+            # ghosts is drawn once rather than once per arc.
+            if move.offset not in drawn:
+                ghosts(here + move.offset * forward, who)
+                drawn.add(move.offset)
+        else:
+            # Nothing lands here but the ball, so the space carries how
+            # far it came instead -- the distance is the choice on a
+            # High Pass and the ability on a Block Deflect.
+            cx, cy = center(here + move.offset * forward)
+            pen.text(
+                (cx, cy + 1),
+                str(abs(move.offset)),
+                font(30, bold=True),
+                PANEL_EDGE,
+                anchor="mm",
+            )
+        caption(move, colors[move.side])
+
+    # The ball's own space last, so its tokens sit over the arcs that
+    # leave it. Pressure is the one maneuver with both players on it.
+    if standing == "HC":
+        token(here, colors["offense"], "H", offset=-19, radius=20)
+        token(here, colors["defense"], "C", offset=19, radius=20)
+        # On the handler's outside shoulder: between the two tokens the
+        # ball would read as the challenger's, and it is not until the
+        # steal resolves.
+        ball_x, ball_y = center(here)
+        ball_x -= 36
+    else:
+        token(here, colors["offense" if standing == "H" else "defense"], standing)
+        ball_x, ball_y = center(here)
+        ball_x += 17
+    pen.circle((ball_x, ball_y - 19), 12, fill=INK)
+    pen.circle((ball_x, ball_y - 19), 12, outline="#f1ebdd", width=2)
+
+    pen.text(
+        (right, top + 16),
+        f"offense attacks {'→' if ATTACK_RIGHT else '←'}",
+        font(16),
+        MUTED,
+        anchor="ra",
+    )
+    pen.text(
+        (left, top + 16),
+        "H handler   C challenger",
+        font(16),
+        MUTED,
+        anchor="la",
+    )
+
+
+def draw_matchups(
+    pen: Pen,
+    catalog: ManeuverCatalog,
+    maneuver: ManeuverDefinition,
+    is_offense: bool,
+    top: float,
+    height: float,
+) -> None:
+    """
+    Who this beats, ties and loses to. All three opponents are on the
+    other side of the ball, so the labels carry the meaning rather than
+    the colour -- an offense card's three names are all defense
+    maneuvers, and colouring them would say nothing.
+    """
+    side = "offense" if is_offense else "defense"
+    defeats, defeated_by, ties = catalog.relationships(maneuver.name, side)
+    column_width = (CARD_WIDTH - MARGIN * 2) / 3
+
+    pen.line(
+        [(MARGIN + 10, top), (CARD_WIDTH - MARGIN - 10, top)],
+        fill=PANEL_EDGE,
+        width=2,
+    )
+
+    columns = (
+        ("BEATS", defeats, INK),
+        ("TIES", ties, MUTED),
+        ("LOSES TO", defeated_by, MUTED),
+    )
+    for index, (label, name, color) in enumerate(columns):
+        cx = MARGIN + column_width * (index + 0.5)
+        pen.text((cx, top + 26), label, font(17, bold=True), MUTED, anchor="mm")
+        for line_index, line in enumerate(name.split(" ")):
+            pen.text(
+                (cx, top + 56 + line_index * 26),
+                line,
+                font(21, bold=True),
+                color,
+                anchor="mm",
+            )
+        if index:
+            pen.line(
+                [
+                    (MARGIN + column_width * index, top + 14),
+                    (MARGIN + column_width * index, top + height - 8),
+                ],
+                fill=PANEL_EDGE,
+                width=2,
+            )
+
+
+def laid_out_abilities(
+    pen: Pen, abilities: list[tuple[str, str]]
+) -> tuple[list[tuple[str, float, list[str]]], float]:
+    """
+    Each row as (label, label width, wrapped lines), and the height the
+    band needs. Measured in one place because the band is drawn from
+    the bottom of the card up: the layout has to know how tall it is
+    before it knows where it starts, and a second measurement that
+    disagreed would push the effect text off centre.
+    """
+    label_font = font(19, bold=True)
+    body = font(19)
+    height = 62.0
+    rows: list[tuple[str, float, list[str]]] = []
+
+    if not abilities:
+        return rows, height + 34
+
+    for label, text in abilities:
+        label_width = pen.text_size(label, label_font)[0] + 12
+        lines = pen.wrapped(
+            text, body, CARD_WIDTH - MARGIN * 2 - label_width - 8
+        )
+        rows.append((label, label_width, lines))
+        height += len(lines) * line_height(pen, body) + 6
+    return rows, height
+
+
+def draw_abilities(
+    pen: Pen,
+    abilities: list[tuple[str, str]],
+    top: float,
+) -> None:
+    pen.line(
+        [(MARGIN + 10, top), (CARD_WIDTH - MARGIN - 10, top)],
+        fill=PANEL_EDGE,
+        width=2,
+    )
+    pen.text(
+        (CARD_WIDTH / 2, top + 24),
+        "ABILITIES IN PLAY",
+        font(17, bold=True),
+        MUTED,
+        anchor="mm",
+    )
+
+    body = font(19)
+    label_font = font(19, bold=True)
+    rows, _ = laid_out_abilities(pen, abilities)
+    y = top + 46
+
+    if not rows:
+        pen.text(
+            (CARD_WIDTH / 2, y + 18),
+            "No role ability changes this maneuver.",
+            body,
+            MUTED,
+            anchor="mm",
+        )
+        return
+
+    for label, label_width, lines in rows:
+        pen.text((MARGIN + 4, y), label, label_font, INK)
+        for line in lines:
+            pen.text((MARGIN + 4 + label_width, y), line, body, INK)
+            y += line_height(pen, body)
+        y += 6
+
+
+def render_maneuver_card(
+    catalog: ManeuverCatalog,
+    players: PlayerCatalog,
+    maneuver: ManeuverDefinition,
+    is_offense: bool,
+    bleed: bool,
+) -> Image.Image:
+    color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
+    pen = Pen((CARD_WIDTH, CARD_HEIGHT), color)
+
+    pen.rect(
+        (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
+        radius=CORNER,
+        fill=FACE_COLOR,
+    )
+
+    # Header: the rank badge, the name, and the die faces this card
+    # stands in for -- printed small, so a table with the selection die
+    # and a table with these cards are playing the same game.
+    header_top = FRAME
+    header_height = 152
+    pen.rect(
+        (FRAME, header_top, CARD_WIDTH - FRAME, header_top + header_height),
+        radius=CORNER,
+        fill=color,
+    )
+    pen.rect(
+        (
+            FRAME,
+            header_top + header_height - CORNER,
+            CARD_WIDTH - FRAME,
+            header_top + header_height,
+        ),
+        fill=color,
+    )
+
+    rank_label = f"{'O' if is_offense else 'D'}{maneuver.rank}"
+    badge_center = (FRAME + 82, header_top + header_height / 2)
+    pen.circle(badge_center, 46, fill=FACE_COLOR)
+    pen.text(badge_center, rank_label, font(38, bold=True), color, anchor="mm")
+
+    # What kind of card this is, rather than which die faces it stands
+    # in for. The faces were printed here while the cards and the
+    # selection die had to coexist; naming the mode is what will still
+    # mean something once a second set of maneuvers exists.
+    pen.text(
+        (CARD_WIDTH - FRAME - 62, header_top + header_height / 2),
+        "BASIC\nMANEUVER",
+        font(15, bold=True),
+        "#ffffff",
+        anchor="mm",
+    )
+
+    title_left = FRAME + 140
+    title_right = CARD_WIDTH - FRAME - 118
+    lines, title_font = fitted_title(pen, maneuver.name, title_right - title_left)
+    title_center = (title_left + title_right) / 2
+    title_step = line_height(pen, title_font)
+    title_y = (
+        header_top
+        + header_height / 2
+        - title_step * (len(lines) - 1) / 2
+    )
+    for line in lines:
+        pen.text(
+            (title_center, title_y), line, title_font, "#ffffff", anchor="mm"
+        )
+        title_y += title_step
+
+    strip_top = header_top + header_height + 22
+    strip_height = 288
+    draw_strip(pen, maneuver, strip_top, strip_height)
+
+    # The two bands below are placed from the bottom edge up, so the
+    # effect gets the whole of the remaining middle and stays the thing
+    # in the centre of the card whatever length the other two run to.
+    abilities = role_abilities(players, maneuver)
+    _, ability_height = laid_out_abilities(pen, abilities)
+
+    abilities_top = CARD_HEIGHT - FRAME - 18 - ability_height
+    matchup_height = 118
+    matchup_top = abilities_top - matchup_height
+
+    draw_matchups(
+        pen, catalog, maneuver, is_offense, matchup_top, matchup_height
+    )
+    draw_abilities(pen, abilities, abilities_top)
+
+    # The effect, centred in what is left, with the time cost pinned
+    # under it -- the clock is part of what the maneuver costs, so it
+    # belongs to the effect rather than to the diagram, where it used
+    # to sit and collide with the board strip.
+    effect_font = font(29)
+    time_font = font(19, bold=True)
+    lines = pen.wrapped(maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20)
+    step = line_height(pen, effect_font)
+    time_text = f"TIME · {maneuver.time}"
+    time_width = pen.text_size(time_text, time_font)[0] + 34
+    block_height = step * len(lines) + 26 + 38
+
+    y = (strip_top + strip_height + matchup_top) / 2 - block_height / 2
+    for line in lines:
+        pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
+        y += step
+
+    y += 26
+    pen.rect(
+        (
+            (CARD_WIDTH - time_width) / 2,
+            y,
+            (CARD_WIDTH + time_width) / 2,
+            y + 38,
+        ),
+        radius=19,
+        fill=PANEL_COLOR,
+        outline=PANEL_EDGE,
+        width=2,
+    )
+    pen.text(
+        (CARD_WIDTH / 2, y + 20), time_text, time_font, MUTED, anchor="mm"
+    )
+
+    return pen.finish(bleed, color)
+
+
+def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Image:
+    """
+    One back for all six, because a coach holding both sets must not
+    show which side of the ball they are reading. It carries the defeat
+    cycle, which is public information every coach is entitled to see
+    at any time.
+    """
+    from d12ball.render import _maneuver_cycle_order
+
+    pen = Pen((CARD_WIDTH, CARD_HEIGHT), BACK_COLOR)
+    pen.rect(
+        (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
+        radius=CORNER,
+        fill=BACK_COLOR,
+        outline="#2b3b4a",
+        width=4,
+    )
+    pen.text(
+        (CARD_WIDTH / 2, 118),
+        "D12 BALL",
+        font(46, bold=True),
+        "#f6f1e6",
+        anchor="mm",
+    )
+    pen.text(
+        (CARD_WIDTH / 2, 166),
+        "MANEUVERS",
+        font(22, bold=True),
+        "#7d8e9c",
+        anchor="mm",
+    )
+
+    order = _maneuver_cycle_order(catalog)
+    center = (CARD_WIDTH / 2, 600)
+    radius = 218
+    from math import cos, radians, sin
+
+    angles = [270 + 360 * index / len(order) for index in range(len(order))]
+    points = [
+        (
+            center[0] + radius * cos(radians(angle)),
+            center[1] + radius * sin(radians(angle)),
+        )
+        for angle in angles
+    ]
+
+    for index, point in enumerate(points):
+        nxt = points[(index + 1) % len(points)]
+        dx, dy = nxt[0] - point[0], nxt[1] - point[1]
+        length = (dx * dx + dy * dy) ** 0.5
+        ux, uy = dx / length, dy / length
+        start = (point[0] + ux * 58, point[1] + uy * 58)
+        end = (nxt[0] - ux * 62, nxt[1] - uy * 62)
+        pen.line([start, end], fill="#3f5162", width=5)
+        draw_arrowhead(pen, end, (ux, uy), 20, "#3f5162")
+
+    for (maneuver, is_offense), point in zip(order, points):
+        color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
+        pen.circle(point, 58, fill=color)
+        pen.text(
+            (point[0], point[1] - 14),
+            f"{'O' if is_offense else 'D'}{maneuver.rank}",
+            font(26, bold=True),
+            "#14202b",
+            anchor="mm",
+        )
+        for line_index, word in enumerate(maneuver.name.split(" ")):
+            pen.text(
+                (point[0], point[1] + 10 + line_index * 19),
+                word,
+                font(14, bold=True),
+                "#14202b",
+                anchor="mm",
+            )
+
+    pen.text(
+        (CARD_WIDTH / 2, CARD_HEIGHT - 118),
+        "each beats what it points to · same rank ties",
+        font(20),
+        "#7d8e9c",
+        anchor="mm",
+    )
+    return pen.finish(bleed, BACK_COLOR)
+
+
+# What the bot sends a coach who has just clicked "Choose Your
+# Maneuver". Discord scales an inline image down to a few hundred
+# pixels whatever it is sent, so the hand is drawn at a third of the
+# print card's width -- enough that the effect and the matchup row are
+# readable inline, small enough that an ephemeral send is not a
+# megabyte of PNG for a click a coach makes several times a turn.
+# Anyone who wants to read the small print opens the full image.
+HAND_CARD_WIDTH = 520
+HAND_GAP = 22
+HAND_MARGIN = 22
+
+
+def render_maneuver_hand(
+    catalog: ManeuverCatalog,
+    players: PlayerCatalog,
+    side: str,
+) -> BytesIO:
+    """
+    One side's three maneuvers, side by side and in rank order -- the
+    hand a coach is choosing from.
+
+    It is the same layout as the printed card rather than a second
+    design, so a coach who has played at the table recognises what the
+    bot is showing them. The bot builds both sides once at startup;
+    see `D12Ball.__init__`.
+    """
+    maneuvers = catalog.offense if side == "offense" else catalog.defense
+    cards = [
+        render_maneuver_card(
+            catalog, players, maneuver, side == "offense", bleed=False
+        )
+        for maneuver in sorted(maneuvers, key=lambda item: item.rank)
+    ]
+
+    scale = HAND_CARD_WIDTH / CARD_WIDTH
+    height = round(CARD_HEIGHT * scale)
+    sized = [
+        card.resize((HAND_CARD_WIDTH, height), Image.Resampling.LANCZOS)
+        for card in cards
+    ]
+
+    canvas = Image.new(
+        "RGB",
+        (
+            HAND_MARGIN * 2
+            + HAND_CARD_WIDTH * len(sized)
+            + HAND_GAP * (len(sized) - 1),
+            HAND_MARGIN * 2 + height,
+        ),
+        FACE_COLOR,
+    )
+    for index, card in enumerate(sized):
+        canvas.paste(
+            card,
+            (HAND_MARGIN + index * (HAND_CARD_WIDTH + HAND_GAP), HAND_MARGIN),
+        )
+
+    buffer = BytesIO()
+    canvas.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
+
+
+def contact_sheet(cards: list[Image.Image]) -> Image.Image:
+    gap = 30
+    columns = 4
+    rows = (len(cards) + columns - 1) // columns
+    width = cards[0].width
+    height = cards[0].height
+    sheet = Image.new(
+        "RGB",
+        (
+            columns * width + gap * (columns + 1),
+            rows * height + gap * (rows + 1),
+        ),
+        "#333c45",
+    )
+    for index, card in enumerate(cards):
+        column, row = index % columns, index // columns
+        sheet.paste(
+            card,
+            (
+                gap + column * (width + gap),
+                gap + row * (height + gap),
+            ),
+        )
+    return sheet
