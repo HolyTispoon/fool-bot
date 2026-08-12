@@ -1602,6 +1602,14 @@ class ManeuverActionSelectView(SafeView):
     message-agnostically instead -- see
     `D12Ball.restore_maneuver_menus`, which is why `timeout` is an
     argument rather than a constant.
+
+    **The maneuvers and nothing else.** There was a "Maneuver
+    Reference" button here that posted the defeat cycle as a second
+    ephemeral message -- a click and an upload to see the one thing a
+    coach needs while they are choosing. The cycle is on the card back,
+    which now comes with the hand (`render_maneuver_hand`), so it is
+    already in front of them. `/d12ball maneuver_reference` still posts
+    the hexagon for anyone who wants it in the channel.
     """
 
     def __init__(
@@ -1640,21 +1648,6 @@ class ManeuverActionSelectView(SafeView):
 
             button.callback = callback
             self.add_item(button)
-
-        reference_button = discord.ui.Button(
-            label="Maneuver Reference",
-            style=discord.ButtonStyle.secondary,
-            custom_id=f"d12ball:maneuver_reference_button:{game_id}:{side}",
-        )
-        reference_button.callback = self.show_reference
-        self.add_item(reference_button)
-
-    async def show_reference(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_message(
-            file=self.cog.build_maneuver_reference_file(),
-            ephemeral=True,
-        )
-        await add_full_image_button_to_response(interaction)
 
     async def pick(
         self,

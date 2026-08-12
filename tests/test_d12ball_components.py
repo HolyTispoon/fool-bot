@@ -1860,16 +1860,19 @@ class D12BallManeuverTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
 
-    def test_each_side_gets_a_hand_of_exactly_three_cards(self) -> None:
+    def test_each_side_gets_a_hand_of_three_cards_and_the_back(self) -> None:
         """
         The suite cannot see the picture, so what it can check is that
-        the hand is as wide as three cards and no wider -- a fourth
-        maneuver added to a side would otherwise reach a coach's pick
-        silently.
+        the hand is as wide as a side's three maneuvers plus the shared
+        back and no wider -- a fourth maneuver added to a side, or a
+        back that stopped being drawn with the hand, would otherwise
+        reach a coach's pick silently. The back is what replaced the
+        "Maneuver Reference" button on the pick menu, so it is the
+        whole of the reference a coach has while choosing.
         """
         players = load_player_catalog()
         expected = (
-            HAND_MARGIN * 2 + HAND_CARD_WIDTH * 3 + HAND_GAP * 2
+            HAND_MARGIN * 2 + HAND_CARD_WIDTH * 4 + HAND_GAP * 3
         )
         for side in ("offense", "defense"):
             with self.subTest(side=side):
