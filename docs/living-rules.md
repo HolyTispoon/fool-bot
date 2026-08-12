@@ -123,7 +123,7 @@ Time costs one minute per space to the attacked end, including the starting spac
 
 ### 1. Determine the players
 
-The attacker is a possessing-team player on the ball. An opposing player already on the ball challenges automatically. Otherwise defense **must** choose a player in the ball's zone; they move to the ball and gain 1 token per space. Unlike a loose ball, there is no declining: a defense with anybody in the zone challenges. If the defense has no player in the zone, offense chooses and resolves a maneuver with no reveal or test.
+The attacker is a possessing-team player on the ball. An opposing player already on the ball challenges automatically—it costs them nothing, so it is not declined. Otherwise defense **may** choose a player in the ball's zone, who moves to the ball and gains 1 token per space, or send nobody rather than pay for the challenge. With no challenger—nobody in the zone, or nobody sent—offense chooses and resolves a maneuver with no reveal or test.
 
 ### 2. Select and reveal
 
