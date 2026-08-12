@@ -167,9 +167,22 @@ FONT_MANEUVER_BODY = load_font(22)
 FONT_MANEUVER_LEGEND = load_font(22)
 FONT_DICE_TOTAL = load_font(28, bold=True)
 FONT_DICE_VALUE = load_font(26, bold=True)
+# A matchup image's own sizes, rather than the shared FONT_SMALL and
+# FONT_DICE_TOTAL it used to borrow. The heading is the one line on it
+# nobody needs to read -- it names an image a coach is already looking
+# at -- so it is set smaller than the dice totals it was sharing a font
+# with, and the room that frees goes to the names, skills and abilities,
+# which are what the picture is for. Kept apart from the shared fonts
+# because those size the board and the dice, which are not on this
+# image at all.
+FONT_CHALLENGE_TITLE = load_font(21, bold=True)
+FONT_CHALLENGE_BODY = load_font(22)
+# The ability is a sentence rather than a line of facts, and it wraps:
+# a step under the body keeps it from setting the width on its own.
+FONT_CHALLENGE_ABILITY = load_font(20)
 # The one line on a matchup image that is a sum rather than a fact
-# about a player -- see group_text_lines.
-FONT_CHALLENGE_TOTAL = load_font(23, bold=True)
+# about a player -- see group_text_lines. A size up from the body.
+FONT_CHALLENGE_TOTAL = load_font(26, bold=True)
 # The value badge a score attempt draws on a defender's portrait, the
 # skill it was halved from underneath it, and the label over a band of
 # them -- see CHALLENGE_FULL_COLOR.
@@ -1535,12 +1548,26 @@ CHALLENGE_TITLE = "MANEUVER CHALLENGE"
 SCORE_ATTEMPT_TITLE = "SCORE ATTEMPT"
 SCORE_ATTEMPT_UNDEFENDED = "No one in the way"
 # A group's text is wrapped to its own width, which grows with what it
-# has to say and is held between these. The minimum is what a lone
-# player's block has always been drawn at; the maximum is where a line
-# of names stops fitting a Discord message legibly and starts wrapping
-# instead.
-CHALLENGE_MIN_GROUP_WIDTH = 300
-CHALLENGE_MAX_GROUP_WIDTH = 560
+# has to say and is held between these. The minimum is a floor under a
+# group carrying an ability, so a sentence under a short name does not
+# wrap into a narrow column.
+#
+# It was 300, which on a maneuver challenge -- two lone
+# players, both under it -- was most of the image's width and none of
+# its content: a two-word name and a skill line, centred in a column
+# they came nowhere near filling, with the same black either side of
+# them again. Discord scales the whole image to the message's width, so
+# every pixel of that was spent making the writing smaller. It is now
+# little more than the portrait it sits under.
+CHALLENGE_MIN_GROUP_WIDTH = 248
+# The maximum is where a line of names stops earning the width it costs
+# and should wrap instead. It came down with the bigger body type: a
+# wall of three defenders names them on one line, and at 22px that line
+# alone was stretching a score attempt wider than it had been before
+# any of this. The sum underneath still overrides it -- a total broken
+# over two lines is unreadable at any width -- so this is a cap on the
+# names, not on the image.
+CHALLENGE_MAX_GROUP_WIDTH = 450
 # The same size the injury test draws a portrait at, which is the only
 # other image that shows one beside a caption. It is a step up from the
 # diameter of a skill test's dice, where this started: the abbreviated
@@ -1548,14 +1575,16 @@ CHALLENGE_MAX_GROUP_WIDTH = 560
 # player out by.
 CHALLENGE_PORTRAIT_SIZE = INJURY_TEST_PORTRAIT_SIZE
 CHALLENGE_PORTRAIT_SPACING = 10
-CHALLENGE_GUTTER = 64
-CHALLENGE_TITLE_TOP = 14
-CHALLENGE_LOCATION_TOP = 46
-CHALLENGE_PORTRAIT_TOP = 82
+# Wide enough for the "vs" and a breath either side of it. It was 64,
+# which stood the two sides further apart than either of them was wide.
+CHALLENGE_GUTTER = 44
+CHALLENGE_TITLE_TOP = 12
+CHALLENGE_LOCATION_TOP = 38
+CHALLENGE_PORTRAIT_TOP = 72
 CHALLENGE_PORTRAIT_GAP = 12
-CHALLENGE_LINE_HEIGHT = 24
+CHALLENGE_LINE_HEIGHT = 27
 CHALLENGE_ABILITY_GAP = 8
-CHALLENGE_ABILITY_LINE_HEIGHT = 21
+CHALLENGE_ABILITY_LINE_HEIGHT = 23
 CHALLENGE_TEXT_PADDING = 14
 CHALLENGE_BOTTOM_PADDING = 16
 CHALLENGE_VERSUS_TEXT = "vs"
@@ -1564,7 +1593,7 @@ CHALLENGE_NAME_COLOR = "#ffffff"
 CHALLENGE_SKILL_COLOR = "#c7ced6"
 CHALLENGE_ABILITY_COLOR = "#9aa5b1"
 CHALLENGE_TOTAL_COLOR = "#ffffff"
-CHALLENGE_TOTAL_LINE_HEIGHT = 30
+CHALLENGE_TOTAL_LINE_HEIGHT = 34
 # A score attempt's defenders are worth their skill on the ball's own
 # space and half of it further along (see ShotDefender), so the group is
 # two kinds of number stood in a row. The value each one contributes is
@@ -1670,13 +1699,13 @@ def group_text_lines(
         (
             sides[0].team_label,
             sides[0].team_color,
-            FONT_SMALL,
+            FONT_CHALLENGE_BODY,
             CHALLENGE_LINE_HEIGHT,
         ),
         (
             join_names([f"{side.name} [{side.role}]" for side in sides]),
             CHALLENGE_NAME_COLOR,
-            FONT_SMALL,
+            FONT_CHALLENGE_BODY,
             CHALLENGE_LINE_HEIGHT,
         ),
     ]
@@ -1689,12 +1718,17 @@ def group_text_lines(
             (
                 f"{skill_name} skill +{only.value}{halved_from}",
                 CHALLENGE_SKILL_COLOR,
-                FONT_SMALL,
+                FONT_CHALLENGE_BODY,
                 CHALLENGE_LINE_HEIGHT,
             ),
         )
         sized.extend(
-            (modifier, CHALLENGE_SKILL_COLOR, FONT_SMALL, CHALLENGE_LINE_HEIGHT)
+            (
+                modifier,
+                CHALLENGE_SKILL_COLOR,
+                FONT_CHALLENGE_BODY,
+                CHALLENGE_LINE_HEIGHT,
+            )
             for modifier in sides[0].modifiers
         )
     else:
@@ -1712,12 +1746,19 @@ def group_text_lines(
     if with_ability and len(sides) == 1 and sides[0].ability:
         # An empty line is a spacer: it sets the ability apart from the
         # numbers above it without needing a second y-cursor.
-        sized.append(("", CHALLENGE_ABILITY_COLOR, FONT_SMALL, CHALLENGE_ABILITY_GAP))
+        sized.append(
+            (
+                "",
+                CHALLENGE_ABILITY_COLOR,
+                FONT_CHALLENGE_ABILITY,
+                CHALLENGE_ABILITY_GAP,
+            ),
+        )
         sized.append(
             (
                 sides[0].ability,
                 CHALLENGE_ABILITY_COLOR,
-                FONT_SMALL,
+                FONT_CHALLENGE_ABILITY,
                 CHALLENGE_ABILITY_LINE_HEIGHT,
             ),
         )
@@ -1917,7 +1958,7 @@ def render_matchup(
             for text, _, font, _ in group_text_lines(sides, False)
         ]
         if not sides and note:
-            texts = [(note, FONT_SMALL)]
+            texts = [(note, FONT_CHALLENGE_BODY)]
         text_width = max(
             (measure.textlength(text, font=font) for text, font in texts),
             default=0,
@@ -1966,7 +2007,7 @@ def render_matchup(
     ) -> list[tuple[str, str, ImageFont.ImageFont, int]]:
         if not sides:
             return (
-                [(note, CHALLENGE_SKILL_COLOR, FONT_SMALL, CHALLENGE_LINE_HEIGHT)]
+                [(note, CHALLENGE_SKILL_COLOR, FONT_CHALLENGE_BODY, CHALLENGE_LINE_HEIGHT)]
                 if note
                 else []
             )
@@ -2013,10 +2054,10 @@ def render_matchup(
     draw = ImageDraw.Draw(canvas)
 
     draw_centered_text(
-        draw, width / 2, CHALLENGE_TITLE_TOP, title, FONT_DICE_TOTAL, "#ffffff",
+        draw, width / 2, CHALLENGE_TITLE_TOP, title, FONT_CHALLENGE_TITLE, "#ffffff",
     )
     draw_centered_text(
-        draw, width / 2, CHALLENGE_LOCATION_TOP, location, FONT_SMALL,
+        draw, width / 2, CHALLENGE_LOCATION_TOP, location, FONT_CHALLENGE_BODY,
         CHALLENGE_SKILL_COLOR,
     )
     draw_centered_text(
@@ -2024,7 +2065,7 @@ def render_matchup(
         attacking_width + CHALLENGE_GUTTER / 2,
         portrait_top + CHALLENGE_PORTRAIT_SIZE / 2 - 14,
         CHALLENGE_VERSUS_TEXT,
-        FONT_DICE_TOTAL,
+        FONT_CHALLENGE_TITLE,
         CHALLENGE_VERSUS_COLOR,
     )
 

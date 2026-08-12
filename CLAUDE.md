@@ -1281,6 +1281,39 @@ With nobody of that side there it is centred in the space instead. The suite
 cannot see the image, so `D12BallComponentTests` asserts the placement rule
 rather than the pixels.
 
+### The matchup image
+
+`render_matchup` draws a contest about to happen, and one layout serves two:
+the maneuver challenge (one against one) and the score attempt (one against a
+wall of defenders). See "What a shot is up against" for the badges only the
+second one carries.
+
+**Its width is content, not a canvas.** Each side is a group as wide as it
+needs to be, held between `CHALLENGE_MIN_GROUP_WIDTH` and
+`CHALLENGE_MAX_GROUP_WIDTH`, and the image is the two plus `CHALLENGE_GUTTER`.
+Discord scales the whole thing down to the message's width, so every pixel of
+empty black is spent making the writing smaller — which is what a 300px
+minimum was doing on a maneuver challenge, where both groups are a two-word
+name and a skill line. The minimum is now little more than the portrait it
+sits under, and it is a floor for a group *carrying an ability*: a wall of
+defenders has none, and packs to its own content.
+
+- **The sum overrides the maximum.** A total broken over two lines with the
+  number stranded on the second is unreadable however narrow it makes the
+  image, so `group_width` floors on it. The maximum caps the *names*, which
+  can wrap.
+- **A matchup has its own fonts** (`FONT_CHALLENGE_TITLE`, `_BODY`,
+  `_ABILITY`, `_TOTAL`) rather than borrowing `FONT_SMALL` and
+  `FONT_DICE_TOTAL`, which size the board and the dice and are not on this
+  image at all. The heading is the one line nobody needs to read — it names a
+  picture a coach is already looking at — so it is set *below* the body, and
+  the room that frees goes to the names, skills and abilities. Changing a size
+  here changes the width: the text is what the groups are measured from.
+- **Look at it.** The suite checks it is a PNG and nothing about how it reads.
+  There is no sample script for this one; render a `ChallengeSide` pair
+  through `render_maneuver_challenge` and `render_score_attempt` (three
+  defenders, one of them halved, is the widest case) and open the result.
+
 ### The maneuver cards
 
 `d12ball/cards.py` draws the six maneuvers as cards. They exist because a
