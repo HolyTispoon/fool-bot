@@ -683,29 +683,50 @@ def kickoff_space_index(midfield_spaces: int, kicking_side: TeamSide) -> int:
 
 def setup_space_order(
     side: TeamSide,
+    zone: Zone,
     zone_spaces: int,
     player_count: int,
 ) -> list[int]:
     """
     Which space each of a zone's cards starts on, in the order the
-    coach assigned them: one per space working out from that side's own
-    end of the zone, then round the zone again for anyone a formation
-    leaves over. That satisfies the run back's coverage rule from the
-    kickoff -- every space taken before any space takes a second player
-    -- and spreads a surplus evenly rather than piling it up, which is
-    legal either way and easier to read on the board.
+    coach assigned them.
+
+    **A goal zone spreads its cards over its whole depth**: the first
+    stands on that side's own end of the zone, the last on the far
+    end, and any in between are spaced evenly. A zone no deeper than
+    it is full comes out exactly as packing it would -- which is every
+    goal zone on boards 6 and 7 -- so this is only ever visible on
+    board 9, where the three-space zones would otherwise bunch each
+    pair against one edge and leave the third space empty. There it
+    puts the home Defender on H3 and the home Striker on V3.
+
+    **Midfield is packed outward from that side's own end instead**,
+    because the kickoff space is in it: the side kicking off has to
+    have somebody standing on that space, and spreading two cards
+    across a three-space midfield would leave the middle one -- the
+    kickoff space on boards 7 and 9 -- empty and hold the coach in the
+    setup window until they moved somebody onto it.
+
+    Either way a surplus goes round the zone again, so every space is
+    taken before any space takes a second player. That satisfies the
+    run back's coverage rule from the kickoff, and spreads a surplus
+    rather than piling it up, which is legal either way and easier to
+    read on the board.
 
     Home defends the low indices and the visiting team the high ones,
-    so the two orders are mirror images. With the standard 2-2-2 deal
-    this places exactly what the by-role placement it replaced did.
+    so the two orders are mirror images.
     """
     side = TeamSide(side)
+    zone = Zone(zone)
     order = (
         list(range(zone_spaces))
         if side == TeamSide.HOME
         else list(reversed(range(zone_spaces)))
     )
-    return [order[index % zone_spaces] for index in range(player_count)]
+    if zone != Zone.MIDFIELD and 1 < player_count <= zone_spaces:
+        step = (zone_spaces - 1) / (player_count - 1)
+        order = [order[round(index * step)] for index in range(player_count)]
+    return [order[index % len(order)] for index in range(player_count)]
 
 
 def formation_stack_space(
@@ -937,6 +958,7 @@ class MatchState:
                     player_ids,
                     setup_space_order(
                         setup.side,
+                        zone,
                         len(board.spaces[zone]),
                         len(player_ids),
                     ),

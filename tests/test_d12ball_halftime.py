@@ -645,9 +645,11 @@ class HalftimeEngineTests(unittest.TestCase):
     def test_kickoff_space_occupied_by_reflects_the_board(self) -> None:
         match = self.build_match()
         home_player = match.home.field_players[0]
-        zone, space_index = match.board.meeple_position(home_player)
-        match.ball.zone = zone
-        match.ball.space_index = space_index
+        # Board 9's deal shares several spaces between the two sides,
+        # so put this one somewhere only the home card stands.
+        match.move_meeple(home_player, Zone.HOME_GOAL, 1)
+        match.ball.zone = Zone.HOME_GOAL
+        match.ball.space_index = 1
 
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
         self.assertFalse(match.kickoff_space_occupied_by(TeamSide.VISITING))
