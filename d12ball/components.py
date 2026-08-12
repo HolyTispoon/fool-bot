@@ -1314,6 +1314,31 @@ class MatchState:
             self.defending_side(), self.ball.zone,
         )
 
+    def automatic_challengers(self) -> list[str]:
+        """
+        Eligible challengers already standing on the ball's own space.
+        They challenge without being asked, and theirs is the one
+        challenge a defense may not decline: declining is a refusal to
+        pay the walk-in's exhaustion, and they have no walk-in to pay
+        for -- see "Maneuvers" in docs/living-rules.md.
+        """
+        return [
+            player_id
+            for player_id in self.eligible_challengers()
+            if self.distance_to_ball(player_id) == 0
+        ]
+
+    def may_decline_challenge(self) -> bool:
+        """
+        Whether the defense is being *offered* the challenge rather
+        than made to take it: somebody in the zone, but nobody on the
+        ball. With nobody in the zone at all there is no choice to
+        decline, and the maneuver is uncontested either way.
+        """
+        return bool(self.eligible_challengers()) and not (
+            self.automatic_challengers()
+        )
+
     def award_goal(self) -> None:
         """
         Credit a goal to the team in possession. Scores have no upper
@@ -1525,18 +1550,24 @@ class MatchState:
 
     def begin_uncontested_maneuver(self) -> None:
         """
-        The no-challenger branch of "determine the two players": the
-        defending team has nobody in the ball's zone, so there is no
-        second player and the maneuver the offense picks succeeds --
-        see "Maneuver" in docs/living-rules.md.
+        The no-challenger branch of "determine the two players": there
+        is no second player, so the maneuver the offense picks succeeds
+        -- see "Maneuvers" in docs/living-rules.md.
+
+        Two ways in, and the state they leave is the same one: the
+        defending team has nobody in the ball's zone, or it has
+        somebody and has sent nobody rather than pay the walk-in's
+        exhaustion. Only a defender already on the ball is refused
+        here, since that challenge costs nothing and so cannot be
+        declined.
 
         Clears `pending_action` for the same reason choose_challenger
         does: the action is settled and what happens next is the
         maneuver selection, not another prompt for this one.
         """
-        if self.eligible_challengers():
+        if self.automatic_challengers():
             raise ValueError(
-                "The defending team has a player who can challenge."
+                "A defender on the ball's space has to challenge."
             )
         self.maneuver_uncontested = True
         self.pending_action = None

@@ -1,12 +1,19 @@
 """
 A maneuver with nobody to challenge it.
 
-"If the defending team has nobody in the ball's zone, there is no
-challenger and the maneuver automatically succeeds for the offense"
-(docs/living-rules.md, "Maneuver"). The offense still picks which
+"With no challenger -- nobody in the zone, or nobody sent -- offense
+chooses and resolves a maneuver with no reveal or test"
+(docs/living-rules.md, "Maneuvers"). The offense still picks which
 maneuver succeeds, so the turn keeps its shape -- a pick, then an
 effect -- and only loses the half of it that needed a second player:
 the challenger, the reveal, and the skill test a tie would have run.
+
+Two ways in, and one state: the defense has nobody in the ball's zone,
+or it has somebody and sends nobody rather than pay the walk-in's
+exhaustion. `DeclinedChallengeTests` covers the second, which is the
+author's 2026-08-12 ruling; the one challenge it does not reach is a
+defender already standing on the ball, who pays nothing and so has
+nothing to decline.
 """
 
 import unittest
@@ -17,6 +24,7 @@ from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
     ManeuverActionPromptView,
     ManeuverActionSelectView,
+    ManeuverChallengeView,
     PlayerActionView,
 )
 from d12ball.ai import build_ai_strategies
@@ -264,12 +272,18 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(match.maneuver_uncontested)
 
-    def test_it_refuses_to_start_with_a_challenger_available(self) -> None:
+    def test_it_refuses_to_start_with_a_defender_on_the_ball(self) -> None:
+        # The one challenge that costs the defense nothing, and so the
+        # one that cannot be waved through.
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
         match = cog.initialize_standard_match(game)
         match.active_player_id = match.home.field_players[0]
+        defender = match.eligible_challengers()[0]
+        match.board.place_meeple(
+            defender, match.ball.zone, match.ball.space_index,
+        )
 
         with self.assertRaises(ValueError):
             match.begin_uncontested_maneuver()
@@ -282,6 +296,174 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
         view = cog.build_effect_choice_view(game.game_id, match)
 
         self.assertIsNotNone(view)
+
+
+class DeclinedChallengeTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The defense has somebody in the ball's zone and keeps them where
+    they are. The walk-in costs 1 token per space, and since
+    2026-08-12 paying it is a choice -- so this ends in the same state
+    as having nobody to send, reached by a button instead.
+    """
+
+    def build(self, **game_overrides) -> tuple[D12Ball, D12BallGame, MatchState]:
+        """
+        Home in possession in midfield, with the visiting midfielders
+        standing off the ball rather than on it.
+        """
+        cog = build_cog()
+        game = build_game(**game_overrides)
+        cog.games[game.game_id] = game
+        match = cog.initialize_standard_match(game)
+
+        handler = next(
+            player_id
+            for player_id in match.home.field_players
+            if match.board.meeple_position(player_id)[0] == Zone.MIDFIELD
+        )
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(*match.board.meeple_position(handler))
+        match.active_player_id = handler
+        match.pending_action = "maneuver"
+
+        # Anyone sharing the ball's space would challenge for free and
+        # never reach the prompt, so clear the space of visitors.
+        elsewhere = 0 if match.ball.space_index else 1
+        for player_id in match.visiting.field_players:
+            zone, space_index = match.board.meeple_position(player_id)
+            if (zone, space_index) == (
+                match.ball.zone, match.ball.space_index,
+            ):
+                match.board.place_meeple(player_id, zone, elsewhere)
+
+        game.match_state = match.to_dict()
+
+        self.assertTrue(match.eligible_challengers())
+        self.assertEqual(match.automatic_challengers(), [])
+        self.assertTrue(match.may_decline_challenge())
+        return cog, game, match
+
+    async def decline(self, cog, game, user_id: int = 222):
+        interaction = build_interaction(user_id=user_id)
+        with mock.patch("cogs.d12ball_views.save_games"), \
+                mock.patch("cogs.d12ball.save_games"):
+            await ManeuverChallengeView(cog, game.game_id).decline(interaction)
+        return interaction
+
+    def test_the_prompt_offers_sending_nobody(self) -> None:
+        cog, game, _ = self.build()
+
+        view = ManeuverChallengeView(cog, game.game_id)
+
+        self.assertIn(
+            f"d12ball:challenge_decline:{game.game_id}",
+            [item.custom_id for item in view.children],
+        )
+
+    async def test_sending_nobody_leaves_the_maneuver_uncontested(
+        self,
+    ) -> None:
+        cog, game, _ = self.build()
+
+        await self.decline(cog, game)
+
+        match = cog.load_match_state(game)
+        self.assertTrue(match.maneuver_uncontested)
+        self.assertIsNone(match.challenger_id)
+        self.assertIsNone(match.pending_action)
+
+    async def test_nobody_moves_and_nobody_is_charged(self) -> None:
+        cog, game, match = self.build()
+        positions = {
+            player_id: match.board.meeple_position(player_id)
+            for player_id in match.visiting.field_players
+        }
+
+        await self.decline(cog, game)
+
+        after = cog.load_match_state(game)
+        self.assertEqual(
+            {
+                player_id: after.board.meeple_position(player_id)
+                for player_id in after.visiting.field_players
+            },
+            positions,
+        )
+        self.assertEqual(after.exhaustion, {})
+
+    async def test_it_goes_straight_to_the_offense_s_pick(self) -> None:
+        cog, game, _ = self.build()
+
+        interaction = await self.decline(cog, game)
+
+        announcement = interaction.followup.send.await_args_list[0]
+        self.assertIn("sent nobody in to challenge", announcement.args[0])
+        self.assertIsInstance(
+            interaction.followup.send.await_args_list[-1].kwargs["view"],
+            ManeuverActionPromptView,
+        )
+
+    async def test_only_the_defense_may_send_nobody(self) -> None:
+        cog, game, _ = self.build()
+
+        interaction = await self.decline(cog, game, user_id=111)
+
+        self.assertIn(
+            "defending",
+            interaction.response.send_message.await_args.args[0],
+        )
+        self.assertFalse(cog.load_match_state(game).maneuver_uncontested)
+
+    async def test_a_second_click_finds_the_question_settled(self) -> None:
+        cog, game, _ = self.build()
+        await self.decline(cog, game)
+
+        interaction = await self.decline(cog, game)
+
+        self.assertIn(
+            "already gone unchallenged",
+            interaction.followup.send.await_args.args[0],
+        )
+
+    async def test_a_challenger_chosen_first_closes_it(self) -> None:
+        cog, game, match = self.build()
+        challenger = match.eligible_challengers()[0]
+        view = ManeuverChallengeView(cog, game.game_id)
+        cog.announce_maneuver_challenge = mock.AsyncMock()
+        cog.begin_maneuver_action_selection = mock.AsyncMock()
+        with mock.patch("cogs.d12ball_views.save_games"), \
+                mock.patch("cogs.d12ball.save_games"):
+            await view.select_challenger(build_interaction(222), challenger)
+
+        interaction = await self.decline(cog, game)
+
+        self.assertIn(
+            "already been chosen",
+            interaction.followup.send.await_args.args[0],
+        )
+        self.assertFalse(cog.load_match_state(game).maneuver_uncontested)
+
+    def test_a_defender_on_the_ball_is_not_declinable(self) -> None:
+        cog, game, match = self.build()
+        match.board.place_meeple(
+            match.eligible_challengers()[0],
+            match.ball.zone,
+            match.ball.space_index,
+        )
+        game.match_state = match.to_dict()
+
+        self.assertFalse(match.may_decline_challenge())
+        with self.assertRaises(ValueError):
+            match.begin_uncontested_maneuver()
+
+        # A prompt saved before that defender walked on is the only way
+        # to be looking at this view in this state -- it offers the
+        # challengers and no way out of the challenge.
+        view = ManeuverChallengeView(cog, game.game_id)
+        self.assertNotIn(
+            f"d12ball:challenge_decline:{game.game_id}",
+            [item.custom_id for item in view.children],
+        )
 
 
 if __name__ == "__main__":

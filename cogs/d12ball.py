@@ -791,15 +791,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         Say that there is nobody to challenge, then go straight to the
         offense's pick. No matchup image: it draws two players against
         each other and there is only one.
+
+        Two ways to get here and they read differently, so the message
+        asks the state which one it was rather than taking a flag:
+        anyone still in the ball's zone means the defense was offered
+        the challenge and sent nobody, since a defense with somebody
+        there is the only defense that gets the choice.
         """
         handler = self.get_player_definition(match.active_player_id)
         defense_setup = match.setup_for_side(match.defending_side())
 
+        if match.eligible_challengers():
+            reason = "have sent nobody in to challenge"
+        else:
+            zone_name = destination_display_name(match.ball.zone.value)
+            reason = f"have nobody in {zone_name} to challenge"
+
         await interaction.followup.send(
             f"**Unchallenged!** {format_team_side_label(defense_setup)} "
-            "have nobody in "
-            f"{destination_display_name(match.ball.zone.value)} to "
-            f"challenge {format_role_bracket(handler, self.team_emojis)}, "
+            f"{reason} "
+            f"{format_role_bracket(handler, self.team_emojis)}, "
             "so whichever maneuver the offense picks succeeds."
         )
         await self.begin_maneuver_action_selection(interaction, game, match)
@@ -7365,11 +7376,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         # A defender already sharing the ball's exact space leaves
         # nothing to choose -- see PlayerActionView.choose_action.
-        on_ball_space = [
-            player_id
-            for player_id in eligible_challengers
-            if match.distance_to_ball(player_id) == 0
-        ]
+        on_ball_space = match.automatic_challengers()
         if on_ball_space:
             game.match_state = match.to_dict()
             save_games(self.games)
@@ -7397,7 +7404,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{ai_name} will maneuver with "
             f"{format_role_bracket(handler, self.team_emojis)}.\n\n"
             f"{defender_mention}, choose which player will maneuver "
-            "to challenge for the ball.",
+            "to challenge for the ball, or send nobody and let the "
+            "maneuver through.",
             view=challenge_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
