@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
+from cogs.d12ball_helpers import space_label
 from cogs.d12ball_views import (
     CoachingFormationView,
     CoachingHubView,
@@ -186,12 +187,103 @@ class FormationShapeTests(unittest.TestCase):
     def test_setup_covers_every_space_before_stacking(self) -> None:
         # Four players into a two-space zone: both spaces first, then
         # round again, rather than four on one space.
-        self.assertEqual(setup_space_order(TeamSide.HOME, 2, 4), [0, 1, 0, 1])
+        self.assertEqual(
+            setup_space_order(TeamSide.HOME, Zone.HOME_GOAL, 2, 4),
+            [0, 1, 0, 1],
+        )
         # The visiting side fills from its own end, so its order is the
         # mirror image.
         self.assertEqual(
-            setup_space_order(TeamSide.VISITING, 3, 4), [2, 1, 0, 2],
+            setup_space_order(TeamSide.VISITING, Zone.MIDFIELD, 3, 4),
+            [2, 1, 0, 2],
         )
+
+    def test_a_goal_zone_deeper_than_its_pair_spreads_them(self) -> None:
+        # Board 9's three-space goal zones: one card on each end rather
+        # than both against the coach's own edge. The two sides are
+        # mirror images, and midfield packs instead so that whoever
+        # kicks off is standing on the kickoff space.
+        self.assertEqual(
+            setup_space_order(TeamSide.HOME, Zone.HOME_GOAL, 3, 2), [0, 2],
+        )
+        self.assertEqual(
+            setup_space_order(TeamSide.HOME, Zone.VISITORS_GOAL, 3, 2), [0, 2],
+        )
+        self.assertEqual(
+            setup_space_order(TeamSide.VISITING, Zone.VISITORS_GOAL, 3, 2),
+            [2, 0],
+        )
+        self.assertEqual(
+            setup_space_order(TeamSide.HOME, Zone.MIDFIELD, 3, 2), [0, 1],
+        )
+        # A zone no deeper than it is full is packed either way, which
+        # is every goal zone on boards 6 and 7.
+        self.assertEqual(
+            setup_space_order(TeamSide.HOME, Zone.HOME_GOAL, 2, 2), [0, 1],
+        )
+        # A shape that leaves one card in a zone puts it on that
+        # coach's own end, spread or not.
+        self.assertEqual(
+            setup_space_order(TeamSide.HOME, Zone.VISITORS_GOAL, 3, 1), [0],
+        )
+
+    def test_board_9_deals_spread_goal_zones_and_a_clumped_midfield(
+        self,
+    ) -> None:
+        """
+        The author's board-9 deal, stated as the six spaces it comes
+        out on: the goal zones spread their pair to the ends, and
+        midfield clumps toward that side's own goal instead. The
+        second half is what keeps a home card on the kickoff space.
+        """
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+        def space_of(side: TeamSide, role: PlayerRole) -> str:
+            setup = match.setup_for_side(side)
+            player_id = next(
+                candidate for candidate in setup.field_players
+                if self.catalog.player_by_id(candidate).role == role
+            )
+            return space_label(*match.board.meeple_position(player_id))
+
+        self.assertEqual(
+            [
+                space_of(TeamSide.HOME, role)
+                for role in (
+                    PlayerRole.FULLBACK,
+                    PlayerRole.DEFENDER,
+                    PlayerRole.MIDFIELDER,
+                    PlayerRole.PLAYMAKER,
+                    PlayerRole.WINGER,
+                    PlayerRole.STRIKER,
+                )
+            ],
+            ["H1", "H3", "M1", "M2", "V1", "V3"],
+        )
+        # The visiting side reads the board from the other end, so its
+        # deal is the mirror image, midfield included.
+        self.assertEqual(
+            [
+                space_of(TeamSide.VISITING, role)
+                for role in (
+                    PlayerRole.FULLBACK,
+                    PlayerRole.DEFENDER,
+                    PlayerRole.MIDFIELDER,
+                    PlayerRole.PLAYMAKER,
+                    PlayerRole.WINGER,
+                    PlayerRole.STRIKER,
+                )
+            ],
+            ["V3", "V1", "M3", "M2", "H3", "H1"],
+        )
+        # Home kick off, so somebody of theirs is on the kickoff space.
+        self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
 
     def test_a_stacking_formation_starts_with_every_space_taken(
         self,

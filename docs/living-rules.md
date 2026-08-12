@@ -83,7 +83,7 @@ The ball is a d12; its face is speed. Coaches use an action-selection d6 for sec
 
 1. Choose a 6-, 7-, or 9-space board.
 2. Toss a coin. Fortune gives the toss to the flipping coach; doom to the opponent. The winner chooses home or visitors. Home kicks off first; visitors kick off the second half.
-3. Deal both sides into **2-2-2**: Fullback + Defender in own goal; Midfielder + Playmaker in midfield; Winger + Striker in opponent goal. The other Defender, Playmaker, and Striker go to the bench. Place meeples using coverage.
+3. Deal both sides into **2-2-2**: Fullback + Defender in own goal; Midfielder + Playmaker in midfield; Winger + Striker in opponent goal. The other Defender, Playmaker, and Striker go to the bench. Place meeples using coverage: a goal zone's pair takes its two end spaces, and midfield clumps toward that side's own goal so the kicking side covers kickoff. On board 9 home deals H1, H3, M1, M2, V1, V3 — Defender on H3, Striker on V3, Midfielder on M1, Playmaker on M2 — and the visitors the mirror of it.
 4. Home, then visitors, take a [Coaching Choice](#coaching-choice). Setup substitutions are unlimited and return players to the bench. Home finishes with a player on kickoff. Final positions become each side's first arrangement.
 5. Put the ball, speed 1, on kickoff in home possession. Set clock to 0.
 

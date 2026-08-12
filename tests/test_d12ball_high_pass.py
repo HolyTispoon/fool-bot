@@ -47,6 +47,7 @@ def build_cog() -> D12Ball:
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
+    cog.announce_board_update = mock.AsyncMock()
     cog.announce_run_back = mock.AsyncMock()
     cog.finish_maneuver_resolution = mock.AsyncMock()
     cog.begin_substitution_window = mock.AsyncMock()
@@ -161,6 +162,35 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
                 cog, game.game_id,
             ).children],
             ["Roll for the loose ball"],
+        )
+
+    async def test_only_a_genuine_loose_ball_is_announced_with_a_board(
+        self,
+    ) -> None:
+        """
+        The other half of the same distinction. A loose ball is lying
+        in a space nothing has named, so it is announced with the board
+        under it; a High Pass is on a receiver both coaches watched
+        catch it, and paying an upload to say so would say nothing.
+        """
+        cog, game, match, receiver, _ = self.build_contest(
+            is_high_pass=True,
+        )
+        match.reset_maneuver()
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_loose_ball(
+                interaction, game, match, 3,
+                headline=HIGH_PASS_CONTEST_HEADLINE,
+                is_high_pass=True,
+                forced_offense_player=receiver,
+            )
+
+        cog.announce_board_update.assert_not_awaited()
+        self.assertIn(
+            HIGH_PASS_CONTEST_HEADLINE,
+            interaction.followup.send.await_args_list[0].args[0],
         )
 
     async def test_a_receiver_who_keeps_the_ball_runs_nobody_back(

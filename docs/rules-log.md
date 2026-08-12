@@ -78,6 +78,31 @@ do their maneuver."*
   secret pick from the defense, no reveal, no skill test, and no disadvantage for an injured
   attacker -- there is no opponent to be disadvantaged against.
 
+### 2026-08-12 -- author, board 9's deal spreads the goal zones and clumps midfield
+
+*From the author: "for boards that are size 9, the starting set up should spread out the
+defender and attacks so that home team defender is in H3 and their striker is in V3," and
+then "midfield should be clumped toward the defensive goal so home team PM is in M2 and
+their midfielder in M1."*
+
+- **A goal zone's two cards now stand on its two end spaces**, rather than both packing
+  against that coach's own edge and leaving the far space empty. Board 9's zones are three
+  deep, so this is the only board it shows on: on 6 and 7 the goal zones are two deep and a
+  pair fills them either way, which is why nothing about those boards moves.
+- **The two sides stay mirror images**, so the change reads the same from both ends: home
+  deals Fullback H1 / Defender H3 and Winger V1 / Striker V3, and the visitors Fullback V3 /
+  Defender V1 and Winger H3 / Striker H1. A Striker and the Fullback marking them share the
+  goal-line space, which is legal -- coverage is checked per team.
+- **Midfield clumps toward each side's own goal instead**, confirmed by the author in the
+  same exchange: home Midfielder M1 and Playmaker M2, the visitors M3 and M2. So the spread
+  is a rule about the goal zones, not about zones in general -- and the reason is the kickoff
+  space, which sits in midfield and which the kicking side has to have somebody standing on.
+  Spreading two cards over a three-space midfield would empty the middle and hold the coach
+  in the setup window until they moved somebody back onto it.
+- **A shape that leaves one card in a zone still puts it on that coach's own end**, since
+  there is no pair to spread. That is 2-3-1's lone attacker and 1-3-2's lone defender,
+  unchanged.
+
 ### 2026-08-11 -- author, a defender off the ball is worth half
 
 *From the author: "When shooting to score, defense players that share space with the ball

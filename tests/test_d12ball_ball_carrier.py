@@ -46,6 +46,7 @@ def build_cog() -> D12Ball:
         cog.player_catalog, cog.maneuver_catalog,
     )
     cog.refresh_match_image = mock.AsyncMock()
+    cog.announce_board_update = mock.AsyncMock()
     return cog
 
 

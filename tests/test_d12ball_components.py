@@ -42,8 +42,10 @@ from d12ball.render import (
     FONT_SCORE,
     FONT_SMALL,
     FONT_TITLE,
+    BALL_RADIUS,
     MEEPLE_SIZE,
     PORTRAIT_IMAGE_SIZE,
+    ball_token_x,
     fit_meeple_labels,
     OWN_GOAL_DIE_RADIUS,
     SKILL_TEST_DIE_RADIUS,
@@ -1167,6 +1169,43 @@ class D12BallComponentTests(unittest.TestCase):
                 draw.textlength(name, font=stacked_font), 400,
             )
 
+    def test_a_loose_ball_is_drawn_inside_its_own_space(self) -> None:
+        # A space with none of the possessing side's meeples on it is
+        # exactly the loose ball, and the ball has to be visible there
+        # -- anchored to an empty group's bounds it was drawn a radius
+        # outside the space, under the next space's tokens. The suite
+        # cannot see the image, so this checks the placement rule.
+        space_left, space_right = 1000, 1300
+        empty_group = (space_left, space_right)
+
+        for home_side in (True, False):
+            loose = ball_token_x(
+                space_left, space_right, empty_group,
+                carrying_side_present=False,
+                home_side=home_side,
+            )
+            self.assertGreater(loose - BALL_RADIUS, space_left)
+            self.assertLess(loose + BALL_RADIUS, space_right)
+
+        # Held, it still sits against the side's own group of meeples,
+        # on the open side of the row.
+        held_group = (space_left + 12, space_left + 12 + MEEPLE_SIZE)
+        self.assertGreater(
+            ball_token_x(
+                space_left, space_right, held_group,
+                carrying_side_present=True, home_side=True,
+            ),
+            held_group[1],
+        )
+        held_group = (space_right - 12 - MEEPLE_SIZE, space_right - 12)
+        self.assertLess(
+            ball_token_x(
+                space_left, space_right, held_group,
+                carrying_side_present=True, home_side=False,
+            ),
+            held_group[0],
+        )
+
 
 class D12BallScoreAttemptTests(unittest.TestCase):
     """
@@ -1926,6 +1965,7 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog.player_catalog = self.catalog
         cog.team_emojis = {}
         cog.refresh_match_image = mock.AsyncMock()
+        cog.announce_board_update = mock.AsyncMock()
         cog.begin_loose_ball = mock.AsyncMock()
         cog.begin_run_back = mock.AsyncMock()
         return cog
@@ -2029,10 +2069,14 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
             interaction, game, match,
             distance_moved=1, turnover_occurred=True,
         )
-        announcement = interaction.followup.send.await_args.args[0]
+        # It goes out with the board, and names the space: "already
+        # there" is only readable next to where "there" is.
+        cog.announce_board_update.assert_awaited_once()
+        announcement = cog.announce_board_update.await_args.args[2]
         self.assertIn("Block Deflect happened.", announcement)
         self.assertIn("# Turnover!", announcement)
         self.assertIn("uncontested", announcement)
+        self.assertIn("M3", announcement)
 
 
 class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
@@ -2075,6 +2119,20 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
     def clear_board(self, match: MatchState) -> None:
         for player_id in match.home.field_players + match.visiting.field_players:
             match.board.remove_meeple(player_id, required=False)
+
+    def clear_offense_from(
+        self, match: MatchState, zone: Zone, space_index: int,
+    ) -> None:
+        """
+        Send any home card standing on a space back to its own goal
+        line. A set-up names the landing space's first offense
+        occupant, so a test that puts a particular shooter there has
+        to empty it of the deal's own first, and board 9's spread
+        puts a home card on both ends of the visitors' goal zone.
+        """
+        for player_id in list(match.board.spaces[zone][space_index]):
+            if player_id in match.home.field_players:
+                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
 
     def player_with_role(
         self, match: MatchState, side: TeamSide, role: PlayerRole,
@@ -2554,6 +2612,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 2 overshoots
         shooter = match.home.field_players[0]
+        self.clear_offense_from(match, Zone.VISITORS_GOAL, 2)
         match.move_meeple(shooter, Zone.VISITORS_GOAL, 2)  # flat 8, landing
 
         interaction = SimpleNamespace()
@@ -2609,15 +2668,16 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         A receiver already standing on the landing space still has to
         win a skill test to keep the ball -- unlike any other
         maneuver -- but they're the automatic offense contestant, no
-        pick required. The standard formation also has a visiting
-        defender already on that same space (spaces are shared
-        between both sides), which is likewise automatic rather than
+        pick required. A visiting card on that same space (spaces are
+        shared between both sides) is likewise automatic rather than
         a zone-wide pick.
 
         The pass is placed to land two short of the edge: a distance
         of 3 offers no scoring-opportunity setup unless it overshoots
         (2026-08-10), so landing with room to spare is what isolates
-        the forced-contest branch from that one.
+        the forced-contest branch from that one. Board 9's deal
+        spreads each side's pair to the ends of that zone and leaves
+        the middle space empty, so both contestants are put there.
         """
         cog = self.build_cog()
         match = self.build_match()
@@ -2627,15 +2687,14 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.MIDFIELD, 1)  # flat 4, landing on flat 7
-        landing = match.board.spaces[Zone.VISITORS_GOAL][1]
-        receiver = next(
-            player_id for player_id in landing
-            if player_id in match.home.field_players
+        receiver = self.player_with_role(
+            match, TeamSide.HOME, PlayerRole.STRIKER,
         )
-        defender_on_space = next(
-            player_id for player_id in landing
-            if player_id in match.visiting.field_players
+        defender_on_space = self.player_with_role(
+            match, TeamSide.VISITING, PlayerRole.DEFENDER,
         )
+        match.move_meeple(receiver, Zone.VISITORS_GOAL, 1)
+        match.move_meeple(defender_on_space, Zone.VISITORS_GOAL, 1)
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
@@ -2674,11 +2733,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.set_ball_space(Zone.MIDFIELD, 1)  # flat 4, the middle space
         shooter = match.home.field_players[0]
         # flat 6, the landing space: the visitors' half, two short of
-        # the edge. The standard setup already has someone there, and
-        # the set-up names the space's first occupant, so clear it.
-        for player_id in list(match.board.spaces[Zone.VISITORS_GOAL][0]):
-            if player_id in match.home.field_players:
-                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+        # the edge. The standard setup already has someone there.
+        self.clear_offense_from(match, Zone.VISITORS_GOAL, 0)
         match.move_meeple(shooter, Zone.VISITORS_GOAL, 0)
 
         interaction = SimpleNamespace()
@@ -2714,6 +2770,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 3 overshoots
         match.ball.speed = 4  # a +2 modifier, so the sign is visible
         shooter = match.home.field_players[0]
+        self.clear_offense_from(match, Zone.VISITORS_GOAL, 2)
         match.move_meeple(shooter, Zone.VISITORS_GOAL, 2)  # flat 8, landing
 
         interaction = SimpleNamespace()
@@ -2862,6 +2919,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 2 overshoots
         shooter = match.home.field_players[0]
+        self.clear_offense_from(match, Zone.VISITORS_GOAL, 2)
         match.move_meeple(shooter, Zone.VISITORS_GOAL, 2)  # flat 8, landing
 
         interaction = SimpleNamespace()
@@ -2892,10 +2950,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.VISITORS_GOAL, 1)  # flat 7, 3 overshoots
-        # The standard deal leaves only a visiting player on flat 8.
-        for player_id in list(match.board.spaces[Zone.VISITORS_GOAL][2]):
-            if player_id in match.home.field_players:
-                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+        # Leave only the visiting card the deal puts on flat 8.
+        self.clear_offense_from(match, Zone.VISITORS_GOAL, 2)
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)

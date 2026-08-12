@@ -359,6 +359,23 @@ def space_label(zone: Zone, space_index: int) -> str:
     return f"{ZONE_LETTERS[zone]}{space_index + 1}"
 
 
+def ball_space_label(match: MatchState) -> str:
+    """Where the ball is standing, as a space code -- e.g. "M2"."""
+    return space_label(match.ball.zone, match.ball.space_index)
+
+
+def ball_location_line(match: MatchState) -> str:
+    """
+    Where the ball has come to rest, in a sentence, with the zone
+    spelled out beside the space code -- a coach who is about to be
+    asked whether to send somebody after it is being asked about a
+    distance, and "M2" alone means nothing to anyone who is not
+    already looking at the board.
+    """
+    zone = destination_display_name(match.ball.zone.value)
+    return f"The ball is at **{ball_space_label(match)}** ({zone})."
+
+
 def space_choices(match: MatchState) -> list[tuple[str, str]]:
     """
     (value, label) pairs for every board space, e.g. ("home_goal:0", "H1").

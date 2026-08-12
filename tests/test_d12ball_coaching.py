@@ -177,20 +177,21 @@ class CoachingModelTests(unittest.TestCase):
     # -- Space positioning ---------------------------------------------
 
     def test_moving_to_an_empty_space_is_an_ordinary_move(self) -> None:
-        # Board 9's three-space zones hold two cards under 2-2-2, so
-        # there is always an empty space to step onto.
+        # Board 9's three-space zones hold two cards under 2-2-2, and
+        # the deal spreads them to the ends, so the middle space is
+        # always free to step onto.
         match = self.build_match(board_size=9)
         player_id = match.home.zones[Zone.HOME_GOAL][0]
 
         self.assertEqual(
-            match.positioning_swap_candidates(TeamSide.HOME, player_id, 2),
+            match.positioning_swap_candidates(TeamSide.HOME, player_id, 1),
             [],
         )
-        partner = match.position_meeple(TeamSide.HOME, player_id, 2)
+        partner = match.position_meeple(TeamSide.HOME, player_id, 1)
 
         self.assertIsNone(partner)
         self.assertEqual(
-            match.board.meeple_position(player_id), (Zone.HOME_GOAL, 2),
+            match.board.meeple_position(player_id), (Zone.HOME_GOAL, 1),
         )
 
     def test_a_sole_occupant_moving_onto_a_teammate_trades(self) -> None:

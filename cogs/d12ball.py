@@ -77,6 +77,8 @@ from cogs.d12ball_helpers import (
     ROLE_INITIALS,
     add_full_image_button,
     add_full_image_button_to_response,
+    ball_location_line,
+    ball_space_label,
     board_image_filename,
     build_full_image_button,
     build_full_time_summary,
@@ -1939,7 +1941,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 if actual_distance
                 else "the ball stays where it is"
             )
-            await self.refresh_match_image(interaction, game)
+            # No refresh here: begin_loose_ball draws this same board
+            # under its own announcement and brings the persistent
+            # message in line with it, so one here would be a second
+            # write of an identical board (see "Discord's rate limits"
+            # in CLAUDE.md).
             await self.begin_loose_ball(
                 interaction,
                 game,
@@ -2658,13 +2664,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         prefix = f"{lead_in}\n\n" if lead_in else ""
-        await interaction.followup.send(
+        await self.announce_board_update(
+            interaction,
+            game,
             f"{prefix}# Turnover!\n"
             f"{format_role_bracket(player, self.team_emojis)} is already "
-            f"there -- {format_team_side_label(match.setup_for_side(new_side))} "
-            "wins the loose ball uncontested."
+            f"on {ball_space_label(match)} -- "
+            f"{format_team_side_label(match.setup_for_side(new_side))} "
+            "wins the loose ball uncontested.",
         )
-        await self.refresh_match_image(interaction, game)
         # A loose ball the other team picks up is a steal, so no
         # substitution window -- the ball never went dead.
         await self.begin_run_back(
@@ -2814,7 +2822,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
     ) -> str:
-        """Who is being asked, and for what."""
+        """
+        Who is being asked, and for what.
+
+        It names the space as well as the contest, because this prompt
+        outlives the message that announced it: `/d12ball resume` puts
+        it back up on its own, and a restart re-arms it wherever it is
+        in the channel.
+        """
         skill_type = self.loose_ball_side_on_the_clock(match)
         number = (
             self.possession_player_number(game, match)
@@ -2823,13 +2838,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         mention = format_player_with_team(game, number, mention=True)
         noun = contest_noun(match)
+        where = ball_space_label(match)
         if skill_type == "offense":
             return (
                 f"{mention}, you had the ball -- send a player from the "
-                f"zone after the {noun}, or send nobody:"
+                f"zone after the {noun} on {where}, or send nobody:"
             )
         return (
-            f"{mention}, choose who contests the {noun}, or send nobody:"
+            f"{mention}, choose who contests the {noun} on {where}, "
+            "or send nobody:"
         )
 
     async def begin_loose_ball(
@@ -2886,7 +2903,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         prefix = f"{lead_in}\n\n" if lead_in else ""
-        await interaction.followup.send(f"{prefix}{headline}")
+        if is_high_pass:
+            # A High Pass is not a loose ball: the ball is on a player
+            # everyone can already see, and the board it is standing on
+            # was posted by the pass itself.
+            await interaction.followup.send(f"{prefix}{headline}")
+        else:
+            # A genuine loose ball is the one position nobody can read
+            # off the last thing they were told -- the ball is lying in
+            # an empty space some number of spaces from wherever the
+            # pass started, and the very next question is who to send
+            # after it. So it is named and drawn, together.
+            await self.announce_board_update(
+                interaction,
+                game,
+                f"{prefix}{headline}\n{ball_location_line(match)}",
+            )
 
         if self.loose_ball_side_on_the_clock(match) is None:
             await self.resolve_loose_ball(interaction, game, match)
@@ -7558,10 +7590,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         message: str,
     ) -> None:
         """
-        Confirm a manual board correction (/coach, /ref, /meeple move,
-        /ball move/possession/speed, /score, /time) with a fresh
-        snapshot attached directly to the reply, in addition to
-        keeping the persistent board message in sync.
+        A message a coach cannot read without seeing the board, with a
+        fresh snapshot attached directly to it, in addition to keeping
+        the persistent board message in sync.
+
+        Two kinds of message qualify. A manual board correction
+        (/coach, /ref, /meeple move, /ball move/possession/speed,
+        /score, /time) is confirmed by showing what it did. A loose
+        ball is announced by showing where it is: the ball is lying in
+        a space nothing else in the channel names, and the question
+        that follows -- who to send after it -- is a question about how
+        far away everybody is.
 
         Both show the same board, so it is rendered once and uploaded
         twice.
