@@ -1,12 +1,12 @@
 {
-  "data_version": 4,
+  "data_version": 1,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=0",
   "abilities_source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1822486506",
   "role_profiles": {
     "fullback": {
       "offense": 1,
       "defense": 6,
-      "ability": "Can pass up to 4 with a high pass. When resolving block deflect, ball goes back 2 spaces.",
+      "ability": "Can high pass up to 4. Block deflect: ball goes back 2 spaces.",
       "ability_short": "High pass: up to 4; Block Deflect: back 2."
     },
     "defender": {
@@ -18,13 +18,13 @@
     "midfielder": {
       "offense": 3,
       "defense": 4,
-      "ability": "Gain +3 for skill tests when attempting low pass or pressure.",
+      "ability": "Gains +3 on skill tests for low pass or pressure.",
       "ability_short": "+3 for low pass/pressure"
     },
     "playmaker": {
       "offense": 4,
       "defense": 3,
-      "ability": "May advance 2 spaces when resolving Dribble advance.",
+      "ability": "May advance 2 spaces when resolving Dribble Advance.",
       "ability_short": "Dribble Advance up to 2"
     },
     "winger": {
@@ -36,7 +36,7 @@
     "striker": {
       "offense": 6,
       "defense": 1,
-      "ability": "Gain +3 for scoring attempts off a set up.",
+      "ability": "Gains +3 for scoring roll off a set up.",
       "ability_short": "+3 for scoring off setup"
     }
   },
