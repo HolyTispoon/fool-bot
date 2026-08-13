@@ -193,6 +193,23 @@ class Pen:
             gap_length=round(px(gap)),
         )
 
+    def ink_box(
+        self,
+        text: str,
+        face: ImageFont.ImageFont,
+        anchor: str = "mm",
+    ) -> tuple[float, float, float, float]:
+        """
+        Where the marks actually land around an anchor point, in card
+        units. Pillow's `m` anchor centres on the font's ascender and
+        descender rather than on the glyphs, so a line of capitals is
+        drawn low by whatever room its descenders are entitled to and
+        never use. Stacking lines by their ink is what centres a block
+        of them by eye.
+        """
+        box = self.draw.textbbox((0, 0), text, font=face, anchor=anchor)
+        return tuple(value / SUPERSAMPLE for value in box)
+
     def text_size(
         self, text: str, face: ImageFont.ImageFont
     ) -> tuple[float, float]:
@@ -915,14 +932,36 @@ def render_maneuver_card(
     return pen.finish(bleed, CARD_FACE)
 
 
+# The cycle on the back, sized to the card rather than to itself. It
+# is the whole of what that side says, and a coach reads it off the
+# deck between them, so it is drawn as wide as the card will carry: the
+# side vertices clear the cut line by CYCLE_SIDE_MARGIN and nothing
+# else on the card is wider. The vertical radius is the shorter of the
+# two because the heading and the caption bound it there and the width
+# is what was asked for -- a tenth of an ellipse, which reads as a
+# hexagon.
+CYCLE_NODE_RADIUS = 76
+CYCLE_RADIUS_X = 315
+CYCLE_RADIUS_Y = 284
+CYCLE_CENTER_Y = 548
+
+# A node's label is a rank over the maneuver's name, one word to a
+# line, and the three sizes are set against the widest of them:
+# "Intercept" has to clear the circle where it sits, which is below
+# the middle and so on a shorter chord than the diameter.
+CYCLE_RANK_FONT = 38
+CYCLE_NAME_FONT = 22
+CYCLE_RANK_GAP = 7
+CYCLE_LINE_GAP = 6
+
 # How far short of a node's edge a tie line stops, and how it is
-# drawn. The node circles are radius 58; stopping outside them keeps
-# the dashes from running under a label, and the line is thinner than
-# an arrow because it is the quieter relation.
-TIE_NODE_GAP = 64
-TIE_WIDTH = 5
-TIE_DASH = 15
-TIE_GAP = 13
+# drawn. Stopping outside the circle keeps the dashes from running
+# under a label, and the line is thinner than an arrow because it is
+# the quieter relation.
+TIE_NODE_GAP = CYCLE_NODE_RADIUS + 7
+TIE_WIDTH = 6
+TIE_DASH = 18
+TIE_GAP = 15
 
 
 def draw_tie_line(
@@ -991,14 +1030,14 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         width=EDGE_WIDTH,
     )
     pen.text(
-        (CARD_WIDTH / 2, 118),
+        (CARD_WIDTH / 2, 104),
         "D12 BALL",
         font(46, bold=True),
         INK,
         anchor="mm",
     )
     pen.text(
-        (CARD_WIDTH / 2, 166),
+        (CARD_WIDTH / 2, 150),
         "BASIC MANEUVERS",
         font(22, bold=True),
         MUTED,
@@ -1006,15 +1045,14 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
     )
 
     order = _maneuver_cycle_order(catalog)
-    center = (CARD_WIDTH / 2, 600)
-    radius = 218
+    center = (CARD_WIDTH / 2, CYCLE_CENTER_Y)
     from math import cos, radians, sin
 
     angles = [270 + 360 * index / len(order) for index in range(len(order))]
     points = [
         (
-            center[0] + radius * cos(radians(angle)),
-            center[1] + radius * sin(radians(angle)),
+            center[0] + CYCLE_RADIUS_X * cos(radians(angle)),
+            center[1] + CYCLE_RADIUS_Y * sin(radians(angle)),
         )
         for angle in angles
     ]
@@ -1036,32 +1074,43 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         dx, dy = nxt[0] - point[0], nxt[1] - point[1]
         length = (dx * dx + dy * dy) ** 0.5
         ux, uy = dx / length, dy / length
-        start = (point[0] + ux * 58, point[1] + uy * 58)
-        end = (nxt[0] - ux * 62, nxt[1] - uy * 62)
-        pen.line([start, end], fill=MUTED, width=5)
-        draw_arrowhead(pen, end, (ux, uy), 20, MUTED)
+        start = (point[0] + ux * CYCLE_NODE_RADIUS, point[1] + uy * CYCLE_NODE_RADIUS)
+        end = (
+            nxt[0] - ux * (CYCLE_NODE_RADIUS + 4),
+            nxt[1] - uy * (CYCLE_NODE_RADIUS + 4),
+        )
+        pen.line([start, end], fill=MUTED, width=6)
+        draw_arrowhead(pen, end, (ux, uy), 24, MUTED)
 
+    rank_face = font(CYCLE_RANK_FONT, bold=True)
+    name_face = font(CYCLE_NAME_FONT, bold=True)
     for (maneuver, is_offense), point in zip(order, points):
         color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
-        pen.circle(point, 58, fill=color)
-        pen.text(
-            (point[0], point[1] - 14),
-            f"{'O' if is_offense else 'D'}{maneuver.rank}",
-            font(26, bold=True),
-            INK,
-            anchor="mm",
-        )
-        for line_index, word in enumerate(maneuver.name.split(" ")):
+        pen.circle(point, CYCLE_NODE_RADIUS, fill=color)
+
+        # The label is centred as a block rather than line by line, so a
+        # one-word name and a two-word one both sit in the middle of the
+        # circle. Written as fixed offsets it was measured against the
+        # two-line case and left the whole stack low in the circle.
+        lines = [(f"{'O' if is_offense else 'D'}{maneuver.rank}", rank_face)]
+        lines += [(word, name_face) for word in maneuver.name.split(" ")]
+        boxes = [pen.ink_box(text, face) for text, face in lines]
+        gaps = [CYCLE_RANK_GAP] + [CYCLE_LINE_GAP] * (len(lines) - 2)
+        heights = [box[3] - box[1] for box in boxes]
+        top = point[1] - (sum(heights) + sum(gaps)) / 2
+        for index, (text, face) in enumerate(lines):
+            middle = top + heights[index] / 2
             pen.text(
-                (point[0], point[1] + 10 + line_index * 19),
-                word,
-                font(14, bold=True),
+                (point[0], middle - (boxes[index][1] + boxes[index][3]) / 2),
+                text,
+                face,
                 INK,
                 anchor="mm",
             )
+            top += heights[index] + (gaps[index] if index < len(gaps) else 0)
 
     pen.text(
-        (CARD_WIDTH / 2, CARD_HEIGHT - 118),
+        (CARD_WIDTH / 2, CARD_HEIGHT - 108),
         "solid: beats what it points to · dashed: ties",
         font(20),
         MUTED,
