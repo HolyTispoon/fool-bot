@@ -1565,6 +1565,28 @@ python3 scripts/render_player_cards.py --team orange --bleed
   bot's own, around 400px, and there is no larger source, so `PORTRAIT_MAX_SCALE`
   lets it up to 1.6x and no further: kept to its native size it would print
   smaller on a 2.5in card than the bot draws it on a phone.
+- **A portrait in `d12ball/images/player_images/` is a cut-out, and new art has
+  to be one.** These are JPEG paintings on a white studio background, and a
+  cut-out that leaves any of it behind shows twice over: as a pale box behind
+  the player on the dark images (`render_matchup`, and anywhere a portrait is
+  posted on its own), and as a faint checkerboard on the printed card, because
+  the background is not flat white but the JPEG's 8x8 blocks.
+  `scripts/recut_player_portraits.py` is the cut, and the roster was put
+  through it on 2026-08-12: background goes wherever it is light and
+  *colourless*, which is what keeps the white jersey numbers and the white net
+  a goalkeeper stands in -- paint carries a tint, a studio wall does not.
+  Reaching the edge of the image is not the test, since most of what was left
+  behind is walled in: between a tentacle and an arm, or in the holes of a net.
+  - **It is a dry run unless told otherwise** -- `--in-place`, or `--out` to
+    look first -- because what it overwrites is tracked art. It repeats itself
+    until a pass clears nothing, so what comes out does not depend on how often
+    it has been run; a pass drops pixels as it scans, which the pixels it has
+    already passed never saw. `D12BallPortraitRecutTests` asserts every tracked
+    portrait is already settled, which is the check a new painting fails.
+  - **Look at a new portrait on black, not on white.** White is exactly the
+    background that hides this. The printed card is white, which is why the
+    fault survived the cards being looked at, and the dark matchup image is
+    what showed how much of it was still there.
 - **`Pen.paste` resizes straight to the supersampled canvas.** The
   supersampling is there because Pillow does not antialias the shapes the cards
   are drawn out of; a photograph put through it would be resampled twice for
