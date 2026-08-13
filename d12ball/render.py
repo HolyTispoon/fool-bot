@@ -49,6 +49,13 @@ TEAM_BOARD_TOP = 1030
 TEAM_BOARD_BOTTOM = IMAGE_HEIGHT - 25
 TEAM_BOARD_GAP = 30
 
+# The field image: the match image's board and nothing else. Drawn on
+# a full-size canvas and cut out of it, so it is the same pixels the
+# board everyone is reading is made of -- see render_field_image. The
+# margin keeps the board's rounded corners and its 4px outline off the
+# edge of the crop.
+FIELD_MARGIN = 24
+
 # The coaching image: the field cut in half horizontally, showing one
 # coach their own band of it. Narrower than the match image on purpose
 # -- it carries one row of meeples instead of two, so at the match
@@ -2832,6 +2839,54 @@ def draw_coaching_benches(
                 injured=player_id in match.injured,
             )
             card_x += CARD_SIZE[0] + COACHING_CARD_GAP
+
+
+def render_field_image(
+    match: MatchState,
+    catalog: PlayerCatalog,
+) -> BytesIO:
+    """
+    The field on its own -- both sides' meeples, the ball, the space
+    codes and the shooting range edges -- with none of the match image
+    around it: no title, no jumbotron, no assignment cards, no team
+    boards, no benches.
+
+    It is a **crop of the match image's board**, not a second drawing
+    of one: the canvas is the full match image's, `draw_board` puts the
+    field where it always goes, and the board's own rectangle plus
+    `FIELD_MARGIN` is cut out of it. So this cannot drift from the
+    board both coaches are reading -- a change to a space, a meeple or
+    the ball token reaches it without being made twice -- which is the
+    whole point of an image whose job is to answer "where is everybody
+    standing?" while a coach is looking at something else.
+
+    Not upscaled, unlike the match image. `OUTPUT_SCALE` is there so a
+    2200px board holds up when Discord's client blows it up; a strip a
+    third of that height is shown at its own size or smaller, and the
+    upscale would only be payload.
+    """
+    players = player_index(catalog)
+    canvas = Image.new(
+        "RGBA",
+        (IMAGE_WIDTH, IMAGE_HEIGHT),
+        "#111820",
+    )
+    draw = ImageDraw.Draw(canvas)
+    draw_board(canvas, draw, match, players)
+
+    field = canvas.crop(
+        (
+            BOARD_LEFT - FIELD_MARGIN,
+            BOARD_TOP - FIELD_MARGIN,
+            BOARD_RIGHT + FIELD_MARGIN,
+            BOARD_BOTTOM + FIELD_MARGIN,
+        )
+    )
+
+    output = BytesIO()
+    field.convert("RGB").save(output, format="PNG")
+    output.seek(0)
+    return output
 
 
 def render_match_image(

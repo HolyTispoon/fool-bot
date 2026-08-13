@@ -62,6 +62,11 @@ FULL_IMAGE_BUTTON_LABEL = "View full image"
 # Every board upload is named for its game, which is also how a pinned
 # board is told apart from anything else somebody pinned in the channel.
 BOARD_IMAGE_FILENAME_PREFIX = "d12ball-pbd"
+# The field-only image sent under a coach's maneuver cards. It is
+# deliberately *not* named for its game: that prefix is what marks a
+# pinned board as ours to roll off, and this one is an ephemeral
+# attachment that must never be mistaken for one.
+FIELD_IMAGE_FILENAME = "d12ball-field.png"
 # Discord caps a channel at 50 pins and answers the 51st with this
 # error code.
 MAX_PINNED_MESSAGES = 50

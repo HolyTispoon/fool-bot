@@ -47,6 +47,7 @@ from d12ball.render import (
     ZONE_LABELS,
     ChallengeSide,
     render_coaching_image,
+    render_field_image,
     render_injury_test_die,
     render_maneuver_challenge,
     render_maneuver_reference_image,
@@ -70,6 +71,7 @@ from cogs.d12ball_helpers import (
     BENCH_DESTINATIONS,
     COIN_EMOJI_NAMES,
     EMOJI_REFETCH_INTERVAL,
+    FIELD_IMAGE_FILENAME,
     HIGH_PASS_CONTEST_HEADLINE,
     LOGGER,
     PBD_ARCHIVE_CATEGORY_NAME,
@@ -7648,6 +7650,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return self.match_file_from_png(
             game, await self.render_match_png(game),
         )
+
+    async def build_field_file(self, game: D12BallGame) -> discord.File:
+        """
+        The field on its own -- where everybody is standing and where
+        the ball is, with nothing else on it -- which is what a coach
+        gets under their maneuver cards. See
+        `ManeuverActionPromptView.open_action_menu`.
+
+        Unlike the maneuver hand, this cannot be drawn once at startup:
+        it is the position, so it is different on every pick. Bytes are
+        not kept for the same reason -- the render is uploaded once and
+        is stale immediately -- so it goes straight into a File rather
+        than through the `render_match_png` / `match_file_from_png`
+        pair, which exists for the board that is put in two places at
+        once.
+        """
+        image = await asyncio.to_thread(
+            render_field_image,
+            self.load_match_state(game),
+            self.player_catalog,
+        )
+        return discord.File(image, filename=FIELD_IMAGE_FILENAME)
 
     async def post_new_play_board(
         self,
