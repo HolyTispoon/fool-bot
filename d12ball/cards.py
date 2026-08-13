@@ -172,6 +172,35 @@ class Pen:
     def polygon(self, points: list[tuple[float, float]], fill: str) -> None:
         self.draw.polygon([(px(x), px(y)) for x, y in points], fill=fill)
 
+    def paste(
+        self,
+        image: Image.Image,
+        center: tuple[float, float],
+        size: tuple[float, float],
+    ) -> None:
+        """
+        A picture centred on a point, `size` card units across.
+
+        Resized straight to the supersampled canvas's pixels rather
+        than to the card's: the supersampling is here because Pillow
+        does not antialias the shapes the cards are drawn out of, and a
+        photograph put through it would be resampled twice on the way
+        out of `finish` for nothing. Its own alpha is the mask, so a
+        cut-out portrait sits on the face rather than on a box.
+        """
+        scaled = image.resize(
+            (round(px(size[0])), round(px(size[1]))),
+            Image.Resampling.LANCZOS,
+        )
+        self.image.paste(
+            scaled,
+            (
+                round(px(center[0] - size[0] / 2)),
+                round(px(center[1] - size[1] / 2)),
+            ),
+            scaled if scaled.mode == "RGBA" else None,
+        )
+
     def dashed_line(
         self,
         start: tuple[float, float],
