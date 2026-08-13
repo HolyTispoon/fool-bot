@@ -397,20 +397,19 @@ class DinkyAI(AIStrategy):
 
     def choose_shootout_order(self, field_players: list[str]) -> list[str]:
         """
-        Best offensive skill first. Only the first round is ordered,
-        and the shootout's early stop means the later cards may never
-        be reached -- so the shooters worth having are the ones at the
-        top. Dinky does not try to guess what the other coach set.
+        A random permutation. Only the first round is ordered, and the
+        shootout's early stop means the later cards may never be
+        reached, so stacking the top is the stronger play -- but who
+        shoots when is a read of the other coach's order, which Dinky
+        does not make, the same call as the maneuver die and never
+        ceding.
         """
-        return sorted(
-            field_players,
-            key=lambda player_id: -self.player_catalog.effective_profile(
-                self.player_catalog.player_by_id(player_id)
-            ).offense,
-        )
+        order = list(field_players)
+        random.shuffle(order)
+        return order
 
     def choose_shootout_shooter(self, candidates: list[str]) -> str:
-        return self.choose_shootout_order(candidates)[0]
+        return random.choice(candidates)
 
 
 def build_ai_strategies(
