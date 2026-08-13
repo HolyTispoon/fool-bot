@@ -36,12 +36,17 @@ from d12ball.components import (
 )
 from d12ball.game import Formation, Team
 from d12ball.render import (
+    BOARD_BOTTOM,
+    BOARD_LEFT,
+    BOARD_RIGHT,
+    BOARD_TOP,
     CARD_SIZE,
     COACHING_BOARD_LEFT,
     COACHING_BOARD_RIGHT,
     COACHING_CARD_GAP,
     COACHING_HEIGHT,
     COACHING_WIDTH,
+    FIELD_MARGIN,
     FONT_BODY,
     FONT_DIR,
     FONT_HEADING,
@@ -57,6 +62,7 @@ from d12ball.render import (
     SKILL_TEST_DIE_RADIUS,
     load_font,
     render_coaching_image,
+    render_field_image,
     render_injury_test_die,
     render_own_goal_dice,
     render_skill_test_dice,
@@ -1073,6 +1079,31 @@ class D12BallComponentTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
             self.assertEqual(image.size, (3300, 1920))
+
+    def test_the_field_image_is_the_board_cut_out_of_the_match_image(
+        self,
+    ) -> None:
+        # A crop rather than a second drawing: the field a coach reads
+        # under their maneuver cards is made of the same pixels as the
+        # board, so nothing about it can drift from what the board says.
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+        )
+        image_data = render_field_image(match, self.catalog)
+
+        with Image.open(image_data) as image:
+            self.assertEqual(image.format, "PNG")
+            self.assertEqual(
+                image.size,
+                (
+                    BOARD_RIGHT - BOARD_LEFT + 2 * FIELD_MARGIN,
+                    BOARD_BOTTOM - BOARD_TOP + 2 * FIELD_MARGIN,
+                ),
+            )
 
     def test_the_coaching_image_renders_one_side_only(self) -> None:
         match = MatchState.standard(

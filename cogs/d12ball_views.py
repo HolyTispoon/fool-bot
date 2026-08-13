@@ -11,6 +11,7 @@ import asyncio
 import random
 from typing import TYPE_CHECKING, Optional
 
+import aiohttp
 import discord
 
 from d12ball.components import (
@@ -41,6 +42,7 @@ from cogs.d12ball_helpers import (
     AI_OPPONENT_NAMES,
     LOGGER,
     ROLE_INITIALS,
+    add_full_image_button,
     add_full_image_button_to_response,
     build_home_choice_message,
     build_setup_message,
@@ -1587,6 +1589,51 @@ class ManeuverActionPromptView(SafeView):
         # is the webhook route, not the channel's edit bucket -- see
         # "Discord's rate limits".
         await add_full_image_button_to_response(interaction, view)
+        await self.send_field_image(interaction)
+
+    async def send_field_image(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        """
+        The field under the cards: what each maneuver would do depends
+        on where everybody is standing, and a coach picking one is
+        looking at an ephemeral message rather than at the board.
+
+        **A message of its own, not a second attachment on the cards.**
+        Discord lays two images on one message out side by side, which
+        would show a field the width of the whole board at half the
+        width of a phone. It also keeps the cards' own full-image link
+        pointing at the cards: `build_full_image_button` reads the
+        first attachment, and a coach clicking "View full image" under
+        their hand means the hand.
+
+        Both sends are the webhook route rather than the channel's edit
+        bucket, so neither competes with the board -- see "Discord's
+        rate limits" in CLAUDE.md.
+
+        A failure here loses the field and nothing else: the pick is
+        already up and clickable, which is worth more than the picture
+        under it.
+        """
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            return
+
+        try:
+            message = await interaction.followup.send(
+                file=await self.cog.build_field_file(game),
+                ephemeral=True,
+                wait=True,
+            )
+        except (discord.HTTPException, aiohttp.ClientError):
+            return
+
+        # A field is the whole width of the board in a strip a fifth as
+        # tall, so inline it is smaller than anything else the bot
+        # sends -- the names on the meeples need the full-size upload
+        # more than the cards do.
+        await add_full_image_button(message)
 
 
 class ManeuverActionSelectView(SafeView):

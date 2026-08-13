@@ -1243,6 +1243,7 @@ output is a PNG of the expected dimensions.
 python3 scripts/render_sample.py --home purple --visiting teal --out board.png
 python3 scripts/render_sample.py --home-formation 2-3-1 --board-size 6  # stacked meeples
 python3 scripts/render_sample.py --coaching home       # a coach's own half
+python3 scripts/render_sample.py --field               # the field on its own
 python3 scripts/render_sample.py --list-games
 python3 scripts/render_sample.py --game <game_id>      # reproduce a real board
 ```
@@ -1271,15 +1272,27 @@ never having landed. The persistent message still gets the same render in the
 same breath -- `post_new_play_board` refreshes it from the `png=` it already
 drew -- so this costs one message and one pin per *game*, not per turn.
 
-**There are two board images, and they are drawn to different widths.**
-`render_match_image` is the 2200px one everybody sees;
+**There are three board images. Two are drawn, and the third is cut out of
+one of them.** `render_match_image` is the 2200px one everybody sees;
 `render_coaching_image` is the 1280px half-field a
-[Coaching Choice](#the-coaching-choice) keeps up, and the two do not share a
+[Coaching Choice](#the-coaching-choice) keeps up, and those two do not share a
 layout. The coaching image carries one row of meeples instead of two, so at the
 match image's width it arrives in Discord as an unreadable sliver. **It is
 deliberately not mirrored for the visiting coach**: the zones keep their real
 names and the spaces their real numbers, so V1 is the same space on both images
 and on the board the coaches are looking at.
+
+**`render_field_image` is the third, and it is a crop rather than a third
+layout.** The field alone -- both sides' meeples, the ball, the space codes and
+the shooting range edges, with no title, jumbotron, assignment cards, team
+boards or benches -- for the message under a coach's maneuver cards (see "The
+maneuver cards"). It draws the match image's canvas, calls the same
+`draw_board`, and cuts the board's rectangle plus `FIELD_MARGIN` out of it, so
+it is made of the same pixels as the board both coaches are reading and cannot
+drift from it: a change to a space, a meeple or the ball token reaches it
+without being made twice. It is the one board image that is **not** upscaled --
+`OUTPUT_SCALE` is there so a 2200px board holds up when a client blows it up,
+and a strip a third of that height is shown at its own size or smaller.
 
 Two things set its width, and both are three cards wide. A zone's **assigned
 cards** are drawn under that zone, and midfield holds three under 2-3-1 and
@@ -1387,6 +1400,24 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
   abilities are small print at that size, which is what the full-image link on
   the message is for. That link is the webhook route, not the channel's edit
   bucket; see "Discord's rate limits".
+- **The field goes under the hand**, drawn by `render_field_image` and sent by
+  `ManeuverActionPromptView.send_field_image`. What a maneuver would do depends
+  on where everybody is standing, and a coach picking one is looking at an
+  ephemeral message rather than at the board.
+  - **A message of its own, not a second attachment on the cards.** Discord
+    lays two images on one message out side by side, which would show a field
+    the width of the whole board at half the width of a phone. It also keeps
+    the cards' link pointing at the cards -- `build_full_image_button` reads
+    the *first* attachment, and "View full image" under a hand means the hand.
+    Both sends are the webhook route, so neither competes with the board for
+    the channel's edit bucket.
+  - **It is rendered per pick, unlike the hand**, because it is the position
+    and so is different every time. It carries a full-image link of its own for
+    a stronger version of the hand's reason: a field is the whole width of the
+    board in a strip a fifth as tall, which is the smallest thing the bot sends
+    inline.
+  - **Losing it must not lose the pick**, which is already up and clickable by
+    then, so the send is wrapped the way `add_full_image_button`'s is.
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through

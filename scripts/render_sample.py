@@ -27,6 +27,7 @@ from d12ball.components import TeamSide  # noqa: E402
 from d12ball.game import VALID_BOARD_SIZES, Formation, Team  # noqa: E402
 from d12ball.render import (  # noqa: E402
     render_coaching_image,
+    render_field_image,
     render_match_image,
 )
 from gamesaves.d12ball.storage import load_games  # noqa: E402
@@ -131,6 +132,15 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--field",
+        action="store_true",
+        help=(
+            "Render the field on its own -- the board, the meeples and "
+            "the ball, with no jumbotron, cards or team boards -- which "
+            "is what goes under a coach's maneuver cards."
+        ),
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         default=DEFAULT_OUTPUT,
@@ -165,7 +175,9 @@ def main() -> None:
             raise SystemExit(str(error)) from error
         label = "Sample"
 
-    if arguments.coaching:
+    if arguments.field:
+        image = render_field_image(match, catalog)
+    elif arguments.coaching:
         side = TeamSide(arguments.coaching)
         setup = match.setup_for_side(side)
         image = render_coaching_image(

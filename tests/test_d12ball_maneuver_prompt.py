@@ -280,11 +280,10 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(game.turn_message_id)
 
 
-class ManeuverPickShowsTheCardsTests(unittest.IsolatedAsyncioTestCase):
+class ManeuverPickHarness:
     """
-    Opening the pick puts a side's three cards in front of the coach.
-    It used to be a paragraph per maneuver, which said the same things
-    and made a coach read three sentences to compare three options.
+    Opening a coach's pick, for the two things it puts in front of
+    them: their three cards, and the field they would play them on.
     """
 
     @classmethod
@@ -305,6 +304,11 @@ class ManeuverPickShowsTheCardsTests(unittest.IsolatedAsyncioTestCase):
         return cog
 
     async def open_menu(self, cog: D12Ball, offense: bool):
+        """
+        Open the pick and hand back the interaction, so a test can read
+        both what went on the response (the cards) and what followed it
+        (the field).
+        """
         game = build_game()
         game.match_state = {}
         cog.games[game.game_id] = game
@@ -326,30 +330,58 @@ class ManeuverPickShowsTheCardsTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace(
             user=SimpleNamespace(id=111),
             response=SimpleNamespace(send_message=mock.AsyncMock()),
+            followup=SimpleNamespace(
+                send=mock.AsyncMock(return_value=mock.Mock()),
+            ),
         )
         view = ManeuverActionPromptView(cog, game.game_id)
         with mock.patch(
             "cogs.d12ball_views.add_full_image_button_to_response",
             new=mock.AsyncMock(),
+        ), mock.patch(
+            "cogs.d12ball_views.add_full_image_button",
+            new=mock.AsyncMock(),
         ):
             await view.open_action_menu(interaction)
+        return interaction
+
+    async def open_menu_cards(self, cog: D12Ball, offense: bool):
+        """Just the kwargs the cards were sent with."""
+        interaction = await self.open_menu(cog, offense)
         return interaction.response.send_message.await_args.kwargs
 
+
+class ManeuverPickShowsTheCardsTests(
+    ManeuverPickHarness,
+    unittest.IsolatedAsyncioTestCase,
+):
+    """
+    Opening the pick puts a side's three cards in front of the coach.
+    It used to be a paragraph per maneuver, which said the same things
+    and made a coach read three sentences to compare three options.
+    """
+
     async def test_the_offense_is_shown_its_own_three_cards(self) -> None:
-        sent = await self.open_menu(self.build_ready_cog(), offense=True)
+        sent = await self.open_menu_cards(
+            self.build_ready_cog(), offense=True,
+        )
 
         self.assertEqual(sent["file"].filename, "maneuver_hand_offense.png")
         self.assertTrue(sent["ephemeral"])
 
     async def test_the_defense_is_shown_its_own_three_cards(self) -> None:
-        sent = await self.open_menu(self.build_ready_cog(), offense=False)
+        sent = await self.open_menu_cards(
+            self.build_ready_cog(), offense=False,
+        )
 
         self.assertEqual(sent["file"].filename, "maneuver_hand_defense.png")
 
     async def test_the_effect_prose_is_gone_from_the_message(self) -> None:
         # The cards carry it, and repeating it under them is what this
         # replaced rather than something to keep alongside.
-        sent = await self.open_menu(self.build_ready_cog(), offense=True)
+        sent = await self.open_menu_cards(
+            self.build_ready_cog(), offense=True,
+        )
 
         self.assertEqual(sent["content"], "Pick your maneuver:")
 
@@ -382,13 +414,87 @@ class ManeuverPickShowsTheCardsTests(unittest.IsolatedAsyncioTestCase):
         # Uploading a discord.File consumes the stream inside it, so a
         # second open must not be handed the emptied one.
         cog = self.build_ready_cog()
-        first = await self.open_menu(cog, offense=True)
-        second = await self.open_menu(cog, offense=True)
+        first = await self.open_menu_cards(cog, offense=True)
+        second = await self.open_menu_cards(cog, offense=True)
 
         self.assertIsNot(first["file"], second["file"])
         self.assertEqual(
             first["file"].fp.getvalue(), second["file"].fp.getvalue()
         )
+
+
+class ManeuverPickShowsTheFieldTests(
+    ManeuverPickHarness,
+    unittest.IsolatedAsyncioTestCase,
+):
+    """
+    And under the cards, where everybody is standing. What a maneuver
+    would do depends on the position, and a coach picking one is
+    looking at an ephemeral message instead of the board.
+    """
+
+    async def test_the_field_follows_the_cards(self) -> None:
+        interaction = await self.open_menu(
+            self.build_ready_cog(), offense=True,
+        )
+
+        sent = interaction.followup.send.await_args.kwargs
+        self.assertEqual(sent["file"].filename, "d12ball-field.png")
+        self.assertTrue(sent["ephemeral"])
+        # The message has to come back, or there is nothing to hang the
+        # full-image link on -- the field is the smallest thing the bot
+        # sends inline.
+        self.assertTrue(sent["wait"])
+
+    async def test_the_field_is_a_message_of_its_own(self) -> None:
+        # Not a second attachment on the cards. Discord lays two images
+        # on one message out side by side, which halves the width of a
+        # field that is already the widest thing here -- and the cards'
+        # own full-image link reads the first attachment, so a coach
+        # clicking it under three cards gets the cards.
+        interaction = await self.open_menu(
+            self.build_ready_cog(), offense=True,
+        )
+
+        cards = interaction.response.send_message.await_args.kwargs
+        self.assertNotIn("files", cards)
+        self.assertEqual(cards["file"].filename, "maneuver_hand_offense.png")
+        interaction.followup.send.assert_awaited_once()
+
+    async def test_the_field_is_the_board_as_it_stands(self) -> None:
+        # It is rendered per pick, unlike the cards: it is the position,
+        # so it is different every time and cannot be drawn at startup.
+        interaction = await self.open_menu(
+            self.build_ready_cog(), offense=True,
+        )
+
+        image = interaction.followup.send.await_args.kwargs["file"].fp
+        self.assertTrue(image.getvalue().startswith(b"\x89PNG"))
+
+    async def test_a_failed_field_send_does_not_lose_the_pick(self) -> None:
+        # The pick is already up and clickable by then, which is worth
+        # more than the picture under it.
+        cog = self.build_ready_cog()
+        game = build_game()
+        game.match_state = {}
+        cog.games[game.game_id] = game
+        cog.build_field_file = mock.AsyncMock(
+            side_effect=discord.HTTPException(
+                mock.Mock(status=500), "no thanks",
+            ),
+        )
+
+        view = ManeuverActionPromptView(cog, game.game_id)
+        interaction = SimpleNamespace(
+            followup=SimpleNamespace(send=mock.AsyncMock()),
+        )
+        with mock.patch(
+            "cogs.d12ball_views.add_full_image_button",
+            new=mock.AsyncMock(),
+        ):
+            await view.send_field_image(interaction)
+
+        interaction.followup.send.assert_not_awaited()
 
 
 if __name__ == "__main__":
