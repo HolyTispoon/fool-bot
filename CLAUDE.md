@@ -30,6 +30,7 @@ python3 -m unittest discover -s tests
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board image rendering (Pillow) |
 | `d12ball/cards.py` | The six maneuvers as cards — the printed face and the hand the bot shows |
+| `d12ball/player_cards.py` | The roster as cards, print-only, over `cards.py`'s print machinery |
 | `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
 | `d12ball/data/` | `players.json`, `basic_rules.json` |
@@ -1529,6 +1530,59 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
   "BASIC MANEUVER", which is what will still mean something once a second set
   of maneuvers exists.
 - `cards/` is generated output and is gitignored, like `board.png`.
+
+### The player cards
+
+`d12ball/player_cards.py` draws the roster as cards -- one a player, poker
+size at 300dpi, the same as a maneuver's and out of the same `Pen`, palette
+and `print_sheet`.
+
+```bash
+python3 scripts/render_player_cards.py --out cards/players --sheet
+python3 scripts/render_player_cards.py --team orange --bleed
+```
+
+- **It follows the bot's own card, not a design of its own.** Name, the two
+  skills in `CARD_OFFENSE_COLOR` and `CARD_DEFENSE_COLOR`, the role, the
+  portrait, inside the team's colour -- `build_player_card` in `render.py` is
+  what a coach playing by Discord is looking at, and a coach at the table
+  should be reading the same card. `ROLE_INITIALS` is shared for the same
+  reason: the two letters in the badge are the two letters on the meeple's
+  card in the channel.
+- **What the print adds is the ability, and it is the full sentence.** The
+  bot has the roster and the rules commands a click away; a card on a table is
+  the whole of what its coach has, so the sentence goes under the portrait.
+  Never `ability_short` -- see "Every ability is imported twice" --
+  and `D12BallPlayerCardTests` greps the module to keep it that way.
+- **The ability is measured before anything is drawn, and the portrait takes
+  what is left.** Its length is the one thing on the card the layout does not
+  choose, so the header and stats are pinned to the top, the ability band to
+  the bottom, and the picture gets the middle. That is silent when it goes
+  wrong -- a longer ability squeezes the portrait rather than overflowing --
+  which is why the suite asserts a floor on the slot rather than only that a
+  card renders.
+- **A portrait prints at about 190dpi and that is deliberate.** The art is the
+  bot's own, around 400px, and there is no larger source, so `PORTRAIT_MAX_SCALE`
+  lets it up to 1.6x and no further: kept to its native size it would print
+  smaller on a 2.5in card than the bot draws it on a phone.
+- **`Pen.paste` resizes straight to the supersampled canvas.** The
+  supersampling is there because Pillow does not antialias the shapes the cards
+  are drawn out of; a photograph put through it would be resampled twice for
+  nothing.
+- **A team sheet is three across**, not the maneuvers' four: a team is nine
+  players, and nine poker cards in a 3x3 come out at about 8 x 11 inches --
+  a page. Print it at 100% on A4, or borderless on letter, or the cards come
+  off the printer undersized.
+- **The back is the player's advanced version, and it is the one thing here
+  waiting on the rules.** Not a shared back like a maneuver's: player cards are
+  dealt face up and sit on the field and team boards all game, so there is
+  nothing to hide -- the other side of the card is the same player in advanced
+  mode. Advanced mode is unspecified and the sheet's `Advanced` ability column
+  is empty for all thirty-six, so `render_player_card` draws a face and the
+  script prints one-sided; see "Blocked or deferred" in the rules log. What
+  that costs when the column fills is the ability band read from the advanced
+  ability, a side marker in the header, and a duplex-mirrored back sheet --
+  the front is already the whole of the rest of the card.
 
 ### The printed boards
 

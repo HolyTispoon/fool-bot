@@ -1198,3 +1198,6 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
 
 - **Advanced mode** -- per-team abilities (the sheet's empty `Advanced` column) -- is
   unspecified. Setup refuses it. Formations left it for basic mode on 2026-08-08.
+  It also holds up the **back of a printed player card**, which is that player's
+  advanced version (the author, 2026-08-12): the printed cards are one-sided until
+  the column is filled, and filling it is what unblocks them.
