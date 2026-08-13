@@ -928,14 +928,16 @@ attached every library line would print twice.
 
 Records at ERROR and above are mirrored into a Discord channel, so a crash
 shows up in the server instead of only on the console of whoever is hosting
-the bot. The bot finds or creates a channel called `#logs` on startup, posts
-the record with its traceback in a code fence, and posts a one-line notice
-naming the build it is running whenever that build changes.
+the bot. A bot told to post (`FOOLBOT_LOG_MIRROR=on` — see below; the
+default is console only) finds or creates a channel called `#logs` on
+startup, posts the record with its traceback in a code fence, and posts a
+one-line notice naming the build it is running whenever that build changes.
 
 Everything is optional and lives in `.env` next to `DISCORD_TOKEN`:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
+| `FOOLBOT_LOG_MIRROR` | off | `on` lets this bot post to the channel at all |
 | `FOOLBOT_LOG_LEVEL` | `INFO` | Console threshold |
 | `FOOLBOT_LOG_CHANNEL_LEVEL` | `ERROR` | Discord threshold; `off` disables the mirror |
 | `FOOLBOT_LOG_CHANNEL_ID` | — | Mirror into exactly this channel |
@@ -944,8 +946,28 @@ Everything is optional and lives in `.env` next to `DISCORD_TOKEN`:
 | `FOOLBOT_DEPLOY_NOTICE` | on | `off` stops the "now running this build" notice |
 | `FOOLBOT_HOST_NAME` | machine name | What the deploy notice calls this host |
 
-Three things to know before changing any of it:
+Things to know before changing any of it:
 
+- **Posting to the channel is opt-in, per bot.** `FOOLBOT_LOG_MIRROR`
+  is off unless a checkout's own `.env` sets it, and nothing reaches
+  `#logs` without it — neither an error nor a deploy notice. The same
+  repository is run by more than one bot: the real one on its host, and
+  a test bot on a developer's machine out of a clone or a worktree of
+  the same code. Both used to bind the channel and both posted, so it
+  carried a test bot's tracebacks beside the ones somebody could act
+  on. `.env` is untracked and per checkout, so a clone starts silent —
+  which is the right way round: a real bot gone quiet after a redeploy
+  is one line in a file its host already needs, where a test bot
+  posting is noise in the one channel that is supposed to be
+  actionable, and nobody running it has any reason to notice.
+  `mirror_enabled()` in `botlog/channel.py` is the switch, read in
+  exactly two places (`install_mirror` and `announce_startup`, the two
+  entry points that reach the channel) rather than inside
+  `ensure_log_channel`, so a bot that is not posting attaches no sink,
+  lowers no log level and shells out to no git.
+  An unrecognised value is **off**, unlike `FOOLBOT_LOG_CHANNEL_LEVEL`,
+  which falls back to `ERROR`: the level's failure mode should be
+  saying too much, and this one's should be saying nothing.
 - **The level you log at decides who sees it.** ERROR reaches the server;
   WARNING and INFO are console-only. So an error means "someone needs to
   fix this", not "something unexpected happened" — a missing application
@@ -965,10 +987,12 @@ Three things to know before changing any of it:
   the notice is only as accurate as the deployed tree — and degrades to
   saying nothing at all if git is not on PATH.
 - **The notices are one stream per machine, not one per repository.** That
-  state file is local, so when we both deploy into the same `#logs` the
-  posts interleave: the same commit gets announced once by each host, and
-  neither stream is the repository's history. Each notice names its host so
-  they can be told apart. Don't read the channel as a changelog.
+  state file is local, so when two opted-in hosts deploy into the same
+  `#logs` the posts interleave: the same commit gets announced once by each,
+  and neither stream is the repository's history. Each notice names its host
+  so they can be told apart. Don't read the channel as a changelog — and
+  don't read a host's absence from it as that host being behind, since a
+  checkout without `FOOLBOT_LOG_MIRROR` announces nothing at all.
 - **A merge is listed only when it resolved a conflict.** A clean merge
   repeats commits the notice already lists, so it is dropped and its pull
   request named in the heading instead; a conflict resolution exists in the

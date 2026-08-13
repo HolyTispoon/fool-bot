@@ -19,6 +19,7 @@ from botlog.channel import (
     log_channel_level,
     log_channel_name,
     log_target_guild,
+    mirror_enabled,
 )
 from botlog.handler import DiscordLogChannelHandler, chunk_log_message
 
@@ -26,6 +27,7 @@ from botlog.handler import DiscordLogChannelHandler, chunk_log_message
 # Every FOOLBOT_ variable the package reads. Cleared for each test that
 # cares, so a developer's own .env cannot change what the suite asserts.
 LOG_ENVIRONMENT_KEYS = (
+    "FOOLBOT_LOG_MIRROR",
     "FOOLBOT_LOG_LEVEL",
     "FOOLBOT_LOG_CHANNEL_LEVEL",
     "FOOLBOT_LOG_CHANNEL_ID",
@@ -169,6 +171,43 @@ class ChunkLogMessageTests(unittest.TestCase):
         self.assertEqual(
             sum(chunk.count("z") for chunk in chunks), 5000,
         )
+
+
+class MirrorOptInTests(unittest.TestCase):
+    """
+    FOOLBOT_LOG_MIRROR, which is what keeps a test bot run from a clone
+    of this repo out of the log channel.
+    """
+
+    def test_a_bot_posts_nothing_unless_its_env_says_to(self) -> None:
+        # The case this exists for: a checkout whose .env carries a
+        # token and nothing else.
+        with environment():
+            self.assertFalse(mirror_enabled())
+
+    def test_the_configured_channel_does_not_turn_it_on(self) -> None:
+        # Every other log variable is shared through the repository's
+        # own docs, so a test bot can easily have them set and must
+        # still stay quiet.
+        with environment(
+            FOOLBOT_LOG_CHANNEL_LEVEL="ERROR",
+            FOOLBOT_LOG_CHANNEL_ID="12345",
+            FOOLBOT_LOG_CHANNEL_NAME="logs",
+        ):
+            self.assertFalse(mirror_enabled())
+
+    def test_the_ways_of_saying_yes(self) -> None:
+        for value in ("on", "ON", " on ", "1", "true", "yes", "enabled"):
+            with environment(FOOLBOT_LOG_MIRROR=value):
+                self.assertTrue(mirror_enabled(), value)
+
+    def test_anything_else_is_silence(self) -> None:
+        # Unlike the level below, an unrecognised value is off: holding
+        # the mirror back is what this switch is for, so a typo must not
+        # open it.
+        for value in ("", "  ", "off", "no", "false", "onn", "please"):
+            with environment(FOOLBOT_LOG_MIRROR=value):
+                self.assertFalse(mirror_enabled(), value)
 
 
 class LogLevelTests(unittest.TestCase):
@@ -1008,8 +1047,28 @@ class StartupWiringTests(unittest.TestCase):
     def test_the_mirror_is_not_installed_when_it_is_switched_off(
         self,
     ) -> None:
-        with environment(FOOLBOT_LOG_CHANNEL_LEVEL="off"):
+        with environment(
+            FOOLBOT_LOG_MIRROR="on", FOOLBOT_LOG_CHANNEL_LEVEL="off",
+        ):
             self.assertIsNone(botlog.install_mirror())
+
+    def test_no_sink_is_attached_without_the_opt_in(self) -> None:
+        # A test bot must not even hold a handler: attaching one lowers
+        # the root level for records nothing is going to read.
+        root = logging.getLogger()
+        saved_handlers = list(root.handlers)
+        saved_level = root.level
+        self.addCleanup(root.setLevel, saved_level)
+        self.addCleanup(
+            lambda: root.handlers.__setitem__(slice(None), saved_handlers),
+        )
+        root.setLevel(logging.CRITICAL)
+
+        with environment(FOOLBOT_LOG_CHANNEL_LEVEL="ERROR"):
+            self.assertIsNone(botlog.install_mirror())
+
+        self.assertEqual(root.handlers, saved_handlers)
+        self.assertEqual(root.level, logging.CRITICAL)
 
     def test_installing_the_mirror_lets_its_records_reach_it(self) -> None:
         # A record filtered out by the root logger never reaches any
@@ -1019,13 +1078,33 @@ class StartupWiringTests(unittest.TestCase):
         root.setLevel(logging.CRITICAL)
         self.addCleanup(root.setLevel, saved_level)
 
-        with environment(FOOLBOT_LOG_CHANNEL_LEVEL="ERROR"):
+        with environment(
+            FOOLBOT_LOG_MIRROR="on", FOOLBOT_LOG_CHANNEL_LEVEL="ERROR",
+        ):
             handler = botlog.install_mirror()
 
         self.addCleanup(root.removeHandler, handler)
 
         self.assertIn(handler, root.handlers)
         self.assertLessEqual(root.level, logging.ERROR)
+
+    def test_no_startup_notice_without_the_opt_in(self) -> None:
+        # And nothing is read or written on the way to deciding that:
+        # no git subprocess, and no sha marked as announced, so the real
+        # bot still announces the build when it comes to it.
+        with environment():
+            with mock.patch.object(
+                deploy_notice, "last_announced",
+            ) as last_announced, mock.patch.object(
+                deploy_notice, "notice_for",
+            ) as notice_for, mock.patch.object(
+                deploy_notice, "mark_announced",
+            ) as mark_announced:
+                asyncio.run(botlog.announce_startup(FakeClient()))
+
+        last_announced.assert_not_called()
+        notice_for.assert_not_called()
+        mark_announced.assert_not_called()
 
     def test_binding_is_skipped_when_there_is_no_mirror(self) -> None:
         asyncio.run(botlog.start_mirror(FakeClient(), None))
