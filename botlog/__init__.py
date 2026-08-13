@@ -25,6 +25,9 @@ point at which the client knows what servers it is in.
 Everything is driven by environment variables, all optional, all read
 from .env like DISCORD_TOKEN:
 
+  FOOLBOT_LOG_MIRROR          "on" to post to the channel at all; off
+                              unless set, so a test bot run from a
+                              clone of this repo stays out of #logs
   FOOLBOT_LOG_LEVEL           console threshold (default INFO)
   FOOLBOT_LOG_CHANNEL_LEVEL   Discord threshold (default ERROR;
                               "off" disables the mirror)
@@ -50,6 +53,7 @@ from botlog.channel import (
     log_channel_level,
     log_channel_name,
     log_target_guild,
+    mirror_enabled,
 )
 from botlog.handler import DiscordLogChannelHandler, chunk_log_message
 
@@ -67,6 +71,7 @@ __all__ = [
     "log_channel_level",
     "log_channel_name",
     "log_target_guild",
+    "mirror_enabled",
     "start_mirror",
 ]
 
@@ -129,7 +134,23 @@ def install_mirror() -> Optional[DiscordLogChannelHandler]:
 
     Returns the handler, which start_mirror needs once there is a live
     client, or None when the mirror is switched off.
+
+    Two ways off, and this is the first of the two places that check
+    both -- announce_startup is the other. Gating here rather than
+    inside ensure_log_channel is what keeps a silent bot from attaching
+    a sink at all, and so from lowering the root level below the
+    console's for records nothing will read.
     """
+    if not mirror_enabled():
+        # Console-only is the default, so say why: the alternative is a
+        # developer reading the silence as the mirror being broken.
+        LOGGER.info(
+            "Not posting to #%s from this bot: FOOLBOT_LOG_MIRROR is not "
+            "set. Logging to the console only.",
+            log_channel_name(),
+        )
+        return None
+
     level = log_channel_level()
 
     if level is None:
@@ -189,7 +210,17 @@ async def announce_startup(client: discord.Client) -> None:
 
     Runs after start_mirror so that if this fails, the traceback has
     somewhere to go.
+
+    The notice is the other thing that reaches the channel, so it is
+    the other place FOOLBOT_LOG_MIRROR is read. Checking it here rather
+    than further in also keeps a test bot from shelling out to git on
+    every reconnect for a message it is never going to send -- and
+    leaves the sha unmarked, so the real bot still announces the build
+    when it comes to it.
     """
+    if not mirror_enabled():
+        return
+
     try:
         previous = deploy_notice.last_announced()
         # git is a subprocess; keep it off the event loop.
