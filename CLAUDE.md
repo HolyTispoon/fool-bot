@@ -1565,6 +1565,16 @@ python3 scripts/render_player_cards.py --team orange --bleed
   bot's own, around 400px, and there is no larger source, so `PORTRAIT_MAX_SCALE`
   lets it up to 1.6x and no further: kept to its native size it would print
   smaller on a 2.5in card than the bot draws it on a phone.
+- **A portrait in `d12ball/images/player_images/` is a cut-out, and new art has
+  to be one.** These are JPEG paintings on a white studio background, and a
+  cut-out that leaves any of it behind shows twice over: as a pale box behind
+  the player on the dark images (`render_matchup`, and anywhere a portrait is
+  posted on its own), and as a faint checkerboard on the printed card, because
+  the background is not flat white but the JPEG's 8x8 blocks. The roster was
+  recut on 2026-08-12 -- background dropped wherever it was light and
+  colourless, including the pockets between a tentacle and an arm and the holes
+  in a goal net, which a flood fill from the edge of the image never reaches.
+  Check a new portrait on black, not on white: white hides exactly the fault.
 - **`Pen.paste` resizes straight to the supersampled canvas.** The
   supersampling is there because Pillow does not antialias the shapes the cards
   are drawn out of; a photograph put through it would be resampled twice for
