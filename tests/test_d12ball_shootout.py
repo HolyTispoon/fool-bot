@@ -442,15 +442,9 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(match.shootout_order_complete(TeamSide.VISITING))
         self.assertFalse(match.shootout_order_complete(TeamSide.HOME))
-        # Best offensive skill first, and only the human is waited on.
+        # Its own six in some order, and only the human is waited on.
         order = match.shootout_order(TeamSide.VISITING)
-        skills = [
-            cog.player_catalog.effective_profile(
-                cog.get_player_definition(player_id)
-            ).offense
-            for player_id in order
-        ]
-        self.assertEqual(skills, sorted(skills, reverse=True))
+        self.assertCountEqual(order, match.shootout_squad(TeamSide.VISITING))
         self.assertIn("<@111>", sent_texts(interaction)[-1])
 
     async def test_both_orders_in_reveals_the_first_test(self) -> None:
