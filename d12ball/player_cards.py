@@ -195,6 +195,23 @@ def draw_stats(
             )
 
 
+# The ability is set a shade larger than a maneuver card's effect,
+# because it is the same thing read at a worse angle: the rule the card
+# exists to state, on a card lying on a table rather than held up to a
+# face. It started at the size a maneuver card lists a *role's* ability
+# at -- but there it is a footnote under the effect, and here there is
+# nothing else on the card to be a footnote to.
+#
+# **The portrait gives up whatever this takes**, which is the trade the
+# author asked for: the picture gets smaller where it has to. Most
+# cards do not pay at all, since the art is capped at
+# PORTRAIT_MAX_SCALE and was leaving white under itself anyway; the
+# long abilities pay a line's worth. The floor is the suite's
+# MIN_PORTRAIT_HEIGHT, which is where the trade stops being one.
+ABILITY_SIZE = 30
+ABILITY_HEADING_SIZE = 19
+
+
 def ability_lines(pen: Pen, ability: str) -> tuple[list[str], float]:
     """
     The ability wrapped to the card, and the height the band it sits in
@@ -202,8 +219,9 @@ def ability_lines(pen: Pen, ability: str) -> tuple[list[str], float]:
     out from the bottom edge up and the portrait above it takes what is
     left: a two-line ability and a four-line one are different cards.
     """
-    lines = pen.wrapped(ability, font(21), CARD_WIDTH - MARGIN * 2 - 12)
-    height = 46 + len(lines) * line_height(pen, font(21)) + 12
+    body = font(ABILITY_SIZE)
+    lines = pen.wrapped(ability, body, CARD_WIDTH - MARGIN * 2 - 12)
+    height = 50 + len(lines) * line_height(pen, body) + 12
     return lines, height
 
 
@@ -214,15 +232,15 @@ def draw_ability(pen: Pen, lines: list[str], top: float) -> None:
         width=2,
     )
     pen.text(
-        (CARD_WIDTH / 2, top + 24),
+        (CARD_WIDTH / 2, top + 26),
         "ABILITY",
-        font(17, bold=True),
+        font(ABILITY_HEADING_SIZE, bold=True),
         MUTED,
         anchor="mm",
     )
 
-    body = font(21)
-    y = top + 46
+    body = font(ABILITY_SIZE)
+    y = top + 50
     for line in lines:
         pen.text((CARD_WIDTH / 2, y), line, body, INK, anchor="ma")
         y += line_height(pen, body)
