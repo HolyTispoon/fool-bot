@@ -5685,8 +5685,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.finish_game()
         save_games(self.games)
 
+        # No refresh of its own: announce_game_over settles the
+        # persistent message from the board it posts.
         await self.announce_game_over(interaction, game, whistle)
-        await self.refresh_match_image(interaction, game)
 
     async def announce_game_over(
         self,
@@ -5695,13 +5696,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         content: str,
     ) -> None:
         """
-        The last message of a game: the result, and the rematch button
-        under it. Both endings post it -- the whistle when full time
-        settles the game, and the shootout when it does not.
+        The last message of a game: the result, the board the game
+        ended on, and the rematch and archive buttons under it. Both
+        endings post it -- the whistle when full time settles the game,
+        and the shootout when it does not.
+
+        The final board rides on this message rather than being left to
+        the persistent one, for the reason a loose ball's does (see
+        announce_board_update): by full time the persistent message has
+        scrolled hours up the channel, and the result is exactly the
+        thing nobody should have to go looking for the position of. It
+        is the same render-once-upload-twice -- the persistent message
+        is settled from these bytes -- so the callers no longer refresh
+        it themselves. It is deliberately *not* pinned: pinning stays
+        the new play's alone, and a pin here would be the one at the
+        very bottom of a channel nobody is playing in any more.
         """
+        view = RematchView(self, game.game_id)
+        png = await self.render_match_png(game)
         final = await interaction.followup.send(
             content,
-            view=RematchView(self, game.game_id),
+            file=self.match_file_from_png(game, png),
+            view=view,
             allowed_mentions=discord.AllowedMentions(
                 users=True,
                 roles=False,
@@ -5709,11 +5725,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             ),
             wait=True,
         )
-        # Remembered so the rematch button comes back after a restart:
-        # the channel stays where it is until someone clicks it, which
-        # can be days later.
+        # Handed the view, or the edit that adds the link drops the two
+        # buttons this message exists for.
+        await add_full_image_button(final, view)
+        # Remembered so the buttons come back after a restart: the
+        # channel stays where it is until someone clicks one, which can
+        # be days later.
         game.rematch_message_id = final.id
         save_games(self.games)
+        await self.refresh_match_image(interaction, game, png=png)
 
     # -- Halftime ------------------------------------------------------
 
@@ -6532,7 +6552,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"**The extreme shootout is settled, {home}-{visiting}.**"
             f"\n\n{build_full_time_summary(game, match)}",
         )
-        await self.refresh_match_image(interaction, game)
 
     async def close_maneuver_prompt(
         self,
@@ -7783,6 +7802,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
     ) -> None:
         await self.move_channel_to_archive(await self.fetch_game_channel(game))
+
+    def game_channel_is_archived(self, game: D12BallGame) -> bool:
+        """
+        Whether this game's channel is already filed away, read out of
+        the client's cache so a view can ask it while it is being
+        built.
+
+        The same test `move_channel_to_archive` makes before it moves
+        anything, which is why an unknown channel answers False: the
+        move is idempotent, so a button offered when it need not have
+        been costs one no-op, where a button withheld leaves a pair
+        with no way to archive.
+        """
+        channel = self.bot.get_channel(game.channel_id)
+        category = getattr(channel, "category", None)
+        return bool(
+            category is not None
+            and category.name.casefold()
+            == PBD_ARCHIVE_CATEGORY_NAME.casefold()
+        )
 
     async def finish_and_archive_game(
         self,

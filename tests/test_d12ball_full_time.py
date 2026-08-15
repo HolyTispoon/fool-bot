@@ -11,12 +11,20 @@ tests/test_d12ball_shootout.py. See "The clock, halftime and full time"
 in docs/living-rules.md.
 """
 
+import asyncio
 import unittest
 from types import SimpleNamespace
 from unittest import mock
 
+import discord
+
 from cogs.d12ball import D12Ball
-from cogs.d12ball_helpers import build_full_time_summary, build_setup_message
+from cogs.d12ball_helpers import (
+    FULL_IMAGE_BUTTON_LABEL,
+    PBD_ARCHIVE_CATEGORY_NAME,
+    build_full_time_summary,
+    build_setup_message,
+)
 from cogs.d12ball_views import (
     CoinFlipView,
     RematchView,
@@ -51,6 +59,11 @@ def build_cog() -> D12Ball:
     cog.build_match_file = mock.AsyncMock(return_value=None)
     cog.check_for_loose_ball = mock.AsyncMock(return_value=False)
     cog.send_turn_prompt = mock.AsyncMock()
+    # The board the game ends on, which announce_game_over posts under
+    # the result.
+    cog.bot = SimpleNamespace(get_channel=lambda channel_id: None)
+    cog.render_match_png = mock.AsyncMock(return_value=b"png")
+    cog.match_file_from_png = mock.Mock(return_value=None)
     return cog
 
 
@@ -78,9 +91,15 @@ def build_game(**overrides) -> D12BallGame:
 def build_interaction() -> SimpleNamespace:
     return SimpleNamespace(
         user=SimpleNamespace(id=111, display_name="One"),
-        message=SimpleNamespace(edit=mock.AsyncMock()),
+        message=SimpleNamespace(edit=mock.AsyncMock(), attachments=[]),
         followup=SimpleNamespace(
-            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+            send=mock.AsyncMock(
+                return_value=SimpleNamespace(
+                    id=999,
+                    attachments=[],
+                    edit=mock.AsyncMock(),
+                ),
+            ),
         ),
         response=SimpleNamespace(
             defer=mock.AsyncMock(),
@@ -269,11 +288,7 @@ class EndPeriodFullTimeTests(unittest.IsolatedAsyncioTestCase):
         cls.catalog = load_player_catalog()
         cls.rules = load_basic_ruleset()
 
-    async def test_full_time_finishes_the_game_and_offers_a_rematch(
-        self,
-    ) -> None:
-        cog = build_cog()
-        game = build_game()
+    def build_finished_match(self) -> MatchState:
         match = MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
@@ -286,6 +301,14 @@ class EndPeriodFullTimeTests(unittest.IsolatedAsyncioTestCase):
         match.scoreboard.last_possession = True
         match.scoreboard.home_score = 2
         match.scoreboard.visiting_score = 1
+        return match
+
+    async def test_full_time_finishes_the_game_and_offers_a_rematch(
+        self,
+    ) -> None:
+        cog = build_cog()
+        game = build_game()
+        match = self.build_finished_match()
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
         interaction = build_interaction()
@@ -301,7 +324,30 @@ class EndPeriodFullTimeTests(unittest.IsolatedAsyncioTestCase):
         view = interaction.followup.send.await_args.kwargs["view"]
         self.assertIsInstance(view, RematchView)
         self.assertEqual(
-            [item.label for item in view.children], ["Rematch"],
+            [item.label for item in view.children], ["Rematch", "Archive"],
+        )
+
+    async def test_the_result_carries_the_board_the_game_ended_on(
+        self,
+    ) -> None:
+        # One render, two uploads: the snapshot under the result, and
+        # the persistent board message settled from the same bytes
+        # rather than drawn again.
+        cog = build_cog()
+        game = build_game()
+        match = self.build_finished_match()
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.end_period(interaction, game, match)
+
+        cog.render_match_png.assert_awaited_once()
+        cog.match_file_from_png.assert_called_once_with(game, b"png")
+        self.assertIn("file", interaction.followup.send.await_args.kwargs)
+        cog.refresh_match_image.assert_awaited_once_with(
+            interaction, game, png=b"png",
         )
 
 
@@ -475,6 +521,146 @@ class RematchTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(
             "<#22>", interaction.followup.send.await_args.args[0],
         )
+
+    def test_the_refresh_keeps_the_full_image_link(self) -> None:
+        # Editing a view replaces it wholesale, and the link the board
+        # under the result carries is not one of the view's children --
+        # so rebuilding without re-adding it would strip the link off
+        # the last board of the game.
+        cog = build_cog()
+        game = self.build_finished_game()
+        cog.games[game.game_id] = game
+        view = RematchView(cog, game.game_id)
+        message = SimpleNamespace(
+            edit=mock.AsyncMock(),
+            attachments=[SimpleNamespace(url="https://cdn/board.png")],
+        )
+
+        asyncio.run(view.refresh_buttons(message))
+
+        rebuilt = message.edit.await_args.kwargs["view"]
+        self.assertEqual(
+            [item.label for item in rebuilt.children],
+            ["Rematch", "Archive", FULL_IMAGE_BUTTON_LABEL],
+        )
+
+
+class ArchiveButtonTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The other button under the result: the pair who are not playing
+    again file the channel away without having to abandon a game that
+    has already finished.
+    """
+
+    def build_finished_game(self, **overrides) -> D12BallGame:
+        game = build_game(**overrides)
+        game.status = GameStatus.FINISHED
+        return game
+
+    def build_cog_with(self, game, archived: bool = False) -> D12Ball:
+        cog = build_cog()
+        cog.games[game.game_id] = game
+        cog.archive_game_channel = mock.AsyncMock()
+        category = SimpleNamespace(
+            name=PBD_ARCHIVE_CATEGORY_NAME if archived else "PBD Games",
+        )
+        cog.bot = SimpleNamespace(
+            get_channel=lambda channel_id: SimpleNamespace(category=category),
+        )
+        return cog
+
+    async def test_the_button_moves_the_channel_and_greys_itself_out(
+        self,
+    ) -> None:
+        game = self.build_finished_game()
+        cog = self.build_cog_with(game)
+        view = RematchView(cog, game.game_id)
+        interaction = build_interaction()
+
+        await view.archive_channel(interaction)
+
+        cog.archive_game_channel.assert_awaited_once_with(game)
+        self.assertIn(
+            "PBD archive", interaction.followup.send.await_args.args[0],
+        )
+        interaction.message.edit.assert_awaited_once()
+
+    async def test_an_archived_channel_offers_no_archive_button(self) -> None:
+        game = self.build_finished_game()
+        view = RematchView(self.build_cog_with(game, archived=True), game.game_id)
+
+        archive_button = view.children[1]
+
+        self.assertEqual(archive_button.label, "Archive")
+        self.assertTrue(archive_button.disabled)
+
+    async def test_a_channel_the_bot_cannot_see_still_offers_it(self) -> None:
+        # The move is idempotent, so a button offered when it need not
+        # have been costs a no-op; withholding it would leave a pair
+        # with no way to archive.
+        game = self.build_finished_game()
+        cog = self.build_cog_with(game)
+        cog.bot = SimpleNamespace(get_channel=lambda channel_id: None)
+
+        self.assertFalse(RematchView(cog, game.game_id).children[1].disabled)
+
+    async def test_a_bystander_cannot_archive_the_channel(self) -> None:
+        game = self.build_finished_game()
+        cog = self.build_cog_with(game)
+        view = RematchView(cog, game.game_id)
+        interaction = build_interaction()
+        interaction.user = SimpleNamespace(
+            id=999,
+            display_name="Nobody",
+            guild_permissions=SimpleNamespace(manage_channels=False),
+        )
+
+        await view.archive_channel(interaction)
+
+        cog.archive_game_channel.assert_not_awaited()
+        self.assertIn(
+            "Only a player in this game",
+            interaction.response.send_message.await_args.args[0],
+        )
+
+    async def test_a_moderator_may_archive_it(self) -> None:
+        # The same gate as the recovery commands: manage_channels is
+        # the blunter version of the same job.
+        game = self.build_finished_game()
+        cog = self.build_cog_with(game)
+        view = RematchView(cog, game.game_id)
+        interaction = build_interaction()
+        interaction.user = SimpleNamespace(
+            id=999,
+            display_name="Mod",
+            guild_permissions=SimpleNamespace(manage_channels=True),
+        )
+
+        await view.archive_channel(interaction)
+
+        cog.archive_game_channel.assert_awaited_once_with(game)
+
+    async def test_a_failed_move_says_so_and_leaves_the_button_alone(
+        self,
+    ) -> None:
+        game = self.build_finished_game()
+        cog = self.build_cog_with(game)
+        cog.archive_game_channel = mock.AsyncMock(
+            side_effect=discord.Forbidden(
+                SimpleNamespace(status=403, reason="Forbidden"),
+                "nope",
+            ),
+        )
+        view = RematchView(cog, game.game_id)
+        interaction = build_interaction()
+
+        await view.archive_channel(interaction)
+
+        self.assertIn(
+            "could not archive",
+            interaction.followup.send.await_args.args[0],
+        )
+        interaction.message.edit.assert_not_awaited()
 
 
 if __name__ == "__main__":

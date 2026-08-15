@@ -44,6 +44,7 @@ from cogs.d12ball_helpers import (
     ROLE_INITIALS,
     add_full_image_button,
     add_full_image_button_to_response,
+    build_full_image_button,
     build_home_choice_message,
     build_setup_message,
     contest_noun,
@@ -749,9 +750,16 @@ class HomeAwaySelectionView(SafeView):
 
 class RematchView(SafeView):
     """
-    The rematch button on a finished game's full-time message: opens a
-    fresh game for the same players, with the same settings, and
-    archives the game that just ended.
+    The two buttons on a finished game's full-time message. Rematch
+    opens a fresh game for the same players, with the same settings,
+    and archives the game that just ended. Archive is the other half of
+    that: the pair who are not playing again still want the channel
+    filed away, and until now the only way to do it was to abandon a
+    game that had already finished.
+
+    Both are drawn greyed out once what they do has been done, which is
+    what makes the view worth rebuilding rather than mutating -- see
+    refresh_buttons.
     """
 
     def __init__(
@@ -779,6 +787,95 @@ class RematchView(SafeView):
         )
         button.callback = self.start_rematch
         self.add_item(button)
+
+        # A rematch archives the channel on its way out, so the two
+        # buttons grey out together -- the state is read off the
+        # channel rather than off the game, because that is where it
+        # lives and because /d12ball abandon_game and a moderator
+        # dragging the channel by hand both get there without the game
+        # record hearing about it.
+        archive_button = discord.ui.Button(
+            label="Archive",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:archive:{game_id}",
+            disabled=bool(
+                game is not None
+                and self.cog.game_channel_is_archived(game)
+            ),
+        )
+        archive_button.callback = self.archive_channel
+        self.add_item(archive_button)
+
+    async def refresh_buttons(self, message: Optional[discord.Message]) -> None:
+        """
+        Redraw both buttons in the state they are now in, keeping the
+        full-image link that was put on the message after it was sent.
+
+        Editing a view replaces it wholesale and the link is not one of
+        this view's own children, so rebuilding without re-adding it
+        would take the link off the one board a finished game leaves in
+        the channel. Every failure is swallowed with a warning: the
+        thing the click did has already happened, and a button that was
+        not greyed out reports it rather than doing it twice.
+        """
+        if message is None:
+            return
+
+        view = RematchView(self.cog, self.game_id)
+        link = build_full_image_button(message)
+        if link is not None:
+            view.add_item(link)
+
+        try:
+            await message.edit(view=view)
+        except (discord.HTTPException, aiohttp.ClientError) as error:
+            LOGGER.warning(
+                "Could not refresh the full-time buttons for game %s: %s",
+                self.game_id, error,
+            )
+
+    async def archive_channel(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+
+        if game is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+
+        # The same gate as the recovery commands: either player, or
+        # anyone the server trusts with manage_channels. Wider than the
+        # rematch's, which opens a game two people have to play.
+        if not self.cog.may_administer_game(interaction, game):
+            await interaction.response.send_message(
+                "Only a player in this game, or someone who can manage "
+                "channels, can archive it.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            await self.cog.archive_game_channel(game)
+        except (ValueError, discord.Forbidden, discord.HTTPException) as error:
+            await interaction.followup.send(
+                f"I could not archive this channel: {error}",
+                ephemeral=True,
+            )
+            return
+
+        await self.refresh_buttons(interaction.message)
+
+        await interaction.followup.send(
+            "This channel has moved to the PBD archive. Nothing in it is "
+            "deleted -- it is the record of the game.",
+            ephemeral=True,
+        )
 
     async def start_rematch(
         self,
@@ -828,18 +925,12 @@ class RematchView(SafeView):
             )
             return
 
-        try:
-            await interaction.message.edit(
-                view=RematchView(self.cog, self.game_id),
-            )
-        except discord.HTTPException as error:
-            # The rematch itself is already open, so this is cosmetic:
-            # a button that wasn't greyed out just reports the rematch
-            # it finds instead of opening another one.
-            LOGGER.warning(
-                "Could not disable the rematch button for game %s: %s",
-                self.game_id, error,
-            )
+        # Cosmetic: the rematch itself is already open, and a button
+        # that wasn't greyed out just reports the rematch it finds
+        # instead of opening another one. The archive button greys out
+        # in the same edit, since start_rematch has just moved the
+        # channel.
+        await self.refresh_buttons(interaction.message)
 
         await interaction.followup.send(
             f"Rematch created: <#{rematch.channel_id}>",
