@@ -68,6 +68,11 @@ def build_cog() -> D12Ball:
     cog.condition_emojis = {}
     cog.coin_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
+    # The board the game ends on, which announce_game_over posts under
+    # the result.
+    cog.bot = SimpleNamespace(get_channel=lambda channel_id: None)
+    cog.render_match_png = mock.AsyncMock(return_value=b"png")
+    cog.match_file_from_png = mock.Mock(return_value=None)
     return cog
 
 
@@ -101,7 +106,13 @@ def build_interaction(user_id: int = 111) -> SimpleNamespace:
             ),
         ),
         followup=SimpleNamespace(
-            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+            send=mock.AsyncMock(
+                return_value=SimpleNamespace(
+                    id=999,
+                    attachments=[],
+                    edit=mock.AsyncMock(),
+                ),
+            ),
         ),
         response=SimpleNamespace(
             defer=mock.AsyncMock(),
