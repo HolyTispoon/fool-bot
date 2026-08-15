@@ -766,6 +766,7 @@ class RematchView(SafeView):
         self,
         cog: "D12Ball",
         game_id: str,
+        archived: Optional[bool] = None,
     ):
         super().__init__(timeout=None)
 
@@ -794,19 +795,32 @@ class RematchView(SafeView):
         # lives and because /d12ball abandon_game and a moderator
         # dragging the channel by hand both get there without the game
         # record hearing about it.
+        #
+        # `archived` is how a caller that has *just* moved the channel
+        # says so, and it is not an optimisation: discord.py's
+        # `TextChannel.edit` returns a new channel object and leaves
+        # the cached one alone, so the cache is only corrected when the
+        # GUILD_CHANNEL_UPDATE event lands. A view rebuilt in the same
+        # breath as the move -- which is both of refresh_buttons'
+        # callers -- would otherwise read the category the channel has
+        # just left and draw the button live again.
+        if archived is None:
+            archived = game is not None and self.cog.game_channel_is_archived(game)
+
         archive_button = discord.ui.Button(
             label="Archive",
             style=discord.ButtonStyle.secondary,
             custom_id=f"d12ball:archive:{game_id}",
-            disabled=bool(
-                game is not None
-                and self.cog.game_channel_is_archived(game)
-            ),
+            disabled=archived,
         )
         archive_button.callback = self.archive_channel
         self.add_item(archive_button)
 
-    async def refresh_buttons(self, message: Optional[discord.Message]) -> None:
+    async def refresh_buttons(
+        self,
+        message: Optional[discord.Message],
+        archived: Optional[bool] = None,
+    ) -> None:
         """
         Redraw both buttons in the state they are now in, keeping the
         full-image link that was put on the message after it was sent.
@@ -817,11 +831,15 @@ class RematchView(SafeView):
         the channel. Every failure is swallowed with a warning: the
         thing the click did has already happened, and a button that was
         not greyed out reports it rather than doing it twice.
+
+        `archived` is passed straight to the rebuilt view; both callers
+        reach here having moved the channel themselves, which is a
+        thing the channel cache does not yet know -- see __init__.
         """
         if message is None:
             return
 
-        view = RematchView(self.cog, self.game_id)
+        view = RematchView(self.cog, self.game_id, archived=archived)
         link = build_full_image_button(message)
         if link is not None:
             view.add_item(link)
@@ -869,7 +887,7 @@ class RematchView(SafeView):
             )
             return
 
-        await self.refresh_buttons(interaction.message)
+        await self.refresh_buttons(interaction.message, archived=True)
 
         await interaction.followup.send(
             "This channel has moved to the PBD archive. Nothing in it is "
@@ -929,8 +947,9 @@ class RematchView(SafeView):
         # that wasn't greyed out just reports the rematch it finds
         # instead of opening another one. The archive button greys out
         # in the same edit, since start_rematch has just moved the
-        # channel.
-        await self.refresh_buttons(interaction.message)
+        # channel -- which it has to be told, the cache being a step
+        # behind the move.
+        await self.refresh_buttons(interaction.message, archived=True)
 
         await interaction.followup.send(
             f"Rematch created: <#{rematch.channel_id}>",

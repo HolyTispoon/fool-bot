@@ -521,6 +521,11 @@ class RematchTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(
             "<#22>", interaction.followup.send.await_args.args[0],
         )
+        # A rematch archives the channel on its way out, so the archive
+        # button greys out in the same edit -- told, not read back off
+        # a channel cache that is still a step behind the move.
+        rebuilt = interaction.message.edit.await_args.kwargs["view"]
+        self.assertTrue(rebuilt.children[1].disabled)
 
     def test_the_refresh_keeps_the_full_image_link(self) -> None:
         # Editing a view replaces it wholesale, and the link the board
@@ -584,6 +589,13 @@ class ArchiveButtonTests(unittest.IsolatedAsyncioTestCase):
             "PBD archive", interaction.followup.send.await_args.args[0],
         )
         interaction.message.edit.assert_awaited_once()
+        # The button itself, not just that an edit happened. The cog
+        # here still reports the channel in the games category, which
+        # is exactly what the live client does for a moment after the
+        # move -- so reading the state back off the cache would draw
+        # this button live again.
+        rebuilt = interaction.message.edit.await_args.kwargs["view"]
+        self.assertTrue(rebuilt.children[1].disabled)
 
     async def test_an_archived_channel_offers_no_archive_button(self) -> None:
         game = self.build_finished_game()
