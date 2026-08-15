@@ -1297,6 +1297,17 @@ never having landed. The persistent message still gets the same render in the
 same breath -- `post_new_play_board` refreshes it from the `png=` it already
 drew -- so this costs one message and one pin per *game*, not per turn.
 
+**The last board of a game rides on the result, and is the one board that is
+not pinned.** `announce_game_over` posts it under the whistle (or under the
+shootout that settled it) for the reason a loose ball's board is posted with
+its announcement: by full time the persistent message has scrolled hours up
+the channel, and the final position is exactly the thing nobody should have to
+go looking for. It is the usual render-once-upload-twice -- the persistent
+message is settled from the same bytes, which is why neither `end_period` nor
+`continue_shootout` refreshes it themselves any more. Pinning stays the new
+play's alone: a pin here would be the one at the very bottom of a channel
+nobody is playing in again.
+
 **There are three board images. Two are drawn, and the third is cut out of
 one of them.** `render_match_image` is the 2200px one everybody sees;
 `render_coaching_image` is the 1280px half-field a
@@ -1739,6 +1750,31 @@ and reused by the rematch button), or the two sides otherwise —
 - **Archiving moves the channel between categories and never renames it**, so
   a game's channel keeps the name it was created with for the rest of its life.
   Nothing renames a channel when a player's display name changes.
+- **Four things archive a channel, and only one of them is a person asking.**
+  The startup sweep in `on_ready` files away every finished game it can reach,
+  `start_rematch` files the old game away on its way out, `/d12ball
+  abandon_game` files away a game nobody is going to finish, and the
+  **Archive button** beside Rematch on the full-time message is the pair who
+  are not playing again saying so. That button is why the sweep is no longer
+  the only way a finished game reaches the archive without someone abandoning
+  a game that had already ended. Its gate is `may_administer_game` -- either
+  player, or anyone with `manage_channels` -- deliberately wider than the
+  rematch's players-only gate, since filing a channel away commits nobody to
+  playing anything.
+  - **A view rebuilt straight after a move must be *told* it was archived.**
+    `RematchView` takes an `archived` override for exactly this:
+    discord.py's `TextChannel.edit` returns a **new** channel object and
+    leaves the cached one alone, so `bot.get_channel(...).category` is only
+    corrected when the `GUILD_CHANNEL_UPDATE` event lands. Both of
+    `refresh_buttons`' callers rebuild in the same breath as the move, so
+    reading the state back off the cache drew the button live again. Don't
+    replace the override with a cache read -- the tests in
+    `tests/test_d12ball_full_time.py` hold the cache at the pre-move category
+    on purpose, which is what the live client does for that moment.
+    `game_channel_is_archived` is still the right question everywhere else
+    (the first post, and the startup re-arm), and answers False for a channel
+    it cannot see: the move is idempotent, so a button offered needlessly
+    costs a no-op where one withheld leaves a pair with no way to archive.
 
 ## Recovering a stuck game
 
