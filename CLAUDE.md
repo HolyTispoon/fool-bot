@@ -1458,6 +1458,15 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
     inline.
   - **Losing it must not lose the pick**, which is already up and clickable by
     then, so the send is wrapped the way `add_full_image_button`'s is.
+  - **The High Pass distance prompt carries it too**, and is the one place it
+    is an attachment on the prompt rather than a message of its own. Choosing
+    2, 3 or 4 is the same question the cards are read against -- how far is the
+    end of the field from here -- and there is no second image on that message
+    for Discord to lay it out beside. Riding on the prompt is what lets
+    `HighPassChoiceView.choose` take it away with `attachments=[]` in the edit
+    that answers the question, so a strip showing the ball where it was
+    *before* the pass does not outlive the pass. See "A High Pass that runs out
+    of field".
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through

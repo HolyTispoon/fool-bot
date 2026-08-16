@@ -2741,6 +2741,16 @@ class HighPassChoiceView(SafeView):
     nobody is offered 3 when a 2 fits. When nothing fits the view is
     not shown at all -- resolve_high_pass sends the pass straight to
     its overshoot rather than putting up one answer three times.
+
+    **The prompt carries the field strip**, for the reason the maneuver
+    cards do: which distance to throw is a question about where
+    everybody is standing and how far the end of the field is, and the
+    persistent board has scrolled away by this point in a turn. It is
+    an attachment on the prompt rather than a message of its own --
+    unlike the field under the cards, which shares its message with the
+    hand and would be laid out beside it -- so `choose` can strip it
+    with `attachments=[]` in the edit it was already making. Leaving it
+    under the answer would show the ball where it was before the pass.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -2805,9 +2815,15 @@ class HighPassChoiceView(SafeView):
             )
             return
 
+        # `attachments=[]` takes the field strip with the question it
+        # answered. It shows the ball where it was *before* the pass, so
+        # leaving it under the answer would put a stale position in the
+        # channel for the rest of the game -- the same reason the run
+        # back drops its snapshot on the click.
         await interaction.response.edit_message(
             content=f"Chose **{distance} spaces**.",
             view=None,
+            attachments=[],
         )
         await self.cog.apply_high_pass(interaction, game, match, distance)
 

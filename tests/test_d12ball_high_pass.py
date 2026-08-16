@@ -511,6 +511,40 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             interaction.response.send_message.await_args.kwargs["ephemeral"]
         )
 
+    async def test_the_prompt_carries_the_field_strip(self) -> None:
+        # How far to throw is a question about where the end of the
+        # field is, and the board has scrolled away by this point in a
+        # turn. It rides on the prompt rather than on a message of its
+        # own so the click can take it away again.
+        cog, game, match = self.build(
+            Zone.MIDFIELD, 0, PlayerRole.FULLBACK,
+        )
+        cog.build_field_file = mock.AsyncMock(return_value="field.png")
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.add_full_image_button", mock.AsyncMock()):
+            await cog.resolve_high_pass(interaction, game, match)
+
+        sent = interaction.followup.send.await_args
+        self.assertEqual(sent.kwargs["file"], "field.png")
+        cog.build_field_file.assert_awaited_once_with(game)
+
+    async def test_choosing_takes_the_field_strip_away(self) -> None:
+        # The strip shows the ball where it was *before* the pass, so
+        # leaving it under the answer would put a stale position in the
+        # channel for the rest of the game.
+        cog, game, _ = self.build(Zone.MIDFIELD, 0, PlayerRole.FULLBACK)
+        view = HighPassChoiceView(cog, game.game_id)
+        interaction = build_interaction()
+
+        await view.choose(interaction, 3)
+
+        cog.apply_high_pass.assert_awaited_once()
+        self.assertEqual(
+            interaction.response.edit_message.await_args.kwargs["attachments"],
+            [],
+        )
+
 
 class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
     """

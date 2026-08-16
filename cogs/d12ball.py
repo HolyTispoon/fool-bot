@@ -2254,9 +2254,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.possession_player_number(game, match),
             mention=True,
         )
+        # The field goes under the distances for the reason it goes
+        # under the maneuver cards: how far to throw is a question about
+        # where everybody is standing and where the end of the field is,
+        # and by this point in a turn the board has scrolled away. It
+        # rides on the prompt rather than on a message of its own so the
+        # click can take it away again -- see `HighPassChoiceView`.
+        prompt_view = HighPassChoiceView(self, game.game_id)
         prompt_message = await interaction.followup.send(
             f"{mention}, choose your High Pass distance:",
-            view=HighPassChoiceView(self, game.game_id),
+            file=await self.build_field_file(game),
+            view=prompt_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
@@ -2264,6 +2272,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         game.turn_message_id = prompt_message.id
         save_games(self.games)
+        # With the view handed over, or the edit that adds the link
+        # drops the distances the prompt exists for. Webhook route, not
+        # the channel's -- see "Discord's rate limits".
+        await add_full_image_button(prompt_message, prompt_view)
 
     async def apply_high_pass(
         self,
