@@ -14,7 +14,9 @@ from discord import app_commands
 from discord.ext import commands
 
 from d12ball.components import (
+    GoalRecord,
     MatchState,
+    PlayerCatalog,
     PlayerDefinition,
     Zone,
 )
@@ -476,6 +478,118 @@ async def get_or_create_category(
             return category
 
     return await guild.create_category(name=name, reason=reason)
+
+
+def format_goal_time(goal: GoalRecord) -> str:
+    """
+    The minute a goal was scored, as a coach reads it back.
+
+    **(FH) is the whole of what the clock cannot say by itself.** It
+    runs past a period's last minute and the second half then starts at
+    16, so a first-half goal in the 17th minute and a second-half goal
+    in the 17th are the same number -- the marker is on the one that
+    cannot be reached again. `GoalRecord.in_first_half_overrun` is the
+    rule; this is only the wording.
+    """
+    return f"{goal.time:02d}" + (
+        " (FH)" if goal.in_first_half_overrun else ""
+    )
+
+
+def format_goal_scorer(goal: GoalRecord, catalog: PlayerCatalog) -> str:
+    """
+    Who put it in, with **(OG)** where that is not who it counts for.
+    The name carries no team emoji: every line of the log is already
+    under the heading of the side the goal counts for, which for an own
+    goal is not the scorer's own -- so an emoji here would be the one
+    thing on the line contradicting it.
+    """
+    player = catalog.player_by_id(goal.player_id)
+    name = f"{player.name} [{ROLE_INITIALS[player.role.value]}]"
+    return f"{name} (OG)" if goal.own_goal else name
+
+
+def build_goal_log(
+    match: MatchState,
+    catalog: PlayerCatalog,
+    team_emojis: dict[Team, str],
+) -> str:
+    """
+    The scoresheet at full time: every goal of the game, under the side
+    it counts for, in the order it was scored.
+
+    **A column per side, not one list.** A goal log read as a running
+    order says who was ahead and when; read as two columns it says who
+    scored, which is the question a coach asks afterwards. An own goal
+    is under the side it counted for and marked (OG), which is the one
+    line where the name and the heading disagree -- deliberately, since
+    that is exactly what an own goal is.
+
+    **The shootout is listed apart.** Its goals go on the scoreboard
+    like any other (see `award_shootout_goal`), but they have no minute
+    and no run of play, so listing them among the game's would put six
+    goals at whatever the clock stopped on.
+
+    **A game older than the log says so.** The log was added mid-life
+    and a game already under way keeps loading with an empty one, so
+    the count is checked against the scoreboard rather than trusted:
+    two goals on the board and none in the log is a game that predates
+    this, not a bug in it.
+    """
+    # A blank line between the blocks, which is what makes them read as
+    # columns down a phone rather than as one list with headings in it.
+    sections = ["## Goals"]
+    for setup in (match.home, match.visiting):
+        heading = (
+            f"**{get_team_emoji(team_emojis, setup.team)} "
+            f"{format_team_side_label(setup)}**"
+        )
+        scored = [
+            goal
+            for goal in match.goals_for(setup.side)
+            if not goal.shootout
+        ]
+        if not scored:
+            sections.append(f"{heading} -- none")
+            continue
+        sections.append(
+            "\n".join(
+                [heading]
+                + [
+                    f"`{format_goal_time(goal)}`  "
+                    f"{format_goal_scorer(goal, catalog)}"
+                    for goal in scored
+                ]
+            )
+        )
+
+    shootout = [goal for goal in match.goals if goal.shootout]
+    if shootout:
+        lines = ["**Extreme shootout**"]
+        for setup in (match.home, match.visiting):
+            scorers = [
+                format_goal_scorer(goal, catalog)
+                for goal in shootout
+                if goal.side == setup.side
+            ]
+            lines.append(
+                f"{get_team_emoji(team_emojis, setup.team)} "
+                f"{setup.team.value.title()}: "
+                + (", ".join(scorers) if scorers else "none")
+            )
+        sections.append("\n".join(lines))
+
+    logged = len(match.goals)
+    scored_total = (
+        match.scoreboard.home_score + match.scoreboard.visiting_score
+    )
+    if logged < scored_total:
+        sections.append(
+            f"-# {scored_total - logged} earlier goal(s) were scored "
+            "before this game kept a log of them."
+        )
+
+    return "\n\n".join(sections)
 
 
 def build_full_time_summary(

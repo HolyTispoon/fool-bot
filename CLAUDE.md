@@ -448,6 +448,95 @@ Both are now places a turn can **stop**, and that is the whole cost of it:
   a coach who scrolls back to the first of two prompts cannot roll the second
   player's test with it.
 
+## The running clock
+
+One clock over both periods -- 00-15 in the first half, 16-30 in the second --
+and it **does not stop**. See "Clock, halftime, and full time" in the living
+rules, and the 2026-08-15 entry in the rules log for the author's reasoning.
+`MatchState.advance_time` is the whole of it.
+
+- **"The clock has reached the last minute" and "last possession is live" are
+  two facts.** They were one while the clock stopped at 15: reaching it both
+  raised the flag and froze the number, so a last possession lasting four turns
+  read 15 for all of them. The flag alone ends the period now, on the first
+  turnover under it, and every turn of a last possession is charged as usual --
+  so a first half genuinely ends at 19. `advance_time` still returns True only
+  on the call that *raises* the flag, which is what stops the announcement going
+  out twice.
+- **A period's last minute is `ScoreboardState.last_minute`**, over
+  `period_last_minute`. It is the one number the running clock adds: 15 and 30,
+  read off the period rather than written at each site. Nothing may go back to
+  comparing against a literal 15.
+- **The second half starts at `SECOND_HALF_START_MINUTE` regardless**, set in
+  `end_period` at the whistle rather than at the kickoff -- halftime is played
+  with the second half's number already on the scoreboard. That is what makes
+  **minutes 16 and up occur twice in a game**, once in the first half's last
+  possession and once in the second half proper, which is why the goal log
+  records a goal's period as well as its minute.
+- **The clock has no ceiling, and `ScoreboardState.__post_init__` no longer
+  pretends otherwise.** Its range check was the clamp restated; a floor is all
+  that is left, or a game saved at 19 would not reload. `MAX_DEBUG_CLOCK` in the
+  cog is not a rule either -- it is what two digits hold, since everything that
+  prints the clock prints it `{:02d}`.
+- **A game already in its second half when this landed keeps the clock it had**,
+  so a side sitting on 3 gets a long half. Nothing migrates it: the alternative
+  is rewriting a live game's clock on load, and both developers run the bot
+  against their own saves.
+- **The printed jumbotron is drawn from the same two numbers.** `CLOCK_MINUTES`
+  and `HALFTIME_MINUTE` in `d12ball/boards.py` are `period_last_minute` calls,
+  so a period settled upstream reaches the print by re-rendering. Eight columns
+  is what puts halftime at the end of a row, which is what lets the two halves
+  be drawn as bands; the second half's last row is a cell short, and that spare
+  slot carries the note about the overrun -- **the minutes past 15 and 30 have
+  no cells**, because nothing bounds how many there are.
+
+## The goal log
+
+Every goal of the game, in the order it was scored: who put it in, who it
+counted for, and the minute. `MatchState.goals` is the field --
+a list of `GoalRecord` -- and `MatchState.record_goal` is the only thing that
+writes to it. The scoreboard is a running total and cannot be read backwards,
+which is the whole reason this exists.
+
+- **The three ways to score all log, in the call that credits them.**
+  `award_goal`, `concede_own_goal` and `award_shootout_goal` each take the
+  player now, and each calls `record_goal` itself. Nothing else may call
+  `record_goal`: a scoreboard and a log that disagree is exactly the bug a
+  separate "and also log it" step produces. A new way to score has to say who
+  scored it, the same way it has to decide steal-or-new-play.
+- **An own goal is stored as two facts and printed as one line.** `side` is who
+  it counted for and `player_id` is the defender who failed the roll, so it is
+  listed in the *other* team's column marked **(OG)** -- the one line of a
+  scoresheet where the name and the heading disagree, which is what an own goal
+  is. The scorer's name deliberately carries no team emoji anywhere in the log,
+  or that line would contradict the heading over it.
+- **The period is stored beside the minute and is not decoration.** The clock
+  [runs past a period's last minute](#the-running-clock) and the second half
+  starts at 16, so a first half can reach 17 and so can the second.
+  `GoalRecord.in_first_half_overrun` is the ambiguous case and is exactly the
+  condition **(FH)** states, so the marker cannot drift from what it means. The
+  second half needs no marker of its own: it overruns as readily, but with the
+  first half's overrun always marked, an unmarked number can only be read one
+  way.
+- **The stamp is the clock as the ball crosses the line**, taken before the
+  action's own cost is charged -- a shot's clock cost is spent later, in
+  `finish_maneuver_resolution`, so recording it after would report the minute
+  play restarted.
+- **A shootout goal is logged and flagged.** It is a goal and goes on the
+  scoreboard like any other, but it has no minute and no run of play, so
+  `build_goal_log` lists those apart rather than stamping six goals with
+  whatever the clock stopped on. Same reason `shootout_goals` is a tally of its
+  own.
+- **It is persisted, and a game older than the field keeps loading.**
+  `from_dict` defaults it to empty, so a game already under way logs the goals
+  it has left and finishes with a part scoresheet -- which `build_goal_log`
+  says outright, by counting itself against the scoreboard rather than trusting
+  the two agree.
+- **The log goes out at the end, the minute goes out at the time.** Each goal's
+  own announcement carries `format_goal_time`, and the full listing is added to
+  `announce_game_over`'s content by its two callers -- not inside it, which is
+  handed a string and holds no match.
+
 ## The extreme shootout
 
 **Every game is settled.** A level score at full time opens the shootout -- see
@@ -1660,13 +1749,34 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   bands under the field, where sixteen minutes across a sheet that was already
   carrying the field left a cell an inch wide -- too small to stand a token in,
   which is the only thing those cells are for. On their own board the clock is
-  two rows of eight (`CLOCK_COLUMNS`) and both tracks clear `MIN_TOKEN_INCHES`;
+  rows of eight (`CLOCK_COLUMNS`), two a half, and every track clears
+  `MIN_TOKEN_INCHES`;
   `cell_inches` is that measurement, reported by the CLI and asserted by
   `D12BallJumbotronTests`. The field board got the whole of that space back,
   which is what makes a space tall enough for two sides' meeples --
   `FieldGeometry.space_inches`, asserted the same way. It is the split the bot's
   own board already makes: a jumbotron is the state of the match, the field is
   the position.
+- **The three token supplies are on the jumbotron for the neighbouring
+  reason.** `TOKEN_SUPPLIES` is the exhaustion stock and the two markers it
+  turns players into, as silos rather than as a tally: a player's own tokens are
+  stacked on their card, which is where the bot draws them, so what had nowhere
+  printed to live was the pile they come out of.
+  - **A silo is `SILO_INCHES` and carries no words at all** -- a token wide,
+    half again as tall, with the token's own art printed at the bottom as the
+    base of the stack. It is a place to stand pieces rather than a cell to
+    read, and a caption would be naming a piece the coach is holding a copy of.
+    Being a fixed measurement rather than a share of the panel is the point: a
+    piece does not get bigger because the sheet did. It is still capped by the
+    room under the label, so a smaller paper shrinks it instead of running it
+    off the panel, and `cell_inches` measures it against `MIN_TOKEN_INCHES`
+    like the tracks.
+  - **The art is `render.py`'s own token PNGs**, so a coach at the table and a
+    coach reading a line of text in Discord see one icon -- see
+    `scripts/render_condition_tokens.py`, which draws them, and note that the
+    loaders in `render.py` thumbnail to 26px and cache there, which is why
+    `load_token_art` opens the file itself. A missing file leaves the silo
+    empty rather than failing the board.
 - **No die value is printed anywhere.** Maneuvers are chosen with the cards, so
   the two selection d6s are off the team board and the head coach cell lists
   the six maneuvers by rank (O1, D2) instead of by face. The **ruleset still
@@ -1975,6 +2085,17 @@ as a bug.
   is an accepted trade for a one-tap link; the alternative was a callback
   button that fetches a fresh URL on click at the cost of an extra tap. See
   `add_full_image_button` in `cogs/d12ball.py`.
+- **A bundled file's name is case-sensitive on one developer's machine and not
+  on the other's.** `d12ball/images/emoji/exhaust.png` was tracked as
+  `Exhaust.png` against a lowercase path in `render.py`: it opened on macOS,
+  missed on Linux, and every icon loader swallows the `OSError` and returns
+  None so the render can go on -- so the board simply came out with no
+  exhaustion token, on one host only, for as long as nobody looked. CI caught
+  it because CI is Linux. `Path.exists()` is not the check, since it answers
+  True on the wrong case; the test in `D12BallFontTests` compares each declared
+  path against its directory's own listing, which fails on both. Same reasoning
+  as the fonts one section above -- a graceful fallback is what makes a missing
+  file quiet.
 
 ## Collaboration
 

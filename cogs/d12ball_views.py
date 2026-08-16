@@ -50,6 +50,7 @@ from cogs.d12ball_helpers import (
     contest_noun,
     destination_display_name,
     format_coin_emoji,
+    format_goal_time,
     format_player,
     format_player_with_team,
     format_role_bracket,
@@ -2403,11 +2404,16 @@ class ScoreAttemptView(SafeView):
 
         scored = attack_total >= defense_total
         if scored:
-            match.award_goal()
+            # Logged as it is credited, and stamped with the clock as
+            # it stands: the shot's own cost is charged afterwards, so
+            # this is the minute the ball crossed the line rather than
+            # the minute play restarted.
+            match.award_goal(shooter.player_id)
             verdict = (
                 "# GOAL!\n"
                 f"{format_role_bracket(shooter, self.cog.team_emojis)} scores "
-                f"for {format_team_side_label(attacking_setup)}!\n"
+                f"for {format_team_side_label(attacking_setup)} on "
+                f"**{format_goal_time(match.goals[-1])}**!\n"
                 f"{match.home.team.value.title()} "
                 f"{match.scoreboard.home_score}:"
                 f"{match.scoreboard.visiting_score} "
@@ -5553,8 +5559,8 @@ class ShootoutTestView(ShootoutView):
                 if home_total > visiting_total
                 else TeamSide.VISITING
             )
-            match.award_shootout_goal(winner)
             scorer = players[winner]
+            match.award_shootout_goal(winner, scorer.player_id)
             outcome = (
                 "## "
                 f"{format_role_bracket(scorer, self.cog.team_emojis)} "

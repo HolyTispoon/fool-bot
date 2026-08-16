@@ -14,6 +14,7 @@ from discord.ext import commands
 from d12ball.ai import build_ai_strategies, AIStrategy
 from d12ball.components import (
     MIN_HIGH_PASS_DISTANCE,
+    SECOND_HALF_START_MINUTE,
     SETUP_AREAS,
     CoachingOccasion,
     FormationShape,
@@ -85,11 +86,13 @@ from cogs.d12ball_helpers import (
     build_full_image_button,
     build_full_time_summary,
     build_game_channel_name,
+    build_goal_log,
     contest_noun,
     destination_display_name,
     fetch_application_emojis,
     filter_choices,
     format_ai_name,
+    format_goal_time,
     format_player_with_team,
     format_role_bracket,
     format_team_side_label,
@@ -190,6 +193,14 @@ LEGACY_HALFTIME_STAGES = {
 # stuck. Twelve players a side is the whole board several times over,
 # so this only ever fires on a bug -- see continue_run_back.
 MAX_RUN_BACK_PASSES = 60
+
+
+# The highest the clock may be set to by hand. The clock itself has no
+# ceiling -- it runs for as long as a last possession does -- so this is
+# not a rule, only what two digits hold: everything that prints the
+# clock does so as `{:02d}`, and `/d12ball time 100` would be the one
+# state the scoreboard cannot draw.
+MAX_DEBUG_CLOCK = 99
 
 
 # How often one game's persistent board message may be refreshed.
@@ -3725,7 +3736,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             verdict = f"## Own goal avoided!\n\n{exhaustion_text}"
         else:
             conceding_side = match.ball.possession
-            match.concede_own_goal()
+            # The goal is the other side's; the kick is this player's,
+            # and the log says both -- see concede_own_goal.
+            match.concede_own_goal(offense_player.player_id)
             match.restart_after_goal(conceding_side)
             match.pending_run_back = True
             match.pending_run_back_distance = distance_moved
@@ -3734,6 +3747,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
             verdict = (
                 f"# Own goal!\n"
+                f"{format_role_bracket(offense_player, self.team_emojis)} "
+                "puts it in their own net on "
+                f"**{format_goal_time(match.goals[-1])}**.\n"
                 f"{match.home.team.value.title()} {match.scoreboard.home_score}:"
                 f"{match.scoreboard.visiting_score} "
                 f"{match.visiting.team.value.title()}\n\n"
@@ -4725,8 +4741,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # under last possession is the end of the period, and
             # ceding is a turnover.
             lines.append(
-                "**The clock is at 15, so this ends the period instead --"
-                " there is no window on either side.**"
+                "**This is last possession, so this ends the period "
+                "instead -- there is no window on either side.**"
             )
         return "\n".join(lines)
 
@@ -5536,7 +5552,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         clear the maneuver state, and hand the offensive choice back to
         whoever now has the ball.
 
-        The maneuver that puts the clock on 15 never ends the period,
+        The maneuver that reaches the period's last minute never ends it,
         even when it is itself a turnover: last possession is the
         possession that starts there, so whoever comes out of that
         maneuver with the ball gets to play it out and only loses the
@@ -5575,9 +5591,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 else "Play continues until the ball turns over, which "
                 "ends the period."
             )
+            # The minute is the period's own, and the clock does not
+            # stop on it: from here every turn is charged as usual and
+            # only the turnover ends the period.
             await interaction.followup.send(
-                f"{prefix}The clock reaches 15 -- this is now **last "
-                f"possession**. {body}"
+                f"{prefix}The clock reaches "
+                f"{match.scoreboard.last_minute:02d} -- this is now "
+                f"**last possession**. {body} The clock keeps running."
             )
             lead_in = ""
 
@@ -5649,8 +5669,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.clear_ball_carrier()
 
         if match.scoreboard.period == MatchPeriod.FIRST_HALF:
+            first_half_ended_at = match.scoreboard.time
             match.scoreboard.period = MatchPeriod.SECOND_HALF
-            match.scoreboard.time = 0
+            # The second half starts at 16 however far past 15 the
+            # first half ran, so the number on the clock means the same
+            # thing in every game. It is set here rather than at the
+            # kickoff for the reason everything else in this branch is:
+            # halftime is played with the second half's board already
+            # on the scoreboard.
+            match.scoreboard.time = SECOND_HALF_START_MINUTE
             match.scoreboard.last_possession = False
             # A declaration is once every half, so both sides get
             # theirs back -- including a side that had to spend the
@@ -5672,8 +5699,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
 
             await interaction.followup.send(
-                f"{prefix}**End of the first half!** The clock reaches 15 "
-                "and the ball turns over -- the period ends."
+                f"{prefix}**End of the first half!** The ball turns over "
+                f"at {first_half_ended_at:02d} under last possession -- "
+                "the period ends. The second half starts at "
+                f"{SECOND_HALF_START_MINUTE:02d}."
             )
             await self.refresh_match_image(interaction, game)
             await self.begin_halftime(interaction, game, match)
@@ -5684,8 +5713,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
 
         whistle = (
-            f"{prefix}**Full time!** The clock reaches 15 and the ball "
-            "turns over -- the game ends.\n\n"
+            f"{prefix}**Full time!** The ball turns over at "
+            f"{match.scoreboard.time:02d} under last possession -- the "
+            "game ends.\n\n"
             f"{build_full_time_summary(game, match)}"
         )
 
@@ -5705,7 +5735,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         # No refresh of its own: announce_game_over settles the
         # persistent message from the board it posts.
-        await self.announce_game_over(interaction, game, whistle)
+        await self.announce_game_over(
+            interaction, game, f"{whistle}\n\n{self.build_goal_log(match)}"
+        )
+
+    def build_goal_log(self, match: MatchState) -> str:
+        """
+        The scoresheet, with this cog's roster and emoji behind it.
+
+        It is built by the callers of announce_game_over rather than
+        inside it, because that function is handed a string and has no
+        match: the whistle and the shootout each already hold one, and
+        passing it in would be for this alone.
+        """
+        return build_goal_log(match, self.player_catalog, self.team_emojis)
 
     async def announce_game_over(
         self,
@@ -6568,7 +6611,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             interaction,
             game,
             f"**The extreme shootout is settled, {home}-{visiting}.**"
-            f"\n\n{build_full_time_summary(game, match)}",
+            f"\n\n{build_full_time_summary(game, match)}"
+            f"\n\n{self.build_goal_log(match)}",
         )
 
     async def close_maneuver_prompt(
@@ -9420,7 +9464,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     @app_commands.command(
         name="time",
-        description="Set or adjust the game clock (00-15) and half.",
+        description="Set or adjust the game clock (00-30) and half.",
     )
     @app_commands.describe(
         value=(
@@ -9449,7 +9493,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         try:
             match.scoreboard.time = resolve_adjustable_value(
-                value, match.scoreboard.time, 0, 15,
+                value, match.scoreboard.time, 0, MAX_DEBUG_CLOCK,
             )
         except ValueError as error:
             await interaction.followup.send(str(error), ephemeral=True)

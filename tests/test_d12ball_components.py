@@ -1,3 +1,4 @@
+import os
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,12 +21,15 @@ from d12ball.cards import (
     tie_pairs,
 )
 from d12ball.components import (
+    SECOND_HALF_START_MINUTE,
     CoachingOccasion,
     AssignmentEdge,
     AttackDirection,
     BoardState,
+    MatchPeriod,
     MatchState,
     PlayerRole,
+    ScoreboardState,
     TeamSide,
     Zone,
     create_standard_setup,
@@ -37,6 +41,9 @@ from d12ball.components import (
 from d12ball.game import Formation, Team
 from d12ball.render import (
     BOARD_BOTTOM,
+    EXHAUSTED_ICON_PATH,
+    EXHAUST_ICON_PATH,
+    INJURED_ICON_PATH,
     BOARD_LEFT,
     BOARD_RIGHT,
     BOARD_TOP,
@@ -1485,35 +1492,50 @@ class D12BallScoreAttemptTests(unittest.TestCase):
 
     def test_award_goal_credits_whoever_has_the_ball(self) -> None:
         match = self.build_match(7)
+        home_scorer = match.home.field_players[0]
+        visiting_scorer = match.visiting.field_players[0]
 
-        match.award_goal()
+        match.award_goal(home_scorer)
         self.assertEqual(match.scoreboard.home_score, 1)
         self.assertEqual(match.scoreboard.visiting_score, 0)
 
         match.ball.possession = TeamSide.VISITING
-        match.award_goal()
-        match.award_goal()
+        match.award_goal(visiting_scorer)
+        match.award_goal(visiting_scorer)
         self.assertEqual(match.scoreboard.home_score, 1)
         self.assertEqual(match.scoreboard.visiting_score, 2)
 
         # Scores have no ceiling, so a goal can never leave the
         # scoreboard in a state that fails to reload.
         for _ in range(20):
-            match.award_goal()
+            match.award_goal(visiting_scorer)
         restored = MatchState.from_dict(match.to_dict(), self.rules)
         self.assertEqual(restored.scoreboard.visiting_score, 22)
 
     def test_concede_own_goal_credits_the_other_side(self) -> None:
         match = self.build_match(7)
+        home_player = match.home.field_players[0]
+        visiting_player = match.visiting.field_players[0]
 
-        match.concede_own_goal()
+        match.concede_own_goal(home_player)
         self.assertEqual(match.scoreboard.home_score, 0)
         self.assertEqual(match.scoreboard.visiting_score, 1)
 
         match.ball.possession = TeamSide.VISITING
-        match.concede_own_goal()
+        match.concede_own_goal(visiting_player)
         self.assertEqual(match.scoreboard.home_score, 1)
         self.assertEqual(match.scoreboard.visiting_score, 1)
+
+        # The goal is the other side's and the kick is this player's,
+        # which is the one line of a scoresheet where the two disagree.
+        own_goals = [goal for goal in match.goals if goal.own_goal]
+        self.assertEqual(
+            [(goal.side, goal.player_id) for goal in own_goals],
+            [
+                (TeamSide.VISITING, home_player),
+                (TeamSide.HOME, visiting_player),
+            ],
+        )
 
     def test_goal_restart_gives_conceding_team_midfield_and_speed_one(
         self,
@@ -1632,7 +1654,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         )
         self.assertEqual(match.ball.speed, 1)
 
-    def test_advance_time_clamps_and_flags_last_possession_once(
+    def test_advance_time_runs_on_and_flags_last_possession_once(
         self,
     ) -> None:
         match = self.build_match(7)
@@ -1642,12 +1664,48 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         self.assertFalse(match.scoreboard.last_possession)
 
         self.assertTrue(match.advance_time(20))
-        self.assertEqual(match.scoreboard.time, 15)
+        self.assertEqual(match.scoreboard.time, 23)
         self.assertTrue(match.scoreboard.last_possession)
 
-        # Once in last possession, further advances are no-ops.
+        # The clock does not stop there: last possession is charged
+        # like any other play, and only the flag ends the period. What
+        # does not happen twice is the flag being *raised*, which is
+        # what the return value is for.
         self.assertFalse(match.advance_time(5))
-        self.assertEqual(match.scoreboard.time, 15)
+        self.assertEqual(match.scoreboard.time, 28)
+        self.assertTrue(match.scoreboard.last_possession)
+
+    def test_the_second_half_has_a_last_minute_of_its_own(self) -> None:
+        """
+        One running clock, so the number that opens last possession is
+        the period's rather than the game's -- and the first half's 16,
+        17 and 18 are not the second half's.
+        """
+        match = self.build_match(7)
+        match.scoreboard.period = MatchPeriod.SECOND_HALF
+        match.scoreboard.time = SECOND_HALF_START_MINUTE
+
+        self.assertEqual(match.scoreboard.last_minute, 30)
+        self.assertFalse(match.advance_time(10))
+        self.assertFalse(match.scoreboard.last_possession)
+        self.assertTrue(match.advance_time(5))
+        self.assertTrue(match.scoreboard.last_possession)
+
+    def test_a_saved_clock_past_the_last_minute_still_loads(self) -> None:
+        """
+        The range check was the clamp restated, and there is no clamp
+        now -- a first half that ran to 19 has to reload.
+        """
+        match = self.build_match(7)
+        match.scoreboard.time = 19
+        match.scoreboard.last_possession = True
+
+        reloaded = MatchState.from_dict(match.to_dict(), self.rules)
+        self.assertEqual(reloaded.scoreboard.time, 19)
+        self.assertTrue(reloaded.scoreboard.past_last_minute)
+
+        with self.assertRaises(ValueError):
+            ScoreboardState(time=-1)
 
     def test_kickoff_space_index_matches_the_rules_fix(self) -> None:
         # 7/9-boards: true middle regardless of who's kicking off.
@@ -3176,6 +3234,35 @@ class D12BallFontTests(unittest.TestCase):
             Path(font.path).name,
             "DejaVuSans-Bold.ttf",
         )
+
+    def test_bundled_art_is_named_exactly_as_the_code_asks_for_it(
+        self,
+    ) -> None:
+        """
+        The same failure the fonts have, one layer down: every icon
+        loader swallows an OSError and returns None so a render can go
+        on without the art, so a file the code cannot open is silent --
+        the board simply comes out with no exhaustion token on it.
+
+        `Path.exists` is not the test. **One developer's filesystem is
+        case-insensitive and the other's is not**, so a path that
+        differs from the tracked file only in case opens on macOS and
+        misses on Linux, which is exactly how `Exhaust.png` sat in the
+        repo against an `exhaust.png` in the code. Comparing against the
+        directory's own listing is what fails on both.
+        """
+        for path in (
+            EXHAUST_ICON_PATH,
+            EXHAUSTED_ICON_PATH,
+            INJURED_ICON_PATH,
+        ):
+            with self.subTest(icon=path.name):
+                self.assertIn(
+                    path.name,
+                    os.listdir(path.parent),
+                    f"{path.name} is not in {path.parent} under that "
+                    "exact name",
+                )
 
     def test_render_fonts_keep_their_relative_scale(self) -> None:
         # The bug's signature was every font collapsing to one size.
