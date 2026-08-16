@@ -21,9 +21,11 @@ from d12ball.boards import (
     CARDS_PER_AREA,
     CLOCK_COLUMNS,
     CLOCK_MINUTES,
+    HALFTIME_MINUTE,
     MIN_TOKEN_INCHES,
     PRINT_DPI,
     SCORE_TRACK_MAX,
+    TOKEN_SUPPLIES,
     FieldGeometry,
     Sheet,
     TeamBoardGeometry,
@@ -42,11 +44,13 @@ from d12ball.boards import (
 )
 from d12ball.components import (
     BoardState,
+    MatchPeriod,
     TeamSide,
     Zone,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
+    period_last_minute,
 )
 from d12ball.game import Team
 
@@ -317,21 +321,58 @@ class D12BallJumbotronTests(unittest.TestCase):
         The whole reason the clock and the score are a board of their
         own. On the field board the clock was sixteen cells across one
         sheet with the field already on it, which is an inch a cell
-        with nothing to spare; two rows of eight on a sheet of their
-        own is what makes a cell something a token stands in.
+        with nothing to spare; rows of eight on a sheet of their own is
+        what makes a cell something a token stands in.
+
+        It covers the token supplies as well, which are much bigger
+        than this -- what it is really watching is the panel shares:
+        the clock went from two rows to four and a third panel joined
+        them, and a cell squeezed under a token is silent on a render.
         """
         for name, (width, height) in cell_inches().items():
             with self.subTest(cell=name):
                 self.assertGreaterEqual(width, MIN_TOKEN_INCHES)
                 self.assertGreaterEqual(height, MIN_TOKEN_INCHES)
 
-    def test_the_clock_is_a_period_and_the_rows_are_even(self) -> None:
+    def test_the_clock_is_the_game_and_the_halves_are_whole_rows(
+        self,
+    ) -> None:
         """
-        Sixteen cells for 0 to 15, in whole rows -- a part-filled row
-        reads as a track that ran out rather than one that ended.
+        The track is one running clock over both periods, and it breaks
+        where the game does: the first half has to fill whole rows, or
+        halftime falls in the middle of one and the two bands cannot be
+        drawn as bands.
+
+        The second half's own last row is a cell short, which the board
+        fills with a note rather than a square -- see draw_clock_track.
         """
-        self.assertEqual(CLOCK_MINUTES, 15)
-        self.assertEqual((CLOCK_MINUTES + 1) % CLOCK_COLUMNS, 0)
+        self.assertEqual(HALFTIME_MINUTE, 15)
+        self.assertEqual(CLOCK_MINUTES, 30)
+        self.assertEqual((HALFTIME_MINUTE + 1) % CLOCK_COLUMNS, 0)
+
+    def test_the_clock_track_is_read_off_the_rules(self) -> None:
+        """
+        Both numbers come from the code the bot plays by, so a period
+        length settled upstream reaches the print by re-rendering
+        rather than by somebody editing the module.
+        """
+        self.assertEqual(
+            HALFTIME_MINUTE, period_last_minute(MatchPeriod.FIRST_HALF)
+        )
+        self.assertEqual(
+            CLOCK_MINUTES, period_last_minute(MatchPeriod.SECOND_HALF)
+        )
+
+    def test_the_supplies_are_the_three_a_coach_handles(self) -> None:
+        """
+        The exhaustion stock and the two markers it turns into. A
+        player's own tokens are not here -- they are stacked on the
+        player's card, which is what the panel's own label says.
+        """
+        self.assertEqual(
+            [title for title, _ in TOKEN_SUPPLIES],
+            ["EXHAUSTION", "EXHAUSTED", "INJURED"],
+        )
 
     def test_the_score_track_outruns_a_shootout(self) -> None:
         """

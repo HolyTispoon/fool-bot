@@ -3,10 +3,14 @@ The end of the game: who gets to play last possession, how full time is
 announced, and the rematch button.
 
 Two rules meet here. Last possession is the possession that *starts* at
-15 space minutes, so the maneuver that puts the clock there never ends
-the period even when it is itself a turnover -- only a later turnover
-does. And full time settles the game only when the scores differ: a
-level one opens the extreme shootout, which is covered in
+the period's last minute -- 15 in the first half, 30 in the second -- so
+the maneuver that puts the clock there never ends the period even when
+it is itself a turnover; only a later turnover does. The clock does not
+stop there either: it runs on for as long as that possession does, and
+the second half then starts at 16 whatever the first half ran to.
+
+And full time settles the game only when the scores differ: a level one
+opens the extreme shootout, which is covered in
 tests/test_d12ball_shootout.py. See "The clock, halftime and full time"
 in docs/living-rules.md.
 """
@@ -118,9 +122,10 @@ def sent_texts(interaction: SimpleNamespace) -> list[str]:
 
 class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
     """
-    finish_maneuver_resolution's clock handling: reaching 15 declares
-    last possession, and only a turnover under a last possession that
-    was already in force ends the period.
+    finish_maneuver_resolution's clock handling: reaching the period's
+    last minute declares last possession, the clock keeps counting past
+    it, and only a turnover under a last possession that was already in
+    force ends the period.
     """
 
     @classmethod
@@ -188,6 +193,65 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
 
         cog.end_period.assert_awaited_once()
         cog.send_turn_prompt.assert_not_awaited()
+
+    async def test_the_clock_keeps_running_under_last_possession(
+        self,
+    ) -> None:
+        """
+        The clock used to stop dead at 15, which is how last possession
+        was recorded at all. It is a flag now, and the minutes a last
+        possession takes are charged like any other -- so a first half
+        genuinely ends at 19.
+        """
+        cog = build_cog()
+        cog.end_period = mock.AsyncMock()
+        game = build_game()
+        match = self.build_match()
+        match.scoreboard.time = 15
+        match.scoreboard.last_possession = True
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+
+        interaction = await self.resolve(
+            cog, game, match, distance_moved=4, turnover_occurred=False,
+        )
+
+        cog.end_period.assert_not_awaited()
+        self.assertEqual(match.scoreboard.time, 19)
+        # And it is not re-announced: the flag went up once, four
+        # minutes ago.
+        self.assertNotIn(
+            "last possession", " ".join(sent_texts(interaction)).lower()
+        )
+
+    async def test_the_second_half_starts_at_16(self) -> None:
+        """
+        However far past 15 the first half ran. The number on the clock
+        means the same thing in every game, which is the whole reason
+        the running count does not simply carry on from where the first
+        half stopped.
+        """
+        cog = build_cog()
+        cog.begin_halftime = mock.AsyncMock()
+        game = build_game()
+        match = self.build_match()
+        match.scoreboard.time = 19
+        match.scoreboard.last_possession = True
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+
+        interaction = build_interaction()
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.end_period(interaction, game, match)
+
+        self.assertEqual(match.scoreboard.period, MatchPeriod.SECOND_HALF)
+        self.assertEqual(match.scoreboard.time, 16)
+        self.assertFalse(match.scoreboard.last_possession)
+        self.assertEqual(match.scoreboard.last_minute, 30)
+        cog.begin_halftime.assert_awaited_once()
+        # The half is reported where it actually ended, since that is
+        # no longer the same number for every game.
+        self.assertIn("at 19", sent_texts(interaction)[0])
 
     async def test_reaching_15_without_a_turnover_reads_the_old_way(
         self,

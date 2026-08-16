@@ -705,6 +705,32 @@ class BallState:
             raise ValueError("Ball speed must be from 1 to 12.")
 
 
+# One running clock over both periods: 00-15 in the first half, 16-30
+# in the second -- see "Clock, halftime, and full time" in
+# docs/living-rules.md. A period's last minute is where **last
+# possession** begins and not where the clock stops; the clock keeps
+# counting for as long as that possession runs, so a first half can
+# genuinely end at 19. The second half then starts at 16 regardless,
+# which is what makes minutes 16 and up occur twice in a game.
+FIRST_HALF_LAST_MINUTE = 15
+SECOND_HALF_START_MINUTE = 16
+SECOND_HALF_LAST_MINUTE = 30
+
+
+def period_last_minute(period: MatchPeriod) -> int:
+    """
+    The minute at which a period's last possession begins. The only
+    number the running clock adds: the rule is still "at the period's
+    last minute, use last possession", asked of a clock that no longer
+    resets between halves.
+    """
+    return (
+        FIRST_HALF_LAST_MINUTE
+        if MatchPeriod(period) == MatchPeriod.FIRST_HALF
+        else SECOND_HALF_LAST_MINUTE
+    )
+
+
 @dataclass
 class ScoreboardState:
     home_score: int = 0
@@ -717,8 +743,27 @@ class ScoreboardState:
         self.period = MatchPeriod(self.period)
         if self.home_score < 0 or self.visiting_score < 0:
             raise ValueError("Scores cannot be negative.")
-        if self.time not in range(0, 16):
-            raise ValueError("The game clock must be from 00 to 15.")
+        # A floor and nothing else. The clock used to be checked
+        # against range(0, 16), which was the clamp restated -- with
+        # the clamp gone there is no upper bound to restate, since
+        # nothing caps how long a last possession runs. A saved game
+        # from before the running clock is inside this either way.
+        if self.time < 0:
+            raise ValueError("The game clock cannot be negative.")
+
+    @property
+    def last_minute(self) -> int:
+        """Where this period's last possession begins."""
+        return period_last_minute(self.period)
+
+    @property
+    def past_last_minute(self) -> bool:
+        """
+        Whether the clock has run beyond this period's last minute,
+        which only a last possession can do. It is what tells a first
+        half's minute 17 from the second half's -- see the goal log.
+        """
+        return self.time > self.last_minute
 
 
 def kickoff_space_index(midfield_spaces: int, kicking_side: TeamSide) -> int:
@@ -1539,14 +1584,28 @@ class MatchState:
 
     def advance_time(self, minutes: int) -> bool:
         """
-        Advance the clock by `minutes` space minutes, clamped at 15.
-        Returns True only the moment this call first reaches 15
-        (entering last possession), so callers can react to it once.
+        Advance the clock by `minutes` space minutes. It has no ceiling:
+        every turn of a last possession is charged like any other, so a
+        period ends on the minute its last turnover falls on rather than
+        on its last minute.
+
+        Returns True only the moment this call first reaches the
+        period's last minute (entering last possession), so callers can
+        react to it once.
+
+        **"The clock has reached the last minute" and "last possession
+        is live" are two facts, not one.** They were one while the clock
+        stopped: reaching 15 both set the flag and froze the number, so
+        a last possession lasting four turns read 15 for all of them.
+        The flag alone ends the period now -- on the first turnover
+        under it -- and the clock is nobody's signal for it.
         """
-        if minutes <= 0 or self.scoreboard.last_possession:
+        if minutes <= 0:
             return False
-        self.scoreboard.time = min(15, self.scoreboard.time + minutes)
-        if self.scoreboard.time >= 15:
+        self.scoreboard.time += minutes
+        if self.scoreboard.last_possession:
+            return False
+        if self.scoreboard.time >= self.scoreboard.last_minute:
             self.scoreboard.last_possession = True
             return True
         return False

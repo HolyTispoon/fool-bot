@@ -13,7 +13,9 @@ board is the wrong thing to hand a printer.
 **The clock and the score are the jumbotron's**, exactly as they are
 the jumbotron's on the bot's board: they are the state of the match
 rather than the position, they want a cell a token can stand in, and
-sharing the field board cost both of them room.
+sharing the field board cost both of them room. The three token
+supplies are there for the neighbouring reason -- they are the loose
+pieces of the game rather than any part of the position.
 
 Everything the boards assert is read from the data the bot plays
 from -- `basic_rules.json` for the layouts, the formations and the
@@ -51,11 +53,13 @@ from d12ball.components import (
     BoardState,
     ManeuverCatalog,
     ManeuverDefinition,
+    MatchPeriod,
     PlayerCatalog,
     PlayerRole,
     TeamSide,
     Zone,
     kickoff_space_index,
+    period_last_minute,
 )
 from d12ball.game import Team
 from d12ball.render import (
@@ -109,15 +113,29 @@ ZONE_TINTS = {
     Zone.VISITORS_GOAL: "#f1e4d9",
 }
 
-# The clock is 15 space-minutes and stops there; the score track runs
-# further than a match is ever likely to, because a shootout adds up to
-# six goals to a side that was already level.
-CLOCK_MINUTES = 15
+# The clock is one running count over both periods, and both numbers
+# are read off the code the bot enforces rather than written here: the
+# first half's last minute is where it breaks, the second's is where the
+# track ends. The score track runs further than a match is ever likely
+# to, because a shootout adds up to six goals to a side that was already
+# level.
+CLOCK_MINUTES = period_last_minute(MatchPeriod.SECOND_HALF)
+HALFTIME_MINUTE = period_last_minute(MatchPeriod.FIRST_HALF)
 SCORE_TRACK_MAX = 12
-# Two rows of eight rather than one of sixteen. Sixteen across a sheet
-# gives a cell an inch wide and a token needs to stand in it, which is
-# what took these tracks off the field board in the first place.
+# Eight rather than sixteen across, which is what makes a cell something
+# a token stands in -- the reason these tracks came off the field board.
+# Eight also puts the halftime break at the end of a row, so each half
+# is exactly two rows and the two bands are bands rather than a colour
+# change halfway along one.
 CLOCK_COLUMNS = 8
+# The three token pools a coach draws from all game. They are a supply
+# and not a tally: a player's own tokens are stacked on their card, the
+# way the bot draws them on the card rather than on the jumbotron.
+TOKEN_SUPPLIES = (
+    ("EXHAUSTION", "1 per skill test, and per space run back"),
+    ("EXHAUSTED", "when a player's tokens exceed their defence"),
+    ("INJURED", "a failed injury check; no tokens, no more checks"),
+)
 # What a cell has to measure for a token to sit in it without covering
 # its neighbours. A meeple's base is about half an inch.
 MIN_TOKEN_INCHES = 0.75
@@ -425,15 +443,17 @@ def draw_field_header(
     )
     sheet.text(
         (geometry.right, bottom - sheet.u(38)),
-        "Two periods of 15 space minutes. Home kicks off the first, the "
-        "visitors the second.",
+        f"Two periods on one running clock, 00-{HALFTIME_MINUTE} and "
+        f"{HALFTIME_MINUTE + 1}-{CLOCK_MINUTES}. Home kicks off the "
+        "first, the visitors the second.",
         sheet.font(15),
         MUTED,
         anchor="ra",
     )
     sheet.text(
         (geometry.right, bottom - sheet.u(17)),
-        "The clock and the score are kept on the jumbotron board.",
+        "The clock, the score and the token supplies are kept on the "
+        "jumbotron board.",
         sheet.font(15),
         MUTED,
         anchor="ra",
@@ -751,14 +771,22 @@ def draw_shooting_ranges(
 @dataclass(frozen=True)
 class JumbotronGeometry:
     """
-    The clock and the two score tracks, on a board of their own.
+    The clock, the two score tracks and the three token supplies, on a
+    board of their own.
 
     They were bands on the field board, where sixteen minutes across a
     sheet already carrying the field left a cell too small to stand a
-    token in. On their own sheet the clock runs two rows of eight
-    instead of one of sixteen, which is what turns an inch-wide cell
-    into a two-inch one -- `cell_inches` is that measurement, and the
-    suite holds it above `MIN_TOKEN_INCHES`.
+    token in. On their own sheet the clock runs rows of eight instead of
+    one long row, which is what turns an inch-wide cell into a two-inch
+    one -- `cell_inches` is that measurement, and the suite holds every
+    one of them above `MIN_TOKEN_INCHES`.
+
+    **The clock is four rows, not two**, since it now runs the whole
+    game rather than one period: 00-15 and 16-30, two rows a half with
+    the break falling at the end of a row. That halved the height a row
+    had, which is what the panel shares were redivided for -- and it is
+    the thing to check first if a band is ever added here, because a
+    cell going under a token is silent on the render.
     """
 
     left: float
@@ -769,7 +797,15 @@ class JumbotronGeometry:
     clock_bottom: float
     score_top: float
     score_bottom: float
+    supply_top: float
+    supply_bottom: float
     footer_y: float
+    # What a panel keeps clear inside its own edge. It is a field
+    # rather than an `sheet.u(18)` at each site because the cell
+    # measurements have to subtract it: they used to divide the panel's
+    # whole width and start a padding in, which ran the last column of
+    # every track that much past the panel's right edge.
+    padding: float
 
     @classmethod
     def for_sheet(cls, sheet: Sheet) -> "JumbotronGeometry":
@@ -780,18 +816,27 @@ class JumbotronGeometry:
         bottom = sheet.height - margin
         content = bottom - top
 
-        gap = content * 0.03
-        header = content * 0.1
-        footer = content * 0.04
-        panels = content - header - footer - 2 * gap
-        # The clock is two rows to the score's two, but its cells are
-        # the ones a minute token sits in all game.
-        clock = panels * 0.56
+        # Three panels to the two this board carried, so the header,
+        # the footer and the gaps between them are all trimmed: what
+        # they gave up is what keeps every cell over MIN_TOKEN_INCHES.
+        gap = content * 0.025
+        header = content * 0.09
+        footer = content * 0.035
+        panels = content - header - footer - 3 * gap
+        # The clock takes most of it: four rows of cells to the score's
+        # two, and its are the ones a minute token sits in all game. The
+        # supplies take least -- a well holds a heap of tokens rather
+        # than one standing in a square, so it is sized by the two lines
+        # of label over it and not by the token.
+        clock = panels * 0.57
+        supply = panels * 0.19
 
         header_bottom = top + header
         clock_top = header_bottom + gap
         clock_bottom = clock_top + clock
         score_top = clock_bottom + gap
+        score_bottom = score_top + panels - clock - supply
+        supply_top = score_bottom + gap
 
         return cls(
             left=left,
@@ -801,27 +846,64 @@ class JumbotronGeometry:
             clock_top=clock_top,
             clock_bottom=clock_bottom,
             score_top=score_top,
-            score_bottom=score_top + panels - clock,
+            score_bottom=score_bottom,
+            supply_top=supply_top,
+            supply_bottom=supply_top + supply,
             footer_y=bottom - footer / 2,
+            padding=sheet.u(18),
         )
 
+    @property
+    def cells_left(self) -> float:
+        return self.left + self.padding
+
+    @property
+    def cells_width(self) -> float:
+        return self.right - self.left - 2 * self.padding
+
+    @property
+    def clock_rows(self) -> int:
+        return -(-(CLOCK_MINUTES + 1) // CLOCK_COLUMNS)
+
+    @property
+    def clock_band_label_height(self) -> float:
+        """
+        The strip over each half's two rows, which says which half they
+        are. It is charged twice out of the clock panel, so it is here
+        rather than inside the drawing -- `clock_cell` has to measure
+        what is left after it.
+        """
+        return self.label_height * 0.7
+
     def clock_cell(self) -> tuple[float, float]:
-        rows = -(-(CLOCK_MINUTES + 1) // CLOCK_COLUMNS)
+        used = self.label_height + 2 * self.clock_band_label_height
         return (
-            (self.right - self.left) / CLOCK_COLUMNS,
-            (self.clock_bottom - self.clock_top - self.label_height) / rows,
+            self.cells_width / CLOCK_COLUMNS,
+            (self.clock_bottom - self.clock_top - used) / self.clock_rows,
         )
 
     def score_cell(self) -> tuple[float, float]:
         return (
-            (self.right - self.left - self.score_label_width)
+            (self.cells_width - self.score_label_width)
             / (SCORE_TRACK_MAX + 1),
             (self.score_bottom - self.score_top - self.label_height) / 2,
         )
 
+    def supply_cell(self) -> tuple[float, float]:
+        return (
+            self.cells_width / len(TOKEN_SUPPLIES),
+            self.supply_bottom - self.supply_top - self.label_height,
+        )
+
     @property
     def label_height(self) -> float:
-        return (self.header_bottom - self.header_top) * 0.42
+        """
+        The strip a panel keeps for its own title. It is a share of the
+        header, which the third panel made shorter -- so this is a
+        larger share of a smaller number, and the titles clear the cells
+        under them by the same margin they always did.
+        """
+        return (self.header_bottom - self.header_top) * 0.48
 
     @property
     def score_label_width(self) -> float:
@@ -841,6 +923,9 @@ def cell_inches(paper: str = DEFAULT_PAPER) -> dict[str, tuple[float, float]]:
     return {
         "clock": tuple(value / PRINT_DPI for value in geometry.clock_cell()),
         "score": tuple(value / PRINT_DPI for value in geometry.score_cell()),
+        "supply": tuple(
+            value / PRINT_DPI for value in geometry.supply_cell()
+        ),
     }
 
 
@@ -849,13 +934,18 @@ def render_jumbotron_board(
     bleed: bool = False,
 ) -> Image.Image:
     """
-    The jumbotron: the game clock and both scores, each cell big enough
-    to stand a token in.
+    The jumbotron: the game clock, both scores and the three token
+    supplies, each cell big enough to stand a token in.
 
     Like the bot's own jumbotron this is the state of the match rather
     than the position -- which is why it comes off the field board
     rather than sharing it. The tracks are printed aids and not
     components the rules name; everything they count is a rule.
+
+    **The supplies are wells, not tallies.** A player's own tokens go on
+    their card, where the bot draws them; what a coach has no other home
+    for is the stock they come out of and the two markers they turn
+    into, which used to be a pile beside the sheet.
     """
     sheet = Sheet(*sheet_pixels(paper, landscape=True))
     geometry = JumbotronGeometry.for_sheet(sheet)
@@ -863,11 +953,19 @@ def render_jumbotron_board(
     draw_jumbotron_header(sheet, geometry)
     draw_clock_track(sheet, geometry)
     draw_score_tracks(sheet, geometry)
+    draw_token_supplies(sheet, geometry)
+    footer = (
+        "Every turn costs at least one minute, and a score attempt one "
+        "per space to the attacked end. The clock never stops: it runs "
+        f"past {HALFTIME_MINUTE} and {CLOCK_MINUTES} for as long as last "
+        "possession does."
+    )
     sheet.text(
         ((geometry.left + geometry.right) / 2, geometry.footer_y),
-        "Every turn costs at least one minute, and a score attempt one "
-        "per space to the attacked end. The clock stops at 15.",
-        sheet.font(15),
+        footer,
+        # Fitted rather than sized: this line grew when the clock did,
+        # and at a fixed size it ran off both edges of the sheet.
+        sheet.fitted_font(footer, geometry.cells_width, 15),
         MUTED,
         anchor="mm",
     )
@@ -886,45 +984,49 @@ def draw_jumbotron_header(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     )
     sheet.text(
         (geometry.left, top + sheet.u(46)),
-        "CLOCK AND SCORE  ·  BASIC MODE",
+        "CLOCK, SCORE AND TOKENS  ·  BASIC MODE",
         sheet.font(16, bold=True),
         MUTED,
     )
 
-    # The period, as two boxes rather than a track: a game has two of
-    # them and nothing moves between them.
-    face = sheet.font(19, bold=True)
-    box = sheet.u(34)
-    cursor = geometry.right
-    for label in ("2ND HALF", "1ST HALF"):
-        sheet.text(
-            (cursor, (top + bottom) / 2),
-            label,
-            face,
-            INK,
-            anchor="rm",
-        )
-        cursor -= sheet.text_width(label, face) + sheet.u(12)
-        sheet.rect(
-            (
-                cursor - box,
-                (top + bottom) / 2 - box / 2,
-                cursor,
-                (top + bottom) / 2 + box / 2,
-            ),
-            radius=sheet.u(4),
-            fill=FACE_COLOR,
-            outline=INK,
-            width=sheet.u(2),
-        )
-        cursor -= box + sheet.u(34)
+    # No period boxes. They were two ticked squares up here while the
+    # clock counted one period twice; the clock now runs the whole game
+    # in two labelled bands, so where the minute token is standing is
+    # already which half it is.
+    sheet.text(
+        (geometry.right, bottom - sheet.u(48)),
+        f"One running clock: 00-{HALFTIME_MINUTE} in the first half, "
+        f"{HALFTIME_MINUTE + 1}-{CLOCK_MINUTES} in the second.",
+        sheet.font(16),
+        MUTED,
+        anchor="ra",
+    )
+    sheet.text(
+        (geometry.right, bottom - sheet.u(24)),
+        "The second half starts at "
+        f"{HALFTIME_MINUTE + 1} however far past {HALFTIME_MINUTE} the "
+        "first ran.",
+        sheet.font(16),
+        MUTED,
+        anchor="ra",
+    )
 
 
 def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     """
-    Sixteen minutes in two rows of eight. The last is bordered and
-    captioned, because reaching it is the one thing on this board that
-    changes what a coach may do -- see "Last possession".
+    The whole game's minutes, in rows of eight under a band per half.
+    Each half's **last** minute is bordered and captioned, because
+    reaching it is the one thing on this board that changes what a coach
+    may do -- see "Last possession".
+
+    **The overrun has no cells.** The clock runs past a period's last
+    minute for as long as its last possession does, and a track drawn
+    for that would be a row of squares nobody can say the length of; a
+    token sitting on 15 or 30 is a period playing itself out, and the
+    caption under those two says so in words.
+
+    The second half is a cell short of its second row, which the spare
+    slot says outright rather than leaving as a track that ran out.
     """
     sheet.rect(
         (
@@ -939,26 +1041,49 @@ def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
         width=sheet.u(2),
     )
     sheet.text(
-        (geometry.left + sheet.u(18), geometry.clock_top + sheet.u(12)),
+        (geometry.cells_left, geometry.clock_top + sheet.u(10)),
         "CLOCK  ·  SPACE MINUTES",
         sheet.font(17, bold=True),
         MUTED,
     )
 
-    cells_left = geometry.left + sheet.u(18)
-    cells_right = geometry.right - sheet.u(18)
+    cells_left = geometry.cells_left
+    cell_width, cell_height = geometry.clock_cell()
+    band_label = geometry.clock_band_label_height
     cells_top = geometry.clock_top + geometry.label_height
-    cell_width = (cells_right - cells_left) / CLOCK_COLUMNS
-    rows = -(-(CLOCK_MINUTES + 1) // CLOCK_COLUMNS)
-    cell_height = (geometry.clock_bottom - sheet.u(14) - cells_top) / rows
-    number_face = sheet.font(52, bold=True)
+    number_face = sheet.font(44, bold=True)
+    band_face = sheet.font(17, bold=True)
+
+    def cell_origin(minute: int) -> tuple[float, float]:
+        """
+        Where a minute's cell sits. The band label above each half is
+        charged once per half rather than once per row, which is the
+        only reason this is arithmetic rather than a nested loop -- the
+        break falls at the end of a row by construction (see
+        CLOCK_COLUMNS), so a minute knows its own band.
+        """
+        row = minute // CLOCK_COLUMNS
+        band = 0 if minute <= HALFTIME_MINUTE else 1
+        return (
+            cells_left + (minute % CLOCK_COLUMNS) * cell_width,
+            cells_top + (band + 1) * band_label + row * cell_height,
+        )
+
+    for band, (first, last_minute) in enumerate(
+        ((0, HALFTIME_MINUTE), (HALFTIME_MINUTE + 1, CLOCK_MINUTES))
+    ):
+        label_top = cell_origin(first)[1] - band_label
+        sheet.text(
+            (cells_left, label_top + band_label * 0.1),
+            f"{'FIRST' if not band else 'SECOND'} HALF  ·  "
+            f"{first:02d}-{last_minute:02d}",
+            band_face,
+            INK,
+        )
 
     for minute in range(CLOCK_MINUTES + 1):
-        column = minute % CLOCK_COLUMNS
-        row = minute // CLOCK_COLUMNS
-        cell_left = cells_left + column * cell_width
-        cell_top = cells_top + row * cell_height
-        last = minute == CLOCK_MINUTES
+        cell_left, cell_top = cell_origin(minute)
+        last = minute in (HALFTIME_MINUTE, CLOCK_MINUTES)
         sheet.rect(
             (
                 cell_left + sheet.u(4),
@@ -972,29 +1097,51 @@ def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
             width=sheet.u(3.5 if last else 1.6),
         )
         sheet.text(
-            (cell_left + cell_width / 2, cell_top + cell_height * 0.46),
+            (cell_left + cell_width / 2, cell_top + cell_height * 0.42),
             f"{minute:02d}",
             number_face,
             INK if last else MUTED,
             anchor="mm",
         )
         caption = (
-            "kickoff"
-            if minute == 0
-            else "last possession"
+            "last possession"
             if last
+            else "kickoff"
+            if minute == 0
+            else "second-half kickoff"
+            if minute == HALFTIME_MINUTE + 1
             else None
         )
         if caption:
             sheet.text(
-                (cell_left + cell_width / 2, cell_top + cell_height * 0.78),
+                (cell_left + cell_width / 2, cell_top + cell_height * 0.76),
                 caption,
                 sheet.fitted_font(
-                    caption, cell_width * 0.8, 16, bold=last
+                    caption, cell_width * 0.82, 16, bold=last
                 ),
                 OFFENSE_COLOR if last else MUTED,
                 anchor="mm",
             )
+
+    # The spare slot at the end of the second half's last row, which is
+    # where a coach looks when the token is about to run off the track.
+    spare_left, spare_top = cell_origin(CLOCK_MINUTES)
+    spare_left += cell_width
+    for offset, line in (
+        (0.36, "PAST " + f"{CLOCK_MINUTES:02d}"),
+        (0.62, "keep the token here;"),
+        (0.80, "last possession plays on"),
+    ):
+        sheet.text(
+            (spare_left + cell_width / 2, spare_top + cell_height * offset),
+            line,
+            sheet.fitted_font(
+                line, cell_width * 0.86, 22 if offset == 0.36 else 15,
+                bold=offset == 0.36,
+            ),
+            MUTED,
+            anchor="mm",
+        )
 
 
 def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
@@ -1017,18 +1164,16 @@ def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
         width=sheet.u(2),
     )
     sheet.text(
-        (geometry.left + sheet.u(18), geometry.score_top + sheet.u(12)),
+        (geometry.cells_left, geometry.score_top + sheet.u(10)),
         "SCORE  ·  SHOOTOUT GOALS COUNT",
         sheet.font(17, bold=True),
         MUTED,
     )
 
     label_width = geometry.score_label_width
-    cells_left = geometry.left + sheet.u(18) + label_width
-    cells_right = geometry.right - sheet.u(18)
+    cells_left = geometry.cells_left + label_width
+    cell_width, row_height = geometry.score_cell()
     rows_top = geometry.score_top + geometry.label_height
-    cell_width = (cells_right - cells_left) / (SCORE_TRACK_MAX + 1)
-    row_height = (geometry.score_bottom - sheet.u(14) - rows_top) / 2
     number_face = sheet.fitted_font(
         str(SCORE_TRACK_MAX), cell_width * 0.5, 34, bold=True
     )
@@ -1042,7 +1187,7 @@ def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     for row, label in enumerate(("HOME", "VISITORS")):
         row_top = rows_top + row * row_height
         sheet.text(
-            (geometry.left + sheet.u(18), row_top + row_height / 2),
+            (geometry.cells_left, row_top + row_height / 2),
             label,
             label_face,
             INK,
@@ -1069,6 +1214,75 @@ def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
                 MUTED,
                 anchor="mm",
             )
+
+
+def draw_token_supplies(sheet: Sheet, geometry: JumbotronGeometry) -> None:
+    """
+    Three wells: the exhaustion stock, and the two markers a player's
+    tokens turn them into. They are the game's loose pieces and the one
+    thing on the table that had nowhere printed to live -- unlike a
+    minute or a goal, which have a track, or a player's own tokens,
+    which go on their card.
+
+    A well is sized by the label over it rather than by
+    `MIN_TOKEN_INCHES`: a heap of tokens is what goes in one, so the
+    floor is about legibility. It is measured all the same, because a
+    band added above these takes them under a token silently.
+    """
+    sheet.rect(
+        (
+            geometry.left,
+            geometry.supply_top,
+            geometry.right,
+            geometry.supply_bottom,
+        ),
+        radius=sheet.u(10),
+        fill=PANEL_COLOR,
+        outline=PANEL_EDGE,
+        width=sheet.u(2),
+    )
+    sheet.text(
+        (geometry.cells_left, geometry.supply_top + sheet.u(10)),
+        "TOKEN SUPPLY  ·  A PLAYER'S OWN TOKENS GO ON THEIR CARD",
+        sheet.font(17, bold=True),
+        MUTED,
+    )
+
+    wells_left = geometry.cells_left
+    well_width, well_height = geometry.supply_cell()
+    wells_top = geometry.supply_bottom - well_height
+    well_bottom = geometry.supply_bottom - sheet.u(12)
+
+    for index, (title, note) in enumerate(TOKEN_SUPPLIES):
+        well_left = wells_left + index * well_width
+        sheet.rect(
+            (
+                well_left + sheet.u(6),
+                wells_top,
+                well_left + well_width - sheet.u(6),
+                well_bottom,
+            ),
+            radius=sheet.u(8),
+            fill=FACE_COLOR,
+            outline=PANEL_EDGE,
+            width=sheet.u(1.6),
+        )
+        middle = well_left + well_width / 2
+        height = well_bottom - wells_top
+        sheet.text(
+            (middle, wells_top + height * 0.28),
+            title,
+            sheet.fitted_font(title, well_width * 0.8, 24, bold=True),
+            INK,
+            anchor="mm",
+        )
+        sheet.text(
+            (middle, wells_top + height * 0.6),
+            note,
+            sheet.fitted_font(note, well_width * 0.86, 15),
+            MUTED,
+            anchor="mm",
+        )
 
 
 # ----------------------------------------------------------- team board

@@ -448,6 +448,48 @@ Both are now places a turn can **stop**, and that is the whole cost of it:
   a coach who scrolls back to the first of two prompts cannot roll the second
   player's test with it.
 
+## The running clock
+
+One clock over both periods -- 00-15 in the first half, 16-30 in the second --
+and it **does not stop**. See "Clock, halftime, and full time" in the living
+rules, and the 2026-08-15 entry in the rules log for the author's reasoning.
+`MatchState.advance_time` is the whole of it.
+
+- **"The clock has reached the last minute" and "last possession is live" are
+  two facts.** They were one while the clock stopped at 15: reaching it both
+  raised the flag and froze the number, so a last possession lasting four turns
+  read 15 for all of them. The flag alone ends the period now, on the first
+  turnover under it, and every turn of a last possession is charged as usual --
+  so a first half genuinely ends at 19. `advance_time` still returns True only
+  on the call that *raises* the flag, which is what stops the announcement going
+  out twice.
+- **A period's last minute is `ScoreboardState.last_minute`**, over
+  `period_last_minute`. It is the one number the running clock adds: 15 and 30,
+  read off the period rather than written at each site. Nothing may go back to
+  comparing against a literal 15.
+- **The second half starts at `SECOND_HALF_START_MINUTE` regardless**, set in
+  `end_period` at the whistle rather than at the kickoff -- halftime is played
+  with the second half's number already on the scoreboard. That is what makes
+  **minutes 16 and up occur twice in a game**, once in the first half's last
+  possession and once in the second half proper, which is why the goal log
+  records a goal's period as well as its minute.
+- **The clock has no ceiling, and `ScoreboardState.__post_init__` no longer
+  pretends otherwise.** Its range check was the clamp restated; a floor is all
+  that is left, or a game saved at 19 would not reload. `MAX_DEBUG_CLOCK` in the
+  cog is not a rule either -- it is what two digits hold, since everything that
+  prints the clock prints it `{:02d}`.
+- **A game already in its second half when this landed keeps the clock it had**,
+  so a side sitting on 3 gets a long half. Nothing migrates it: the alternative
+  is rewriting a live game's clock on load, and both developers run the bot
+  against their own saves.
+- **The printed jumbotron is drawn from the same two numbers.** `CLOCK_MINUTES`
+  and `HALFTIME_MINUTE` in `d12ball/boards.py` are `period_last_minute` calls,
+  so a period settled upstream reaches the print by re-rendering. Eight columns
+  is what puts halftime at the end of a row, which is what lets the two halves
+  be drawn as bands; the second half's last row is a cell short, and that spare
+  slot carries the note about the overrun -- **the minutes past 15 and 30 have
+  no cells**, because nothing bounds how many there are.
+
 ## The extreme shootout
 
 **Every game is settled.** A level score at full time opens the shootout -- see
@@ -1660,13 +1702,22 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   bands under the field, where sixteen minutes across a sheet that was already
   carrying the field left a cell an inch wide -- too small to stand a token in,
   which is the only thing those cells are for. On their own board the clock is
-  two rows of eight (`CLOCK_COLUMNS`) and both tracks clear `MIN_TOKEN_INCHES`;
+  rows of eight (`CLOCK_COLUMNS`), two a half, and every track clears
+  `MIN_TOKEN_INCHES`;
   `cell_inches` is that measurement, reported by the CLI and asserted by
   `D12BallJumbotronTests`. The field board got the whole of that space back,
   which is what makes a space tall enough for two sides' meeples --
   `FieldGeometry.space_inches`, asserted the same way. It is the split the bot's
   own board already makes: a jumbotron is the state of the match, the field is
   the position.
+- **The three token supplies are on the jumbotron for the neighbouring
+  reason.** `TOKEN_SUPPLIES` is the exhaustion stock and the two markers it
+  turns players into, as wells rather than as a tally: a player's own tokens are
+  stacked on their card, which is where the bot draws them, so what had nowhere
+  printed to live was the pile they come out of. They are sized by the two lines
+  of label over them and not by a token, and `cell_inches` measures them anyway
+  -- the panel shares are what the whole board is held together by, and a cell
+  squeezed under a token is silent on a render.
 - **No die value is printed anywhere.** Maneuvers are chosen with the cards, so
   the two selection d6s are off the team board and the head coach cell lists
   the six maneuvers by rank (O1, D2) instead of by face. The **ruleset still
