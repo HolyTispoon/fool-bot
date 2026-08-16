@@ -63,6 +63,9 @@ from d12ball.components import (
 )
 from d12ball.game import Team
 from d12ball.render import (
+    EXHAUSTED_ICON_PATH,
+    EXHAUST_ICON_PATH,
+    INJURED_ICON_PATH,
     TEAM_COLORS,
     ZONE_LABELS,
     draw_dashed_line,
@@ -131,11 +134,24 @@ CLOCK_COLUMNS = 8
 # The three token pools a coach draws from all game. They are a supply
 # and not a tally: a player's own tokens are stacked on their card, the
 # way the bot draws them on the card rather than on the jumbotron.
-TOKEN_SUPPLIES = (
-    ("EXHAUSTION", "1 per skill test, and per space run back"),
-    ("EXHAUSTED", "when a player's tokens exceed their defence"),
-    ("INJURED", "a failed injury check; no tokens, no more checks"),
-)
+#
+# **Each silo is the token's own art and no words at all.** It is the
+# same picture the bot puts on a player's card and the same one uploaded
+# to the application emoji (see `scripts/render_condition_tokens.py`), so
+# a coach at the table and a coach reading a line of text in Discord are
+# looking at one icon -- and a silo captioned "EXHAUSTION" would be
+# naming a piece the player is holding a copy of. The printed icon is
+# the base of the stack, which is why it sits at the bottom of a silo
+# taller than it is wide.
+TOKEN_SUPPLY_ICONS = {
+    "exhaust": EXHAUST_ICON_PATH,
+    "exhausted": EXHAUSTED_ICON_PATH,
+    "injured": INJURED_ICON_PATH,
+}
+TOKEN_SUPPLIES = tuple(TOKEN_SUPPLY_ICONS)
+# A silo holds a stack rather than a single piece, so it is a token wide
+# and half again as tall.
+SILO_INCHES = (0.8, 1.05)
 # What a cell has to measure for a token to sit in it without covering
 # its neighbours. A meeple's base is about half an inch.
 MIN_TOKEN_INCHES = 0.75
@@ -280,6 +296,36 @@ class Sheet:
 
     def text_width(self, text: str, face: ImageFont.ImageFont) -> float:
         return self.draw.textlength(text, font=face)
+
+    def paste(
+        self,
+        art: Image.Image,
+        box: tuple[float, float, float, float],
+    ) -> None:
+        """
+        Fit an image inside `box`, centred, keeping its proportions.
+
+        Straight to the sheet's own resolution, unlike `cards.Pen.paste`
+        and for the same reason in reverse: a sheet does not supersample,
+        so there is nothing to scale down to afterwards. The art is its
+        own mask, since everything pasted here is a token cut out of its
+        background.
+        """
+        left, top, right, bottom = box
+        scale = min(
+            (right - left) / art.width, (bottom - top) / art.height
+        )
+        size = (max(1, round(art.width * scale)),
+                max(1, round(art.height * scale)))
+        fitted = art.resize(size, Image.Resampling.LANCZOS)
+        self.image.paste(
+            fitted,
+            (
+                round(left + ((right - left) - size[0]) / 2),
+                round(top + ((bottom - top) - size[1]) / 2),
+            ),
+            fitted if fitted.mode == "RGBA" else None,
+        )
 
     def polygon(
         self,
@@ -890,10 +936,29 @@ class JumbotronGeometry:
         )
 
     def supply_cell(self) -> tuple[float, float]:
-        return (
-            self.cells_width / len(TOKEN_SUPPLIES),
-            self.supply_bottom - self.supply_top - self.label_height,
+        """
+        One silo, which is a fixed measurement rather than a share of
+        the panel: it holds a stack of tokens, and a piece does not get
+        bigger because the sheet did. It is capped by the room under the
+        label all the same, so a smaller paper shrinks it rather than
+        running it off the panel.
+        """
+        available = (
+            self.supply_bottom
+            - self.supply_top
+            - self.supply_label_height
+            - self.padding
         )
+        height = min(SILO_INCHES[1] * PRINT_DPI, available)
+        return (height * SILO_INCHES[0] / SILO_INCHES[1], height)
+
+    @property
+    def supply_label_height(self) -> float:
+        """
+        Shorter than a track's: this panel's label is one word, and the
+        silos under it are the smallest thing on the board.
+        """
+        return self.label_height * 0.6
 
     @property
     def label_height(self) -> float:
@@ -942,7 +1007,7 @@ def render_jumbotron_board(
     rather than sharing it. The tracks are printed aids and not
     components the rules name; everything they count is a rule.
 
-    **The supplies are wells, not tallies.** A player's own tokens go on
+    **The supplies are silos, not tallies.** A player's own tokens go on
     their card, where the bot draws them; what a coach has no other home
     for is the stock they come out of and the two markers they turn
     into, which used to be a pile beside the sheet.
@@ -982,20 +1047,14 @@ def draw_jumbotron_header(sheet: Sheet, geometry: JumbotronGeometry) -> None:
         sheet.font(40, bold=True),
         INK,
     )
-    sheet.text(
-        (geometry.left, top + sheet.u(46)),
-        "CLOCK, SCORE AND TOKENS  ·  BASIC MODE",
-        sheet.font(16, bold=True),
-        MUTED,
-    )
-
-    # No period boxes. They were two ticked squares up here while the
-    # clock counted one period twice; the clock now runs the whole game
-    # in two labelled bands, so where the minute token is standing is
-    # already which half it is.
+    # No period boxes, and no subtitle either. The boxes were two ticked
+    # squares up here while the clock counted one period twice; the clock
+    # now runs the whole game in two labelled bands, so where the minute
+    # token is standing is already which half it is -- and each panel
+    # names itself, which is what the subtitle was doing over the top.
     sheet.text(
         (geometry.right, bottom - sheet.u(48)),
-        f"One running clock: 00-{HALFTIME_MINUTE} in the first half, "
+        f"00-{HALFTIME_MINUTE} in the first half, "
         f"{HALFTIME_MINUTE + 1}-{CLOCK_MINUTES} in the second.",
         sheet.font(16),
         MUTED,
@@ -1051,7 +1110,7 @@ def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     cell_width, cell_height = geometry.clock_cell()
     band_label = geometry.clock_band_label_height
     cells_top = geometry.clock_top + geometry.label_height
-    number_face = sheet.font(44, bold=True)
+    number_face = sheet.font(38, bold=True)
     band_face = sheet.font(17, bold=True)
 
     def cell_origin(minute: int) -> tuple[float, float]:
@@ -1096,13 +1155,6 @@ def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
             outline=OFFENSE_COLOR if last else PANEL_EDGE,
             width=sheet.u(3.5 if last else 1.6),
         )
-        sheet.text(
-            (cell_left + cell_width / 2, cell_top + cell_height * 0.42),
-            f"{minute:02d}",
-            number_face,
-            INK if last else MUTED,
-            anchor="mm",
-        )
         caption = (
             "last possession"
             if last
@@ -1111,6 +1163,20 @@ def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
             else "second-half kickoff"
             if minute == HALFTIME_MINUTE + 1
             else None
+        )
+        # A number sits in the middle of its own cell. Only the four
+        # captioned cells lift it, and only far enough to leave the
+        # caption a line -- every other minute is a plain box with a
+        # plain number centred in it, which is most of the track.
+        sheet.text(
+            (
+                cell_left + cell_width / 2,
+                cell_top + cell_height * (0.4 if caption else 0.5),
+            ),
+            f"{minute:02d}",
+            number_face,
+            INK if last else MUTED,
+            anchor="mm",
         )
         if caption:
             sheet.text(
@@ -1165,7 +1231,7 @@ def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     )
     sheet.text(
         (geometry.cells_left, geometry.score_top + sheet.u(10)),
-        "SCORE  ·  SHOOTOUT GOALS COUNT",
+        "SCORE",
         sheet.font(17, bold=True),
         MUTED,
     )
@@ -1218,16 +1284,21 @@ def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
 
 def draw_token_supplies(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     """
-    Three wells: the exhaustion stock, and the two markers a player's
+    Three silos: the exhaustion stock, and the two markers a player's
     tokens turn them into. They are the game's loose pieces and the one
     thing on the table that had nowhere printed to live -- unlike a
     minute or a goal, which have a track, or a player's own tokens,
     which go on their card.
 
-    A well is sized by the label over it rather than by
-    `MIN_TOKEN_INCHES`: a heap of tokens is what goes in one, so the
-    floor is about legibility. It is measured all the same, because a
-    band added above these takes them under a token silently.
+    **A silo is a token wide, half again as tall, and says nothing.**
+    It is a place to stand a stack, not a cell to read: the token's own
+    art is printed at the bottom as the base of the stack, and a coach
+    piles the pieces on top of it. A caption would be naming a piece the
+    coach is holding a copy of, and a well the width of a third of the
+    sheet would be a heap rather than a stack.
+
+    The trio is centred, so the space either side reads as the tray it
+    is rather than as a list that stopped early.
     """
     sheet.rect(
         (
@@ -1242,47 +1313,57 @@ def draw_token_supplies(sheet: Sheet, geometry: JumbotronGeometry) -> None:
         width=sheet.u(2),
     )
     sheet.text(
-        (geometry.cells_left, geometry.supply_top + sheet.u(10)),
-        "TOKEN SUPPLY  ·  A PLAYER'S OWN TOKENS GO ON THEIR CARD",
+        (geometry.cells_left, geometry.supply_top + sheet.u(8)),
+        "TOKENS",
         sheet.font(17, bold=True),
         MUTED,
     )
 
-    wells_left = geometry.cells_left
-    well_width, well_height = geometry.supply_cell()
-    wells_top = geometry.supply_bottom - well_height
-    well_bottom = geometry.supply_bottom - sheet.u(12)
+    silo_width, silo_height = geometry.supply_cell()
+    gap = silo_width * 0.5
+    span = len(TOKEN_SUPPLIES) * silo_width + (len(TOKEN_SUPPLIES) - 1) * gap
+    silos_left = (geometry.left + geometry.right - span) / 2
+    silos_top = geometry.supply_bottom - geometry.padding - silo_height
 
-    for index, (title, note) in enumerate(TOKEN_SUPPLIES):
-        well_left = wells_left + index * well_width
+    for index, name in enumerate(TOKEN_SUPPLIES):
+        left = silos_left + index * (silo_width + gap)
         sheet.rect(
-            (
-                well_left + sheet.u(6),
-                wells_top,
-                well_left + well_width - sheet.u(6),
-                well_bottom,
-            ),
+            (left, silos_top, left + silo_width, silos_top + silo_height),
             radius=sheet.u(8),
             fill=FACE_COLOR,
             outline=PANEL_EDGE,
             width=sheet.u(1.6),
         )
-        middle = well_left + well_width / 2
-        height = well_bottom - wells_top
-        sheet.text(
-            (middle, wells_top + height * 0.28),
-            title,
-            sheet.fitted_font(title, well_width * 0.8, 24, bold=True),
-            INK,
-            anchor="mm",
+        art = load_token_art(name)
+        if art is None:
+            continue
+        inset = silo_width * 0.08
+        sheet.paste(
+            art,
+            (
+                left + inset,
+                silos_top + silo_height - silo_width + inset,
+                left + silo_width - inset,
+                silos_top + silo_height - inset,
+            ),
         )
-        sheet.text(
-            (middle, wells_top + height * 0.6),
-            note,
-            sheet.fitted_font(note, well_width * 0.86, 15),
-            MUTED,
-            anchor="mm",
-        )
+
+
+def load_token_art(name: str) -> Optional[Image.Image]:
+    """
+    A condition token at its own resolution, for print.
+
+    `render.py`'s loaders thumbnail these to 26 pixels for the bot's
+    board and cache them there, so a print has to open the file itself
+    -- the same art, at a size a printer can use. A missing file leaves
+    the silo empty rather than failing the board: it is a place to put
+    a stack either way.
+    """
+    try:
+        with Image.open(TOKEN_SUPPLY_ICONS[name]) as source:
+            return source.convert("RGBA")
+    except OSError:
+        return None
 
 
 # ----------------------------------------------------------- team board

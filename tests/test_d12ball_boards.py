@@ -36,6 +36,7 @@ from d12ball.boards import (
     kickoff_marks,
     render_field_board,
     render_jumbotron_board,
+    load_token_art,
     render_team_board,
     roster_line,
     sheet_pixels,
@@ -367,12 +368,25 @@ class D12BallJumbotronTests(unittest.TestCase):
         """
         The exhaustion stock and the two markers it turns into. A
         player's own tokens are not here -- they are stacked on the
-        player's card, which is what the panel's own label says.
+        player's own card.
         """
         self.assertEqual(
-            [title for title, _ in TOKEN_SUPPLIES],
-            ["EXHAUSTION", "EXHAUSTED", "INJURED"],
+            list(TOKEN_SUPPLIES), ["exhaust", "exhausted", "injured"]
         )
+
+    def test_a_silo_prints_the_token_s_own_art(self) -> None:
+        """
+        The silos carry no words at all, so the art is the whole of what
+        says which is which -- and it has to be the same picture the bot
+        draws on a player's card and uploads as the application emoji,
+        or the table and Discord show a coach two different icons.
+        """
+        for name in TOKEN_SUPPLIES:
+            with self.subTest(token=name):
+                art = load_token_art(name)
+                self.assertIsNotNone(art)
+                # Its own resolution, not render.py's 26px thumbnail.
+                self.assertGreater(art.width, 300)
 
     def test_the_score_track_outruns_a_shootout(self) -> None:
         """

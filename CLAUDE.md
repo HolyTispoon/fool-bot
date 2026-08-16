@@ -1759,12 +1759,24 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   the position.
 - **The three token supplies are on the jumbotron for the neighbouring
   reason.** `TOKEN_SUPPLIES` is the exhaustion stock and the two markers it
-  turns players into, as wells rather than as a tally: a player's own tokens are
+  turns players into, as silos rather than as a tally: a player's own tokens are
   stacked on their card, which is where the bot draws them, so what had nowhere
-  printed to live was the pile they come out of. They are sized by the two lines
-  of label over them and not by a token, and `cell_inches` measures them anyway
-  -- the panel shares are what the whole board is held together by, and a cell
-  squeezed under a token is silent on a render.
+  printed to live was the pile they come out of.
+  - **A silo is `SILO_INCHES` and carries no words at all** -- a token wide,
+    half again as tall, with the token's own art printed at the bottom as the
+    base of the stack. It is a place to stand pieces rather than a cell to
+    read, and a caption would be naming a piece the coach is holding a copy of.
+    Being a fixed measurement rather than a share of the panel is the point: a
+    piece does not get bigger because the sheet did. It is still capped by the
+    room under the label, so a smaller paper shrinks it instead of running it
+    off the panel, and `cell_inches` measures it against `MIN_TOKEN_INCHES`
+    like the tracks.
+  - **The art is `render.py`'s own token PNGs**, so a coach at the table and a
+    coach reading a line of text in Discord see one icon -- see
+    `scripts/render_condition_tokens.py`, which draws them, and note that the
+    loaders in `render.py` thumbnail to 26px and cache there, which is why
+    `load_token_art` opens the file itself. A missing file leaves the silo
+    empty rather than failing the board.
 - **No die value is printed anywhere.** Maneuvers are chosen with the cards, so
   the two selection d6s are off the team board and the head coach cell lists
   the six maneuvers by rank (O1, D2) instead of by face. The **ruleset still
