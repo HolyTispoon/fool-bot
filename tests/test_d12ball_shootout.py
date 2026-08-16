@@ -878,11 +878,16 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         reloaded = cog.load_match_state(game)
         self.assertEqual(reloaded.exhaustion.get(shooter), 2)
 
-    async def test_an_exhausted_shooter_still_owes_an_injury_check(
+    async def test_an_exhausted_shooter_owes_no_injury_check(
         self,
     ) -> None:
+        # 2026-08-15: a shootout test costs no exhaustion and owes no
+        # check either, so an Exhausted shooter carries the condition
+        # through the shootout unchanged. It reverses half of the
+        # 2026-08-10 ruling -- see the rules log.
         cog = build_cog()
         cog.begin_injury_tests = mock.AsyncMock()
+        cog.continue_shootout = mock.AsyncMock()
         game, match = self.build_shootout(cog)
         shooter = match.shootout_shooter(TeamSide.HOME)
         match.exhausted.add(shooter)
@@ -890,12 +895,9 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
 
         await self.roll(cog, game, [9, 3])
 
-        cog.begin_injury_tests.assert_awaited_once()
-        args = cog.begin_injury_tests.await_args.args
-        self.assertEqual(
-            [player.player_id for player in args[3]], [shooter],
-        )
-        self.assertEqual(args[4], {"kind": "shootout_test"})
+        cog.begin_injury_tests.assert_not_awaited()
+        cog.continue_shootout.assert_awaited_once()
+        self.assertNotIn(shooter, cog.load_match_state(game).injured)
 
     async def test_the_last_test_of_the_shootout_ends_the_game(
         self,

@@ -508,11 +508,18 @@ dies out on its own.
   look at their own order whenever they like -- they just may not reorder it --
   so it answers ephemerally, and in sudden death, which has no order, it lists
   who they have left this round.
-- **A shootout test costs no exhaustion and still owes injury checks**, which is
-  the author's ruling and not a shortcut: it is not one of the ways to gain a
-  token, but an Exhausted participant rolls a check like any other skill test.
-  It goes through `begin_injury_tests` with a resume of its own, so the queue is
-  the same one every contest uses.
+- **A shootout test costs no exhaustion and owes no injury checks either**
+  (2026-08-15), which is the author's ruling and not a shortcut -- the rule for
+  every other skill test read straight would give checks, so the living rules
+  state the exception in both places. It is not one of the ways to gain a token,
+  and an Exhausted shooter carries that into the shootout and out again
+  unchanged. `finish_shootout_test` goes straight to `continue_shootout` rather
+  than through `begin_injury_tests`.
+  - **The `shootout_test` resume kind is still read and never written.**
+    `dispatch_injury_resume` keeps the branch so a game saved between that roll
+    and its tests finishes the way it started; nothing writes it any more, so it
+    dies out on its own -- the same retirement `tie_mode` and `player_board`
+    got. Don't drop it until no half-finished game can predate the change.
 
 ## Where a shot may be taken from
 
@@ -1413,16 +1420,20 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
   it is on a card and in the same place on each one, so a coach now compares
   three cards instead of reading three sentences. It went with the change --
   don't reintroduce it alongside the image.
-- **The hand is a side's three cards *and the shared back*, which replaced a
-  button.** `ManeuverActionSelectView` carried a "Maneuver Reference" button
-  that posted the defeat cycle as a second ephemeral message -- a click, a
-  round trip and an upload to see the one thing a coach needs *while* they are
-  choosing. The back carries that same cycle, it is public information either
-  coach may look at whenever they like, and at the table it is face up on the
-  deck in front of them. So `render_maneuver_hand` draws it as the fourth card
-  and the button is gone; `/d12ball maneuver_reference` still posts the
-  hexagon for anyone who wants it in the channel, which is why
-  `build_maneuver_reference_file` is still there.
+- **The hand is a side's three cards *and the shared back*, and the "Maneuver
+  Reference" button is back beside them.** The back carries the defeat cycle,
+  it is public information either coach may look at whenever they like, and at
+  the table it is face up on the deck in front of them -- so
+  `render_maneuver_hand` draws it as the fourth card. That was taken as reason
+  enough to drop the button, and it was not: the back is one card among four at
+  a third of print size, where the hexagon is the picture a coach actually
+  reads a matchup off. `ManeuverActionSelectView.show_reference` posts it
+  ephemerally, so the cost is a click and an upload only when somebody wants
+  one. Both it and `/d12ball maneuver_reference`, which posts the same image to
+  the channel, go through `build_maneuver_reference_file`.
+  - **Ephemeral for the pick's reason, not its own.** The hexagon hides
+    nothing -- answering in the channel would just tell the other side that
+    this coach is still choosing.
 - **Both hands are drawn once in `D12Ball.__init__`**, like the maneuver
   reference image and for the same two reasons: startup is the one place a
   render can block the loop harmlessly, and the alternative is drawing three
@@ -1454,6 +1465,15 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
     inline.
   - **Losing it must not lose the pick**, which is already up and clickable by
     then, so the send is wrapped the way `add_full_image_button`'s is.
+  - **The High Pass distance prompt carries it too**, and is the one place it
+    is an attachment on the prompt rather than a message of its own. Choosing
+    2, 3 or 4 is the same question the cards are read against -- how far is the
+    end of the field from here -- and there is no second image on that message
+    for Discord to lay it out beside. Riding on the prompt is what lets
+    `HighPassChoiceView.choose` take it away with `attachments=[]` in the edit
+    that answers the question, so a strip showing the ball where it was
+    *before* the pass does not outlive the pass. See "A High Pass that runs out
+    of field".
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through

@@ -1760,13 +1760,15 @@ class ManeuverActionSelectView(SafeView):
     `D12Ball.restore_maneuver_menus`, which is why `timeout` is an
     argument rather than a constant.
 
-    **The maneuvers and nothing else.** There was a "Maneuver
-    Reference" button here that posted the defeat cycle as a second
-    ephemeral message -- a click and an upload to see the one thing a
-    coach needs while they are choosing. The cycle is on the card back,
-    which now comes with the hand (`render_maneuver_hand`), so it is
-    already in front of them. `/d12ball maneuver_reference` still posts
-    the hexagon for anyone who wants it in the channel.
+    **The six maneuvers and a Maneuver Reference button.** The button
+    posts the defeat cycle as a second ephemeral message, and it is here
+    despite the cycle already riding on the card back that comes with
+    the hand (`render_maneuver_hand`): the back is one card among four
+    at a third of print size, and the hexagon is the picture a coach
+    actually reads a matchup off. It costs a click and an upload only
+    when somebody wants it. `/d12ball maneuver_reference` still posts
+    the same image to the channel for anyone who wants it in front of
+    both sides.
     """
 
     def __init__(
@@ -1805,6 +1807,38 @@ class ManeuverActionSelectView(SafeView):
 
             button.callback = callback
             self.add_item(button)
+
+        # Last, so the six maneuvers keep the order a coach reads them
+        # in and the reference falls to the end of the row. Its
+        # custom_id carries the game and the side like the picks do, so
+        # a menu restored message-agnostically after a restart
+        # (`restore_maneuver_menus`) dispatches this button too.
+        reference = discord.ui.Button(
+            label="Maneuver Reference",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:maneuver_reference:{game_id}:{side}",
+        )
+        reference.callback = self.show_reference
+        self.add_item(reference)
+
+    async def show_reference(self, interaction: discord.Interaction) -> None:
+        """
+        The defeat cycle, ephemeral to the coach who asked.
+
+        Ephemeral because the pick it sits on is: answering in the
+        channel would tell the other side that this coach is still
+        choosing. The image is public information either coach may ask
+        for at any time, so nothing is hidden by it -- only the timing.
+        """
+        await interaction.response.send_message(
+            file=self.cog.build_maneuver_reference_file(),
+            ephemeral=True,
+        )
+        # The hexagon's labels are small print at the size Discord shows
+        # an image inline, the same reason the hand carries a link. No
+        # view goes with it, so there are no buttons for the edit to
+        # drop. Webhook route -- see "Discord's rate limits".
+        await add_full_image_button_to_response(interaction)
 
     async def pick(
         self,
@@ -2707,6 +2741,16 @@ class HighPassChoiceView(SafeView):
     nobody is offered 3 when a 2 fits. When nothing fits the view is
     not shown at all -- resolve_high_pass sends the pass straight to
     its overshoot rather than putting up one answer three times.
+
+    **The prompt carries the field strip**, for the reason the maneuver
+    cards do: which distance to throw is a question about where
+    everybody is standing and how far the end of the field is, and the
+    persistent board has scrolled away by this point in a turn. It is
+    an attachment on the prompt rather than a message of its own --
+    unlike the field under the cards, which shares its message with the
+    hand and would be laid out beside it -- so `choose` can strip it
+    with `attachments=[]` in the edit it was already making. Leaving it
+    under the answer would show the ball where it was before the pass.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -2771,9 +2815,15 @@ class HighPassChoiceView(SafeView):
             )
             return
 
+        # `attachments=[]` takes the field strip with the question it
+        # answered. It shows the ball where it was *before* the pass, so
+        # leaving it under the answer would put a stale position in the
+        # channel for the rest of the game -- the same reason the run
+        # back drops its snapshot on the click.
         await interaction.response.edit_message(
             content=f"Chose **{distance} spaces**.",
             view=None,
+            attachments=[],
         )
         await self.cog.apply_high_pass(interaction, game, match, distance)
 
@@ -5533,20 +5583,10 @@ class ShootoutTestView(ShootoutView):
         if winner is not None:
             await self.cog.refresh_match_image(interaction, game)
 
-        # A shootout skill test costs no exhaustion -- it is not in the
-        # game's list of ways to gain a token -- but an already
-        # Exhausted shooter still owes an injury check for taking part
-        # in one (the author, 2026-08-10). An injury lands in time to
-        # withhold that player's skill in a later round.
-        exhausted_participants = [
-            player
-            for player in players.values()
-            if player.player_id in match.exhausted
-        ]
-        await self.cog.begin_injury_tests(
-            interaction,
-            game,
-            match,
-            exhausted_participants,
-            {"kind": "shootout_test"},
-        )
+        # A shootout test owes no injury checks (2026-08-15). It costs
+        # no exhaustion either -- it is not one of the ways to gain a
+        # token -- so an Exhausted shooter carries that into the
+        # shootout and out the other side unchanged. The round goes
+        # straight on to the next test, which is what the injury
+        # queue's continuation did once the queue drained.
+        await self.cog.continue_shootout(interaction, game, match)

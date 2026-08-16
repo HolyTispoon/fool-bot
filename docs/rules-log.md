@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-12.
+**As of:** 2026-08-15.
 
 ## Where the rules come from
 
@@ -55,7 +55,31 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-12 (newest) -- author, a passer never receives their own High Pass
+### 2026-08-15 (newest) -- author, a shootout test owes no injury checks
+
+*From the author: remove injury tests during extreme shootouts.*
+
+- **This reverses the second half of the 2026-08-10 ruling below**, which settled that a
+  shootout test "does not cost exhaustion tokens, but does involve injury checks for exhausted
+  players". The first half stands: a test still costs no exhaustion, because it is not one of
+  the ways to gain a token. What goes is the check.
+- **The reading it replaces was the ordinary rule applied straight.** "Only skill tests cause
+  checks" plus "a shootout test is a skill test" gives checks, which is how it was written and
+  why the entry below called it the author's ruling rather than a shortcut. It is now an
+  exception, stated in both places the rule is: under [Injury check](living-rules.md#injury-check)
+  and in the shootout's own section.
+- **What it changes in play is a round that can no longer take somebody out of the round.**
+  An injury landing mid-shootout withheld that player's skill in a later pair, so a side could
+  arrive at its fifth shooter worse off than it ordered them in. Exhaustion carried in from
+  full time still costs a player their skill if they were *already* injured when the shootout
+  began -- that is the injured-players rule and this does not touch it.
+- **Nothing else about the queue moves.** `begin_injury_tests` is still what every other
+  contest hands its tests to; the shootout simply no longer calls it, and goes straight to the
+  next test. The `shootout_test` resume kind is still *read* so that a game saved between a
+  roll and its tests finishes the way it started, and nothing writes it any more -- the same
+  way `tie_mode` and `player_board` were retired.
+
+### 2026-08-12 -- author, a passer never receives their own High Pass
 
 *From the author: "an overshot high pass sets up a scoring opportunity even if the ball travels
 0 spaces but the player who passes cannot score off their own set up"; and, asked whether a
@@ -1051,7 +1075,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Substitutions "up to 2", with no period attached | 2 per side per half, plus 2 more of halftime's own allowance, plus 1 before the shootout |
 | Substitutions: "if and only if all the players on the bench were subbed out" | The same condition, now that the injured-swap requirement is gone -- plus injured players never returning |
 | "So if they were subbed while exhausted they are no longer exhausted" | Half the tokens, rounded up; Exhausted follows from what remains |
-| The shootout says nothing about who shoots, what it costs, or what its goals do | The six on the field when it starts, after a one-substitution window; no exhaustion but injury checks as usual; goals go on the scoreboard |
+| The shootout says nothing about who shoots, what it costs, or what its goals do | The six on the field when it starts, after a one-substitution window; no exhaustion and no injury checks; goals go on the scoreboard |
 | Nothing about coaching between full time and the shootout | A Coaching Choice each, home first, offering one substitution and nothing else |
 | A level round "continues one clash at a time" with no end to a round | Eligibility resets when all six have gone, and every sudden-death pick is free |
 | "For now, we need one player of each role on the field" | A property of the standard setup, not a standing rule |

@@ -385,12 +385,13 @@ class ManeuverPickShowsTheCardsTests(
 
         self.assertEqual(sent["content"], "Pick your maneuver:")
 
-    def test_the_menu_offers_the_maneuvers_and_nothing_else(self) -> None:
-        # A "Maneuver Reference" button used to sit under them, posting
-        # the defeat cycle as a second ephemeral message. That cycle is
-        # on the card back, which now comes with the hand, so the
-        # button was a click and an upload for something already in
-        # front of the coach.
+    def test_the_menu_offers_the_maneuvers_then_the_reference(self) -> None:
+        # The side's three, in rank order, and the "Maneuver Reference"
+        # button last. The card back carries the same defeat cycle, but
+        # as one card among four at a third of print size -- the hexagon
+        # is what a coach reads a matchup off, so it is a click away
+        # rather than gone. Order matters: the reference falling to the
+        # end is what keeps the three picks where a coach looks for them.
         cog = self.build_ready_cog()
         for side, maneuvers in (
             ("offense", cog.maneuver_catalog.offense),
@@ -405,8 +406,31 @@ class ManeuverPickShowsTheCardsTests(
                         for maneuver in sorted(
                             maneuvers, key=lambda item: item.rank,
                         )
-                    ],
+                    ]
+                    + ["Maneuver Reference"],
                 )
+
+    def test_the_reference_button_is_addressed_per_game_and_side(self) -> None:
+        # restore_maneuver_menus re-registers a menu without a message
+        # id, and discord.py falls back to matching on custom_id alone,
+        # so this button carries the game and the side exactly as the
+        # picks do -- see "Recovering a stuck game" in CLAUDE.md.
+        cog = self.build_ready_cog()
+        ids = {
+            side: [
+                item.custom_id
+                for item in ManeuverActionSelectView(cog, "g1", side).children
+                if item.label == "Maneuver Reference"
+            ]
+            for side in ("offense", "defense")
+        }
+
+        self.assertEqual(
+            ids["offense"], ["d12ball:maneuver_reference:g1:offense"],
+        )
+        self.assertEqual(
+            ids["defense"], ["d12ball:maneuver_reference:g1:defense"],
+        )
 
     async def test_the_hand_is_drawn_once_and_re_wrapped_per_send(
         self,
