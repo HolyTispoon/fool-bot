@@ -974,14 +974,29 @@ CYCLE_RADIUS_X = 315
 CYCLE_RADIUS_Y = 284
 CYCLE_CENTER_Y = 548
 
-# A node's label is a rank over the maneuver's name, one word to a
-# line, and the three sizes are set against the widest of them:
-# "Intercept" has to clear the circle where it sits, which is below
-# the middle and so on a shorter chord than the diameter.
-CYCLE_RANK_FONT = 38
-CYCLE_NAME_FONT = 22
-CYCLE_RANK_GAP = 7
+# A node's label is the maneuver's name alone, one word to a line --
+# the O1/D1 rank badge that used to sit above it named the selection
+# die, and the team board's own cell already carries that (see "The
+# printed boards" in CLAUDE.md), so it was the one thing on this card
+# a coach never needed to look up. Dropping it freed the whole circle
+# for the name, which is why the size below is a search rather than a
+# constant: "Intercept" has to clear the circle where it sits, which
+# is below the middle and so on a shorter chord than the diameter, and
+# "Pressure" is a single line with the whole circle to itself.
 CYCLE_LINE_GAP = 6
+CYCLE_LABEL_MARGIN = 8
+
+# Sized independently every node would grow to whatever its own name
+# allows, and "Low Pass"/"High Pass" have nothing holding them back --
+# so the six read as different alphabets rather than one. This is the
+# name that pins the ceiling instead: the widest pairing that still
+# only asks for two lines, so it is the most any node can carry
+# without the short names ballooning past it. Named rather than
+# computed as the tightest fit across all six, because the tightest is
+# "Steal Intercept" -- "Intercept" alone -- and capping there would
+# shrink "Block Deflect" for no reason; the two constraints happen to
+# be close but are not the same one.
+CYCLE_LABEL_REFERENCE = "Block Deflect"
 
 # How far short of a node's edge a tie line stops, and how it is
 # drawn. Stopping outside the circle keeps the dashes from running
@@ -1033,6 +1048,49 @@ def tie_pairs(
         for defense in catalog.defense
         if catalog.resolve(offense.name, defense.name) == "tie"
     ]
+
+
+def fit_node_label(
+    pen: Pen, words: list[str], radius: float, max_size: int = 64
+) -> tuple[list[tuple[str, ImageFont.ImageFont]], list[float], int]:
+    """
+    The largest font, no bigger than `max_size`, a maneuver's name fits
+    its node circle at -- one word to a line, searched rather than
+    picked once, because "Pressure" has the whole circle and "Steal"
+    over "Intercept" only has what a chord below the middle allows.
+
+    Checked against the circle rather than a bounding square: a line
+    is only as wide as the chord at its own vertical offset from the
+    centre, which is what lets "Intercept" claim a size a square would
+    have refused.
+
+    Returns the size alongside the fitted lines, which is what lets a
+    caller measure one name and cap the rest of the cycle at it -- see
+    `render_maneuver_card_back`'s use of "Block Deflect" as the ceiling.
+    """
+    for size in range(max_size, 13, -1):
+        face = font(size, bold=True)
+        boxes = [pen.ink_box(word, face) for word in words]
+        heights = [box[3] - box[1] for box in boxes]
+        total_height = sum(heights) + CYCLE_LINE_GAP * (len(words) - 1)
+        if total_height > radius * 2 - CYCLE_LABEL_MARGIN:
+            continue
+        top = -total_height / 2
+        fits = True
+        for word, box, height in zip(words, boxes, heights):
+            mid = top + height / 2
+            span = radius * radius - mid * mid
+            chord = 2 * span**0.5 if span > 0 else 0
+            if (box[2] - box[0]) > chord - CYCLE_LABEL_MARGIN:
+                fits = False
+                break
+            top += height + CYCLE_LINE_GAP
+        if fits:
+            return [(word, face) for word in words], heights, size
+
+    face = font(13, bold=True)
+    boxes = [pen.ink_box(word, face) for word in words]
+    return [(word, face) for word in words], [box[3] - box[1] for box in boxes], 13
 
 
 def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Image:
@@ -1111,8 +1169,21 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         pen.line([start, end], fill=MUTED, width=6)
         draw_arrowhead(pen, end, (ux, uy), 24, MUTED)
 
-    rank_face = font(CYCLE_RANK_FONT, bold=True)
-    name_face = font(CYCLE_NAME_FONT, bold=True)
+    # Sized independently, "Low Pass" and "High Pass" balloon past
+    # every other node -- two short words leave them almost the whole
+    # circle to grow into, where "Steal Intercept" and "Block Deflect"
+    # are held back by "Intercept" and "Deflect" alone. "Block Deflect"
+    # is the widest pairing that still only asks for two lines, so its
+    # own best fit is the most any node can carry without the two short
+    # names reading oversized next to the rest of the cycle; every node
+    # is capped there, even the ones that already fit smaller.
+    reference = next(
+        maneuver for maneuver, _ in order if maneuver.name == CYCLE_LABEL_REFERENCE
+    )
+    _, _, cap_size = fit_node_label(
+        pen, reference.name.split(" "), CYCLE_NODE_RADIUS
+    )
+
     for (maneuver, is_offense), point in zip(order, points):
         color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
         pen.circle(point, CYCLE_NODE_RADIUS, fill=color)
@@ -1121,11 +1192,12 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         # one-word name and a two-word one both sit in the middle of the
         # circle. Written as fixed offsets it was measured against the
         # two-line case and left the whole stack low in the circle.
-        lines = [(f"{'O' if is_offense else 'D'}{maneuver.rank}", rank_face)]
-        lines += [(word, name_face) for word in maneuver.name.split(" ")]
+        words = maneuver.name.split(" ")
+        lines, heights, _ = fit_node_label(
+            pen, words, CYCLE_NODE_RADIUS, max_size=cap_size
+        )
         boxes = [pen.ink_box(text, face) for text, face in lines]
-        gaps = [CYCLE_RANK_GAP] + [CYCLE_LINE_GAP] * (len(lines) - 2)
-        heights = [box[3] - box[1] for box in boxes]
+        gaps = [CYCLE_LINE_GAP] * (len(lines) - 1)
         top = point[1] - (sum(heights) + sum(gaps)) / 2
         for index, (text, face) in enumerate(lines):
             middle = top + heights[index] / 2
