@@ -5583,20 +5583,10 @@ class ShootoutTestView(ShootoutView):
         if winner is not None:
             await self.cog.refresh_match_image(interaction, game)
 
-        # A shootout skill test costs no exhaustion -- it is not in the
-        # game's list of ways to gain a token -- but an already
-        # Exhausted shooter still owes an injury check for taking part
-        # in one (the author, 2026-08-10). An injury lands in time to
-        # withhold that player's skill in a later round.
-        exhausted_participants = [
-            player
-            for player in players.values()
-            if player.player_id in match.exhausted
-        ]
-        await self.cog.begin_injury_tests(
-            interaction,
-            game,
-            match,
-            exhausted_participants,
-            {"kind": "shootout_test"},
-        )
+        # A shootout test owes no injury checks (2026-08-15). It costs
+        # no exhaustion either -- it is not one of the ways to gain a
+        # token -- so an Exhausted shooter carries that into the
+        # shootout and out the other side unchanged. The round goes
+        # straight on to the next test, which is what the injury
+        # queue's continuation did once the queue drained.
+        await self.cog.continue_shootout(interaction, game, match)

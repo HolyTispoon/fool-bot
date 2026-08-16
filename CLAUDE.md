@@ -508,11 +508,18 @@ dies out on its own.
   look at their own order whenever they like -- they just may not reorder it --
   so it answers ephemerally, and in sudden death, which has no order, it lists
   who they have left this round.
-- **A shootout test costs no exhaustion and still owes injury checks**, which is
-  the author's ruling and not a shortcut: it is not one of the ways to gain a
-  token, but an Exhausted participant rolls a check like any other skill test.
-  It goes through `begin_injury_tests` with a resume of its own, so the queue is
-  the same one every contest uses.
+- **A shootout test costs no exhaustion and owes no injury checks either**
+  (2026-08-15), which is the author's ruling and not a shortcut -- the rule for
+  every other skill test read straight would give checks, so the living rules
+  state the exception in both places. It is not one of the ways to gain a token,
+  and an Exhausted shooter carries that into the shootout and out again
+  unchanged. `finish_shootout_test` goes straight to `continue_shootout` rather
+  than through `begin_injury_tests`.
+  - **The `shootout_test` resume kind is still read and never written.**
+    `dispatch_injury_resume` keeps the branch so a game saved between that roll
+    and its tests finishes the way it started; nothing writes it any more, so it
+    dies out on its own -- the same retirement `tie_mode` and `player_board`
+    got. Don't drop it until no half-finished game can predate the change.
 
 ## Where a shot may be taken from
 

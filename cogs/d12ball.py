@@ -1235,6 +1235,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         kind = (resume or {}).get("kind")
         if kind == "shootout_test":
+            # Nothing writes this any more -- a shootout test stopped
+            # owing injury checks on 2026-08-15 and goes straight to
+            # `continue_shootout` itself. It is still read, because a
+            # game saved between that roll and its tests outlives the
+            # change: the same reason `TeamSetup.from_dict` still
+            # answers to `player_board`. It dies out on its own.
             await self.continue_shootout(interaction, game, match)
             return
         if kind == "maneuver_effect":

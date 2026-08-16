@@ -279,7 +279,7 @@ A player is **Exhausted** when tokens exceed defense.
 
 ### Injury check
 
-When a skill test resolves, every Exhausted participant rolls d12. Higher than current tokens is safe; otherwise injured. Count tokens gained for that test. Only skill tests cause checks.
+When a skill test resolves, every Exhausted participant rolls d12. Higher than current tokens is safe; otherwise injured. Count tokens gained for that test. Only skill tests cause checks, and [extreme shootout](#extreme-shootout) tests do not.
 
 ### Injured players
 
@@ -352,7 +352,7 @@ At full time, higher score wins. If tied, home then visitors take one-substituti
 
 Use the six fielded players after shootout substitution. Keep exhaustion and injury; no full-time recovery. Coaches secretly order six players and reveal the top pair.
 
-Each pair rolls d12 + **offense**. Injured players add no skill. Higher scores; ties score for neither side and are not re-rolled. Tests cost no exhaustion, but Exhausted players still make injury checks.
+Each pair rolls d12 + **offense**. Injured players add no skill. Higher scores; ties score for neither side and are not re-rolled. Tests cost no exhaustion and cause no [injury checks](#injury-check).
 
 Play six pairings, stopping early if trailing side cannot catch up. If level, play sudden death: each coach secretly chooses an unused player that round. Higher score wins game. After all six, begin a new round. Shootout goals go on scoreboard.
 
