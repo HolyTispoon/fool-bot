@@ -1,3 +1,4 @@
+import os
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -40,6 +41,9 @@ from d12ball.components import (
 from d12ball.game import Formation, Team
 from d12ball.render import (
     BOARD_BOTTOM,
+    EXHAUSTED_ICON_PATH,
+    EXHAUST_ICON_PATH,
+    INJURED_ICON_PATH,
     BOARD_LEFT,
     BOARD_RIGHT,
     BOARD_TOP,
@@ -3230,6 +3234,35 @@ class D12BallFontTests(unittest.TestCase):
             Path(font.path).name,
             "DejaVuSans-Bold.ttf",
         )
+
+    def test_bundled_art_is_named_exactly_as_the_code_asks_for_it(
+        self,
+    ) -> None:
+        """
+        The same failure the fonts have, one layer down: every icon
+        loader swallows an OSError and returns None so a render can go
+        on without the art, so a file the code cannot open is silent --
+        the board simply comes out with no exhaustion token on it.
+
+        `Path.exists` is not the test. **One developer's filesystem is
+        case-insensitive and the other's is not**, so a path that
+        differs from the tracked file only in case opens on macOS and
+        misses on Linux, which is exactly how `Exhaust.png` sat in the
+        repo against an `exhaust.png` in the code. Comparing against the
+        directory's own listing is what fails on both.
+        """
+        for path in (
+            EXHAUST_ICON_PATH,
+            EXHAUSTED_ICON_PATH,
+            INJURED_ICON_PATH,
+        ):
+            with self.subTest(icon=path.name):
+                self.assertIn(
+                    path.name,
+                    os.listdir(path.parent),
+                    f"{path.name} is not in {path.parent} under that "
+                    "exact name",
+                )
 
     def test_render_fonts_keep_their_relative_scale(self) -> None:
         # The bug's signature was every font collapsing to one size.

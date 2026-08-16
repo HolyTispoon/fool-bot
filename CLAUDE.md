@@ -2085,6 +2085,17 @@ as a bug.
   is an accepted trade for a one-tap link; the alternative was a callback
   button that fetches a fresh URL on click at the cost of an extra tap. See
   `add_full_image_button` in `cogs/d12ball.py`.
+- **A bundled file's name is case-sensitive on one developer's machine and not
+  on the other's.** `d12ball/images/emoji/exhaust.png` was tracked as
+  `Exhaust.png` against a lowercase path in `render.py`: it opened on macOS,
+  missed on Linux, and every icon loader swallows the `OSError` and returns
+  None so the render can go on -- so the board simply came out with no
+  exhaustion token, on one host only, for as long as nobody looked. CI caught
+  it because CI is Linux. `Path.exists()` is not the check, since it answers
+  True on the wrong case; the test in `D12BallFontTests` compares each declared
+  path against its directory's own listing, which fails on both. Same reasoning
+  as the fonts one section above -- a graceful fallback is what makes a missing
+  file quiet.
 
 ## Collaboration
 
