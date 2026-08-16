@@ -413,8 +413,10 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
 
     # -- Which turnovers open a substitution window ---------------------
     #
-    # A goal, an own goal and a missed attempt all restart from a dead
-    # ball, so all three are new plays. See "Steals and new plays" in
+    # A goal, a missed attempt and a conceded own goal all restart from
+    # a dead ball, so all three are new plays -- and so is an own goal
+    # that gets avoided, even though nothing died and possession never
+    # changes. See "Own goal" and "Steals and new plays" in
     # docs/living-rules.md.
 
     async def test_a_conceded_own_goal_is_a_new_play(self) -> None:
@@ -422,6 +424,13 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
 
         cog.begin_run_back.assert_awaited_once()
         self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])
+
+    async def test_an_avoided_own_goal_is_a_new_play(self) -> None:
+        cog, _ = await self.roll_own_goal(12)
+
+        cog.begin_run_back.assert_awaited_once()
+        self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])
+        self.assertTrue(cog.begin_run_back.await_args.kwargs["turnover_occurred"])
 
     async def test_a_goal_is_a_new_play(self) -> None:
         cog = build_cog()

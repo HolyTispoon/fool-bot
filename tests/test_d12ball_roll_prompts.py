@@ -211,8 +211,13 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
 
         await self.roll(cog, game, match, 12)
 
-        cog.finish_maneuver_resolution.assert_awaited_once()
+        # Avoided is a new play too, same as conceded -- see
+        # test_a_conceded_own_goal_still_restarts_play.
+        cog.begin_run_back.assert_awaited_once()
+        self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])
+        self.assertTrue(cog.begin_run_back.await_args.kwargs["turnover_occurred"])
         self.assertFalse(cog.load_match_state(game).pending_own_goal)
+        self.assertEqual(cog.load_match_state(game).ball.speed, 1)
 
     async def test_a_conceded_own_goal_still_restarts_play(self) -> None:
         cog, game, match = self.build()

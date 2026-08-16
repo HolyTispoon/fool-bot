@@ -55,7 +55,36 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-15 (newest) -- author, the clock runs past 15 and the second half starts at 16
+### 2026-08-15 (newest) -- author, an avoided own goal is a new play too
+
+*From the author: after an own goal is attempted and avoided, that should be a new play, the
+same as one that is conceded -- and it should end last possession exactly as any other new play
+does. Asked in the same message about the parallel case, the author confirmed a scoring attempt
+won off a Block Deflect that overshoots near the goal already behaves this way.*
+
+- **Avoiding an own goal is now a stoppage, not a continuation.** `run_own_goal_roll`'s safe
+  branch used to fall straight into `finish_maneuver_resolution` and let the same player carry
+  on; it now calls `begin_run_back(turnover_occurred=True, new_play=True)`, the same call the
+  conceded branch makes. Both sides reset to their saved arrangement, ball speed resets to 1
+  (set explicitly on this branch, since nothing upstream of it touches speed the way
+  `restart_after_goal` does for a conceded one), and the side that kept the ball is the one that
+  may declare.
+- **This is the one new-play entry where possession doesn't change.** Every other row in the
+  turnover table is also a change of possession; an avoided own goal keeps the ball with the
+  side that was just defending it. `begin_run_back`'s `turnover_occurred`/`new_play` flags don't
+  require a possession change to fire the reset -- they only gate whether the ball is treated as
+  dead and both sides reset, which this is now made to do even without one.
+- **It ends last possession by the same mechanism as every other turnover.** `begin_run_back`'s
+  own check (turnover under last possession ends the period before any reset is attempted) fires
+  first, so an own goal avoided under last possession skips the reset and declaration window
+  entirely, exactly as last possession says a turnover under it should.
+- **A scoring attempt won off an overshot Block Deflect needed no code change.** It already
+  resolves through the same `ScoreAttemptView` any other shot does, which unconditionally calls
+  `begin_run_back(new_play=True, turnover_occurred=True)` on a goal or a miss -- so it already
+  ended last possession correctly. The author's statement confirms the existing behavior rather
+  than changing it.
+
+### 2026-08-15 -- author, the clock runs past 15 and the second half starts at 16
 
 *From the author: the clock keeps counting once last possession has begun, and the second half
 starts at 16 whatever the first half ran to. Asked where the second half's last possession
