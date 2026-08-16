@@ -55,7 +55,41 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-15 (newest) -- author, a shootout test owes no injury checks
+### 2026-08-15 (newest) -- author, the clock runs past 15 and the second half starts at 16
+
+*From the author: the clock keeps counting once last possession has begun, and the second half
+starts at 16 whatever the first half ran to. Asked where the second half's last possession
+falls, the author chose 30 rather than 31 -- fifteen numbered minutes to match the first half's
+00-15, not fifteen minutes of play.*
+
+- **"The clock stops at 15" and "last possession is live" were one fact and are now two.** The
+  clock stopping was how last possession was recorded: reaching 15 both set the flag and froze
+  the number, so a last possession lasting four turns read 15 for all of them. Only the flag
+  ends the period now, on the first turnover under it; the clock is charged for every turn as
+  usual and a period genuinely can end at 19.
+- **Each period has its own last minute**: 15 in the first half and 30 in the second. This is
+  the one number the change adds -- the rule is still "at the period's last minute, use last
+  possession", asked of a clock that no longer resets between halves.
+- **The second half starts at 16 regardless**, which is the whole reason the running clock does
+  not simply carry on from where the first half stopped. A first half that ran to 19 is still
+  followed by a second half at 16, so **minutes 16 and up occur twice in a game**: once in the
+  first half's last possession and once in the second half proper. That collision is
+  deliberate -- the alternative was a second half starting wherever the first one happened to
+  stop, which makes no two games comparable and puts the halftime whistle at a different number
+  every time.
+- **30, not 31.** Read as spans, the two halves are 00-15 and 16-30, which is fifteen numbers
+  each and what a printed clock track is drawn from. Read as minutes of play, the second half
+  is a tick shorter than the first, because a second half kicking off at 16 has already spent
+  the minute a first half kicking off at 00 has not. The author took the first reading.
+- **The clock has no upper bound at all now.** Nothing caps how long a last possession runs, so
+  neither does the clock. What used to be a range check on the scoreboard (00 to 15, or the
+  saved game would not load) is now a floor alone.
+- **The printed jumbotron's clock track is redrawn for it**, 00-30 in rows of eight with both
+  last minutes marked, and the two halves' bands separated. The overrun has no cells: a token
+  past the last minute is a period playing out its last possession, which the board says in
+  words rather than in squares.
+
+### 2026-08-15 -- author, a shootout test owes no injury checks
 
 *From the author: remove injury tests during extreme shootouts.*
 
@@ -1085,6 +1119,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | A score attempt from wherever the ball is | Only from within shooting range, set-ups included |
 | Possession is a team's, and any player on the ball's space may act | The ball is carried by a player, who takes the next turn; the coach only chooses when it came free |
 | Nothing about anyone being exempt from running back | The player holding the ball does not run back, however they came to be holding it |
+| Two 15-minute periods, each clocked 0 to 15 | One running clock: 00-15 in the first half, 16-30 in the second, and it keeps counting past a period's last minute for as long as last possession runs |
 
 ---
 

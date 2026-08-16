@@ -20,7 +20,7 @@ This is the authoritative reference for **basic mode**. It contains the current 
 
 ## Game at a glance
 
-Two coaches each control nine players, six fielded and three on the bench. Play two 15-space-minute periods. The higher score wins; a tie goes to the [Extreme Shootout](#extreme-shootout).
+Two coaches each control nine players, six fielded and three on the bench. Play two periods on one running clock: the first over minutes 00–15, the second over 16–30. The higher score wins; a tie goes to the [Extreme Shootout](#extreme-shootout).
 
 On a turn, the possessing team makes a maneuver or, in range, a score attempt. A turnover either makes players run back or starts a new play, resetting both sides to saved arrangements.
 
@@ -75,7 +75,7 @@ Each team has one Fullback, two Defenders, one Midfielder, two Playmakers, one W
 | Arrangement | Coach's saved meeple spaces from a Coaching Choice. |
 | New play / steal | Turnover types that reset or run back players. |
 | Skill test | Opposed d12 roll. |
-| Space minute | Game-time unit; a period has 15. |
+| Space minute | Game-time unit; one running clock, 00–15 for the first half and 16–30 for the second. |
 
 The ball is a d12; its face is speed. Coaches use an action-selection d6 for secret maneuver choices and d12s for rolls.
 
@@ -94,7 +94,7 @@ The ball is a d12; its face is speed. Coaches use an action-selection d6 for sec
 3. Resolve a [loose ball](#loose-ball) if the possessing team has no player on the ball.
 4. Resolve a turnover: run back after a steal; reset and offer Coaching Choices after a new play. Then make any outstanding placement.
 5. Advance time by the action's cost, minimum 1.
-6. At 15, use [last possession](#last-possession).
+6. At the period's last minute—15 in the first half, 30 in the second—use [last possession](#last-possession).
 
 ### The ball carrier
 
@@ -336,15 +336,15 @@ While bench has a player, substitutions must use it. Once empty, healthy back-be
 
 ## Clock, halftime, and full time
 
-Every turn costs at least one minute. Clock stops at 15.
+Every turn costs at least one minute. The clock never stops: it keeps counting through last possession, so a period ends on the minute its last turnover falls on rather than on its last minute.
 
 ### Last possession
 
-When clock reaches 15, finish that action fully, even if it turns over. Whichever team holds the ball once it has resolved has last possession—the side that kept it, or the side a turnover just handed it to. Its next turnover ends the period immediately: no run back, reset, window, or remaining turnover effect.
+When the clock reaches the period's last minute—15 in the first half, 30 in the second—finish that action fully, even if it turns over. Whichever team holds the ball once it has resolved has last possession—the side that kept it, or the side a turnover just handed it to. Its next turnover ends the period immediately: no run back, reset, window, or remaining turnover effect.
 
 ### Halftime and full time
 
-At halftime: apply recovery; visitors then home take Coaching Choices with two separate substitutions each; visitors finish with a player on kickoff; visitors start second half there at speed 1.
+At halftime: apply recovery; visitors then home take Coaching Choices with two separate substitutions each; visitors finish with a player on kickoff; visitors start second half there at speed 1. **The second half starts at 16** however far past 15 the first half ran, so minutes 16 and up occur twice in a game—once in the first half's last possession, once in the second half proper.
 
 At full time, higher score wins. If tied, home then visitors take one-substitution shootout windows.
 
