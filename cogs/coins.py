@@ -92,9 +92,9 @@ def format_coin_emoji(
 
 def coin_flip_result(face: CoinFace) -> str:
     return (
-        "You have won the coin toss!"
+        "Your coin shows Fortune! You have won the coin toss!"
         if face is CoinFace.FORTUNE
-        else "You have lost the coin toss."
+        else "Your coin shows Doom! You have lost the coin toss."
     )
 
 
