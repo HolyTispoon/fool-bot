@@ -766,6 +766,81 @@ class ScoreboardState:
         return self.time > self.last_minute
 
 
+@dataclass
+class GoalRecord:
+    """
+    One goal, as the game will want to read it back at full time: who
+    it counts for, who put it in, and when.
+
+    **`side` is who it counts for and `player_id` is who kicked it**,
+    which is the same person for every goal but an own goal -- there
+    the defender who failed the roll is credited with it in the *other*
+    team's column, marked (OG). Storing the pair rather than the
+    scoring side alone is the whole of what makes that possible after
+    the fact.
+
+    **The period is stored beside the minute and is not decoration.**
+    The clock runs past a period's last minute, so a first half can
+    reach 17 and so can the second; without the period a goal in the
+    first half's last possession is indistinguishable from one in the
+    opening minutes of the second. See `overran_the_period`.
+    """
+
+    side: TeamSide
+    player_id: str
+    time: int
+    period: MatchPeriod
+    own_goal: bool = False
+    # A shootout goal has no minute worth reading -- it is scored after
+    # the whistle -- so it is listed apart from the game's own goals
+    # rather than at whatever the clock happened to stop on.
+    shootout: bool = False
+
+    def __post_init__(self) -> None:
+        self.side = TeamSide(self.side)
+        self.period = MatchPeriod(self.period)
+
+    @property
+    def in_first_half_overrun(self) -> bool:
+        """
+        Whether this goal's minute is one the second half will reach
+        again: a first-half goal past 15, scored in that half's last
+        possession. It is exactly the condition the **(FH)** marker
+        states, so the marker cannot drift from what it means.
+
+        The second half needs no marker of its own. It overruns as
+        readily -- a goal at 31 or 32 -- but no first-half minute is
+        stamped with the marker missing, so an unmarked number can only
+        be read one way.
+        """
+        return (
+            not self.shootout
+            and self.period == MatchPeriod.FIRST_HALF
+            and self.time > period_last_minute(self.period)
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "side": self.side.value,
+            "player_id": self.player_id,
+            "time": self.time,
+            "period": self.period.value,
+            "own_goal": self.own_goal,
+            "shootout": self.shootout,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "GoalRecord":
+        return cls(
+            side=TeamSide(data["side"]),
+            player_id=data["player_id"],
+            time=data["time"],
+            period=MatchPeriod(data["period"]),
+            own_goal=data.get("own_goal", False),
+            shootout=data.get("shootout", False),
+        )
+
+
 def kickoff_space_index(midfield_spaces: int, kicking_side: TeamSide) -> int:
     """
     The midfield space a kickoff (or any other restart) places the ball
@@ -1023,6 +1098,11 @@ class MatchState:
     # so this is not the score -- it is what the "cannot be caught"
     # stop counts, and what the full-time summary reports.
     shootout_goals: dict[str, int] = field(default_factory=dict)
+    # Every goal of the game in the order it was scored, shootout ones
+    # included. The scoreboard is a running total and cannot be read
+    # backwards; this is what says who scored and when. See
+    # record_goal, which is the only thing that writes to it.
+    goals: list[GoalRecord] = field(default_factory=list)
 
     @classmethod
     def standard(
@@ -1468,7 +1548,47 @@ class MatchState:
             self.automatic_challengers()
         )
 
-    def award_goal(self) -> None:
+    def record_goal(
+        self,
+        side: TeamSide,
+        player_id: str,
+        own_goal: bool = False,
+        shootout: bool = False,
+    ) -> GoalRecord:
+        """
+        Add a goal to the log, stamped with the clock as it stands.
+
+        **Nothing calls this on its own.** The three ways to score all
+        go through the award methods below, and each of them logs --
+        which is what stops a scoreboard and a goal log that disagree.
+        A new way to score has to say who scored it, the same way it
+        has to say whose ball it is afterwards.
+
+        The stamp is the clock at the moment the ball crosses the line,
+        before the action's own cost is charged: the log reads as the
+        minute a goal went in, not the minute play restarted.
+        """
+        record = GoalRecord(
+            side=TeamSide(side),
+            player_id=player_id,
+            time=self.scoreboard.time,
+            period=self.scoreboard.period,
+            own_goal=own_goal,
+            shootout=shootout,
+        )
+        self.goals.append(record)
+        return record
+
+    def goals_for(self, side: TeamSide) -> list[GoalRecord]:
+        """
+        Every goal on a side's half of the scoresheet, in the order
+        they were scored -- an own goal among them, since it counts for
+        the side it is listed under and not the one that kicked it.
+        """
+        side = TeamSide(side)
+        return [goal for goal in self.goals if goal.side == side]
+
+    def award_goal(self, scorer_id: str) -> None:
         """
         Credit a goal to the team in possession. Scores have no upper
         bound, so unlike the clock this needs no clamp and cannot put
@@ -1478,16 +1598,28 @@ class MatchState:
             self.scoreboard.home_score += 1
         else:
             self.scoreboard.visiting_score += 1
+        self.record_goal(self.ball.possession, scorer_id)
 
-    def concede_own_goal(self) -> None:
+    def concede_own_goal(self, player_id: str) -> None:
         """
         Credit a goal to the team WITHOUT possession -- an own goal by
         the team currently holding the ball.
+
+        `player_id` is the defender who failed the roll, and they are
+        logged in the *other* team's column marked (OG): the goal is
+        that side's, the kick was this one's, and a scoresheet that
+        named neither would be the one goal nobody can account for.
         """
-        if self.ball.possession == TeamSide.HOME:
+        conceded_to = (
+            TeamSide.VISITING
+            if self.ball.possession == TeamSide.HOME
+            else TeamSide.HOME
+        )
+        if conceded_to == TeamSide.VISITING:
             self.scoreboard.visiting_score += 1
         else:
             self.scoreboard.home_score += 1
+        self.record_goal(conceded_to, player_id, own_goal=True)
 
     def restart_after_goal(self, conceding_side: TeamSide) -> None:
         """
@@ -2950,13 +3082,17 @@ class MatchState:
     def shootout_goals_for(self, side: TeamSide) -> int:
         return self.shootout_goals.get(TeamSide(side).value, 0)
 
-    def award_shootout_goal(self, side: TeamSide) -> None:
+    def award_shootout_goal(self, side: TeamSide, shooter_id: str) -> None:
         """
         A shootout goal is a goal: it goes on the scoreboard like any
         other (the author, 2026-08-10), so a 2:2 game settled 4-3 is
         announced as 6:5. The separate tally is what the "cannot be
         caught" stop counts and what the summary reads to say how the
         game was won.
+
+        It goes in the goal log too, and for the same reason it gets a
+        tally of its own it is flagged there: the log is listed by the
+        minute a goal was scored, and a shootout has no minute.
         """
         side = TeamSide(side)
         self.shootout_goals[side.value] = self.shootout_goals_for(side) + 1
@@ -2964,6 +3100,7 @@ class MatchState:
             self.scoreboard.home_score += 1
         else:
             self.scoreboard.visiting_score += 1
+        self.record_goal(side, shooter_id, shootout=True)
 
     def finish_shootout_test(self) -> None:
         """
@@ -3221,6 +3358,7 @@ class MatchState:
             },
             "shootout_shooters": dict(self.shootout_shooters),
             "shootout_goals": dict(self.shootout_goals),
+            "goals": [goal.to_dict() for goal in self.goals],
         }
 
     @classmethod
@@ -3400,6 +3538,16 @@ class MatchState:
             },
             shootout_shooters=dict(data.get("shootout_shooters", {})),
             shootout_goals=dict(data.get("shootout_goals", {})),
+            # A game saved before the log existed comes back with an
+            # empty one and keeps playing: the scoreboard is the score,
+            # and this only ever adds to what is reported. Such a game
+            # logs the goals it has left rather than none, so a
+            # half-finished game finishes with a part scoresheet --
+            # which is what the summary's own note is for.
+            goals=[
+                GoalRecord.from_dict(goal)
+                for goal in data.get("goals", [])
+            ],
         )
 
 

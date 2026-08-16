@@ -1488,35 +1488,50 @@ class D12BallScoreAttemptTests(unittest.TestCase):
 
     def test_award_goal_credits_whoever_has_the_ball(self) -> None:
         match = self.build_match(7)
+        home_scorer = match.home.field_players[0]
+        visiting_scorer = match.visiting.field_players[0]
 
-        match.award_goal()
+        match.award_goal(home_scorer)
         self.assertEqual(match.scoreboard.home_score, 1)
         self.assertEqual(match.scoreboard.visiting_score, 0)
 
         match.ball.possession = TeamSide.VISITING
-        match.award_goal()
-        match.award_goal()
+        match.award_goal(visiting_scorer)
+        match.award_goal(visiting_scorer)
         self.assertEqual(match.scoreboard.home_score, 1)
         self.assertEqual(match.scoreboard.visiting_score, 2)
 
         # Scores have no ceiling, so a goal can never leave the
         # scoreboard in a state that fails to reload.
         for _ in range(20):
-            match.award_goal()
+            match.award_goal(visiting_scorer)
         restored = MatchState.from_dict(match.to_dict(), self.rules)
         self.assertEqual(restored.scoreboard.visiting_score, 22)
 
     def test_concede_own_goal_credits_the_other_side(self) -> None:
         match = self.build_match(7)
+        home_player = match.home.field_players[0]
+        visiting_player = match.visiting.field_players[0]
 
-        match.concede_own_goal()
+        match.concede_own_goal(home_player)
         self.assertEqual(match.scoreboard.home_score, 0)
         self.assertEqual(match.scoreboard.visiting_score, 1)
 
         match.ball.possession = TeamSide.VISITING
-        match.concede_own_goal()
+        match.concede_own_goal(visiting_player)
         self.assertEqual(match.scoreboard.home_score, 1)
         self.assertEqual(match.scoreboard.visiting_score, 1)
+
+        # The goal is the other side's and the kick is this player's,
+        # which is the one line of a scoresheet where the two disagree.
+        own_goals = [goal for goal in match.goals if goal.own_goal]
+        self.assertEqual(
+            [(goal.side, goal.player_id) for goal in own_goals],
+            [
+                (TeamSide.VISITING, home_player),
+                (TeamSide.HOME, visiting_player),
+            ],
+        )
 
     def test_goal_restart_gives_conceding_team_midfield_and_speed_one(
         self,

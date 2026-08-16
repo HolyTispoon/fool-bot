@@ -86,11 +86,13 @@ from cogs.d12ball_helpers import (
     build_full_image_button,
     build_full_time_summary,
     build_game_channel_name,
+    build_goal_log,
     contest_noun,
     destination_display_name,
     fetch_application_emojis,
     filter_choices,
     format_ai_name,
+    format_goal_time,
     format_player_with_team,
     format_role_bracket,
     format_team_side_label,
@@ -3734,7 +3736,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             verdict = f"## Own goal avoided!\n\n{exhaustion_text}"
         else:
             conceding_side = match.ball.possession
-            match.concede_own_goal()
+            # The goal is the other side's; the kick is this player's,
+            # and the log says both -- see concede_own_goal.
+            match.concede_own_goal(offense_player.player_id)
             match.restart_after_goal(conceding_side)
             match.pending_run_back = True
             match.pending_run_back_distance = distance_moved
@@ -3743,6 +3747,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             save_games(self.games)
             verdict = (
                 f"# Own goal!\n"
+                f"{format_role_bracket(offense_player, self.team_emojis)} "
+                "puts it in their own net on "
+                f"**{format_goal_time(match.goals[-1])}**.\n"
                 f"{match.home.team.value.title()} {match.scoreboard.home_score}:"
                 f"{match.scoreboard.visiting_score} "
                 f"{match.visiting.team.value.title()}\n\n"
@@ -5728,7 +5735,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         # No refresh of its own: announce_game_over settles the
         # persistent message from the board it posts.
-        await self.announce_game_over(interaction, game, whistle)
+        await self.announce_game_over(
+            interaction, game, f"{whistle}\n\n{self.build_goal_log(match)}"
+        )
+
+    def build_goal_log(self, match: MatchState) -> str:
+        """
+        The scoresheet, with this cog's roster and emoji behind it.
+
+        It is built by the callers of announce_game_over rather than
+        inside it, because that function is handed a string and has no
+        match: the whistle and the shootout each already hold one, and
+        passing it in would be for this alone.
+        """
+        return build_goal_log(match, self.player_catalog, self.team_emojis)
 
     async def announce_game_over(
         self,
@@ -6591,7 +6611,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             interaction,
             game,
             f"**The extreme shootout is settled, {home}-{visiting}.**"
-            f"\n\n{build_full_time_summary(game, match)}",
+            f"\n\n{build_full_time_summary(game, match)}"
+            f"\n\n{self.build_goal_log(match)}",
         )
 
     async def close_maneuver_prompt(

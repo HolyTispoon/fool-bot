@@ -219,7 +219,9 @@ class ShootoutStateTests(unittest.TestCase):
     def test_a_goal_goes_on_the_scoreboard_as_well(self) -> None:
         match = self.build_match(2, 2)
 
-        match.award_shootout_goal(TeamSide.HOME)
+        match.award_shootout_goal(
+            TeamSide.HOME, match.home.field_players[0],
+        )
 
         self.assertEqual(match.scoreboard.home_score, 3)
         self.assertEqual(match.shootout_goals_for(TeamSide.HOME), 1)
@@ -231,9 +233,13 @@ class ShootoutStateTests(unittest.TestCase):
         match = self.build_match()
         self.order_both_sides(match)
 
-        match.award_shootout_goal(TeamSide.VISITING)
+        match.award_shootout_goal(
+            TeamSide.VISITING, match.visiting.field_players[0],
+        )
         for test_number in range(4):
-            match.award_shootout_goal(TeamSide.HOME)
+            match.award_shootout_goal(
+            TeamSide.HOME, match.home.field_players[0],
+        )
             match.finish_shootout_test()
             if test_number < 3:
                 self.assertIsNone(
@@ -249,7 +255,9 @@ class ShootoutStateTests(unittest.TestCase):
         self.order_both_sides(match)
 
         for _ in range(3):
-            match.award_shootout_goal(TeamSide.HOME)
+            match.award_shootout_goal(
+            TeamSide.HOME, match.home.field_players[0],
+        )
             match.finish_shootout_test()
 
         # 3-0 with three still to shoot is exactly catchable.
@@ -283,7 +291,9 @@ class ShootoutStateTests(unittest.TestCase):
             TeamSide.HOME, match.shootout_squad(TeamSide.HOME)[4],
         )
         match.set_shootout_shooter(TeamSide.VISITING, squad[4])
-        match.award_shootout_goal(TeamSide.VISITING)
+        match.award_shootout_goal(
+            TeamSide.VISITING, match.visiting.field_players[0],
+        )
         match.finish_shootout_test()
 
         self.assertEqual(match.shootout_winner(), TeamSide.VISITING)
@@ -345,7 +355,9 @@ class ShootoutStateTests(unittest.TestCase):
         # to the one already paid for.
         match = self.build_match()
         self.order_both_sides(match)
-        match.award_shootout_goal(TeamSide.HOME)
+        match.award_shootout_goal(
+            TeamSide.HOME, match.home.field_players[0],
+        )
         match.finish_shootout_test()
 
         restored = MatchState.from_dict(match.to_dict(), self.rules)
@@ -909,9 +921,13 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         for _ in range(5):
             match.finish_shootout_test()
         for _ in range(3):
-            match.award_shootout_goal(TeamSide.HOME)
+            match.award_shootout_goal(
+            TeamSide.HOME, match.home.field_players[0],
+        )
         for _ in range(2):
-            match.award_shootout_goal(TeamSide.VISITING)
+            match.award_shootout_goal(
+            TeamSide.VISITING, match.visiting.field_players[0],
+        )
         game.match_state = match.to_dict()
 
         interaction = await self.roll(cog, game, [12, 1])

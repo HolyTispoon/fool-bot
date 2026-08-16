@@ -490,6 +490,53 @@ rules, and the 2026-08-15 entry in the rules log for the author's reasoning.
   slot carries the note about the overrun -- **the minutes past 15 and 30 have
   no cells**, because nothing bounds how many there are.
 
+## The goal log
+
+Every goal of the game, in the order it was scored: who put it in, who it
+counted for, and the minute. `MatchState.goals` is the field --
+a list of `GoalRecord` -- and `MatchState.record_goal` is the only thing that
+writes to it. The scoreboard is a running total and cannot be read backwards,
+which is the whole reason this exists.
+
+- **The three ways to score all log, in the call that credits them.**
+  `award_goal`, `concede_own_goal` and `award_shootout_goal` each take the
+  player now, and each calls `record_goal` itself. Nothing else may call
+  `record_goal`: a scoreboard and a log that disagree is exactly the bug a
+  separate "and also log it" step produces. A new way to score has to say who
+  scored it, the same way it has to decide steal-or-new-play.
+- **An own goal is stored as two facts and printed as one line.** `side` is who
+  it counted for and `player_id` is the defender who failed the roll, so it is
+  listed in the *other* team's column marked **(OG)** -- the one line of a
+  scoresheet where the name and the heading disagree, which is what an own goal
+  is. The scorer's name deliberately carries no team emoji anywhere in the log,
+  or that line would contradict the heading over it.
+- **The period is stored beside the minute and is not decoration.** The clock
+  [runs past a period's last minute](#the-running-clock) and the second half
+  starts at 16, so a first half can reach 17 and so can the second.
+  `GoalRecord.in_first_half_overrun` is the ambiguous case and is exactly the
+  condition **(FH)** states, so the marker cannot drift from what it means. The
+  second half needs no marker of its own: it overruns as readily, but with the
+  first half's overrun always marked, an unmarked number can only be read one
+  way.
+- **The stamp is the clock as the ball crosses the line**, taken before the
+  action's own cost is charged -- a shot's clock cost is spent later, in
+  `finish_maneuver_resolution`, so recording it after would report the minute
+  play restarted.
+- **A shootout goal is logged and flagged.** It is a goal and goes on the
+  scoreboard like any other, but it has no minute and no run of play, so
+  `build_goal_log` lists those apart rather than stamping six goals with
+  whatever the clock stopped on. Same reason `shootout_goals` is a tally of its
+  own.
+- **It is persisted, and a game older than the field keeps loading.**
+  `from_dict` defaults it to empty, so a game already under way logs the goals
+  it has left and finishes with a part scoresheet -- which `build_goal_log`
+  says outright, by counting itself against the scoreboard rather than trusting
+  the two agree.
+- **The log goes out at the end, the minute goes out at the time.** Each goal's
+  own announcement carries `format_goal_time`, and the full listing is added to
+  `announce_game_over`'s content by its two callers -- not inside it, which is
+  handed a string and holds no match.
+
 ## The extreme shootout
 
 **Every game is settled.** A level score at full time opens the shootout -- see

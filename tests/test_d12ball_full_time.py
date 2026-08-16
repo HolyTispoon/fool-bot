@@ -27,6 +27,7 @@ from cogs.d12ball_helpers import (
     FULL_IMAGE_BUTTON_LABEL,
     PBD_ARCHIVE_CATEGORY_NAME,
     build_full_time_summary,
+    build_goal_log,
     build_setup_message,
 )
 from cogs.d12ball_views import (
@@ -334,9 +335,13 @@ class FullTimeSummaryTests(unittest.TestCase):
         match = self.build_match(2, 2)
         match.begin_shootout()
         for _ in range(4):
-            match.award_shootout_goal(TeamSide.HOME)
+            match.award_shootout_goal(
+                TeamSide.HOME, match.home.field_players[0],
+            )
         for _ in range(3):
-            match.award_shootout_goal(TeamSide.VISITING)
+            match.award_shootout_goal(
+                TeamSide.VISITING, match.visiting.field_players[0],
+            )
 
         summary = build_full_time_summary(build_game(), match)
 
@@ -344,6 +349,154 @@ class FullTimeSummaryTests(unittest.TestCase):
         self.assertIn("2:2 at full time", summary)
         self.assertIn("settled 4-3 on the extreme shootout", summary)
         self.assertIn("# Orange wins!", summary)
+
+
+class GoalLogTests(unittest.TestCase):
+    """
+    Who scored and when, which the scoreboard cannot be read backwards
+    for. See "The goal log" in CLAUDE.md.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+    def name(self, player_id: str) -> str:
+        return self.catalog.player_by_id(player_id).name
+
+    def log(self, match: MatchState) -> str:
+        return build_goal_log(match, self.catalog, {})
+
+    def test_a_goal_is_logged_with_its_scorer_and_minute(self) -> None:
+        match = self.build_match()
+        scorer = match.home.field_players[0]
+        match.scoreboard.time = 7
+
+        match.award_goal(scorer)
+
+        goal = match.goals[-1]
+        self.assertEqual(goal.side, TeamSide.HOME)
+        self.assertEqual(goal.player_id, scorer)
+        self.assertEqual(goal.time, 7)
+        self.assertEqual(goal.period, MatchPeriod.FIRST_HALF)
+        self.assertIn(f"`07`  {self.name(scorer)}", self.log(match))
+
+    def test_an_own_goal_is_listed_under_the_side_it_counted_for(
+        self,
+    ) -> None:
+        """
+        The one line of a scoresheet where the name and the heading
+        disagree, which is what (OG) is there to explain.
+        """
+        match = self.build_match()
+        conceder = match.home.field_players[0]
+        match.scoreboard.time = 9
+
+        match.concede_own_goal(conceder)
+
+        self.assertEqual(match.scoreboard.visiting_score, 1)
+        self.assertEqual(
+            [goal.player_id for goal in match.goals_for(TeamSide.VISITING)],
+            [conceder],
+        )
+        log = self.log(match)
+        self.assertIn("Orange (Home)** -- none", log)
+        self.assertIn(f"{self.name(conceder)} [FB] (OG)", log)
+
+    def test_a_first_half_goal_past_15_is_marked(self) -> None:
+        """
+        The clock runs on, and the second half starts at 16, so 17 is a
+        minute both halves reach. (FH) is on the one that cannot come
+        round again.
+        """
+        match = self.build_match()
+        scorer = match.home.field_players[0]
+        match.scoreboard.time = 17
+
+        match.award_goal(scorer)
+        self.assertTrue(match.goals[-1].in_first_half_overrun)
+        self.assertIn("`17 (FH)`", self.log(match))
+
+        # The same minute in the second half is the ordinary case and
+        # carries nothing.
+        match.scoreboard.period = MatchPeriod.SECOND_HALF
+        match.award_goal(scorer)
+        self.assertFalse(match.goals[-1].in_first_half_overrun)
+        self.assertIn("`17`", self.log(match))
+
+        # And a first-half goal on 15 itself is unambiguous: the second
+        # half never reaches it.
+        match.scoreboard.period = MatchPeriod.FIRST_HALF
+        match.scoreboard.time = 15
+        match.award_goal(scorer)
+        self.assertFalse(match.goals[-1].in_first_half_overrun)
+
+    def test_shootout_goals_are_listed_apart(self) -> None:
+        match = self.build_match()
+        scorer = match.home.field_players[0]
+        shooter = match.visiting.field_players[0]
+        match.scoreboard.time = 4
+        match.award_goal(scorer)
+
+        match.award_shootout_goal(TeamSide.VISITING, shooter)
+
+        log = self.log(match)
+        self.assertIn("Extreme shootout", log)
+        # The shootout scorer is under the shootout heading and not in
+        # the visiting side's own column, which is otherwise empty.
+        self.assertIn("Purple (Visiting)** -- none", log)
+        self.assertIn(f"Purple: {self.name(shooter)}", log)
+        # A shootout goal has no minute worth printing, so it is not
+        # stamped with whatever the clock stopped on.
+        self.assertNotIn("`04`  " + self.name(shooter), log)
+
+    def test_the_log_survives_a_save(self) -> None:
+        match = self.build_match()
+        match.scoreboard.time = 16
+        match.award_goal(match.home.field_players[0])
+        match.concede_own_goal(match.home.field_players[1])
+
+        restored = MatchState.from_dict(match.to_dict(), self.rules)
+
+        self.assertEqual(
+            [goal.to_dict() for goal in restored.goals],
+            [goal.to_dict() for goal in match.goals],
+        )
+        self.assertTrue(restored.goals[0].in_first_half_overrun)
+        self.assertTrue(restored.goals[1].own_goal)
+
+    def test_a_game_older_than_the_log_still_loads_and_says_so(
+        self,
+    ) -> None:
+        """
+        The field was added mid-life, and both developers run the bot
+        against their own saves. Such a game keeps playing and logs
+        what is left; the count against the scoreboard is what stops a
+        part scoresheet reading as the whole one.
+        """
+        match = self.build_match()
+        saved = match.to_dict()
+        del saved["goals"]
+        saved["scoreboard"]["home_score"] = 2
+
+        restored = MatchState.from_dict(saved, self.rules)
+
+        self.assertEqual(restored.goals, [])
+        restored.award_goal(restored.home.field_players[0])
+        self.assertIn(
+            "2 earlier goal(s) were scored before this game kept a log",
+            self.log(restored),
+        )
 
 
 class EndPeriodFullTimeTests(unittest.IsolatedAsyncioTestCase):
