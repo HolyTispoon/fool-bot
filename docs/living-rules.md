@@ -232,7 +232,7 @@ Declining costs nothing, except an overshot High Pass, whose alternative is its 
 
 ### Own goal
 
-Only overshooting Pressure risks an own goal. Handler rolls 2d12, keeps higher, and adds offense. On 7+, avoid it. The roll costs 1 token but is not a skill test. On failure, opponent scores and conceding side restarts at kickoff, speed 1.
+Only overshooting Pressure risks an own goal. Handler rolls 2d12, keeps higher, and adds offense. On 7+, avoid it. The roll costs 1 token but is not a skill test. Either result is a new play: on 7+, the ball stays where Pressure left it and the same side restarts; on failure, opponent scores and conceding side restarts at kickoff, speed 1.
 
 ## Turnovers, resets, and running back
 
@@ -242,12 +242,14 @@ Every possession change resets speed.
 | --- | --- | --- |
 | Steal Intercept, Defender Pressure, lost long pass | Steal | Run back; no Coaching Choice. |
 | Loose ball won by other side | Steal | Run back; no Coaching Choice. |
-| Goal, own goal, miss, out of bounds | New play | Reset; restarting side may declare. |
+| Goal, own goal (scored or avoided), miss, out of bounds | New play | Reset; restarting side may declare. |
 | Ceding | Cede | Reset; both sides receive windows. |
 
 An overshot Block Deflect changes possession for its immediate scoring opportunity, but its goal or miss creates the new play.
 
-**Only a turnover moves anyone.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them—a receiver who won their long-pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is displaced stays displaced, and pays nothing for it, until a turnover comes.
+An avoided own goal is the one entry above where possession doesn't change—the side that just defended it keeps the ball and is the side that may declare. It is still a new play: both sides reset to their saved arrangement, speed resets to 1, and it ends last possession exactly like any other turnover would.
+
+**Only a turnover moves anyone.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them—a receiver who won their long-pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is displaced stays displaced, and pays nothing for it, until a turnover comes. An avoided own goal is the exception: possession stays, but the stoppage still resets both sides as a new play.
 
 ### Resetting after a new play
 

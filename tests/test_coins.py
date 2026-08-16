@@ -77,13 +77,13 @@ class CoinsTests(unittest.TestCase):
     def test_fortune_result_uses_win_text(self):
         self.assertEqual(
             coin_flip_result(CoinFace.FORTUNE),
-            "You have won the coin toss!",
+            "Your coin shows Fortune! You have won the coin toss!",
         )
 
     def test_doom_result_uses_loss_text(self):
         self.assertEqual(
             coin_flip_result(CoinFace.DOOM),
-            "You have lost the coin toss.",
+            "Your coin shows Doom! You have lost the coin toss.",
         )
 
     def test_load_coin_emojis_finds_all_matching_application_emojis(self):
@@ -128,7 +128,7 @@ class CoinsTests(unittest.TestCase):
             "<:1_bronze_fortune:1532254775624601701>"
         )
         interaction.followup.send.assert_awaited_once_with(
-            "You have won the coin toss!"
+            "Your coin shows Fortune! You have won the coin toss!"
         )
 
     def test_flip_without_coin_randomly_selects_a_coin(self):
@@ -154,7 +154,7 @@ class CoinsTests(unittest.TestCase):
             "<:3_gold_doom:1532254775624601702>"
         )
         interaction.followup.send.assert_awaited_once_with(
-            "You have lost the coin toss."
+            "Your coin shows Doom! You have lost the coin toss."
         )
 
     def test_autocomplete_offers_all_six_coins(self):

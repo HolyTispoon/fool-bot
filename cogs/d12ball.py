@@ -3733,6 +3733,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
 
         if safe:
+            # A new play resets speed same as any other -- see
+            # begin_run_back below -- and nothing else on this path
+            # would, since Pressure's overshoot branch never touches it.
+            match.ball.speed = 1
             verdict = f"## Own goal avoided!\n\n{exhaustion_text}"
         else:
             conceding_side = match.ball.possession
@@ -3773,11 +3777,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if safe:
             game.match_state = match.to_dict()
             save_games(self.games)
-            await self.finish_maneuver_resolution(
+            # Avoiding it is a stoppage too, not a play that simply
+            # carries on: both sides reset to their saved arrangement
+            # and the side that kept the ball may declare, exactly like
+            # any other new play -- and if this closes out last
+            # possession, begin_run_back's own check ends the period
+            # here instead. See "Own goal" in docs/living-rules.md.
+            await self.begin_run_back(
                 interaction,
                 game,
                 match,
                 distance_moved=distance_moved,
+                turnover_occurred=True,
+                new_play=True,
             )
         else:
             # A conceded own goal restarts from the kickoff space
