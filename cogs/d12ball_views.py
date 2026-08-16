@@ -1760,13 +1760,15 @@ class ManeuverActionSelectView(SafeView):
     `D12Ball.restore_maneuver_menus`, which is why `timeout` is an
     argument rather than a constant.
 
-    **The maneuvers and nothing else.** There was a "Maneuver
-    Reference" button here that posted the defeat cycle as a second
-    ephemeral message -- a click and an upload to see the one thing a
-    coach needs while they are choosing. The cycle is on the card back,
-    which now comes with the hand (`render_maneuver_hand`), so it is
-    already in front of them. `/d12ball maneuver_reference` still posts
-    the hexagon for anyone who wants it in the channel.
+    **The six maneuvers and a Maneuver Reference button.** The button
+    posts the defeat cycle as a second ephemeral message, and it is here
+    despite the cycle already riding on the card back that comes with
+    the hand (`render_maneuver_hand`): the back is one card among four
+    at a third of print size, and the hexagon is the picture a coach
+    actually reads a matchup off. It costs a click and an upload only
+    when somebody wants it. `/d12ball maneuver_reference` still posts
+    the same image to the channel for anyone who wants it in front of
+    both sides.
     """
 
     def __init__(
@@ -1805,6 +1807,38 @@ class ManeuverActionSelectView(SafeView):
 
             button.callback = callback
             self.add_item(button)
+
+        # Last, so the six maneuvers keep the order a coach reads them
+        # in and the reference falls to the end of the row. Its
+        # custom_id carries the game and the side like the picks do, so
+        # a menu restored message-agnostically after a restart
+        # (`restore_maneuver_menus`) dispatches this button too.
+        reference = discord.ui.Button(
+            label="Maneuver Reference",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:maneuver_reference:{game_id}:{side}",
+        )
+        reference.callback = self.show_reference
+        self.add_item(reference)
+
+    async def show_reference(self, interaction: discord.Interaction) -> None:
+        """
+        The defeat cycle, ephemeral to the coach who asked.
+
+        Ephemeral because the pick it sits on is: answering in the
+        channel would tell the other side that this coach is still
+        choosing. The image is public information either coach may ask
+        for at any time, so nothing is hidden by it -- only the timing.
+        """
+        await interaction.response.send_message(
+            file=self.cog.build_maneuver_reference_file(),
+            ephemeral=True,
+        )
+        # The hexagon's labels are small print at the size Discord shows
+        # an image inline, the same reason the hand carries a link. No
+        # view goes with it, so there are no buttons for the edit to
+        # drop. Webhook route -- see "Discord's rate limits".
+        await add_full_image_button_to_response(interaction)
 
     async def pick(
         self,

@@ -1413,16 +1413,20 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
   it is on a card and in the same place on each one, so a coach now compares
   three cards instead of reading three sentences. It went with the change --
   don't reintroduce it alongside the image.
-- **The hand is a side's three cards *and the shared back*, which replaced a
-  button.** `ManeuverActionSelectView` carried a "Maneuver Reference" button
-  that posted the defeat cycle as a second ephemeral message -- a click, a
-  round trip and an upload to see the one thing a coach needs *while* they are
-  choosing. The back carries that same cycle, it is public information either
-  coach may look at whenever they like, and at the table it is face up on the
-  deck in front of them. So `render_maneuver_hand` draws it as the fourth card
-  and the button is gone; `/d12ball maneuver_reference` still posts the
-  hexagon for anyone who wants it in the channel, which is why
-  `build_maneuver_reference_file` is still there.
+- **The hand is a side's three cards *and the shared back*, and the "Maneuver
+  Reference" button is back beside them.** The back carries the defeat cycle,
+  it is public information either coach may look at whenever they like, and at
+  the table it is face up on the deck in front of them -- so
+  `render_maneuver_hand` draws it as the fourth card. That was taken as reason
+  enough to drop the button, and it was not: the back is one card among four at
+  a third of print size, where the hexagon is the picture a coach actually
+  reads a matchup off. `ManeuverActionSelectView.show_reference` posts it
+  ephemerally, so the cost is a click and an upload only when somebody wants
+  one. Both it and `/d12ball maneuver_reference`, which posts the same image to
+  the channel, go through `build_maneuver_reference_file`.
+  - **Ephemeral for the pick's reason, not its own.** The hexagon hides
+    nothing -- answering in the channel would just tell the other side that
+    this coach is still choosing.
 - **Both hands are drawn once in `D12Ball.__init__`**, like the maneuver
   reference image and for the same two reasons: startup is the one place a
   render can block the loop harmlessly, and the alternative is drawing three
