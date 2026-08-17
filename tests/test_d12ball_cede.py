@@ -214,16 +214,18 @@ class CedeStateTests(unittest.TestCase):
         self.assertIsNone(match.ball_carrier_id)
         self.assertTrue(match.pending_cede)
 
-    def test_it_costs_no_time(self) -> None:
+    def test_it_costs_its_flat_space_minute(self) -> None:
         # The clock cost is read back off pending_run_back_distance by
-        # whatever the tail still owes, so it has to be 0 there and not
-        # the 1 reset_maneuver leaves.
+        # whatever the tail still owes, and ceding costs the same flat
+        # 1 space minute as any other maneuver (2026-08-16) -- the
+        # same 1 reset_maneuver already leaves there, restated
+        # explicitly.
         match = self.build_match()
         match.cede_possession()
 
-        self.assertEqual(match.pending_run_back_distance, 0)
-        self.assertFalse(match.advance_time(0))
-        self.assertEqual(match.scoreboard.time, 0)
+        self.assertEqual(match.pending_run_back_distance, 1)
+        self.assertFalse(match.advance_time(match.pending_run_back_distance))
+        self.assertEqual(match.scoreboard.time, 1)
 
     def test_the_flag_survives_a_save(self) -> None:
         # It has to outlive two coaching windows, which is the whole
@@ -366,7 +368,8 @@ class CedeFlowTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_reply_closing_runs_no_run_back(self) -> None:
         # Both windows opened on their own coach's arrangement, so
-        # there is nothing displaced and nothing to charge for.
+        # there is nothing displaced to run back -- but the cede still
+        # costs its own flat space minute (2026-08-16).
         cog, game, match = self.build()
         match.cede_possession()
         match.move_meeple(
@@ -383,7 +386,7 @@ class CedeFlowTests(unittest.IsolatedAsyncioTestCase):
         cog.announce_run_back.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
         _, kwargs = cog.finish_maneuver_resolution.call_args
-        self.assertEqual(kwargs["distance_moved"], 0)
+        self.assertEqual(kwargs["distance_moved"], 1)
         self.assertTrue(kwargs["turnover_occurred"])
         self.assertFalse(match.pending_cede)
 

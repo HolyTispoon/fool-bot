@@ -246,6 +246,91 @@ class ShotRollTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(total, 1 + 9)
 
 
+class ShotClockCostTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The score attempt's own flat clock cost (2026-08-16), and how it
+    stacks with the maneuver that offered a set-up rather than
+    replacing it -- see `MatchState.pending_shot_setup_cost` and
+    "When a maneuver includes a setup" in docs/rules-log.md.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    build_shot = ShotRollTests.build_shot
+    roll = ShotRollTests.roll
+
+    async def test_an_ordinary_shot_costs_its_flat_minute(self) -> None:
+        cog = build_cog()
+        game, match = self.build_shot(cog, [])
+        self.assertFalse(match.pending_shot_is_set_up)
+        self.assertEqual(match.pending_shot_setup_cost, 0)
+
+        await self.roll(cog, game, [1, 1])
+
+        cog.begin_run_back.assert_awaited_once()
+        _, kwargs = cog.begin_run_back.call_args
+        self.assertEqual(kwargs["distance_moved"], 1)
+
+    async def test_a_setup_shot_stacks_on_top_of_the_makers_cost(
+        self,
+    ) -> None:
+        # A High Pass's own flat cost is 2; taking the set-up shot it
+        # offers costs that plus the shot's own 1, not one or the
+        # other.
+        cog = build_cog()
+        game, match = self.build_shot(cog, [])
+        match.pending_shot_is_set_up = True
+        match.pending_shot_setup_cost = 2
+        game.match_state = match.to_dict()
+
+        await self.roll(cog, game, [1, 1])
+
+        cog.begin_run_back.assert_awaited_once()
+        _, kwargs = cog.begin_run_back.call_args
+        self.assertEqual(kwargs["distance_moved"], 3)
+
+    async def test_start_set_up_shot_defaults_to_the_flat_maneuver_cost(
+        self,
+    ) -> None:
+        # Block Deflect's overshoot set-up (begin_shooter_choice) and
+        # ShooterChoiceView never pass maneuver_cost -- Block Deflect
+        # is always 1, so the default has to be too.
+        cog = build_cog()
+        game, match = self.build_shot(cog, [])
+        cog.begin_score_attempt = mock.AsyncMock()
+        shooter_id = match.active_player_id
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.start_set_up_shot(
+                build_interaction(), game, match, shooter_id,
+            )
+
+        self.assertTrue(match.pending_shot_is_set_up)
+        self.assertEqual(match.pending_shot_setup_cost, 1)
+
+    async def test_start_set_up_shot_carries_a_high_pass_cost_of_two(
+        self,
+    ) -> None:
+        # offer_scoring_attempt_choice's AI branch and
+        # SetUpAttemptChoiceView.attempt both pass the maneuver's own
+        # distance_moved through explicitly -- 2 for a High Pass.
+        cog = build_cog()
+        game, match = self.build_shot(cog, [])
+        cog.begin_score_attempt = mock.AsyncMock()
+        shooter_id = match.active_player_id
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.start_set_up_shot(
+                build_interaction(), game, match, shooter_id,
+                maneuver_cost=2,
+            )
+
+        self.assertEqual(match.pending_shot_setup_cost, 2)
+
+
 class ShotImageTests(unittest.TestCase):
     """
     The composition image. It cannot be read back, so what is asserted

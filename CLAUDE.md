@@ -771,13 +771,13 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
     `finish_maneuver_resolution` and the passer keeps the ball. It is also why
     that function words a 0-space result rather than reporting "the ball moves 0
     spaces forward", which no coach saw until this rule.
-  - **It still costs a minute**, which is why `apply_high_pass` carries a
-    `distance_moved` (`max(actual_distance, 1)`) apart from the `actual_distance`
-    the result reports -- the same minimum Low Pass has always had for its own
-    move-the-ball-nowhere case. Every distance a coach is offered is at least 2,
-    so nothing but the clamp can come in under it, and a maneuver costing no
-    clock is one a coach could take all afternoon. **Every clock argument out of
-    that function is the first**; only the wording reads the second.
+  - **It still costs High Pass's own 2 minutes**, which is why `apply_high_pass`
+    carries a `distance_moved` apart from the `actual_distance` the result
+    reports. Every maneuver's clock cost is flat and distance-independent
+    (2026-08-16) -- 1 for everything but High Pass, 2 for it -- so this is no
+    longer a minimum bailing out a clamped throw; it is the same cost every
+    High Pass pays, whatever it moved. **Every clock argument out of that
+    function is the first**; only the wording reads the second.
 - **A coach is only offered a distance that fits on the field.**
   `MatchState.high_pass_distances` drops any that would clamp, because a longer
   pass landing where a shorter one already would is that pass at a
@@ -1026,7 +1026,8 @@ ball over rather than play it, to buy a
 [Coaching Choice](#the-coaching-choice) -- see "Ceding the ball" in the living
 rules. It is the third kind of turnover, and the only one that neither runs
 players back nor restarts play: the ball stays where it was given up, at speed
-1, and no time passes.
+1, costing its flat space minute like any other maneuver even though nothing
+travelled (2026-08-16).
 
 - **`MatchState.may_cede_possession` is the whole of when it is offered**, and
   it is `can_attempt_score` read from the other end plus the once-a-half
@@ -1074,14 +1075,19 @@ players back nor restarts play: the ball stays where it was given up, at speed
   where the ball was ceded." So `finish_cede` must keep deciding this itself --
   falling through to `finish_maneuver_resolution` with nobody on the ball would
   hand it to the loose-ball check, which is the reading that was rejected.
-- **The clock cost rides on `pending_run_back_distance`, set to 0.** That field
-  is what every tail step reads back for the clock, and the pickup spans a
-  restart, so a cede has to say 0 there rather than pass it down a call chain.
-  `finish_maneuver_resolution` prints "No time has passed" for it, because
-  "Time has advanced 0" reads as a bug.
+- **The clock cost rides on `pending_run_back_distance`, left at 1.** That
+  field is what every tail step reads back for the clock, and the pickup spans
+  a restart, so a cede has to say so there rather than pass it down a call
+  chain. Ceding costs its flat space minute like any other maneuver
+  (2026-08-16) despite nothing travelling -- `cede_possession` sets the field
+  explicitly rather than leaning on the 1 `reset_maneuver` already leaves,
+  so the value reads as a deliberate fact and not a coincidence.
 - **Under last possession it ends the period**, in `begin_cede` and before any
   window opens, clearing `pending_cede` on the way out so the flag does not
-  follow the game into the second half.
+  follow the game into the second half. That branch bypasses `finish_cede`
+  entirely, so it charges the minute itself with `match.advance_time(1)`
+  before handing off to `end_period` -- every turn of last possession is
+  charged as usual, and this turnover is no exception.
 - **Dinky never cedes.** `DinkyAI.choose_action` still answers shoot or
   maneuver, so in a solo game the option is the human's alone. Nothing about
   the flow assumes that -- an AI *receiving* a ceded ball runs its reply window
