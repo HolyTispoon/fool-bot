@@ -368,7 +368,10 @@ class D12BallRunBackAnnouncementTests(
         self.assertIn("# Players run back!", announcement)
         self.assertIn("assigned zone", announcement)
         self.assertIn("1 exhaustion token for every space", announcement)
-        self.assertIn("prompted to pick a location", announcement)
+        # Both the choices a run back can put to a coach: which space,
+        # and -- for a stack -- which of the players sharing one.
+        self.assertIn("which space", announcement)
+        self.assertIn("which of two teammates sharing one", announcement)
         self.assertIn("ball speed goes down to **1**", announcement)
         cog.continue_run_back.assert_awaited_once_with(
             interaction, game, match,

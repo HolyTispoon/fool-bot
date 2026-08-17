@@ -187,16 +187,36 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         )
         cog.finish_maneuver_resolution.assert_awaited_once()
 
+    def displace_a_home_player(self, match: MatchState) -> str:
+        """
+        Sweep one home midfielder into the far zone, leaving their own
+        with two spaces free -- so their run back is a real choice of
+        space rather than the single arrangement applied silently.
+        """
+        player_id = match.home.zones[Zone.MIDFIELD][0]
+        match.board.remove_meeple(player_id)
+        match.board.place_meeple(player_id, Zone.VISITORS_GOAL, 0)
+        return player_id
+
+    def stack_the_home_midfield(self, match: MatchState) -> list[str]:
+        """
+        Both home midfielders onto one space, with the zone's other two
+        free -- the position that asks the coach which of them runs
+        back (2026-08-17).
+        """
+        midfield = list(match.home.zones[Zone.MIDFIELD])
+        for player_id in midfield:
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
+        return midfield
+
     async def test_a_coach_is_still_asked_one_at_a_time(self) -> None:
         # The home side is a person, so the cascade stops at their
         # first choice with a prompt rather than placing anyone.
         cog = self.build_cog()
         game = self.build_game()
         match = self.build_match()
-        midfield = list(match.home.zones[Zone.MIDFIELD])
-        for player_id in midfield:
-            match.board.remove_meeple(player_id)
-            match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
+        self.displace_a_home_player(match)
 
         match.pending_run_back = True
         game.match_state = match.to_dict()
@@ -207,8 +227,54 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("choose where", prompt)
         cog.finish_maneuver_resolution.assert_not_awaited()
         self.assertNotEqual(
-            cog.run_back_displaced(match, TeamSide.HOME), [],
+            cog.run_back_movers(match, TeamSide.HOME), [],
         )
+
+    async def test_a_stack_asks_the_coach_which_of_them_goes(self) -> None:
+        # Two players on one space differ only in who they are, so the
+        # cascade asks rather than keeping whichever the occupant list
+        # happened to start with.
+        cog = self.build_cog()
+        game = self.build_game()
+        match = self.build_match()
+        midfield = self.stack_the_home_midfield(match)
+
+        match.pending_run_back = True
+        game.match_state = match.to_dict()
+
+        interaction = await self.run_back(cog, game, match)
+
+        prompt = interaction.followup.send.await_args_list[-1].args[0]
+        self.assertIn("choose which of them runs back", prompt)
+        for player_id in midfield:
+            self.assertIn(self.catalog.player_by_id(player_id).name, prompt)
+        # Asked, not answered: nobody has moved and nothing is settled.
+        self.assertEqual(
+            [match.board.meeple_position(player_id)[1] for player_id in midfield],
+            [0, 0],
+        )
+        cog.finish_maneuver_resolution.assert_not_awaited()
+
+    async def test_the_ball_holder_settles_a_stack_without_asking(
+        self,
+    ) -> None:
+        # One of the pair is holding the ball and does not run back, so
+        # there is one player to spare and only the space to choose.
+        cog = self.build_cog()
+        game = self.build_game()
+        match = self.build_match()
+        midfield = self.stack_the_home_midfield(match)
+
+        match.pending_run_back = True
+        match.pending_run_back_stays_player_id = midfield[0]
+        game.match_state = match.to_dict()
+
+        interaction = await self.run_back(cog, game, match)
+
+        prompt = interaction.followup.send.await_args_list[-1].args[0]
+        self.assertIn("choose where", prompt)
+        self.assertIn(self.catalog.player_by_id(midfield[1]).name, prompt)
+        self.assertNotIn(self.catalog.player_by_id(midfield[0]).name, prompt)
 
     async def test_the_prompt_carries_the_board_it_asks_about(self) -> None:
         # A coach choosing a space is choosing a distance, so the
@@ -218,9 +284,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         cog = self.build_cog()
         game = self.build_game()
         match = self.build_match()
-        for player_id in list(match.home.zones[Zone.MIDFIELD]):
-            match.board.remove_meeple(player_id)
-            match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
+        self.stack_the_home_midfield(match)
 
         match.pending_run_back = True
         game.match_state = match.to_dict()
@@ -240,10 +304,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         cog = self.build_cog()
         game = self.build_game()
         match = self.build_match()
-        midfield = list(match.home.zones[Zone.MIDFIELD])
-        for player_id in midfield:
-            match.board.remove_meeple(player_id)
-            match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
+        self.displace_a_home_player(match)
 
         match.pending_run_back = True
         game.match_state = match.to_dict()
@@ -251,7 +312,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.run_back(cog, game, match)
 
         prompt = interaction.followup.send.await_args_list[-1].args[0]
-        side, player_id = cog.next_run_back_choice(match)
+        side, (player_id,) = cog.next_run_back_step(match)
         zone = match.setup_for_side(side).assigned_zone(player_id)
         spaces = match.placement_spaces_in_zone(side, zone, player_id)
         self.assertTrue(spaces)
@@ -263,6 +324,47 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             # Not a label that says nothing: they are standing on M1,
             # so every space they can be sent to is a real walk.
             self.assertGreater(distance, 0)
+
+    async def test_a_stack_asks_both_questions_on_one_message(self) -> None:
+        # Which player, then which space -- and the second is an edit
+        # of the first rather than a message of its own, so the board
+        # uploaded for the "who" is the board the "where" is read off.
+        # See RunBackPlayerChoiceView.
+        cog = self.build_cog()
+        game = self.build_game()
+        match = self.build_match()
+        midfield = self.stack_the_home_midfield(match)
+        cog.games["g"] = game
+
+        match.pending_run_back = True
+        game.match_state = match.to_dict()
+
+        interaction = await self.run_back(cog, game, match)
+        sends_before = interaction.followup.send.await_count
+
+        view = interaction.followup.send.await_args_list[-1].kwargs["view"]
+        click = SimpleNamespace(
+            user=SimpleNamespace(id=11),
+            message=SimpleNamespace(attachments=[]),
+            response=SimpleNamespace(
+                edit_message=mock.AsyncMock(),
+                send_message=mock.AsyncMock(),
+            ),
+            followup=SimpleNamespace(send=mock.AsyncMock()),
+        )
+        with mock.patch("cogs.d12ball_views.save_games"):
+            await view.choose(click, midfield[1])
+
+        click.response.edit_message.assert_awaited_once()
+        edit = click.response.edit_message.await_args
+        self.assertIn("choose where", edit.kwargs["content"])
+        self.assertNotIn("attachments", edit.kwargs)
+        # Nothing new posted, and nobody moved until the space is
+        # picked: the second question is the same message asked again.
+        self.assertEqual(
+            interaction.followup.send.await_count, sends_before,
+        )
+        self.assertEqual(match.board.meeple_position(midfield[1])[1], 0)
 
 
 class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
@@ -288,8 +390,8 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
         cog.finish_maneuver_resolution = mock.AsyncMock()
         # A player who stays displaced however often they are placed.
         cog.apply_forced_run_backs = mock.Mock()
-        cog.next_run_back_choice = mock.Mock(
-            return_value=(TeamSide.VISITING, "purple_zenith"),
+        cog.next_run_back_step = mock.Mock(
+            return_value=(TeamSide.VISITING, ["purple_zenith"]),
         )
         cog.side_is_ai = mock.Mock(return_value=True)
         cog.get_ai_strategy = mock.Mock(

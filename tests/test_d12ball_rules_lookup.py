@@ -330,18 +330,21 @@ class RulesSearchCommandTests(unittest.TestCase):
         self.assertFalse(ephemeral)
 
     def test_a_long_section_continues_in_followups(self) -> None:
-        interaction = self.run_search("the-six-maneuvers")
+        interaction = self.run_search("maneuvers")
         posted = [interaction.response.sent[0][0]] + interaction.followup.sent
+        self.assertGreater(len(posted), 1)
         self.assertEqual(
-            posted, chunk_for_discord(self.document.find("the-six-maneuvers").text)
+            posted, chunk_for_discord(self.document.find("maneuvers").text)
         )
 
     def test_words_in_one_section_only_post_that_section(self) -> None:
-        # Typed rather than picked, and in no heading at all: only "3.
-        # Who wins" and the Maneuver section carrying it say this.
-        interaction = self.run_search("rock-paper-scissors")
+        # Typed rather than picked, and in no heading at all: only
+        # "Winning the shootout" and the section carrying it say this.
+        interaction = self.run_search("sudden death")
         self.assertTrue(
-            interaction.response.sent[0][0].startswith("### 3. Who wins")
+            interaction.response.sent[0][0].startswith(
+                "### Winning the shootout"
+            )
         )
 
     def test_an_unknown_heading_is_refused_privately(self) -> None:

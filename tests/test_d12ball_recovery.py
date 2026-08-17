@@ -30,6 +30,8 @@ from cogs.d12ball_views import (
     ManeuverActionPromptView,
     ManeuverActionSelectView,
     PlayerActionView,
+    RunBackChoiceView,
+    RunBackPlayerChoiceView,
     ScoreAttemptView,
     SkillTestView,
 )
@@ -38,6 +40,7 @@ from d12ball.components import (
     CoachingOccasion,
     MatchState,
     TeamSide,
+    Zone,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -221,6 +224,37 @@ class PendingTurnViewTests(unittest.TestCase):
 
         self.assertIsInstance(view, BallRecoveryView)
         self.assertIn("pick it up", ask)
+
+    def test_a_run_back_comes_back_as_the_space_it_is_owed(self) -> None:
+        cog, match = self.build()
+        match.active_player_id = match.eligible_ball_handlers()[0]
+        stray = match.home.zones[Zone.MIDFIELD][0]
+        match.board.remove_meeple(stray)
+        match.board.place_meeple(stray, Zone.VISITORS_GOAL, 0)
+        match.pending_run_back = True
+
+        view, ask = cog.pending_turn_view("g1", match)
+
+        self.assertIsInstance(view, RunBackChoiceView)
+        self.assertIn("runs back to", ask)
+
+    def test_a_run_back_stack_comes_back_as_the_player_choice(self) -> None:
+        # Which of two players on one space runs back is the coach's
+        # (2026-08-17), and it is not persisted -- it lives on the view
+        # -- so a restart has to put the question back rather than the
+        # answer. Read off the position, the same way the cascade
+        # reads it.
+        cog, match = self.build()
+        match.active_player_id = match.eligible_ball_handlers()[0]
+        for player_id in match.home.zones[Zone.MIDFIELD]:
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
+        match.pending_run_back = True
+
+        view, ask = cog.pending_turn_view("g1", match)
+
+        self.assertIsInstance(view, RunBackPlayerChoiceView)
+        self.assertIn("which", ask)
 
     def test_a_settled_maneuver_owing_a_roll_asks_for_it(self) -> None:
         cog, match = self.build()

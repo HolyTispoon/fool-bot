@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-16.
+**As of:** 2026-08-17.
 
 ## Where the rules come from
 
@@ -55,7 +55,108 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-16 (newest) -- author, every maneuver costs a flat space minute
+### 2026-08-17 (newest) -- author, the coach picks which defender on the ball challenges
+
+*Raised as an open question by the rebuild below -- a defender already on the ball challenges
+automatically, but nothing said which of them does it when two are standing there. The author:
+"it is coache's pick."*
+
+- **Two defenders on the ball is a choice, and the defending coach makes it.** `choose_action`
+  took `automatic_challengers()[0]` -- whichever of them that side's cards happened to list
+  first -- and skipped the prompt. They are rarely interchangeable: a challenge is settled on
+  defensive skill, and the roles run from 1 to 6. **One** of them is still applied without
+  asking, because there is nothing to ask.
+- **`MatchState.challenge_candidates` is the pool, and it is one of two, never a mixture.** The
+  defenders already on the ball wherever there are any, and otherwise the nearest either side of
+  the space. That states the other half of the same rule for the first time: **nobody may be
+  walked in past a defender who is already standing on the ball.** The code allowed it in
+  principle -- `choose_challenger` validated against `eligible_challengers`, which includes both
+  -- and no flow ever did it, because the on-ball branch fired first. It is now refused.
+- **`may_decline_challenge` is untouched**, so the prompt that asks which of two challenges
+  offers no Send nobody: the challenge is still not the defense's to refuse. The prompt's own
+  wording is conditional on it rather than always naming a button that may not be there.
+- **Dinky reads the same pool** and reaches the same answer it did before: it sorts by distance
+  and then by defensive skill, and the on-ball players were already sorting first.
+
+### 2026-08-17 -- author, the coach picks which of a stack runs back
+
+*From the author, reviewing an outline of the rebuilt living rules: "if one is the ball holder,
+the other player in the space has to move. if neither is the ball holder, the coach should be
+able to decide which player to run back."*
+
+- **A stack now asks who before it asks where.** The rule that stacked teammates spread out
+  while their zone still has an uncovered space is unchanged; what changes is who decides which
+  of them goes. `MatchState.crowded_players` used to keep whichever player the space's occupant
+  list started with -- placement order, so effectively arbitrary -- and hand the rest to the run
+  back with nobody asked. It is now `crowded_candidates`, which offers the whole stack, and one
+  of them moves per pass with the question asked again afterwards. A zone with two uncovered
+  spaces therefore breaks its stack up twice and the coach chooses both times, where the old
+  reading picked both at once.
+- **The ball's holder is the one player never offered**, which is the same exemption the run
+  back already had (2026-08-09) read from the other end: a pair holding the ball between them is
+  one candidate and no question, and that is precisely the case the author says is forced. So
+  the old behaviour survives wherever it happened to be right.
+- **The two questions share one message.** `RunBackPlayerChoiceView` asks which player and edits
+  itself into the existing `RunBackChoiceView` to ask which space, so the board uploaded for the
+  first question is the board the second is read off -- see "Discord's rate limits" in CLAUDE.md.
+  Neither pick is persisted: a restart puts the first question back rather than the answer, the
+  same as a part-made Coaching Choice.
+- **`apply_forced_run_backs` leaves an undecided stack out of its arithmetic** rather than
+  zipping it into a space. The displaced players of that zone may still be forced around it, and
+  settling them can take the zone's last open space -- which leaves the stack alone after all,
+  and is one fewer question to put to the coach.
+- **Dinky sends the freshest.** An AI has to answer, and running back costs a token a space, so
+  it spends whichever candidate is carrying the fewest.
+
+### 2026-08-17 -- author, the maneuver selection dice are off the rules
+
+*From the author, reviewing the rebuilt living rules: "Remove all mention of the D6s as action
+selection."*
+
+- **Maneuvers are chosen from the maneuver cards, and the ruleset says nothing else about it.**
+  The two head-coach d6s -- one offense, one defense, each face pairing to a maneuver -- are out
+  of the living rules entirely: out of the component list, and out of the maneuver table, which
+  no longer carries a die column. Ranks (O1, D2) stay, since that is what the printed team board
+  lists and what the defeat cycle is read in.
+- **This is the rules catching up with the print.** `d12ball/boards.py` stopped printing die
+  faces when the team board was drawn -- the head coach cell already lists the six maneuvers by
+  rank -- and CLAUDE.md recorded that as a deliberate divergence pending exactly this ruling.
+  It is no longer a divergence.
+- **The data and the code still carry the die, and that is the follow-up.** `maneuvers.json`
+  still has `die_values` per maneuver (imported from the sheet's own "Die value" column),
+  `basic_rules.json` still defines `head_coach_dice`, `ManeuverCatalog.offense_for_die` /
+  `defense_for_die` still resolve a face to a maneuver, and `DinkyAI` still picks its maneuver
+  by rolling a d6 through them. None of that is visible to a coach, so retiring it is a code
+  change rather than a rules one -- but **the sheet still has the column**, so a fresh
+  `scripts/import_d12ball_maneuvers.py` run will keep writing it until the author drops it
+  upstream. Listed in [Where upstream is behind](#where-upstream-is-behind).
+
+### 2026-08-17 -- documentation only, the living rules rebuilt from the code
+
+*No rule changed here beyond the two entries above. The author's brief: the document was not
+good, and it should be reconstructed from what the code actually plays, in full sentences.*
+
+- **Rewritten whole, from the code rather than from the previous draft.** The order now follows
+  how a game is played -- components, setup, the turn, the actions, what follows an action,
+  time, the endings -- where the old document put score attempts before maneuvers, filed
+  "Sending a player" under the field, and split ball speed, loose balls and set-ups across one
+  heading. Rules that had been stated in two or three places (the injured player's disadvantage,
+  the arrangement, the ball carrier) each have one home now, with the rest pointing at it.
+- **Sentences instead of table cells.** Tables are kept only where the content is really tabular
+  -- board layouts, shooting range, roles, the defeat cycle, ball speed, the occasions, the
+  formations, the clock costs. Everything that is a rule is written out.
+- **Three things the old document had wrong or missing**, all found by reading the code against
+  it: a run back moves only the players standing outside their zone plus the stacks a zone has
+  room to break up, not "every non-carrier"; the arrangement is recorded whenever a side takes up
+  a window that offers positioning, whether or not they moved anybody, and a side that passes
+  keeps the one it had; and Dribble Advance's and Steal Intercept's speed change is up or down,
+  bounded by 1 and 12. The kickoff-space fallback that picks a midfield player when an
+  arrangement leaves the space empty was undocumented and stays that way deliberately -- it is a
+  fallback for games saved before the arrangement rule, not a rule.
+- **One question it turned up**, which the author answered the same day: which of two defenders
+  already standing on the ball challenges a maneuver. See the entry above.
+
+### 2026-08-16 (later) -- author, every maneuver costs a flat space minute
 
 *From the author, in chat: "every maneuver now costs 1 space minute, except for high pass which
 costs 2. Scoring attempt is 1 space minute. Ceding the ball is 1 space minute. When a maneuver
@@ -1237,6 +1338,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Substitutions "when they win possession", with no split between kinds of turnover | Only a new play (goal, own goal, missed attempt, out of bounds) opens a window; a steal opens none |
 | Nothing about giving the ball up on purpose | A side out of shooting range may cede it to coach, spending their once-a-half declaration; both coaches then get a window |
 | The defense must challenge a maneuver whenever it has anyone in the ball's zone | Only a defender already on the ball must; anyone who would have to walk in may be kept back, and the maneuver goes unchallenged |
+| Nothing about two defenders standing on the ball at once | The defending coach picks which of them challenges, and nobody may be walked in past them |
 | A challenger, and a loose ball's contestant, come from the ball's zone | Zone does not come into it: a coach sends the nearest player in front of the space or the nearest behind it, from anywhere on the field |
 | An out-of-bounds pickup is not described at all | The same nearest-two choice, made after the reset and only when nobody of that side is already on the ball |
 | Nothing about the kickoff space beyond where it is | Every arrangement covers its own side's kickoff space, so a restart moves nobody |
@@ -1261,6 +1363,8 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Possession is a team's, and any player on the ball's space may act | The ball is carried by a player, who takes the next turn; the coach only chooses when it came free |
 | Nothing about anyone being exempt from running back | The player holding the ball does not run back, however they came to be holding it |
 | Two 15-minute periods, each clocked 0 to 15 | One running clock: 00-15 in the first half, 16-30 in the second, and it keeps counting past a period's last minute for as long as last possession runs |
+| The maneuvers sheet has a "Die value" column, and the component data two head-coach d6s | Maneuvers are chosen from the cards; the selection dice are not part of the rules at all (2026-08-17). The column and `head_coach_dice` are still imported, so a fresh pull rewrites them |
+| Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
 
 ---
 
@@ -1372,7 +1476,8 @@ From the author, for `foolbot.py`'s generic commands:
 - **Halftime**, end to end: recovery, the coach's extra token, and each side's Coaching Choice,
   gated on the visiting side covering the kickoff space.
 - **The run back**, end to end: 1 token per space, the coach picking within the zone under the
-  coverage rule, the steal exemption, and stacked teammates separated while a space is free.
+  coverage rule, the steal exemption, and stacked teammates separated while a space is free --
+  with the coach picking which of a stack goes, unless the ball's holder is one of them.
   Forced placements are applied silently; only a real choice is put to a coach.
 - **Formations**, end to end: every team dealt 2-2-2, and any Coaching Choice -- setup
   included -- able to move a team into 2-3-1 or 1-3-2, re-dealing the six by defensive skill

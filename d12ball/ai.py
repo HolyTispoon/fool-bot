@@ -128,6 +128,20 @@ class AIStrategy(ABC):
         ...
 
     @abstractmethod
+    def choose_run_back_player(
+        self,
+        match: MatchState,
+        candidates: list[str],
+    ) -> str:
+        """
+        Which of a stack of teammates on one space runs back out of it.
+        Only asked where the choice is real: a stack the ball's holder
+        is standing in offers one candidate and is settled without
+        anybody being asked.
+        """
+        ...
+
+    @abstractmethod
     def choose_run_back_space(self, open_spaces: list[int]) -> int:
         ...
 
@@ -181,7 +195,11 @@ class DinkyAI(AIStrategy):
     def choose_challenger(self, match: MatchState) -> str:
         """
         Always the player closest to the ball, with ties broken in
-        favor of the higher defensive skill.
+        favor of the higher defensive skill. Asked of
+        `challenge_candidates`, which is the defenders already standing
+        on the ball wherever there are any -- the same pool a coach is
+        offered, and the same answer the distance sort would have
+        reached from the wider one.
 
         Dinky always challenges. Sending nobody rather than paying the
         walk-in's exhaustion is legal since 2026-08-12, and it is a
@@ -189,7 +207,7 @@ class DinkyAI(AIStrategy):
         call Dinky does not make when it declines to cede or to leave a
         loose ball alone.
         """
-        candidates = match.eligible_challengers()
+        candidates = match.challenge_candidates()
         if not candidates:
             raise ValueError(
                 "There are no eligible challengers to choose from."
@@ -312,6 +330,25 @@ class DinkyAI(AIStrategy):
             ).offense
 
         return min(candidates, key=sort_key)
+
+    def choose_run_back_player(
+        self,
+        match: MatchState,
+        candidates: list[str],
+    ) -> str:
+        """
+        The freshest of them -- running back costs a token a space, so
+        the one carrying the fewest is the one who can best afford the
+        walk. Ties go to the first, which keeps the pick deterministic
+        the way every other Dinky answer is.
+        """
+        return min(
+            candidates,
+            key=lambda player_id: (
+                match.exhaustion.get(player_id, 0),
+                candidates.index(player_id),
+            ),
+        )
 
     def choose_run_back_space(self, open_spaces: list[int]) -> int:
         return min(open_spaces)
