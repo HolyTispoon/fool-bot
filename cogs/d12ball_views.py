@@ -2774,8 +2774,11 @@ class HighPassChoiceView(SafeView):
 
         for distance in cog.high_pass_distance_options(match):
             ability_note = " (Fullback ability)" if distance == 4 else ""
+            destination_note = cog.high_pass_destination_note(match, distance)
             button = discord.ui.Button(
-                label=f"{distance} spaces{ability_note}",
+                label=(
+                    f"{distance} spaces{ability_note} ({destination_note})"
+                ),
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:high_pass:{game_id}:{distance}",
             )

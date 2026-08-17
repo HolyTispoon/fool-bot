@@ -462,7 +462,10 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             [item.label for item in HighPassChoiceView(
                 cog, game.game_id,
             ).children],
-            ["2 spaces", "3 spaces"],
+            [
+                "2 spaces (V1-Flickerwing [WG])",
+                "3 spaces (V2-Kindlefoot [SK])",
+            ],
         )
 
         cog, game, _ = self.build(Zone.MIDFIELD, 0, PlayerRole.FULLBACK)
@@ -470,7 +473,11 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             [item.label for item in HighPassChoiceView(
                 cog, game.game_id,
             ).children],
-            ["2 spaces", "3 spaces", "4 spaces (Fullback ability)"],
+            [
+                "2 spaces (no teammate)",
+                "3 spaces (V1-Flickerwing [WG])",
+                "4 spaces (Fullback ability) (V2-Kindlefoot [SK])",
+            ],
         )
 
     def test_nobody_is_offered_three_when_only_two_fits(self) -> None:
@@ -479,7 +486,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             [item.label for item in HighPassChoiceView(
                 cog, game.game_id,
             ).children],
-            ["2 spaces"],
+            ["2 spaces (V2-Kindlefoot [SK])"],
         )
 
     async def test_a_click_on_a_distance_no_longer_on_offer_is_refused(
