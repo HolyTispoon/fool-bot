@@ -79,6 +79,15 @@ earn their keep when upstream moves:
   do, update the living rules and add a dated entry as its own commit, so each rules change
   stays a reviewable diff.
 
+[docs/advanced-maneuver-matrix.md](docs/advanced-maneuver-matrix.md) is a third document and a
+different kind of thing: a **worksheet for a ruleset that does not exist yet**. Advanced mode
+was asked for on 2026-08-17 and nothing about it is settled, so the matrix states the questions
+next to the table they are asked against -- every advanced maneuver against every maneuver it
+can meet -- with each assumption named and each undecided cell marked. **Nothing in it is a
+rule**; a rule reaches the living rules only once the author has answered, and the worksheet's
+answered parts are then deleted rather than kept in parallel. Don't read it as a specification,
+and don't implement from it.
+
 **Take rules questions to the author rather than inferring them from the code** -- several
 mechanics exist only in the code, so there a bug and a deliberate decision look identical.
 Asking as inline comments on a docs PR has worked far better than asking in chat, and it

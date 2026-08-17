@@ -45,6 +45,26 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
+### Advanced mode -- fifteen questions, none of them answered
+
+The author asked for advanced mode on 2026-08-17: **advanced maneuvers** (each of the six
+has a version that is more impactful when it succeeds and carries an extra cost when it is
+defeated) and **asymmetric teams** (a team playable with its own abilities and role
+composition instead of the standard one), with a game free to take one, both or neither.
+
+Nothing is settled yet, and the questions are kept in
+[advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) rather than here, because they
+come with the table they are asked against -- every advanced maneuver against every
+maneuver it can meet, and which cost or benefit applies. Five of the fifteen block the
+table itself: whether the advanced choice is made per turn or per game, whether an
+advanced card beats a basic one of the same rank, whether a skill test counts as
+succeeding or being defeated, whether an unopposed maneuver earns its bonus, and whether
+both sides' effects apply when both played advanced.
+
+The advanced maneuvers themselves are drafted in the sheet and have not been pulled in.
+The `Advanced` ability column is still empty for all thirty-six players, so asymmetric
+teams have no data at all.
+
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
 
@@ -1501,8 +1521,15 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
 
 ### Blocked or deferred
 
-- **Advanced mode** -- per-team abilities (the sheet's empty `Advanced` column) -- is
-  unspecified. Setup refuses it. Formations left it for basic mode on 2026-08-08.
-  It also holds up the **back of a printed player card**, which is that player's
-  advanced version (the author, 2026-08-12): the printed cards are one-sided until
-  the column is filled, and filling it is what unblocks them.
+- **Advanced mode** is asked for and unspecified -- see
+  [Advanced mode](#advanced-mode----fifteen-questions-none-of-them-answered) under Still
+  open, and [advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) for the questions.
+  Setup refuses it. It has two halves and they are blocked on different things:
+  - **Advanced maneuvers** are drafted in the sheet's `maneuvers` tab and need pulling in,
+    plus five rulings before the interaction table can be completed.
+  - **Asymmetric teams** -- per-team abilities and role composition (the sheet's empty
+    `Advanced` column) -- have no data at all. Formations left 4-1-1 and 2-1-3 to advanced
+    mode on 2026-08-08, and neither fits a current board. It also holds up the **back of a
+    printed player card**, which is that player's advanced version (the author,
+    2026-08-12): the printed cards are one-sided until the column is filled, and filling it
+    is what unblocks them.
