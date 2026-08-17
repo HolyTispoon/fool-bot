@@ -4988,7 +4988,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         of the two happened -- a window open, or a run back pending.
 
         **The player holding the ball does not run back**, whoever they
-        are -- see "The ball carrier" and "Running back after a steal"
+        are -- see "Choosing the handler" and "Running back after a
+        steal"
         in docs/living-rules.md. The exemption is read off
         `ball_carrier_id` rather than passed in, because the two are
         the same fact: a run back that moved the ball's holder would
@@ -7757,7 +7758,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # the time the prompt is built, so only the caller that did the
         # selecting still knows the handler was forced.
         handler_line = (
-            f"{handler} is carrying the ball, and takes this turn."
+            f"The ball was left with {handler}, who takes this turn."
             if carrying
             else f"{handler} will be handling the ball."
         )

@@ -195,7 +195,7 @@ class LivingRulesFileTests(unittest.TestCase):
 
     def test_it_parses_into_sections(self) -> None:
         slugs = [section.slug for section in self.document.sections]
-        self.assertIn("the-ball-carrier", slugs)
+        self.assertIn("choosing-the-handler", slugs)
         self.assertIn("coaching-choice", slugs)
         self.assertEqual(len(slugs), len(set(slugs)), "duplicate anchors")
 

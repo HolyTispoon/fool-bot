@@ -95,7 +95,7 @@ A player's exhaustion tokens sit on their card. A player carrying more tokens th
 
 A player's **card** is assigned to a zone and their **meeple** stands on a space. Play pulls the two apart, and a run back is what puts them back together.
 
-The **handler** is the player taking their team's turn with the ball. The **ball carrier** is a player a resolution left holding it, who must take the next turn — see [the ball carrier](#the-ball-carrier).
+The **handler** is the player with the ball, taking their team's turn with it — see [choosing the handler](#choosing-the-handler).
 
 An **arrangement** is where a coach's meeples were standing when they last closed a [Coaching Choice](#coaching-choice). It is what a new play puts them back on.
 
@@ -129,7 +129,7 @@ The ball then goes on the kickoff space at speed 1 in home's possession, with th
 
 The team in possession takes a turn, in this order.
 
-1. Choose which of their players on the ball's space will handle it.
+1. Choose [which of their players on the ball's space handles it](#choosing-the-handler).
 2. Choose the action: a [score attempt](#score-attempt) if the ball is in that team's shooting range, and otherwise a [maneuver](#maneuvers) or [ceding the ball](#ceding-the-ball).
 3. Resolve the action, and anything it leads to.
 4. If the team in possession has nobody on the ball's space, resolve a [loose ball](#the-loose-ball).
@@ -138,19 +138,15 @@ The team in possession takes a turn, in this order.
 
 Whichever team has the ball at the end of all that takes the next turn.
 
-### Choosing the player
+### Choosing the handler
 
-Any of the possessing team's players standing on the ball's space may handle it, and the coach picks between them. A [ball carrier](#the-ball-carrier) has to take the turn, so there is nothing to choose.
+Any of the possessing team's players standing on the ball's space may handle it, and the coach picks between them — unless the last resolution left the ball with one player in particular, in which case that player handles it and there is nothing to choose.
 
-### The ball carrier
+These leave the ball with a particular player: a Dribble Advance, with the player who dribbled it; a completed Low Pass and a received 2-space High Pass, with the receiver; a Steal Intercept, with the interceptor; a won loose ball or High Pass contest, with the winner; and a Pressure, with the handler who was shoved back still holding it — including one who has just survived an own-goal roll, and with the Defender instead where their Pressure also stole it.
 
-A resolution that leaves the ball with one player in particular makes them the **ball carrier**: they take their team's next turn rather than the coach choosing off the ball's space again. The carry lasts exactly one turn.
+These leave it with nobody in particular: a Block Deflect, which sends the ball to a space rather than to a player; a kickoff or any other restart; and a required pickup.
 
-These leave a carrier: a Dribble Advance, on the player who dribbled it; a completed Low Pass and a received 2-space High Pass, on the receiver; a Steal Intercept, on the interceptor; a won loose ball or High Pass contest, on the winner; and a Pressure, on the handler who was shoved back still holding it — including one who has just survived an own-goal roll, and on the Defender instead where their Pressure also stole it.
-
-These leave nobody carrying: a Block Deflect, which sends the ball to a space rather than to a player; a kickoff or any other restart; and a required pickup.
-
-A ball carrier does not run back. If the named player is no longer on the ball by the time the turn comes round, their coach chooses in the ordinary way.
+It holds for one turn only. If that player is no longer on the ball by the time the turn comes round, their coach chooses in the ordinary way. The player holding the ball also [never runs back](#running-back-after-a-steal).
 
 ### Choosing the action
 
@@ -231,7 +227,7 @@ The ball goes to a teammate, and there are at most three destinations to choose 
 
 A pass has to reach a different player — the handler cannot pass to themselves — and a pass across a shared space also sends the passer 1 space forward if there is field to move into.
 
-Ball speed rises by 1, to a maximum of 12. The receiver carries the ball.
+Ball speed rises by 1, to a maximum of 12. The ball is left with the receiver.
 
 With no legal destination at all, the maneuver still resolves: the ball rolls 1 space forward, its speed still rises, and it is loose where it lands.
 
@@ -243,7 +239,7 @@ With no legal destination at all, the maneuver still resolves: the ball rolls 1 
 
 The handler and the ball move 1 space forward together. The handler then changes the ball's speed by up to their offensive skill, in either direction, within the range 1 to 12.
 
-The handler carries the ball.
+The ball is left with the handler.
 
 *Playmaker:* may advance 2 spaces instead of 1.
 
@@ -255,7 +251,7 @@ The ball is thrown 2 or 3 spaces forward, and a Fullback may throw it 4. Only di
 
 | The throw | What happens |
 | --- | --- |
-| 2 spaces, a teammate on the landing space | Received. The receiver carries the ball and may take a [scoring opportunity](#scoring-opportunities) if it is in range. |
+| 2 spaces, a teammate on the landing space | Received. The ball is left with the receiver, who may take a [scoring opportunity](#scoring-opportunities) if it is in range. |
 | 3 or 4 spaces, a teammate there | Received but contested: the receiver has to win the [High Pass contest](#the-high-pass-contest) to keep it. |
 | Nobody there | The ball is [loose](#the-loose-ball). |
 
@@ -283,13 +279,13 @@ The one exception is a deflection that runs out of field **and** finds a defendi
 
 Possession flips and ball speed resets to 1. The challenger and the ball then move 1 space back for their side, toward the goal the new possessing team is defending. Once everyone has run back, the interceptor changes the ball's speed by up to their defensive skill, in either direction.
 
-The interceptor carries the ball, and so does not run back.
+The ball is left with the interceptor, who therefore does not run back.
 
 ### Pressure
 
 **Rank D3. Costs 1 space minute. Beats Dribble Advance, loses to Low Pass.**
 
-The handler and the ball go 1 space back, toward the goal the offense is defending, and the challenger moves 1 space forward onto the same space. Possession does not change, and the handler carries the ball.
+The handler and the ball go 1 space back, toward the goal the offense is defending, and the challenger moves 1 space forward onto the same space. Possession does not change, and the ball is left with the handler.
 
 Where the handler is already standing on the space closest to their own goal there is nowhere to push them, and the pressure risks an [own goal](#own-goal) instead.
 
@@ -348,7 +344,7 @@ Where only the other team is standing there, they simply take it: nobody moves, 
 
 Where the space is empty, the side that has just lost the ball chooses first — send a player, or send nobody — and the other side chooses after them.
 
-- **Both send.** They walk in, each paying for their own distance, and roll a skill test: the side that had the ball adds their player's offensive skill, the other side adds their player's defensive skill. The higher total wins the ball and carries it. A tie is rolled again, at a token each.
+- **Both send.** They walk in, each paying for their own distance, and roll a skill test: the side that had the ball adds their player's offensive skill, the other side adds their player's defensive skill. The higher total wins the ball and is left holding it. A tie is rolled again, at a token each.
 - **One sends.** That player collects the ball without a test.
 - **Neither sends.** The ball goes [out of bounds](#out-of-bounds).
 
@@ -364,7 +360,7 @@ The receiver is the offense's contestant automatically. A defending player alrea
 
 The roll is the loose ball's, with one difference: the receiver adds the [ball speed modifier](#ball-speed), and adds it against themselves if the pass overshot.
 
-The winner carries the ball. A receiver who loses it has been stolen from.
+The ball is left with the winner. A receiver who loses it has been stolen from.
 
 ### Out of bounds
 
@@ -376,7 +372,7 @@ It is a [new play](#resetting-after-a-new-play) rather than a steal — nobody t
 
 An out-of-bounds ball and a [ceded](#ceding-the-ball) ball are both handed to a side that may well have nobody standing on them. Once everything else has settled, that side [sends a player](#sending-a-player) to the ball's space at the usual token a space — unless one of theirs is already standing there, which settles it for nothing.
 
-A pickup is a placement rather than a contest: nobody rolls for it, nobody may contest it, and nobody carries the ball afterwards.
+A pickup is a placement rather than a contest: nobody rolls for it, nobody may contest it, and the ball is left with nobody in particular afterwards.
 
 ## Own goal
 

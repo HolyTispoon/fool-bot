@@ -873,7 +873,7 @@ pickup use.
 Possession is a team's, but the ball is a *player's*: a resolution that
 leaves it with somebody in particular makes them the **ball carrier**, and
 they take their side's next turn instead of the coach picking again off the
-ball's space -- see "The ball carrier" in the living rules.
+ball's space -- see "Choosing the handler" in the living rules.
 `MatchState.ball_carrier_id` is the field and
 `MatchState.turn_handler_candidates` is the whole of the rule.
 

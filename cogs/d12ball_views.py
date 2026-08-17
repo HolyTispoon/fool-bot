@@ -5041,7 +5041,7 @@ class LooseBallSkillTestView(SafeView):
         # Whoever won the contest is holding the ball, and takes the
         # next turn -- the receiver who kept a long High Pass, or
         # either side's contestant who won a loose ball. Confirmed by
-        # the author 2026-08-09; see "The ball carrier" in
+        # the author 2026-08-09; see "Choosing the handler" in
         # docs/living-rules.md.
         match.set_ball_carrier(winner_player.player_id)
         match.pending_loose_ball = False

@@ -984,7 +984,7 @@ class MatchState:
     # a Pressure, the stealer, the player a pass was aimed at. That
     # player takes their side's next turn instead of the coach picking
     # again off the ball's space. Cleared when the ball comes free, and
-    # consumed by select_ball_handler. See "The ball carrier" in
+    # consumed by select_ball_handler. See "Choosing the handler" in
     # docs/living-rules.md.
     ball_carrier_id: Optional[str] = None
     pending_action: Optional[str] = None
