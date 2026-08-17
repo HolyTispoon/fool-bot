@@ -464,10 +464,14 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
     """
     Halftime no longer has a repositioning stage of its own -- the
     Coaching Choice's space positioning covers it. What survives is the
-    kickoff-space guarantee: the visitors kick off the second half, so
-    somebody of theirs has to be standing on it. A human coach is
-    refused Done until they are (coaching_finish_refusal); an AI has no
-    menu to be held in, so cover_kickoff_space does it for them.
+    kickoff-space guarantee, which since 2026-08-16 is asked of every
+    side in every window that positions anybody: an arrangement covers
+    its own side's kickoff space. A human coach is refused Done until
+    it does (coaching_finish_refusal); an AI has no menu to be held in,
+    so cover_kickoff_space does it for them.
+
+    Board 6 is the one that tells the two sides' spaces apart, which is
+    why these run on it.
     """
 
     @classmethod
@@ -509,16 +513,56 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         refusal = cog.coaching_finish_refusal(match, TeamSide.VISITING)
 
         self.assertIsNotNone(refusal)
-        self.assertIn("kick off", refusal)
+        self.assertIn("kickoff space", refusal)
 
-    def test_home_is_never_held_at_halftime(self) -> None:
-        # Home kicks off the first half, not the second.
+    def test_home_is_held_on_its_own_space_and_not_the_visitors(
+        self,
+    ) -> None:
+        # build_match empties the *visiting* kickoff space, which on
+        # board 6 is not home's -- so home is free until their own is
+        # empty, and then held on that one.
         cog = build_cog()
         match = self.build_match()
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
 
         self.assertIsNone(
             cog.coaching_finish_refusal(match, TeamSide.HOME),
+        )
+
+        home_kickoff = match.kickoff_space_for(TeamSide.HOME)
+        other = 1 if home_kickoff == 0 else 0
+        for player_id in list(match.board.spaces[Zone.MIDFIELD][home_kickoff]):
+            if player_id in match.home.field_players:
+                match.move_meeple(player_id, Zone.MIDFIELD, other)
+
+        self.assertIsNotNone(
+            cog.coaching_finish_refusal(match, TeamSide.HOME),
+        )
+
+    def test_a_new_play_s_window_is_held_to_it_too(self) -> None:
+        # It is a property of an arrangement, not of the side kicking
+        # off, so every occasion that positions anybody asks it.
+        cog = build_cog()
+        match = self.build_match()
+        match.open_coaching_window(
+            TeamSide.VISITING, CoachingOccasion.NEW_PLAY,
+        )
+
+        self.assertIsNotNone(
+            cog.coaching_finish_refusal(match, TeamSide.VISITING),
+        )
+
+    def test_the_full_time_window_positions_nobody_and_holds_nobody(
+        self,
+    ) -> None:
+        cog = build_cog()
+        match = self.build_match()
+        match.open_coaching_window(
+            TeamSide.VISITING, CoachingOccasion.FULL_TIME,
+        )
+
+        self.assertIsNone(
+            cog.coaching_finish_refusal(match, TeamSide.VISITING),
         )
 
     def test_an_ai_visiting_side_covers_it_itself(self) -> None:
@@ -642,17 +686,42 @@ class HalftimeEngineTests(unittest.TestCase):
 
         self.assertEqual(removed, 0)
 
-    def test_kickoff_space_occupied_by_reflects_the_board(self) -> None:
+    def test_kickoff_space_occupied_by_asks_about_each_side_s_own(
+        self,
+    ) -> None:
+        # It reads the rule rather than the ball: every arrangement
+        # covers its own side's kickoff space, and arrangements are set
+        # in windows where the ball is elsewhere entirely.
         match = self.build_match()
-        home_player = match.home.field_players[0]
-        # Board 9's deal shares several spaces between the two sides,
-        # so put this one somewhere only the home card stands.
-        match.move_meeple(home_player, Zone.HOME_GOAL, 1)
-        match.ball.zone = Zone.HOME_GOAL
-        match.ball.space_index = 1
+        kickoff = match.kickoff_space_for(TeamSide.VISITING)
+        match.set_ball_space(Zone.HOME_GOAL, 0)
 
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
+        self.assertTrue(match.kickoff_space_occupied_by(TeamSide.VISITING))
+
+        for player_id in list(match.board.spaces[Zone.MIDFIELD][kickoff]):
+            if player_id in match.visiting.field_players:
+                match.move_meeple(player_id, Zone.MIDFIELD, 0)
+
         self.assertFalse(match.kickoff_space_occupied_by(TeamSide.VISITING))
+
+    def test_board_6_gives_each_side_its_own_kickoff_space(self) -> None:
+        # Two midfield spaces and no middle, so the two sides kick off
+        # from different ones and cover different ones.
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=6,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+        self.assertNotEqual(
+            match.kickoff_space_for(TeamSide.HOME),
+            match.kickoff_space_for(TeamSide.VISITING),
+        )
+        self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
+        self.assertTrue(match.kickoff_space_occupied_by(TeamSide.VISITING))
 
 
 if __name__ == "__main__":

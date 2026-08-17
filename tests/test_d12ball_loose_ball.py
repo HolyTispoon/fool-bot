@@ -96,16 +96,17 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
             visiting_team=Team.PURPLE,
         )
 
-    def empty_the_ball_zone(self, match: MatchState) -> None:
-        """Clear the ball's zone of both sides -- "out of bounds"."""
-        zone = match.ball.zone
-        elsewhere = next(z for z in Zone if z != zone)
-        for side in (TeamSide.HOME, TeamSide.VISITING):
-            for player_id in list(
-                match.fielded_players_in_zone(side, zone)
-            ):
-                match.board.remove_meeple(player_id)
-                match.board.place_meeple(player_id, elsewhere, 0)
+    def go_out_of_bounds(self, match: MatchState) -> None:
+        """
+        The ball lying in an empty space with both coaches sending
+        nobody -- which since 2026-08-16 is the whole of how a ball
+        goes out. Emptying the ball's *zone* used to do it; distance
+        replaced the zone as the measure, so both sides now have
+        somebody to send wherever the ball lands.
+        """
+        self.clear_the_ball_s_space(match)
+        match.decline_loose_ball(match.ball.possession)
+        match.decline_loose_ball(match.defending_side())
 
     def test_the_side_that_lost_the_ball_answers_first(self) -> None:
         cog = build_cog()
@@ -145,6 +146,28 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         match.decline_loose_ball(match.defending_side())
         self.assertIsNone(cog.loose_ball_side_on_the_clock(match))
 
+    def send_the_ball_to_the_far_end(self, match: MatchState) -> None:
+        """
+        The ball on the last space of the visitors' goal zone, with
+        nobody on it: nothing at all lies beyond the ball, so each side
+        is down to whoever is nearest behind it.
+        """
+        zone = Zone.VISITORS_GOAL
+        match.set_ball_space(zone, len(match.board.spaces[zone]) - 1)
+        self.clear_the_ball_s_space(match)
+        # Clearing the space stacks that zone's pair on one space, and
+        # two players the same distance away are two candidates, not
+        # one -- spread them so the nearest really is alone.
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            stacked = [
+                player_id
+                for player_id in match.setup_for_side(side).field_players
+                if match.board.meeple_position(player_id) == (zone, 0)
+            ]
+            for player_id in stacked[1:]:
+                match.board.remove_meeple(player_id)
+                match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
+
     def test_a_lone_candidate_is_still_asked(self) -> None:
         # Sending them is optional, so it isn't auto-picked the way a
         # forced run back is -- declining is what puts the ball out of
@@ -152,17 +175,10 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         match = self.build_match()
-        zone = match.ball.zone
-        elsewhere = next(z for z in Zone if z != zone)
-        possession = match.ball.possession
-        for player_id in list(
-            match.fielded_players_in_zone(possession, zone)
-        )[1:]:
-            match.board.remove_meeple(player_id)
-            match.board.place_meeple(player_id, elsewhere, 0)
+        self.send_the_ball_to_the_far_end(match)
 
         self.assertEqual(
-            len(cog.loose_ball_candidates(match, possession)), 1,
+            len(cog.loose_ball_candidates(match, match.ball.possession)), 1,
         )
         match.begin_loose_ball(2)
         cog.auto_resolve_loose_ball_picks(game, match)
@@ -172,16 +188,67 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
             cog.loose_ball_side_on_the_clock(match), "offense",
         )
 
-    def test_candidates_never_reach_outside_the_ball_s_zone(self) -> None:
+    def offsets_from_the_ball(self, match: MatchState, side) -> dict[str, int]:
+        ball_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        return {
+            player_id: match.board.flat_index(
+                *match.board.meeple_position(player_id)
+            ) - ball_flat
+            for player_id in match.setup_for_side(side).field_players
+        }
+
+    def test_candidates_are_the_nearest_player_either_side(self) -> None:
+        # Zone does not come into it: the pool is the nearest player
+        # in front of the ball and the nearest behind it, wherever
+        # they are assigned. See "Sending a player" in the living
+        # rules.
         cog = build_cog()
         match = self.build_match()
-        self.empty_the_ball_zone(match)
+        self.clear_the_ball_s_space(match)
 
-        self.assertEqual(
-            cog.loose_ball_candidates(match, match.ball.possession), [],
-        )
-        self.assertEqual(
-            cog.loose_ball_candidates(match, match.defending_side()), [],
+        for side in (match.ball.possession, match.defending_side()):
+            offsets = self.offsets_from_the_ball(match, side)
+            expected = {
+                player_id
+                for direction in (1, -1)
+                for player_id, offset in offsets.items()
+                if offset * direction > 0
+                and abs(offset) == min(
+                    abs(other)
+                    for other in offsets.values()
+                    if other * direction > 0
+                )
+            }
+            self.assertEqual(
+                set(cog.loose_ball_candidates(match, side)), expected,
+            )
+            # Two directions, and a tie on one of them is every player
+            # tied -- the coach picks between them.
+            self.assertGreaterEqual(len(expected), 2)
+            self.assertLess(len(expected), 6)
+
+    def test_a_candidate_may_come_from_another_zone(self) -> None:
+        # The whole of the change: with the ball in midfield and the
+        # midfielders moved out of the way, the pool reaches into the
+        # goal zones rather than coming back empty.
+        cog = build_cog()
+        match = self.build_match()
+        side = match.ball.possession
+        for player_id, _ in list(self.offsets_from_the_ball(match, side).items()):
+            if match.board.meeple_position(player_id)[0] == match.ball.zone:
+                match.board.remove_meeple(player_id)
+                match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+
+        candidates = cog.loose_ball_candidates(match, side)
+
+        self.assertTrue(candidates)
+        self.assertTrue(
+            all(
+                match.board.meeple_position(player_id)[0] != match.ball.zone
+                for player_id in candidates
+            )
         )
 
     def clear_the_ball_s_space(self, match: MatchState) -> None:
@@ -242,7 +309,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         match = self.build_match()
-        self.empty_the_ball_zone(match)
+        self.go_out_of_bounds(match)
         losing_side = match.ball.possession
         winning_side = match.defending_side()
         match.begin_loose_ball(3)
@@ -280,16 +347,8 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
 
         # Clear the ball's space of the possessing side and stand an
         # opponent on it, which is the uncontested-turnover case.
-        for player_id in list(
-            match.fielded_players_in_zone(losing_side, match.ball.zone)
-        ):
-            match.board.remove_meeple(player_id)
-            match.board.place_meeple(
-                player_id, next(z for z in Zone if z != match.ball.zone), 0,
-            )
-        opponent = match.fielded_players_in_zone(
-            winning_side, match.ball.zone,
-        )[0]
+        self.clear_the_ball_s_space(match)
+        opponent = match.setup_for_side(winning_side).field_players[0]
         match.board.remove_meeple(opponent)
         match.board.place_meeple(
             opponent, match.ball.zone, match.ball.space_index,
@@ -316,14 +375,17 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         match = self.build_match()
-        self.empty_the_ball_zone(match)
+        self.go_out_of_bounds(match)
         match.ball.possession = match.defending_side()
         match.pending_ball_recovery = True
         match.pending_run_back_distance = 3
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 
-        recoverer = match.setup_for_side(match.ball.possession).field_players[0]
+        recoverer = max(
+            match.contest_candidates(match.ball.possession),
+            key=match.distance_to_ball,
+        )
         travel = match.distance_to_ball(recoverer)
         self.assertGreater(travel, 0)
 
@@ -351,22 +413,31 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game(ai=True)
         match = self.build_match()
-        self.empty_the_ball_zone(match)
+        # Deep in the home goal zone, where the visitors' nearest
+        # either way are different distances off -- the middle of the
+        # board has them symmetrical, and a tie would prove nothing.
+        match.set_ball_space(Zone.HOME_GOAL, 1)
+        self.go_out_of_bounds(match)
         # Player 2 is the AI and holds the visiting side.
         match.ball.possession = TeamSide.VISITING
         match.pending_ball_recovery = True
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 
-        nearest = min(
-            match.visiting.field_players, key=match.distance_to_ball,
-        )
+        # Nearest of the two it is offered, not best: the walk costs a
+        # token a space and wins nothing.
+        travel = {
+            player_id: match.distance_to_ball(player_id)
+            for player_id in match.contest_candidates(TeamSide.VISITING)
+        }
+        self.assertGreater(len(set(travel.values())), 1)
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_ball_recovery(build_interaction(), game, match)
 
         self.assertFalse(match.pending_ball_recovery)
-        self.assertIn(nearest, match.eligible_ball_handlers())
+        recoverer = match.eligible_ball_handlers()[0]
+        self.assertEqual(travel.get(recoverer), min(travel.values()))
 
     async def test_the_run_back_hands_over_to_the_pickup(self) -> None:
         # The join between the two: once nobody is left to run back,
@@ -395,7 +466,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         # it at all, which every other phase would reject.
         cog = build_cog()
         match = self.build_match()
-        self.empty_the_ball_zone(match)
+        self.go_out_of_bounds(match)
         match.ball.possession = match.defending_side()
         match.pending_ball_recovery = True
 

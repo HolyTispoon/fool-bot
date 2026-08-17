@@ -1495,33 +1495,69 @@ class MatchState:
             if player_id in defending_players
         ]
 
-    def fielded_players_in_zone(
-        self,
-        side: TeamSide,
-        zone: Zone,
-    ) -> list[str]:
+    def contest_candidates(self, side: TeamSide) -> list[str]:
         """
-        A side's fielded players anywhere in `zone` -- the pool of
-        nearby candidates who can contest a loose ball landing in an
-        empty space there.
+        Who `side` may send to the ball's space -- the whole of "Sending
+        a player" in docs/living-rules.md, and the one pool behind all
+        four rules that ask for somebody: the maneuver challenge, the
+        loose ball, the long High Pass contest, and the pickup after an
+        out-of-bounds or ceded ball.
+
+        **Distance decides it, not zone.** The nearest of that side's
+        fielded players on each side of the space, plus every player
+        tied for nearest, since two players the same distance away
+        differ only in who they are and that is the coach's call. So it
+        is two candidates in the ordinary case and never the whole
+        field -- which is what the out-of-bounds pickup used to offer,
+        and what a list of six spread over the board reduces to a
+        distance sum the coach has to do themselves.
+
+        **Anyone already standing on the space is included**, at
+        distance 0. They are not *sent* anywhere -- every caller
+        recognises them and short-circuits (automatic_challengers, the
+        High Pass contest's forced contestant, an eligible ball
+        handler) -- but they are candidates, or automatic_challengers
+        would have nothing to filter.
         """
-        side_players = set(self.setup_for_side(side).field_players)
+        # The setup's own order, not the board's and not a set's: the
+        # buttons a coach is offered should come back the same way
+        # twice, and a tie is a list this returns whole.
+        side_players = self.setup_for_side(side).field_players
+        ball_flat = self.board.flat_index(
+            self.ball.zone, self.ball.space_index,
+        )
+
+        # Keyed by which way along the field they lie: 0 is on the ball
+        # itself, -1 and +1 the two directions. Naming them "forward"
+        # and "back" would be naming them from one side's point of
+        # view, and both sides read this.
+        nearest: dict[int, tuple[int, list[str]]] = {}
+        for player_id in side_players:
+            position = self.board.meeple_position(player_id)
+            if position is None:
+                continue
+            offset = self.board.flat_index(*position) - ball_flat
+            direction = (offset > 0) - (offset < 0)
+            distance = abs(offset)
+            best, players = nearest.get(direction, (distance, []))
+            if distance < best:
+                best, players = distance, []
+            if distance == best:
+                players.append(player_id)
+            nearest[direction] = (best, players)
+
         return [
             player_id
-            for occupants in self.board.spaces[zone]
-            for player_id in occupants
-            if player_id in side_players
+            for direction in (0, -1, 1)
+            for player_id in nearest.get(direction, (0, []))[1]
         ]
 
     def eligible_challengers(self) -> list[str]:
         """
-        Fielded players belonging to the defending team who share the
-        ball's zone, and so can be chosen to maneuver and challenge the
-        ball handler.
+        The defending players who may be sent in to challenge the ball
+        handler -- contest_candidates read from the defense's end.
         """
-        return self.fielded_players_in_zone(
-            self.defending_side(), self.ball.zone,
-        )
+        return self.contest_candidates(self.defending_side())
 
     def automatic_challengers(self) -> list[str]:
         """
@@ -1540,9 +1576,11 @@ class MatchState:
     def may_decline_challenge(self) -> bool:
         """
         Whether the defense is being *offered* the challenge rather
-        than made to take it: somebody in the zone, but nobody on the
-        ball. With nobody in the zone at all there is no choice to
-        decline, and the maneuver is uncontested either way.
+        than made to take it: somebody to send, but nobody already on
+        the ball. A side with nobody fielded at all has no choice to
+        decline, and the maneuver is uncontested either way -- which
+        since 2026-08-16 is the only way the first half of this can be
+        false, distance having replaced the zone as the measure.
         """
         return bool(self.eligible_challengers()) and not (
             self.automatic_challengers()
@@ -1626,29 +1664,26 @@ class MatchState:
         Restart from midfield with the conceding side in possession.
         This is shared by ordinary goals and own goals.
 
-        The conceding side isn't guaranteed to already have a meeple on
-        that exact space -- their two midfield players could easily be
-        standing elsewhere in the zone from open play -- so this flags
-        pending_kickoff_fill, the same way a turnover flags
-        pending_run_back. The caller is responsible for resolving that
-        (see D12Ball.continue_run_back) before the ball is treated as
-        live.
-
-        The flag says "this restart still owes a kickoff-space check",
-        not "nobody is standing there": everyone moves between here and
-        the check -- a new play resets both sides to their coaches'
+        `pending_kickoff_fill` is the flag the caller resolves before
+        the ball is treated as live (see D12Ball.continue_run_back). It
+        says "this restart still owes a kickoff-space check", not
+        "nobody is standing there": everyone moves between here and the
+        check -- a new play resets both sides to their coaches'
         arrangement, and a substitution window can place meeples freely
         -- so an answer taken now would be stale by the time it is
-        acted on. continue_run_back asks the question once everyone has
-        settled, and clears the flag with nobody moving if the space is
-        already covered.
+        acted on.
+
+        **The check now nearly always passes for nothing.** Every
+        arrangement covers its own side's kickoff space, so the reset
+        this restart runs through puts a conceding player there by
+        construction. What is left is the fallback: an arrangement
+        saved before that rule landed, which both developers have in
+        their own game files.
         """
         conceding_side = TeamSide(conceding_side)
-        kickoff_index = kickoff_space_index(
-            len(self.board.spaces[Zone.MIDFIELD]),
-            conceding_side,
+        self.set_ball_space(
+            Zone.MIDFIELD, self.kickoff_space_for(conceding_side),
         )
-        self.set_ball_space(Zone.MIDFIELD, kickoff_index)
         self.ball.possession = conceding_side
         self.ball.speed = 1
         self.pending_kickoff_fill = True
@@ -1830,11 +1865,13 @@ class MatchState:
         -- see "Maneuvers" in docs/living-rules.md.
 
         Two ways in, and the state they leave is the same one: the
-        defending team has nobody in the ball's zone, or it has
-        somebody and has sent nobody rather than pay the walk-in's
-        exhaustion. Only a defender already on the ball is refused
-        here, since that challenge costs nothing and so cannot be
-        declined.
+        defending team has nobody fielded to send, or it has somebody
+        and has sent nobody rather than pay the walk-in's exhaustion.
+        The second is now all but the only one -- distance replaced the
+        zone as the measure on 2026-08-16, so any side with a meeple on
+        the board has a candidate. Only a defender already on the ball
+        is refused here, since that challenge costs nothing and so
+        cannot be declined.
 
         Clears `pending_action` for the same reason choose_challenger
         does: the action is settled and what happens next is the
@@ -1906,18 +1943,17 @@ class MatchState:
         traveled, for the exhaustion it costs at the usual run-back
         rate.
 
-        Any fielded player of the side that just won the ball will do,
-        from anywhere on the field -- unlike the kickoff fill, which
-        is limited to the zone's own players. This happens after the
-        run back, not before, so the player placed here is the one who
-        stays on the ball rather than being run back off it.
+        The pool is `contest_candidates` -- the nearest player either
+        side of the ball, from any zone -- and not the whole field, as
+        it was until 2026-08-16. It is the same pickup a ceded ball
+        asks for, and both happen after the reset that puts everyone
+        back on their arrangement, so the player placed here is the one
+        who stays on the ball rather than being run back off it.
         """
-        if player_id not in self.setup_for_side(
-            self.ball.possession
-        ).field_players:
+        if player_id not in self.contest_candidates(self.ball.possession):
             raise ValueError(
-                f"{player_id} cannot recover the ball -- not a fielded "
-                "player for the side now in possession."
+                f"{player_id} cannot recover the ball -- not one of the "
+                "nearest players for the side now in possession."
             )
         origin_flat = self.board.flat_index(
             *self.board.meeple_position(player_id)
@@ -2881,16 +2917,32 @@ class MatchState:
         for player_id, zone, space_index in placement:
             self.board.place_meeple(player_id, Zone(zone), space_index)
 
+    def kickoff_space_for(self, side: TeamSide) -> int:
+        """
+        The midfield space `side` would kick off from, whether or not
+        anything is being kicked off right now. Boards 7 and 9 give
+        both sides the same space; board 6's midfield has no middle, so
+        each side has its own -- see "Field, direction, and shooting
+        range" in docs/living-rules.md.
+
+        Read off the rule rather than off the ball, because every
+        arrangement has to cover this space and arrangements are set in
+        windows where the ball is somewhere else entirely.
+        """
+        return kickoff_space_index(
+            len(self.board.spaces[Zone.MIDFIELD]), TeamSide(side),
+        )
+
     def kickoff_space_occupied_by(self, side: TeamSide) -> bool:
         """
-        Whether one of `side`'s fielded meeples currently stands on
-        the ball's space -- used at halftime to confirm the visiting
-        team has a player on the second-half kickoff space, which
-        `end_period` has already moved the ball onto by the time this
-        is checked.
+        Whether one of `side`'s fielded meeples stands on that side's
+        own kickoff space -- the coverage every arrangement owes (see
+        "Coaching Choice" in docs/living-rules.md).
         """
         side = TeamSide(side)
-        occupants = self.board.spaces[self.ball.zone][self.ball.space_index]
+        occupants = self.board.spaces[Zone.MIDFIELD][
+            self.kickoff_space_for(side)
+        ]
         team_players = set(self.setup_for_side(side).field_players)
         return bool(team_players.intersection(occupants))
 

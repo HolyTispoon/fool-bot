@@ -997,7 +997,10 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertNotIn("teal_bulwark", restored.exhausted)
         self.assertNotIn("teal_bulwark", restored.exhaustion)
 
-    def test_fielded_players_in_zone(self) -> None:
+    def test_contest_candidates_are_the_nearest_either_way(self) -> None:
+        # "Sending a player" in docs/living-rules.md: the nearest own
+        # player in front of the space and the nearest behind it, plus
+        # anyone tied with either, and zone does not come into it.
         match = MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
@@ -1005,19 +1008,53 @@ class D12BallComponentTests(unittest.TestCase):
             home_team=Team.SLIME,
             visiting_team=Team.TEAL,
         )
-        home_players = match.fielded_players_in_zone(
-            TeamSide.HOME, Zone.HOME_GOAL,
+        ball_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
         )
-        self.assertEqual(
-            set(home_players), set(match.home.zones[Zone.HOME_GOAL]),
-        )
+        offsets = {
+            player_id: match.board.flat_index(
+                *match.board.meeple_position(player_id)
+            ) - ball_flat
+            for player_id in match.home.field_players
+        }
 
-        visiting_players = match.fielded_players_in_zone(
-            TeamSide.VISITING, Zone.HOME_GOAL,
+        candidates = match.contest_candidates(TeamSide.HOME)
+
+        for player_id, offset in offsets.items():
+            nearest = min(
+                abs(other)
+                for other in offsets.values()
+                if (other > 0) == (offset > 0) and (other < 0) == (offset < 0)
+            )
+            self.assertEqual(
+                player_id in candidates, abs(offset) == nearest,
+                f"{player_id} at {offset:+d}",
+            )
+
+    def test_contest_candidates_include_anyone_on_the_space(self) -> None:
+        # They are never *sent* anywhere -- automatic_challengers and
+        # the eligible-handler checks pick them off first -- but they
+        # are what those checks filter, so they have to be here.
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=9,
+            home_team=Team.SLIME,
+            visiting_team=Team.TEAL,
         )
-        self.assertEqual(
-            set(visiting_players),
-            set(match.visiting.zones[Zone.HOME_GOAL]),
+        on_the_ball = match.board.spaces[match.ball.zone][
+            match.ball.space_index
+        ]
+        home_on_the_ball = [
+            player_id
+            for player_id in match.home.field_players
+            if player_id in on_the_ball
+        ]
+
+        self.assertTrue(home_on_the_ball)
+        self.assertTrue(
+            set(home_on_the_ball)
+            <= set(match.contest_candidates(TeamSide.HOME))
         )
 
     def test_loose_ball_picks_round_trip_and_reset(self) -> None:

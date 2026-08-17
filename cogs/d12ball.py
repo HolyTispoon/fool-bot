@@ -830,9 +830,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         Two ways to get here and they read differently, so the message
         asks the state which one it was rather than taking a flag:
-        anyone still in the ball's zone means the defense was offered
-        the challenge and sent nobody, since a defense with somebody
-        there is the only defense that gets the choice.
+        anyone still eligible means the defense was offered the
+        challenge and sent nobody, since a defense with somebody to
+        send is the only defense that gets the choice. Since 2026-08-16
+        that is practically always the answer -- the other branch needs
+        a side with nobody on the field.
         """
         handler = self.get_player_definition(match.active_player_id)
         defense_setup = match.setup_for_side(match.defending_side())
@@ -840,8 +842,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if match.eligible_challengers():
             reason = "have sent nobody in to challenge"
         else:
-            zone_name = destination_display_name(match.ball.zone.value)
-            reason = f"have nobody in {zone_name} to challenge"
+            reason = "have nobody left to challenge"
 
         await interaction.followup.send(
             f"**Unchallenged!** {format_team_side_label(defense_setup)} "
@@ -1749,7 +1750,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # pick it up.
             return (
                 BallRecoveryView(self, game_id),
-                "Send a player to pick the ball up at "
+                "Send the nearest player either side of the ball to "
+                "pick it up at "
                 f"{space_label(match.ball.zone, match.ball.space_index)}:",
             )
 
@@ -2780,13 +2782,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side: TeamSide,
     ) -> list[str]:
         """
-        Who `side` may send after a loose ball: their own fielded
-        players in the ball's zone, and nobody else. A side with none
-        there sends nobody, which is not a failure state -- with
-        neither side able (or willing) to send anyone, the ball is out
-        of bounds, and resolve_loose_ball takes it from there.
+        Who `side` may send after a loose ball -- the nearest player
+        either side of it, from any zone (see
+        MatchState.contest_candidates). A side with nobody fielded at
+        all sends nobody, which is not a failure state; it is also no
+        longer a state anybody reaches by standing in the wrong zone,
+        so out of bounds is now reached by declining and by nothing
+        else. resolve_loose_ball takes it from there either way.
         """
-        return match.fielded_players_in_zone(side, match.ball.zone)
+        return match.contest_candidates(side)
 
     def loose_ball_sides_ready(
         self,
@@ -2794,7 +2798,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> tuple[bool, bool]:
         """
         Whether the offense/defense pick is settled -- made, declined,
-        or moot because that side has nobody in the zone to send.
+        or moot because that side has nobody left to send at all.
         """
         offense_ready = (
             match.loose_ball_offense_player is not None
@@ -2855,7 +2859,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 # right (see d12ball/ai.py).
                 choose(
                     self.get_ai_strategy(game).choose_loose_ball_player(
-                        candidates, skill_type,
+                        match, candidates, skill_type,
                     )
                 )
 
@@ -2934,8 +2938,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         where = ball_space_label(match)
         if skill_type == "offense":
             return (
-                f"{mention}, you had the ball -- send a player from the "
-                f"zone after the {noun} on {where}, or send nobody:"
+                f"{mention}, you had the ball -- send the nearest player "
+                f"either side of the {noun} on {where}, or send nobody:"
             )
         return (
             f"{mention}, choose who contests the {noun} on {where}, "
@@ -3051,7 +3055,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "Nobody is sent after it"
                 if match.loose_ball_offense_declined
                 or match.loose_ball_defense_declined
-                else "Neither side has a player in the zone"
+                # Only a side with nobody fielded at all lands here now
+                # -- distance replaced the zone as the measure on
+                # 2026-08-16, so declining is otherwise the whole of
+                # how a ball goes out.
+                else "Neither side has anyone left to send"
             )
             # Assigned rather than set_possession'd: that insists on a
             # player of the new side already standing on the ball,
@@ -4446,21 +4454,33 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> Optional[str]:
         """
         Why this side may not finish yet, or None. The only thing that
-        can hold a coach in the flow is the kickoff space: whoever
-        kicks off the coming period has to have somebody standing on
-        it, and nothing else in a Coaching Choice guarantees it.
+        can hold a coach in the flow is the kickoff space: **every
+        arrangement covers its own side's** (see "Coaching Choice" in
+        docs/living-rules.md), and nothing else in a Coaching Choice
+        guarantees it.
+
+        It used to be asked of the side kicking off the coming period,
+        at setup and halftime alone. It is asked of both sides at every
+        occasion that positions anybody, because it is now a property
+        of an arrangement rather than of a kickoff -- which is what
+        lets a goal restart without the conceding side dropping
+        somebody back and paying for it. A window that positions
+        nothing (full time) has no arrangement to hold to it.
+
+        On board 6 the two sides kick off from different midfield
+        spaces, so this asks each about their own; on 7 and 9 it is one
+        space and both have to cover it.
         """
-        kicking = {
-            CoachingOccasion.SETUP: TeamSide.HOME,
-            CoachingOccasion.HALFTIME: TeamSide.VISITING,
-        }.get(match.coaching_occasion)
-        if kicking is None or TeamSide(side) != kicking:
+        side = TeamSide(side)
+        occasion = match.coaching_occasion
+        if occasion is None or not occasion.offers_positioning:
             return None
-        if match.kickoff_space_occupied_by(kicking):
+        if match.kickoff_space_occupied_by(side):
             return None
         return (
-            f"{kicking.value.title()} kick off, so they need a player on "
-            f"{space_label(match.ball.zone, match.ball.space_index)} "
+            "Every arrangement has to cover its own kickoff space, so "
+            f"{side.value} need a player on "
+            f"{space_label(Zone.MIDFIELD, match.kickoff_space_for(side))} "
             "before finishing."
         )
 
@@ -4576,15 +4596,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side: TeamSide,
     ) -> Optional[str]:
         """
-        Put one of an AI side's meeples on the kickoff space when they
-        are the ones kicking off and nobody is standing on it, and
-        describe the move -- or None when there is nothing to do.
+        Put one of an AI side's meeples on their own kickoff space when
+        nobody is standing on it, and describe the move -- or None when
+        there is nothing to do.
 
         A human coach is refused the Done button until they have
         covered it (see coaching_finish_refusal); the AI has no menu to
         be held in, so it does the same thing here. The kickoff space
-        is always in midfield and every basic shape puts at least one
-        card there, so the mover is always somebody whose own zone it
+        is always in midfield and every basic shape puts at least two
+        cards there, so the mover is always somebody whose own zone it
         is.
         """
         side = TeamSide(side)
@@ -4592,19 +4612,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return None
 
         setup = match.setup_for_side(side)
-        kickoff_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
+        kickoff_index = match.kickoff_space_for(side)
+        kickoff_flat = match.board.flat_index(Zone.MIDFIELD, kickoff_index)
         candidates = [
             player_id
             for player_id in setup.field_players
-            if setup.assigned_zone(player_id) == match.ball.zone
+            if setup.assigned_zone(player_id) == Zone.MIDFIELD
         ]
         if not candidates:
             LOGGER.error(
-                "No %s card is assigned to %s, so nobody can take the "
-                "kickoff space.",
-                side.value, match.ball.zone.value,
+                "No %s card is assigned to midfield, so nobody can take "
+                "the kickoff space.",
+                side.value,
             )
             return None
 
@@ -4615,12 +4634,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return abs(match.board.flat_index(*position) - kickoff_flat)
 
         nearest = min(candidates, key=distance)
-        match.position_meeple(side, nearest, match.ball.space_index)
+        match.position_meeple(side, nearest, kickoff_index)
         player = self.get_player_definition(nearest)
         return (
             f"{format_role_bracket(player, self.team_emojis)} takes the "
-            "kickoff spot at "
-            f"{space_label(match.ball.zone, match.ball.space_index)}."
+            f"kickoff spot at {space_label(Zone.MIDFIELD, kickoff_index)}."
         )
 
     async def finish_substitution_window(
@@ -4829,18 +4847,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         The tail of a cede, once both coaches have closed their
-        windows. There is no run back to run: each window opened on its
-        own coach's arrangement, so both sides are already standing
-        where they mean to.
+        windows. There is no run back to run, and none is owed: each
+        window opened on its own coach's arrangement, so by here both
+        sides are standing exactly where a new play's reset would have
+        put them. That is why the living rules call a cede a new play
+        in everything but how it was bought -- it arrives at the same
+        board by a different road, and nothing has to re-run the reset
+        to make it true.
 
         What is left is whether anybody is standing on the ball. A
         ceded ball is handed over where it lies, and the side receiving
         it may have nobody there -- their arrangement covers their
-        zones, not wherever open play left the ball -- so they send
-        somebody to pick it up, from anywhere on the field at the usual
-        token a space. That is the same thing an out-of-bounds ball
-        asks of the side that wins it, for the same reason, so it is
-        the same step.
+        zones, not wherever open play left the ball -- so they send the
+        nearest player either side of it, at the usual token a space.
+        That is the same thing an out-of-bounds ball asks of the side
+        that wins it, for the same reason, so it is the same step.
 
         `pending_cede` is cleared before either branch: from here on
         the state says what is owed on its own, and leaving it set
@@ -5405,8 +5426,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if match.pending_ball_recovery:
             # An out-of-bounds ball is still lying there with nobody
             # on it. Now that everyone is back in position, the side
-            # that won it sends someone to pick it up -- from
-            # anywhere on the field, at the usual per-space cost.
+            # that won it sends the nearest player either side of it,
+            # at the usual per-space cost.
             await self.begin_ball_recovery(
                 interaction, game, match, lead_in=lead_in,
             )
@@ -5450,18 +5471,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         lead_in: str = "",
     ) -> None:
         """
-        Ask the side that won an out-of-bounds ball which of their
-        fielded players goes and stands on it -- any of them, from
-        anywhere on the field, at one exhaustion token per space
-        traveled.
+        Ask the side that won an out-of-bounds or ceded ball which of
+        their players goes and stands on it: the nearest either side of
+        it, from any zone, at one exhaustion token per space traveled.
+        It is the same choice a loose ball and a challenge put, and
+        since 2026-08-16 it is the same pool -- it used to offer the
+        whole field, which is a distance sum the coach had to do off
+        the board.
 
-        Deliberately the last thing that happens: run the run back
-        first and this player is placed once and stays, where placing
-        them before it would only have them run back off the ball and
-        leave it loose all over again.
+        Deliberately the last thing that happens: both callers reset
+        everyone to their arrangement first, so this player is placed
+        once and stays, where placing them before it would only have
+        them run back off the ball and leave it loose all over again.
+        That is also why the pool is worth so little -- the arrangement
+        usually leaves somebody on the ball already, and neither caller
+        gets this far when it does.
         """
         side = match.ball.possession
-        candidates = match.setup_for_side(side).field_players
+        candidates = match.contest_candidates(side)
         if not candidates:
             # Nobody fielded at all -- nothing to place. Let the
             # loose-ball check downstream deal with it, the same way
@@ -5498,9 +5525,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         mention = format_player_with_team(game, number, mention=True)
         prefix = f"{lead_in}\n\n" if lead_in else ""
         prompt_message = await interaction.followup.send(
-            f"{prefix}{mention}, everyone is back in position -- send a "
-            "player to pick the ball up at "
-            f"{space_label(match.ball.zone, match.ball.space_index)}:",
+            f"{prefix}{mention}, everyone is back in position -- send "
+            "the nearest player either side of the ball to pick it up "
+            f"at {space_label(match.ball.zone, match.ball.space_index)}:",
             view=BallRecoveryView(self, game.game_id),
             wait=True,
             allowed_mentions=discord.AllowedMentions(

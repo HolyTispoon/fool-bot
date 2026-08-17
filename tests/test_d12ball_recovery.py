@@ -220,7 +220,7 @@ class PendingTurnViewTests(unittest.TestCase):
         view, ask = cog.pending_turn_view("g1", match)
 
         self.assertIsInstance(view, BallRecoveryView)
-        self.assertIn("pick the ball up", ask)
+        self.assertIn("pick it up", ask)
 
     def test_a_settled_maneuver_owing_a_roll_asks_for_it(self) -> None:
         cog, match = self.build()
