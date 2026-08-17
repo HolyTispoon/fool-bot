@@ -36,6 +36,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import D12BallGame, Team
+from roster import display_name, fielded
 
 
 def build_cog() -> D12Ball:
@@ -457,14 +458,18 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
     def test_a_fullback_is_not_offered_four_it_cannot_throw(self) -> None:
         # Three spaces of room: the 4 lands where the 3 does, so only
         # the 3 is offered. The ability is still real one space back.
-        cog, game, _ = self.build(Zone.MIDFIELD, 1, PlayerRole.FULLBACK)
+        # The two receivers are named by role -- the label's wording is
+        # what is under test, not which card is standing there.
+        cog, game, match = self.build(Zone.MIDFIELD, 1, PlayerRole.FULLBACK)
+        winger = display_name(fielded(match, PlayerRole.WINGER))
+        striker = display_name(fielded(match, PlayerRole.STRIKER))
         self.assertEqual(
             [item.label for item in HighPassChoiceView(
                 cog, game.game_id,
             ).children],
             [
-                "2 spaces (V1-Flickerwing [WG])",
-                "3 spaces (V2-Kindlefinger [SK])",
+                f"2 spaces (V1-{winger} [WG])",
+                f"3 spaces (V2-{striker} [SK])",
             ],
         )
 
@@ -475,18 +480,19 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             ).children],
             [
                 "2 spaces (no teammate)",
-                "3 spaces (V1-Flickerwing [WG])",
-                "4 spaces (Fullback ability) (V2-Kindlefinger [SK])",
+                f"3 spaces (V1-{winger} [WG])",
+                f"4 spaces (Fullback ability) (V2-{striker} [SK])",
             ],
         )
 
     def test_nobody_is_offered_three_when_only_two_fits(self) -> None:
-        cog, game, _ = self.build(Zone.MIDFIELD, 2, PlayerRole.DEFENDER)
+        cog, game, match = self.build(Zone.MIDFIELD, 2, PlayerRole.DEFENDER)
+        striker = display_name(fielded(match, PlayerRole.STRIKER))
         self.assertEqual(
             [item.label for item in HighPassChoiceView(
                 cog, game.game_id,
             ).children],
-            ["2 spaces (V2-Kindlefinger [SK])"],
+            [f"2 spaces (V2-{striker} [SK])"],
         )
 
     async def test_a_click_on_a_distance_no_longer_on_offer_is_refused(

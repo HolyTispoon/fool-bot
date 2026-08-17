@@ -30,7 +30,12 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import D12BallGame, Team
-from d12ball.render import ChallengeSide, group_text_lines, render_score_attempt
+from d12ball.render import (
+    TEAM_COLORS,
+    ChallengeSide,
+    group_text_lines,
+    render_score_attempt,
+)
 
 
 def build_cog() -> D12Ball:
@@ -82,8 +87,19 @@ def build_interaction() -> SimpleNamespace:
 
 
 def a_player(name: str) -> PlayerDefinition:
+    """
+    A defender built here rather than read out of the catalog: these
+    tests are about the arithmetic ShotDefender does, and the skill is
+    passed in beside the player rather than taken off them.
+
+    **The names are deliberately off the roster.** A synthetic fixture
+    carrying a real player's name is not looked up and so cannot break
+    when that player is renamed -- but it reads as a roster reference,
+    and the next rename sends somebody chasing it. See "The test suite"
+    in CLAUDE.md.
+    """
     return PlayerDefinition(
-        player_id=f"teal_{name.lower()}",
+        player_id=f"teal_{name.lower().replace(' ', '_')}",
         name=name,
         team=Team.TEAL,
         role=PlayerRole.DEFENDER,
@@ -96,7 +112,7 @@ class ShotDefenderValueTests(unittest.TestCase):
         for defense in range(1, 7):
             with self.subTest(defense=defense):
                 self.assertEqual(
-                    ShotDefender(a_player("Bulwark"), defense, True).value,
+                    ShotDefender(a_player("Defender A"), defense, True).value,
                     defense,
                 )
 
@@ -107,7 +123,7 @@ class ShotDefenderValueTests(unittest.TestCase):
         for defense, value in expected.items():
             with self.subTest(defense=defense):
                 self.assertEqual(
-                    ShotDefender(a_player("Voltus"), defense, False).value,
+                    ShotDefender(a_player("Defender B"), defense, False).value,
                     value,
                 )
 
@@ -116,8 +132,8 @@ class ShotDefenderValueTests(unittest.TestCase):
         # give 5. The two readings only agree when at most one defender
         # rounds up, which is why this is worth its own test.
         in_the_way = [
-            ShotDefender(a_player("Voltus"), 5, False),
-            ShotDefender(a_player("Flux"), 5, False),
+            ShotDefender(a_player("Defender A"), 5, False),
+            ShotDefender(a_player("Defender B"), 5, False),
         ]
         self.assertEqual(sum(d.value for d in in_the_way), 6)
 
@@ -215,9 +231,9 @@ class ShotRollTests(unittest.IsolatedAsyncioTestCase):
         game, _ = self.build_shot(
             cog,
             [
-                ShotDefender(a_player("Bulwark"), 6, True),
-                ShotDefender(a_player("Voltus"), 5, False),
-                ShotDefender(a_player("Quantor"), 2, False),
+                ShotDefender(a_player("Defender A"), 6, True),
+                ShotDefender(a_player("Defender B"), 5, False),
+                ShotDefender(a_player("Defender C"), 2, False),
             ],
         )
 
@@ -234,15 +250,15 @@ class ShotRollTests(unittest.IsolatedAsyncioTestCase):
         game, _ = self.build_shot(
             cog,
             [
-                ShotDefender(a_player("Bulwark"), 6, True),
-                ShotDefender(a_player("Voltus"), 5, False),
+                ShotDefender(a_player("Defender A"), 6, True),
+                ShotDefender(a_player("Defender B"), 5, False),
             ],
         )
 
         _, _, _, detail, total = await self.roll(cog, game, [12, 1])
 
-        self.assertIn("Bulwark [DD] +6", detail)
-        self.assertIn("Voltus [DD] +3 (half of 5)", detail)
+        self.assertIn("Defender A [DD] +6", detail)
+        self.assertIn("Defender B [DD] +3 (half of 5)", detail)
         self.assertEqual(total, 1 + 9)
 
 
@@ -344,7 +360,7 @@ class ShotImageTests(unittest.TestCase):
         return ChallengeSide(
             name=name,
             role="D",
-            team_color="#19b5a5",
+            team_color=TEAM_COLORS[Team.TEAL],
             team_label="Teal",
             skill_name="Defensive",
             skill=skill,
@@ -356,9 +372,9 @@ class ShotImageTests(unittest.TestCase):
     def test_the_group_sums_contributions_not_skills(self) -> None:
         lines = group_text_lines(
             [
-                self.side("Bulwark", 6, 6, False),
-                self.side("Voltus", 5, 3, True),
-                self.side("Quantor", 2, 1, True),
+                self.side("Defender A", 6, 6, False),
+                self.side("Defender B", 5, 3, True),
+                self.side("Defender C", 2, 1, True),
             ],
             with_ability=False,
         )
@@ -370,7 +386,7 @@ class ShotImageTests(unittest.TestCase):
 
     def test_a_lone_halved_defender_shows_where_it_came_from(self) -> None:
         lines = group_text_lines(
-            [self.side("Voltus", 5, 3, True)], with_ability=False,
+            [self.side("Defender B", 5, 3, True)], with_ability=False,
         )
 
         self.assertIn(
@@ -382,7 +398,7 @@ class ShotImageTests(unittest.TestCase):
         self,
     ) -> None:
         lines = group_text_lines(
-            [self.side("Bulwark", 6, 6, False)], with_ability=False,
+            [self.side("Defender A", 6, 6, False)], with_ability=False,
         )
 
         self.assertIn(
@@ -393,7 +409,7 @@ class ShotImageTests(unittest.TestCase):
         # Halving 1 leaves 1, so the numbers alone cannot say which
         # band a defender is in -- only the flag can.
         lines = group_text_lines(
-            [self.side("Pulsar", 1, 1, True)], with_ability=False,
+            [self.side("Defender A", 1, 1, True)], with_ability=False,
         )
 
         self.assertIn(
@@ -403,9 +419,9 @@ class ShotImageTests(unittest.TestCase):
 
     def test_the_image_renders_with_both_bands(self) -> None:
         shooter = ChallengeSide(
-            name="Kindlefoot",
+            name="Shooter",
             role="S",
-            team_color="#f28c28",
+            team_color=TEAM_COLORS[Team.ORANGE],
             team_label="Orange",
             skill_name="Offensive",
             skill=6,
@@ -416,8 +432,8 @@ class ShotImageTests(unittest.TestCase):
         image = render_score_attempt(
             shooter,
             [
-                self.side("Bulwark", 6, 6, False),
-                self.side("Voltus", 5, 3, True),
+                self.side("Defender A", 6, 6, False),
+                self.side("Defender B", 5, 3, True),
             ],
             location="V1 → Teal goal",
         )
@@ -426,9 +442,9 @@ class ShotImageTests(unittest.TestCase):
 
     def test_an_open_goal_still_renders(self) -> None:
         shooter = ChallengeSide(
-            name="Kindlefoot",
+            name="Shooter",
             role="S",
-            team_color="#f28c28",
+            team_color=TEAM_COLORS[Team.ORANGE],
             team_label="Orange",
             skill_name="Offensive",
             skill=6,

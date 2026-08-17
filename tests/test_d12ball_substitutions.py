@@ -15,6 +15,7 @@ from d12ball.ai import DinkyAI
 from d12ball.components import (
     CoachingOccasion,
     MatchState,
+    PlayerRole,
     TeamSide,
     Zone,
     load_basic_ruleset,
@@ -22,6 +23,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import Team
+from roster import benched, fielded
 
 
 def build_cog() -> D12Ball:
@@ -128,7 +130,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         text = cog.apply_substitution(
             match,
             TeamSide.HOME,
-            "orange_blazebulk",
+            fielded(match, PlayerRole.DEFENDER),
             match.home.team_board.bench[0],
         )
 
@@ -142,12 +144,12 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match = self.build_match()
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         match.declare_coaching()
-        match.mark_injured("orange_kindlefinger")
+        match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
         text = cog.apply_substitution(
             match,
             TeamSide.HOME,
-            "orange_kindlefinger",
+            fielded(match, PlayerRole.STRIKER),
             match.home.team_board.bench[0],
         )
 
@@ -156,19 +158,26 @@ class SubstitutionSummaryTests(unittest.TestCase):
     def test_a_returning_player_reports_what_is_left(self) -> None:
         cog = build_cog()
         match = self.build_match()
-        returning = "orange_hellguard"
+        returning = fielded(match, PlayerRole.FULLBACK)
         match.add_exhaustion(returning, 5)
 
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         match.declare_coaching()
-        for outgoing in (returning, "orange_scorchit", "orange_sizzifizik"):
+        for outgoing in (
+            returning,
+            fielded(match, PlayerRole.MIDFIELDER),
+            fielded(match, PlayerRole.PLAYMAKER),
+        ):
             match.substitute(
                 TeamSide.HOME, outgoing, match.home.team_board.bench[0],
             )
-        match.mark_injured("orange_kindlefinger")
+        match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
         text = cog.apply_substitution(
-            match, TeamSide.HOME, "orange_kindlefinger", returning,
+            match,
+            TeamSide.HOME,
+            fielded(match, PlayerRole.STRIKER),
+            returning,
         )
 
         # 5 tokens, half rounded up removed, 2 left -- and a fullback
@@ -185,7 +194,10 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.declare_coaching()
 
         text = cog.apply_position_swap(
-            match, TeamSide.HOME, "orange_hellguard", "orange_kindlefinger",
+            match,
+            TeamSide.HOME,
+            fielded(match, PlayerRole.FULLBACK),
+            fielded(match, PlayerRole.STRIKER),
         )
 
         self.assertEqual(match.exhaustion, {})
@@ -202,7 +214,8 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match = self.build_match()
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         match.declare_coaching()
-        player_id, other_player_id = "orange_hellguard", "orange_kindlefinger"
+        player_id = fielded(match, PlayerRole.FULLBACK)
+        other_player_id = fielded(match, PlayerRole.STRIKER)
         before = match.board.meeple_position(player_id)
         other_before = match.board.meeple_position(other_player_id)
 
@@ -231,7 +244,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match = self.build_match()
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         match.declare_coaching()
-        player_id = "orange_blazebulk"
+        player_id = fielded(match, PlayerRole.DEFENDER)
         zone = match.home.assigned_zone(player_id)
         # Displace them out of their own zone first, the way a
         # maneuver would mid-game, so their zone has an open space to
@@ -260,7 +273,8 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match = self.build_match()
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         match.declare_coaching()
-        player_id, other_player_id = "orange_hellguard", "orange_kindlefinger"
+        player_id = fielded(match, PlayerRole.FULLBACK)
+        other_player_id = fielded(match, PlayerRole.STRIKER)
 
         text = cog.apply_position_swap(
             match, TeamSide.HOME, player_id, other_player_id,
@@ -302,44 +316,55 @@ class DinkySubstitutionTests(unittest.TestCase):
 
     def test_dinky_gets_an_injured_player_off(self) -> None:
         match = self.build_match()
-        match.mark_injured("orange_kindlefinger")
+        match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
         choice = self.ai.choose_substitution(match, TeamSide.HOME)
 
         self.assertIsNotNone(choice)
         outgoing, incoming = choice
-        self.assertEqual(outgoing, "orange_kindlefinger")
+        self.assertEqual(outgoing, fielded(match, PlayerRole.STRIKER))
         self.assertIn(incoming, match.home.team_board.bench)
 
     def test_dinky_brings_on_the_same_role(self) -> None:
         # A striker for a striker, over the defender the bench lists
         # first.
         match = self.build_match()
-        match.mark_injured("orange_kindlefinger")
+        match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
         _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
 
-        self.assertEqual(incoming, "orange_brightburn")
+        self.assertEqual(incoming, benched(match, PlayerRole.STRIKER))
 
     def test_dinky_brings_on_the_closest_role_when_it_must(self) -> None:
         # Nobody on the bench is a fullback, and the defender is the
         # next role along the spectrum.
         match = self.build_match()
-        match.mark_injured("orange_hellguard")
+        match.mark_injured(fielded(match, PlayerRole.FULLBACK))
 
         _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
 
-        self.assertEqual(incoming, "orange_inferno")
+        self.assertEqual(incoming, benched(match, PlayerRole.DEFENDER))
 
     def test_dinky_breaks_a_role_tie_on_bench_order(self) -> None:
         # A winger sits one step from both the playmaker and the
-        # striker, and the playmaker is on the bench first.
+        # striker, so the tie goes to whichever of the two the bench
+        # lists first -- read off the bench rather than written down,
+        # since the order is the roster's and the roster is data.
         match = self.build_match()
-        match.mark_injured("orange_flickerwing")
+        match.mark_injured(fielded(match, PlayerRole.WINGER))
+        tied = {
+            benched(match, PlayerRole.PLAYMAKER),
+            benched(match, PlayerRole.STRIKER),
+        }
+        first_of_the_two = next(
+            player_id
+            for player_id in match.home.team_board.bench
+            if player_id in tied
+        )
 
         _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
 
-        self.assertEqual(incoming, "orange_emberdash")
+        self.assertEqual(incoming, first_of_the_two)
 
     def test_dinky_matches_roles_off_the_back_bench_too(self) -> None:
         # The same question, asked of the other pool. Three swaps
@@ -348,25 +373,31 @@ class DinkySubstitutionTests(unittest.TestCase):
         # playmaker, who is the nearest of the three.
         match = self.build_match()
         for outgoing in (
-            "orange_hellguard", "orange_blazebulk", "orange_sizzifizik",
+            fielded(match, PlayerRole.FULLBACK),
+            fielded(match, PlayerRole.DEFENDER),
+            fielded(match, PlayerRole.PLAYMAKER),
         ):
             match.substitute(
                 TeamSide.HOME, outgoing, match.home.team_board.bench[0],
             )
-        match.mark_injured("orange_kindlefinger")
+        match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
         _, incoming = self.ai.choose_substitution(match, TeamSide.HOME)
 
         self.assertIn(incoming, match.home.team_board.back_bench)
-        self.assertEqual(incoming, "orange_sizzifizik")
+        self.assertEqual(incoming, fielded(match, PlayerRole.PLAYMAKER))
 
     def test_dinky_passes_when_there_is_nobody_to_bring_on(self) -> None:
         match = self.build_match()
-        for outgoing in ("orange_hellguard", "orange_scorchit", "orange_sizzifizik"):
+        for outgoing in (
+            fielded(match, PlayerRole.FULLBACK),
+            fielded(match, PlayerRole.MIDFIELDER),
+            fielded(match, PlayerRole.PLAYMAKER),
+        ):
             match.substitute(
                 TeamSide.HOME, outgoing, match.home.team_board.bench[0],
             )
-        match.mark_injured("orange_kindlefinger")
+        match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
         # The bench has drained, so the back bench is the pool now.
         self.assertIsNotNone(

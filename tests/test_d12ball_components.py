@@ -67,6 +67,7 @@ from d12ball.render import (
     fit_meeple_labels,
     OWN_GOAL_DIE_RADIUS,
     SKILL_TEST_DIE_RADIUS,
+    TEAM_COLORS,
     load_font,
     render_coaching_image,
     render_field_image,
@@ -78,6 +79,7 @@ from d12ball.render import (
     render_player_portrait,
     zone_bounds_between,
 )
+from roster import benched, field_players, fielded, roles
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -159,26 +161,38 @@ class D12BallComponentTests(unittest.TestCase):
             self.rules,
         )
 
+        # The deal is by role and not by name: one of each of the six
+        # the standard setup lists, read from a coach's own goal
+        # forward. Asking for the roles is asking for the rule -- the
+        # names filling them are the author's to revise.
         self.assertEqual(
-            setup.zones[Zone.HOME_GOAL],
-            ["orange_hellguard", "orange_blazebulk"],
+            roles(setup.zones[Zone.HOME_GOAL]),
+            self.rules.standard_setup["own_goal"],
         )
         self.assertEqual(
-            setup.zones[Zone.MIDFIELD],
-            ["orange_scorchit", "orange_sizzifizik"],
+            roles(setup.zones[Zone.MIDFIELD]),
+            self.rules.standard_setup["midfield"],
         )
         self.assertEqual(
-            setup.zones[Zone.VISITORS_GOAL],
-            ["orange_flickerwing", "orange_kindlefinger"],
+            roles(setup.zones[Zone.VISITORS_GOAL]),
+            self.rules.standard_setup["opponent_goal"],
+        )
+
+        # Everyone the deal passed over sits down, in roster order,
+        # and nobody is in two places at once.
+        self.assertEqual(
+            sorted(setup.field_players + setup.team_board.bench),
+            sorted(player.player_id for player in roster.players),
         )
         self.assertEqual(
             setup.team_board.bench,
             [
-                "orange_inferno",
-                "orange_emberdash",
-                "orange_brightburn",
+                player.player_id
+                for player in roster.players
+                if player.player_id not in setup.field_players
             ],
         )
+
         self.assertEqual(setup.assignment_edge, AssignmentEdge.BELOW)
         self.assertEqual(
             setup.attack_direction,
@@ -193,17 +207,20 @@ class D12BallComponentTests(unittest.TestCase):
             self.rules,
         )
 
+        # The same three areas, dealt from the other end of the field:
+        # a visiting coach's own goal is the visitors goal zone, and
+        # the one they attack is the home goal.
         self.assertEqual(
-            setup.zones[Zone.VISITORS_GOAL],
-            ["teal_bulwark", "teal_voltus"],
+            roles(setup.zones[Zone.VISITORS_GOAL]),
+            self.rules.standard_setup["own_goal"],
         )
         self.assertEqual(
-            setup.zones[Zone.MIDFIELD],
-            ["teal_strider", "teal_synapse"],
+            roles(setup.zones[Zone.MIDFIELD]),
+            self.rules.standard_setup["midfield"],
         )
         self.assertEqual(
-            setup.zones[Zone.HOME_GOAL],
-            ["teal_quantor", "teal_pulsar"],
+            roles(setup.zones[Zone.HOME_GOAL]),
+            self.rules.standard_setup["opponent_goal"],
         )
         self.assertEqual(setup.assignment_edge, AssignmentEdge.ABOVE)
         self.assertEqual(
@@ -236,7 +253,7 @@ class D12BallComponentTests(unittest.TestCase):
         )
 
         match.validate(self.catalog)
-        fielded = set(
+        on_cards = set(
             match.home.field_players + match.visiting.field_players
         )
         meeples = {
@@ -245,7 +262,7 @@ class D12BallComponentTests(unittest.TestCase):
             for occupants in spaces
             for player_id in occupants
         }
-        self.assertEqual(meeples, fielded)
+        self.assertEqual(meeples, on_cards)
         self.assertEqual(len(meeples), 12)
         self.assertTrue(
             all(
@@ -256,49 +273,34 @@ class D12BallComponentTests(unittest.TestCase):
                 )
             )
         )
-        self.assertEqual(
-            match.board.meeple_position("orange_hellguard"),
-            (Zone.HOME_GOAL, 0),
-        )
-        self.assertEqual(
-            match.board.meeple_position("orange_blazebulk"),
-            (Zone.HOME_GOAL, 1),
-        )
-        self.assertEqual(
-            match.board.meeple_position("orange_scorchit"),
-            (Zone.MIDFIELD, 0),
-        )
-        self.assertEqual(
-            match.board.meeple_position("orange_sizzifizik"),
-            (Zone.MIDFIELD, 1),
-        )
-        self.assertEqual(
-            match.board.meeple_position("orange_kindlefinger"),
-            (Zone.VISITORS_GOAL, 1),
-        )
-        self.assertEqual(
-            match.board.meeple_position("teal_bulwark"),
-            (Zone.VISITORS_GOAL, 1),
-        )
-        self.assertEqual(
-            match.board.meeple_position("teal_strider"),
-            (Zone.MIDFIELD, 2),
-        )
-        self.assertEqual(
-            match.board.meeple_position("teal_synapse"),
-            (Zone.MIDFIELD, 1),
-        )
-        self.assertEqual(
-            match.board.meeple_position("teal_pulsar"),
-            (Zone.HOME_GOAL, 0),
-        )
+        # Where the deal puts each of them: a goal zone's pair takes
+        # its two end spaces and midfield packs toward that side's own
+        # goal (setup_space_order). Named by role, since which card
+        # fills a role is the author's to revise.
+        expected = {
+            (TeamSide.HOME, PlayerRole.FULLBACK): (Zone.HOME_GOAL, 0),
+            (TeamSide.HOME, PlayerRole.DEFENDER): (Zone.HOME_GOAL, 1),
+            (TeamSide.HOME, PlayerRole.MIDFIELDER): (Zone.MIDFIELD, 0),
+            (TeamSide.HOME, PlayerRole.PLAYMAKER): (Zone.MIDFIELD, 1),
+            (TeamSide.HOME, PlayerRole.STRIKER): (Zone.VISITORS_GOAL, 1),
+            (TeamSide.VISITING, PlayerRole.FULLBACK): (Zone.VISITORS_GOAL, 1),
+            (TeamSide.VISITING, PlayerRole.MIDFIELDER): (Zone.MIDFIELD, 2),
+            (TeamSide.VISITING, PlayerRole.PLAYMAKER): (Zone.MIDFIELD, 1),
+            (TeamSide.VISITING, PlayerRole.STRIKER): (Zone.HOME_GOAL, 0),
+        }
+        for (side, role), position in expected.items():
+            with self.subTest(side=side, role=role):
+                self.assertEqual(
+                    match.board.meeple_position(fielded(match, role, side)),
+                    position,
+                )
         self.assertEqual(match.ball.zone, Zone.MIDFIELD)
         self.assertEqual(match.ball.space_index, 1)
         self.assertEqual(match.ball.possession, TeamSide.HOME)
         self.assertEqual(match.ball.speed, 1)
         self.assertEqual(
             match.eligible_ball_handlers(),
-            ["orange_sizzifizik"],
+            [fielded(match, PlayerRole.PLAYMAKER)],
         )
         self.assertEqual(match.scoreboard.home_score, 0)
         self.assertEqual(match.scoreboard.visiting_score, 0)
@@ -312,26 +314,26 @@ class D12BallComponentTests(unittest.TestCase):
             home_team=Team.ORANGE,
             visiting_team=Team.TEAL,
         )
-        match.move_meeple(
-            "orange_scorchit",
-            Zone.MIDFIELD,
-            1,
-        )
+        handler = fielded(match, PlayerRole.MIDFIELDER)
+        on_the_ball = fielded(match, PlayerRole.PLAYMAKER)
+        match.move_meeple(handler, Zone.MIDFIELD, 1)
 
         self.assertEqual(
             match.eligible_ball_handlers(),
-            ["orange_sizzifizik", "orange_scorchit"],
+            [on_the_ball, handler],
         )
         with self.assertRaises(ValueError):
-            match.select_ball_handler("teal_synapse")
+            match.select_ball_handler(
+                fielded(match, PlayerRole.PLAYMAKER, TeamSide.VISITING),
+            )
 
-        match.select_ball_handler("orange_scorchit")
+        match.select_ball_handler(handler)
         match.validate(self.catalog)
         restored = MatchState.from_dict(
             match.to_dict(),
             self.rules,
         )
-        self.assertEqual(restored.active_player_id, "orange_scorchit")
+        self.assertEqual(restored.active_player_id, handler)
 
     def test_a_game_saved_as_player_board_still_loads(self) -> None:
         """
@@ -408,7 +410,7 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_substitution_swaps_card_and_meeple_state(self) -> None:
         match = self.standard_match()
-        outgoing = "orange_blazebulk"
+        outgoing = fielded(match, PlayerRole.DEFENDER)
         incoming = match.home.team_board.bench[0]
         position = match.board.meeple_position(outgoing)
 
@@ -427,7 +429,7 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_subbed_out_player_goes_to_the_back_bench(self) -> None:
         match = self.standard_match()
-        outgoing = "orange_blazebulk"
+        outgoing = fielded(match, PlayerRole.DEFENDER)
         incoming = match.home.team_board.bench[0]
 
         match.substitute(TeamSide.HOME, outgoing, incoming)
@@ -452,7 +454,9 @@ class D12BallComponentTests(unittest.TestCase):
             match.home.team_board.bench,
         )
 
-        for outgoing in ("orange_hellguard", "orange_scorchit", "orange_sizzifizik"):
+        # Three swaps drain a bench of three; which three go off is
+        # immaterial.
+        for outgoing in field_players(match)[:3]:
             match.substitute(
                 TeamSide.HOME,
                 outgoing,
@@ -468,18 +472,19 @@ class D12BallComponentTests(unittest.TestCase):
         )
         match.substitute(
             TeamSide.HOME,
-            "orange_flickerwing",
+            fielded(match, PlayerRole.WINGER),
             match.home.team_board.back_bench[0],
         )
 
     def test_injured_players_never_come_back(self) -> None:
         match = self.standard_match()
-        injured = "orange_kindlefinger"
+        injured = fielded(match, PlayerRole.STRIKER)
         match.mark_injured(injured)
         match.substitute(
             TeamSide.HOME, injured, match.home.team_board.bench[0],
         )
-        for outgoing in ("orange_hellguard", "orange_scorchit"):
+        # Two more off, to drain what is left of the bench.
+        for outgoing in field_players(match)[:2]:
             match.substitute(
                 TeamSide.HOME,
                 outgoing,
@@ -495,13 +500,15 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertNotIn(injured, pool)
         self.assertEqual(len(pool), 2)
         with self.assertRaises(ValueError):
-            match.substitute(TeamSide.HOME, "orange_sizzifizik", injured)
+            match.substitute(
+                TeamSide.HOME, fielded(match, PlayerRole.PLAYMAKER), injured,
+            )
 
     def test_nobody_to_bring_on_takes_both_benches(self) -> None:
         # The only way a side runs out: the bench drained, and every
         # one of the three who came off went off injured.
         match = self.standard_match()
-        for outgoing in ("orange_hellguard", "orange_scorchit", "orange_sizzifizik"):
+        for outgoing in field_players(match)[:3]:
             match.mark_injured(outgoing)
             match.substitute(
                 TeamSide.HOME,
@@ -515,7 +522,7 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_returning_player_loses_half_their_tokens(self) -> None:
         match = self.standard_match()
-        returning = "orange_hellguard"
+        returning = fielded(match, PlayerRole.FULLBACK)
         match.add_exhaustion(returning, 5)
         match.mark_exhausted_if_needed(returning, defense_skill=2)
         self.assertIn(returning, match.exhausted)
@@ -523,14 +530,17 @@ class D12BallComponentTests(unittest.TestCase):
         match.substitute(
             TeamSide.HOME, returning, match.home.team_board.bench[0],
         )
-        for outgoing in ("orange_scorchit", "orange_sizzifizik"):
+        for outgoing in (
+            fielded(match, PlayerRole.MIDFIELDER),
+            fielded(match, PlayerRole.PLAYMAKER),
+        ):
             match.substitute(
                 TeamSide.HOME,
                 outgoing,
                 match.home.team_board.bench[0],
             )
 
-        injured = "orange_kindlefinger"
+        injured = fielded(match, PlayerRole.STRIKER)
         match.mark_injured(injured)
         match.substitute(TeamSide.HOME, injured, returning)
 
@@ -545,7 +555,8 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_swapping_two_players_keeps_the_formation(self) -> None:
         match = self.standard_match()
-        first, second = "orange_hellguard", "orange_kindlefinger"
+        first = fielded(match, PlayerRole.FULLBACK)
+        second = fielded(match, PlayerRole.STRIKER)
         first_position = match.board.meeple_position(first)
         second_position = match.board.meeple_position(second)
         self.assertNotEqual(first_position, second_position)
@@ -571,7 +582,7 @@ class D12BallComponentTests(unittest.TestCase):
         self,
     ) -> None:
         match = self.standard_match()
-        stealer = "orange_blazebulk"
+        stealer = fielded(match, PlayerRole.DEFENDER)
         match.pending_run_back_stays_player_id = stealer
 
         # Subbed off: whoever comes on is standing on the ball now, so
@@ -589,15 +600,16 @@ class D12BallComponentTests(unittest.TestCase):
         # assignments never touches meeples, so it never touches this
         # either -- unlike substitute(), which does move a meeple.
         match = self.standard_match()
-        match.pending_run_back_stays_player_id = "orange_blazebulk"
+        stealer = fielded(match, PlayerRole.DEFENDER)
+        match.pending_run_back_stays_player_id = stealer
 
         match.swap_field_positions(
-            TeamSide.HOME, "orange_hellguard", "orange_scorchit",
+            TeamSide.HOME,
+            fielded(match, PlayerRole.FULLBACK),
+            fielded(match, PlayerRole.MIDFIELDER),
         )
 
-        self.assertEqual(
-            match.pending_run_back_stays_player_id, "orange_blazebulk",
-        )
+        self.assertEqual(match.pending_run_back_stays_player_id, stealer)
 
     def test_swap_meeple_positions_resolves_a_fully_packed_zone(
         self,
@@ -609,7 +621,8 @@ class D12BallComponentTests(unittest.TestCase):
         # Trading positions directly is the only thing that resolves
         # this without a full run back.
         match = self.standard_match(board_size=6)
-        first, second = "orange_hellguard", "orange_kindlefinger"
+        first = fielded(match, PlayerRole.FULLBACK)
+        second = fielded(match, PlayerRole.STRIKER)
         match.swap_field_positions(TeamSide.HOME, first, second)
         first_zone = match.home.assigned_zone(first)
         second_zone = match.home.assigned_zone(second)
@@ -629,15 +642,14 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_swap_meeple_positions_moves_a_run_back_exemption(self) -> None:
         match = self.standard_match()
-        stealer = "orange_hellguard"
+        stealer = fielded(match, PlayerRole.FULLBACK)
+        swapped_with = fielded(match, PlayerRole.STRIKER)
         match.pending_run_back_stays_player_id = stealer
 
-        match.swap_meeple_positions(
-            TeamSide.HOME, stealer, "orange_kindlefinger",
-        )
+        match.swap_meeple_positions(TeamSide.HOME, stealer, swapped_with)
 
         self.assertEqual(
-            match.pending_run_back_stays_player_id, "orange_kindlefinger",
+            match.pending_run_back_stays_player_id, swapped_with,
         )
 
     def test_declaration_is_once_a_half_but_a_reply_is_free(self) -> None:
@@ -733,10 +745,11 @@ class D12BallComponentTests(unittest.TestCase):
         match = self.standard_match()
         self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
 
-        match.mark_injured("orange_kindlefinger")
+        injured = fielded(match, PlayerRole.STRIKER)
+        match.mark_injured(injured)
         self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
         self.assertEqual(
-            match.injured_field_players(TeamSide.HOME), ["orange_kindlefinger"],
+            match.injured_field_players(TeamSide.HOME), [injured],
         )
         self.assertFalse(hasattr(match, "must_declare_substitution"))
 
@@ -938,7 +951,7 @@ class D12BallComponentTests(unittest.TestCase):
             home_team=Team.SLIME,
             visiting_team=Team.TEAL,
         )
-        player_id = "teal_bulwark"
+        player_id = fielded(match, PlayerRole.FULLBACK, TeamSide.VISITING)
 
         match.add_exhaustion(player_id, 2)
         self.assertFalse(match.mark_exhausted_if_needed(player_id, 2))
@@ -960,23 +973,22 @@ class D12BallComponentTests(unittest.TestCase):
             home_team=Team.SLIME,
             visiting_team=Team.TEAL,
         )
-        match.add_exhaustion("teal_bulwark", 3)
-        match.mark_exhausted_if_needed("teal_bulwark", 2)
-        match.mark_injured("teal_bulwark")
+        player_id = fielded(match, PlayerRole.FULLBACK, TeamSide.VISITING)
+        match.add_exhaustion(player_id, 3)
+        match.mark_exhausted_if_needed(player_id, 2)
+        match.mark_injured(player_id)
 
-        self.assertEqual(match.exhaustion.get("teal_bulwark", 0), 0)
-        self.assertNotIn("teal_bulwark", match.exhausted)
+        self.assertEqual(match.exhaustion.get(player_id, 0), 0)
+        self.assertNotIn(player_id, match.exhausted)
 
-        match.add_exhaustion("teal_bulwark", 5)
-        self.assertEqual(match.exhaustion.get("teal_bulwark", 0), 0)
-        self.assertFalse(
-            match.mark_exhausted_if_needed("teal_bulwark", 2)
-        )
+        match.add_exhaustion(player_id, 5)
+        self.assertEqual(match.exhaustion.get(player_id, 0), 0)
+        self.assertFalse(match.mark_exhausted_if_needed(player_id, 2))
 
         restored = MatchState.from_dict(match.to_dict(), self.rules)
-        self.assertEqual(restored.exhaustion.get("teal_bulwark", 0), 0)
-        self.assertNotIn("teal_bulwark", restored.exhausted)
-        self.assertEqual(restored.injured, {"teal_bulwark"})
+        self.assertEqual(restored.exhaustion.get(player_id, 0), 0)
+        self.assertNotIn(player_id, restored.exhausted)
+        self.assertEqual(restored.injured, {player_id})
 
     def test_old_injured_save_is_normalized_on_load(self) -> None:
         match = MatchState.standard(
@@ -986,16 +998,17 @@ class D12BallComponentTests(unittest.TestCase):
             home_team=Team.SLIME,
             visiting_team=Team.TEAL,
         )
+        player_id = fielded(match, PlayerRole.FULLBACK, TeamSide.VISITING)
         saved = match.to_dict()
-        saved["injured"] = ["teal_bulwark"]
-        saved["exhausted"] = ["teal_bulwark"]
-        saved["exhaustion"] = {"teal_bulwark": 6}
+        saved["injured"] = [player_id]
+        saved["exhausted"] = [player_id]
+        saved["exhaustion"] = {player_id: 6}
 
         restored = MatchState.from_dict(saved, self.rules)
 
-        self.assertEqual(restored.injured, {"teal_bulwark"})
-        self.assertNotIn("teal_bulwark", restored.exhausted)
-        self.assertNotIn("teal_bulwark", restored.exhaustion)
+        self.assertEqual(restored.injured, {player_id})
+        self.assertNotIn(player_id, restored.exhausted)
+        self.assertNotIn(player_id, restored.exhaustion)
 
     def test_contest_candidates_are_the_nearest_either_way(self) -> None:
         # "Sending a player" in docs/living-rules.md: the nearest own
@@ -1065,23 +1078,29 @@ class D12BallComponentTests(unittest.TestCase):
             home_team=Team.SLIME,
             visiting_team=Team.TEAL,
         )
+        offense = fielded(match, PlayerRole.FULLBACK)
+        defense = fielded(match, PlayerRole.FULLBACK, TeamSide.VISITING)
         match.begin_loose_ball(2)
-        match.choose_loose_ball_offense_player("slime_goopkeeper")
-        match.choose_loose_ball_defense_player("teal_bulwark")
+        match.choose_loose_ball_offense_player(offense)
+        match.choose_loose_ball_defense_player(defense)
 
         with self.assertRaises(ValueError):
-            match.choose_loose_ball_offense_player("slime_gurgoth")
+            match.choose_loose_ball_offense_player(
+                fielded(match, PlayerRole.DEFENDER),
+            )
         with self.assertRaises(ValueError):
-            match.choose_loose_ball_defense_player("teal_strider")
+            match.choose_loose_ball_defense_player(
+                fielded(match, PlayerRole.MIDFIELDER, TeamSide.VISITING),
+            )
 
         restored = MatchState.from_dict(match.to_dict(), self.rules)
         self.assertTrue(restored.pending_loose_ball)
         self.assertEqual(restored.pending_loose_ball_distance, 2)
         self.assertEqual(
-            restored.loose_ball_offense_player, "slime_goopkeeper",
+            restored.loose_ball_offense_player, offense,
         )
         self.assertEqual(
-            restored.loose_ball_defense_player, "teal_bulwark",
+            restored.loose_ball_defense_player, defense,
         )
 
         match.reset_maneuver()
@@ -1245,7 +1264,11 @@ class D12BallComponentTests(unittest.TestCase):
         # every one of them fits the width it was given.
         image = Image.new("RGB", (10, 10))
         draw = ImageDraw.Draw(image)
-        names = ["Flickerwing", "Hellguard", "Kindlefinger", "Blazebulk"]
+        # Four real names, for a representative set of lengths.
+        names = [
+            player.name
+            for player in load_player_catalog().teams[Team.ORANGE].players[:4]
+        ]
 
         single_font, _ = fit_meeple_labels(draw, names[:1], 400, 300)
         stacked_font, line_height = fit_meeple_labels(draw, names, 400, 90)
@@ -1761,8 +1784,10 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         match = self.build_match(7)
         # A standard 7v7 has no fully empty space anywhere on the board
         # -- clear one by hand to exercise move_ball's usual blocker.
-        match.board.remove_meeple("orange_flickerwing")
-        match.board.remove_meeple("teal_voltus")
+        match.board.remove_meeple(fielded(match, PlayerRole.WINGER))
+        match.board.remove_meeple(
+            fielded(match, PlayerRole.DEFENDER, TeamSide.VISITING),
+        )
         self.assertEqual(match.board.spaces[Zone.VISITORS_GOAL][0], [])
 
         match.set_ball_space(Zone.VISITORS_GOAL, 0)
@@ -1962,9 +1987,15 @@ class D12BallManeuverTests(unittest.TestCase):
         self.assertEqual(len(self.catalog.defense), 3)
 
     def test_die_faces_cover_one_through_six_with_no_overlap(self) -> None:
-        for value in range(1, 7):
-            self.catalog.offense_for_die(value)
-            self.catalog.defense_for_die(value)
+        # The die is off the rules (2026-08-17) but the data and
+        # DinkyAI still carry it -- see "The printed boards".
+        for maneuvers in (self.catalog.offense, self.catalog.defense):
+            faces = [
+                value
+                for maneuver in maneuvers
+                for value in maneuver.die_values
+            ]
+            self.assertEqual(sorted(faces), list(range(1, 7)))
 
     def test_matchup_triangle_resolves_as_expected(self) -> None:
         expected = {
@@ -2112,8 +2143,20 @@ class D12BallManeuverTests(unittest.TestCase):
         """A two-detail-line skill test, the size the others match."""
         image_data = render_skill_test_dice(
             [
-                (7, "#f28c28", "Orange", ["Bulwark (Fullback)", "Defense 3"], 10),
-                (4, "#19b5a5", "Teal", ["Snarl (Winger)", "Offense 2"], 6),
+                (
+                    7,
+                    TEAM_COLORS[Team.ORANGE],
+                    "Orange",
+                    ["Defender A (Fullback)", "Defense 3"],
+                    10,
+                ),
+                (
+                    4,
+                    TEAM_COLORS[Team.TEAL],
+                    "Teal",
+                    ["Shooter (Winger)", "Offense 2"],
+                    6,
+                ),
             ]
         )
         with Image.open(image_data) as image:
@@ -2126,7 +2169,9 @@ class D12BallManeuverTests(unittest.TestCase):
         # outcome.
         self.assertEqual(OWN_GOAL_DIE_RADIUS, SKILL_TEST_DIE_RADIUS)
 
-        image_data = render_own_goal_dice([7, 12], "#f28c28", safe=True)
+        image_data = render_own_goal_dice(
+            [7, 12], TEAM_COLORS[Team.ORANGE], safe=True,
+        )
 
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
@@ -2138,7 +2183,7 @@ class D12BallManeuverTests(unittest.TestCase):
         # The whole point of the injury-test render is that it draws a
         # small die with context beside it.
         image_data = render_injury_test_die(
-            5, "#19b5a5", "Teal", "Bulwark", safe=True,
+            5, TEAM_COLORS[Team.TEAL], "Teal", "Defender A", safe=True,
         )
 
         with Image.open(image_data) as image:
@@ -2148,7 +2193,11 @@ class D12BallManeuverTests(unittest.TestCase):
             )
 
     def test_a_player_portrait_renders_on_its_own(self) -> None:
-        image_data = render_player_portrait("Bulwark")
+        # Any player will do -- every one of them has art, which
+        # test_every_player_has_a_portrait_image is the check on.
+        somebody = load_player_catalog().teams[Team.TEAL].players[0]
+
+        image_data = render_player_portrait(somebody.name)
 
         self.assertIsNotNone(image_data)
         with Image.open(image_data) as image:
