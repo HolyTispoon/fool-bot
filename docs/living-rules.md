@@ -438,7 +438,7 @@ Under [last possession](#last-possession), ceding ends the period and neither co
 
 A Coaching Choice is a pause. The coach may take any number of the actions below, in any order, and then finish. None of it costs exhaustion or time.
 
-### The four actions
+### What a coach may do
 
 | Action | What it does |
 | --- | --- |
@@ -449,9 +449,9 @@ A Coaching Choice is a pause. The coach may take any number of the actions below
 
 The window before the shootout offers the substitution alone.
 
-### The five occasions
+### When a coach gets one
 
-| Occasion | Substitutions | Who goes first | A player taken off | Positioning |
+| When | Substitutions | Who goes first | A player taken off | Positioning |
 | --- | --- | --- | --- | --- |
 | Setup | Unlimited | Home, then the visitors | Returns to the bench | Yes |
 | A new play | 2 per half | The declaring side, then the reply | Goes to the back bench | Yes |
