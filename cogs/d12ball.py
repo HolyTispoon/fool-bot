@@ -5483,14 +5483,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         everyone to their arrangement first, so this player is placed
         once and stays, where placing them before it would only have
         them run back off the ball and leave it loose all over again.
-        That is also why the pool is worth so little -- the arrangement
-        usually leaves somebody on the ball already, and neither caller
-        gets this far when it does.
+
+        **Which is also why it asks whether there is anything to do.**
+        A reset can perfectly well put one of the gaining side on the
+        ball's space by itself -- that is the arrangement's own doing,
+        and the rules ask for a pickup "unless one of theirs is
+        already on it". `finish_cede` decides this before it sets the
+        flag, because it has a second branch to run either way; the
+        out-of-bounds path sets the flag before the reset, so the
+        question can only be asked here.
         """
         side = match.ball.possession
-        candidates = match.contest_candidates(side)
+        candidates = (
+            [] if match.eligible_ball_handlers()
+            else match.contest_candidates(side)
+        )
         if not candidates:
-            # Nobody fielded at all -- nothing to place. Let the
+            # Somebody of theirs is already standing on it, or nobody
+            # is fielded at all. Either way nothing is placed: let the
             # loose-ball check downstream deal with it, the same way
             # an empty kickoff is handled.
             match.pending_ball_recovery = False

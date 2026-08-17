@@ -439,6 +439,32 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         recoverer = match.eligible_ball_handlers()[0]
         self.assertEqual(travel.get(recoverer), min(travel.values()))
 
+    async def test_a_reset_that_covers_the_ball_needs_no_pickup(
+        self,
+    ) -> None:
+        # The pickup is owed "unless one of theirs is already on it",
+        # and the new play's reset runs between the flag being set and
+        # this being asked -- so it is asked here and nowhere earlier.
+        cog = build_cog()
+        game = build_game()
+        match = self.build_match()
+        match.pending_ball_recovery = True
+        match.pending_run_back_distance = 3
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        self.assertTrue(match.eligible_ball_handlers())
+        standing = [list(s) for s in match.board.spaces[match.ball.zone]]
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_ball_recovery(build_interaction(), game, match)
+
+        self.assertFalse(match.pending_ball_recovery)
+        self.assertEqual(match.exhaustion, {})
+        self.assertEqual(
+            [list(s) for s in match.board.spaces[match.ball.zone]], standing,
+        )
+        cog.finish_maneuver_resolution.assert_awaited_once()
+
     async def test_the_run_back_hands_over_to_the_pickup(self) -> None:
         # The join between the two: once nobody is left to run back,
         # continue_run_back owes the pickup before the clock moves.
