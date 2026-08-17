@@ -132,6 +132,7 @@ from cogs.d12ball_views import (
     PlayerActionView,
     RematchView,
     RunBackChoiceView,
+    RunBackPlayerChoiceView,
     ScoreAttemptView,
     SetUpAttemptChoiceView,
     ShooterChoiceView,
@@ -1738,10 +1739,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         if match.pending_run_back:
+            step = self.next_run_back_step(match)
             return (
                 self.build_run_back_view(game_id, match)
                 or PlayerActionView(self, game_id),
-                "Choose where the next player runs back to:",
+                "Choose which of your doubled-up players runs back:"
+                if step is not None and len(step[1]) > 1
+                else "Choose where the next player runs back to:",
             )
 
         if match.pending_ball_recovery:
@@ -1822,17 +1826,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> Optional[discord.ui.View]:
         """
-        Reconstruct the run-back prompt for whichever displaced player
-        still needs a real choice. Any forced placements are always
-        applied immediately in continue_run_back, before a message is
-        ever posted, so anyone still displaced by the time this is
-        called needs an actual choice.
+        Reconstruct the run-back prompt for whichever player still
+        needs a real choice. Any forced placements are always applied
+        immediately in continue_run_back, before a message is ever
+        posted, so anything still outstanding by the time this is
+        called is an actual choice.
+
+        Which of the two prompts it is is read back off the position,
+        exactly as the cascade reads it: a stack with more than one
+        player to spare comes back as the question of who runs, and
+        everything else as the question of where. A coach who had
+        already answered the first when the bot went down is asked it
+        again -- that pick lives on the view and nowhere else, the
+        same as a part-made coaching choice.
         """
-        for side in (TeamSide.HOME, TeamSide.VISITING):
-            displaced = self.run_back_displaced(match, side)
-            if displaced:
-                return RunBackChoiceView(self, game_id, displaced[0])
-        return None
+        step = self.next_run_back_step(match)
+        if step is None:
+            return None
+        _, candidates = step
+        if len(candidates) == 1:
+            return RunBackChoiceView(self, game_id, candidates[0])
+        return RunBackPlayerChoiceView(self, game_id, candidates)
 
     async def begin_effect_resolution(
         self,
@@ -4249,18 +4263,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         if occasion.asks_declaration:
             note = (
-                "Answering the other team's declaration, which costs "
-                "your own nothing."
+                "Answering the other team, which leaves your own "
+                "once-a-half Coaching Choice unspent."
                 if is_response
-                else "Declaring is once a half. Coach, or pass?"
+                else "Calling one is once a half. Coach, or pass?"
             )
         elif occasion == CoachingOccasion.CEDED:
             note = (
                 "The ball bought this, so there is nothing to decide "
-                "-- the window is open."
+                "-- it is open."
                 if not is_response
                 else "The other team gave the ball up to coach. Yours "
-                "is open too, and costs your own declaration nothing."
+                "is open too, and leaves your own once-a-half Coaching "
+                "Choice unspent."
             )
         else:
             note = "Take as long as you like; nothing here costs exhaustion."
@@ -4346,7 +4361,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 game,
                 match,
                 side,
-                "Picking this window up where it left off. Nothing you "
+                "Picking this up where it left off. Nothing you "
                 "had already done has been undone.",
             ),
             file=await self.coaching_file(game, match, side),
@@ -4809,16 +4824,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "it stands, and you open a Coaching Choice -- formation, "
             "substitutions, zone assignment, space positioning, free of "
             "exhaustion.",
-            "It spends your declaration for this half, and "
-            f"{receiving} get a window of their own to answer it.",
+            "It uses up your Coaching Choice for this half, and "
+            f"{receiving} get one of their own to answer it.",
         ]
         if match.scoreboard.last_possession:
-            # The one case where the window never happens: a turnover
+            # The one case where the coaching never happens: a turnover
             # under last possession is the end of the period, and
             # ceding is a turnover.
             lines.append(
                 "**This is last possession, so this ends the period "
-                "instead -- there is no window on either side.**"
+                "instead -- neither side gets to coach.**"
             )
         return "\n".join(lines)
 
@@ -4973,7 +4988,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         of the two happened -- a window open, or a run back pending.
 
         **The player holding the ball does not run back**, whoever they
-        are -- see "The ball carrier" and "Running back after a steal"
+        are -- see "Choosing the handler" and "Running back after a
+        steal"
         in docs/living-rules.md. The exemption is read off
         `ball_carrier_id` rather than passed in, because the two are
         the same fact: a run back that moved the ball's holder would
@@ -5144,7 +5160,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # reset value of 1 here.
         speed_note = "The ball speed goes down to **1**." if turnover_occurred else ""
         displaced = any(
-            self.run_back_displaced(match, side)
+            self.run_back_movers(match, side)
             for side in (TeamSide.HOME, TeamSide.VISITING)
         )
         if displaced:
@@ -5152,8 +5168,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{prefix}# Players run back!\n"
                 "Players return to an open space in their assigned zone and "
                 "gain 1 exhaustion token for every space traveled. Forced "
-                "locations are handled automatically; when there is a choice, "
-                f"the coach will be prompted to pick a location. {speed_note}"
+                "moves are handled automatically; where there is a choice — "
+                "which space, or which of two teammates sharing one — the "
+                f"coach is asked. {speed_note}"
             )
         elif prefix or speed_note:
             await interaction.followup.send(f"{prefix}{speed_note}".strip())
@@ -5165,19 +5182,47 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side: TeamSide,
     ) -> list[str]:
         """
-        `match.displaced_players(side)` (outside their zone) plus
-        `match.crowded_players(side)` (doubled up with a same-zone
-        teammate, when the zone has room to spread out), minus the
-        player who stole the ball this run-back (if any) -- see
-        begin_run_back.
+        The players of `side` a run back moves whether anybody likes it
+        or not: `match.displaced_players(side)`, everyone standing
+        outside their own zone, less the player holding the ball (see
+        begin_run_back). Each of them has to come back, so the only
+        question left is which space.
         """
         stays_player_id = match.pending_run_back_stays_player_id
-        combined = match.displaced_players(side) + match.crowded_players(side)
         return [
             player_id
-            for player_id in combined
+            for player_id in match.displaced_players(side)
             if player_id != stays_player_id
         ]
+
+    def run_back_crowded(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> list[str]:
+        """
+        The players of `side` a stack could send back --
+        `match.crowded_candidates(side)`, which offers every teammate
+        on a shared space rather than picking one, because which of
+        them goes is the coach's call.
+        """
+        return match.crowded_candidates(side)
+
+    def run_back_movers(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> list[str]:
+        """
+        Everyone this side's run back still has to account for --
+        those who must return and those a stack may send. Asked to
+        find out whether a run back has anything to do at all; which
+        of them moves next is next_run_back_step's.
+        """
+        return (
+            self.run_back_displaced(match, side)
+            + self.run_back_crowded(match, side)
+        )
 
     def describe_run_back_options(
         self,
@@ -5201,6 +5246,58 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         return f"Options: {options} — one exhaustion token per space."
 
+    def run_back_space_prompt(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        player_id: str,
+        mention: str,
+    ) -> str:
+        """
+        Where does this player run back to -- the question every run
+        back ends on, whether the player was displaced or has just been
+        picked out of a stack. It is a function rather than a string at
+        the call site because those are two different places now: the
+        cascade asks it directly, and RunBackPlayerChoiceView asks it
+        again over the top of its own answer, and the two have to word
+        it identically.
+        """
+        player = self.get_player_definition(player_id)
+        return (
+            f"{mention}, choose where "
+            f"{format_role_bracket(player, self.team_emojis)} runs back "
+            f"to:\n{self.describe_run_back_options(match, side, player_id)}"
+        )
+
+    def run_back_player_prompt(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        candidates: list[str],
+        mention: str,
+    ) -> str:
+        """
+        Which of a stack runs back, and where each of them is standing
+        -- a coach choosing between two teammates on one space is
+        choosing which of them pays for the walk, so the prompt says
+        who they are rather than leaving it to the buttons alone.
+        """
+        lines = []
+        for player_id in candidates:
+            player = self.get_player_definition(player_id)
+            position = match.board.meeple_position(player_id)
+            lines.append(
+                f"{format_role_bracket(player, self.team_emojis)} on "
+                f"{space_label(*position)}"
+                if position is not None
+                else format_role_bracket(player, self.team_emojis)
+            )
+        return (
+            f"{mention}, your players are doubled up while their zone "
+            "still has a space with nobody on it — choose which of them "
+            "runs back:\n" + "\n".join(lines)
+        )
+
     def apply_forced_run_backs(self, match: MatchState) -> None:
         """
         Place every run-back that isn't a choice: a zone whose open
@@ -5208,20 +5305,42 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         arrangement, so nobody is asked. Repeats until a pass changes
         nothing, since placing one zone's players can settle another.
 
+        A stack is counted in only where it has nothing to decide --
+        one candidate, which means the other player on the space is
+        holding the ball. A stack with two of them to choose between
+        is the coach's (see `crowded_candidates`), so it is left out
+        of the arithmetic entirely rather than being zipped into a
+        space: the displaced players of that zone may still be forced
+        around it, and settling them can take the zone's last open
+        space and leave the stack alone after all.
+
         Silent, and it does not save -- the caller does both.
         """
         applied_forced = True
         while applied_forced:
             applied_forced = False
             for side in (TeamSide.HOME, TeamSide.VISITING):
+                setup = match.setup_for_side(side)
                 by_zone: dict[Zone, list[str]] = {}
                 for player_id in self.run_back_displaced(match, side):
-                    zone = match.setup_for_side(side).assigned_zone(
-                        player_id
-                    )
-                    by_zone.setdefault(zone, []).append(player_id)
+                    by_zone.setdefault(
+                        setup.assigned_zone(player_id), [],
+                    ).append(player_id)
 
-                for zone, players in by_zone.items():
+                settled: dict[Zone, list[str]] = {}
+                for player_id in self.run_back_crowded(match, side):
+                    settled.setdefault(
+                        setup.assigned_zone(player_id), [],
+                    ).append(player_id)
+
+                for zone in Zone:
+                    players = list(by_zone.get(zone, []))
+                    from_stack = settled.get(zone, [])
+                    if len(from_stack) == 1:
+                        players += from_stack
+                    if not players:
+                        continue
+
                     open_spaces = match.open_spaces_in_zone(side, zone)
                     if len(open_spaces) != len(players):
                         continue
@@ -5238,19 +5357,34 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                         self.retest_exhausted(match, player_id)
                     applied_forced = True
 
-    def next_run_back_choice(
+    def next_run_back_step(
         self,
         match: MatchState,
-    ) -> Optional[tuple[TeamSide, str]]:
+    ) -> Optional[tuple[TeamSide, list[str]]]:
         """
-        The next side and player still owed a run-back with a real
-        choice in it, home before visiting, or None when both sides
-        are settled.
+        The next side owed a run-back with a real choice in it, and the
+        players that choice is between -- home before visiting, or None
+        when both sides are settled.
+
+        **One name or several, and the difference is what is being
+        asked.** One means the player is settled and only the space is
+        open: everyone standing outside their zone has to come back,
+        and so does the one player a stack can spare when the other is
+        holding the ball. Several means a stack has to send somebody
+        and the coach picks which of them goes (the author, 2026-08-17)
+        -- the space question follows once they have.
+
+        Those who must return are answered before any stack, because a
+        player coming home covers a space, and a zone with no space
+        left uncovered has no stack to break up.
         """
         for side in (TeamSide.HOME, TeamSide.VISITING):
             displaced = self.run_back_displaced(match, side)
             if displaced:
-                return side, displaced[0]
+                return side, [displaced[0]]
+            crowded = self.run_back_crowded(match, side)
+            if crowded:
+                return side, crowded
         return None
 
     async def continue_run_back(
@@ -5333,14 +5467,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.match_state = match.to_dict()
             save_games(self.games)
 
-            choice = self.next_run_back_choice(match)
+            step = self.next_run_back_step(match)
 
-            if choice is not None:
-                side, player_id = choice
-                zone = match.setup_for_side(side).assigned_zone(player_id)
-                player = self.get_player_definition(player_id)
+            if step is not None:
+                side, candidates = step
 
                 if self.side_is_ai(game, side):
+                    # One candidate is a settled player and only the
+                    # space is open; several is a stack Dinky picks out
+                    # of, the same call a coach is given below.
+                    player_id = (
+                        candidates[0]
+                        if len(candidates) == 1
+                        else self.get_ai_strategy(
+                            game
+                        ).choose_run_back_player(match, candidates)
+                    )
+                    zone = match.setup_for_side(side).assigned_zone(player_id)
+                    player = self.get_player_definition(player_id)
                     space_index = self.get_ai_strategy(
                         game
                     ).choose_run_back_space(
@@ -5364,9 +5508,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
                 # A coach's choice ends the cascade here: say what has
                 # happened so far, show the board it left, and ask --
-                # with the board on the prompt itself, because "which
-                # space does this player run back to" is a question
-                # about where everybody is standing, and the persistent
+                # with the board on the prompt itself, because both
+                # questions a run back asks (which of these players
+                # goes, and which space they go to) are questions about
+                # where everybody is standing, and the persistent
                 # message has scrolled away up the channel by the time
                 # a turn has resolved. It goes with the prompt: the
                 # click edits both away together, so the board a coach
@@ -5380,27 +5525,32 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 if not await flush(png):
                     await self.refresh_match_image(interaction, game, png=png)
 
-                controller_number = (
-                    game.home_player_number
-                    if side == TeamSide.HOME
-                    else game.visiting_player_number
-                )
-                controller_id = (
-                    game.player_1_id
-                    if controller_number == 1
-                    else game.player_2_id
-                )
+                controller_id = self.side_controller_id(game, side)
                 mention = f"<@{controller_id}>" if controller_id else "Someone"
                 prefix = f"{lead_in}\n\n" if lead_in else ""
-                options_note = self.describe_run_back_options(
-                    match, side, player_id,
-                )
 
-                prompt_view = RunBackChoiceView(self, game.game_id, player_id)
+                # A stack asks who before it asks where, and the two
+                # share one message: the second question is an edit of
+                # the first, which keeps the board that was uploaded
+                # for it rather than paying for a second one. See
+                # RunBackPlayerChoiceView.
+                if len(candidates) == 1:
+                    prompt_view = RunBackChoiceView(
+                        self, game.game_id, candidates[0],
+                    )
+                    body = self.run_back_space_prompt(
+                        match, side, candidates[0], mention,
+                    )
+                else:
+                    prompt_view = RunBackPlayerChoiceView(
+                        self, game.game_id, candidates,
+                    )
+                    body = self.run_back_player_prompt(
+                        match, side, candidates, mention,
+                    )
+
                 prompt_message = await interaction.followup.send(
-                    f"{prefix}{mention}, choose where "
-                    f"{format_role_bracket(player, self.team_emojis)} runs "
-                    f"back to:\n{options_note}",
+                    f"{prefix}{body}",
                     file=self.match_file_from_png(game, png),
                     view=prompt_view,
                     wait=True,
@@ -5988,7 +6138,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
     ) -> None:
-        """Hand the next coach their pre-kickoff window, or kick off."""
+        """Hand the next coach their pre-kickoff Coaching Choice, or
+        kick off."""
         stage = match.pending_setup_stage
         if stage in ("coaching_home", "coaching_visiting"):
             side = (
@@ -6203,9 +6354,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             occasion=CoachingOccasion.HALFTIME,
             lead_in=(
                 f"## Halftime\n{format_team_side_label(setup)} set up for "
-                "the second half. Halftime is free: it does not spend "
-                "their once-a-half declaration, and its two substitutions "
-                "are its own rather than either half's."
+                "the second half. Halftime is free: it leaves their "
+                "own once-a-half Coaching Choice unspent, and its two "
+                "substitutions are its own rather than either half's."
             ),
         )
 
@@ -7607,7 +7758,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # the time the prompt is built, so only the caller that did the
         # selecting still knows the handler was forced.
         handler_line = (
-            f"{handler} is carrying the ball, and takes this turn."
+            f"The ball was left with {handler}, who takes this turn."
             if carrying
             else f"{handler} will be handling the ball."
         )
@@ -7627,8 +7778,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         else:
             action_line = (
                 "The ball is out of shooting range and your side has "
-                "already declared this half, so there is no shot and no "
-                "cede -- only a maneuver:"
+                "already called its Coaching Choice this half, so there "
+                "is no shot and no cede -- only a maneuver:"
             )
         return (
             f"{controller}, it is your turn.\n\n"

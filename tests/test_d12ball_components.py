@@ -1822,7 +1822,9 @@ class D12BallScoreAttemptTests(unittest.TestCase):
                 home_midfielder, Zone.MIDFIELD, occupied_space
             )
 
-    def test_crowded_players_flags_a_same_zone_double_up(self) -> None:
+    def test_crowded_candidates_offers_a_same_zone_double_up(self) -> None:
+        # Both of them, not a pick between them: which of two players
+        # sharing a space runs back is the coach's call (2026-08-17).
         match = self.build_match(7)
         home_midfielder, other_home_midfielder = match.home.zones[
             Zone.MIDFIELD
@@ -1835,11 +1837,14 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         self.assertNotIn(
             home_midfielder, match.displaced_players(TeamSide.HOME)
         )
-        crowded = match.crowded_players(TeamSide.HOME)
-        self.assertEqual(len(crowded), 1)
-        self.assertIn(crowded[0], (home_midfielder, other_home_midfielder))
+        self.assertEqual(
+            sorted(match.crowded_candidates(TeamSide.HOME)),
+            sorted([home_midfielder, other_home_midfielder]),
+        )
 
-    def test_crowded_players_prefers_the_ball_stealer_to_stay(self) -> None:
+    def test_crowded_candidates_leave_the_ball_holder_out(self) -> None:
+        # The player holding the ball never runs back, so a pair with
+        # the ball between them is one candidate and no question.
         match = self.build_match(7)
         home_midfielder, other_home_midfielder = match.home.zones[
             Zone.MIDFIELD
@@ -1849,10 +1854,10 @@ class D12BallScoreAttemptTests(unittest.TestCase):
 
         match.pending_run_back_stays_player_id = other_home_midfielder
         self.assertEqual(
-            match.crowded_players(TeamSide.HOME), [home_midfielder]
+            match.crowded_candidates(TeamSide.HOME), [home_midfielder]
         )
 
-    def test_crowded_players_caps_at_the_zone_s_open_spaces(self) -> None:
+    def test_crowded_candidates_caps_at_the_zone_s_open_spaces(self) -> None:
         match = self.build_match(7)
         home_midfielder, other_home_midfielder = match.home.zones[
             Zone.MIDFIELD
@@ -1876,7 +1881,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         self.assertEqual(
             match.open_spaces_in_zone(TeamSide.HOME, Zone.MIDFIELD), []
         )
-        self.assertEqual(match.crowded_players(TeamSide.HOME), [])
+        self.assertEqual(match.crowded_candidates(TeamSide.HOME), [])
 
     def test_move_ball_relative_respects_attack_direction(self) -> None:
         match = self.build_match(7)

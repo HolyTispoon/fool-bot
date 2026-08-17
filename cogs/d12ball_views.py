@@ -1201,13 +1201,14 @@ class PlayerActionView(SafeView):
             # Same stale-view guard the shot keeps, and the same two
             # reasons the button would not have been built: the ball
             # has moved into shooting range since, or the side has
-            # spent its declaration in another window.
+            # spent its once-a-half Coaching Choice elsewhere.
             if not match.may_cede_possession():
                 await interaction.response.send_message(
                     "The ball is in shooting range now, so there is "
                     "nothing to cede for."
                     if match.can_attempt_score()
-                    else "Your side has already declared this half.",
+                    else "Your side has already called its Coaching "
+                    "Choice this half.",
                     ephemeral=True,
                 )
                 return
@@ -1246,16 +1247,21 @@ class PlayerActionView(SafeView):
         handler = self.cog.get_player_definition(match.active_player_id)
         defender_number = self.cog.defending_player_number(game, match)
 
-        # A defender already sharing the ball's exact space leaves
+        # One defender already sharing the ball's exact space leaves
         # nothing to choose -- they pay nothing to challenge, so the
-        # challenge is neither theirs to decline nor a choice between
+        # challenge is neither theirs to decline nor a pick between
         # players, and it goes ahead the same way it does when the AI
-        # is the one picking. See MatchState.automatic_challengers.
+        # is the one picking. Two of them is a pick, and the defending
+        # coach makes it (the author, 2026-08-17): they are the whole
+        # of the choice, since nobody may be walked in past them. See
+        # MatchState.challenge_candidates.
         on_ball_space = match.automatic_challengers()
-        if on_ball_space or (game.is_solo_game and defender_number == 2):
+        if len(on_ball_space) == 1 or (
+            game.is_solo_game and defender_number == 2
+        ):
             challenger_id = (
                 on_ball_space[0]
-                if on_ball_space
+                if len(on_ball_space) == 1
                 else self.cog.get_ai_strategy(game).choose_challenger(match)
             )
 
@@ -1287,13 +1293,22 @@ class PlayerActionView(SafeView):
         # above: the defense is being asked to choose a challenger
         # before the challenge image exists, so this is the only place
         # they can read who they would be up against.
+        # Two defenders on the ball are the whole of the choice and
+        # neither of them can be kept back, so the prompt must not
+        # offer what the view does not build -- see
+        # MatchState.challenge_candidates.
+        ask = (
+            "choose which player will maneuver to challenge for the "
+            "ball, or send nobody and let the maneuver through."
+            if match.may_decline_challenge()
+            else "these players are already on the ball, so one of "
+            "them has to challenge -- choose which."
+        )
         challenge_view = ManeuverChallengeView(self.cog, self.game_id)
         challenge_message = await interaction.followup.send(
             f"{format_role_bracket(handler, self.cog.team_emojis)} will "
             f"maneuver for {handler.team.value.title()}.\n\n"
-            f"{defender_mention}, choose which player will maneuver "
-            "to challenge for the ball, or send nobody and let the "
-            "maneuver through.",
+            f"{defender_mention}, {ask}",
             view=challenge_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -1412,13 +1427,20 @@ class CedeConfirmView(SafeView):
 
 class ManeuverChallengeView(SafeView):
     """
-    Who the defense sends in to challenge -- or nobody. The candidates
-    are the nearest defender either side of the ball, from any zone
-    (see "Sending a player" in docs/living-rules.md). Walking in costs
-    1 token per space, and the author's 2026-08-12 ruling is that a
-    defense may refuse to pay it and let the maneuver through. A
-    defender already on the ball pays nothing and so challenges
-    automatically, without ever reaching this prompt.
+    Who the defense puts up against the maneuver -- or nobody. The
+    candidates are `MatchState.challenge_candidates`: the nearest
+    defender either side of the ball, from any zone (see "Sending a
+    player" in docs/living-rules.md), or the defenders already standing
+    on the ball wherever there are any. Walking in costs 1 token per
+    space, and the author's 2026-08-12 ruling is that a defense may
+    refuse to pay it and let the maneuver through; a defender on the
+    ball pays nothing, so that challenge is not theirs to refuse and no
+    Send nobody button is built.
+
+    **One defender on the ball never reaches this prompt** -- there is
+    nothing to choose. Two or more do, since which of them challenges
+    is the coach's call (the author, 2026-08-17) and a challenge is
+    settled on defensive skill.
     """
 
     def __init__(
@@ -1436,7 +1458,7 @@ class ManeuverChallengeView(SafeView):
             return
 
         match = self.cog.load_match_state(game)
-        for player_id in match.eligible_challengers():
+        for player_id in match.challenge_candidates():
             player = self.cog.get_player_definition(player_id)
             distance = match.distance_to_ball(player_id)
             initials = ROLE_INITIALS[player.role.value]
@@ -3209,6 +3231,127 @@ class ShooterChoiceView(SafeView):
         await self.cog.start_set_up_shot(interaction, game, match, shooter_id)
 
 
+class RunBackPlayerChoiceView(SafeView):
+    """
+    Which of two teammates sharing a space runs back out of it -- the
+    author's call, 2026-08-17; see "Running back after a steal" in
+    docs/living-rules.md. The pair only differ in who they are, so the
+    code has no business preferring one, and it used to keep whichever
+    the space's occupant list started with.
+
+    **It is only ever built where the choice is real.** A stack the
+    ball's holder is standing in has one player to spare and no
+    question to ask, and `next_run_back_step` hands that straight to
+    the space prompt below.
+
+    The answer is an edit of this same message rather than a new one:
+    the board was uploaded for the "who" and is just as much the
+    picture the "where" is read off, so re-posting would pay for the
+    same render twice. That means carrying the full-image link across
+    by hand -- editing a view replaces it wholesale, so the link has to
+    be rebuilt onto the new one from the attachment already there (see
+    add_full_image_button).
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        candidates: list[str],
+    ):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.candidates = list(candidates)
+
+        game = cog.games.get(game_id)
+        match = (
+            cog.load_match_state(game)
+            if game is not None and game.match_state is not None
+            else None
+        )
+
+        for player_id in self.candidates:
+            player = cog.get_player_definition(player_id)
+            position = (
+                match.board.meeple_position(player_id)
+                if match is not None
+                else None
+            )
+            button = discord.ui.Button(
+                # The space is on the label because a stack can span
+                # more than one of them: two pairs in a three-space
+                # zone with one space free is four candidates, and
+                # which pair they come from is the whole difference.
+                label=(
+                    f"{player.name} — {space_label(*position)}"
+                    if position is not None
+                    else player.name
+                ),
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:run_back_who:{game_id}:{player_id}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_player: str = player_id,
+            ) -> None:
+                await self.choose(interaction, chosen_player)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+            return
+        match = self.cog.load_match_state(game)
+
+        controller_id = self.cog.controlling_user_id(game, match, player_id)
+        if interaction.user.id != controller_id:
+            await interaction.response.send_message(
+                "Only that team's coach can choose this.",
+                ephemeral=True,
+            )
+            return
+
+        side = (
+            TeamSide.HOME
+            if player_id in match.home.field_players
+            else TeamSide.VISITING
+        )
+        # Nothing is written until the space is picked, so a click on a
+        # prompt the board has moved out from under is caught by asking
+        # the position again rather than by a saved flag.
+        if player_id not in self.cog.run_back_crowded(match, side):
+            await interaction.response.send_message(
+                "They no longer have to run back.", ephemeral=True,
+            )
+            return
+
+        space_view = RunBackChoiceView(self.cog, self.game_id, player_id)
+        link = build_full_image_button(interaction.message)
+        if link is not None:
+            space_view.add_item(link)
+
+        await interaction.response.edit_message(
+            content=self.cog.run_back_space_prompt(
+                match, side, player_id, f"<@{controller_id}>",
+            ),
+            view=space_view,
+        )
+
+
 class RunBackChoiceView(SafeView):
     def __init__(
         self,
@@ -3384,7 +3527,7 @@ class CoachingView(SafeView):
             return None, None
         if match.pending_coaching_side is None:
             await interaction.response.send_message(
-                "That coaching window has already closed.",
+                "That Coaching Choice has already closed.",
                 ephemeral=True,
             )
             return None, None
@@ -4898,7 +5041,7 @@ class LooseBallSkillTestView(SafeView):
         # Whoever won the contest is holding the ball, and takes the
         # next turn -- the receiver who kept a long High Pass, or
         # either side's contestant who won a loose ball. Confirmed by
-        # the author 2026-08-09; see "The ball carrier" in
+        # the author 2026-08-09; see "Choosing the handler" in
         # docs/living-rules.md.
         match.set_ball_carrier(winner_player.player_id)
         match.pending_loose_ball = False

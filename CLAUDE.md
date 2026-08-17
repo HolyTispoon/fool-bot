@@ -172,7 +172,7 @@ that rule for free. **This is the standard deal only**; a formation change re-de
   Choice satisfies coverage by construction instead of by checking (see
   `position_meeple`), which is why it can offer every space of a zone.
   `open_spaces_in_zone` still means "spaces this team has not covered" and is
-  the input to `crowded_players`.
+  what gates `crowded_candidates` -- see "Who runs back" below.
 - **A formation change re-deals the whole side, and nothing else does.**
   `D12Ball.formation_placement` orders the six by defensive skill and
   `formation_space_order` gives each a space, working outward from the coach's
@@ -364,6 +364,15 @@ after an out-of-bounds or ceded ball (`begin_ball_recovery`,
   would have nothing to filter otherwise), the High Pass contest forces them,
   and `eligible_ball_handlers` catches them before a pickup is asked for at
   all.
+- **A challenge narrows to them, and this is the one place the wider pool is
+  not the offer.** `MatchState.challenge_candidates` is
+  `automatic_challengers() or eligible_challengers()`: a defender standing on
+  the ball challenges, so **nobody may be walked in past them** (the author,
+  2026-08-17). It is what the view builds from, what `choose_challenger`
+  validates against and what `DinkyAI` picks out of, so the three cannot
+  disagree about who is on offer. The other three rules keep the whole pool --
+  a contest and a pickup have somebody on the space or they have nothing to
+  ask.
 - **Two branches are now guards rather than states.** An empty candidate list
   means a side with no meeples on the board, which `validate()` rejects -- so
   "nobody in the zone to challenge" and "neither side has anyone to send" are
@@ -396,13 +405,18 @@ nothing downstream has to know which happened.
 - **Exhaustion is where the line is drawn**, which is why the choice is not
   offered to everybody. A defender already standing on the ball pays nothing
   to challenge, so there is nothing to weigh and nothing to refuse: they
-  challenge automatically, as they always did. `automatic_challengers` is that
-  reading -- it is what the two offense branches use to skip the prompt and
-  what `begin_uncontested_maneuver` refuses on -- and `may_decline_challenge`
+  challenge, as they always did. `automatic_challengers` is that reading -- it
+  is what `begin_uncontested_maneuver` refuses on -- and `may_decline_challenge`
   is the same fact from the defense's end, asked by `ManeuverChallengeView`
-  before it builds the Send nobody button. The view is normally only built
-  where the choice is real; a restart can re-attach it to a prompt saved
-  before a defender walked onto the ball, which is the state that check is for.
+  before it builds the Send nobody button and by the prompt before it words
+  one.
+  - **Skipping the prompt is a count, not a flag.** `choose_action` applies the
+    challenge unasked only when there is exactly **one** of them. Two is the
+    defending coach's pick (the author, 2026-08-17), because a challenge is
+    settled on defensive skill and the two differ only in who they are -- so
+    the view is now built in a state where declining is refused, which used to
+    happen only after a restart re-attached it to a stale prompt. That check
+    still earns its keep for the same reason it did before.
 - **Which way it happened is read off the candidates, never stored.** Anybody
   still eligible to challenge means the defense was offered the challenge and
   passed, since a defense with nobody to send is never asked.
@@ -859,7 +873,7 @@ pickup use.
 Possession is a team's, but the ball is a *player's*: a resolution that
 leaves it with somebody in particular makes them the **ball carrier**, and
 they take their side's next turn instead of the coach picking again off the
-ball's space -- see "The ball carrier" in the living rules.
+ball's space -- see "Choosing the handler" in the living rules.
 `MatchState.ball_carrier_id` is the field and
 `MatchState.turn_handler_candidates` is the whole of the rule.
 
@@ -960,6 +974,35 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
   two pinned boards are the kickoff (the persistent message itself, pinned in
   `TeamSelectionView`) and the second-half restart in `finish_halftime`.
   Nothing else pins; see "Discord's rate limits".
+- **Who runs back is two questions, and `next_run_back_step` is the only
+  reading of both.** It answers with a side and a list: one name means the
+  player is settled and only the space is open, several means a stack has to
+  send somebody and *the coach picks which* (2026-08-17). Those who must return
+  -- `run_back_displaced`, everyone outside their own zone -- are answered
+  before any stack, because a player coming home covers a space and a zone with
+  nothing uncovered has no stack to break up. `run_back_movers` is the two
+  together, asked only to find out whether a run back has anything to do at all.
+  - **`crowded_candidates` offers the whole stack rather than picking out of
+    it.** It used to keep whichever player the space's occupant list started
+    with -- placement order, so arbitrary -- and hand the rest to the run back
+    with nobody asked. One of them moves per pass and the cascade asks again,
+    so a zone with two uncovered spaces is two questions rather than one
+    silent pair of placements. The ball's holder is never a candidate, which
+    is the run-back exemption read from the other end: a pair holding the ball
+    between them is one candidate and no question.
+  - **`apply_forced_run_backs` leaves an undecided stack out of its
+    arithmetic** instead of zipping it into a space. A zone's displaced players
+    may still be forced around it, and settling them can take the zone's last
+    open space -- which dissolves the stack and saves the coach the question.
+  - **The two questions share one message.** `RunBackPlayerChoiceView` asks
+    which player and *edits itself into* `RunBackChoiceView` to ask which
+    space, so the board uploaded for the first is the board the second is read
+    off. That edit is the interaction-callback route, so it costs nothing out
+    of the channel's bucket -- but it replaces the view wholesale, which is why
+    the full-image link has to be rebuilt onto the new one by hand.
+  - Neither pick is persisted. A restart reads the question back off the
+    position through `build_run_back_view`, so a coach who had already answered
+    the first is asked it again -- the same as a part-made Coaching Choice.
 - **`continue_run_back` is one loop, not a recursion, and it batches.** Every
   placement it makes without asking anyone -- the forced ones, the AI's
   choices, the drop back that fills an empty kickoff -- goes into a list, and
@@ -1566,10 +1609,12 @@ defenders has none, and packs to its own content.
 
 ### The maneuver cards
 
-`d12ball/cards.py` draws the six maneuvers as cards. They exist because a
-selection d6 makes a coach hold the rules in their head: the die says "3-4" and
-the coach has to remember that is Dribble Advance if they have the ball and
-Steal Intercept if they do not, what it beats, and which role changes it.
+`d12ball/cards.py` draws the six maneuvers as cards. They exist because the
+selection d6 they replaced made a coach hold the rules in their head: the die
+said "3-4" and the coach had to remember that was Dribble Advance if they had
+the ball and Steal Intercept if they did not, what it beat, and which role
+changed it. The cards won outright on 2026-08-17 -- the die is off the rules
+altogether now.
 
 **One layout serves two things, on purpose.** `render_maneuver_card` is the
 print-ready face for the tabletop game -- 2.5 x 3.5in at 300dpi, plus one
@@ -1857,16 +1902,22 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
     loaders in `render.py` thumbnail to 26px and cache there, which is why
     `load_token_art` opens the file itself. A missing file leaves the silo
     empty rather than failing the board.
-- **No die value is printed anywhere.** Maneuvers are chosen with the cards, so
+- **No die value is printed anywhere, and since 2026-08-17 that is the rule
+  rather than a divergence from it.** Maneuvers are chosen with the cards, so
   the two selection d6s are off the team board and the head coach cell lists
-  the six maneuvers by rank (O1, D2) instead of by face. The **ruleset still
-  defines those dice** -- `basic_rules.json`, `TeamBoardDefinition`, and the
-  living rules' own component list -- so this is a divergence and not a
-  deletion: `draw_die_slot` reads `team_die` alone and says why, and a test
+  the six maneuvers by rank (O1, D2) instead of by face. The author retired
+  them from the rules outright, so the living rules no longer mention them
+  either -- see the dated entry in the rules log.
+  **The data and the code have not caught up.** `basic_rules.json` still
+  defines `head_coach_dice`, `TeamBoardDefinition` still holds them,
+  `maneuvers.json` still carries `die_values`, `ManeuverCatalog.offense_for_die`
+  / `defense_for_die` still map a face to a maneuver, and `DinkyAI` still picks
+  its maneuver by rolling a d6 through them. None of it reaches a coach, so
+  retiring it is a code change and not a rules one -- but the sheet still has
+  the column, so an import will keep writing it until the author drops it
+  upstream. `draw_die_slot` reads `team_die` alone and says why, and a test
   greps the module for `offense_die`/`die_values` because the data is still
-  right there to pick up again by accident. **If the selection die is retired
-  upstream, that is a rules change and wants its own commit** -- living rules,
-  a dated rules-log entry, and then the data.
+  right there to pick up again by accident.
 - **A3 landscape, all three, and that is a constraint rather than a
   preference.** Five of the team board's six cells have to hold a 3.5in card:
   two rows of them plus a header and a footer is 11.3 inches, which is most of

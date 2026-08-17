@@ -21,6 +21,7 @@ from cogs.d12ball_views import (
 from d12ball.cards import render_maneuver_hand
 from d12ball.components import (
     MatchState,
+    Zone,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -196,9 +197,16 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
 
         match = self.build_match()
         match.select_ball_handler(match.eligible_ball_handlers()[0])
+        if walk_in:
+            # A defender already on the ball is the whole of the
+            # challenge -- nobody may be walked in past them (see
+            # MatchState.challenge_candidates) -- and the kickoff space
+            # has one standing on it. Clear them out first.
+            for player_id in match.automatic_challengers():
+                match.move_meeple(player_id, Zone.VISITORS_GOAL, 0)
         challenger = next(
             player_id
-            for player_id in match.eligible_challengers()
+            for player_id in match.challenge_candidates()
             if (match.distance_to_ball(player_id) > 0) == walk_in
         )
         game.match_state = match.to_dict()

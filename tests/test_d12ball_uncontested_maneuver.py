@@ -31,6 +31,7 @@ from cogs.d12ball_views import (
     ManeuverActionPromptView,
     ManeuverActionSelectView,
     ManeuverChallengeView,
+    PlayerActionView,
 )
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
@@ -489,6 +490,90 @@ class DeclinedChallengeTests(unittest.IsolatedAsyncioTestCase):
             f"d12ball:challenge_decline:{game.game_id}",
             [item.custom_id for item in view.children],
         )
+
+
+class AutomaticChallengerTests(DeclinedChallengeTests):
+    """
+    A defender already standing on the ball challenges, and nobody may
+    be walked in past them. One of them is no choice at all; two is the
+    defending coach's (the author, 2026-08-17), since a challenge is
+    settled on defensive skill and they differ only in who they are.
+
+    Built on `DeclinedChallengeTests`' fixture -- home on the ball in
+    midfield with the visiting side standing off it -- which each test
+    here puts one or two defenders back onto.
+    """
+
+    def stand_on_the_ball(self, match: MatchState, count: int) -> list[str]:
+        movers = match.eligible_challengers()[:count]
+        for player_id in movers:
+            match.board.place_meeple(
+                player_id, match.ball.zone, match.ball.space_index,
+            )
+        self.assertEqual(len(match.automatic_challengers()), count)
+        return movers
+
+    def test_one_defender_on_the_ball_is_the_whole_choice(self) -> None:
+        cog, game, match = self.build()
+        (defender,) = self.stand_on_the_ball(match, 1)
+
+        self.assertEqual(match.challenge_candidates(), [defender])
+
+    def test_two_defenders_on_the_ball_are_both_offered(self) -> None:
+        cog, game, match = self.build()
+        defenders = self.stand_on_the_ball(match, 2)
+        game.match_state = match.to_dict()
+
+        self.assertEqual(sorted(match.challenge_candidates()), sorted(defenders))
+
+        # And the prompt offers those two and nothing else: no walk-in
+        # from elsewhere on the field, and no way out of the challenge.
+        view = ManeuverChallengeView(cog, game.game_id)
+        self.assertEqual(
+            sorted(
+                item.custom_id.rsplit(":", 1)[1] for item in view.children
+            ),
+            sorted(defenders),
+        )
+
+    def test_nobody_may_be_walked_in_past_them(self) -> None:
+        cog, game, match = self.build()
+        on_the_ball = self.stand_on_the_ball(match, 1)
+        outsider = next(
+            player_id
+            for player_id in match.visiting.field_players
+            if player_id not in on_the_ball
+            and match.board.meeple_position(player_id) is not None
+            and match.distance_to_ball(player_id) > 0
+        )
+
+        with self.assertRaises(ValueError):
+            match.choose_challenger(outsider)
+
+    async def test_two_on_the_ball_reach_the_prompt(self) -> None:
+        # One of them would be applied without asking; two is a pick,
+        # so the turn stops here and the defending coach is named.
+        cog, game, match = self.build()
+        defenders = self.stand_on_the_ball(match, 2)
+        match.challenger_id = None
+        match.pending_action = None
+        game.match_state = match.to_dict()
+
+        interaction = build_interaction(user_id=111)
+        interaction.guild = None
+        with mock.patch("cogs.d12ball_views.save_games"), \
+                mock.patch("cogs.d12ball.save_games"):
+            await PlayerActionView(cog, game.game_id).choose_action(
+                interaction, "maneuver", "Maneuver",
+            )
+
+        prompt = interaction.followup.send.await_args.args[0]
+        self.assertIn("already on the ball", prompt)
+        self.assertIsInstance(
+            interaction.followup.send.await_args.kwargs["view"],
+            ManeuverChallengeView,
+        )
+        self.assertIsNone(cog.load_match_state(game).challenger_id)
 
 
 if __name__ == "__main__":

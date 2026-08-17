@@ -984,7 +984,7 @@ class MatchState:
     # a Pressure, the stealer, the player a pass was aimed at. That
     # player takes their side's next turn instead of the coach picking
     # again off the ball's space. Cleared when the ball comes free, and
-    # consumed by select_ball_handler. See "The ball carrier" in
+    # consumed by select_ball_handler. See "Choosing the handler" in
     # docs/living-rules.md.
     ball_carrier_id: Optional[str] = None
     pending_action: Optional[str] = None
@@ -1571,16 +1571,36 @@ class MatchState:
     def automatic_challengers(self) -> list[str]:
         """
         Eligible challengers already standing on the ball's own space.
-        They challenge without being asked, and theirs is the one
-        challenge a defense may not decline: declining is a refusal to
-        pay the walk-in's exhaustion, and they have no walk-in to pay
-        for -- see "Maneuvers" in docs/living-rules.md.
+        Theirs is the one challenge a defense may not decline:
+        declining is a refusal to pay the walk-in's exhaustion, and
+        they have no walk-in to pay for -- see "Maneuvers" in
+        docs/living-rules.md.
         """
         return [
             player_id
             for player_id in self.eligible_challengers()
             if self.distance_to_ball(player_id) == 0
         ]
+
+    def challenge_candidates(self) -> list[str]:
+        """
+        Who the defending coach may put up against the maneuver, which
+        is one of two pools and never a mixture of them.
+
+        **A defender already on the ball challenges**, so where there
+        are any, they are the whole of the choice: the defense may not
+        walk somebody else in past a player who is standing on the ball
+        already, and may not decline (see may_decline_challenge). With
+        nobody there it is the ordinary send, from the nearest players
+        either side of the space.
+
+        The coach picks between two defenders on the ball the same way
+        they pick between two players tied for nearest -- they differ
+        only in who they are, and a challenge is settled on defensive
+        skill (the author, 2026-08-17). One of them is not a choice at
+        all, which is why the prompt is skipped there.
+        """
+        return self.automatic_challengers() or self.eligible_challengers()
 
     def may_decline_challenge(self) -> bool:
         """
@@ -1853,7 +1873,7 @@ class MatchState:
         """
         if self.challenger_id is not None:
             raise ValueError("A defender has already been chosen.")
-        if player_id not in self.eligible_challengers():
+        if player_id not in self.challenge_candidates():
             raise ValueError(
                 "The selected player cannot challenge for the ball."
             )
@@ -2241,28 +2261,44 @@ class MatchState:
                 displaced.append(player_id)
         return displaced
 
-    def crowded_players(self, side: TeamSide) -> list[str]:
+    def crowded_candidates(self, side: TeamSide) -> list[str]:
         """
-        That side's zone-native fielded players sharing a space with a
-        teammate assigned to the same zone, beyond the first such
-        player at each space -- run-back has to spread these out too,
-        not just the players displaced_players() finds outside their
-        zone, so a zone's spaces stay covered as fully as possible.
-        `pending_run_back_stays_player_id`, if one of the pair, is
-        preferred as the one who stays (see begin_run_back). Capped to
-        each zone's currently uncovered spaces, which is what the
-        coverage rule asks for: a stack only has to break up while
-        some space in the zone still has nobody on it, so a formation
-        that puts more players in a zone than it has spaces (2-3-1 or
-        1-3-2 on a six-space board) settles with the surplus doubled
-        up and nobody moving.
+        Who could be the next of `side` to run back out of a stack --
+        every one of their zone-native fielded players sharing a space
+        with a teammate assigned to the same zone, in a zone that still
+        has a space nobody of theirs is standing on. Run-back has to
+        spread these out as well as the players displaced_players()
+        finds outside their zone, so a zone's spaces stay covered as
+        fully as possible.
+
+        **It offers the whole stack rather than picking out of it**,
+        because which of two teammates on one space runs back is the
+        coach's call (the author, 2026-08-17; see "Running back after a
+        steal" in docs/living-rules.md). It used to keep whoever the
+        space's occupant list happened to start with -- placement
+        order, so effectively arbitrary -- and hand the rest to the run
+        back with nobody asked. The one player never offered is the
+        ball's holder (`pending_run_back_stays_player_id`), who does not
+        run back at all: a pair holding the ball between them is
+        therefore one candidate and no choice, which is the same answer
+        the old reading gave.
+
+        Only one of them moves per pass and the caller asks again, so
+        a zone with two uncovered spaces breaks its stack up twice and
+        the coach chooses both times. A zone with none is left alone,
+        which is what the coverage rule asks for: a stack only has to
+        break up while some space in the zone still has nobody on it,
+        so a formation that puts more players in a zone than it has
+        spaces (2-3-1 or 1-3-2 on a six-space board) settles with the
+        surplus doubled up and nobody moving.
         """
         stays_player_id = self.pending_run_back_stays_player_id
         setup = self.setup_for_side(side)
         team_players = set(setup.field_players)
-        movers: list[str] = []
+        candidates: list[str] = []
         for zone in Zone:
-            extra: list[str] = []
+            if not self.open_spaces_in_zone(side, zone):
+                continue
             for occupants in self.board.spaces[zone]:
                 zone_native = [
                     player_id
@@ -2272,13 +2308,12 @@ class MatchState:
                 ]
                 if len(zone_native) < 2:
                     continue
-                if stays_player_id in zone_native:
-                    zone_native.remove(stays_player_id)
-                    zone_native.insert(0, stays_player_id)
-                extra.extend(zone_native[1:])
-            open_spaces = len(self.open_spaces_in_zone(side, zone))
-            movers.extend(extra[:open_spaces])
-        return movers
+                candidates.extend(
+                    player_id
+                    for player_id in zone_native
+                    if player_id != stays_player_id
+                )
+        return candidates
 
     def open_spaces_in_zone(self, side: TeamSide, zone: Zone) -> list[int]:
         """

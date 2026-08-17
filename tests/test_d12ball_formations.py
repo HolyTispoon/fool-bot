@@ -38,7 +38,9 @@ from d12ball.components import (
     setup_space_order,
     validate_assignment,
 )
+from d12ball.ai import build_ai_strategies
 from d12ball.game import (
+    AIOpponent,
     D12BallGame,
     Formation,
     GameStatus,
@@ -562,19 +564,48 @@ class CoverageRuleTests(unittest.TestCase):
             board_size=6, home_formation=Formation.TWO_THREE_ONE,
         )
 
-        self.assertEqual(match.crowded_players(TeamSide.HOME), [])
+        self.assertEqual(match.crowded_candidates(TeamSide.HOME), [])
 
         # Pile all three onto one space of board 9's three-space
-        # midfield and two of them are crowded -- as many as the free
-        # spaces they can spread into, no more.
+        # midfield and all three are candidates: the zone has spaces
+        # free, so somebody has to move, and which of them is the
+        # coach's call. One goes per pass and the question is asked
+        # again, so the second free space is a second choice rather
+        # than two players picked at once.
         roomier = self.build_match(
             board_size=9, home_formation=Formation.TWO_THREE_ONE,
         )
-        for player_id in roomier.home.zones[Zone.MIDFIELD]:
+        midfield = list(roomier.home.zones[Zone.MIDFIELD])
+        for player_id in midfield:
             roomier.board.remove_meeple(player_id)
             roomier.board.place_meeple(player_id, Zone.MIDFIELD, 0)
 
-        self.assertEqual(len(roomier.crowded_players(TeamSide.HOME)), 2)
+        self.assertEqual(
+            sorted(roomier.crowded_candidates(TeamSide.HOME)),
+            sorted(midfield),
+        )
+
+    def test_dinky_sends_the_freshest_of_a_stack_back(self) -> None:
+        # A coach picks; an AI has to have an answer, and running back
+        # costs a token a space, so Dinky spends the player who is
+        # carrying the fewest.
+        match = self.build_match()
+        midfield = list(match.home.zones[Zone.MIDFIELD])
+        for player_id in midfield:
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
+        match.add_exhaustion(midfield[0], 3)
+
+        strategy = build_ai_strategies(
+            self.catalog, load_maneuver_catalog(),
+        )[AIOpponent.DINKY]
+
+        self.assertEqual(
+            strategy.choose_run_back_player(
+                match, match.crowded_candidates(TeamSide.HOME),
+            ),
+            midfield[1],
+        )
 
     def test_a_coaching_choice_never_leaves_a_space_uncovered(
         self,
