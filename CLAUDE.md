@@ -152,10 +152,12 @@ zones are deeper than 2-2-2 fills them. A goal zone's two cards take its two
 end spaces and midfield clumps toward that side's own goal, so home deals H1,
 H3, M1, M2, V1, V3 (see "Setup" in the living rules, and the 2026-08-12 entry
 in the rules log). The clumped half is not an oversight: the kickoff space is
-in midfield and the side kicking off has to be standing on one, so spreading
-two cards over a three-space midfield would empty the middle and hold the coach
-in the setup window (`coaching_finish_refusal`). That is why the function takes
-the zone. **This is the standard deal only**; a formation change re-deals through
+in midfield and **every** arrangement has to cover its own side's (2026-08-16,
+and before that only the side kicking off), so spreading two cards over a
+three-space midfield would empty the middle and hold the coach in the window
+(`coaching_finish_refusal`). That is why the function takes the zone. Packing
+from a side's own end is what makes the deal and all five formations satisfy
+that rule for free. **This is the standard deal only**; a formation change re-deals through
 `formation_space_order`, which packs and then stacks.
 
 - **The shapes live in two places on purpose.** `Formation` in `d12ball/game.py`
@@ -309,10 +311,25 @@ everything but how it was bought.
   same way for the same reason. Every other occasion has three more actions to
   fall back on, so none of them skips. It is a genuinely rare state -- see
   "Who may come on is one question, not six" above.
-- **The kickoff space is the only thing that can hold a coach in the flow.**
-  `coaching_finish_refusal` refuses Done until the side kicking off the coming
-  period has somebody on it. An AI has no menu to be held in, so
+- **The kickoff space is the only thing that can hold a coach in the flow, and
+  since 2026-08-16 it holds every coach in every window.**
+  `coaching_finish_refusal` refuses Done until *this* side has somebody on
+  *their own* kickoff space -- `MatchState.kickoff_space_for`, read off the
+  rule rather than off the ball, since an arrangement is set in windows where
+  the ball is elsewhere. It used to ask only the side kicking off the coming
+  period, and only at setup and halftime; it is now a property of an
+  arrangement, which is what lets a goal restart without the conceding side
+  dropping somebody back and paying for it. Full time is exempt because it
+  positions nobody (`offers_positioning`). An AI has no menu to be held in, so
   `cover_kickoff_space` does the same job at the end of its window.
+  - **The standard deal and all five formations already satisfy it** -- a
+    midfield packed from a side's own end always reaches that side's kickoff
+    space, on every board -- so this costs a coach nothing until they use
+    space positioning to empty it deliberately. Board 6 is the only board
+    where the two sides cover *different* spaces.
+  - **`pending_kickoff_fill` survives as a fallback, not as a rule.** A game
+    saved before this landed can hold an arrangement that leaves the space
+    empty, and both developers run the bot against their own saves.
 - **`LEGACY_HALFTIME_STAGES` is not dead weight.** Halftime used to run
   substitutions and any-zone repositioning as two stages a side; a game saved
   in either resumes at that side's hub. `from_dict` reads the old
@@ -320,17 +337,61 @@ everything but how it was bought.
   bot from their own tree against their own saves, so a half-finished game
   outlives the change that renamed things.
 
+## Sending a player
+
+Four rules ask a coach to send somebody to the ball's space, and since
+2026-08-16 they ask it the same way: **the nearest player either side of the
+space, from any zone**. `MatchState.contest_candidates` is the whole of it --
+see "Sending a player" in the living rules -- and the four are the maneuver
+challenge (`eligible_challengers`), the loose ball (`loose_ball_candidates`),
+the long High Pass contest (which borrows the loose ball's), and the pickup
+after an out-of-bounds or ceded ball (`begin_ball_recovery`,
+`recover_out_of_bounds_ball`).
+
+- **Distance is the measure, and it always was -- the zone was a second gate
+  on top of it.** Every one of these charges a token a space, so a defender
+  two spaces away was being refused a challenge a defender four spaces away in
+  the same zone was offered. Zone now decides where a player *lives* -- the
+  arrangement, the run back, `position_meeple` -- and nothing about what they
+  may be sent to do. `fielded_players_in_zone` is gone; don't bring it back.
+- **Two candidates, and a tie is every player tied.** Two players the same
+  distance off on the same side differ only in who they are, which is the
+  coach's call, so the function returns them all rather than picking. It
+  iterates `field_players` rather than the board or a set, because the buttons
+  a coach is offered have to come back in the same order twice.
+- **Anyone already on the space is a candidate at distance 0**, and is never
+  actually sent: `automatic_challengers` filters them out of the pool (and
+  would have nothing to filter otherwise), the High Pass contest forces them,
+  and `eligible_ball_handlers` catches them before a pickup is asked for at
+  all.
+- **Two branches are now guards rather than states.** An empty candidate list
+  means a side with no meeples on the board, which `validate()` rejects -- so
+  "nobody in the zone to challenge" and "neither side has anyone to send" are
+  unreachable from a game that loads, and an unchallenged maneuver and an
+  out-of-bounds ball are reached by declining and by nothing else. The
+  branches stay: without them the flow builds a prompt with no buttons on it.
+- **The walk-in is no longer bounded by geometry** -- up to eight spaces on
+  board 9, which is past every player's defensive skill. That is the point of
+  the decline, and it is why `DinkyAI` sends the *nearest* candidate in all
+  four rather than the best. `choose_loose_ball_player` took the higher skill
+  until this landed and now takes distance first; it needs the match to know
+  one, which is why it grew a parameter.
+
 ## The maneuver with nobody to challenge it
 
 A maneuver normally needs two players. When the defense has no challenger the
 maneuver the offense picks succeeds outright -- see "Maneuvers" in the living
 rules. `MatchState`'s `maneuver_uncontested` is the whole of it.
 
-**There are two ways to have no challenger and they are deliberately one
-state.** The defense has nobody in the ball's zone, or it has somebody and
-**sends nobody**: walking in costs 1 token per space, and since 2026-08-12
-paying it is a choice. `begin_uncontested_maneuver` is the only way in either
-way, so nothing downstream has to know which happened.
+**Sending nobody is the way in, and since 2026-08-16 it is the only one.**
+Walking in costs 1 token per space, and since 2026-08-12 paying it is a
+choice. There used to be a second way -- the defense with nobody in the
+ball's zone -- and the two were deliberately one state; the zone is no longer
+the measure (see [Sending a player](#sending-a-player)), so a side with a
+meeple anywhere on the board has somebody to send, and a side with none is a
+match `validate()` refuses. The no-candidate branches are still there as
+guards. `begin_uncontested_maneuver` is the only way in either way, so
+nothing downstream has to know which happened.
 
 - **Exhaustion is where the line is drawn**, which is why the choice is not
   offered to everybody. A defender already standing on the ball pays nothing
@@ -342,11 +403,14 @@ way, so nothing downstream has to know which happened.
   before it builds the Send nobody button. The view is normally only built
   where the choice is real; a restart can re-attach it to a prompt saved
   before a defender walked onto the ball, which is the state that check is for.
-- **Which way it happened is read off the zone, never stored.** Anybody still
-  eligible to challenge means the defense was offered the challenge and passed,
-  since a defense with nobody there is never asked. `announce_uncontested_maneuver`
-  and the "no defensive maneuver to pick" reply both word themselves from that,
-  so nothing has to be persisted to word a message after a restart.
+- **Which way it happened is read off the candidates, never stored.** Anybody
+  still eligible to challenge means the defense was offered the challenge and
+  passed, since a defense with nobody to send is never asked.
+  `announce_uncontested_maneuver` and the "no defensive maneuver to pick" reply
+  both word themselves from that, so nothing has to be persisted to word a
+  message after a restart. Both branches survive the 2026-08-16 change even
+  though one of them is now practically unreachable -- the wording asks the
+  state rather than knowing the answer.
 - **Dinky never declines.** `choose_challenger` still returns a player, so in a
   solo game keeping somebody back is the human's option alone -- the same call
   as never ceding and never leaving a loose ball uncontested.
@@ -766,7 +830,9 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
 A loose ball is announced **with the board under it and the space named**, and
 those two are one decision: the ball is lying somewhere nothing else in the
 channel has named, and the question that immediately follows -- who to send
-after it -- is a question about how far away everybody is.
+after it -- is a question about how far away everybody is. Who a coach may
+send is [Sending a player](#sending-a-player), the same pool a challenge and a
+pickup use.
 
 - **`begin_loose_ball` posts through `announce_board_update`**, which is why
   that helper is no longer only for manual corrections. The snapshot is drawn
@@ -989,10 +1055,18 @@ players back nor restarts play: the ball stays where it was given up, at speed
   same occasion (`finish_substitution_window` passes the occasion through
   rather than defaulting to `NEW_PLAY`), and neither coach is asked -- see
   `asks_declaration` under "The Coaching Choice".
+- **A cede is a new play in everything but how it was bought**, and it arrives
+  there without a reset of its own: both coaches take a window, and a window
+  opens on its own coach's arrangement, so by the time `finish_cede` runs both
+  sides are standing where a new play's reset would have put them. Don't add a
+  `restore_assigned_positions` to make it look like one -- it would be a no-op
+  over an arrangement the windows have already recorded.
 - **The tail is the out-of-bounds pickup, not the loose-ball check.** The
   receiving side's arrangement covers their zones, not wherever open play left
   the ball, so usually nobody is standing on it; `finish_cede` sends them to
-  fetch it at the usual token a space. Routing it through
+  fetch it at the usual token a space -- the nearest player either side of it,
+  since 2026-08-16 (see [Sending a player](#sending-a-player)). Routing it
+  through
   `check_for_loose_ball` instead would let the side that ceded contest the ball
   back -- and, with one of their meeples still on it, take it back
   uncontested, having bought a window for nothing. The author settled this on

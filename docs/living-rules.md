@@ -44,11 +44,19 @@ A team is in **shooting range** when the ball is past the board's middle toward 
 | 7 | H1, H2, M1 | M2 | M3, V1, V2 |
 | 9 | H1, H2, H3, M1 | M2 | M3, V1, V2, V3 |
 
-Kickoff is the middle space on boards 7 and 9. On board 6, it is the midfield space nearer the kicking team's own goal. A restart never starts in the kicking team's range.
+Kickoff is the middle space on boards 7 and 9. On board 6, it is the midfield space nearer the kicking team's own goal—so each side has its own kickoff space there, and one shared space on 7 and 9. A restart never starts in the kicking team's range. Every [arrangement covers its side's kickoff space](#coaching-choice).
 
 ### Occupancy
 
 Meeples may share spaces freely in ordinary play. Deliberate placement—at a Coaching Choice or during a run back—uses **coverage**: a team must cover every space in a zone it occupies before stacking another of its meeples there. Check coverage separately for each team.
+
+### Sending a player
+
+Four rules ask a coach to **send a player** to a space: a maneuver [challenge](#1-determine-the-players), a [loose ball](#loose-ball), a long [High Pass](#high-pass) contest, and the required pickup after an out-of-bounds or [ceded](#ceding-the-ball) ball. Zone does not matter; distance does.
+
+The coach may send either of two players: their own player nearest the space in front of it, and their own player nearest behind it—the two directions along the field, measured from the space itself. Where two or more are tied for nearest on one side, the coach chooses between them. A player already on the space is not sent: they are there already, and where the rule makes that player act, there is nothing to choose.
+
+A sent player moves onto the space and gains 1 token per space traveled. Sending nobody is legal wherever the rule offers it. Nothing brings a sent player home again: they stay where the contest left them until a turnover [runs them back](#running-back-after-a-steal) or [resets](#resetting-after-a-new-play) them.
 
 ### Teams and roles
 
@@ -83,8 +91,8 @@ The ball is a d12; its face is speed. Coaches use an action-selection d6 for sec
 
 1. Choose a 6-, 7-, or 9-space board.
 2. Toss a coin. Fortune gives the toss to the flipping coach; doom to the opponent. The winner chooses home or visitors. Home kicks off first; visitors kick off the second half.
-3. Deal both sides into **2-2-2**: Fullback + Defender in own goal; Midfielder + Playmaker in midfield; Winger + Striker in opponent goal. The other Defender, Playmaker, and Striker go to the bench. Place meeples using coverage: a goal zone's pair takes its two end spaces, and midfield clumps toward that side's own goal so the kicking side covers kickoff. On board 9 home deals H1, H3, M1, M2, V1, V3 — Defender on H3, Striker on V3, Midfielder on M1, Playmaker on M2 — and the visitors the mirror of it.
-4. Home, then visitors, take a [Coaching Choice](#coaching-choice). Setup substitutions are unlimited and return players to the bench. Home finishes with a player on kickoff. Final positions become each side's first arrangement.
+3. Deal both sides into **2-2-2**: Fullback + Defender in own goal; Midfielder + Playmaker in midfield; Winger + Striker in opponent goal. The other Defender, Playmaker, and Striker go to the bench. Place meeples using coverage: a goal zone's pair takes its two end spaces, and midfield clumps toward that side's own goal so each side covers its own kickoff space. On board 9 home deals H1, H3, M1, M2, V1, V3 — Defender on H3, Striker on V3, Midfielder on M1, Playmaker on M2 — and the visitors the mirror of it.
+4. Home, then visitors, take a [Coaching Choice](#coaching-choice). Setup substitutions are unlimited and return players to the bench. Each coach finishes with a player on their own kickoff space. Final positions become each side's first arrangement.
 5. Put the ball, speed 1, on kickoff in home possession. Set clock to 0.
 
 ## The turn
@@ -123,7 +131,7 @@ Time costs one minute per space to the attacked end, including the starting spac
 
 ### 1. Determine the players
 
-The attacker is a possessing-team player on the ball. An opposing player already on the ball challenges automatically—it costs them nothing, so it is not declined. Otherwise defense **may** choose a player in the ball's zone, who moves to the ball and gains 1 token per space, or send nobody rather than pay for the challenge. With no challenger—nobody in the zone, or nobody sent—offense chooses and resolves a maneuver with no reveal or test.
+The attacker is a possessing-team player on the ball. An opposing player already on the ball challenges automatically—it costs them nothing, so it is not declined. Otherwise defense **may** [send a player](#sending-a-player), or send nobody rather than pay for the challenge. With no challenger, offense chooses and resolves a maneuver with no reveal or test.
 
 ### 2. Select and reveal
 
@@ -211,9 +219,9 @@ Add speed only to a score attempt, a Steal Intercept test (defender), or a long 
 After every maneuver, the ball is loose if no possessing-team player is on it.
 
 1. **Only opponent present:** they take it immediately.
-2. **Empty; both sides can send:** last possessor decides first whether to send a zone player, then other coach decides. Sent players pay 1 token per space. If both arrive, roll a skill test: former possessor offense, other side defense.
-3. **Empty; only one sends:** that player recovers without a test.
-4. **Nobody sends or neither has a zone player:** out of bounds. Other side gains a new play, then moves any field player to the ball from anywhere for 1 token per space.
+2. **Empty:** last possessor decides first whether to [send a player](#sending-a-player), then the other coach decides. If both send, roll a skill test: former possessor offense, other side defense.
+3. **Only one sends:** that player recovers without a test.
+4. **Neither sends:** out of bounds. Other side gains a new play, and once everyone has reset [sends a player](#sending-a-player) to the ball unless one of theirs is already on it.
 
 Sending nobody is always legal. A loose-ball win by the non-possessing side is a steal, except out of bounds, which is a new play.
 
@@ -253,7 +261,7 @@ An avoided own goal is the one entry above where possession doesn't change—the
 
 ### Resetting after a new play
 
-Return every fielded meeple to its saved arrangement, free and before Coaching Choices. A run back never changes an arrangement. After a goal, conceding side must also put a player on kickoff, paying 1 token per space. After out of bounds, gaining side makes its required pickup after reset.
+Return every fielded meeple to its saved arrangement, free and before Coaching Choices. A run back never changes an arrangement. After a goal the conceding side kicks off from its own kickoff space, which its arrangement already covers, so nobody has to be moved. After out of bounds or a cede, the gaining side makes its required pickup after the reset.
 
 ### Running back after a steal
 
@@ -263,7 +271,7 @@ Every non-carrier returns to any space in its card's zone, paying 1 token per sp
 
 Outside range, the possessing side may cede rather than maneuver. Two conditions, both required: they are out of range, and they still hold their once-per-half declaration. So a side that has already declared this half cannot cede, and a side that cedes cannot declare for the rest of it. Nothing else has to be true—a side with nobody left to bring on may still cede, since the window is the whole Coaching Choice and not the substitution alone.
 
-Ceding spends that declaration; gives other side possession on same space at speed 1; costs no time and causes no run back; and opens Coaching Choices for ceding side then receiving side, using ordinary half allowances. After both windows, receiving side must move a field player onto an unattended ball, paying 1 token per space.
+Ceding spends that declaration; gives other side possession on same space at speed 1; costs no time and causes no run back; and opens Coaching Choices for ceding side then receiving side, using ordinary half allowances. Both windows restore their own coach's arrangement, so a cede restarts from the same positions a new play would. After them, the receiving side [sends a player](#sending-a-player) to the unattended ball unless one of theirs is already on it.
 
 In last possession, ceding ends the period and opens no windows.
 
@@ -295,7 +303,7 @@ At halftime, every fielded player loses 1 token, then each coach chooses one pla
 
 ## Coaching Choice
 
-A Coaching Choice is a free pause. Take any number of actions in any order, then finish. It cannot put a meeple outside its card's zone or violate [coverage](#occupancy). Final positions become the arrangement—but only where the coach positioned something. A side that makes no positional change keeps the arrangement it already had, whatever open play left its meeples standing on. So a scramble never becomes a shape by default; it takes a coach to set one.
+A Coaching Choice is a free pause. Take any number of actions in any order, then finish. It cannot put a meeple outside its card's zone, violate [coverage](#occupancy), or leave that side's [kickoff space](#field-direction-and-shooting-range) empty—**every arrangement covers its own kickoff space**, in every window and either half, which is what lets a restart kick off without moving anyone. The standard deal and every formation already satisfy it; only free positioning can break it, and a coach who has cannot finish until they undo it. Final positions become the arrangement—but only where the coach positioned something. A side that makes no positional change keeps the arrangement it already had, whatever open play left its meeples standing on. So a scramble never becomes a shape by default; it takes a coach to set one.
 
 | Action | Rule |
 | --- | --- |
@@ -346,7 +354,7 @@ When the clock reaches the period's last minute—15 in the first half, 30 in th
 
 ### Halftime and full time
 
-At halftime: apply recovery; visitors then home take Coaching Choices with two separate substitutions each; visitors finish with a player on kickoff; visitors start second half there at speed 1. **The second half starts at 16** however far past 15 the first half ran, so minutes 16 and up occur twice in a game—once in the first half's last possession, once in the second half proper.
+At halftime: apply recovery; visitors then home take Coaching Choices with two separate substitutions each, each finishing with a player on their own kickoff space; visitors start second half on theirs at speed 1. **The second half starts at 16** however far past 15 the first half ran, so minutes 16 and up occur twice in a game—once in the first half's last possession, once in the second half proper.
 
 At full time, higher score wins. If tied, home then visitors take one-substitution shootout windows.
 

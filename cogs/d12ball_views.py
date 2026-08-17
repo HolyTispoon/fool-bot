@@ -1220,8 +1220,10 @@ class PlayerActionView(SafeView):
             )
             return
 
-        # Nobody in the ball's zone to challenge with: the maneuver
-        # succeeds automatically, and the offense still picks which one
+        # Nobody left to challenge with at all -- a side with a meeple
+        # anywhere on the board has a candidate, so this needs an empty
+        # field: the maneuver succeeds automatically and the offense
+        # still picks which one
         # (docs/living-rules.md, "Maneuvers"). There is no challenger to
         # choose and nothing for the defense to do, so this skips
         # straight to the offense's pick. A defense that is offered a
@@ -1410,12 +1412,13 @@ class CedeConfirmView(SafeView):
 
 class ManeuverChallengeView(SafeView):
     """
-    Who the defense sends in to challenge -- or nobody. Walking in
-    costs 1 token per space, and the author's 2026-08-12 ruling is that
-    a defense may refuse to pay it and let the maneuver through; see
-    "Maneuvers" in docs/living-rules.md. A defender already on the ball
-    pays nothing and so challenges automatically, without ever reaching
-    this prompt.
+    Who the defense sends in to challenge -- or nobody. The candidates
+    are the nearest defender either side of the ball, from any zone
+    (see "Sending a player" in docs/living-rules.md). Walking in costs
+    1 token per space, and the author's 2026-08-12 ruling is that a
+    defense may refuse to pay it and let the maneuver through. A
+    defender already on the ball pays nothing and so challenges
+    automatically, without ever reaching this prompt.
     """
 
     def __init__(
@@ -1570,7 +1573,7 @@ class ManeuverChallengeView(SafeView):
     async def decline(self, interaction: discord.Interaction) -> None:
         """
         Send nobody: the maneuver goes unchallenged, exactly as it does
-        when the defense had nobody in the zone to send. Nothing moves
+        when the defense has nobody to send at all. Nothing moves
         and nobody is charged, so there is no board to refresh -- the
         one thing a challenge would have cost is the walk-in this
         refuses to pay.
@@ -1656,14 +1659,14 @@ class ManeuverActionPromptView(SafeView):
             side = "defense"
         elif is_defense_player and match.maneuver_uncontested:
             # Which way this side ended up unchallenged is read off the
-            # zone, the same way announce_uncontested_maneuver reads it
-            # -- somebody still standing there means they were offered
-            # the challenge and sent nobody.
+            # candidates, the same way announce_uncontested_maneuver
+            # reads it -- anybody still eligible means they were
+            # offered the challenge and sent nobody.
             await interaction.response.send_message(
                 (
                     "You sent nobody in to challenge"
                     if match.eligible_challengers()
-                    else "You have nobody in the ball's zone"
+                    else "You have nobody left to challenge with"
                 )
                 + ", so there is no defensive maneuver to pick.",
                 ephemeral=True,
@@ -4411,7 +4414,9 @@ class HalftimeExtraTokenView(HalftimeView):
 class LooseBallChoiceView(SafeView):
     """
     Who one side sends after a loose ball, plus the option of sending
-    nobody.
+    nobody. The candidates are the nearest player either side of the
+    ball, from any zone (see "Sending a player" in
+    docs/living-rules.md).
 
     One side at a time, the team that last had possession first: they
     are the ones losing the ball, and offering both at once let
@@ -4599,10 +4604,11 @@ class LooseBallChoiceView(SafeView):
 
 class BallRecoveryView(SafeView):
     """
-    Which fielded player goes and picks up an out-of-bounds ball,
-    offered to the side that won it once the run back is done -- any
-    of them, from anywhere on the field, at one exhaustion token per
-    space traveled (see D12Ball.begin_ball_recovery).
+    Which player goes and picks up an out-of-bounds or ceded ball,
+    offered to the side that won it once everyone is back on their
+    arrangement -- the nearest either side of it, from any zone, at one
+    exhaustion token per space traveled (see "Sending a player" in
+    docs/living-rules.md, and D12Ball.begin_ball_recovery).
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -4616,7 +4622,7 @@ class BallRecoveryView(SafeView):
         match = cog.load_match_state(game)
         side = match.ball.possession
 
-        for player_id in match.setup_for_side(side).field_players:
+        for player_id in match.contest_candidates(side):
             player = cog.get_player_definition(player_id)
             initials = ROLE_INITIALS[player.role.value]
             distance = match.distance_to_ball(player_id)

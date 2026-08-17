@@ -146,11 +146,13 @@ class AIStrategy(ABC):
     @abstractmethod
     def choose_loose_ball_player(
         self,
+        match: MatchState,
         candidates: list[str],
         skill_type: str,
     ) -> str:
-        """Which zone-mate contests a loose ball; skill_type is
-        "offense" or "defense", matching the skill the test uses."""
+        """Which of the nearest players contests a loose ball;
+        skill_type is "offense" or "defense", matching the skill the
+        test uses. `match` is what puts a distance on a candidate."""
         ...
 
     @abstractmethod
@@ -377,13 +379,24 @@ class DinkyAI(AIStrategy):
 
     def choose_loose_ball_player(
         self,
+        match: MatchState,
         candidates: list[str],
         skill_type: str,
     ) -> str:
-        """The candidate with the higher skill of whichever type this
-        side rolls with."""
+        """
+        The nearest candidate, with ties broken in favour of the
+        higher skill of whichever type this side rolls with.
 
-        def sort_key(player_id: str) -> int:
+        It used to be the higher skill outright, which was a fair read
+        of a pool that was the whole of a zone. Since 2026-08-16 the
+        pool is the nearest player either side of the ball, so the
+        choice is a token or three against a point or two of skill --
+        a trade Dinky has no way to price, and the cheap end of it is
+        what keeps its side off the Exhausted list. Same answer as
+        every other player it sends anywhere.
+        """
+
+        def sort_key(player_id: str) -> tuple[int, int]:
             profile = self.player_catalog.effective_profile(
                 self.player_catalog.player_by_id(player_id)
             )
@@ -391,7 +404,7 @@ class DinkyAI(AIStrategy):
                 profile.offense if skill_type == "offense"
                 else profile.defense
             )
-            return -skill
+            return (match.distance_to_ball(player_id), -skill)
 
         return min(candidates, key=sort_key)
 
