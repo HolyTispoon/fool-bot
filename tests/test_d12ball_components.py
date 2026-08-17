@@ -165,18 +165,18 @@ class D12BallComponentTests(unittest.TestCase):
         )
         self.assertEqual(
             setup.zones[Zone.MIDFIELD],
-            ["orange_sizzik", "orange_scorchit"],
+            ["orange_scorchit", "orange_sizzifizik"],
         )
         self.assertEqual(
             setup.zones[Zone.VISITORS_GOAL],
-            ["orange_flickerwing", "orange_kindlefoot"],
+            ["orange_flickerwing", "orange_kindlefinger"],
         )
         self.assertEqual(
             setup.team_board.bench,
             [
                 "orange_inferno",
-                "orange_blazekick",
                 "orange_emberdash",
+                "orange_brightburn",
             ],
         )
         self.assertEqual(setup.assignment_edge, AssignmentEdge.BELOW)
@@ -265,15 +265,15 @@ class D12BallComponentTests(unittest.TestCase):
             (Zone.HOME_GOAL, 1),
         )
         self.assertEqual(
-            match.board.meeple_position("orange_sizzik"),
+            match.board.meeple_position("orange_scorchit"),
             (Zone.MIDFIELD, 0),
         )
         self.assertEqual(
-            match.board.meeple_position("orange_scorchit"),
+            match.board.meeple_position("orange_sizzifizik"),
             (Zone.MIDFIELD, 1),
         )
         self.assertEqual(
-            match.board.meeple_position("orange_kindlefoot"),
+            match.board.meeple_position("orange_kindlefinger"),
             (Zone.VISITORS_GOAL, 1),
         )
         self.assertEqual(
@@ -298,7 +298,7 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertEqual(match.ball.speed, 1)
         self.assertEqual(
             match.eligible_ball_handlers(),
-            ["orange_scorchit"],
+            ["orange_sizzifizik"],
         )
         self.assertEqual(match.scoreboard.home_score, 0)
         self.assertEqual(match.scoreboard.visiting_score, 0)
@@ -313,25 +313,25 @@ class D12BallComponentTests(unittest.TestCase):
             visiting_team=Team.TEAL,
         )
         match.move_meeple(
-            "orange_sizzik",
+            "orange_scorchit",
             Zone.MIDFIELD,
             1,
         )
 
         self.assertEqual(
             match.eligible_ball_handlers(),
-            ["orange_scorchit", "orange_sizzik"],
+            ["orange_sizzifizik", "orange_scorchit"],
         )
         with self.assertRaises(ValueError):
             match.select_ball_handler("teal_synapse")
 
-        match.select_ball_handler("orange_sizzik")
+        match.select_ball_handler("orange_scorchit")
         match.validate(self.catalog)
         restored = MatchState.from_dict(
             match.to_dict(),
             self.rules,
         )
-        self.assertEqual(restored.active_player_id, "orange_sizzik")
+        self.assertEqual(restored.active_player_id, "orange_scorchit")
 
     def test_a_game_saved_as_player_board_still_loads(self) -> None:
         """
@@ -452,7 +452,7 @@ class D12BallComponentTests(unittest.TestCase):
             match.home.team_board.bench,
         )
 
-        for outgoing in ("orange_hellguard", "orange_sizzik", "orange_scorchit"):
+        for outgoing in ("orange_hellguard", "orange_scorchit", "orange_sizzifizik"):
             match.substitute(
                 TeamSide.HOME,
                 outgoing,
@@ -474,12 +474,12 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_injured_players_never_come_back(self) -> None:
         match = self.standard_match()
-        injured = "orange_kindlefoot"
+        injured = "orange_kindlefinger"
         match.mark_injured(injured)
         match.substitute(
             TeamSide.HOME, injured, match.home.team_board.bench[0],
         )
-        for outgoing in ("orange_hellguard", "orange_sizzik"):
+        for outgoing in ("orange_hellguard", "orange_scorchit"):
             match.substitute(
                 TeamSide.HOME,
                 outgoing,
@@ -495,13 +495,13 @@ class D12BallComponentTests(unittest.TestCase):
         self.assertNotIn(injured, pool)
         self.assertEqual(len(pool), 2)
         with self.assertRaises(ValueError):
-            match.substitute(TeamSide.HOME, "orange_scorchit", injured)
+            match.substitute(TeamSide.HOME, "orange_sizzifizik", injured)
 
     def test_nobody_to_bring_on_takes_both_benches(self) -> None:
         # The only way a side runs out: the bench drained, and every
         # one of the three who came off went off injured.
         match = self.standard_match()
-        for outgoing in ("orange_hellguard", "orange_sizzik", "orange_scorchit"):
+        for outgoing in ("orange_hellguard", "orange_scorchit", "orange_sizzifizik"):
             match.mark_injured(outgoing)
             match.substitute(
                 TeamSide.HOME,
@@ -523,14 +523,14 @@ class D12BallComponentTests(unittest.TestCase):
         match.substitute(
             TeamSide.HOME, returning, match.home.team_board.bench[0],
         )
-        for outgoing in ("orange_sizzik", "orange_scorchit"):
+        for outgoing in ("orange_scorchit", "orange_sizzifizik"):
             match.substitute(
                 TeamSide.HOME,
                 outgoing,
                 match.home.team_board.bench[0],
             )
 
-        injured = "orange_kindlefoot"
+        injured = "orange_kindlefinger"
         match.mark_injured(injured)
         match.substitute(TeamSide.HOME, injured, returning)
 
@@ -545,7 +545,7 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_swapping_two_players_keeps_the_formation(self) -> None:
         match = self.standard_match()
-        first, second = "orange_hellguard", "orange_kindlefoot"
+        first, second = "orange_hellguard", "orange_kindlefinger"
         first_position = match.board.meeple_position(first)
         second_position = match.board.meeple_position(second)
         self.assertNotEqual(first_position, second_position)
@@ -592,7 +592,7 @@ class D12BallComponentTests(unittest.TestCase):
         match.pending_run_back_stays_player_id = "orange_blazebulk"
 
         match.swap_field_positions(
-            TeamSide.HOME, "orange_hellguard", "orange_sizzik",
+            TeamSide.HOME, "orange_hellguard", "orange_scorchit",
         )
 
         self.assertEqual(
@@ -609,7 +609,7 @@ class D12BallComponentTests(unittest.TestCase):
         # Trading positions directly is the only thing that resolves
         # this without a full run back.
         match = self.standard_match(board_size=6)
-        first, second = "orange_hellguard", "orange_kindlefoot"
+        first, second = "orange_hellguard", "orange_kindlefinger"
         match.swap_field_positions(TeamSide.HOME, first, second)
         first_zone = match.home.assigned_zone(first)
         second_zone = match.home.assigned_zone(second)
@@ -633,11 +633,11 @@ class D12BallComponentTests(unittest.TestCase):
         match.pending_run_back_stays_player_id = stealer
 
         match.swap_meeple_positions(
-            TeamSide.HOME, stealer, "orange_kindlefoot",
+            TeamSide.HOME, stealer, "orange_kindlefinger",
         )
 
         self.assertEqual(
-            match.pending_run_back_stays_player_id, "orange_kindlefoot",
+            match.pending_run_back_stays_player_id, "orange_kindlefinger",
         )
 
     def test_declaration_is_once_a_half_but_a_reply_is_free(self) -> None:
@@ -733,10 +733,10 @@ class D12BallComponentTests(unittest.TestCase):
         match = self.standard_match()
         self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
 
-        match.mark_injured("orange_kindlefoot")
+        match.mark_injured("orange_kindlefinger")
         self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
         self.assertEqual(
-            match.injured_field_players(TeamSide.HOME), ["orange_kindlefoot"],
+            match.injured_field_players(TeamSide.HOME), ["orange_kindlefinger"],
         )
         self.assertFalse(hasattr(match, "must_declare_substitution"))
 
@@ -1245,7 +1245,7 @@ class D12BallComponentTests(unittest.TestCase):
         # every one of them fits the width it was given.
         image = Image.new("RGB", (10, 10))
         draw = ImageDraw.Draw(image)
-        names = ["Flickerwing", "Hellguard", "Kindlefoot", "Blazebulk"]
+        names = ["Flickerwing", "Hellguard", "Kindlefinger", "Blazebulk"]
 
         single_font, _ = fit_meeple_labels(draw, names[:1], 400, 300)
         stacked_font, line_height = fit_meeple_labels(draw, names, 400, 90)

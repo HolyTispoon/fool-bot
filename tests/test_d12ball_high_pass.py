@@ -464,7 +464,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             ).children],
             [
                 "2 spaces (V1-Flickerwing [WG])",
-                "3 spaces (V2-Kindlefoot [SK])",
+                "3 spaces (V2-Kindlefinger [SK])",
             ],
         )
 
@@ -476,7 +476,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             [
                 "2 spaces (no teammate)",
                 "3 spaces (V1-Flickerwing [WG])",
-                "4 spaces (Fullback ability) (V2-Kindlefoot [SK])",
+                "4 spaces (Fullback ability) (V2-Kindlefinger [SK])",
             ],
         )
 
@@ -486,7 +486,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             [item.label for item in HighPassChoiceView(
                 cog, game.game_id,
             ).children],
-            ["2 spaces (V2-Kindlefoot [SK])"],
+            ["2 spaces (V2-Kindlefinger [SK])"],
         )
 
     async def test_a_click_on_a_distance_no_longer_on_offer_is_refused(
