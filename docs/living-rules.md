@@ -125,7 +125,7 @@ Each defender halves their own skill: two 5s in the way add 3 + 3, not 5.
 
 Attack scores on an equal or higher total. A plain shot costs no exhaustion; a set-up shot gives its shooter 1 token after the roll.
 
-Time costs one minute per space to the attacked end, including the starting space. Either result resets speed and starts a new play: a goal gives kickoff to the conceding side; a miss gives the defenders the space nearest their own goal.
+A score attempt costs 1 space minute, flat — a shot taken off a [set-up](#scoring-opportunities) costs that on top of the maneuver that created it, rather than replacing it. Either result resets speed and starts a new play: a goal gives kickoff to the conceding side; a miss gives the defenders the space nearest their own goal.
 
 ## Maneuvers
 
@@ -153,11 +153,13 @@ Each player gains 1 token. Both roll d12 + attacker offense or challenger defens
 
 ### The six maneuvers
 
+Every maneuver costs 1 space minute, flat, regardless of how far it moves the ball or a player — except High Pass, which costs 2. A maneuver that also creates a [scoring opportunity](#scoring-opportunities) costs nothing extra by itself; only actually taking the shot does, at the score attempt's own flat cost.
+
 | Maneuver | Rank / die | Effect | Time |
 | --- | --- | --- | --- |
-| Low Pass | O1, 1–2 | Nearest teammate ahead/behind within 2, or teammate sharing ball; speed +1. | Distance, min. 1 |
+| Low Pass | O1, 1–2 | Nearest teammate ahead/behind within 2, or teammate sharing ball; speed +1. | 1 |
 | Dribble Advance | O2, 3–4 | Handler and ball forward 1; adjust speed by offensive skill. | 1 |
-| High Pass | O3, 5–6 | Throw forward 2–3 (Fullback 4); long throws can be contested. | Distance, min. 1 |
+| High Pass | O3, 5–6 | Throw forward 2–3 (Fullback 4); long throws can be contested. | 2 |
 | Block Deflect | D1, 1–2 | Ball back 1 (Fullback 2); speed −1. | 1 |
 | Steal Intercept | D2, 3–4 | Turnover; interceptor and ball back 1; adjust speed. | 1 |
 | Pressure | D3, 5–6 | Handler and ball back 1; challenger forward 1. | 1 |
@@ -186,7 +188,7 @@ For a long-pass contest, receiver attacks. A defender already there contests aut
 
 On an overshoot to a teammate, choose the scoring opportunity or contest. Either subtracts speed from receiver's side. Without a teammate, it is loose.
 
-**A passer never receives their own pass.** From the final space the throw moves the ball nowhere and is an overshoot like any other: a teammate sharing that space receives it and is offered the choice above. With no other teammate there the passer simply keeps the ball — nothing is set up and nothing is contested. The throw still costs its minute.
+**A passer never receives their own pass.** From the final space the throw moves the ball nowhere and is an overshoot like any other: a teammate sharing that space receives it and is offered the choice above. With no other teammate there the passer simply keeps the ball — nothing is set up and nothing is contested. The throw still costs its 2 minutes.
 
 ### Block Deflect
 
@@ -236,7 +238,7 @@ A scoring opportunity is an optional, out-of-turn ordinary shot, only in range. 
 | Winger's Low Pass | Receiver |
 | Overshot Block Deflect | Defending player on landing |
 
-Declining costs nothing, except an overshot High Pass, whose alternative is its long-pass contest.
+Declining costs nothing beyond the maneuver's own time, except an overshot High Pass, whose alternative is its long-pass contest. Taking the shot costs the score attempt's usual 1 space minute, on top of the maneuver that set it up — win or miss.
 
 ### Own goal
 
@@ -271,7 +273,7 @@ Every non-carrier returns to any space in its card's zone, paying 1 token per sp
 
 Outside range, the possessing side may cede rather than maneuver. Two conditions, both required: they are out of range, and they still hold their once-per-half declaration. So a side that has already declared this half cannot cede, and a side that cedes cannot declare for the rest of it. Nothing else has to be true—a side with nobody left to bring on may still cede, since the window is the whole Coaching Choice and not the substitution alone.
 
-Ceding spends that declaration; gives other side possession on same space at speed 1; costs no time and causes no run back; and opens Coaching Choices for ceding side then receiving side, using ordinary half allowances. Both windows restore their own coach's arrangement, so a cede restarts from the same positions a new play would. After them, the receiving side [sends a player](#sending-a-player) to the unattended ball unless one of theirs is already on it.
+Ceding spends that declaration; gives other side possession on same space at speed 1; costs its usual 1 space minute despite nothing travelling, and causes no run back; and opens Coaching Choices for ceding side then receiving side, using ordinary half allowances. Both windows restore their own coach's arrangement, so a cede restarts from the same positions a new play would. After them, the receiving side [sends a player](#sending-a-player) to the unattended ball unless one of theirs is already on it.
 
 In last possession, ceding ends the period and opens no windows.
 

@@ -1007,6 +1007,12 @@ class MatchState:
     pending_run_back_speed_choice: bool = False
     pending_kickoff_fill: bool = False
     pending_shot_is_set_up: bool = False
+    # The base clock cost of the maneuver that offered a pending set-up
+    # shot -- 0 for an ordinary shot, otherwise the maneuver's own flat
+    # cost (1, or 2 for a High Pass), so ScoreAttemptView.roll can add
+    # the shot's own extra minute on top of it rather than replacing it.
+    # See "When a maneuver includes a setup" and start_set_up_shot.
+    pending_shot_setup_cost: int = 0
     # A High Pass was clamped short of the distance thrown, so the
     # ball speed modifier is paid the other way round for whatever
     # that overshoot leads to -- the set-up's shot, or the long-pass
@@ -1325,7 +1331,8 @@ class MatchState:
 
         The ball does not move and play does not stop: possession
         crosses on the space it was ceded on, at speed 1 like any other
-        turnover, and no time passes -- nothing travelled. The turn
+        turnover, and it costs its flat space minute like any other
+        maneuver (2026-08-16) even though nothing travelled. The turn
         that was being taken is cleared, carrier included, because the
         side that has just been handed the ball chooses their own
         handler when the coaching is over.
@@ -1336,18 +1343,19 @@ class MatchState:
         they start.
 
         `pending_run_back_distance` is the turn's clock cost, which
-        reset_maneuver leaves at 1 and this puts at 0. It is read back
-        by whatever the tail still owes -- an empty ball space sends
-        the receiving side to pick the ball up, and that step spans a
-        restart, so it reads the cost from here rather than from a
-        parameter.
+        reset_maneuver already leaves at 1 -- restated here explicitly
+        so a cede's cost reads as a deliberate 1, not a leftover
+        default. It is read back by whatever the tail still owes -- an
+        empty ball space sends the receiving side to pick the ball up,
+        and that step spans a restart, so it reads the cost from here
+        rather than from a parameter.
         """
         side = self.defending_side()
         self.reset_maneuver()
         self.clear_ball_carrier()
         self.ball.possession = side
         self.ball.speed = 1
-        self.pending_run_back_distance = 0
+        self.pending_run_back_distance = 1
         self.pending_cede = True
         return side
 
@@ -1441,9 +1449,10 @@ class MatchState:
     def spaces_to_goal(self) -> int:
         """
         How many spaces the ball travels through on a shot at goal,
-        counting the space it starts from. This is both the time a
-        score attempt costs in space minutes and the number of spaces
-        that can hold defenders in the way.
+        counting the space it starts from -- the number of spaces that
+        can hold defenders in the way. A score attempt's own clock
+        cost is a flat space minute regardless of this (2026-08-16);
+        it no longer reads this value.
 
         Home attacks towards the high end of the board's left-to-right
         indexing and the visitors towards the low end, so the count
@@ -1995,6 +2004,7 @@ class MatchState:
         self.pending_run_back_speed_choice = False
         self.pending_kickoff_fill = False
         self.pending_shot_is_set_up = False
+        self.pending_shot_setup_cost = 0
         self.pending_high_pass_overshoot = False
         self.pending_own_goal = False
         self.pending_own_goal_distance = 1
@@ -3356,6 +3366,7 @@ class MatchState:
             ),
             "pending_kickoff_fill": self.pending_kickoff_fill,
             "pending_shot_is_set_up": self.pending_shot_is_set_up,
+            "pending_shot_setup_cost": self.pending_shot_setup_cost,
             "pending_high_pass_overshoot": self.pending_high_pass_overshoot,
             "pending_own_goal": self.pending_own_goal,
             "pending_own_goal_distance": self.pending_own_goal_distance,
@@ -3483,6 +3494,9 @@ class MatchState:
             pending_kickoff_fill=data.get("pending_kickoff_fill", False),
             pending_shot_is_set_up=data.get(
                 "pending_shot_is_set_up", False
+            ),
+            pending_shot_setup_cost=data.get(
+                "pending_shot_setup_cost", 0
             ),
             pending_high_pass_overshoot=data.get(
                 "pending_high_pass_overshoot", False

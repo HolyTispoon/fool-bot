@@ -2439,11 +2439,14 @@ class ScoreAttemptView(SafeView):
             )
 
         # Every score attempt is a turnover, win or miss: the clock
-        # cost is the shot's own distance to goal, captured before the
-        # restart moves the ball, and the team that just defended
-        # restarts play -- in the middle of the midfield on a goal
-        # (the same kickoff rule as the start of a half), or at the
-        # space closest to their own goal on a miss.
+        # cost is a flat space minute (2026-08-16), plus the cost of
+        # whatever maneuver set it up if this was a set-up shot rather
+        # than an ordinary one -- pending_shot_setup_cost is 0 for an
+        # ordinary shot, so this is 1 there and maneuver-cost-plus-1
+        # for a set-up. The team that just defended restarts play --
+        # in the middle of the midfield on a goal (the same kickoff
+        # rule as the start of a half), or at the space closest to
+        # their own goal on a miss.
         #
         # The shooter stops being the active player right here: unlike
         # a maneuver's turnover (exempted from validate()'s
@@ -2454,7 +2457,7 @@ class ScoreAttemptView(SafeView):
         # happen before reset_maneuver() finally clears it, e.g. inside
         # a deferred loose-ball contest for an empty kickoff space.
         match.active_player_id = None
-        space_minutes = match.spaces_to_goal()
+        space_minutes = 1 + match.pending_shot_setup_cost
         new_possession_side = defending_setup.side
         if scored:
             match.restart_after_goal(new_possession_side)
@@ -2924,6 +2927,7 @@ class SetUpAttemptChoiceView(SafeView):
         )
         await self.cog.start_set_up_shot(
             interaction, game, match, self.shooter_id,
+            maneuver_cost=self.distance_moved,
         )
 
     async def decline(self, interaction: discord.Interaction) -> None:

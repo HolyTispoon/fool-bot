@@ -55,7 +55,58 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-16 (newest) -- author, a contest is answered by the nearest players, not by the zone
+### 2026-08-16 (newest) -- author, every maneuver costs a flat space minute
+
+*From the author, in chat: "every maneuver now costs 1 space minute, except for high pass which
+costs 2. Scoring attempt is 1 space minute. Ceding the ball is 1 space minute. When a maneuver
+includes a setup - that's an extra space minute (whether or not the attempt is successful)."
+Asked to resolve how the setup's extra minute interacts with the score attempt's own flat cost --
+the same ambiguity "Two of the three callers are restarts" kind of thing the code used to hide --
+the author confirmed: the extra minute is charged only if the offered shot is actually taken (not
+on a decline), and it **is** the score attempt's own 1-minute cost rather than a second charge on
+top of it. So a set-up shot taken costs the maneuver's flat cost plus 1, win or lose; a set-up
+declined costs only the maneuver's own flat cost, same as if there had been no set-up.*
+
+- **Every maneuver's clock cost stops being about distance.** Low Pass and High Pass used to
+  charge the ball's actual travel (1-2 and 2-4 space minutes respectively, clamped to a minimum
+  of 1 so a maneuver was never free); Dribble Advance, Block Deflect, Steal Intercept and
+  Pressure were already flat 1s. Now all six are flat: 1 for everything, 2 for High Pass alone.
+  A long High Pass and a short one cost the coach the same clock, which is the point --
+  `high_pass_distance_options` and the menu it drives are unaffected, since which distances are
+  legal is still a question of what fits on the field, only what it costs to throw one changed.
+- **A set-up shot used to *replace* the maneuver's cost, and now it *adds* to it.** Before this,
+  taking the shot charged only `spaces_to_goal()` (the shot's own distance to the attacked end)
+  and quietly dropped whatever the maneuver that created the set-up had cost; declining charged
+  the maneuver's cost and dropped the shot. Neither stacked. Now both are flat and additive: the
+  maneuver's cost is charged unconditionally (it already was a maneuver), and taking the shot
+  adds 1 more, whether it scores or misses. `spaces_to_goal()` no longer feeds the clock at all --
+  it is kept for the unrelated fact it still states, how many spaces can hold a defender in the
+  shot's way (see "What a shot is up against" in the living rules) -- and `MatchState.
+  pending_shot_setup_cost` is the new field carrying the antecedent maneuver's cost forward from
+  the moment a set-up shot is taken (`start_set_up_shot`) to the moment `ScoreAttemptView.roll`
+  charges the clock, the same pattern `pending_own_goal_distance` already used for a different
+  roll-behind-a-button gap. It is 0 for an ordinary in-turn shot, so `1 +
+  pending_shot_setup_cost` is the whole of both cases at once.
+- **Ceding stops being the one turnover with no clock cost.** It used to set
+  `pending_run_back_distance` to 0 specifically to read as "nothing happened"; it now leaves the
+  1 `reset_maneuver` already puts there, stated explicitly rather than left to a coincidence.
+  The one place that bypassed the ordinary charge -- ceding under last possession, which ends the
+  period directly through `end_period` rather than through `finish_maneuver_resolution` -- didn't
+  advance the clock at all under the old zero-cost rule and needed a `match.advance_time(1)`
+  added by hand, since "every turn of last possession is charged as usual" applies to this
+  turnover too.
+- **The zero-cost turn is gone, and so is the branch that worded it.** `distance_moved` is never
+  0 anywhere in the codebase any more, so `finish_maneuver_resolution`'s "no time has passed"
+  wording -- there specifically for a ceded ball -- was a branch that could no longer be taken and
+  read as if it could. Removed rather than left in place.
+- **`maneuvers.json`'s printed `time` field is hand-edited, not re-imported.** It is normally
+  regenerated whole from the Google Sheet's own "time" column (see "The maneuver cards" in
+  CLAUDE.md), but this rule came from the author directly rather than from a sheet pull, so the
+  json was updated by hand to keep the printed cards honest. **The sheet still says the old
+  distance-based costs and needs the author to update it upstream**, or the next
+  `scripts/import_d12ball_maneuvers.py` run will silently revert this file to the old wording.
+
+### 2026-08-16 -- author, a contest is answered by the nearest players, not by the zone
 
 *From the author: a coach sending someone after a contested ball may send "a player from any
 zone -- but only one of the closest players in front of or behind the space where the ball is

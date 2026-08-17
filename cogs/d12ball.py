@@ -1992,7 +1992,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 interaction,
                 game,
                 match,
-                distance_moved=max(actual_distance, 1),
+                distance_moved=1,
                 lead_in=(
                     "**Low Pass:** there is no teammate within two "
                     "spaces to receive it, and a pass can't be played "
@@ -2094,9 +2094,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"**Low Pass:** the ball {movement_note}. "
             f"Ball speed is now {match.ball.speed}."
         )
-        # Time always advances at least 1 space minute, even on a
-        # distance-0 pass across a shared space.
-        distance_moved = max(actual_distance, 1)
+        # Low Pass's own cost is a flat 1 space minute regardless of
+        # distance (2026-08-16), the same as every maneuver but High
+        # Pass.
+        distance_moved = 1
 
         # Role ability -- Winger: the receiving player may attempt a
         # scoring opportunity right where the pass lands, whatever the
@@ -2357,14 +2358,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        # Time always advances at least 1 space minute (2026-08-12),
-        # the same minimum Low Pass has carried for the same shape of
-        # move. It only ever bites on a throw the field clamped to 0,
-        # since every distance a coach is offered is at least 2 -- and
-        # a maneuver that costs no clock is one a coach could take all
-        # afternoon. Kept apart from `actual_distance`, which is what
-        # the pass actually did and what the result says.
-        distance_moved = max(actual_distance, 1)
+        # High Pass's own cost is a flat 2 space minutes regardless of
+        # distance (2026-08-16) -- the one maneuver that isn't 1. Kept
+        # apart from `actual_distance`, which is what the pass actually
+        # did and what the result says.
+        distance_moved = 2
 
         ability_note = " (Fullback ability)" if fullback_bonus else ""
         if actual_distance:
@@ -2639,6 +2637,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if attempt:
                 await self.start_set_up_shot(
                     interaction, game, match, shooter_id,
+                    maneuver_cost=distance_moved,
                 )
             else:
                 await self.decline_scoring_attempt(
@@ -3317,10 +3316,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
         shooter_id: str,
+        maneuver_cost: int = 1,
     ) -> None:
+        """
+        `maneuver_cost` is the flat cost of the maneuver that offered
+        this set-up -- 1 for everything but a High Pass, which is why
+        it defaults to 1 and only a High Pass call site overrides it.
+        Stored so ScoreAttemptView.roll can charge it on top of the
+        shot's own extra minute (2026-08-16): the two stack now,
+        instead of the shot's cost replacing the maneuver's.
+        """
         match.active_player_id = shooter_id
         match.pending_action = "shoot"
         match.pending_shot_is_set_up = True
+        match.pending_shot_setup_cost = maneuver_cost
         game.match_state = match.to_dict()
         save_games(self.games)
 
@@ -4827,16 +4836,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         from.
 
         It is a turnover with none of a turnover's machinery: the ball
-        does not move, nobody runs back, and no time passes. What the
-        ceding side is buying is the window, so this opens it for them
-        at once, and `finish_substitution_window` hands the other coach
-        theirs exactly as a declaration's reply -- which is what it is.
+        does not move and nobody runs back, but it costs its flat space
+        minute like any other maneuver (2026-08-16) -- charged in
+        `finish_cede`, once its tail (a ball recovery may span a
+        restart) is settled. What the ceding side is buying is the
+        window, so this opens it for them at once, and
+        `finish_substitution_window` hands the other coach theirs
+        exactly as a declaration's reply -- which is what it is.
 
         **Under last possession it ends the period instead.** A
         turnover then is the end of the half either way, and ceding is
         a turnover; the window would be a coach rearranging a side that
         has no possession left to play. `pending_cede` is cleared with
         it, or the flag would follow the game into the second half.
+        That branch charges the minute itself, since it bypasses
+        `finish_cede` entirely -- every turn of last possession is
+        charged as usual, this included.
         """
         ceding_side = match.ball.possession
         ceding_label = format_team_side_label(
@@ -4855,12 +4870,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"# {ceding_label} cede the ball\n"
             f"{receiving_label} take possession at "
             f"{space_label(match.ball.zone, match.ball.space_index)}, "
-            "where it was given up. The ball speed goes down to **1** "
-            "and no time passes."
+            "where it was given up. The ball speed goes down to **1**."
         )
 
         if match.scoreboard.last_possession:
             match.pending_cede = False
+            match.advance_time(1)
             game.match_state = match.to_dict()
             save_games(self.games)
             await self.end_period(interaction, game, match, lead_in=lead_in)
@@ -4915,15 +4930,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.begin_ball_recovery(interaction, game, match)
             return
 
-        # distance_moved 0: ceding costs no time. turnover_occurred is
-        # true because it is one -- it is what makes this the end of
-        # the period when last possession was already in force, which
-        # begin_cede has caught already and this keeps honest.
+        # Ceding costs its flat space minute like any other maneuver
+        # (2026-08-16). turnover_occurred is true because it is one --
+        # it is what makes this the end of the period when last
+        # possession was already in force, which begin_cede has caught
+        # already and this keeps honest.
         await self.finish_maneuver_resolution(
             interaction,
             game,
             match,
-            distance_moved=0,
+            distance_moved=1,
             turnover_occurred=True,
         )
 
@@ -5708,13 +5724,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.refresh_match_image(interaction, game, png=png)
 
         prefix = f"{lead_in}\n\n" if lead_in else ""
-        # A ceded ball is the one turn that costs no time at all, and
-        # "Time has advanced 0" reads as a bug rather than as a rule.
+        # Every maneuver costs at least its flat space minute
+        # (2026-08-16), ceding included, so there is no longer a
+        # zero-cost turn to word specially here.
         clock = (
             f"Time has advanced {distance_moved}, now "
             f"at {match.scoreboard.time:02d}."
-            if distance_moved
-            else f"No time has passed; still at {match.scoreboard.time:02d}."
         )
         snapshot = await interaction.followup.send(
             content=(
