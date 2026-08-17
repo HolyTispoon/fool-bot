@@ -2240,6 +2240,43 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         max_distance = 4 if handler.role == PlayerRole.FULLBACK else 3
         return match.high_pass_distances(match.ball.possession, max_distance)
 
+    def high_pass_destination_note(
+        self, match: MatchState, distance: int,
+    ) -> str:
+        """
+        What a High Pass of `distance` would find waiting, for
+        HighPassChoiceView's buttons -- the space it lands on plus the
+        first teammate standing there, or that there is none. A coach
+        choosing a distance is choosing a destination, and "3 spaces"
+        alone does not say whether anybody of theirs is there to catch
+        it.
+        """
+        offense_side = match.ball.possession
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        target_flat = match.relative_flat_index(
+            origin_flat, offense_side, distance,
+        )
+        zone, space_index = match.board.position_at_flat_index(target_flat)
+        offense_players = set(
+            match.setup_for_side(offense_side).field_players,
+        )
+        occupants = [
+            player_id
+            for player_id in match.board.spaces[zone][space_index]
+            if player_id in offense_players
+            and player_id != match.active_player_id
+        ]
+        if not occupants:
+            return "no teammate"
+        teammate = self.get_player_definition(occupants[0])
+        role_initial = ROLE_INITIALS[teammate.role.value]
+        return (
+            f"{space_label(zone, space_index)}-{teammate.name} "
+            f"[{role_initial}]"
+        )
+
     async def resolve_high_pass(
         self,
         interaction: discord.Interaction,
