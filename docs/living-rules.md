@@ -144,7 +144,7 @@ Any of the possessing team's players standing on the ball's space may handle it,
 
 A resolution that leaves the ball with one player in particular makes them the **ball carrier**: they take their team's next turn rather than the coach choosing off the ball's space again. The carry lasts exactly one turn.
 
-These leave a carrier: a Dribble Advance, on the player who dribbled it; a completed Low Pass and a received 2-space High Pass, on the receiver; a Steal Intercept, on the interceptor; a won loose ball or long-pass contest, on the winner; and a Pressure, on the handler who was shoved back still holding it — including one who has just survived an own-goal roll, and on the Defender instead where their Pressure also stole it.
+These leave a carrier: a Dribble Advance, on the player who dribbled it; a completed Low Pass and a received 2-space High Pass, on the receiver; a Steal Intercept, on the interceptor; a won loose ball or High Pass contest, on the winner; and a Pressure, on the handler who was shoved back still holding it — including one who has just survived an own-goal roll, and on the Defender instead where their Pressure also stole it.
 
 These leave nobody carrying: a Block Deflect, which sends the ball to a space rather than to a player; a kickoff or any other restart; and a required pickup.
 
@@ -254,12 +254,12 @@ The ball is thrown 2 or 3 spaces forward, and a Fullback may throw it 4. Only di
 | The throw | What happens |
 | --- | --- |
 | 2 spaces, a teammate on the landing space | Received. The receiver carries the ball and may take a [scoring opportunity](#scoring-opportunities) if it is in range. |
-| 3 or 4 spaces, a teammate there | Received but contested: the receiver has to win the [long-pass contest](#the-long-pass-contest) to keep it. |
+| 3 or 4 spaces, a teammate there | Received but contested: the receiver has to win the [High Pass contest](#the-high-pass-contest) to keep it. |
 | Nobody there | The ball is [loose](#the-loose-ball). |
 
 A 2-space pass that lands short of shooting range is still received. The range rule takes away the shot, not the catch.
 
-**An overshoot** is a throw that runs out of field. With the ball 0 or 1 spaces from the end, every distance lands on the same last space, so nothing is offered and the throw overshoots before anyone chooses. An overshoot onto a teammate offers that receiver the scoring opportunity **or** the long-pass contest: they are two halves of one choice, declining the shot means taking the contest, and the ball speed modifier counts **against** them either way — the ball came in too fast to settle.
+**An overshoot** is a throw that runs out of field. With the ball 0 or 1 spaces from the end, every distance lands on the same last space, so nothing is offered and the throw overshoots before anyone chooses. An overshoot onto a teammate offers that receiver the scoring opportunity **or** the High Pass contest: they are two halves of one choice, declining the shot means taking the contest, and the ball speed modifier counts **against** them either way — the ball came in too fast to settle.
 
 **A passer never receives their own pass.** Thrown from the last space the ball comes straight back down where it was, and a teammate sharing that space receives it and is offered the choice above. With no other teammate there the passer simply keeps the ball: nothing is set up and nothing is contested. The throw still costs its 2 minutes.
 
@@ -303,7 +303,7 @@ The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is ha
 
 Only four maneuvers change it: Low Pass adds 1, Block Deflect takes 1 off, and Dribble Advance and Steal Intercept let the player change it by up to their own skill. **Every turnover resets it to 1.**
 
-The modifier is added in three places and nowhere else: to a [score attempt](#score-attempt), by the attack; to a maneuver skill test, by a defence contesting with Steal Intercept; and to a [long-pass contest](#the-long-pass-contest), by the receiver. A [loose ball](#the-loose-ball) belongs to nobody yet, so neither contestant adds it there.
+The modifier is added in three places and nowhere else: to a [score attempt](#score-attempt), by the attack; to a maneuver skill test, by a defence contesting with Steal Intercept; and to a [High Pass contest](#the-high-pass-contest), by the receiver. A [loose ball](#the-loose-ball) belongs to nobody yet, so neither contestant adds it there.
 
 An overshot High Pass turns the sign around: the modifier counts against the shot it sets up and against the contest behind it.
 
@@ -320,13 +320,13 @@ A scoring opportunity is an ordinary [score attempt](#score-attempt) taken out o
 
 The shooter gains 1 exhaustion token after the roll either way, and a Striker adds 3 to it.
 
-Declining costs nothing and the maneuver resolves as it otherwise would have. The one exception is an overshot High Pass, where declining the shot means taking the [long-pass contest](#the-long-pass-contest) instead.
+Declining costs nothing and the maneuver resolves as it otherwise would have. The one exception is an overshot High Pass, where declining the shot means taking the [High Pass contest](#the-high-pass-contest) instead.
 
 Taking the shot costs its own space minute on top of the maneuver that set it up.
 
 ## Sending a player
 
-Four rules ask a coach to send a player to the ball's space: the [maneuver challenge](#determining-the-two-players), the [loose ball](#the-loose-ball), the [long-pass contest](#the-long-pass-contest), and the [pickup](#picking-the-ball-up) after an out-of-bounds or ceded ball. All four ask it in the same way, and a player's zone has nothing to do with it.
+Four rules ask a coach to send a player to the ball's space: the [maneuver challenge](#determining-the-two-players), the [loose ball](#the-loose-ball), the [High Pass contest](#the-high-pass-contest), and the [pickup](#picking-the-ball-up) after an out-of-bounds or ceded ball. All four ask it in the same way, and a player's zone has nothing to do with it.
 
 A coach may send either of their two nearest players to the space: the nearest one in front of it and the nearest one behind it, counted in spaces along the field. Where two or more are tied for nearest on one side, the coach chooses between them.
 
@@ -354,9 +354,9 @@ Neither side adds the ball speed modifier: the ball is nobody's yet.
 
 A loose ball won by the side that did not have it is a steal.
 
-### The long-pass contest
+### The High Pass contest
 
-A High Pass thrown 3 spaces or more, and an overshot pass whose set-up was declined, both land on a teammate who still has to win the ball to keep it.
+A High Pass thrown 3 spaces or more is caught, but not kept: the receiver still has to win the ball. An overshot pass whose set-up was declined comes to the same contest. A pass of 2 never does — it is simply received.
 
 The receiver is the offense's contestant automatically. A defending player already on that space contests automatically too; otherwise the defending coach may [send a player](#sending-a-player), or send nobody — in which case the receiver keeps the ball without rolling.
 
@@ -393,11 +393,11 @@ Every change of possession resets ball speed to 1. There are three kinds, and wh
 
 | Cause | Kind | What follows |
 | --- | --- | --- |
-| Steal Intercept, a Defender's won Pressure, a lost long-pass contest, a loose ball the other side wins or is already standing on | Steal | Players run back. No pause and no window: the ball is still live. |
+| Steal Intercept, a Defender's won Pressure, a lost High Pass contest, a loose ball the other side wins or is already standing on | Steal | Players run back. No pause and no window: the ball is still live. |
 | A goal, a missed shot, an own goal conceded or avoided, a ball out of bounds | New play | Both sides reset, and the side with the ball may declare a Coaching Choice. |
 | Ceding | Cede | Both coaches take a window. Nobody runs back and nothing resets. |
 
-**Only a turnover moves anybody.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them — a receiver who won their long-pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is out of position stays there, and pays nothing for it, until a turnover comes.
+**Only a turnover moves anybody.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them — a receiver who won their High Pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is out of position stays there, and pays nothing for it, until a turnover comes.
 
 ### Running back after a steal
 
@@ -521,7 +521,7 @@ A player is **Exhausted** the moment their tokens exceed their defensive skill. 
 
 ### The injury check
 
-When a skill test resolves — a maneuver's, a loose ball's or a long-pass contest's — every Exhausted participant rolls one d12. A roll **higher** than the tokens they are currently carrying is safe, and anything else injures them.
+When a skill test resolves — a maneuver's, a loose ball's or a High Pass contest's — every Exhausted participant rolls one d12. A roll **higher** than the tokens they are currently carrying is safe, and anything else injures them.
 
 Tokens gained for that very test count, including the ones a re-roll charged. Only a skill test causes checks: a score attempt, an own-goal roll and a shootout test never do.
 
@@ -530,7 +530,7 @@ Tokens gained for that very test count, including the ones a re-roll charged. On
 An **Injured** player loses every token they hold and can gain no more, so they can never be checked again. Until they are substituted off:
 
 - **In a maneuver, against a healthy opponent**, a tie loses outright with nothing rolled, and a maneuver they would have won outright goes to a skill test they have to win instead.
-- **In a loose ball or a long-pass contest**, they add no skill modifier at all: their offensive or defensive skill comes off the roll, and only that. Ball speed and role abilities still apply.
+- **In a loose ball or a High Pass contest**, they add no skill modifier at all: their offensive or defensive skill comes off the roll, and only that. Ball speed and role abilities still apply.
 
 Nothing else is withheld. The forced skill test above is rolled with their skill in full, and a score attempt is untouched — an injured Striker still adds 3 off a set-up.
 
