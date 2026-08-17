@@ -1,21 +1,17 @@
 # Advanced maneuvers — the interaction matrix
 
-**Status: a worksheet, not a rule.** Nothing here has been played, and nothing here
-is in [living-rules.md](living-rules.md) — a rule reaches that document only once the
-author has settled it. This is the table asked for on 2026-08-17: every advanced
-maneuver against every maneuver it can meet, and which cost or benefit applies in each
-case.
+**Status: a worksheet, not a rule.** Nothing here has been played, and nothing here is in
+[living-rules.md](living-rules.md) — a rule reaches that document only once the author has
+settled it. This is the table asked for on 2026-08-17: every advanced maneuver against
+every maneuver it can meet, and which cost or benefit applies in each case.
 
-It is deliberately structured so that the blanks are visible. Two things are missing,
-and they are different kinds of missing:
+The six advanced maneuvers are transcribed below from the sheet's `maneuvers` tab, where
+they are drafts. They have **not** been imported into `d12ball/data/maneuvers.json`, and
+until the questions at the foot of this document are answered they should not be — several
+of them cannot be applied as written.
 
-1. **The six advanced maneuvers themselves** — their names, effects, bonuses and extra
-   costs are drafted in the Google Sheet and have not been pulled into the repo yet.
-   Every table below names them as `Adv. <basic name>` and leaves the content blank.
-   Filling [The six cards](#the-six-cards) is the whole of that gap.
-2. **Five rulings**, listed in [Open questions](#open-questions-for-the-author). Those
-   are not lookups — no source has them, and they decide the shape of the matrix rather
-   than its contents. Cells that depend on one are marked with its symbol (‡T, ‡U, ‡C).
+Cells that depend on a ruling are marked with its symbol (‡T, ‡U, ‡C, ‡I) rather than
+filled in with a guess.
 
 ---
 
@@ -26,373 +22,422 @@ From the author, 2026-08-17:
 > Each maneuver now has an advanced version that, if it succeeds, is more impactful.
 > However, if the maneuver is *defeated*, it has an additional cost.
 
-So each card carries two things the basic version does not: an **upside on success** and
-a **penalty on defeat**. The matrix exists because "succeeds" and "defeated" are not two
-outcomes in this game — a maneuver turn lands in one of eight states, and only two of
-them are unambiguous.
+So each card carries two things the basic version does not: an **upside on success** and a
+**penalty on defeat**. The matrix exists because "succeeds" and "defeated" are not two
+outcomes in this game — a maneuver turn lands in one of eight states, and only two of them
+are unambiguous.
 
 ---
 
 ## The six cards
 
-To be filled from the sheet's advanced drafts. The rank column is the assumption
-[A1](#a1-an-advanced-maneuver-keeps-its-counterparts-rank) — it is what makes the whole
-grid below computable, so it is the first thing to confirm.
+Transcribed from the `maneuvers` tab. The wording is the sheet's, lightly punctuated; the
+last column is what each draft says happens when the card is defeated.
 
-| Basic | Rank | Advanced name | Effect on success | Extra cost when defeated | Clock cost |
-| --- | --- | --- | --- | --- | --- |
-| Low Pass | O1 | *(to fill)* | *(to fill)* | *(to fill)* | *(to fill — basic is 1)* |
-| Dribble Advance | O2 | *(to fill)* | *(to fill)* | *(to fill)* | *(to fill — basic is 1)* |
-| High Pass | O3 | *(to fill)* | *(to fill)* | *(to fill)* | *(to fill — basic is 2)* |
-| Block Deflect | D1 | *(to fill)* | *(to fill)* | *(to fill)* | *(to fill — basic is 1)* |
-| Steal Intercept | D2 | *(to fill)* | *(to fill)* | *(to fill)* | *(to fill — basic is 1)* |
-| Pressure | D3 | *(to fill)* | *(to fill)* | *(to fill)* | *(to fill — basic is 1)* |
+| Advanced | Replaces | Rank | On success | When defeated |
+| --- | --- | --- | --- | --- |
+| **Precise Pass** | Low Pass | O1 | Ball to **any** teammate. Ball speed **+3**. | The defender may play an unopposed Low Pass after stealing. |
+| **Dribble Burst** | Dribble Advance | O2 | Player and ball move forward **all the way to the goal**, gaining exhaustion for the distance travelled. Manipulate ball speed up to oSkill. | The pressured player does not go back with the ball. |
+| **Setup Pass** | High Pass | O3 | Set up a scoring opportunity at distance **0, 1 or 3**, with the ball speed benefit. | The other team may set up a scoring opportunity after the resolution. |
+| **Clear** | Block Deflect | D1 | Ball moves back **3** spaces. Overshoot may set up scoring. Ball speed **−3**. | Add exhaustion. |
+| **Intercept** | Steal Intercept | D2 | Turnover. Defender and ball move **forward** 1 space. Manipulate ball speed up to dSkill. | The High Pass reception is not contested. |
+| **Double Team** | Pressure | D3 | Player and ball go back **2** spaces. Defender moves 1 forward, and **another teammate may join the space for free**, adding dSkill to a skill test. Overshoot risks an own goal. | *The draft is cut off — the sentence ends at "If defeated".* |
 
----
+### What the tab looks like
 
-## The assumptions this matrix is built on
+Worth recording, because it is what an importer has to read. The advanced maneuvers are
+**six new rows on the existing tab**, not new columns, and the tab has grown three columns
+since it was last imported:
 
-Each of these is a reading, not a ruling. Every one of them changes the tables if it is
-wrong, which is why they are stated separately from the tables themselves.
-
-### A1: an advanced maneuver keeps its counterpart's rank
-
-Adv. Low Pass is still O1: it beats Pressure, loses to Steal Intercept and ties with
-Block Deflect, in whichever form those are played. This follows from "each corresponds
-to one of the existing basic maneuvers" and is what keeps the defeat cycle a cycle — the
-back of every maneuver card carries that hexagon, and a second set of ranks would need a
-second hexagon.
-
-### A2: advanced does not beat basic of the same rank
-
-Rank alone decides. An advanced card is stronger in what it *does*, not in what it
-*beats*, so Adv. Low Pass against Block Deflect is a tie exactly as Low Pass is. See
-[the second grid](#if-advanced-broke-a-same-rank-tie-a2-rejected) for what the
-alternative would look like — it is a real design fork, not a technicality, and it is
-[Q2](#q2-does-an-advanced-card-beat-a-basic-card-of-the-same-rank).
-
-### A3: the choice is per turn, from a hand of six
-
-A coach holding the advanced set picks one of six cards each maneuver, secretly, exactly
-as they pick one of three now. This is the widest reading and produces the largest
-matrix; the two narrower ones (a per-team lock for the game, or a game-level toggle) are
-sub-grids of it, so building for this covers them. It is
-[Q1](#q1-is-advanced-vs-basic-a-per-turn-choice), and it is the single fact the shape of
-everything downstream rests on.
-
-### A4: a maneuver's effect is unchanged except where the advanced card says so
-
-The advanced version resolves through the same machinery — a set-up is still a set-up, a
-turnover is still a turnover, ball speed still moves the way the basic card moves it —
-and the advanced text adds to that rather than replacing it. Anything the drafts state
-in full overrides this.
-
-### A5: role abilities apply to the advanced version of the same maneuver
-
-A Playmaker still advances 2 on an Adv. Dribble Advance, a Fullback still throws 4 on an
-Adv. High Pass, a Midfielder still adds 3 to a skill test for their own Adv. Low Pass or
-Adv. Pressure, a Winger's Adv. Low Pass still offers its set-up. The abilities name a
-maneuver, and the advanced version is that maneuver. This is
-[Q10](#q10-do-role-abilities-carry-to-the-advanced-version).
+- an **unnamed tier column** (`Column 10` in the HTML export) holding `Basic` or `Advanced`;
+- **`Defeated by`**, which the importer currently derives rather than reads;
+- **`Interactions`**, which lists the role abilities touching that maneuver — something
+  `d12ball/cards.py` currently derives by matching each role's ability sentence against the
+  maneuver's name.
 
 ---
 
-## The master grid
+## What the drafts settle, and what they change
 
-Under A1 and A2, **the winner never depends on whether either card is advanced**. The
-6×6 grid is the existing 3×3 cycle repeated four times:
+### A1 is confirmed by the data: an advanced maneuver keeps its counterpart's rank
 
-| Offense \ Defense | Block Deflect | Adv. Block Deflect | Steal Intercept | Adv. Steal Intercept | Pressure | Adv. Pressure |
+Each advanced row is **identical to its basic counterpart in every column but `Effect`** —
+same `Type`, `Rank`, `Defeats`, `Defeated by`, `Die value`, `Time` and `Interactions`.
+Precise Pass is O1: it beats Pressure, loses to Steal Intercept, ties with Block Deflect,
+exactly as Low Pass does.
+
+So the defeat cycle is one cycle, and the hexagon on the back of the maneuver cards keeps
+working for both sets. This was the assumption the whole grid rested on, and it is now
+upstream's rather than mine.
+
+### The consequence: advanced mode adds no new way to win a maneuver
+
+Because rank is preserved, **the winner of a maneuver never depends on whether either card
+was advanced.** The 6×6 grid is the existing 3×3 cycle repeated four times:
+
+| Offense \ Defense | Block Deflect | Clear | Steal Intercept | Intercept | Pressure | Double Team |
 | --- | --- | --- | --- | --- | --- | --- |
 | **Low Pass** | skill test | skill test | defense | defense | offense | offense |
-| **Adv. Low Pass** | skill test | skill test | defense | defense | offense | offense |
+| **Precise Pass** | skill test | skill test | defense | defense | offense | offense |
 | **Dribble Advance** | offense | offense | skill test | skill test | defense | defense |
-| **Adv. Dribble Advance** | offense | offense | skill test | skill test | defense | defense |
+| **Dribble Burst** | offense | offense | skill test | skill test | defense | defense |
 | **High Pass** | defense | defense | offense | offense | skill test | skill test |
-| **Adv. High Pass** | defense | defense | offense | offense | skill test | skill test |
+| **Setup Pass** | defense | defense | offense | offense | skill test | skill test |
 
-That is the useful finding at the top of this document: **advanced mode adds no new way
-to win a maneuver.** What it adds is a consequence attached to winning and to losing, so
-the thirty-six pairings collapse to nine outcomes plus a bonus/cost overlay. Everything
-below is that overlay.
+Thirty-six pairings, nine outcomes, and a bonus/cost overlay on top. Everything below is
+that overlay.
 
-### If advanced broke a same-rank tie (A2 rejected)
+One thing the sheet does *not* say: `Defeats` and `Defeated by` name only the **basic**
+maneuvers. Precise Pass "loses to Steal Intercept" — not "to Steal Intercept or Intercept".
+Reading the cycle by rank is what makes advanced-against-advanced resolvable at all, and it
+is an inference rather than a statement ([Q14](#q14-does-the-cycle-hold-advanced-against-advanced)).
 
-For comparison, and because it is the one alternative that would make the 6×6 grid mean
-something. Every same-rank pairing where exactly one side is advanced becomes decisive:
+### The costs are not a currency — they are effects granted to the opponent
 
-| Offense \ Defense | Block Deflect | Adv. Block Deflect | Steal Intercept | Adv. Steal Intercept | Pressure | Adv. Pressure |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Low Pass** | skill test | **defense** | defense | defense | offense | offense |
-| **Adv. Low Pass** | **offense** | skill test | defense | defense | offense | offense |
-| **Dribble Advance** | offense | offense | skill test | **defense** | defense | defense |
-| **Adv. Dribble Advance** | offense | offense | **offense** | skill test | defense | defense |
-| **High Pass** | defense | defense | offense | offense | skill test | **defense** |
-| **Adv. High Pass** | defense | defense | offense | offense | **offense** | skill test |
+This is the largest thing the drafts change about the shape of the question. Only one of
+the six ("Clear: add exhaustion") is a cost paid in something the game already counts. The
+other four that are written are **rules the opponent gets to use**:
 
-This would remove three of the nine skill tests from any game where one coach is playing
-advanced and the other is not, which is a large change to how often the d12 comes out. It
-is recorded here as a fork, not a recommendation.
+- *Precise Pass* — the defender may play an unopposed Low Pass after stealing.
+- *Dribble Burst* — the pressured player does not go back with the ball.
+- *Setup Pass* — the other team may set up a scoring opportunity.
+- *Intercept* — the High Pass reception is not contested.
+
+So there is no single "what currency is the extra cost in" to answer; each card is its own
+mechanism. That is a bigger build than a shared penalty would have been, and it is worth
+knowing now rather than at stage four.
+
+### Three of the six costs name the maneuver that defeated them
+
+An advanced card is defeated in two different ways: **outright**, by the one maneuver a rank
+below it, or by **losing a skill test** to the maneuver of its own rank. The drafts were
+written for the first, and three of them cannot be read against the second:
+
+| Card | Cost as drafted | Defeated outright by | Same-rank tie against | Does the cost read? |
+| --- | --- | --- | --- | --- |
+| Precise Pass | "…after **stealing**" | Steal Intercept / Intercept | Block Deflect / Clear | **No** — a Block Deflect steals nothing |
+| Dribble Burst | "the **pressured** player…" | Pressure / Double Team | Steal Intercept / Intercept | **No** — nobody was pressured |
+| Intercept | "the **High Pass** reception…" | High Pass / Setup Pass | Low Pass / Precise Pass | **No** — there was no High Pass |
+| Setup Pass | "the other team may set up…" | Block Deflect / Clear | Pressure / Double Team | Yes, as written |
+| Clear | "add exhaustion" | Dribble Advance / Dribble Burst | High Pass / Setup Pass | Yes, as written |
+| Double Team | *(cut off)* | Low Pass / Precise Pass | Dribble Advance / Dribble Burst | — |
+
+That is strong evidence for a particular answer to [Q3](#q3-does-losing-a-skill-test-count-as-being-defeated):
+**a card is "defeated" only when the maneuver that beats it resolves, and losing a skill
+test is not that.** It needs confirming, because the alternative is that each of the three
+needs a second clause written for its tie.
 
 ---
 
-## Every interaction, maneuver by maneuver
+## Every interaction, card by card
 
-Six tables, one per advanced card, each listing every card it can be played against —
-basic and advanced — plus the case where no maneuver is played against it at all.
-
-Read the last two columns as "what happens to my card" and "what happens to theirs".
-Marked cells depend on a ruling:
+Six tables, one per advanced card, listing every card it can be played against — basic and
+advanced — plus the case where no maneuver is played against it at all.
 
 | Marker | The question |
 | --- | --- |
-| ‡T | Does a skill test count as succeeding / being defeated? — [Q3](#q3-does-a-skill-test-count) |
+| ‡T | Does losing a skill test count as being defeated? — [Q3](#q3-does-losing-a-skill-test-count-as-being-defeated) |
 | ‡U | Does an unopposed maneuver earn its bonus? — [Q4](#q4-does-an-unopposed-maneuver-earn-its-bonus) |
-| ‡C | Do a winner's bonus and a loser's cost both apply when both sides played advanced? — [Q5](#q5-do-both-sides-effects-apply-at-once) |
+| ‡C | Do a winner's bonus and a loser's cost both apply? — [Q5](#q5-do-both-sides-effects-apply-at-once) |
 
-### Adv. Low Pass — O1, offense
+### Precise Pass — O1, the advanced Low Pass
 
-| Played against | How it settles | For Adv. Low Pass | For the opposing card |
+**On success:** ball to **any** teammate, speed +3. **When defeated:** the defender may play an unopposed Low Pass after stealing.
+
+| Played against | How it settles | What Precise Pass gets or pays | What the opposing card gets or pays |
 | --- | --- | --- | --- |
-| Block Deflect (D1) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | — |
-| Adv. Block Deflect (D1) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | same, from their end ‡T |
-| Steal Intercept (D2) | **Steal Intercept** wins outright | **I pay my cost** | — |
-| Adv. Steal Intercept (D2) | **Adv. Steal Intercept** wins outright | **I pay my cost** | **their bonus applies** |
-| Pressure (D3) | **Adv. Low Pass** wins outright | **bonus applies** | — |
-| Adv. Pressure (D3) | **Adv. Low Pass** wins outright | **bonus applies** | **they pay their cost** ‡C |
-| *nobody — the defense sent no challenger* | **Adv. Low Pass** succeeds unopposed | bonus? ‡U | — |
+| Block Deflect (D1) | **Tie** — a skill test decides | bonus if won. If lost, the cost as drafted names *Steal Intercept*, which has not happened ‡T | — |
+| Clear (D1) | **Tie** — a skill test decides | bonus if won. If lost, the cost as drafted names *Steal Intercept*, which has not happened ‡T | the same from their end ‡T |
+| Steal Intercept (D2) | **Steal Intercept** wins outright | **pays:** the defender may play an unopposed Low Pass after stealing | — |
+| Intercept (D2) | **Intercept** wins outright | **pays:** the defender may play an unopposed Low Pass after stealing | **bonus:** turnover, and defender and ball move **forward** 1 |
+| Pressure (D3) | **Precise Pass** wins outright | **bonus applies** | — |
+| Double Team (D3) | **Precise Pass** wins outright | **bonus applies** | **pays:** **the draft is cut off — nothing is stated** ‡C |
+| *no challenger sent* | **Precise Pass** succeeds unopposed | bonus? ‡U | — |
 
-### Adv. Dribble Advance — O2, offense
+### Dribble Burst — O2, the advanced Dribble Advance
 
-| Played against | How it settles | For Adv. Dribble Advance | For the opposing card |
+**On success:** carry the ball **all the way to the goal**, a token a space. **When defeated:** the pressured player does not go back with the ball.
+
+| Played against | How it settles | What Dribble Burst gets or pays | What the opposing card gets or pays |
 | --- | --- | --- | --- |
-| Block Deflect (D1) | **Adv. Dribble Advance** wins outright | **bonus applies** | — |
-| Adv. Block Deflect (D1) | **Adv. Dribble Advance** wins outright | **bonus applies** | **they pay their cost** ‡C |
-| Steal Intercept (D2) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | — |
-| Adv. Steal Intercept (D2) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | same, from their end ‡T |
-| Pressure (D3) | **Pressure** wins outright | **I pay my cost** | — |
-| Adv. Pressure (D3) | **Adv. Pressure** wins outright | **I pay my cost** | **their bonus applies** |
-| *nobody — the defense sent no challenger* | **Adv. Dribble Advance** succeeds unopposed | bonus? ‡U | — |
+| Block Deflect (D1) | **Dribble Burst** wins outright | **bonus applies** | — |
+| Clear (D1) | **Dribble Burst** wins outright | **bonus applies** | **pays:** add exhaustion *(how much is not stated)* ‡C |
+| Steal Intercept (D2) | **Tie** — a skill test decides | bonus if won. If lost, the cost as drafted names *Pressure*, which has not happened ‡T | — |
+| Intercept (D2) | **Tie** — a skill test decides | bonus if won. If lost, the cost as drafted names *Pressure*, which has not happened ‡T | the same from their end ‡T |
+| Pressure (D3) | **Pressure** wins outright | **pays:** the pressured player does not go back with the ball | — |
+| Double Team (D3) | **Double Team** wins outright | **pays:** the pressured player does not go back with the ball | **bonus:** ball back **2**, and a second defender joins for free (+dSkill) |
+| *no challenger sent* | **Dribble Burst** succeeds unopposed | bonus? ‡U | — |
 
-### Adv. High Pass — O3, offense
+### Setup Pass — O3, the advanced High Pass
 
-| Played against | How it settles | For Adv. High Pass | For the opposing card |
+**On success:** a set-up at distance 0, 1 or 3, speed modifier in favour. **When defeated:** the other team may set up a scoring opportunity after the resolution.
+
+| Played against | How it settles | What Setup Pass gets or pays | What the opposing card gets or pays |
 | --- | --- | --- | --- |
-| Block Deflect (D1) | **Block Deflect** wins outright | **I pay my cost** | — |
-| Adv. Block Deflect (D1) | **Adv. Block Deflect** wins outright | **I pay my cost** | **their bonus applies** |
-| Steal Intercept (D2) | **Adv. High Pass** wins outright | **bonus applies** | — |
-| Adv. Steal Intercept (D2) | **Adv. High Pass** wins outright | **bonus applies** | **they pay their cost** ‡C |
-| Pressure (D3) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | — |
-| Adv. Pressure (D3) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | same, from their end ‡T |
-| *nobody — the defense sent no challenger* | **Adv. High Pass** succeeds unopposed | bonus? ‡U | — |
+| Block Deflect (D1) | **Block Deflect** wins outright | **pays:** the other team may set up a scoring opportunity after the resolution | — |
+| Clear (D1) | **Clear** wins outright | **pays:** the other team may set up a scoring opportunity after the resolution | **bonus:** ball back **3** spaces, speed −3 |
+| Steal Intercept (D2) | **Setup Pass** wins outright | **bonus applies** | — |
+| Intercept (D2) | **Setup Pass** wins outright | **bonus applies** | **pays:** the High Pass reception is not contested ‡C |
+| Pressure (D3) | **Tie** — a skill test decides | bonus if won, cost if lost ‡T | — |
+| Double Team (D3) | **Tie** — a skill test decides | bonus if won, cost if lost ‡T | the same from their end ‡T |
+| *no challenger sent* | **Setup Pass** succeeds unopposed | bonus? ‡U | — |
 
-### Adv. Block Deflect — D1, defense
+### Clear — D1, the advanced Block Deflect
 
-| Played against | How it settles | For Adv. Block Deflect | For the opposing card |
+**On success:** ball back **3** spaces, speed −3. **When defeated:** add exhaustion *(how much is not stated)*.
+
+| Played against | How it settles | What Clear gets or pays | What the opposing card gets or pays |
 | --- | --- | --- | --- |
-| Low Pass (O1) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | — |
-| Adv. Low Pass (O1) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | same, from their end ‡T |
-| Dribble Advance (O2) | **Dribble Advance** wins outright | **I pay my cost** | — |
-| Adv. Dribble Advance (O2) | **Adv. Dribble Advance** wins outright | **I pay my cost** | **their bonus applies** |
-| High Pass (O3) | **Adv. Block Deflect** wins outright | **bonus applies** | — |
-| Adv. High Pass (O3) | **Adv. Block Deflect** wins outright | **bonus applies** | **they pay their cost** ‡C |
-| *no challenge made — this side sent nobody* | the card is never played | nothing applies | — |
+| Low Pass (O1) | **Tie** — a skill test decides | bonus if won, cost if lost ‡T | — |
+| Precise Pass (O1) | **Tie** — a skill test decides | bonus if won, cost if lost ‡T | the same from their end ‡T |
+| Dribble Advance (O2) | **Dribble Advance** wins outright | **pays:** add exhaustion *(how much is not stated)* | — |
+| Dribble Burst (O2) | **Dribble Burst** wins outright | **pays:** add exhaustion *(how much is not stated)* | **bonus:** carry the ball **all the way to the goal**, a token a space |
+| High Pass (O3) | **Clear** wins outright | **bonus applies** | — |
+| Setup Pass (O3) | **Clear** wins outright | **bonus applies** | **pays:** the other team may set up a scoring opportunity after the resolution ‡C |
+| *this side sent nobody* | the card is never played | nothing applies | — |
 
-### Adv. Steal Intercept — D2, defense
+### Intercept — D2, the advanced Steal Intercept
 
-| Played against | How it settles | For Adv. Steal Intercept | For the opposing card |
+**On success:** turnover, and defender and ball move **forward** 1. **When defeated:** the High Pass reception is not contested.
+
+| Played against | How it settles | What Intercept gets or pays | What the opposing card gets or pays |
 | --- | --- | --- | --- |
-| Low Pass (O1) | **Adv. Steal Intercept** wins outright | **bonus applies** | — |
-| Adv. Low Pass (O1) | **Adv. Steal Intercept** wins outright | **bonus applies** | **they pay their cost** ‡C |
-| Dribble Advance (O2) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | — |
-| Adv. Dribble Advance (O2) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | same, from their end ‡T |
-| High Pass (O3) | **High Pass** wins outright | **I pay my cost** | — |
-| Adv. High Pass (O3) | **Adv. High Pass** wins outright | **I pay my cost** | **their bonus applies** |
-| *no challenge made — this side sent nobody* | the card is never played | nothing applies | — |
+| Low Pass (O1) | **Intercept** wins outright | **bonus applies** | — |
+| Precise Pass (O1) | **Intercept** wins outright | **bonus applies** | **pays:** the defender may play an unopposed Low Pass after stealing ‡C |
+| Dribble Advance (O2) | **Tie** — a skill test decides | bonus if won. If lost, the cost as drafted names *High Pass*, which has not happened ‡T | — |
+| Dribble Burst (O2) | **Tie** — a skill test decides | bonus if won. If lost, the cost as drafted names *High Pass*, which has not happened ‡T | the same from their end ‡T |
+| High Pass (O3) | **High Pass** wins outright | **pays:** the High Pass reception is not contested | — |
+| Setup Pass (O3) | **Setup Pass** wins outright | **pays:** the High Pass reception is not contested | **bonus:** a set-up at distance 0, 1 or 3, speed modifier in favour |
+| *this side sent nobody* | the card is never played | nothing applies | — |
 
-### Adv. Pressure — D3, defense
+### Double Team — D3, the advanced Pressure
 
-| Played against | How it settles | For Adv. Pressure | For the opposing card |
+**On success:** ball back **2**, and a second defender joins for free (+dSkill). **When defeated:** **the draft is cut off — nothing is stated**.
+
+| Played against | How it settles | What Double Team gets or pays | What the opposing card gets or pays |
 | --- | --- | --- | --- |
-| Low Pass (O1) | **Low Pass** wins outright | **I pay my cost** | — |
-| Adv. Low Pass (O1) | **Adv. Low Pass** wins outright | **I pay my cost** | **their bonus applies** |
-| Dribble Advance (O2) | **Adv. Pressure** wins outright | **bonus applies** | — |
-| Adv. Dribble Advance (O2) | **Adv. Pressure** wins outright | **bonus applies** | **they pay their cost** ‡C |
-| High Pass (O3) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | — |
-| Adv. High Pass (O3) | Tie on the cards — a skill test settles it | bonus if the test is won, cost if it is lost ‡T | same, from their end ‡T |
-| *no challenge made — this side sent nobody* | the card is never played | nothing applies | — |
+| Low Pass (O1) | **Low Pass** wins outright | **pays:** **the draft is cut off — nothing is stated** | — |
+| Precise Pass (O1) | **Precise Pass** wins outright | **pays:** **the draft is cut off — nothing is stated** | **bonus:** ball to **any** teammate, speed +3 |
+| Dribble Advance (O2) | **Double Team** wins outright | **bonus applies** | — |
+| Dribble Burst (O2) | **Double Team** wins outright | **bonus applies** | **pays:** the pressured player does not go back with the ball ‡C |
+| High Pass (O3) | **Tie** — a skill test decides | bonus if won, cost if lost ‡T | — |
+| Setup Pass (O3) | **Tie** — a skill test decides | bonus if won, cost if lost ‡T | the same from their end ‡T |
+| *this side sent nobody* | the card is never played | nothing applies | — |
 
 ---
 
 ## The outcome ladder
 
-The tables above are the pairings. This is the part that actually needs deciding: a
-maneuver turn does not land in "won" or "lost" but in one of eight states, and the two
-words in the brief cover only rows 2 and 3.
+The tables above are the pairings. This is the part the drafts do not reach: a maneuver
+turn does not land in "won" or "lost" but in one of eight states, and the two words in the
+brief cover only rows 2 and 3.
 
-Rows 4 to 7 exist because of the injured player's disadvantage (see
-[Playing injured](living-rules.md#playing-injured)), which both takes wins away and hands
-them out. Every one of them is a state an advanced card can be sitting in when the turn
-resolves.
+Rows 5 to 8 exist because of the injured player's disadvantage (see [Playing
+injured](living-rules.md#playing-injured)), which both takes wins away and hands them out.
+Every one of them is a state an advanced card can be sitting in when the turn resolves.
 
 | # | How the turn landed | Whose maneuver resolves | Advanced bonus? | Advanced cost? |
 | --- | --- | --- | --- | --- |
 | 1 | **Unopposed** — the defense sent no challenger | the offense's | ‡U | the defense played no card, so nothing to charge |
-| 2 | **Decisive on the cards** | the higher-ranked | **yes**, to the winner | **yes**, to the loser |
-| 3 | **Tie → skill test** | the test's winner | ‡T | ‡T |
+| 2 | **Decisive on the cards** | the higher-ranked | **yes**, to the winner | **yes**, to the loser — this is the case every draft is written for |
+| 3 | **Tie → skill test** | the test's winner | ‡T | ‡T, and three of the six costs cannot be read here at all |
 | 4 | **Tie re-rolled** (equal totals; another token each) | settled by the re-roll | as row 3 | as row 3 |
 | 5 | **Injury downgrade** — a decisive win owed to an injured player becomes a test they must win — **won** | the injured player's | ‡T ‡I | ‡T ‡I |
 | 6 | Same, **lost** | their opponent's | ‡T ‡I | ‡T ‡I |
 | 7 | **Injured tie** — a tie against exactly one injured participant, lost automatically with nothing rolled | the healthy player's | ‡I | ‡I |
 | 8 | **Both injured in a tie** — an ordinary tie | as row 3 | as row 3 | as row 3 |
 
-‡I is [Q6](#q6-how-do-the-advanced-effects-read-against-an-injured-player).
+‡I is [Q13](#q13-how-do-the-advanced-effects-read-against-an-injured-player).
 
-Two things worth naming, because they are what makes this ladder awkward rather than
-long:
-
-- **Every maneuver turn ends with exactly one maneuver resolving.** There is no state
-  where neither card takes effect, so "defeated" has a clean default reading: *my card
-  was not the one that resolved*. Adopting that reading answers ‡T, ‡U and part of ‡I at
-  once — and it is the reading the tables above are drawn under. The alternative, that
-  only a decisive rank loss is a defeat, makes an advanced card strictly safer to play
-  into a tie than into a mismatch, which may or may not be wanted.
-- **A skill test already costs both participants a token**, and a re-roll costs another.
-  If the advanced cost is also paid in exhaustion, row 3 charges the loser twice for one
-  maneuver, and row 4 three times. That is [Q7](#q7-what-currency-is-the-extra-cost-in).
+Rows 5 and 6 are the awkward ones. A player who was owed a decisive win and is made to roll
+for it *because they are injured* is in the one state where the cost falls on somebody the
+cards said should have won — charging them reads as charging them twice for the injury.
 
 ---
 
 ## Open questions for the author
 
-Grouped by what they block. The first five are the matrix; the rest can be answered
-while it is being built.
+Eighteen. The first five block the matrix; the next seven are one per card and block its
+effects; two more apply across all six; one is upstream housekeeping; the last three are
+asymmetric teams.
 
 ### Blocking the matrix
 
 #### Q1: Is advanced-vs-basic a per-turn choice?
 
-Does a coach playing advanced hold **six cards** and pick one secretly each maneuver, or
-is a side locked to one set for the game, or is it a game-level toggle so that both
-sides use the advanced set or neither does? A3 assumes the first. This decides whether
-"Adv. Low Pass vs Block Deflect" is a pairing that can occur at all.
+Does a coach playing advanced hold **six cards** and pick one secretly each maneuver, or is
+a side locked to one set for the game, or is it a game-level toggle so that both sides use
+the advanced set or neither does? The tables assume the first, because the other two are
+sub-grids of it.
 
 #### Q2: Does an advanced card beat a basic card of the same rank?
 
-A2 says no — rank alone decides, and same rank is a tie however the two cards were
-chosen. The alternative grid is
-[above](#if-advanced-broke-a-same-rank-tie-a2-rejected). If the answer is no, advanced
-mode never changes who wins a maneuver, only what winning and losing are worth.
+The sheet says no by omission — an advanced row's `Defeats` and `Defeated by` are its basic
+counterpart's, unchanged. Confirming that is enough. The alternative removes three of the
+nine skill tests from any game where one coach plays advanced and the other does not, and
+needs a second diagram on the card backs.
 
-#### Q3: Does a skill test count?
+#### Q3: Does losing a skill test count as being defeated?
 
-Three sub-questions, and they may not have the same answer:
+Three of the six costs name the maneuver that beat them — a steal, a pressure, a High Pass
+reception — none of which happens when the card loses a same-rank skill test instead. See
+[the table above](#three-of-the-six-costs-name-the-maneuver-that-defeated-them).
 
-- Is winning a skill test after a tie **succeeding** (bonus applies)?
-- Is losing one **being defeated** (extra cost applies)?
-- Does the answer change when the test came from an injury downgrade (rows 5 and 6)
-  rather than from a tie?
+The reading that fits the drafts is: **"defeated" means the maneuver that beats it
+resolved, and a lost skill test is not that.** The alternative is a second cost per card
+for the tie, which is three more clauses to write.
+
+The same question, harder, for rows 5 and 6 of the ladder: a player made to roll for a win
+they were owed, because they are injured, and losing.
 
 #### Q4: Does an unopposed maneuver earn its bonus?
 
-The defense can decline the challenge rather than pay to walk a player in. The offense's
-card then succeeds with nothing to beat. Does the advanced bonus apply, and does that
-make declining against an advanced card worse than declining against a basic one?
+The defense may send nobody rather than pay to walk a challenger in. If the bonus applies,
+declining against Dribble Burst means conceding a run at the goal for free, which is a much
+worse decline than it is today.
 
 #### Q5: Do both sides' effects apply at once?
 
-With both cards advanced, a decisive result means the winner's bonus *and* the loser's
-extra cost. Both, or does one suppress the other?
+Nine of the thirty-six pairings are advanced-against-advanced and decisive. Some of those
+stack heavily: **Precise Pass into Intercept** gives the defense the steal, the forward
+move *and* an unopposed Low Pass — three effects off one maneuver. **Setup Pass into
+Clear** gives the defense a 3-space clearance, its own possible set-up off the overshoot,
+*and* the set-up the Setup Pass's cost hands them.
 
-### Blocking the effects
+### One per card
 
-#### Q6: How do the advanced effects read against an injured player?
+#### Q6: Double Team's cost is missing
 
-Injury already both withholds wins and hands them out. Does an advanced card change how
-that works, and does the extra cost stack on top of an [injury
-check](living-rules.md#the-injury-check) at the end of a test?
+The draft ends mid-sentence at "If defeated". Nothing can be built for D3 until it is
+finished.
 
-#### Q7: What currency is the extra cost in?
+#### Q7: Clear — how much exhaustion, and on whom?
 
-Exhaustion tokens, space minutes on the clock, ball speed, position, an injury check, a
-lost declaration, something else? Each is a different mechanism in the code, so this is
-the answer that most shapes the build. Please answer it per card if the six differ.
+"Add exhaustion" does not say how many tokens, or whether they go on the defender who
+played the card or on somebody else. It is the only cost of the six paid in a currency the
+game already counts.
 
-#### Q8: When is the cost paid?
+#### Q8: Setup Pass — distances 0, 1 or 3, and who shoots from 0?
 
-At the moment the maneuver resolves, or at the start of that side's next turn? A cost
-paid at resolution lands in the middle of an effect that may itself be moving the ball
-and running players back.
+Three things here. A High Pass throws **2, 3 or 4**; this throws **0, 1 or 3**, which is a
+different set rather than an extension of it. Distances that would run off the field are
+currently dropped from the menu — does that still hold, and can this card overshoot?
 
-#### Q9: Who pays it — the player or the team?
+And **distance 0 collides with a rule already settled**: a passer never receives their own
+pass (2026-08-12), so a set-up on the ball's own space has no shooter unless a teammate is
+standing there. Is 0 meant to set up a *teammate on the passer's space*, or is this card an
+exception to that rule?
 
-The handler / challenger who played the card, or the side as a whole? Exhaustion is a
-player's; the clock and the declaration are a side's.
+#### Q9: Intercept — forward for whom?
 
-#### Q10: Do role abilities carry to the advanced version?
+Basic Steal Intercept moves the defender and ball **back**, toward the goal the newly
+possessing team defends. Intercept says **forward**. Read the same way that is toward the
+goal they now attack — an interception that gains ground — which would make it strictly
+better than the basic version in position as well as in speed. Confirming the direction
+matters because "forward" and "back" mean opposite things to the two sides, and getting one
+of these mirrored is a mistake this project has made before.
 
-A5 assumes yes for all six: a Playmaker's extra space, a Fullback's 4-space throw and
-2-space deflect, a Midfielder's +3 on a test, a Winger's set-up, a Defender's steal off a
-won Pressure, a Striker's +3 on a set-up shot.
+#### Q10: Precise Pass — how far is "any teammate"?
 
-#### Q11: Does an advanced maneuver's clock cost differ?
+The basic Low Pass reaches at most 2 spaces, and a nearer teammate blocks a farther one in
+the same direction. "Ball to any teammate" appears to drop both limits — the whole field,
+past anybody in the way. Also: does the passer still move forward 1 when passing across a
+shared space, and is the +3 still capped at speed 12?
 
-Every maneuver costs a flat space minute except High Pass, which costs 2 (2026-08-16).
-Is an advanced version the same, or is the clock one of the places the extra cost lands?
+#### Q11: Dribble Burst — all the way to where?
 
-#### Q12: Can the advanced cards produce set-ups, own goals and turnovers as the basic ones do?
+The last space of the attacking goal zone, or as far as the player chooses? What happens
+when a defender is standing in the way — is the run stopped, or is nothing in the way? Is
+the exhaustion 1 a space (which on board 9 could be six or seven tokens off one maneuver,
+enough to make a healthy player Exhausted in a single turn)? And is the ball still left
+with the handler at the end?
 
-A4 assumes each advanced card resolves through its basic counterpart's machinery. If an
-advanced Pressure can no longer overshoot into an own goal, or an advanced High Pass
-resolves its overshoot differently, that needs saying — those are the branchiest paths in
-the game.
+#### Q12: The `Interactions` column is stale on all six advanced rows
 
-### Asymmetric teams — before anything can be specified
+Each advanced row repeats its basic counterpart's role abilities, and three of them now
+contradict the card:
 
-The `Advanced` ability column in the sheet is still empty for all thirty-six players, so
-there is nothing to import yet. Three questions decide how much can be built ahead of it:
+- **Clear** sends the ball back 3, but carries "Fullback: ball goes back 2" — the ability
+  makes the card *worse*.
+- **Dribble Burst** runs to the goal, but carries "Playermaker may advance 2".
+- **Setup Pass** offers 0, 1 or 3, but carries "Fullback can pass up to 4".
 
-#### Q13: Is a team's special set per player or per team?
+So: do role abilities apply to the advanced version at all, and if they do, what do these
+three mean? The Midfielder's +3, the Winger's set-up, the Defender's steal and the
+Striker's +3 have no such conflict and presumably carry over.
 
-An `Advanced` ability per player card (replacing or adding to their role ability), a
-handful of team-wide rules, or both?
+### Across all six
 
-#### Q14: What does "unique role composition" allow?
+#### Q13: How do the advanced effects read against an injured player?
+
+Rows 5 to 8 of the ladder, and whether an advanced cost stacks on top of the [injury
+check](living-rules.md#the-injury-check) a skill test already owes.
+
+#### Q14: Does the cycle hold advanced-against-advanced?
+
+`Defeats` and `Defeated by` name only basic maneuvers, so the sheet never says what Precise
+Pass does against Intercept. Reading it by rank is what makes the grid work; it should be
+stated rather than inferred.
+
+### Upstream housekeeping
+
+#### Q15: Two columns are stale, and one has no name
+
+- **`Time`** still says "distance traveled (1-2 space minutes)" for Low Pass and "(2-4)"
+  for High Pass. The 2026-08-16 flat-cost ruling replaced those with 1 and 2, and
+  `maneuvers.json` was edited by hand — so **re-running the importer today would revert
+  it.** This wants fixing upstream before anything is imported. Do the advanced cards cost
+  the same as their counterparts?
+- **`Die value`** was retired from the rules on 2026-08-17 and can go.
+- **The tier column has no header** (`Column 10`). It needs a name — `Mode` or `Tier` — for
+  the importer to read it by.
+
+### Asymmetric teams
+
+The `Advanced` ability column in `basic_abilities` is still empty for all thirty-six
+players, so there is nothing to import. Three questions decide how much can be built ahead
+of it.
+
+#### Q16: Is a team's special set per player or per team?
+
+An `Advanced` ability per player card, a handful of team-wide rules, or both?
+
+#### Q17: What does "unique role composition" allow?
 
 Today every team is nine players — one of each of six starting roles plus three on the
-bench — and the loader **refuses** data that is not
-(`load_player_catalog`, `default_formation_deal`). A team with two Strikers and no
-Winger, or with eight players, is not a data change but a change to what the game
-considers a legal team. Which of these can vary: the six starting roles, the bench of
-three, the total of nine, the roles existing at all?
+bench — and the loader **refuses** anything else (`load_player_catalog`,
+`default_formation_deal`). Which can vary: the bench of three, the six starting roles, the
+total of nine, the roles existing at all?
 
-#### Q15: Can the two sides differ?
+Related, and worth settling in the same breath: **4-1-1 and 2-1-3** were set aside for
+advanced mode on 2026-08-08 and fit no current board. Are they part of asymmetric teams?
 
-"Each team can be played as the standard version or with a unique set" reads as a
-per-side choice, so one coach could play standard against an asymmetric opponent. Is that
-intended, or do both sides have to agree?
+#### Q18: Can the two sides differ?
 
-Two things already recorded that bear on this and should be confirmed rather than
-assumed: the formations **4-1-1 and 2-1-3** were set aside for advanced mode on
-2026-08-08 and fit no current board; and the back of a printed player card is that
-player's advanced version (2026-08-12), which is what fills in once Q13 is answered.
+"Each team can be played as the standard version or with a unique set" reads as a per-side
+choice, so one coach could play standard against an asymmetric opponent. Intended, or must
+both sides agree?
 
 ---
 
 ## What this costs in code
 
-Not a plan — see the branch's pull request for that. Three things worth knowing while
-the questions above are being answered, because they may change an answer:
+Not a plan — see the branch's pull request. Four things worth knowing while the questions
+above are being answered, because they may change an answer:
 
-- **A maneuver's identity is its display name.** `match.offense_maneuver` holds the
-  string `"Low Pass"`, and around ten places compare against those literals: the effect
-  dispatch table, the Midfielder's +3, the ball speed modifier a Steal Intercept adds,
-  the turnover check, and the maneuver cards' own layout. Advanced cards with different
-  names need a stable identifier separate from the printed name — which is worth doing
-  whatever the answers are.
-- **The defeat cycle is drawn on the back of every maneuver card**, and every coach reads
-  a matchup off it. A2 keeps that one hexagon; rejecting A2 needs a second diagram, or a
-  hexagon that says what an advanced card does to a same-rank tie.
-- **Setup already refuses advanced mode** (`GameMode.ADVANCED`), and it is a single enum
-  — basic or advanced. "Players can choose whether to add one or both" makes it two
+- **A maneuver's identity is its display name.** `match.offense_maneuver` holds the string
+  `"Low Pass"`, and around ten places compare against those literals: the effect dispatch
+  table, the Midfielder's +3, the ball speed modifier a Steal Intercept adds, the turnover
+  check, and the maneuver cards' own layout. The advanced cards have entirely different
+  names, so a stable identifier separate from the printed name is needed whatever else is
+  decided.
+- **Four of the six costs are new mechanisms, not a shared penalty.** An unopposed Low Pass
+  granted to the defense, a set-up granted to the other team, a Pressure that leaves the
+  ball behind, a High Pass reception that skips its contest — each is a branch of its own in
+  the resolution, and none of them exists today.
+- **Two of the six effects reach past the maneuver they belong to.** Dribble Burst charges
+  exhaustion by distance, which no maneuver currently does; Double Team moves a *second*
+  defender onto the space and adds their skill to a test, which nothing in the game does.
+- **Setup already refuses advanced mode** (`GameMode.ADVANCED`), and it is a single enum —
+  basic or advanced. "Players can choose whether to add one or both" makes it two
   independent switches, which is a change to the saved game record.

@@ -45,7 +45,7 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
-### Advanced mode -- fifteen questions, none of them answered
+### Advanced mode -- eighteen questions, none of them answered
 
 The author asked for advanced mode on 2026-08-17: **advanced maneuvers** (each of the six
 has a version that is more impactful when it succeeds and carries an extra cost when it is
@@ -55,13 +55,20 @@ composition instead of the standard one), with a game free to take one, both or 
 Nothing is settled yet, and the questions are kept in
 [advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) rather than here, because they
 come with the table they are asked against -- every advanced maneuver against every
-maneuver it can meet, and which cost or benefit applies. Five of the fifteen block the
+maneuver it can meet, and which cost or benefit applies. Five of the eighteen block the
 table itself: whether the advanced choice is made per turn or per game, whether an
 advanced card beats a basic one of the same rank, whether a skill test counts as
 succeeding or being defeated, whether an unopposed maneuver earns its bonus, and whether
 both sides' effects apply when both played advanced.
 
-The advanced maneuvers themselves are drafted in the sheet and have not been pulled in.
+**The six advanced maneuvers are drafted in the sheet's `maneuvers` tab** -- six new rows
+beside the basic six, each identical to its counterpart in every column but the effect, so
+**an advanced maneuver keeps its rank and its place in the defeat cycle** and advanced mode
+adds no new way to *win* a maneuver. They are transcribed into the matrix and deliberately
+**not** imported: one draft is cut off mid-sentence, three costs name the maneuver that
+defeated them and so cannot be read against a lost skill test, and one distance collides
+with the 2026-08-12 rule that a passer never receives their own pass.
+
 The `Advanced` ability column is still empty for all thirty-six players, so asymmetric
 teams have no data at all.
 
@@ -1525,8 +1532,14 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
   [Advanced mode](#advanced-mode----fifteen-questions-none-of-them-answered) under Still
   open, and [advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) for the questions.
   Setup refuses it. It has two halves and they are blocked on different things:
-  - **Advanced maneuvers** are drafted in the sheet's `maneuvers` tab and need pulling in,
-    plus five rulings before the interaction table can be completed.
+  - **Advanced maneuvers** are drafted in the sheet's `maneuvers` tab and transcribed into
+    the matrix. They are not imported, and should not be until the drafts are finished --
+    Double Team's cost is cut off mid-sentence, and three of the six name the maneuver that
+    beat them, which a lost skill test is not. Note also that the tab's `Time` column still
+    carries the distance-based costs the 2026-08-16 flat-cost ruling replaced, so
+    **re-running `scripts/import_d12ball_maneuvers.py` today would revert `maneuvers.json`**
+    -- it is listed in [Where upstream is behind](#where-upstream-is-behind) and wants
+    fixing upstream before anything else is pulled.
   - **Asymmetric teams** -- per-team abilities and role composition (the sheet's empty
     `Advanced` column) -- have no data at all. Formations left 4-1-1 and 2-1-3 to advanced
     mode on 2026-08-08, and neither fits a current board. It also holds up the **back of a
