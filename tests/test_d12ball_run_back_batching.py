@@ -19,6 +19,7 @@ from cogs.d12ball_helpers import travel_space_label
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     MatchState,
+    PlayerRole,
     TeamSide,
     Zone,
     load_basic_ruleset,
@@ -26,6 +27,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import AIOpponent, Team
+from roster import fielded
 
 
 def build_interaction() -> SimpleNamespace:
@@ -381,27 +383,6 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
         cls.maneuvers = load_maneuver_catalog()
 
     async def test_a_run_back_that_will_not_settle_gives_up(self) -> None:
-        cog = object.__new__(D12Ball)
-        cog.games = {}
-        cog.player_catalog = self.catalog
-        cog.team_emojis = {}
-        cog.condition_emojis = {}
-        cog.refresh_match_image = mock.AsyncMock()
-        cog.finish_maneuver_resolution = mock.AsyncMock()
-        # A player who stays displaced however often they are placed.
-        cog.apply_forced_run_backs = mock.Mock()
-        cog.next_run_back_step = mock.Mock(
-            return_value=(TeamSide.VISITING, ["purple_zenith"]),
-        )
-        cog.side_is_ai = mock.Mock(return_value=True)
-        cog.get_ai_strategy = mock.Mock(
-            return_value=mock.Mock(choose_run_back_space=mock.Mock(return_value=0)),
-        )
-        cog.apply_exhaustion = mock.Mock(return_value="")
-        cog.get_player_definition = mock.Mock(
-            return_value=self.catalog.player_by_id("purple_zenith"),
-        )
-
         match = MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
@@ -409,6 +390,31 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
             home_team=Team.ORANGE,
             visiting_team=Team.PURPLE,
         )
+        # A player who stays displaced however often they are placed.
+        # Which one is immaterial -- the cascade is driven by the mocks
+        # below, so this is only somebody for it to keep placing.
+        displaced = fielded(match, PlayerRole.WINGER, TeamSide.VISITING)
+
+        cog = object.__new__(D12Ball)
+        cog.games = {}
+        cog.player_catalog = self.catalog
+        cog.team_emojis = {}
+        cog.condition_emojis = {}
+        cog.refresh_match_image = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
+        cog.apply_forced_run_backs = mock.Mock()
+        cog.next_run_back_step = mock.Mock(
+            return_value=(TeamSide.VISITING, [displaced]),
+        )
+        cog.side_is_ai = mock.Mock(return_value=True)
+        cog.get_ai_strategy = mock.Mock(
+            return_value=mock.Mock(choose_run_back_space=mock.Mock(return_value=0)),
+        )
+        cog.apply_exhaustion = mock.Mock(return_value="")
+        cog.get_player_definition = mock.Mock(
+            return_value=self.catalog.player_by_id(displaced),
+        )
+
         match.run_back_player = mock.Mock(return_value=0)
         game = SimpleNamespace(
             match_state=match.to_dict(),

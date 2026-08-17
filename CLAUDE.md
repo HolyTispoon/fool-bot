@@ -38,6 +38,7 @@ python3 -m unittest discover -s tests
 | `d12ball/fonts/` | Bundled DejaVu — see "Fonts" below |
 | `gamesaves/d12ball/storage.py` | Persistence to `data/d12ball_games.json` |
 | `scripts/` | CLI tools used repeatedly (not one-off scratch work) |
+| `tests/roster.py` | Naming a player in a test by role -- see "The test suite" |
 | `docs/` | The game rules, and how they got that way -- see below |
 
 ## The rules
@@ -2254,6 +2255,57 @@ as a bug.
   path against its directory's own listing, which fails on both. Same reasoning
   as the fonts one section above -- a graceful fallback is what makes a missing
   file quiet.
+
+## The test suite
+
+**A test names a player by their role, not by their name.** The roster is data
+the author revises, and a revision is not a code change: 36250a9 renamed five
+orange players and broke the suite on `main`, independently of the branch it
+landed on, because tests had picked their fixtures by id. Almost none of them
+were about *who* the player was -- they wanted a fielded card, or a fullback,
+or three of a side to drain the bench with. `tests/roster.py` is how they ask
+for that: `fielded(match, PlayerRole.STRIKER)`, `benched(...)`,
+`field_players(match)[:3]`, and `roles(ids)` for a test asserting what a deal
+fielded rather than who.
+
+- **Every team is dealt the same six roles and benches the same three**, so
+  those answer for any team, and a side is named by its `TeamSide` rather than
+  by which colour is playing it. The side defaults to home.
+- **The standard deal's own tests assert roles against
+  `BasicRuleset.standard_setup` itself**, since the deal *is* by role
+  (`default_formation_deal`) -- a list of six names was a snapshot of the data
+  rather than a reading of the rule, which is why it broke.
+- **A test genuinely about a particular player keeps naming them**: the roster
+  listing, `test_d12ball_player_import`, and the portrait-art check, which is
+  the one that *should* fail when a rename lands without the matching image.
+  Everything else should be answerable after a rename without being touched.
+- **A team's colour comes from `TEAM_COLORS`** for the same reason -- a test
+  carrying `"#f28c28"` under the label `"Orange"` had been wrong since the
+  palette moved and nothing noticed, because it was only ever passed to a
+  renderer as a string. See "Team colors".
+- **A test asserting a label the bot builds out of a name puts the name in
+  by lookup**, rather than baking the whole string. The High Pass distance
+  buttons (`test_d12ball_high_pass.py`) read
+  `f"3 spaces (V2-{striker} [SK])"` off `display_name(fielded(...))`: the
+  wording, the space code and the role initials are what is under test, and
+  the card standing there is not.
+- **A tie broken on roster order is read off the roster, never written down.**
+  `test_dinky_breaks_a_role_tie_on_bench_order` asks the bench which of the
+  two tied roles it lists first, because the rule is "bench order decides" --
+  naming the winner is asserting today's ordering of the data.
+- **Synthetic fixtures carry names that are obviously off the roster** --
+  `Defender A`, `Shooter`, in `test_d12ball_shot_defence.py` and the dice
+  captions in `test_d12ball_components.py`. They are built in the test file
+  and never looked up, so a real name there cannot break; it just reads as a
+  roster reference and sends the next rename chasing it.
+- **`grep` the roster against `tests/` to check, and mutate the data to be
+  sure.** Both were done when this landed: no player id or display name
+  appears anywhere in `tests/`, and the suite was re-run against a renamed
+  id, a renamed player, a reordered roster and a cross-team reshuffle. What
+  a reshuffle *cannot* survive is a team losing one of the six standard-setup
+  roles or its ninth player -- `load_player_catalog` and
+  `default_formation_deal` refuse the data outright, which is the rules
+  talking and not the suite.
 
 ## Collaboration
 
