@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-15.
+**As of:** 2026-08-16.
 
 ## Where the rules come from
 
@@ -55,7 +55,65 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-15 (newest) -- author, an avoided own goal is a new play too
+### 2026-08-16 (newest) -- author, a contest is answered by the nearest players, not by the zone
+
+*From the author: a coach sending someone after a contested ball may send "a player from any
+zone -- but only one of the closest players in front of or behind the space where the ball is
+contested", with the coach choosing freely where two are tied. Extended in the same message to
+the out-of-bounds and ceded-ball pickups, and to a new standing rule that every arrangement
+covers its kickoff space.*
+
+- **The zone was the wrong measure and distance is the right one.** Every one of these rules
+  already charged a token a space, so distance was what the coach was paying in; the zone was
+  a second, unrelated gate on top of it, and it produced the reading nobody wants -- a defender
+  two spaces away barred from a challenge while one four spaces away in the same zone was
+  offered it. Zone now decides where a player *lives* (the arrangement, the run back) and
+  nothing about what they may be sent to do.
+- **Two candidates, not the whole field**, which is what stops this becoming the out-of-bounds
+  pickup's "anyone, from anywhere". The nearest in each direction along the field is a real
+  choice -- forward costs position, back costs the cover behind the ball -- where a list of six
+  is a distance sum a coach reads off the board. A tie is the coach's, since two players
+  equidistant on the same side differ only in who they are.
+- **[Sending a player](living-rules.md#sending-a-player) is stated once and linked four times.**
+  The maneuver challenge, the loose ball, the long High Pass contest and the required pickup
+  were four wordings of one act, and had drifted: three said "in the zone" and the fourth said
+  "any field player from anywhere". A single definition is what stops the next rule that sends
+  somebody inventing a fifth pool.
+- **Two branches all but disappear, and neither is deleted.** "Nobody in the zone to challenge"
+  and "neither side has a player in the zone" were reachable states; with distance as the
+  measure, a side with any fielded meeple at all has a candidate. So an unchallenged maneuver
+  and an out-of-bounds ball are now reached **only by a coach declining**, which is the more
+  interesting way to reach either. The no-candidate branches stay because a side can be left
+  with nobody fielded near a ball only by having nobody fielded at all, and a rule that reads
+  as if that cannot happen is a rule with a crash in it.
+- **The walk-in is no longer bounded by geometry.** A challenge could cost at most the width of
+  a zone; it can now cost the width of the board, which on board 9 is eight tokens and past
+  every player's defensive skill. That is the price of the change and it is deliberate: the
+  2026-08-12 decline exists precisely so a coach can refuse to pay it, and it now has something
+  worth refusing.
+- **The out-of-bounds and ceded pickups are new plays and are stated as such.** Out of bounds
+  already was one; a cede reached the same place by a different road (both coaches' windows
+  restore their own arrangement, so both sides stand where they mean to by the time the ball is
+  picked up), and saying so makes the two the same rule instead of two coincidences. What
+  changes for both is the pool: the gaining side sends one of the nearest two rather than
+  anyone on the field, and sends nobody at all when the reset already left somebody on the ball.
+- **Every arrangement covers its own kickoff space.** Previously only the side kicking off the
+  coming period had to, and only at setup and halftime. It is now a property of an arrangement
+  wherever one is set, which is what lets a goal restart without the conceding side dropping
+  somebody back and paying for it -- the reset puts a player on the kickoff space by
+  construction. On board 6 the two sides have different kickoff spaces, so each covers its own.
+  - **The standard deal and all five formations already satisfy it**, since midfield packs from
+    a side's own end and every shape puts at least two cards there. Only free space positioning
+    can break it, so the rule costs a coach nothing until they deliberately empty the space.
+  - **The post-goal kickoff fill survives as a fallback, not as a rule.** A game saved before
+    this landed can hold an arrangement that leaves the space empty, and both developers run
+    the bot against their own saves.
+- **Dinky sends the nearest of the options** in all four, which was already its policy for the
+  challenge and the pickup and was not for the loose ball, where it took the higher skill. With
+  two candidates a skill sort is a token-for-a-point trade Dinky has no way to price, and the
+  cheap one is the one that keeps it in the game.
+
+### 2026-08-15 -- author, an avoided own goal is a new play too
 
 *From the author: after an own goal is attempted and avoided, that should be a new play, the
 same as one that is conceded -- and it should end last possession exactly as any other new play
@@ -1128,6 +1186,9 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Substitutions "when they win possession", with no split between kinds of turnover | Only a new play (goal, own goal, missed attempt, out of bounds) opens a window; a steal opens none |
 | Nothing about giving the ball up on purpose | A side out of shooting range may cede it to coach, spending their once-a-half declaration; both coaches then get a window |
 | The defense must challenge a maneuver whenever it has anyone in the ball's zone | Only a defender already on the ball must; anyone who would have to walk in may be kept back, and the maneuver goes unchallenged |
+| A challenger, and a loose ball's contestant, come from the ball's zone | Zone does not come into it: a coach sends the nearest player in front of the space or the nearest behind it, from anywhere on the field |
+| An out-of-bounds pickup is not described at all | The same nearest-two choice, made after the reset and only when nobody of that side is already on the ball |
+| Nothing about the kickoff space beyond where it is | Every arrangement covers its own side's kickoff space, so a restart moves nobody |
 | A loose ball's contestant "gains 1 exhaustion" | 1 token per space travelled |
 | Nothing about the loose-ball check at all, beyond a pass landing on an empty space | A general check after every maneuver, with four cases |
 | Nothing about which space a player runs back to, or what it costs | After a steal the coach picks, covering every space of the zone their players can fill and stacking the surplus, 1 token per space |
