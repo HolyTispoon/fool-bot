@@ -27,7 +27,6 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 # sha and local for the same reason.
 COMMAND_FINGERPRINT_KEY = "command_tree_fingerprint"
 
-
 def command_tree_fingerprint(
     tree: app_commands.CommandTree,
 ) -> Optional[str]:

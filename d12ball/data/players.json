@@ -6,7 +6,7 @@
     "fullback": {
       "offense": 1,
       "defense": 6,
-      "ability": "Can high pass up to 4. Block deflect: ball goes back 2 spaces.",
+      "ability": "High pass up to 4. Block deflect: ball goes back 2 spaces.",
       "ability_short": "High pass: up to 4; Block Deflect: back 2."
     },
     "defender": {
@@ -18,7 +18,7 @@
     "midfielder": {
       "offense": 3,
       "defense": 4,
-      "ability": "Gains +3 on skill tests for low pass or pressure.",
+      "ability": "+3 on skill tests for low pass or pressure.",
       "ability_short": "+3 for low pass/pressure"
     },
     "playmaker": {
@@ -36,7 +36,7 @@
     "striker": {
       "offense": 6,
       "defense": 1,
-      "ability": "Gains +3 for scoring roll off a set up.",
+      "ability": "`+3 for scoring off a set up.",
       "ability_short": "+3 for scoring off setup"
     }
   },
@@ -56,14 +56,14 @@
           "stat_overrides": {}
         },
         {
-          "id": "orange_sizzik",
-          "name": "Sizzik",
+          "id": "orange_scorchit",
+          "name": "Scorchit",
           "role": "midfielder",
           "stat_overrides": {}
         },
         {
-          "id": "orange_scorchit",
-          "name": "Scorchit",
+          "id": "orange_sizzifizik",
+          "name": "Sizzifizik",
           "role": "playmaker",
           "stat_overrides": {}
         },
@@ -74,8 +74,8 @@
           "stat_overrides": {}
         },
         {
-          "id": "orange_kindlefoot",
-          "name": "Kindlefoot",
+          "id": "orange_kindlefinger",
+          "name": "Kindlefinger",
           "role": "striker",
           "stat_overrides": {}
         },
@@ -86,14 +86,14 @@
           "stat_overrides": {}
         },
         {
-          "id": "orange_blazekick",
-          "name": "Blazekick",
+          "id": "orange_emberdash",
+          "name": "Emberdash",
           "role": "playmaker",
           "stat_overrides": {}
         },
         {
-          "id": "orange_emberdash",
-          "name": "Emberdash",
+          "id": "orange_brightburn",
+          "name": "Brightburn",
           "role": "striker",
           "stat_overrides": {}
         }
