@@ -1201,13 +1201,14 @@ class PlayerActionView(SafeView):
             # Same stale-view guard the shot keeps, and the same two
             # reasons the button would not have been built: the ball
             # has moved into shooting range since, or the side has
-            # spent its declaration in another window.
+            # spent its once-a-half Coaching Choice elsewhere.
             if not match.may_cede_possession():
                 await interaction.response.send_message(
                     "The ball is in shooting range now, so there is "
                     "nothing to cede for."
                     if match.can_attempt_score()
-                    else "Your side has already declared this half.",
+                    else "Your side has already called its Coaching "
+                    "Choice this half.",
                     ephemeral=True,
                 )
                 return
@@ -3526,7 +3527,7 @@ class CoachingView(SafeView):
             return None, None
         if match.pending_coaching_side is None:
             await interaction.response.send_message(
-                "That coaching window has already closed.",
+                "That Coaching Choice has already closed.",
                 ephemeral=True,
             )
             return None, None

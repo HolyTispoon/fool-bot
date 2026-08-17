@@ -148,7 +148,7 @@ class CedeOfferTests(unittest.TestCase):
 
         match.declared_substitution.add(TeamSide.HOME.value)
         self.assertIn(
-            "already declared this half",
+            "already called its Coaching Choice this half",
             cog.build_turn_prompt(game, match),
         )
 

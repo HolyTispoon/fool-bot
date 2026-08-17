@@ -62,7 +62,7 @@ A board with an odd number of spaces has a true middle space, and that space is 
 
 On boards 7 and 9 the kickoff space is the middle space of midfield, and both teams kick off from it. Board 6's midfield is two spaces wide and has no middle, so each side kicks off from whichever of the two is nearer its own goal, and the two sides have different kickoff spaces.
 
-Every arrangement a coach settles has to cover their own kickoff space — see [finishing a window](#finishing-a-window).
+Every arrangement a coach settles has to cover their own kickoff space — see [finishing a Coaching Choice](#finishing-a-coaching-choice).
 
 ### Occupancy
 
@@ -97,7 +97,7 @@ A player's **card** is assigned to a zone and their **meeple** stands on a space
 
 The **handler** is the player taking their team's turn with the ball. The **ball carrier** is a player a resolution left holding it, who must take the next turn — see [the ball carrier](#the-ball-carrier).
 
-An **arrangement** is where a coach's meeples were standing when they last closed a [Coaching Choice](#coaching-choice). It is what a new play puts them back on. A Coaching Choice is also called a **window**, and a **declaration** is a side's once-a-half right to call for one in the run of play.
+An **arrangement** is where a coach's meeples were standing when they last closed a [Coaching Choice](#coaching-choice). It is what a new play puts them back on.
 
 A **set-up** is a scoring opportunity a maneuver has created: a shot its receiver may take out of turn — see [scoring opportunities](#scoring-opportunities).
 
@@ -154,7 +154,7 @@ A ball carrier does not run back. If the named player is no longer on the ball b
 
 ### Choosing the action
 
-A score attempt is offered only inside the team's [shooting range](#shooting-range). A maneuver is always available. Ceding is offered only outside shooting range, and only while that side still holds its once-a-half declaration.
+A score attempt is offered only inside the team's [shooting range](#shooting-range). A maneuver is always available. Ceding is offered only outside shooting range, and only while that side has not yet called a Coaching Choice this half.
 
 ### Finishing the turn
 
@@ -395,9 +395,9 @@ Every change of possession resets ball speed to 1. There are three kinds, and wh
 
 | Cause | Kind | What follows |
 | --- | --- | --- |
-| Steal Intercept, a Defender's won Pressure, a lost High Pass contest, a loose ball the other side wins or is already standing on | Steal | Players run back. No pause and no window: the ball is still live. |
-| A goal, a missed shot, an own goal conceded or avoided, a ball out of bounds | New play | Both sides reset, and the side with the ball may declare a Coaching Choice. |
-| Ceding | Cede | Both coaches take a window. Nobody runs back and nothing resets. |
+| Steal Intercept, a Defender's won Pressure, a lost High Pass contest, a loose ball the other side wins or is already standing on | Steal | Players run back. No pause and no Coaching Choice: the ball is still live. |
+| A goal, a missed shot, an own goal conceded or avoided, a ball out of bounds | New play | Both sides reset, and the side with the ball may call a Coaching Choice. |
+| Ceding | Cede | Both coaches take a Coaching Choice. Nobody runs back and nothing resets. |
 
 **Only a turnover moves anybody.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them — a receiver who won their High Pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is out of position stays there, and pays nothing for it, until a turnover comes.
 
@@ -420,7 +420,7 @@ Running back never changes an arrangement. The scramble a steal forces is not a 
 
 ### Resetting after a new play
 
-Every fielded meeple on **both** sides goes back to the space its coach's [arrangement](#coaching-choice) puts it on. It costs nobody anything, and it happens before either coach is offered a window.
+Every fielded meeple on **both** sides goes back to the space its coach's [arrangement](#coaching-choice) puts it on. It costs nobody anything, and it happens before either coach is offered a Coaching Choice.
 
 Because every arrangement covers its own side's kickoff space, a goal restarts without anybody having to be dropped back to take the kickoff.
 
@@ -428,13 +428,13 @@ An out-of-bounds or ceded ball is [picked up](#picking-the-ball-up) after the re
 
 ### Ceding the ball
 
-A side out of [shooting range](#shooting-range) may hand the ball to the other team rather than play it, to buy itself a [Coaching Choice](#coaching-choice). Two conditions, and no others: they are out of range, and they still hold their once-a-half declaration. A side with nobody left to bring on may still cede — what they are buying is the whole window, not the substitution.
+A side out of [shooting range](#shooting-range) may hand the ball to the other team rather than play it, to buy itself a [Coaching Choice](#coaching-choice). Two conditions, and no others: they are out of range, and they have not yet called a Coaching Choice this half. A side with nobody left to bring on may still cede — what they are buying is the whole Coaching Choice, not the substitution.
 
-Ceding spends that declaration. The other team takes possession on the space the ball was given up on, at speed 1. Nobody runs back and nothing restarts, and it costs 1 space minute like any other action even though nothing travelled.
+Ceding uses up that side's Coaching Choice for the half. The other team takes possession on the space the ball was given up on, at speed 1. Nobody runs back and nothing restarts, and it costs 1 space minute like any other action even though nothing travelled.
 
-The ceding coach then takes a Coaching Choice and the receiving coach takes one in reply. Each window opens on its own coach's arrangement, so by the end both sides are standing where a new play would have put them. Afterwards the receiving side [picks the ball up](#picking-the-ball-up), unless one of theirs is already on it.
+The ceding coach then takes a Coaching Choice and the receiving coach takes one in reply. Each of them opens on its own coach's arrangement, so by the end both sides are standing where a new play would have put them. Afterwards the receiving side [picks the ball up](#picking-the-ball-up), unless one of theirs is already on it.
 
-Under [last possession](#last-possession), ceding ends the period and neither coach gets a window.
+Under [last possession](#last-possession), ceding ends the period and neither coach gets a Coaching Choice.
 
 ## Coaching Choice
 
@@ -449,25 +449,25 @@ A Coaching Choice is a pause. The coach may take any number of the actions below
 | Zone assignment | Trades two fielded players' zones, cards and meeples together. |
 | Space positioning | Moves a meeple to another space in its own zone. Where the target is taken and the mover would leave their own space empty, the two trade places. |
 
-The window before the shootout offers the substitution alone.
+The Coaching Choice before the shootout offers the substitution alone.
 
 ### When a coach gets one
 
 | When | Substitutions | Who goes first | A player taken off | Positioning |
 | --- | --- | --- | --- | --- |
 | Setup | Unlimited | Home, then the visitors | Returns to the bench | Yes |
-| A new play | 2 per half | The declaring side, then the reply | Goes to the back bench | Yes |
+| A new play | 2 per half | The side that called it, then the reply | Goes to the back bench | Yes |
 | A ceded ball | 2 per half, the same two | The ceding side, then the receiver | Goes to the back bench | Yes |
 | Halftime | 2, its own | The visitors, then home | Goes to the back bench | Yes |
 | Before the shootout | 1, its own | Home, then the visitors | Goes to the back bench | No |
 
-The shootout window positions nobody, because a shootout is played by who is on the field and by nothing about where they stand. It neither opens on a coach's arrangement nor records one.
+The Coaching Choice before the shootout positions nobody, because a shootout is played by who is on the field and by nothing about where they stand. It neither opens on a coach's arrangement nor records one.
 
-### Declarations and allowances
+### Once a half, and how many substitutions
 
-A side may **declare once a half**, and declaring is what buys a new play's window. The other side then gets a window in reply, and replying does not spend their own declaration. Ceding spends the declaration as well: the act of giving the ball up *is* the declaration, so a ceding coach is never asked whether to declare.
+**A side may call a Coaching Choice once a half**, and calling one is what opens the pause at a new play. The other side then gets one in reply, and answering does not use up their own. Ceding uses one up as well: giving the ball away is how that coach called theirs, so a ceding coach is never asked whether they want it.
 
-The declaration and the substitution allowance are separate counts. A side that spent both of its substitutions answering somebody else's declaration may still declare later in the half and get the rearrangement without the swaps.
+Calling a Coaching Choice and the substitutions it allows are separate counts. A side that spent both of its substitutions answering somebody else's may still call its own later in the half, and get the rearrangement without the swaps.
 
 Both come back at halftime. Between them, a side can substitute up to seven times in a game: two in each half, two more at halftime, and one before the shootout.
 
@@ -495,13 +495,13 @@ A formation change re-deals the whole side. The six on the field are ordered by 
 
 A coach who wants a particular player on a particular space moves them there afterwards with space positioning.
 
-### Finishing a window
+### Finishing a Coaching Choice
 
-**Every arrangement covers its own side's kickoff space**, in every window and either half, and a coach may not finish while theirs is empty. That is what lets a restart kick off without anybody being moved back and charged for it. The standard deal and all five formations already satisfy it, so it only ever bites on a coach who has emptied the space with space positioning. On board 6 the two sides cover different spaces.
+**Every arrangement covers its own side's kickoff space**, in every Coaching Choice and either half, and a coach may not finish while theirs is empty. That is what lets a restart kick off without anybody being moved back and charged for it. The standard deal and all five formations already satisfy it, so it only ever bites on a coach who has emptied the space with space positioning. On board 6 the two sides cover different spaces.
 
-The window before the shootout positions nobody, so it has no arrangement to hold to.
+The Coaching Choice before the shootout positions nobody, so it has no arrangement to hold to.
 
-The positions a coach finishes on become that side's **arrangement**, and that is the shape every later new play puts them back on. A coach who is offered a window and passes changes nothing, and keeps the arrangement they already had.
+The positions a coach finishes on become that side's **arrangement**, and that is the shape every later new play puts them back on. A coach who is offered a Coaching Choice and passes changes nothing, and keeps the arrangement they already had.
 
 ## Exhaustion and injury
 
@@ -569,7 +569,7 @@ A maneuver's cost is flat. It does not depend on how far the ball or a player ac
 
 When the clock reaches the period's last minute — 15 in the first half, 30 in the second — the action being resolved is finished in full, even if it turns the ball over. Whichever team holds the ball once it has resolved has **last possession**: the side that kept it, or the side a turnover has just handed it to.
 
-Their next turnover ends the period immediately. No run back, no reset, no window, and nothing else that turnover would have led to.
+Their next turnover ends the period immediately. No run back, no reset, no Coaching Choice, and nothing else that turnover would have led to.
 
 The clock keeps running through all of it, and every turn of a last possession is charged as usual. A period therefore ends on the minute its last turnover falls on, rather than on its last minute — a first half can genuinely end at 19.
 
@@ -577,7 +577,7 @@ The clock keeps running through all of it, and every turn of a last possession i
 
 Every fielded player [recovers](#recovery) a token, and each coach then picks one more player to take one off.
 
-The visitors take a [Coaching Choice](#coaching-choice) and then home takes one, with two substitutions each. Those two are halftime's own: they are counted against neither half, and they spend neither side's declaration. Each coach finishes with a player on their own kickoff space.
+The visitors take a [Coaching Choice](#coaching-choice) and then home takes one, with two substitutions each. Those two are halftime's own: they are counted against neither half, and they leave each side's own once-a-half Coaching Choice unspent. Each coach finishes with a player on their own kickoff space.
 
 **The second half starts at 16** however far past 15 the first half ran, with the visitors kicking off from their own kickoff space at speed 1. So minutes 16 and up can occur twice in a game — once in a first half's last possession and once in the second half proper — which is why a goal is recorded with its period as well as its minute.
 
@@ -625,4 +625,4 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 
 **A turn:** choose the player → choose the action → resolve it → loose-ball check → turnover → clock → last-possession check.
 
-**A turnover:** reset speed to 1, then — a steal runs players back; a new play resets both sides and offers a declaration; a cede gives both coaches a window.
+**A turnover:** reset speed to 1, then — a steal runs players back; a new play resets both sides and offers the side with the ball a Coaching Choice; a cede gives both coaches one.

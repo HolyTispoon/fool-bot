@@ -4263,18 +4263,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         if occasion.asks_declaration:
             note = (
-                "Answering the other team's declaration, which costs "
-                "your own nothing."
+                "Answering the other team, which leaves your own "
+                "once-a-half Coaching Choice unspent."
                 if is_response
-                else "Declaring is once a half. Coach, or pass?"
+                else "Calling one is once a half. Coach, or pass?"
             )
         elif occasion == CoachingOccasion.CEDED:
             note = (
                 "The ball bought this, so there is nothing to decide "
-                "-- the window is open."
+                "-- it is open."
                 if not is_response
                 else "The other team gave the ball up to coach. Yours "
-                "is open too, and costs your own declaration nothing."
+                "is open too, and leaves your own once-a-half Coaching "
+                "Choice unspent."
             )
         else:
             note = "Take as long as you like; nothing here costs exhaustion."
@@ -4360,7 +4361,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 game,
                 match,
                 side,
-                "Picking this window up where it left off. Nothing you "
+                "Picking this up where it left off. Nothing you "
                 "had already done has been undone.",
             ),
             file=await self.coaching_file(game, match, side),
@@ -4823,16 +4824,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "it stands, and you open a Coaching Choice -- formation, "
             "substitutions, zone assignment, space positioning, free of "
             "exhaustion.",
-            "It spends your declaration for this half, and "
-            f"{receiving} get a window of their own to answer it.",
+            "It uses up your Coaching Choice for this half, and "
+            f"{receiving} get one of their own to answer it.",
         ]
         if match.scoreboard.last_possession:
-            # The one case where the window never happens: a turnover
+            # The one case where the coaching never happens: a turnover
             # under last possession is the end of the period, and
             # ceding is a turnover.
             lines.append(
                 "**This is last possession, so this ends the period "
-                "instead -- there is no window on either side.**"
+                "instead -- neither side gets to coach.**"
             )
         return "\n".join(lines)
 
@@ -6136,7 +6137,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
     ) -> None:
-        """Hand the next coach their pre-kickoff window, or kick off."""
+        """Hand the next coach their pre-kickoff Coaching Choice, or
+        kick off."""
         stage = match.pending_setup_stage
         if stage in ("coaching_home", "coaching_visiting"):
             side = (
@@ -6351,9 +6353,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             occasion=CoachingOccasion.HALFTIME,
             lead_in=(
                 f"## Halftime\n{format_team_side_label(setup)} set up for "
-                "the second half. Halftime is free: it does not spend "
-                "their once-a-half declaration, and its two substitutions "
-                "are its own rather than either half's."
+                "the second half. Halftime is free: it leaves their "
+                "own once-a-half Coaching Choice unspent, and its two "
+                "substitutions are its own rather than either half's."
             ),
         )
 
@@ -7775,8 +7777,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         else:
             action_line = (
                 "The ball is out of shooting range and your side has "
-                "already declared this half, so there is no shot and no "
-                "cede -- only a maneuver:"
+                "already called its Coaching Choice this half, so there "
+                "is no shot and no cede -- only a maneuver:"
             )
         return (
             f"{controller}, it is your turn.\n\n"
