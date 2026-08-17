@@ -89,10 +89,10 @@ COACHING_HEIGHT = COACHING_BENCH_CARDS_TOP + CARD_SIZE[1] + 20
 COACHING_BACK_BENCH_LEFT = COACHING_WIDTH // 2 + 40
 
 TEAM_COLORS = {
-    Team.ORANGE: "#f28c28",
-    Team.TEAL: "#19b5a5",
-    Team.PURPLE: "#8950c7",
-    Team.SLIME: "#75bd32",
+    Team.ORANGE: "#FFA500",
+    Team.TEAL: "#008080",
+    Team.PURPLE: "#9e4dff",
+    Team.SLIME: "#66FF00",
 }
 ZONE_COLORS = {
     Zone.HOME_GOAL: "#3b4859",

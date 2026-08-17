@@ -1990,6 +1990,33 @@ board silently collapses to tiny text. That was a real bug; the tests in
 `render.py` builds its font objects at **import time**, so a running bot keeps
 whatever it resolved at startup. Restart after any render change.
 
+## Team colors
+
+Each team's color is one hex value, defined once as `TEAM_COLORS` in
+`d12ball/render.py`, and every place a team's color is drawn -- card
+borders, the skill numbers and name on a card, board tokens, the matchup
+image's `team_color`, and the coaching image -- reads that dict rather
+than carrying a hex value of its own.
+
+| Team | Hex |
+| --- | --- |
+| Orange | `#FFA500` |
+| Teal | `#008080` |
+| Purple | `#9e4dff` |
+| Slime | `#66FF00` |
+
+- **The `team_*.png` application emoji (`d12ball/images/emoji/`) are a
+  second copy of the same colors, and the only one that has to be.**
+  They are uploaded to Discord's Developer Portal separately (see
+  `TEAM_EMOJI_NAMES` in `cogs/d12ball_helpers.py`) and shown next to a
+  coach's name in chat, so they cannot read `TEAM_COLORS` at request
+  time the way a rendered board can. A color change here means
+  recoloring all four PNGs to match, or the ring-and-letter emoji a
+  coach sees stops agreeing with the color the board draws them in.
+- **Changing a team's color is `TEAM_COLORS` plus its emoji, and nothing
+  else.** No other module should hold a team's hex value of its own --
+  that duplication is exactly what let the two drift apart before.
+
 ## Game channels
 
 Every game gets its own private channel, named by `build_game_channel_name` in
