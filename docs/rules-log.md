@@ -1529,7 +1529,7 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
 ### Blocked or deferred
 
 - **Advanced mode** is asked for and unspecified -- see
-  [Advanced mode](#advanced-mode----fifteen-questions-none-of-them-answered) under Still
+  [Advanced mode](#advanced-mode----eighteen-questions-none-of-them-answered) under Still
   open, and [advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) for the questions.
   Setup refuses it. It has two halves and they are blocked on different things:
   - **Advanced maneuvers** are drafted in the sheet's `maneuvers` tab and transcribed into
