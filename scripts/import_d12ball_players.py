@@ -28,6 +28,12 @@ DEFAULT_OUTPUT = PROJECT_ROOT / "d12ball" / "data" / "players.json"
 DEFAULT_IMAGES = PROJECT_ROOT / "d12ball" / "images" / "player_images"
 
 EXPECTED_TEAMS = {"orange", "teal", "purple", "slime"}
+# A player's species, not their team -- since the 2026-08-17 reshuffle a
+# team is 3 of its own species plus 2 of each other, so this is no
+# longer read off Team. Fixed to the same four as EXPECTED_TEAMS because
+# that is every species the setting has today; add to both together if
+# a fifth is ever introduced.
+EXPECTED_SPECIES = {"fire_demon", "cyborg", "telekinetic", "ooze"}
 EXPECTED_ROLE_COUNTS = {
     "fullback": 1,
     "defender": 2,
@@ -41,6 +47,7 @@ REQUIRED_COLUMNS = {
     "player_id",
     "Name",
     "Team",
+    "Species",
     "Role",
     "Oskill",
     "Dskill",
@@ -176,6 +183,7 @@ def import_players(
         player_id = (row.get("player_id") or "").strip()
         name = (row.get("Name") or "").strip()
         team = (row.get("Team") or "").strip().lower()
+        species = (row.get("Species") or "").strip().lower().replace(" ", "_")
         basic = (row.get(BASIC_COLUMN) or "").strip()
         if (row.get("Advanced") or "").strip():
             advanced_count += 1
@@ -195,6 +203,8 @@ def import_players(
             raise ValueError(
                 f"{player_id}: ID must begin with the team name."
             )
+        if species not in EXPECTED_SPECIES:
+            raise ValueError(f"{player_id}: unknown species {species!r}.")
         if role not in EXPECTED_ROLE_COUNTS:
             raise ValueError(f"{player_id}: unknown role {role!r}.")
         if not name:
@@ -248,6 +258,7 @@ def import_players(
                 "id": player_id,
                 "name": name,
                 "role": role,
+                "species": species,
                 "stat_overrides": {},
             }
         )

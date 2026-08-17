@@ -15,6 +15,7 @@ where the sheet lives.
 import csv
 import importlib.util
 import io
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -155,6 +156,82 @@ class ShortAbilityTests(unittest.TestCase):
                 self.assertLess(
                     len(profile.ability_short), len(profile.ability),
                 )
+
+
+def build_roster_rows(species_forms):
+    """
+    A full 36-player roster -- the minimum import_players will accept,
+    since it checks every team has exactly 9 in the right role counts.
+    Species is what varies per test; everything else is just enough to
+    be valid.
+    """
+    role_counts = (
+        ("fullback", 1), ("defender", 2), ("midfielder", 1),
+        ("playmaker", 2), ("winger", 1), ("striker", 2),
+    )
+    rows = []
+    index = 0
+    for team in ("orange", "teal", "purple", "slime"):
+        for role, count in role_counts:
+            for slot in range(count):
+                rows.append({
+                    "player_id": f"{team}_{role}{slot}",
+                    "Name": f"{team}_{role}{slot}_name",
+                    "Team": team,
+                    "Species": species_forms[index % len(species_forms)],
+                    "Role": role,
+                    "Oskill": "3",
+                    "Dskill": "3",
+                    "Basic": "",
+                })
+                index += 1
+    return rows
+
+
+ROLE_ABILITIES = {
+    role: importer.RoleAbility(text=f"{role} ability.", short=f"{role} short")
+    for role in importer.EXPECTED_ROLE_COUNTS
+}
+
+
+class SpeciesImportTests(unittest.TestCase):
+    def test_species_is_normalized_from_the_sheet(self) -> None:
+        rows = build_roster_rows(
+            ["Fire Demon", "CYBORG", " telekinetic ", "Ooze"]
+        )
+        with tempfile.TemporaryDirectory() as images_dir:
+            images_folder = Path(images_dir)
+            for row in rows:
+                (images_folder / f"{row['Name']}.png").touch()
+
+            output = importer.import_players(
+                rows, images_folder, data_version=1,
+                role_abilities=ROLE_ABILITIES, abilities_source="test",
+            )
+
+        players = {
+            player["id"]: player
+            for team in output["teams"].values()
+            for player in team["players"]
+        }
+        self.assertEqual(players["orange_fullback0"]["species"], "fire_demon")
+        self.assertEqual(players["orange_defender0"]["species"], "cyborg")
+        self.assertEqual(players["orange_defender1"]["species"], "telekinetic")
+        self.assertEqual(players["orange_midfielder0"]["species"], "ooze")
+
+    def test_an_unknown_species_is_rejected(self) -> None:
+        rows = build_roster_rows(["Robot"])
+
+        with self.assertRaises(ValueError) as caught:
+            # The species check comes before the image lookup, so a
+            # bad row is caught without any images existing at all.
+            importer.import_players(
+                rows, Path("/nonexistent"), data_version=1,
+                role_abilities=ROLE_ABILITIES, abilities_source="test",
+            )
+
+        self.assertIn("orange_fullback0", str(caught.exception))
+        self.assertIn("species", str(caught.exception))
 
 
 if __name__ == "__main__":

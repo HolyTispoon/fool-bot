@@ -188,6 +188,11 @@ class PlayerDefinition:
     team: Team
     role: PlayerRole
     stat_overrides: dict
+    # A player's species, independent of the team they're currently
+    # playing for. Optional so a players.json written before the column
+    # existed still loads; nothing here defaults a missing species to
+    # anything meaningful, so a caller that needs one has to check.
+    species: str = ""
 
 
 @dataclass(frozen=True)
@@ -3673,6 +3678,7 @@ def load_player_catalog(
                 team=team,
                 role=PlayerRole(player["role"]),
                 stat_overrides=player.get("stat_overrides", {}),
+                species=player.get("species", ""),
             )
             for player in team_data["players"]
         )
