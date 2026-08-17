@@ -74,7 +74,7 @@ Meeples share spaces freely in the run of play. Nothing in a maneuver, a contest
 
 A team is nine players, and in basic mode the two teams are identical. Every player has an offensive skill from 1 to 6 and a defensive skill that is its inverse, so the two always total 7.
 
-| Role | Offence | Defence | Ability |
+| Role | Offense | Defense | Ability |
 | --- | ---: | ---: | --- |
 | Fullback | 1 | 6 | May throw a High Pass up to 4 spaces, and deflects the ball 2 spaces with a Block Deflect. |
 | Defender | 2 | 5 | A won Pressure also steals the ball. |
@@ -97,7 +97,9 @@ A player's **card** is assigned to a zone and their **meeple** stands on a space
 
 The **handler** is the player taking their team's turn with the ball. The **ball carrier** is a player a resolution left holding it, who must take the next turn — see [the ball carrier](#the-ball-carrier).
 
-An **arrangement** is where a coach's meeples were standing when they last closed a [Coaching Choice](#coaching-choice). It is what a new play puts them back on.
+An **arrangement** is where a coach's meeples were standing when they last closed a [Coaching Choice](#coaching-choice). It is what a new play puts them back on. A Coaching Choice is also called a **window**, and a **declaration** is a side's once-a-half right to call for one in the run of play.
+
+A **set-up** is a scoring opportunity a maneuver has created: a shot its receiver may take out of turn — see [scoring opportunities](#scoring-opportunities).
 
 A **skill test** is an opposed roll, one d12 to each side. **Sending a player** is a walk-in to the ball's space, paid for in exhaustion — see [sending a player](#sending-a-player). A **space minute** is the unit of game time.
 
@@ -168,7 +170,7 @@ If the clock has reached the period's last minute, [last possession](#last-posse
 
 A shot may only be taken from within the shooting team's [range](#shooting-range). The handler shoots and both coaches roll one d12.
 
-The attack adds the shooter's offensive skill, the [ball speed modifier](#ball-speed), and 3 more if a Striker is shooting off a [set-up](#scoring-opportunities). The defence adds the skill of every defending player in the way, as below. **The attack scores on a total equal to or higher than the defence's.**
+The attack adds the shooter's offensive skill, the [ball speed modifier](#ball-speed), and 3 more if a Striker is shooting off a [set-up](#scoring-opportunities). The defense adds the skill of every defending player in the way, as below. **The attack scores on a total equal to or higher than the defense's.**
 
 An ordinary shot costs its shooter nothing. A shot taken off a set-up gains its shooter 1 exhaustion token after the roll, whether it went in or not.
 
@@ -176,7 +178,7 @@ A score attempt costs 1 space minute, and a set-up's shot costs that on top of t
 
 Goal or miss, the ball is dead and the game restarts as a [new play](#resetting-after-a-new-play), with speed back to 1. A goal restarts from the conceding side's own kickoff space with them in possession. A miss gives the ball to the side that just defended it, on the space closest to their own goal.
 
-### What the defence adds
+### What the defense adds
 
 A defending player standing on the ball's own space adds their **whole** defensive skill. A defending player standing anywhere between the ball and the goal being shot at adds **half** of it, rounded up. A defender behind the ball adds nothing at all.
 
@@ -188,7 +190,7 @@ Most turns are maneuvers. One is resolved in four steps.
 
 ### Determining the two players
 
-The player maneuvering for the offense is the handler. For the defence:
+The player maneuvering for the offense is the handler. For the defense:
 
 - A defending player already standing on the ball's space **challenges**. They have nowhere to walk and nothing to pay, so that challenge cannot be declined, and nobody may be walked in past them. Where more than one of them shares the space, the defending coach chooses which of them challenges.
 - Otherwise the defending coach may [send a player](#sending-a-player) to the ball's space, at 1 exhaustion token per space, **or send nobody** rather than pay for the challenge.
@@ -197,7 +199,7 @@ With no challenger, the maneuver the offense chooses succeeds outright: there is
 
 ### Choosing and revealing
 
-Both coaches secretly choose one of their three maneuvers and reveal together. The offense chooses from Low Pass, Dribble Advance and High Pass; the defence from Block Deflect, Steal Intercept and Pressure.
+Both coaches secretly choose one of their three maneuvers and reveal together. The offense chooses from Low Pass, Dribble Advance and High Pass; the defense from Block Deflect, Steal Intercept and Pressure.
 
 ### Who wins
 
@@ -215,7 +217,7 @@ An [injured](#playing-injured) participant changes this in both directions: a ma
 
 Both participants gain 1 exhaustion token, and then each rolls a d12.
 
-The offense adds the handler's offensive skill and the defence adds the challenger's defensive skill. A Midfielder adds 3 more when the maneuver being tested is their own Low Pass or their own Pressure. A defence contesting with Steal Intercept adds the [ball speed modifier](#ball-speed).
+The offense adds the handler's offensive skill and the defense adds the challenger's defensive skill. A Midfielder adds 3 more when the maneuver being tested is their own Low Pass or their own Pressure. A defense contesting with Steal Intercept adds the [ball speed modifier](#ball-speed).
 
 The higher total wins and their maneuver is what resolves. A tie is rolled again, and each participant gains another token for it.
 
@@ -303,7 +305,7 @@ The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is ha
 
 Only four maneuvers change it: Low Pass adds 1, Block Deflect takes 1 off, and Dribble Advance and Steal Intercept let the player change it by up to their own skill. **Every turnover resets it to 1.**
 
-The modifier is added in three places and nowhere else: to a [score attempt](#score-attempt), by the attack; to a maneuver skill test, by a defence contesting with Steal Intercept; and to a [High Pass contest](#the-high-pass-contest), by the receiver. A [loose ball](#the-loose-ball) belongs to nobody yet, so neither contestant adds it there.
+The modifier is added in three places and nowhere else: to a [score attempt](#score-attempt), by the attack; to a maneuver skill test, by a defense contesting with Steal Intercept; and to a [High Pass contest](#the-high-pass-contest), by the receiver. A [loose ball](#the-loose-ball) belongs to nobody yet, so neither contestant adds it there.
 
 An overshot High Pass turns the sign around: the modifier counts against the shot it sets up and against the contest behind it.
 
@@ -513,7 +515,7 @@ The positions a coach finishes on become that side's **arrangement**, and that i
 | An own-goal roll | 1 to the player rolling |
 | Taking a scoring opportunity | 1 to the shooter, after the roll |
 
-Nothing else costs anything. An ordinary score attempt, a maneuver won on the cards, a reset, a Coaching Choice and a shootout test are all free. An injured player never gains tokens.
+Nothing else costs anything. An ordinary score attempt, a maneuver won outright, a reset, a Coaching Choice and a shootout test are all free. An injured player never gains tokens.
 
 ### Becoming Exhausted
 
@@ -615,8 +617,8 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 
 | Roll | Dice | How it reads |
 | --- | --- | --- |
-| Score attempt | 1d12 each | Attack adds offence and the speed modifier; defence adds full skill on the ball and half beyond it. Equal totals score. |
-| Skill test | 1d12 each | Offence against defence, plus any ability and modifier. Higher wins; a tie is re-rolled at a token each. |
+| Score attempt | 1d12 each | Attack adds offense and the speed modifier; defense adds full skill on the ball and half beyond it. Equal totals score. |
+| Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled at a token each. |
 | Own goal | 2d12, keep the higher | Add offensive skill. 7 or more avoids it. |
 | Injury check | 1d12 | Higher than the player's token count is safe. |
 | Shootout test | 1d12 each | Both add offensive skill. Higher scores; a tie stands. |
