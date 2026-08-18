@@ -1,6 +1,7 @@
 import json
 from collections import defaultdict, deque
-from dataclasses import dataclass, field
+from collections.abc import Collection
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from math import ceil
 from pathlib import Path
@@ -234,6 +235,48 @@ class ShotDefender:
         return self.defense if self.on_ball else ceil(self.defense / 2)
 
 
+# A player belongs to two rosters -- their color team and their species
+# team -- so the two sides of a match can field the same person twice.
+# That is a duplicate, not a shared card: the two copies are separate
+# players of the game, exhausted, injured, substituted and sent about
+# independently, and they can be made to challenge each other. See "One
+# player, both sides" in CLAUDE.md.
+#
+# Everything in a match is keyed by a **card id**, which is the catalog
+# player's id for the home copy and this suffix on top of it for the
+# visiting one. Keeping the ids distinct is what lets the board, the
+# benches, the exhaustion counts, the injury queue and every button's
+# custom_id go on saying "this player" with one string, as they always
+# have -- the alternative was making all of them carry a side as well.
+#
+# One suffix level is enough and always will be: two rosters can share
+# a player and a match has two sides, so a third copy has nowhere to
+# come from. `TeamDefinition`'s own uniqueness check is what holds the
+# other half of that up.
+DUPLICATE_CARD_SUFFIX = "~2"
+
+
+def duplicate_card_id(player_id: str) -> str:
+    """The visiting side's card id for a player the home side fields."""
+    return f"{player_id}{DUPLICATE_CARD_SUFFIX}"
+
+
+def catalog_player_id(card_id: str) -> str:
+    """
+    The catalog player a match card is a copy of -- itself, for every
+    card but a duplicate.
+
+    A pure function of the id rather than a lookup on the match, so
+    anything holding a card id can resolve it: `player_by_id`,
+    `player_index` in `d12ball/render.py` (which pre-aliases both forms
+    rather than calling this per lookup), and a saved game reloaded
+    without the catalog to hand.
+    """
+    if card_id.endswith(DUPLICATE_CARD_SUFFIX):
+        return card_id[: -len(DUPLICATE_CARD_SUFFIX)]
+    return card_id
+
+
 @dataclass(frozen=True)
 class TeamDefinition:
     team: Team
@@ -270,11 +313,42 @@ class PlayerCatalog:
         return RoleProfile(**values)
 
     def player_by_id(self, player_id: str) -> PlayerDefinition:
+        """
+        The player a card id names, **carrying that card's own id**.
+
+        A duplicate resolves to the same person as the card it copies
+        -- same name, role, skills and portrait -- but comes back
+        under the id it was asked for. That is what keeps
+        `match.team_for_player(player.player_id)` right: some ninety
+        call sites resolve a card id to a definition and then read the
+        id back off it to ask which side the card is on, and a
+        definition handing back the *catalog* id would answer for the
+        home copy every time. The card id is the identity in a match;
+        the catalog id is only how the roster is looked up.
+        """
+        wanted = catalog_player_id(player_id)
         for roster in self.teams.values():
             for player in roster.players:
-                if player.player_id == player_id:
-                    return player
+                if player.player_id == wanted:
+                    return (
+                        player
+                        if player_id == wanted
+                        else replace(player, player_id=player_id)
+                    )
         raise ValueError(f"Unknown player: {player_id}")
+
+    def shared_player_ids(self, first: Team, second: Team) -> set[str]:
+        """
+        The players on both of these teams' rosters -- the ones a match
+        between them fields twice, once a side.
+        """
+        return {
+            player.player_id
+            for player in self.teams[Team(first)].players
+        } & {
+            player.player_id
+            for player in self.teams[Team(second)].players
+        }
 
 
 @dataclass(frozen=True)
@@ -458,6 +532,26 @@ class TeamSetup:
                 return zone
         raise ValueError(f"{player_id} is not assigned to a zone.")
 
+    def card_id_for(self, player_id: str) -> str:
+        """
+        The id this side holds a catalog player under -- their own, or
+        `duplicate_card_id` when this is the copy of somebody the
+        other side is fielding too. See "One player, both sides" in
+        CLAUDE.md.
+
+        Anything walking a *roster* and asking the match about each
+        player has to come through here, since the roster is the
+        catalog's and the match is keyed by card.
+        """
+        duplicate = duplicate_card_id(player_id)
+        if duplicate in (
+            self.field_players
+            + self.team_board.bench
+            + self.team_board.back_bench
+        ):
+            return duplicate
+        return player_id
+
     def validate(self, roster: TeamDefinition) -> None:
         """
         Check that every roster player is assigned exactly once across
@@ -475,7 +569,14 @@ class TeamSetup:
         )
         if len(set(assigned)) != len(assigned):
             raise ValueError("Every roster player must be assigned once.")
-        if set(assigned) != {
+        # Card ids, which are the roster's own except where this side
+        # is the duplicate of a player the other side fields too. A
+        # side is checked against its whole roster either way -- the
+        # suffix says which copy of a player this is, never which
+        # player.
+        if {
+            catalog_player_id(card_id) for card_id in assigned
+        } != {
             player.player_id
             for player in roster.players
         }:
@@ -1146,6 +1247,15 @@ class MatchState:
         for formation in (home_formation, visiting_formation):
             ruleset.formation_shape(formation, board_size)
         board = BoardState.empty(layout)
+        # A color team and a species team overlap -- the color roster
+        # is 3 of its own species plus 2 of each other, so any color
+        # side meets any species side holding 2 or 3 of the same
+        # people. Those are played as two cards, and the visiting one
+        # carries the suffix; see "One player, both sides" in CLAUDE.md
+        # and `catalog_player_id`. Two teams on one axis are disjoint
+        # and this is empty, which is every match before the reshuffle
+        # and most of them since.
+        shared = catalog.shared_player_ids(home_team, visiting_team)
         home = create_standard_setup(
             catalog.teams[Team(home_team)],
             TeamSide.HOME,
@@ -1159,6 +1269,7 @@ class MatchState:
             ruleset,
             formation=visiting_formation,
             assignment=visiting_assignment,
+            duplicate_ids=shared,
         )
 
         for setup in (home, visiting):
@@ -3979,6 +4090,7 @@ def create_standard_setup(
     ruleset: BasicRuleset,
     formation: Formation = Formation.TWO_TWO_TWO,
     assignment: Optional[dict[str, list[str]]] = None,
+    duplicate_ids: Collection[str] = (),
 ) -> TeamSetup:
     """
     Field six of a team's cards in `formation`, benching the rest.
@@ -3988,6 +4100,14 @@ def create_standard_setup(
     (see default_formation_deal). Either way the shape is checked
     against the ruleset, so a saved assignment that no longer matches
     its formation is caught here rather than on the board.
+
+    `duplicate_ids` are the roster's players the *other* side is
+    fielding as well, and they are dealt under `duplicate_card_id` --
+    so a match between two overlapping rosters is nine cards a side
+    with eighteen distinct ids, rather than two sides sharing a card.
+    Applied after the deal rather than before it, since the deal and
+    the assignment are both about which of a team's *players* stand
+    where, and the roster this is checked against is the catalog's.
     """
     side = TeamSide(side)
     formation = Formation(formation)
@@ -3998,17 +4118,28 @@ def create_standard_setup(
     else:
         validate_assignment(roster, shape, assignment)
 
+    duplicated = set(duplicate_ids)
+
+    def card_id(player_id: str) -> str:
+        return (
+            duplicate_card_id(player_id)
+            if player_id in duplicated
+            else player_id
+        )
+
     zones = {
-        zone_for_area(side, area): list(assignment[area])
+        zone_for_area(side, area): [
+            card_id(player_id) for player_id in assignment[area]
+        ]
         for area in SETUP_AREAS
     }
     selected_ids = {
-        player_id
+        catalog_player_id(player_id)
         for players in zones.values()
         for player_id in players
     }
     bench = [
-        player.player_id
+        card_id(player.player_id)
         for player in roster.players
         if player.player_id not in selected_ids
     ]

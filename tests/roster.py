@@ -41,6 +41,7 @@ from collections.abc import Iterable
 from functools import lru_cache
 
 from d12ball.components import (
+    duplicate_card_id,
     MatchState,
     PlayerDefinition,
     PlayerRole,
@@ -68,6 +69,30 @@ def _by_role(team: Team, role: PlayerRole) -> list[PlayerDefinition]:
     ]
 
 
+def _card_id(match: MatchState, side: TeamSide, player_id: str) -> str:
+    """
+    The id this match holds that player under on that side.
+
+    Their own, unless the two sides overlap and this is the visiting
+    copy -- see "One player, both sides" in CLAUDE.md. These helpers
+    read the catalog rather than the board on purpose (so they stay
+    answerable after a substitution), which is exactly why they have
+    to make this translation themselves.
+    """
+    setup = match.setup_for_side(side)
+    on_this_side = (
+        setup.field_players
+        + setup.team_board.bench
+        + setup.team_board.back_bench
+    )
+    if player_id in on_this_side:
+        return player_id
+    duplicate = duplicate_card_id(player_id)
+    if duplicate in on_this_side:
+        return duplicate
+    raise LookupError(f"{player_id} is not on this match's {side.value} side.")
+
+
 def fielded(
     match: MatchState,
     role: PlayerRole,
@@ -80,7 +105,9 @@ def fielded(
     first of them -- and for the three roles that appear twice, the
     other one is `benched`.
     """
-    return _by_role(team_of(match, side), role)[0].player_id
+    return _card_id(
+        match, side, _by_role(team_of(match, side), role)[0].player_id,
+    )
 
 
 def benched(
@@ -99,7 +126,7 @@ def benched(
         raise LookupError(
             f"{team_of(match, side).value.title()} benches no {role.value}."
         )
-    return players[1].player_id
+    return _card_id(match, side, players[1].player_id)
 
 
 def field_players(

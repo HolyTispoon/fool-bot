@@ -1,3 +1,5 @@
+import itertools
+import json
 import os
 import unittest
 from pathlib import Path
@@ -21,6 +23,9 @@ from d12ball.cards import (
     tie_pairs,
 )
 from d12ball.components import (
+    catalog_player_id,
+    duplicate_card_id,
+    DUPLICATE_CARD_SUFFIX,
     SECOND_HALF_START_MINUTE,
     CoachingOccasion,
     AssignmentEdge,
@@ -77,6 +82,7 @@ from d12ball.render import (
     SKILL_TEST_DIE_RADIUS,
     TEAM_COLORS,
     load_font,
+    player_index,
     render_coaching_image,
     render_field_image,
     render_injury_test_die,
@@ -1429,6 +1435,217 @@ class TeamPairsTests(unittest.TestCase):
         self.assertEqual(paired_team(Team.TEAL), Team.CYBORGS)
         self.assertEqual(paired_team(Team.PURPLE), Team.TELEKINETICS)
         self.assertEqual(paired_team(Team.SLIME), Team.OOZES)
+
+
+class DuplicateCardTests(unittest.TestCase):
+    """
+    One player, both sides -- `shared_player_ids`, the card-id scheme
+    that keeps the two copies apart, and a match built on top of them.
+    See "One player, both sides" in CLAUDE.md.
+    """
+
+    def setUp(self) -> None:
+        self.catalog = load_player_catalog()
+        self.ruleset = load_basic_ruleset()
+
+    def roster(self, team: Team) -> set:
+        return {
+            player.player_id
+            for player in self.catalog.teams[team].players
+        }
+
+    def test_a_color_team_overlaps_every_species_team(self) -> None:
+        # 3 of its own species plus 2 of each other. The pairing is the
+        # largest of four overlaps, not the only one -- which is why
+        # the picker's pair rule is about the color and cannot be read
+        # as "the teams that share players".
+        for team in COLOR_TEAMS:
+            with self.subTest(team=team.value):
+                for species in SPECIES_TEAMS:
+                    shared = self.catalog.shared_player_ids(team, species)
+                    self.assertEqual(
+                        len(shared),
+                        3 if species == paired_team(team) else 2,
+                    )
+
+    def test_teams_on_one_axis_share_nobody(self) -> None:
+        for axis in (COLOR_TEAMS, SPECIES_TEAMS):
+            for first, second in itertools.combinations(axis, 2):
+                with self.subTest(first=first.value, second=second.value):
+                    self.assertFalse(
+                        self.catalog.shared_player_ids(first, second)
+                    )
+
+    def test_a_card_id_round_trips_to_its_player(self) -> None:
+        for player_id in self.roster(Team.ORANGE):
+            with self.subTest(player=player_id):
+                duplicate = duplicate_card_id(player_id)
+                self.assertNotEqual(duplicate, player_id)
+                self.assertEqual(catalog_player_id(duplicate), player_id)
+                # An ordinary id is its own catalog id, so nothing has
+                # to know which kind it is holding.
+                self.assertEqual(catalog_player_id(player_id), player_id)
+                # Same person, looked up under the card's own id --
+                # which is what keeps team_for_player(player.player_id)
+                # answering for the right side at the ~90 call sites
+                # that read an id back off a definition.
+                copy = self.catalog.player_by_id(duplicate)
+                original = self.catalog.player_by_id(player_id)
+                self.assertEqual(copy.player_id, duplicate)
+                self.assertEqual(original.player_id, player_id)
+                self.assertEqual(copy.name, original.name)
+                self.assertEqual(copy.role, original.role)
+                self.assertEqual(
+                    self.catalog.effective_profile(copy),
+                    self.catalog.effective_profile(original),
+                )
+
+    def test_no_real_player_id_carries_the_suffix(self) -> None:
+        # The scheme rests on this: a suffix that a real id could end
+        # with would make catalog_player_id lossy.
+        for team in Team:
+            for player_id in self.roster(team):
+                self.assertFalse(player_id.endswith(DUPLICATE_CARD_SUFFIX))
+
+    def test_an_overlapping_match_fields_both_copies(self) -> None:
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.ruleset,
+            board_size=7,
+            home_team=Team.PURPLE,
+            visiting_team=Team.FIRE_DEMONS,
+        )
+        shared = self.catalog.shared_player_ids(
+            Team.PURPLE, Team.FIRE_DEMONS,
+        )
+        self.assertTrue(shared)
+
+        home_cards = (
+            match.home.field_players + match.home.team_board.bench
+        )
+        visiting_cards = (
+            match.visiting.field_players + match.visiting.team_board.bench
+        )
+        # Home keeps the catalog ids; the visiting copies carry the
+        # suffix, so no card is on both sides even though the people
+        # are.
+        self.assertFalse(set(home_cards) & set(visiting_cards))
+        self.assertEqual(
+            {
+                catalog_player_id(card)
+                for card in visiting_cards
+                if card != catalog_player_id(card)
+            },
+            shared,
+        )
+        for player_id in shared:
+            with self.subTest(player=player_id):
+                self.assertIn(player_id, home_cards)
+                self.assertIn(duplicate_card_id(player_id), visiting_cards)
+
+    def test_a_duplicate_is_read_as_the_side_it_is_on(self) -> None:
+        # The whole point of the two ids: everything downstream asks
+        # the match who a card plays for, and gets a different answer
+        # for each copy.
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.ruleset,
+            board_size=7,
+            home_team=Team.PURPLE,
+            visiting_team=Team.FIRE_DEMONS,
+        )
+        for player_id in self.catalog.shared_player_ids(
+            Team.PURPLE, Team.FIRE_DEMONS,
+        ):
+            with self.subTest(player=player_id):
+                self.assertEqual(
+                    match.team_for_player(player_id), Team.PURPLE,
+                )
+                self.assertEqual(
+                    match.team_for_player(duplicate_card_id(player_id)),
+                    Team.FIRE_DEMONS,
+                )
+                # And the round trip a message actually makes: card id
+                # -> definition -> back to the id -> which side.
+                for card_id, expected in (
+                    (player_id, Team.PURPLE),
+                    (duplicate_card_id(player_id), Team.FIRE_DEMONS),
+                ):
+                    player = self.catalog.player_by_id(card_id)
+                    self.assertEqual(
+                        match.team_for_player(player.player_id), expected,
+                    )
+
+    def test_the_two_copies_carry_their_own_condition(self) -> None:
+        # A card, not a person: exhausting or injuring one copy must
+        # not touch the other, which is what keeping the ids distinct
+        # buys and the reason a shared card was never an option.
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.ruleset,
+            board_size=7,
+            home_team=Team.PURPLE,
+            visiting_team=Team.FIRE_DEMONS,
+        )
+        shared = sorted(
+            self.catalog.shared_player_ids(Team.PURPLE, Team.FIRE_DEMONS)
+        )
+        player_id = next(
+            candidate for candidate in shared
+            if candidate in match.home.field_players
+            and duplicate_card_id(candidate)
+            in match.visiting.field_players
+        )
+        duplicate = duplicate_card_id(player_id)
+
+        match.injured.add(player_id)
+        match.exhaustion[player_id] = 3
+        self.assertNotIn(duplicate, match.injured)
+        self.assertEqual(match.exhaustion.get(duplicate, 0), 0)
+
+    def test_an_overlapping_match_survives_a_round_trip(self) -> None:
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.ruleset,
+            board_size=7,
+            home_team=Team.SLIME,
+            visiting_team=Team.CYBORGS,
+        )
+        reloaded = MatchState.from_dict(
+            json.loads(json.dumps(match.to_dict())),
+            self.ruleset,
+        )
+        reloaded.validate(self.catalog)
+        self.assertEqual(
+            reloaded.visiting.field_players, match.visiting.field_players,
+        )
+        self.assertEqual(
+            reloaded.board.spaces, match.board.spaces,
+        )
+
+    def test_every_offered_matchup_renders(self) -> None:
+        # player_index keys the render by card id, so a duplicate that
+        # was not aliased there would KeyError on the first board --
+        # after the game had started.
+        players = player_index(self.catalog)
+        for first in Team:
+            for second in Team:
+                if second in (first, paired_team(first)):
+                    continue
+                match = MatchState.standard(
+                    catalog=self.catalog,
+                    ruleset=self.ruleset,
+                    board_size=7,
+                    home_team=first,
+                    visiting_team=second,
+                )
+                with self.subTest(home=first.value, visiting=second.value):
+                    for setup in (match.home, match.visiting):
+                        for card in (
+                            setup.field_players
+                            + setup.team_board.bench
+                        ):
+                            self.assertIn(card, players)
 
 
 class TeamDisplayNameTests(unittest.TestCase):

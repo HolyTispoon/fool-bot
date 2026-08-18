@@ -28,14 +28,17 @@ from cogs.d12ball_helpers import (
     load_team_emojis,
 )
 from cogs.d12ball_views import CoinFlipView, TeamSelectionView
+from d12ball.render import TEAM_COLORS
 from d12ball.game import (
     CoinFace,
     D12BallGame,
+    SPECIES_TEAMS,
     Team,
     paired_team,
     team_display_name,
 )
 from d12ball.components import (
+    catalog_player_id,
     MatchState,
     TeamSide,
     Zone,
@@ -119,6 +122,12 @@ class FakeCog:
     def __init__(self, game, coin_emojis: dict) -> None:
         self.games = {game.game_id: game}
         self.coin_emojis = coin_emojis
+        # The team picker refuses a team sharing a player with one
+        # already taken, which is a question about the rosters -- so a
+        # view cannot be built without one. The real catalog rather
+        # than a stub: which teams overlap is exactly what these tests
+        # are checking, and a stub would be asserting itself.
+        self.player_catalog = load_player_catalog()
 
 
 def build_coin_emojis() -> dict:
@@ -231,6 +240,11 @@ class D12BallCoinTossTests(unittest.TestCase):
             for item in team_buttons
             if item.disabled
         }
+        # Orange and its own Fire Demons, and nothing else: the pair
+        # shares a hex, so that one match would draw both sides the
+        # same color. The other three species teams share players with
+        # Orange and are offered anyway -- those are played as two
+        # cards. See excluded_teams.
         self.assertEqual(
             disabled_labels,
             {
@@ -259,7 +273,16 @@ class D12BallCoinTossTests(unittest.TestCase):
         )
         self.assertTrue(all(not item.disabled for item in team_buttons))
 
-    def test_a_normal_game_excludes_a_taken_teams_pair_too(self) -> None:
+    def test_a_normal_game_excludes_a_taken_teams_pair_only(self) -> None:
+        """
+        A taken team greys out its own pair and nothing else. Teal
+        shares players with all four species teams -- 3 with the
+        Cyborgs and 2 with each of the others -- but only the Cyborgs
+        are refused, and for the color rather than the roster: the two
+        are drawn in the same `#008080`. The other three are playable,
+        with the shared players fielded as two cards.
+        """
+        catalog = load_player_catalog()
         game = build_game()
         game.player_1_team = Team.TEAL
         game.player_2_team = None
@@ -276,6 +299,132 @@ class D12BallCoinTossTests(unittest.TestCase):
                 team_display_name(Team.TEAL),
                 team_display_name(paired_team(Team.TEAL)),
             },
+        )
+        self.assertEqual(TEAM_COLORS[Team.TEAL], TEAM_COLORS[Team.CYBORGS])
+
+        # The three still on offer do share players with Teal -- this
+        # is the assertion that says the refusal is about the color and
+        # not about the rosters.
+        for species in SPECIES_TEAMS:
+            if species == paired_team(Team.TEAL):
+                continue
+            with self.subTest(team=species.value):
+                self.assertNotIn(team_display_name(species), disabled_labels)
+                self.assertTrue(
+                    catalog.shared_player_ids(Team.TEAL, species)
+                )
+
+    def test_every_matchup_the_picker_offers_builds_a_match(self) -> None:
+        """
+        The picker is the only thing standing between a coach and a
+        match the engine cannot build -- see the Team colors section of
+        CLAUDE.md for why the rule is checked there and not in
+        `MatchState`. So this walks every pair it will actually offer
+        and builds the match, which is what the coin flip does a moment
+        later.
+
+        Most of them overlap: any color side meets any species side
+        holding 2 or 3 of the same people. Those are dealt as two
+        cards, so what is asserted is that no *card* is on both sides,
+        not that no player is.
+        """
+        catalog = load_player_catalog()
+        ruleset = load_basic_ruleset()
+        offered = 0
+        overlapping = 0
+
+        for first in Team:
+            game = build_game()
+            game.player_1_team = first
+            game.player_2_team = None
+            excluded = TeamSelectionView.excluded_teams(game, None)
+
+            for second in Team:
+                if second in excluded:
+                    continue
+                offered += 1
+                shared = catalog.shared_player_ids(first, second)
+                overlapping += bool(shared)
+
+                with self.subTest(home=first.value, visiting=second.value):
+                    match = MatchState.standard(
+                        catalog=catalog,
+                        ruleset=ruleset,
+                        board_size=7,
+                        home_team=first,
+                        visiting_team=second,
+                    )
+                    home_cards = (
+                        match.home.field_players
+                        + match.home.team_board.bench
+                    )
+                    visiting_cards = (
+                        match.visiting.field_players
+                        + match.visiting.team_board.bench
+                    )
+                    self.assertEqual(len(home_cards), 9)
+                    self.assertEqual(len(visiting_cards), 9)
+                    self.assertEqual(
+                        len(set(home_cards) | set(visiting_cards)), 18,
+                    )
+                    # Every card still names a real player, and the
+                    # duplicates name the ones the two rosters share.
+                    self.assertEqual(
+                        {
+                            catalog_player_id(card)
+                            for card in visiting_cards
+                            if card != catalog_player_id(card)
+                        },
+                        shared,
+                    )
+                    for card in home_cards + visiting_cards:
+                        catalog.player_by_id(card)
+
+        # Every team but its own pair, both ways round.
+        self.assertEqual(offered, len(Team) * (len(Team) - 2))
+        self.assertEqual(overlapping, 24)
+
+    def test_dinkys_team_is_drawn_from_the_pair_rule_too(self) -> None:
+        """
+        Nobody is holding the AI's buttons, so the pool it draws from
+        is the only check a solo game has -- and it has to agree with
+        the one the picker greys out by, or Dinky lands on the one
+        matchup a coach cannot pick.
+        """
+        game = build_game(player_2_id=None)
+        game.player_1_team = None
+        game.player_2_team = None
+        cog = FakeCog(game, build_coin_emojis())
+        cog.ensure_coin_emojis = mock.AsyncMock()
+        view = TeamSelectionView(cog, game.game_id)
+
+        interaction = SimpleNamespace(
+            user=SimpleNamespace(id=game.player_1_id),
+            response=SimpleNamespace(
+                send_message=mock.AsyncMock(),
+                edit_message=mock.AsyncMock(),
+            ),
+        )
+
+        with mock.patch("cogs.d12ball_views.save_games"), \
+                mock.patch(
+                    "cogs.d12ball_views.random.choice",
+                    side_effect=lambda pool: pool[0],
+                ) as choice:
+            asyncio.run(view.select_team(interaction, Team.ORANGE))
+
+        self.assertEqual(
+            set(choice.call_args.args[0]),
+            set(Team) - {Team.ORANGE, paired_team(Team.ORANGE)},
+        )
+        # Against what the picker would have greyed out at the moment
+        # Dinky was handed its pool -- one side chosen, the other open.
+        mid_pick = build_game()
+        mid_pick.player_1_team = Team.ORANGE
+        mid_pick.player_2_team = None
+        self.assertEqual(
+            set(choice.call_args.args[0]),
+            set(Team) - TeamSelectionView.excluded_teams(mid_pick, None),
         )
 
     def test_test_game_user_controls_offense_and_defense(self) -> None:
