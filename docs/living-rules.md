@@ -345,6 +345,8 @@ Each side puts up at most one contestant.
 - **A player of theirs already standing on the ball's space contests automatically.** They are not sent anywhere and pay nothing. Where a side has several standing there, their coach picks between them.
 - **A side with nobody there may [send a player](#sending-a-player), or send nobody.** Where both sides have to choose, the side that last had the ball chooses first and the other side chooses after them.
 
+What follows is decided by how many of them there turn out to be.
+
 - **Both sides put somebody up.** They roll a skill test: the side that last had the ball adds their player's offensive skill, the other side adds their player's defensive skill. The higher total wins the ball and is left holding it. A tie is rolled again, at a token each.
 - **One side only.** That player takes the ball without a test.
 - **Neither.** The ball goes [out of bounds](#out-of-bounds) — which only an empty space can come to, since a player standing on the ball is a contestant their side cannot withhold.
