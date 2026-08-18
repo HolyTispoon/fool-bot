@@ -1238,7 +1238,6 @@ def render_skill_test_dice(
 
     for index, (value, color, label, detail_lines, total) in enumerate(dice):
         center_x = index * SKILL_TEST_CELL_WIDTH + SKILL_TEST_CELL_WIDTH // 2
-        die_ink = high_contrast_ink(color)
         draw_d12_polygon(
             draw,
             center_x,
@@ -1247,8 +1246,7 @@ def render_skill_test_dice(
             color,
             str(value),
             font=FONT_DICE_VALUE,
-            outline=die_ink,
-            text_color=die_ink,
+            text_color=high_contrast_ink(color),
         )
         label_width = draw.textlength(label, font=FONT_SMALL)
         draw.text(
@@ -1392,7 +1390,6 @@ def render_injury_test_die(
     )
 
     die_center_x = INJURY_TEST_SIDE_PADDING + die_column / 2
-    die_ink = high_contrast_ink(color)
     draw_d12_polygon(
         draw,
         round(die_center_x),
@@ -1401,8 +1398,7 @@ def render_injury_test_die(
         color,
         str(value),
         font=FONT_DICE_VALUE,
-        outline=die_ink,
-        text_color=die_ink,
+        text_color=high_contrast_ink(color),
     )
     team_width = draw.textlength(team_label, font=FONT_SMALL)
     draw.text(
@@ -1546,9 +1542,7 @@ def render_own_goal_dice(
             color if counted else OWN_GOAL_DROPPED_COLOR,
             str(value),
             font=FONT_DICE_VALUE,
-            outline=(
-                high_contrast_ink(color) if counted else OWN_GOAL_DROPPED_OUTLINE
-            ),
+            outline="#ffffff" if counted else OWN_GOAL_DROPPED_OUTLINE,
             text_color=(
                 high_contrast_ink(color) if counted else OWN_GOAL_DROPPED_TEXT
             ),
