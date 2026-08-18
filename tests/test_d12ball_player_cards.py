@@ -39,23 +39,30 @@ class D12BallPlayerCardTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.catalog = load_player_catalog()
-        cls.players = [
-            player
-            for roster in cls.catalog.teams.values()
+        # Every player now belongs to two rosters (a color team and a
+        # species team), so a card is printed per (player, team) pair --
+        # this carries both members of that pair through, rather than a
+        # bare player list that would need a team invented for it.
+        cls.player_team_pairs = [
+            (player, team)
+            for team, roster in cls.catalog.teams.items()
             for player in roster.players
         ]
+        cls.players = [player for player, _team in cls.player_team_pairs]
 
     def test_every_player_renders_at_poker_size(self) -> None:
-        for player in self.players:
-            with self.subTest(player=player.name):
-                card = render_player_card(self.catalog, player, bleed=False)
+        for player, team in self.player_team_pairs:
+            with self.subTest(player=player.name, team=team.value):
+                card = render_player_card(
+                    self.catalog, player, team, bleed=False,
+                )
                 self.assertEqual(card.size, (CARD_WIDTH, CARD_HEIGHT))
 
     def test_a_bleed_card_carries_an_eighth_of_an_inch_all_round(
         self,
     ) -> None:
-        player = self.players[0]
-        card = render_player_card(self.catalog, player, bleed=True)
+        player, team = self.player_team_pairs[0]
+        card = render_player_card(self.catalog, player, team, bleed=True)
         self.assertEqual(
             card.size, (CARD_WIDTH + BLEED * 2, CARD_HEIGHT + BLEED * 2)
         )

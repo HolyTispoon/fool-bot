@@ -32,6 +32,8 @@ from d12ball.game import (
     CoinFace,
     D12BallGame,
     Team,
+    paired_team,
+    team_display_name,
 )
 from d12ball.components import (
     MatchState,
@@ -158,7 +160,14 @@ class D12BallCoinTossTests(unittest.TestCase):
                 player_2_id=111,
             )
 
-    def test_test_game_setup_has_a_team_row_for_each_player(self) -> None:
+    def test_test_game_setup_prompts_one_players_picker_at_a_time(
+        self,
+    ) -> None:
+        # Eight teams need two rows a side (a color row and a species
+        # row), which is the whole budget on its own -- a test game's
+        # one user is prompted for Player 1's team, then Player 2's, on
+        # the same screen in turn, rather than both rows of both sides
+        # at once. See the TeamSelectionView class docstring.
         game = D12BallGame(
             game_id="test-game",
             game_number=1,
@@ -181,11 +190,93 @@ class D12BallCoinTossTests(unittest.TestCase):
         self.assertEqual({item.row for item in team_buttons}, {0, 1})
         self.assertEqual(
             {item.label.split(":", 1)[0] for item in team_buttons},
-            {"Player 1", "Player 2"},
+            {"Player 1"},
         )
+        self.assertTrue(all(not item.disabled for item in team_buttons))
+
         setup_message = build_setup_message(game)
         self.assertIn("**Player 1:** Player 1", setup_message)
         self.assertIn("**Player 2:** Player 2", setup_message)
+
+    def test_test_game_second_screen_excludes_the_first_players_pair(
+        self,
+    ) -> None:
+        game = D12BallGame(
+            game_id="test-game",
+            game_number=1,
+            guild_id=1,
+            channel_id=2,
+            message_id=None,
+            player_1_id=111,
+            player_2_id=111,
+            player_1_name="Player 1",
+            player_2_name="Player 2",
+            test_game=True,
+            player_1_team=Team.ORANGE,
+        )
+        view = TeamSelectionView(FakeCog(game, {}), game.game_id)
+        team_buttons = [
+            item for item in view.children
+            if item.custom_id and item.custom_id.startswith("d12ball:team:")
+        ]
+
+        self.assertEqual(len(team_buttons), 8)
+        self.assertEqual(
+            {item.label.split(":", 1)[0] for item in team_buttons},
+            {"Player 2"},
+        )
+
+        disabled_labels = {
+            item.label.split(": ", 1)[1]
+            for item in team_buttons
+            if item.disabled
+        }
+        self.assertEqual(
+            disabled_labels,
+            {
+                team_display_name(Team.ORANGE),
+                team_display_name(paired_team(Team.ORANGE)),
+            },
+        )
+
+    def test_a_normal_game_shares_one_team_row_pair(self) -> None:
+        # Not a test game: both real players read from and click the
+        # same buttons, so there is no "Player N:" prefix and only one
+        # screen, ever.
+        game = build_game()
+        game.player_1_team = None
+        game.player_2_team = None
+        view = TeamSelectionView(FakeCog(game, {}), game.game_id)
+        team_buttons = [
+            item for item in view.children
+            if item.custom_id and item.custom_id.startswith("d12ball:team:")
+        ]
+
+        self.assertEqual(len(team_buttons), 8)
+        self.assertEqual({item.row for item in team_buttons}, {0, 1})
+        self.assertTrue(
+            all(":" not in (item.label or "") for item in team_buttons)
+        )
+        self.assertTrue(all(not item.disabled for item in team_buttons))
+
+    def test_a_normal_game_excludes_a_taken_teams_pair_too(self) -> None:
+        game = build_game()
+        game.player_1_team = Team.TEAL
+        game.player_2_team = None
+        view = TeamSelectionView(FakeCog(game, {}), game.game_id)
+        team_buttons = [
+            item for item in view.children
+            if item.custom_id and item.custom_id.startswith("d12ball:team:")
+        ]
+
+        disabled_labels = {item.label for item in team_buttons if item.disabled}
+        self.assertEqual(
+            disabled_labels,
+            {
+                team_display_name(Team.TEAL),
+                team_display_name(paired_team(Team.TEAL)),
+            },
+        )
 
     def test_test_game_user_controls_offense_and_defense(self) -> None:
         game = D12BallGame(

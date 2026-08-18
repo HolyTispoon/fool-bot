@@ -10,10 +10,15 @@ from pathlib import Path
 from typing import Iterable, NamedTuple
 
 
+# gid=0 was the sheet's original tab, one row per player, pre-reshuffle.
+# "Player Cards" (gid=6660238) replaced it once the reshuffle needed a
+# color team and a species on the same row plus the new {name}_{role}
+# ids -- gid=0 still exists but is stale, so importing from it silently
+# reproduces the old assignment. Confirmed with the author 2026-08-17.
 DEFAULT_SOURCE = (
     "https://docs.google.com/spreadsheets/d/"
     "1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/"
-    "export?format=csv&gid=0"
+    "export?format=csv&gid=6660238"
 )
 DEFAULT_ABILITIES_SOURCE = (
     "https://docs.google.com/spreadsheets/d/"
@@ -27,13 +32,26 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = PROJECT_ROOT / "d12ball" / "data" / "players.json"
 DEFAULT_IMAGES = PROJECT_ROOT / "d12ball" / "images" / "player_images"
 
+# The four color teams, unchanged since before the reshuffle -- a mixed
+# roster of 3 of its own species and 2 of each other, since 2026-08-17.
 EXPECTED_TEAMS = {"orange", "teal", "purple", "slime"}
-# A player's species, not their team -- since the 2026-08-17 reshuffle a
-# team is 3 of its own species plus 2 of each other, so this is no
-# longer read off Team. Fixed to the same four as EXPECTED_TEAMS because
-# that is every species the setting has today; add to both together if
-# a fifth is ever introduced.
+# A player's species, not their team -- a team is mixed since the
+# reshuffle, so this is no longer read off Team. Fixed to the same four
+# names as EXPECTED_TEAMS/SPECIES_TEAM because that is every species the
+# setting has today; add to all three together if a fifth is ever
+# introduced.
 EXPECTED_SPECIES = {"fire_demon", "cyborg", "telekinetic", "ooze"}
+# The species team a player's Species column puts them on -- the
+# pre-reshuffle grouping, carried over unchanged in membership under its
+# own Team enum key. The mirror image of this map (species team -> old
+# color name) is how a legacy saved game's ids and Team values are
+# reconstructed on load; see the "legacy migration" gotcha in CLAUDE.md.
+SPECIES_TEAM = {
+    "fire_demon": "fire_demons",
+    "cyborg": "cyborgs",
+    "telekinetic": "telekinetics",
+    "ooze": "oozes",
+}
 EXPECTED_ROLE_COUNTS = {
     "fullback": 1,
     "defender": 2,
@@ -42,7 +60,6 @@ EXPECTED_ROLE_COUNTS = {
     "winger": 1,
     "striker": 2,
 }
-PLAYER_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:_[a-z0-9]+)+$")
 REQUIRED_COLUMNS = {
     "player_id",
     "Name",
@@ -108,6 +125,10 @@ def read_source(source: str) -> str:
     return Path(source).read_text(encoding="utf-8-sig")
 
 
+def slugify_name(name: str) -> str:
+    return name.strip().lower()
+
+
 def parse_skill(raw_value: str, field: str, player_id: str) -> int:
     try:
         value = int(float(raw_value))
@@ -169,9 +190,20 @@ def import_players(
     role_abilities: dict[str, RoleAbility] | None = None,
     abilities_source: str = DEFAULT_SOURCE,
 ) -> dict:
-    players_by_team: dict[str, list[dict]] = defaultdict(list)
+    """
+    Read the player cards sheet into the flat-players + eight-rosters
+    shape `load_player_catalog` expects -- see "Team colors" and the
+    player-catalog notes in CLAUDE.md.
+
+    Each row still declares exactly one color team (`Team`) and one
+    species (`Species`); `players_by_team` and `players_by_species_team`
+    are built from the same 36 rows, so a player's id ends up named by
+    both rosters without its record ever being written out twice.
+    """
+    flat_players: dict[str, dict] = {}
+    players_by_team: dict[str, list[str]] = defaultdict(list)
+    players_by_species_team: dict[str, list[str]] = defaultdict(list)
     role_profiles: dict[str, dict] = {}
-    player_ids: set[str] = set()
     player_names: set[str] = set()
     advanced_count = 0
 
@@ -188,27 +220,34 @@ def import_players(
         if (row.get("Advanced") or "").strip():
             advanced_count += 1
 
-        if not player_id:
-            raise ValueError(f"Row {row_number}: player_id is required.")
-        if not PLAYER_ID_PATTERN.fullmatch(player_id):
-            raise ValueError(
-                f"{player_id}: IDs must contain lowercase letters, "
-                "numbers, and underscores only."
-            )
-        if player_id in player_ids:
-            raise ValueError(f"Duplicate player_id: {player_id}")
-        if team not in EXPECTED_TEAMS:
-            raise ValueError(f"{player_id}: unknown team {team!r}.")
-        if not player_id.startswith(f"{team}_"):
-            raise ValueError(
-                f"{player_id}: ID must begin with the team name."
-            )
-        if species not in EXPECTED_SPECIES:
-            raise ValueError(f"{player_id}: unknown species {species!r}.")
-        if role not in EXPECTED_ROLE_COUNTS:
-            raise ValueError(f"{player_id}: unknown role {role!r}.")
         if not name:
-            raise ValueError(f"{player_id}: Name is required.")
+            raise ValueError(f"Row {row_number}: Name is required.")
+        if not role:
+            raise ValueError(f"{name}: Role is required.")
+        if role not in EXPECTED_ROLE_COUNTS:
+            raise ValueError(f"{name}: unknown role {role!r}.")
+        if team not in EXPECTED_TEAMS:
+            raise ValueError(f"{name}: unknown team {team!r}.")
+        if species not in EXPECTED_SPECIES:
+            raise ValueError(f"{name}: unknown species {species!r}.")
+
+        # An id is `{slugified name}_{role}` -- globally unique without a
+        # team prefix, since the reshuffle means a player's own color
+        # team is no longer part of their identity (see "Team colors" and
+        # the player-catalog id-scheme note in CLAUDE.md). Checked exactly
+        # rather than merely pattern-matched, the same way the old prefix
+        # rule was: this is what catches the sheet's player_id column
+        # drifting from a renamed player or a re-keyed role.
+        expected_id = f"{slugify_name(name)}_{role}"
+        if not player_id:
+            raise ValueError(f"{name}: player_id is required.")
+        if player_id != expected_id:
+            raise ValueError(
+                f"{name}: player_id is {player_id!r}, expected "
+                f"{expected_id!r} ('{{slugified name}}_{{role}}')."
+            )
+        if player_id in flat_players:
+            raise ValueError(f"Duplicate player_id: {player_id}")
 
         if role_abilities is None:
             if not basic:
@@ -251,36 +290,53 @@ def import_players(
                 f"{player_id}: missing player image {image_path.name}."
             )
 
-        player_ids.add(player_id)
         player_names.add(name)
-        players_by_team[team].append(
-            {
-                "id": player_id,
-                "name": name,
-                "role": role,
-                "species": species,
-                "stat_overrides": {},
-            }
-        )
+        flat_players[player_id] = {
+            "name": name,
+            "role": role,
+            "species": species,
+            "stat_overrides": {},
+        }
+        players_by_team[team].append(player_id)
+        players_by_species_team[SPECIES_TEAM[species]].append(player_id)
 
     if set(players_by_team) != EXPECTED_TEAMS:
         raise ValueError(
             "The spreadsheet must contain Orange, Teal, Purple, and Slime."
         )
+    if set(players_by_species_team) != set(SPECIES_TEAM.values()):
+        raise ValueError(
+            "The spreadsheet must contain every species: "
+            + ", ".join(sorted(SPECIES_TEAM))
+        )
 
-    for team, players in players_by_team.items():
-        if len(players) != 9:
-            raise ValueError(
-                f"{team.title()} must have exactly 9 players; "
-                f"found {len(players)}."
-            )
-
-        role_counts = Counter(player["role"] for player in players)
-        if role_counts != Counter(EXPECTED_ROLE_COUNTS):
-            raise ValueError(
-                f"{team.title()} has the wrong role distribution: "
-                f"{dict(role_counts)}."
-            )
+    # Both axes -- a coach's color team and their species team -- are
+    # nine players in the standard 1/2/1/2/1/2 distribution, and neither
+    # roster may be checked without the other: a color team getting this
+    # right says nothing about the species teams it was drawn from, and
+    # the reverse.
+    for roster_label, rosters in (
+        ("color", players_by_team),
+        ("species", players_by_species_team),
+    ):
+        for team, ids in rosters.items():
+            # Not team_display_name (d12ball.game): this script reads a
+            # CSV and writes JSON with no other dependency on the
+            # package, and a team here is a plain key string, not a
+            # Team. Same fix, though -- "fire_demons".title() is
+            # "Fire_Demons" same as everywhere else this bug showed up.
+            team_label = team.replace("_", " ").title()
+            if len(ids) != 9:
+                raise ValueError(
+                    f"{team_label} ({roster_label} team) must have "
+                    f"exactly 9 players; found {len(ids)}."
+                )
+            role_counts = Counter(flat_players[pid]["role"] for pid in ids)
+            if role_counts != Counter(EXPECTED_ROLE_COUNTS):
+                raise ValueError(
+                    f"{team_label} ({roster_label} team) has the wrong "
+                    f"role distribution: {dict(role_counts)}."
+                )
 
     image_names = {
         path.stem
@@ -294,8 +350,13 @@ def import_players(
         )
 
     ordered_teams = {
-        team: {"players": players_by_team[team]}
+        team: {"player_ids": players_by_team[team]}
         for team in ("orange", "teal", "purple", "slime")
+    } | {
+        team: {"player_ids": players_by_species_team[team]}
+        for team in (
+            "fire_demons", "cyborgs", "telekinetics", "oozes",
+        )
     }
     ordered_profiles = {
         role: role_profiles[role]
@@ -313,6 +374,7 @@ def import_players(
         "source": DEFAULT_SOURCE,
         "abilities_source": abilities_source,
         "role_profiles": ordered_profiles,
+        "players": dict(sorted(flat_players.items())),
         "teams": ordered_teams,
     }
 
@@ -401,8 +463,8 @@ def main() -> None:
     )
     print(
         f"Wrote {args.output} with "
-        f"{sum(len(team['players']) for team in output['teams'].values())} "
-        "players."
+        f"{len(output['players'])} players across "
+        f"{len(output['teams'])} teams."
     )
 
 

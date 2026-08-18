@@ -27,7 +27,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.game import D12BallGame, Team
+from d12ball.game import D12BallGame, Team, team_display_name
 
 
 def build_cog() -> D12Ball:
@@ -263,8 +263,10 @@ class CoachingRosterButtonTests(unittest.IsolatedAsyncioTestCase):
         interaction.response.send_message.assert_awaited_once()
         content, keywords = interaction.response.send_message.await_args
         self.assertTrue(keywords["ephemeral"])
-        self.assertIn(match.home.team.value.title(), content[0])
-        self.assertNotIn(match.visiting.team.value.title(), content[0])
+        self.assertIn(team_display_name(match.home.team), content[0])
+        self.assertNotIn(
+            team_display_name(match.visiting.team), content[0],
+        )
 
     async def test_the_waiting_coach_can_read_theirs_too(self) -> None:
         # Reading a roster is not acting on the window, so it is not
@@ -279,7 +281,7 @@ class CoachingRosterButtonTests(unittest.IsolatedAsyncioTestCase):
         await view.show_roster(interaction)
 
         content, _ = interaction.response.send_message.await_args
-        self.assertIn(match.visiting.team.value.title(), content[0])
+        self.assertIn(team_display_name(match.visiting.team), content[0])
 
 
 if __name__ == "__main__":

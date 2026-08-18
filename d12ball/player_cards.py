@@ -48,6 +48,7 @@ from d12ball.cards import (
     line_height,
 )
 from d12ball.components import PlayerCatalog, PlayerDefinition, RoleProfile
+from d12ball.game import Team, team_display_name
 from d12ball.render import (
     CARD_DEFENSE_COLOR,
     CARD_OFFENSE_COLOR,
@@ -94,6 +95,7 @@ def fitted_name(
 def draw_header(
     pen: Pen,
     player: PlayerDefinition,
+    team: Team,
     color: str,
 ) -> None:
     """
@@ -129,7 +131,7 @@ def draw_header(
 
     pen.text(
         (CARD_WIDTH - FRAME - 60, FRAME + HEADER_HEIGHT / 2),
-        player.team.value.upper(),
+        team_display_name(team).upper(),
         font(16, bold=True),
         "#ffffff",
         anchor="mm",
@@ -277,14 +279,20 @@ def draw_portrait(
 def render_player_card(
     catalog: PlayerCatalog,
     player: PlayerDefinition,
+    team: Team,
     bleed: bool,
 ) -> Image.Image:
     """
-    One player's card. `bleed` adds the 1/8in a print shop trims into,
-    the same as a maneuver card's.
+    One player's card, printed as a member of `team`. A dual-membership
+    player -- every player, since the 2026-08-17 eight-team split -- has
+    no team of their own to read this off (`PlayerDefinition` carries
+    none), so which of their two rosters the card is drawn for is the
+    caller's to say. Printing one card per (player, team) pair a player
+    belongs to is just calling this twice with the two teams
+    `PlayerCatalog.teams` names them under -- no special-casing.
     """
     profile = catalog.effective_profile(player)
-    color = TEAM_COLORS[player.team]
+    color = TEAM_COLORS[Team(team)]
     pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
 
     # The rounded outline in the team's colour is the card's edge and
@@ -299,7 +307,7 @@ def render_player_card(
         width=EDGE_WIDTH,
     )
 
-    draw_header(pen, player, color)
+    draw_header(pen, player, team, color)
 
     stats_top = FRAME + HEADER_HEIGHT + STATS_TOP_GAP
     draw_stats(pen, player, profile, stats_top)

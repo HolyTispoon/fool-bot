@@ -161,9 +161,17 @@ class ShortAbilityTests(unittest.TestCase):
 def build_roster_rows(species_forms):
     """
     A full 36-player roster -- the minimum import_players will accept,
-    since it checks every team has exactly 9 in the right role counts.
-    Species is what varies per test; everything else is just enough to
-    be valid.
+    since it checks every one of the eight rosters (four color teams,
+    four species teams) has exactly 9 in the right role counts. Species
+    is what varies per test; everything else is just enough to be
+    valid. `species_forms` cycling every 4 rows against 9-player teams
+    happens to give each species the standard 1/2/1/2/1/2 distribution
+    too -- verified, not assumed, since the importer now checks that
+    axis as well.
+
+    The id is derived the way the importer itself derives one
+    (`{slug(name)}_{role}`), rather than hand-encoded here, so this
+    fixture cannot drift from the scheme it is testing.
     """
     role_counts = (
         ("fullback", 1), ("defender", 2), ("midfielder", 1),
@@ -174,9 +182,10 @@ def build_roster_rows(species_forms):
     for team in ("orange", "teal", "purple", "slime"):
         for role, count in role_counts:
             for slot in range(count):
+                name = f"{team}_{role}{slot}"
                 rows.append({
-                    "player_id": f"{team}_{role}{slot}",
-                    "Name": f"{team}_{role}{slot}_name",
+                    "player_id": f"{importer.slugify_name(name)}_{role}",
+                    "Name": name,
                     "Team": team,
                     "Species": species_forms[index % len(species_forms)],
                     "Role": role,
@@ -209,15 +218,19 @@ class SpeciesImportTests(unittest.TestCase):
                 role_abilities=ROLE_ABILITIES, abilities_source="test",
             )
 
-        players = {
-            player["id"]: player
-            for team in output["teams"].values()
-            for player in team["players"]
-        }
-        self.assertEqual(players["orange_fullback0"]["species"], "fire_demon")
-        self.assertEqual(players["orange_defender0"]["species"], "cyborg")
-        self.assertEqual(players["orange_defender1"]["species"], "telekinetic")
-        self.assertEqual(players["orange_midfielder0"]["species"], "ooze")
+        players = output["players"]
+        self.assertEqual(
+            players["orange_fullback0_fullback"]["species"], "fire_demon",
+        )
+        self.assertEqual(
+            players["orange_defender0_defender"]["species"], "cyborg",
+        )
+        self.assertEqual(
+            players["orange_defender1_defender"]["species"], "telekinetic",
+        )
+        self.assertEqual(
+            players["orange_midfielder0_midfielder"]["species"], "ooze",
+        )
 
     def test_an_unknown_species_is_rejected(self) -> None:
         rows = build_roster_rows(["Robot"])
@@ -232,6 +245,66 @@ class SpeciesImportTests(unittest.TestCase):
 
         self.assertIn("orange_fullback0", str(caught.exception))
         self.assertIn("species", str(caught.exception))
+
+
+class DualRosterValidationTests(unittest.TestCase):
+    """
+    The importer's own checks, previously untested altogether: the two
+    id/team invariants that only the reshuffle introduced. See "Team
+    colors" and the player-catalog notes in CLAUDE.md.
+    """
+
+    def _import(self, rows):
+        with tempfile.TemporaryDirectory() as images_dir:
+            images_folder = Path(images_dir)
+            for row in rows:
+                (images_folder / f"{row['Name']}.png").touch()
+            return importer.import_players(
+                rows, images_folder, data_version=1,
+                role_abilities=ROLE_ABILITIES, abilities_source="test",
+            )
+
+    def test_a_valid_roster_produces_eight_teams_of_nine(self) -> None:
+        rows = build_roster_rows(
+            ["Fire Demon", "Cyborg", "Telekinetic", "Ooze"]
+        )
+        output = self._import(rows)
+
+        self.assertEqual(len(output["players"]), 36)
+        self.assertEqual(
+            set(output["teams"]),
+            {
+                "orange", "teal", "purple", "slime",
+                "fire_demons", "cyborgs", "telekinetics", "oozes",
+            },
+        )
+        for team, roster in output["teams"].items():
+            with self.subTest(team=team):
+                self.assertEqual(len(roster["player_ids"]), 9)
+                self.assertEqual(len(set(roster["player_ids"])), 9)
+
+    def test_a_player_id_must_match_the_slug_and_role(self) -> None:
+        rows = build_roster_rows(
+            ["Fire Demon", "Cyborg", "Telekinetic", "Ooze"]
+        )
+        rows[0]["player_id"] = "not_the_expected_id"
+
+        with self.assertRaises(ValueError) as caught:
+            self._import(rows)
+
+        self.assertIn("expected", str(caught.exception))
+
+    def test_a_team_short_a_species_role_is_rejected(self) -> None:
+        # Every row the same species, so one species team gets all 36
+        # and the other three get none -- the color teams are still
+        # individually fine, so only the species-axis check should
+        # catch this.
+        rows = build_roster_rows(["Fire Demon"])
+
+        with self.assertRaises(ValueError) as caught:
+            self._import(rows)
+
+        self.assertIn("every species", str(caught.exception))
 
 
 if __name__ == "__main__":

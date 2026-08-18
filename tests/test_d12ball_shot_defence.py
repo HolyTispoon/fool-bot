@@ -101,7 +101,6 @@ def a_player(name: str) -> PlayerDefinition:
     return PlayerDefinition(
         player_id=f"teal_{name.lower().replace(' ', '_')}",
         name=name,
-        team=Team.TEAL,
         role=PlayerRole.DEFENDER,
         stat_overrides={},
     )

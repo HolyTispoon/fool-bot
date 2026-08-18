@@ -1570,7 +1570,11 @@ def draw_team_header(
         sheet.font(13),
         MUTED,
     )
-    name = team.value.upper() if team else "TEAM"
+    # .replace before .upper(), not team_display_name (which title-
+    # cases): an underscored team's value needs the same space an
+    # ordinary one gets nowhere, but this header is deliberately all
+    # caps, unlike everywhere team_display_name is used.
+    name = team.value.replace("_", " ").upper() if team else "TEAM"
     sheet.text(
         (geometry.right, top + sheet.u(2)),
         name,
