@@ -23,13 +23,14 @@ from d12ball.components import (
 from d12ball.game import (
     AIOpponent,
     CoinFace,
+    COLOR_TEAMS,
     D12BallGame,
     Formation,
     GameMode,
     GameStatus,
     HomeChoice,
+    SPECIES_TEAMS,
     Team,
-    TEAM_PAIRS,
     paired_team,
     team_display_name,
 )
@@ -310,14 +311,38 @@ class GameConfigurationView(SafeView):
 
 
 class TeamSelectionView(GameConfigurationView):
+    """
+    Team picking, and nothing else -- since the 2026-08-17 eight-team
+    split, a side's choice needs two rows (a color row and a species
+    row), so this no longer shares a screen with the mode/board-size/
+    AI-opponent settings the way it did at four teams: four buttons in
+    one row left three more for settings, eight across two rows leaves
+    at most one. Settings move to their own step, which costs nothing
+    new -- CoinFlipView already carries them alongside the flip button,
+    with rows to spare.
+
+    A normal game's two sides still share one screen: whichever human
+    clicks a button picks their own side, exactly as at four teams. A
+    **test game** -- one person playing both sides, so there is only
+    ever one user to click anything -- used to show both sides' rows on
+    the same screen; two sides at two rows apiece is four, which would
+    leave nothing for a shared row's worth of ambiguity anyway, so it
+    now prompts them one after another instead, each with the full
+    two-row budget to itself. `_picking_player_number` is the only
+    place that decides which screen a test game is on: `None` once
+    neither side needs asking (a normal game), 1 while Player 1 has not
+    chosen, 2 once they have and Player 2 has not.
+    """
+
     def configuration_start_row(
         self,
         game: Optional[D12BallGame],
     ) -> int:
-        # Below the team buttons, which a test game needs two rows for
-        # (one per player). A test game is never a solo game, so its
-        # settings block stops at the tie-mode row and still fits.
-        return 2 if game is not None and game.test_game else 1
+        # Settings no longer live on this view at all -- see the class
+        # docstring. Kept only because GameConfigurationView expects an
+        # override point; add_configuration_buttons is never called
+        # here.
+        return 0
 
     def __init__(
         self,
@@ -330,27 +355,13 @@ class TeamSelectionView(GameConfigurationView):
         self.game_id = game_id
 
         game = self.cog.games.get(game_id)
-        teams = [
-            ("Orange", Team.ORANGE, discord.ButtonStyle.primary),
-            ("Teal", Team.TEAL, discord.ButtonStyle.primary),
-            ("Purple", Team.PURPLE, discord.ButtonStyle.primary),
-            ("Slime", Team.SLIME, discord.ButtonStyle.primary),
-        ]
+        player_number = self.picking_player_number(game)
+        excluded = self.excluded_teams(game, player_number)
 
-        player_rows = (1, 2) if game and game.test_game else (None,)
-        for player_number in player_rows:
-            for label, team, style in teams:
-                selected_team = None
-                other_team = None
-                if game is not None:
-                    if player_number == 2:
-                        selected_team = game.player_2_team
-                        other_team = game.player_1_team
-                    else:
-                        selected_team = game.player_1_team
-                        other_team = game.player_2_team
-
-                unavailable = team in {selected_team, other_team}
+        for row, row_teams in enumerate((COLOR_TEAMS, SPECIES_TEAMS)):
+            for team in row_teams:
+                unavailable = team in excluded
+                label = team_display_name(team)
                 button = discord.ui.Button(
                     label=(
                         f"Player {player_number}: {label}"
@@ -360,7 +371,7 @@ class TeamSelectionView(GameConfigurationView):
                     style=(
                         discord.ButtonStyle.secondary
                         if unavailable
-                        else style
+                        else discord.ButtonStyle.primary
                     ),
                     custom_id=(
                         f"d12ball:team:{game_id}:{player_number}:{team.value}"
@@ -368,7 +379,7 @@ class TeamSelectionView(GameConfigurationView):
                         else f"d12ball:team:{game_id}:{team.value}"
                     ),
                     disabled=unavailable,
-                    row=(player_number - 1 if player_number else 0),
+                    row=row,
                 )
 
                 async def callback(
@@ -385,7 +396,61 @@ class TeamSelectionView(GameConfigurationView):
                 button.callback = callback
                 self.add_item(button)
 
-        self.add_configuration_buttons()
+    @staticmethod
+    def picking_player_number(
+        game: Optional[D12BallGame],
+    ) -> Optional[int]:
+        """
+        `None` for a normal game's shared row; 1 or 2 for a test
+        game's sequential screens, the side that has not chosen yet.
+        Player 1 always goes first, since nothing else orders them.
+        """
+        if game is None or not game.test_game:
+            return None
+        if game.player_1_team is None:
+            return 1
+        return 2
+
+    @staticmethod
+    def excluded_teams(
+        game: Optional[D12BallGame],
+        player_number: Optional[int],
+    ) -> set[Team]:
+        """
+        Every team this screen must refuse: whichever side(s) already
+        have one, and -- since paired teams are mutually exclusive in
+        one game (they are the same nine players under two names) --
+        each of those teams' own `paired_team()` too.
+        """
+        if game is None:
+            return set()
+
+        if player_number == 1:
+            # The sequential test-game screen for whoever goes first:
+            # nothing is chosen yet, by construction.
+            already_chosen: list[Team] = []
+        elif player_number == 2:
+            # The sequential test-game screen for whoever goes second:
+            # only the side that has already gone is excluded here.
+            already_chosen = (
+                [game.player_1_team]
+                if game.player_1_team is not None
+                else []
+            )
+        else:
+            # The shared row (a normal game) refuses on behalf of
+            # either side, whichever has already picked.
+            already_chosen = [
+                team
+                for team in (game.player_1_team, game.player_2_team)
+                if team is not None
+            ]
+
+        excluded: set[Team] = set()
+        for team in already_chosen:
+            excluded.add(team)
+            excluded.add(paired_team(team))
+        return excluded
 
     async def select_team(
         self,
@@ -432,20 +497,28 @@ class TeamSelectionView(GameConfigurationView):
             )
             return
 
-        if is_player_1:
-            if game.player_2_team == selected_team:
-                await interaction.response.send_message(
-                    "Player 2 has already selected that team.",
-                    ephemeral=True,
-                )
-                return
+        excluded = self.excluded_teams(
+            game, selected_player_number if game.test_game else None,
+        )
+        if selected_team in excluded:
+            # A stale click on a screen this game has moved past --
+            # the button should already have been disabled, but a
+            # second browser tab or a slow double-click can still get
+            # one through.
+            await interaction.response.send_message(
+                "That team is no longer available.",
+                ephemeral=True,
+            )
+            return
 
+        if is_player_1:
             game.player_1_team = selected_team
             if game.player_2_id is None:
                 available_ai_teams = [
                     team
                     for team in Team
                     if team != selected_team
+                    and team != paired_team(selected_team)
                 ]
 
                 game.player_2_team = random.choice(
@@ -453,13 +526,6 @@ class TeamSelectionView(GameConfigurationView):
                 )
 
         else:
-            if game.player_1_team == selected_team:
-                await interaction.response.send_message(
-                    "Player 1 has already selected that team.",
-                    ephemeral=True,
-                )
-                return
-
             game.player_2_team = selected_team
 
         save_games(self.cog.games)
@@ -468,7 +534,9 @@ class TeamSelectionView(GameConfigurationView):
 
         if game.teams_selected:
             # Resolved before the view is built, because the flip
-            # button carries the fortune coin.
+            # button carries the fortune coin. This is also where
+            # game settings become editable again -- see the class
+            # docstring.
             await self.cog.ensure_coin_emojis()
             coin_view = CoinFlipView(
                 cog=self.cog,

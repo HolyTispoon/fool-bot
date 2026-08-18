@@ -53,6 +53,18 @@ def paired_team(team: Team) -> Team:
     return TEAM_PAIRS[Team(team)]
 
 
+# The two axes, each in the order they are offered in -- the team
+# picker's two button rows (cogs/d12ball_views.py) and the importer's
+# canonical team ordering both read these rather than writing the
+# four-tuples out again.
+COLOR_TEAMS: tuple[Team, ...] = (
+    Team.ORANGE, Team.TEAL, Team.PURPLE, Team.SLIME,
+)
+SPECIES_TEAMS: tuple[Team, ...] = (
+    Team.FIRE_DEMONS, Team.CYBORGS, Team.TELEKINETICS, Team.OOZES,
+)
+
+
 def team_display_name(team: Team) -> str:
     """
     A team's name the way it is shown to a coach -- "Fire Demons", not
