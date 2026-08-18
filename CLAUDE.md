@@ -2412,6 +2412,25 @@ as a bug.
   reshuffle, just for a different roster. Don't add a migration for
   this a second time, and don't drop it until no half-finished game
   can predate the reshuffle.
+  - **A rename is the one thing the reconstruction cannot derive, so
+    `LEGACY_RENAMED_NAMES` writes those down.** A legacy id carries the
+    name the player had when the game was saved; everything else about
+    it is still derivable from the catalog, which is why that table is
+    three entries and not thirty-six. Three orange players were renamed
+    in 36250a9 on 2026-08-17 -- a day before the reshuffle and
+    separately from it -- so a game older than *that* commit was
+    already failing `TeamSetup.validate`, and the reshuffle migration
+    shipped mapping six of its nine ids and leaving three. Add to the
+    table whenever a player is renamed.
+  - **A migration that fires and cannot finish is worse than one that
+    does not fire**, which is what that half-mapped side was: the save
+    still fails to load and the traceback names nobody.
+    `_unmapped_legacy_ids` is the answer -- anything still shaped like
+    `{legacy color}_{name}` after the remap goes to #logs at ERROR,
+    naming the game and the ids, because the leftovers *are* the
+    diagnosis and somebody has to add the entry. It reads the match
+    state alone, since that is the only part of a save holding player
+    ids and a game's own name could carry anything.
 - **`data/d12ball_games.json` is runtime state and is deliberately untracked.**
   The bot rewrites it on every game action. It used to be committed, which
   meant it showed as modified more or less permanently and was a standing
