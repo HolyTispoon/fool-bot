@@ -38,7 +38,15 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.game import TEAM_PAIRS, Formation, Team
+from d12ball.game import (
+    COLOR_TEAMS,
+    SPECIES_TEAMS,
+    TEAM_PAIRS,
+    Formation,
+    Team,
+    paired_team,
+    team_display_name,
+)
 from d12ball.render import (
     BOARD_BOTTOM,
     EXHAUSTED_ICON_PATH,
@@ -1382,6 +1390,119 @@ class D12BallComponentTests(unittest.TestCase):
             ),
             held_group[0],
         )
+
+
+class TeamPairsTests(unittest.TestCase):
+    """
+    TEAM_PAIRS/paired_team and the two four-tuples they're built from
+    -- the plumbing every mutual-exclusion and legacy-migration check
+    reads. See "Team colors" in CLAUDE.md.
+    """
+
+    def test_every_team_is_in_exactly_one_axis(self) -> None:
+        self.assertEqual(set(COLOR_TEAMS) | set(SPECIES_TEAMS), set(Team))
+        self.assertEqual(set(COLOR_TEAMS) & set(SPECIES_TEAMS), set())
+        self.assertEqual(len(COLOR_TEAMS), 4)
+        self.assertEqual(len(SPECIES_TEAMS), 4)
+
+    def test_pairing_is_a_involution_across_the_axes(self) -> None:
+        # Every team has a pair, the pair is on the other axis, no
+        # team pairs with itself, and pairing twice returns the start
+        # -- an involution, not merely a function.
+        self.assertEqual(set(TEAM_PAIRS), set(Team))
+        for team in Team:
+            pair = paired_team(team)
+            self.assertNotEqual(pair, team)
+            self.assertEqual(paired_team(pair), team)
+            self.assertNotEqual(
+                team in COLOR_TEAMS, pair in COLOR_TEAMS,
+                f"{team.value} and its pair {pair.value} are on the "
+                "same axis.",
+            )
+
+    def test_the_shipped_pairing_matches_the_reshuffle(self) -> None:
+        # The four pairings are the author's call (which color a
+        # species used to be fielded under, exclusively, before the
+        # reshuffle) and not derivable from anything else -- so this
+        # is pinned rather than only checked for shape.
+        self.assertEqual(paired_team(Team.ORANGE), Team.FIRE_DEMONS)
+        self.assertEqual(paired_team(Team.TEAL), Team.CYBORGS)
+        self.assertEqual(paired_team(Team.PURPLE), Team.TELEKINETICS)
+        self.assertEqual(paired_team(Team.SLIME), Team.OOZES)
+
+
+class TeamDisplayNameTests(unittest.TestCase):
+    """
+    team_display_name -- the fix for team.value.title() silently
+    mangling an underscored team ("fire_demons".title() ==
+    "Fire_Demons"). See "Team colors" in CLAUDE.md.
+    """
+
+    def test_a_single_word_team_reads_the_same_as_title(self) -> None:
+        self.assertEqual(team_display_name(Team.ORANGE), "Orange")
+        self.assertEqual(team_display_name(Team.TEAL), "Teal")
+
+    def test_an_underscored_team_gets_a_space_not_an_underscore(self) -> None:
+        self.assertEqual(team_display_name(Team.FIRE_DEMONS), "Fire Demons")
+        self.assertEqual(team_display_name(Team.TELEKINETICS), "Telekinetics")
+        # The literal bug this replaced, so a regression here is loud
+        # rather than merely "wrong-looking in Discord".
+        self.assertNotEqual(
+            team_display_name(Team.FIRE_DEMONS),
+            Team.FIRE_DEMONS.value.title(),
+        )
+
+
+class TeamForPlayerTests(unittest.TestCase):
+    """
+    MatchState.team_for_player -- the one reading of "which of a
+    player's two rosters is this match fielding them as", now that
+    PlayerDefinition carries no team of its own. See "Team colors" and
+    the player-catalog notes in CLAUDE.md.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+        )
+
+    def test_a_fielded_player_resolves_to_their_side(self) -> None:
+        match = self.build_match()
+
+        for player_id in match.home.field_players:
+            with self.subTest(player_id=player_id):
+                self.assertEqual(
+                    match.team_for_player(player_id), Team.ORANGE,
+                )
+        for player_id in match.visiting.field_players:
+            with self.subTest(player_id=player_id):
+                self.assertEqual(
+                    match.team_for_player(player_id), Team.TEAL,
+                )
+
+    def test_a_benched_player_still_resolves(self) -> None:
+        match = self.build_match()
+
+        for player_id in match.home.team_board.bench:
+            with self.subTest(player_id=player_id):
+                self.assertEqual(
+                    match.team_for_player(player_id), Team.ORANGE,
+                )
+
+    def test_a_player_on_neither_side_is_a_clear_error(self) -> None:
+        match = self.build_match()
+
+        with self.assertRaises(ValueError):
+            match.team_for_player("not_a_real_player_id")
 
 
 class D12BallScoreAttemptTests(unittest.TestCase):

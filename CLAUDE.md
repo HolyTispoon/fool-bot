@@ -1993,11 +1993,30 @@ whatever it resolved at startup. Restart after any render change.
 
 ## Team colors
 
-Each team's color is one hex value, defined once as `TEAM_COLORS` in
-`d12ball/render.py`, and every place a team's color is drawn -- card
+**Eight teams along two axes, since the 2026-08-17 reshuffle.** The
+original four **color** teams (Orange, Teal, Purple, Slime) went from a
+fixed nine-player roster each to a mixed one -- 3 of their own species
+plus 2 of each other -- and the four **species** teams that mix was
+drawn from (Fire Demons, Cyborgs, Telekinetics, Oozes) became rosters of
+their own: the pre-reshuffle grouping, unchanged in membership, just
+under a new `Team` key. A coach may now field a player under either of
+two identities. `Team` in `d12ball/game.py` holds all eight, and
+`TEAM_PAIRS` (plus the `paired_team()` helper next to it) is the one
+source of truth for which color and which species share a hex --
+`TEAM_COLORS[Team.FIRE_DEMONS] = TEAM_COLORS[Team.ORANGE]`, and so on,
+because Orange *was* Fire Demons' own color before the reshuffle mixed
+its roster. `COLOR_TEAMS`/`SPECIES_TEAMS` are the two four-tuples, for
+anything that needs the axis rather than the pairing (the team picker's
+two button rows, mostly).
+
+Each team's color is still one hex value, defined once as `TEAM_COLORS`
+in `d12ball/render.py`, and every place a team's color is drawn -- card
 borders, the skill numbers and name on a card, board tokens, the matchup
 image's `team_color`, and the coaching image -- reads that dict rather
-than carrying a hex value of its own.
+than carrying a hex value of its own. **No new hexes were added for the
+species teams** -- `TEAM_COLORS` fills them in from `TEAM_PAIRS` after
+the four color entries, so there is still exactly one hex per color
+anywhere in the code.
 
 | Team | Hex |
 | --- | --- |
@@ -2005,41 +2024,124 @@ than carrying a hex value of its own.
 | Teal | `#008080` |
 | Purple | `#9e4dff` |
 | Slime | `#66FF00` |
+| Fire Demons | same as Orange |
+| Cyborgs | same as Teal |
+| Telekinetics | same as Purple |
+| Oozes | same as Slime |
 
+- **A team's name for display is `team_display_name(team)`, in
+  `d12ball/game.py`, never `team.value.title()`.** `str.title()` doesn't
+  turn an underscore into a space -- `"fire_demons".title()` is
+  `"Fire_Demons"` -- which was a real, live bug the moment a team's
+  value carried one. Every call site that used to write `.value.title()`
+  on a `Team` now calls this instead. It lives next to `Team` itself
+  rather than in a cog module, because `d12ball/components.py` needs it
+  too and cogs import from `d12ball`, never the other way around.
+- **A player's team is no longer the player's to carry.**
+  `PlayerDefinition` in `d12ball/components.py` has no `team` field --
+  dual roster membership is the whole reason for this change, and a
+  player belonging to two rosters at once cannot coherently have one
+  intrinsic team. `players.json` is a flat `"players"` table (36
+  entries: name, role, species, stat_overrides, keyed by id) plus a
+  `"teams"` table (8 entries, `{"player_ids": [9 ids]}`) that resolves
+  ids into it -- so a dual-membership player's record is written once,
+  not twice. `load_player_catalog` builds every `TeamDefinition` from
+  the same shared `PlayerDefinition` objects, and `TeamDefinition`'s
+  existing "exactly 9 unique players" check is unchanged, holding
+  independently for every one of the eight rosters.
+  - **`MatchState.team_for_player(player_id)`** is the one answer to
+    "which of this player's two rosters is *this match* fielding them
+    as" -- checked against `field_players` plus both benches, the same
+    roster-membership test used elsewhere in the match logic. Every
+    display call site that used to read `player.team` calls this
+    instead (`format_role_bracket` and its ~90 callers, the matchup/
+    score-attempt `challenge_side` builder, the injury-die render, the
+    board's card borders and meeple tokens) -- most already had a
+    `match` or `setup` in scope, so this was mechanical at nearly every
+    site. Two real bugs surfaced doing this sweep, both silently
+    assuming a card's own `.team` always matched whichever side it was
+    on, which stopped being true the moment dual membership existed:
+    `d12ball/render.py`'s space-occupant stack grouping and
+    `cogs/d12ball.py`'s `/ref` command side-detection. Both now check
+    board/roster membership directly instead.
+- **A player's id is `{slug(name)}_{role}`, not team-prefixed.**
+  `hellguard_fullback`, globally unique, because a player's own color
+  team is no longer part of their identity -- it can't be, when they
+  have two. The old scheme was `{old_color}_{slug(name)}`
+  (`orange_hellguard`); see the legacy-migration Gotcha below for what
+  that means for a game saved under it.
+- **Paired teams are mutually exclusive within one game, enforced at
+  the team picker, not in `MatchState` or `D12Ball`.**
+  `TeamSelectionView.excluded_teams` (`cogs/d12ball_views.py`) drops a
+  chosen team's own `paired_team()` from the other side's options, the
+  same way it already dropped the team itself -- the AI's random pick
+  is filtered the same way. This is the *only* place the rule is
+  checked: `MatchState.standard` will build a match for e.g. Orange vs
+  Fire Demons without complaint, silently fielding the three players
+  those rosters share on both sides at once, because every path that
+  creates a match reads `game.player_1_team`/`player_2_team`, and those
+  are only ever set through the picker. Don't add a second enforcement
+  point in the data layer for this -- it has never needed one, and two
+  places checking the same rule is exactly how they drift apart.
+- **The team-picking step is now its own screen, not shared with game
+  settings.** Eight teams need two rows a side (a color row and a
+  species row) where four needed one, which leaves nothing for the
+  mode/board-size/AI-opponent buttons that used to share the view.
+  Settings moved to their own step -- costing nothing new, since
+  `CoinFlipView` already carried them alongside the flip button with
+  rows to spare. A normal game's two sides still share one screen,
+  whichever human clicks picks their own side; a **test game** (one
+  person playing both sides) used to show both sides' rows at once and
+  now prompts Player 1 then Player 2 in turn on the same message, each
+  getting the full two-row budget rather than splitting it.
 - **The `team_*.png` application emoji (`d12ball/images/emoji/`) are a
   second copy of the same colors, and the only one that has to be.**
   They are uploaded to Discord's Developer Portal separately (see
   `TEAM_EMOJI_NAMES` in `cogs/d12ball_helpers.py`) and shown next to a
   coach's name in chat, so they cannot read `TEAM_COLORS` at request
   time the way a rendered board can. A color change here means
-  recoloring all four PNGs to match, or the ring-and-letter emoji a
-  coach sees stops agreeing with the color the board draws them in.
+  recoloring the matching PNGs, or the ring-and-letter emoji a coach
+  sees stops agreeing with the color the board draws them in. The four
+  species emoji share their paired color's ring for the same reason the
+  boards do, so their letters were picked to stay distinct from all
+  eight teams' initials: **F**ire Demons, **C**yborgs, **K** for
+  Telekinetics (Teal already has T), **Z** for Oozes (Orange already has
+  O). `TEAM_EMOJI_FALLBACKS` gives each a themed unicode emoji (🔥🤖🔮🫧)
+  distinct from the four plain colored circles, so the bot reads
+  correctly before the four new PNGs are uploaded -- which, like the
+  original four, is a manual Developer Portal step nothing here can do.
 - **Changing a team's color is `TEAM_COLORS` plus its emoji, and nothing
   else.** No other module should hold a team's hex value of its own --
-  that duplication is exactly what let the two drift apart before.
+  that duplication is exactly what let the two drift apart before. A
+  species team's color is inherited through `TEAM_PAIRS`, so changing a
+  color team's hex moves its species team's color with it for free;
+  there is nothing to keep in sync by hand.
 
 ## Player species
 
 A player's species and their team are two different things as of the
-2026-08-17 roster reshuffle, where each team became 3 of its own
+2026-08-17 roster reshuffle, where each color team became 3 of its own
 associated species plus 2 of each other. `PlayerDefinition.species` in
 `d12ball/components.py` carries it, read off a `Species` column by
-`scripts/import_d12ball_players.py` the same way `Team` and `Role` are --
-lowercased and validated against a closed set (`EXPECTED_SPECIES`), which
-mirrors `EXPECTED_TEAMS` because there are exactly as many species as
-teams today. Add to both together if a fifth is ever themed in.
+`scripts/import_d12ball_players.py` the same way `Role` is --
+lowercased and validated against a closed set (`EXPECTED_SPECIES`).
+`SPECIES_TEAM` in the same script maps each species to its own team key
+(`fire_demon -> fire_demons`), the way `Team` already named a color-team
+row; add a species to both `EXPECTED_SPECIES` and `SPECIES_TEAM` (and a
+color pairing to `TEAM_PAIRS`) together if a fifth is ever themed in --
+there is no fifth color to pair it with today.
 
-- **It is optional on load, unlike `team` and `role`.** A `players.json`
-  written before the column existed still loads -- `load_player_catalog`
-  reads it with `.get("species", "")` -- because the file is regenerated
+- **It is optional on load, unlike `role`.** A `players.json` written
+  before the column existed still loads -- `load_player_catalog` reads
+  it with `.get("species", "")` -- because the file is regenerated
   wholesale by re-running the import rather than migrated in place, and
   nothing forces both developers to have re-imported before pulling a
-  commit that reads a new field. An empty species is not a fourth kind of
-  species; it means the data predates the column.
-- **Nothing reads it yet beyond the catalog itself.** No rules or
-  mechanics are keyed on species -- it is flavor data threaded through
-  `PlayerDefinition` so a future roster command or card can draw it
-  without another schema change, not a feature in its own right.
+  commit that reads a new field. An empty species is not a fourth kind
+  of species; it means the data predates the column.
+- **It is no longer flavor data on its own -- it is what a species
+  team's roster is drawn from**, and what the legacy-migration Gotcha
+  below reconstructs a pre-reshuffle id from. Nothing about basic-mode
+  rules reads it; it decides roster membership, not a mechanic.
 
 ## Game channels
 
@@ -2209,6 +2311,28 @@ as a bug.
   when it changed. Nothing writes the old name, so it dies out on its own —
   don't add a migration, and don't drop the fallback until you know no
   half-finished game predates the rename.
+- **A game saved before the 2026-08-17 eight-team reshuffle is migrated
+  on load, the same tolerant way.** Its players are named by the old
+  `{color}_{slug(name)}` id and its two sides by the old color alone --
+  both stopped matching the reshuffled catalog outright, which is what
+  turned `/d12ball resume` into `ValueError('The setup does not match
+  the team roster.')` on a real in-progress game.
+  `gamesaves.d12ball.storage.migrate_legacy_game_data` fixes it inside
+  `load_games`, before a `D12BallGame` is even constructed: it walks
+  the whole saved dict once, replacing any string that is a
+  reconstructed legacy id (built from the *current* catalog -- a
+  player's species names the color they used to be fielded under
+  exclusively, so nothing here is a hardcoded table of 36 pairs) with
+  the player's new id, then remaps a legacy color's Team value to its
+  **paired species team**, not the color itself -- that species roster
+  is the one whose membership the old save actually matches, since the
+  reshuffled color of the same name now holds different players. A
+  game already in the new shape is left untouched, detected by whether
+  the walk actually found a legacy id rather than by trusting a team
+  value's name -- "orange" is a legal `Team` both before and after the
+  reshuffle, just for a different roster. Don't add a migration for
+  this a second time, and don't drop it until no half-finished game
+  can predate the reshuffle.
 - **`data/d12ball_games.json` is runtime state and is deliberately untracked.**
   The bot rewrites it on every game action. It used to be committed, which
   meant it showed as modified more or less permanently and was a standing
