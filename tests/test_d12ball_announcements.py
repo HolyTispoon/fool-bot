@@ -33,6 +33,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 
 
@@ -42,6 +43,9 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
@@ -266,7 +270,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
     def build_score_attempt(self, cog: D12Ball):
         # Nobody in the way, so the two dice alone decide the attempt
         # and a 12 against a 1 is a goal either way round.
-        cog.intervening_defenders = mock.Mock(return_value=[])
+        cog.engine.intervening_defenders = mock.Mock(return_value=[])
         match = self.build_match()
         game = build_game()
         match.active_player_id = match.setup_for_side(
@@ -304,8 +308,10 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         # a shot from the ball's own space has the whole defending side
         # between it and the goal, which is the case that wraps onto a
         # second row.
-        cog.intervening_defenders = D12Ball.intervening_defenders.__get__(cog)
-        self.assertGreater(len(cog.intervening_defenders(match)), 1)
+        cog.engine.intervening_defenders = (
+            RulesEngine.intervening_defenders.__get__(cog.engine)
+        )
+        self.assertGreater(len(cog.engine.intervening_defenders(match)), 1)
         interaction = build_interaction()
 
         with mock.patch("cogs.d12ball.save_games"):

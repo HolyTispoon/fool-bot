@@ -33,6 +33,7 @@ from cogs.d12ball_views import (
     SkillTestView,
 )
 from d12ball.ai import build_ai_strategies
+from d12ball.engine import RulesEngine
 from d12ball.components import (
     MatchState,
     PlayerRole,
@@ -55,6 +56,10 @@ def build_cog() -> D12Ball:
     cog.coin_emojis = {}
     cog.ai_strategies = build_ai_strategies(
         cog.player_catalog, cog.maneuver_catalog,
+    )
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
+        cog.ai_strategies,
     )
     cog.refresh_match_image = mock.AsyncMock()
     cog.begin_effect_resolution = mock.AsyncMock()
@@ -97,7 +102,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
         match.active_player_id = match.home.field_players[0]
         match.challenger_id = match.visiting.field_players[0]
         return cog, game, match
@@ -236,12 +241,12 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
 
         midfielder = next(
             player_id
             for player_id in match.home.field_players
-            if cog.get_player_definition(player_id).role
+            if cog.engine.get_player_definition(player_id).role
             == PlayerRole.MIDFIELDER
         )
         match.active_player_id = midfielder
@@ -306,16 +311,16 @@ class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
 
     async def roll_attempt(self, injure: bool) -> list:
         cog = build_cog()
-        cog.intervening_defenders = mock.Mock(return_value=[])
+        cog.engine.intervening_defenders = mock.Mock(return_value=[])
         cog.announce_board_update = mock.AsyncMock()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
 
         striker = next(
             player_id
             for player_id in match.home.field_players
-            if cog.get_player_definition(player_id).role == PlayerRole.STRIKER
+            if cog.engine.get_player_definition(player_id).role == PlayerRole.STRIKER
         )
         match.active_player_id = striker
         match.ball.possession = TeamSide.HOME
@@ -393,17 +398,17 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
         cog.apply_exhaustion = mock.Mock(return_value="")
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
 
         offense = next(
             player_id
             for player_id in match.home.field_players
-            if cog.get_player_definition(player_id).role == PlayerRole.STRIKER
+            if cog.engine.get_player_definition(player_id).role == PlayerRole.STRIKER
         )
         defense = next(
             player_id
             for player_id in match.visiting.field_players
-            if cog.get_player_definition(player_id).role
+            if cog.engine.get_player_definition(player_id).role
             == PlayerRole.FULLBACK
         )
         match.pending_loose_ball = True
@@ -506,7 +511,7 @@ class SettledWinnerRestoreTests(unittest.TestCase):
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
         match.active_player_id = match.home.field_players[0]
         match.challenger_id = match.visiting.field_players[0]
         return cog, game, match
@@ -519,7 +524,7 @@ class SettledWinnerRestoreTests(unittest.TestCase):
         match.defense_maneuver = "Pressure"
         match.injured.add(match.active_player_id)
 
-        self.assertIsNone(cog.settled_maneuver_winner(match))
+        self.assertIsNone(cog.engine.settled_maneuver_winner(match))
         # The ranking says Low Pass won; the turn says roll for it.
         self.assertIsNone(cog.build_effect_choice_view(game.game_id, match))
 
@@ -531,7 +536,7 @@ class SettledWinnerRestoreTests(unittest.TestCase):
 
         # The ranking says tie, which used to mean "a skill test is
         # pending"; the injured challenger has already lost it.
-        self.assertEqual(cog.settled_maneuver_winner(match), "Low Pass")
+        self.assertEqual(cog.engine.settled_maneuver_winner(match), "Low Pass")
         self.assertIsInstance(
             cog.build_effect_choice_view(game.game_id, match),
             LowPassChoiceView,
@@ -544,7 +549,7 @@ class SettledWinnerRestoreTests(unittest.TestCase):
         match.challenger_id = None
         match.maneuver_uncontested = True
 
-        self.assertEqual(cog.settled_maneuver_winner(match), "Low Pass")
+        self.assertEqual(cog.engine.settled_maneuver_winner(match), "Low Pass")
 
 
 if __name__ == "__main__":

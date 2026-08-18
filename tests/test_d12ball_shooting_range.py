@@ -28,6 +28,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 
 
@@ -37,6 +38,9 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
@@ -261,7 +265,7 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
         # choose_action("shoot") means the ball moved under a prompt
         # somebody was still looking at.
         cog, game, _ = self.build_turn(Zone.MIDFIELD, 0)
-        cog.user_controls_possession = mock.Mock(return_value=True)
+        cog.engine.user_controls_possession = mock.Mock(return_value=True)
         interaction = build_interaction()
 
         view = PlayerActionView(cog, game.game_id)

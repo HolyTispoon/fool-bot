@@ -27,6 +27,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
 
 
@@ -36,6 +37,9 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
@@ -114,23 +118,23 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         match.begin_loose_ball(2)
 
         self.assertEqual(
-            cog.loose_ball_side_on_the_clock(match), "offense",
+            cog.engine.loose_ball_side_on_the_clock(match), "offense",
         )
         self.assertEqual(
-            cog.loose_ball_prompt_side(match), match.ball.possession,
+            cog.engine.loose_ball_prompt_side(match), match.ball.possession,
         )
 
         match.choose_loose_ball_offense_player(
-            cog.loose_ball_candidates(match, match.ball.possession)[0],
+            cog.engine.loose_ball_candidates(match, match.ball.possession)[0],
         )
         self.assertEqual(
-            cog.loose_ball_side_on_the_clock(match), "defense",
+            cog.engine.loose_ball_side_on_the_clock(match), "defense",
         )
 
         match.choose_loose_ball_defense_player(
-            cog.loose_ball_candidates(match, match.defending_side())[0],
+            cog.engine.loose_ball_candidates(match, match.defending_side())[0],
         )
-        self.assertIsNone(cog.loose_ball_side_on_the_clock(match))
+        self.assertIsNone(cog.engine.loose_ball_side_on_the_clock(match))
 
     def test_declining_settles_a_side_without_picking_anyone(self) -> None:
         cog = build_cog()
@@ -139,12 +143,12 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
 
         match.decline_loose_ball(match.ball.possession)
         self.assertEqual(
-            cog.loose_ball_side_on_the_clock(match), "defense",
+            cog.engine.loose_ball_side_on_the_clock(match), "defense",
         )
         self.assertIsNone(match.loose_ball_offense_player)
 
         match.decline_loose_ball(match.defending_side())
-        self.assertIsNone(cog.loose_ball_side_on_the_clock(match))
+        self.assertIsNone(cog.engine.loose_ball_side_on_the_clock(match))
 
     def send_the_ball_to_the_far_end(self, match: MatchState) -> None:
         """
@@ -178,14 +182,14 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         self.send_the_ball_to_the_far_end(match)
 
         self.assertEqual(
-            len(cog.loose_ball_candidates(match, match.ball.possession)), 1,
+            len(cog.engine.loose_ball_candidates(match, match.ball.possession)), 1,
         )
         match.begin_loose_ball(2)
-        cog.auto_resolve_loose_ball_picks(game, match)
+        cog.engine.auto_resolve_loose_ball_picks(game, match)
 
         self.assertIsNone(match.loose_ball_offense_player)
         self.assertEqual(
-            cog.loose_ball_side_on_the_clock(match), "offense",
+            cog.engine.loose_ball_side_on_the_clock(match), "offense",
         )
 
     def offsets_from_the_ball(self, match: MatchState, side) -> dict[str, int]:
@@ -222,7 +226,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
                 )
             }
             self.assertEqual(
-                set(cog.loose_ball_candidates(match, side)), expected,
+                set(cog.engine.loose_ball_candidates(match, side)), expected,
             )
             # Two directions, and a tie on one of them is every player
             # tied -- the coach picks between them.
@@ -241,7 +245,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
                 match.board.remove_meeple(player_id)
                 match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
 
-        candidates = cog.loose_ball_candidates(match, side)
+        candidates = cog.engine.loose_ball_candidates(match, side)
 
         self.assertTrue(candidates)
         self.assertTrue(

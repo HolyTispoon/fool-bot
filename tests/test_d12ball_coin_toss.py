@@ -45,6 +45,7 @@ from d12ball.components import (
     load_basic_ruleset,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 
 
 def build_game(player_2_id: int = 222) -> D12BallGame:
@@ -441,6 +442,7 @@ class D12BallCoinTossTests(unittest.TestCase):
             visiting_player_number=2,
         )
         cog = object.__new__(D12Ball)
+        cog.engine = RulesEngine(None, None, None, {})
 
         for possession in TeamSide:
             with self.subTest(possession=possession):
@@ -448,10 +450,10 @@ class D12BallCoinTossTests(unittest.TestCase):
                     ball=SimpleNamespace(possession=possession)
                 )
                 self.assertTrue(
-                    cog.user_controls_possession(111, game, match)
+                    cog.engine.user_controls_possession(111, game, match)
                 )
                 self.assertTrue(
-                    cog.user_controls_defense(111, game, match)
+                    cog.engine.user_controls_defense(111, game, match)
                 )
 
     def test_fortune_wins_the_toss_for_whoever_flipped(self) -> None:
@@ -561,6 +563,8 @@ class D12BallRunBackAnnouncementTests(
         cog = object.__new__(D12Ball)
         cog.games = {}
         cog.player_catalog = self.catalog
+        cog.basic_ruleset = self.rules
+        cog.engine = RulesEngine(cog.player_catalog, cog.basic_ruleset, None, {})
         cog.team_emojis = {}
         cog.condition_emojis = {}
         cog.continue_run_back = mock.AsyncMock()
@@ -797,6 +801,8 @@ class D12BallNewPlayKickoffTests(
         cog = object.__new__(D12Ball)
         cog.games = {}
         cog.player_catalog = self.catalog
+        cog.basic_ruleset = self.rules
+        cog.engine = RulesEngine(cog.player_catalog, cog.basic_ruleset, None, {})
         cog.team_emojis = {}
         cog.condition_emojis = {}
         cog.refresh_match_image = mock.AsyncMock()

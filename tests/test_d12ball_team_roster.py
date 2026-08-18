@@ -27,6 +27,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team, team_display_name
 
 
@@ -38,6 +39,9 @@ def build_cog() -> D12Ball:
     cog.basic_ruleset = load_basic_ruleset()
     cog.team_emojis = {}
     cog.condition_emojis = {}
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     return cog
 
 
@@ -187,7 +191,7 @@ class RosterVisibilityTests(unittest.TestCase):
         game = build_game()
 
         self.assertEqual(
-            cog.roster_setups_for_user(game, match, game.player_2_id),
+            cog.engine.roster_setups_for_user(game, match, game.player_2_id),
             [match.visiting],
         )
 
@@ -197,7 +201,7 @@ class RosterVisibilityTests(unittest.TestCase):
         game = build_game()
 
         self.assertIsNone(
-            cog.roster_setups_for_user(game, match, 999),
+            cog.engine.roster_setups_for_user(game, match, 999),
         )
 
     def test_a_test_game_s_owner_runs_both_sides(self) -> None:
@@ -207,7 +211,7 @@ class RosterVisibilityTests(unittest.TestCase):
         game.test_game = True
 
         self.assertEqual(
-            cog.roster_setups_for_user(game, match, game.player_1_id),
+            cog.engine.roster_setups_for_user(game, match, game.player_1_id),
             [match.home, match.visiting],
         )
 

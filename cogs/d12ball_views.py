@@ -74,6 +74,11 @@ class SafeView(discord.ui.View):
     for an uncaught exception in a button/select callback is to log it
     and otherwise do nothing, which leaves the click looking like it
     had no effect at all. This surfaces a message instead.
+
+    Every subclass carries `self.cog` and `self.game_id`, set in
+    `__init__` before anything below is ever called -- that is what
+    lets `load_match`/`require_match` read them rather than take them
+    as parameters.
     """
 
     async def on_error(
@@ -90,6 +95,52 @@ class SafeView(discord.ui.View):
             interaction,
             "Something went wrong handling that click. Please try again.",
         )
+
+    def load_match(
+        self,
+    ) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
+        """
+        `(game, match)` for `self.game_id`, or `(None, None)` when the
+        game is gone or has no match state yet -- the lookup nearly
+        every view opens with, in `__init__` and in most of its
+        callbacks. Silent: `__init__` has no interaction to reply to,
+        which is why this doesn't reply and `require_match` does.
+        """
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.match_state is None:
+            return None, None
+        return game, self.cog.engine.load_match_state(game)
+
+    async def require_match(
+        self,
+        interaction: discord.Interaction,
+    ) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
+        """
+        Same lookup as `load_match`, replying "I could not find the
+        saved data for this game." and returning `(None, None)` when it
+        comes up empty -- the shape nearly every callback opens with,
+        once there is an interaction to answer.
+        """
+        game, match = self.load_match()
+        if game is None:
+            await interaction.response.send_message(
+                "I could not find the saved data for this game.",
+                ephemeral=True,
+            )
+        return game, match
+
+    def is_game_participant(self, game: D12BallGame, user_id: int) -> bool:
+        """
+        Whether `user_id` is one of the two coaches in `game` -- never
+        the AI, which has no user id to be. See "Every roll is a
+        coach's" in CLAUDE.md: any coach in the game may press a roll
+        button, not only the one it happens to be about, so this is
+        the whole of the check and callers word their own refusal.
+        """
+        participant_ids = {game.player_1_id}
+        if game.player_2_id is not None:
+            participant_ids.add(game.player_2_id)
+        return user_id in participant_ids
 
 
 class GameConfigurationView(SafeView):
@@ -662,11 +713,11 @@ class CoinFlipView(GameConfigurationView):
         game.start_game()
 
         if game.is_solo_game and winner_player_number == 2:
-            ai_choice = self.cog.get_ai_strategy(
+            ai_choice = self.cog.engine.get_ai_strategy(
                 game,
             ).choose_home_or_visiting()
             game.choose_home_or_visiting(2, ai_choice)
-            self.cog.initialize_standard_match(game)
+            self.cog.engine.initialize_standard_match(game)
 
         refreshed_view = HomeAwaySelectionView(
             cog=self.cog,
@@ -806,7 +857,7 @@ class HomeAwaySelectionView(SafeView):
             return
 
         game.choose_home_or_visiting(winner_player_number, choice)
-        self.cog.initialize_standard_match(game)
+        self.cog.engine.initialize_standard_match(game)
         save_games(self.cog.games)
 
         refreshed_view = HomeAwaySelectionView(
@@ -1047,17 +1098,16 @@ class BallHandlerSelectionView(SafeView):
 
         self.cog = cog
         self.game_id = game_id
-        game = self.cog.games.get(game_id)
-        if game is None or game.match_state is None:
+        game, match = self.load_match()
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
         # Not eligible_ball_handlers: a ball carrier narrows this to
         # one button, which is the rule showing up as a menu with no
         # choice in it. send_turn_prompt normally skips the view
         # entirely in that case; this is the restore path.
         for player_id in match.turn_handler_candidates():
-            player = self.cog.get_player_definition(player_id)
+            player = self.cog.engine.get_player_definition(player_id)
             initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
                 label=f"{player.name} [{initials}]",
@@ -1084,15 +1134,10 @@ class BallHandlerSelectionView(SafeView):
         interaction: discord.Interaction,
         player_id: str,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
         if match.active_player_id is not None:
             await interaction.response.edit_message(
                 content=self.cog.build_turn_prompt(game, match),
@@ -1104,7 +1149,7 @@ class BallHandlerSelectionView(SafeView):
             )
             return
 
-        if not self.cog.user_controls_possession(
+        if not self.cog.engine.user_controls_possession(
             interaction.user.id,
             game,
             match,
@@ -1159,7 +1204,7 @@ class PlayerActionView(SafeView):
         can_shoot = True
         can_cede = False
         if game is not None and game.match_state is not None:
-            match = cog.load_match_state(game)
+            match = cog.engine.load_match_state(game)
             can_shoot = match.can_attempt_score()
             can_cede = match.may_cede_possession()
 
@@ -1218,15 +1263,10 @@ class PlayerActionView(SafeView):
         action: str,
         action_label: str,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
         if match.active_player_id is None:
             await interaction.response.send_message(
                 "Choose a player to handle the ball first.",
@@ -1234,7 +1274,7 @@ class PlayerActionView(SafeView):
             )
             return
 
-        if not self.cog.user_controls_possession(
+        if not self.cog.engine.user_controls_possession(
             interaction.user.id,
             game,
             match,
@@ -1262,8 +1302,8 @@ class PlayerActionView(SafeView):
             save_games(self.cog.games)
 
             refresh_player_names(game, interaction.guild)
-            handler = self.cog.get_player_definition(match.active_player_id)
-            offense_number = self.cog.possession_player_number(game, match)
+            handler = self.cog.engine.get_player_definition(match.active_player_id)
+            offense_number = self.cog.engine.possession_player_number(game, match)
             offense_display = format_player_with_team(game, offense_number)
 
             await interaction.response.edit_message(
@@ -1323,8 +1363,8 @@ class PlayerActionView(SafeView):
             return
 
         match.pending_action = "maneuver"
-        handler = self.cog.get_player_definition(match.active_player_id)
-        defender_number = self.cog.defending_player_number(game, match)
+        handler = self.cog.engine.get_player_definition(match.active_player_id)
+        defender_number = self.cog.engine.defending_player_number(game, match)
 
         # One defender already sharing the ball's exact space leaves
         # nothing to choose -- they pay nothing to challenge, so the
@@ -1341,7 +1381,7 @@ class PlayerActionView(SafeView):
             challenger_id = (
                 on_ball_space[0]
                 if len(on_ball_space) == 1
-                else self.cog.get_ai_strategy(game).choose_challenger(match)
+                else self.cog.engine.get_ai_strategy(game).choose_challenger(match)
             )
 
             # This prompt goes rather than being edited down to who
@@ -1453,16 +1493,11 @@ class CedeConfirmView(SafeView):
         interaction: discord.Interaction,
     ) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
         """The game and match, if this click may act on them."""
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return None, None
 
-        match = self.cog.load_match_state(game)
-        if not self.cog.user_controls_possession(
+        if not self.cog.engine.user_controls_possession(
             interaction.user.id, game, match,
         ):
             await interaction.response.send_message(
@@ -1533,13 +1568,12 @@ class ManeuverChallengeView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
-        game = self.cog.games.get(game_id)
-        if game is None or game.match_state is None:
+        game, match = self.load_match()
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
         for player_id in match.challenge_candidates():
-            player = self.cog.get_player_definition(player_id)
+            player = self.cog.engine.get_player_definition(player_id)
             distance = match.distance_to_ball(player_id)
             initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
@@ -1587,15 +1621,9 @@ class ManeuverChallengeView(SafeView):
         question: a challenger walks in, or the defense sends nobody
         and the maneuver goes unchallenged.
         """
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return None, None
-
-        match = self.cog.load_match_state(game)
 
         if match.challenger_id is not None or match.maneuver_uncontested:
             await interaction.response.edit_message(
@@ -1610,7 +1638,7 @@ class ManeuverChallengeView(SafeView):
             )
             return None, None
 
-        if not self.cog.user_controls_defense(
+        if not self.cog.engine.user_controls_defense(
             interaction.user.id,
             game,
             match,
@@ -1731,21 +1759,16 @@ class ManeuverActionPromptView(SafeView):
         depends only on who clicked, so nobody has to pick "which
         button is mine" first.
         """
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
-        is_offense_player = self.cog.user_controls_possession(
+        is_offense_player = self.cog.engine.user_controls_possession(
             interaction.user.id,
             game,
             match,
         )
-        is_defense_player = self.cog.user_controls_defense(
+        is_defense_player = self.cog.engine.user_controls_defense(
             interaction.user.id,
             game,
             match,
@@ -1951,25 +1974,20 @@ class ManeuverActionSelectView(SafeView):
         interaction: discord.Interaction,
         maneuver_name: str,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
 
         if self.side == "offense":
-            authorized = self.cog.user_controls_possession(
+            authorized = self.cog.engine.user_controls_possession(
                 interaction.user.id,
                 game,
                 match,
             )
             already_chosen = match.offense_maneuver is not None
         else:
-            authorized = self.cog.user_controls_defense(
+            authorized = self.cog.engine.user_controls_defense(
                 interaction.user.id,
                 game,
                 match,
@@ -2009,9 +2027,9 @@ class ManeuverActionSelectView(SafeView):
         # and the reveal a moment from now names the pick anyway.
         if not match.maneuver_uncontested:
             side_number = (
-                self.cog.possession_player_number(game, match)
+                self.cog.engine.possession_player_number(game, match)
                 if self.side == "offense"
-                else self.cog.defending_player_number(game, match)
+                else self.cog.engine.defending_player_number(game, match)
             )
             side_display = format_player_with_team(game, side_number)
             await interaction.followup.send(
@@ -2044,15 +2062,10 @@ class SkillTestView(SafeView):
         self.add_item(button)
 
     async def roll(self, interaction: discord.Interaction) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
         if match.offense_maneuver is None or match.defense_maneuver is None:
             await interaction.response.send_message(
                 "This skill test is no longer active.",
@@ -2060,11 +2073,7 @@ class SkillTestView(SafeView):
             )
             return
 
-        participant_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            participant_ids.add(game.player_2_id)
-
-        if interaction.user.id not in participant_ids:
+        if not self.is_game_participant(game, interaction.user.id):
             await interaction.response.send_message(
                 "Only a player in this game can roll the skill test.",
                 ephemeral=True,
@@ -2079,10 +2088,10 @@ class SkillTestView(SafeView):
         # deferring buys the rest of this method the usual 15 minutes.
         await interaction.response.defer()
 
-        offense_player = self.cog.get_player_definition(
+        offense_player = self.cog.engine.get_player_definition(
             match.active_player_id,
         )
-        defense_player = self.cog.get_player_definition(
+        defense_player = self.cog.engine.get_player_definition(
             match.challenger_id,
         )
         offense_skill = self.cog.player_catalog.effective_profile(
@@ -2275,15 +2284,10 @@ class InjuryTestView(SafeView):
         self.add_item(button)
 
     async def roll(self, interaction: discord.Interaction) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
         if self.player_id not in match.pending_injury_tests:
             await interaction.response.send_message(
                 "This injury test is no longer active.",
@@ -2291,11 +2295,7 @@ class InjuryTestView(SafeView):
             )
             return
 
-        participant_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            participant_ids.add(game.player_2_id)
-
-        if interaction.user.id not in participant_ids:
+        if not self.is_game_participant(game, interaction.user.id):
             await interaction.response.send_message(
                 "Only a player in this game can roll the injury test.",
                 ephemeral=True,
@@ -2310,7 +2310,7 @@ class InjuryTestView(SafeView):
             interaction,
             game,
             match,
-            self.cog.get_player_definition(self.player_id),
+            self.cog.engine.get_player_definition(self.player_id),
         )
 
 
@@ -2341,15 +2341,10 @@ class OwnGoalRollView(SafeView):
         self.add_item(button)
 
     async def roll(self, interaction: discord.Interaction) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
         if not match.pending_own_goal or match.active_player_id is None:
             await interaction.response.send_message(
                 "This own goal roll is no longer active.",
@@ -2357,11 +2352,7 @@ class OwnGoalRollView(SafeView):
             )
             return
 
-        participant_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            participant_ids.add(game.player_2_id)
-
-        if interaction.user.id not in participant_ids:
+        if not self.is_game_participant(game, interaction.user.id):
             await interaction.response.send_message(
                 "Only a player in this game can roll for the own goal.",
                 ephemeral=True,
@@ -2395,15 +2386,10 @@ class ScoreAttemptView(SafeView):
         self.add_item(button)
 
     async def roll(self, interaction: discord.Interaction) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
         if match.pending_action != "shoot" or match.active_player_id is None:
             await interaction.response.send_message(
                 "This score attempt is no longer active.",
@@ -2411,23 +2397,19 @@ class ScoreAttemptView(SafeView):
             )
             return
 
-        participant_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            participant_ids.add(game.player_2_id)
-
-        if interaction.user.id not in participant_ids:
+        if not self.is_game_participant(game, interaction.user.id):
             await interaction.response.send_message(
                 "Only a player in this game can roll the score attempt.",
                 ephemeral=True,
             )
             return
 
-        shooter = self.cog.get_player_definition(match.active_player_id)
+        shooter = self.cog.engine.get_player_definition(match.active_player_id)
         offense_skill = self.cog.player_catalog.effective_profile(
             shooter,
         ).offense
         speed_modifier = match.ball_speed_modifier()
-        defenders = self.cog.intervening_defenders(match)
+        defenders = self.cog.engine.intervening_defenders(match)
         # What each defender is worth here, not what they are worth --
         # a defender off the ball adds half their skill, rounded up.
         # See ShotDefender.
@@ -2634,13 +2616,12 @@ class LowPassChoiceView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
-        game = cog.games.get(game_id)
-        if game is None or game.match_state is None:
+        game, match = self.load_match()
+        if game is None:
             return
-        match = cog.load_match_state(game)
 
-        for distance, teammate_id in cog.low_pass_candidates(match):
-            teammate = cog.get_player_definition(teammate_id)
+        for distance, teammate_id in cog.engine.low_pass_candidates(match):
+            teammate = cog.engine.get_player_definition(teammate_id)
             origin_flat = match.board.flat_index(
                 match.ball.zone, match.ball.space_index,
             )
@@ -2650,7 +2631,7 @@ class LowPassChoiceView(SafeView):
             zone, space_index = match.board.position_at_flat_index(
                 target_flat,
             )
-            receivers = cog.low_pass_receivers(match, distance)
+            receivers = cog.engine.low_pass_receivers(match, distance)
             role_initial = ROLE_INITIALS[teammate.role.value]
             if len(receivers) > 1:
                 # Naming one of several would misread the choice: the
@@ -2685,16 +2666,11 @@ class LowPassChoiceView(SafeView):
         interaction: discord.Interaction,
         distance: int,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
-        match = self.cog.load_match_state(game)
 
-        if not self.cog.user_controls_possession(
+        if not self.cog.engine.user_controls_possession(
             interaction.user.id, game, match,
         ):
             await interaction.response.send_message(
@@ -2704,7 +2680,7 @@ class LowPassChoiceView(SafeView):
             return
 
         offense_side = match.ball.possession
-        receivers = self.cog.low_pass_receivers(match, distance)
+        receivers = self.cog.engine.low_pass_receivers(match, distance)
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
@@ -2725,7 +2701,7 @@ class LowPassChoiceView(SafeView):
             )
             return
 
-        teammate = self.cog.get_player_definition(receivers[0])
+        teammate = self.cog.engine.get_player_definition(receivers[0])
         await interaction.response.edit_message(
             content=(
                 f"**{interaction.user.display_name} ({team_name})** chose "
@@ -2760,13 +2736,12 @@ class LowPassReceiverView(SafeView):
         self.game_id = game_id
         self.distance = distance
 
-        game = cog.games.get(game_id)
-        if game is None or game.match_state is None:
+        game, match = self.load_match()
+        if game is None:
             return
-        match = cog.load_match_state(game)
 
-        for player_id in cog.low_pass_receivers(match, distance):
-            player = cog.get_player_definition(player_id)
+        for player_id in cog.engine.low_pass_receivers(match, distance):
+            player = cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
                 label=(
                     f"{player.name} [{ROLE_INITIALS[player.role.value]}]"
@@ -2792,16 +2767,11 @@ class LowPassReceiverView(SafeView):
         interaction: discord.Interaction,
         receiver_id: str,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
-        match = self.cog.load_match_state(game)
 
-        if not self.cog.user_controls_possession(
+        if not self.cog.engine.user_controls_possession(
             interaction.user.id, game, match,
         ):
             await interaction.response.send_message(
@@ -2810,7 +2780,7 @@ class LowPassReceiverView(SafeView):
             )
             return
 
-        if receiver_id not in self.cog.low_pass_receivers(
+        if receiver_id not in self.cog.engine.low_pass_receivers(
             match, self.distance,
         ):
             await interaction.response.send_message(
@@ -2820,7 +2790,7 @@ class LowPassReceiverView(SafeView):
             return
 
         offense_side = match.ball.possession
-        receiver = self.cog.get_player_definition(receiver_id)
+        receiver = self.cog.engine.get_player_definition(receiver_id)
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
@@ -2874,12 +2844,11 @@ class HighPassChoiceView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
-        game = cog.games.get(game_id)
-        if game is None or game.match_state is None:
+        game, match = self.load_match()
+        if game is None:
             return
-        match = cog.load_match_state(game)
 
-        for distance in cog.high_pass_distance_options(match):
+        for distance in cog.engine.high_pass_distance_options(match):
             ability_note = " (Fullback ability)" if distance == 4 else ""
             destination_note = cog.high_pass_destination_note(match, distance)
             button = discord.ui.Button(
@@ -2904,16 +2873,11 @@ class HighPassChoiceView(SafeView):
         interaction: discord.Interaction,
         distance: int,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
-        match = self.cog.load_match_state(game)
 
-        if not self.cog.user_controls_possession(
+        if not self.cog.engine.user_controls_possession(
             interaction.user.id, game, match,
         ):
             await interaction.response.send_message(
@@ -2926,7 +2890,7 @@ class HighPassChoiceView(SafeView):
         # an older prompt still sitting in the channel, since these
         # buttons carry no message id. The distances are read off the
         # match rather than off the view for exactly that reason.
-        if distance not in self.cog.high_pass_distance_options(match):
+        if distance not in self.cog.engine.high_pass_distance_options(match):
             await interaction.response.send_message(
                 f"A {distance}-space pass runs off the end of the field "
                 "from where the ball is now.",
@@ -2981,7 +2945,7 @@ class SetUpAttemptChoiceView(SafeView):
         self.distance_moved = distance_moved
         self.contest_on_decline = contest_on_decline
 
-        shooter = cog.get_player_definition(shooter_id)
+        shooter = cog.engine.get_player_definition(shooter_id)
         attempt_button = discord.ui.Button(
             label=f"{shooter.name} takes the shot",
             style=discord.ButtonStyle.danger,
@@ -3003,16 +2967,11 @@ class SetUpAttemptChoiceView(SafeView):
         self.add_item(decline_button)
 
     async def attempt(self, interaction: discord.Interaction) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
-        match = self.cog.load_match_state(game)
 
-        if not self.cog.user_controls_possession(
+        if not self.cog.engine.user_controls_possession(
             interaction.user.id, game, match,
         ):
             await interaction.response.send_message(
@@ -3021,7 +2980,7 @@ class SetUpAttemptChoiceView(SafeView):
             )
             return
 
-        shooter = self.cog.get_player_definition(self.shooter_id)
+        shooter = self.cog.engine.get_player_definition(self.shooter_id)
         await interaction.response.edit_message(
             content=(
                 f"{format_role_bracket(shooter, self.cog.team_emojis, match.team_for_player(shooter.player_id))} "
@@ -3035,16 +2994,11 @@ class SetUpAttemptChoiceView(SafeView):
         )
 
     async def decline(self, interaction: discord.Interaction) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
-        match = self.cog.load_match_state(game)
 
-        if not self.cog.user_controls_possession(
+        if not self.cog.engine.user_controls_possession(
             interaction.user.id, game, match,
         ):
             await interaction.response.send_message(
@@ -3083,7 +3037,7 @@ class DribbleAdvanceChoiceView(SafeView):
         # space.
         game = cog.games.get(game_id)
         match = (
-            cog.load_match_state(game)
+            cog.engine.load_match_state(game)
             if game is not None and game.match_state is not None
             else None
         )
@@ -3122,16 +3076,11 @@ class DribbleAdvanceChoiceView(SafeView):
         interaction: discord.Interaction,
         distance: int,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
-        match = self.cog.load_match_state(game)
 
-        if not self.cog.user_controls_possession(
+        if not self.cog.engine.user_controls_possession(
             interaction.user.id, game, match,
         ):
             await interaction.response.send_message(
@@ -3170,12 +3119,11 @@ class SpeedDeltaChoiceView(SafeView):
         self.player_id = player_id
         self.skill_type = skill_type
 
-        game = cog.games.get(game_id)
-        if game is None or game.match_state is None:
+        game, match = self.load_match()
+        if game is None:
             return
-        match = cog.load_match_state(game)
         profile = cog.player_catalog.effective_profile(
-            cog.get_player_definition(player_id),
+            cog.engine.get_player_definition(player_id),
         )
         skill = profile.offense if skill_type == "offense" else profile.defense
         current = match.ball.speed
@@ -3214,16 +3162,11 @@ class SpeedDeltaChoiceView(SafeView):
         interaction: discord.Interaction,
         target_speed: int,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
-        match = self.cog.load_match_state(game)
 
-        controller_id = self.cog.controlling_user_id(
+        controller_id = self.cog.engine.controlling_user_id(
             game, match, self.player_id,
         )
         if interaction.user.id != controller_id:
@@ -3262,7 +3205,7 @@ class ShooterChoiceView(SafeView):
         self.game_id = game_id
 
         for player_id in candidates:
-            player = cog.get_player_definition(player_id)
+            player = cog.engine.get_player_definition(player_id)
             initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
                 label=f"{player.name} [{initials}]",
@@ -3284,16 +3227,11 @@ class ShooterChoiceView(SafeView):
         interaction: discord.Interaction,
         shooter_id: str,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
-        match = self.cog.load_match_state(game)
 
-        if not self.cog.user_controls_possession(
+        if not self.cog.engine.user_controls_possession(
             interaction.user.id, game, match,
         ):
             await interaction.response.send_message(
@@ -3302,7 +3240,7 @@ class ShooterChoiceView(SafeView):
             )
             return
 
-        shooter = self.cog.get_player_definition(shooter_id)
+        shooter = self.cog.engine.get_player_definition(shooter_id)
         await interaction.response.edit_message(
             content=(
                 f"{format_role_bracket(shooter, self.cog.team_emojis, match.team_for_player(shooter.player_id))} "
@@ -3348,13 +3286,13 @@ class RunBackPlayerChoiceView(SafeView):
 
         game = cog.games.get(game_id)
         match = (
-            cog.load_match_state(game)
+            cog.engine.load_match_state(game)
             if game is not None and game.match_state is not None
             else None
         )
 
         for player_id in self.candidates:
-            player = cog.get_player_definition(player_id)
+            player = cog.engine.get_player_definition(player_id)
             position = (
                 match.board.meeple_position(player_id)
                 if match is not None
@@ -3390,16 +3328,11 @@ class RunBackPlayerChoiceView(SafeView):
         interaction: discord.Interaction,
         player_id: str,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
-        match = self.cog.load_match_state(game)
 
-        controller_id = self.cog.controlling_user_id(game, match, player_id)
+        controller_id = self.cog.engine.controlling_user_id(game, match, player_id)
         if interaction.user.id != controller_id:
             await interaction.response.send_message(
                 "Only that team's coach can choose this.",
@@ -3415,7 +3348,7 @@ class RunBackPlayerChoiceView(SafeView):
         # Nothing is written until the space is picked, so a click on a
         # prompt the board has moved out from under is caught by asking
         # the position again rather than by a saved flag.
-        if player_id not in self.cog.run_back_crowded(match, side):
+        if player_id not in self.cog.engine.run_back_crowded(match, side):
             await interaction.response.send_message(
                 "They no longer have to run back.", ephemeral=True,
             )
@@ -3446,10 +3379,9 @@ class RunBackChoiceView(SafeView):
         self.game_id = game_id
         self.player_id = player_id
 
-        game = cog.games.get(game_id)
-        if game is None or game.match_state is None:
+        game, match = self.load_match()
+        if game is None:
             return
-        match = cog.load_match_state(game)
         side = (
             TeamSide.HOME
             if player_id in match.home.field_players
@@ -3490,16 +3422,11 @@ class RunBackChoiceView(SafeView):
         interaction: discord.Interaction,
         space_index: int,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
-        match = self.cog.load_match_state(game)
 
-        controller_id = self.cog.controlling_user_id(
+        controller_id = self.cog.engine.controlling_user_id(
             game, match, self.player_id,
         )
         if interaction.user.id != controller_id:
@@ -3532,7 +3459,7 @@ class RunBackChoiceView(SafeView):
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
-        player = self.cog.get_player_definition(self.player_id)
+        player = self.cog.engine.get_player_definition(self.player_id)
         await interaction.response.edit_message(
             content=(
                 f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} "
@@ -3584,10 +3511,7 @@ class CoachingView(SafeView):
         self.game_id = game_id
 
     def load(self) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            return None, None
-        return game, self.cog.load_match_state(game)
+        return self.load_match()
 
     def side(self, match: MatchState) -> TeamSide:
         return TeamSide(match.pending_coaching_side)
@@ -3613,7 +3537,7 @@ class CoachingView(SafeView):
                 ephemeral=True,
             )
             return None, None
-        if interaction.user.id != self.cog.side_controller_id(
+        if interaction.user.id != self.cog.engine.side_controller_id(
             game, self.side(match),
         ):
             await interaction.response.send_message(
@@ -3798,7 +3722,7 @@ class CoachingHubView(CoachingView):
         positioning = occasion is None or occasion.offers_positioning
 
         if positioning:
-            formation = cog.current_formation(match, side)
+            formation = cog.engine.current_formation(match, side)
             # The shape in brackets is the one they are in now, not the
             # one the button switches to, so it says so -- a bare
             # "(2-2-2)" reads as the destination.
@@ -3809,7 +3733,7 @@ class CoachingHubView(CoachingView):
                 self.open_formation,
             )
         self.add_action(
-            f"Substitution ({cog.substitution_button_label(match)})",
+            f"Substitution ({cog.engine.substitution_button_label(match)})",
             f"d12ball:coach_sub:{game_id}",
             self.open_substitution,
             enabled=match.may_substitute()
@@ -3939,7 +3863,7 @@ class CoachingHubView(CoachingView):
             )
             return
 
-        setups = self.cog.roster_setups_for_user(
+        setups = self.cog.engine.roster_setups_for_user(
             game, match, interaction.user.id,
         )
         if setups is None:
@@ -4009,9 +3933,9 @@ class CoachingFormationView(CoachingView):
         game, match = self.load()
         if match is None or match.pending_coaching_side is None:
             return
-        current = cog.current_formation(match, self.side(match))
+        current = cog.engine.current_formation(match, self.side(match))
 
-        for choice in cog.available_formations(match):
+        for choice in cog.engine.available_formations(match):
             button = discord.ui.Button(
                 label=(
                     f"{choice.value}"
@@ -4120,7 +4044,7 @@ class CoachingSubstitutionOutView(CoachingView):
         if game is None or match is None:
             return
 
-        player = self.cog.get_player_definition(outgoing_player_id)
+        player = self.cog.engine.get_player_definition(outgoing_player_id)
         await self.show(
             interaction,
             game,
@@ -4259,7 +4183,7 @@ class CoachingZoneView(CoachingView):
             return
 
         if self.first_player_id is None:
-            player = self.cog.get_player_definition(player_id)
+            player = self.cog.engine.get_player_definition(player_id)
             await self.show(
                 interaction,
                 game,
@@ -4327,7 +4251,7 @@ class CoachingPlaceView(CoachingView):
         if game is None or match is None:
             return
 
-        player = self.cog.get_player_definition(player_id)
+        player = self.cog.engine.get_player_definition(player_id)
         await self.show(
             interaction,
             game,
@@ -4406,7 +4330,7 @@ class CoachingPlaceSpaceView(CoachingView):
             side, self.player_id, space_index,
         )
         if len(candidates) > 1:
-            player = self.cog.get_player_definition(self.player_id)
+            player = self.cog.engine.get_player_definition(self.player_id)
             await self.show(
                 interaction,
                 game,
@@ -4542,10 +4466,7 @@ class HalftimeView(SafeView):
         self.stage = stage
 
     def load(self) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            return None, None
-        return game, self.cog.load_match_state(game)
+        return self.load_match()
 
     async def claim(
         self,
@@ -4564,7 +4485,7 @@ class HalftimeView(SafeView):
                 ephemeral=True,
             )
             return None, None
-        if interaction.user.id != self.cog.side_controller_id(game, self.side):
+        if interaction.user.id != self.cog.engine.side_controller_id(game, self.side):
             await interaction.response.send_message(
                 "Only that team's coach can choose this.",
                 ephemeral=True,
@@ -4619,12 +4540,12 @@ class HalftimeExtraTokenView(HalftimeView):
         if game is None or match is None:
             return
 
-        player = self.cog.get_player_definition(player_id)
+        player = self.cog.engine.get_player_definition(player_id)
         defense_skill = self.cog.player_catalog.effective_profile(
             player
         ).defense
         removed = match.recover_exhaustion(player_id, 1, defense_skill)
-        self.cog.next_halftime_stage(match)
+        self.cog.engine.next_halftime_stage(match)
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
@@ -4680,7 +4601,7 @@ class LooseBallChoiceView(SafeView):
         )
 
         for player_id in candidates:
-            player = cog.get_player_definition(player_id)
+            player = cog.engine.get_player_definition(player_id)
             initials = ROLE_INITIALS[player.role.value]
             zone, space_index = match.board.meeple_position(player_id)
             distance = abs(
@@ -4727,16 +4648,11 @@ class LooseBallChoiceView(SafeView):
     ) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
         """The game and match if this click may settle this side's
         pick, or (None, None) after replying with why it may not."""
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return None, None
-        match = self.cog.load_match_state(game)
 
-        if self.cog.loose_ball_side_on_the_clock(match) != self.side:
+        if self.cog.engine.loose_ball_side_on_the_clock(match) != self.side:
             await interaction.response.send_message(
                 "That side has already answered.",
                 ephemeral=True,
@@ -4744,11 +4660,11 @@ class LooseBallChoiceView(SafeView):
             return None, None
 
         authorized = (
-            self.cog.user_controls_possession(
+            self.cog.engine.user_controls_possession(
                 interaction.user.id, game, match,
             )
             if self.side == "offense"
-            else self.cog.user_controls_defense(
+            else self.cog.engine.user_controls_defense(
                 interaction.user.id, game, match,
             )
         )
@@ -4774,7 +4690,7 @@ class LooseBallChoiceView(SafeView):
         else:
             match.choose_loose_ball_defense_player(player_id)
 
-        player = self.cog.get_player_definition(player_id)
+        player = self.cog.engine.get_player_definition(player_id)
         await self.settled(
             interaction,
             game,
@@ -4818,7 +4734,7 @@ class LooseBallChoiceView(SafeView):
             content=announcement, view=None,
         )
 
-        if self.cog.loose_ball_side_on_the_clock(match) is None:
+        if self.cog.engine.loose_ball_side_on_the_clock(match) is None:
             await self.cog.resolve_loose_ball(interaction, game, match)
             return
 
@@ -4848,14 +4764,13 @@ class BallRecoveryView(SafeView):
         self.cog = cog
         self.game_id = game_id
 
-        game = cog.games.get(game_id)
-        if game is None or game.match_state is None:
+        game, match = self.load_match()
+        if game is None:
             return
-        match = cog.load_match_state(game)
         side = match.ball.possession
 
         for player_id in match.contest_candidates(side):
-            player = cog.get_player_definition(player_id)
+            player = cog.engine.get_player_definition(player_id)
             initials = ROLE_INITIALS[player.role.value]
             distance = match.distance_to_ball(player_id)
             space_word = "space" if distance == 1 else "spaces"
@@ -4884,14 +4799,9 @@ class BallRecoveryView(SafeView):
         interaction: discord.Interaction,
         player_id: str,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
-        match = self.cog.load_match_state(game)
 
         if not match.pending_ball_recovery:
             await interaction.response.send_message(
@@ -4899,7 +4809,7 @@ class BallRecoveryView(SafeView):
                 ephemeral=True,
             )
             return
-        if not self.cog.user_controls_possession(
+        if not self.cog.engine.user_controls_possession(
             interaction.user.id, game, match,
         ):
             await interaction.response.send_message(
@@ -4934,7 +4844,7 @@ class LooseBallSkillTestView(SafeView):
         game = cog.games.get(game_id)
         noun = "loose ball"
         if game is not None and game.match_state is not None:
-            noun = contest_noun(cog.load_match_state(game))
+            noun = contest_noun(cog.engine.load_match_state(game))
 
         button = discord.ui.Button(
             label=f"Roll for the {noun}",
@@ -4945,15 +4855,10 @@ class LooseBallSkillTestView(SafeView):
         self.add_item(button)
 
     async def roll(self, interaction: discord.Interaction) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
         if (
             not match.pending_loose_ball
             or match.loose_ball_offense_player is None
@@ -4965,10 +4870,7 @@ class LooseBallSkillTestView(SafeView):
             )
             return
 
-        participant_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            participant_ids.add(game.player_2_id)
-        if interaction.user.id not in participant_ids:
+        if not self.is_game_participant(game, interaction.user.id):
             await interaction.response.send_message(
                 "Only a player in this game can roll for the "
                 f"{contest_noun(match)}.",
@@ -4976,10 +4878,10 @@ class LooseBallSkillTestView(SafeView):
             )
             return
 
-        offense_player = self.cog.get_player_definition(
+        offense_player = self.cog.engine.get_player_definition(
             match.loose_ball_offense_player,
         )
-        defense_player = self.cog.get_player_definition(
+        defense_player = self.cog.engine.get_player_definition(
             match.loose_ball_defense_player,
         )
         # An injured contestant adds no skill modifier -- their own
@@ -5100,9 +5002,9 @@ class LooseBallSkillTestView(SafeView):
         )
         turnover_occurred = winner_side != match.ball.possession
         winner_number = (
-            self.cog.possession_player_number(game, match)
+            self.cog.engine.possession_player_number(game, match)
             if outcome == "offense"
-            else self.cog.defending_player_number(game, match)
+            else self.cog.engine.defending_player_number(game, match)
         )
         winner_mention = format_player_with_team(
             game, winner_number, mention=True,
@@ -5211,10 +5113,7 @@ class ShootoutView(SafeView):
         self.game_id = game_id
 
     def load(self) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            return None, None
-        return game, self.cog.load_match_state(game)
+        return self.load_match()
 
     def owes(self, match: MatchState, side: TeamSide) -> bool:
         """Whether this prompt is still waiting on `side`."""
@@ -5251,7 +5150,7 @@ class ShootoutView(SafeView):
         theirs = [
             side
             for side in (TeamSide.HOME, TeamSide.VISITING)
-            if self.cog.side_controller_id(game, side) == interaction.user.id
+            if self.cog.engine.side_controller_id(game, side) == interaction.user.id
         ]
         if not theirs:
             await interaction.response.send_message(
@@ -5338,7 +5237,7 @@ class ShootoutOrderSelectView(SafeView):
 
         game = cog.games.get(game_id)
         match = (
-            cog.load_match_state(game)
+            cog.engine.load_match_state(game)
             if game is not None and game.match_state is not None
             else None
         )
@@ -5382,18 +5281,13 @@ class ShootoutOrderSelectView(SafeView):
         self,
         interaction: discord.Interaction,
     ) -> Optional[tuple[D12BallGame, MatchState]]:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return None
 
-        match = self.cog.load_match_state(game)
         if (
             not match.pending_shootout
-            or self.cog.side_controller_id(game, self.side)
+            or self.cog.engine.side_controller_id(game, self.side)
             != interaction.user.id
         ):
             await interaction.response.edit_message(
@@ -5549,7 +5443,7 @@ class ShootoutPickSelectView(SafeView):
 
         game = cog.games.get(game_id)
         match = (
-            cog.load_match_state(game)
+            cog.engine.load_match_state(game)
             if game is not None and game.match_state is not None
             else None
         )
@@ -5581,18 +5475,13 @@ class ShootoutPickSelectView(SafeView):
         interaction: discord.Interaction,
         player_id: str,
     ) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
         if (
             not match.pending_shootout
-            or self.cog.side_controller_id(game, self.side)
+            or self.cog.engine.side_controller_id(game, self.side)
             != interaction.user.id
         ):
             await interaction.response.edit_message(
@@ -5620,7 +5509,7 @@ class ShootoutPickSelectView(SafeView):
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
-        player = self.cog.get_player_definition(player_id)
+        player = self.cog.engine.get_player_definition(player_id)
         await interaction.response.edit_message(
             content=(
                 "You send out "
@@ -5688,7 +5577,7 @@ class ShootoutTestView(ShootoutView):
         if match.shootout_round > 1:
             remaining = [
                 format_role_bracket(
-                    self.cog.get_player_definition(player_id),
+                    self.cog.engine.get_player_definition(player_id),
                     self.cog.team_emojis,
                     match.team_for_player(player_id),
                 )
@@ -5711,15 +5600,10 @@ class ShootoutTestView(ShootoutView):
         )
 
     async def roll(self, interaction: discord.Interaction) -> None:
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            await interaction.response.send_message(
-                "I could not find the saved data for this game.",
-                ephemeral=True,
-            )
+        game, match = await self.require_match(interaction)
+        if game is None:
             return
 
-        match = self.cog.load_match_state(game)
         if not match.pending_shootout or not match.shootout_shooters_complete:
             await interaction.response.send_message(
                 "That skill test has already been rolled.",
@@ -5727,10 +5611,7 @@ class ShootoutTestView(ShootoutView):
             )
             return
 
-        participant_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            participant_ids.add(game.player_2_id)
-        if interaction.user.id not in participant_ids:
+        if not self.is_game_participant(game, interaction.user.id):
             await interaction.response.send_message(
                 "Only a player in this game can roll the skill test.",
                 ephemeral=True,
@@ -5746,7 +5627,7 @@ class ShootoutTestView(ShootoutView):
         players = {}
         dice = []
         for side in (TeamSide.HOME, TeamSide.VISITING):
-            player = self.cog.get_player_definition(
+            player = self.cog.engine.get_player_definition(
                 match.shootout_shooter(side),
             )
             players[side] = player
@@ -5827,7 +5708,7 @@ class ShootoutTestView(ShootoutView):
         )
         await interaction.followup.send(
             f"{outcome}\n"
-            f"Extreme shootout: {self.cog.shootout_running_score(match)}"
+            f"Extreme shootout: {self.cog.engine.shootout_running_score(match)}"
         )
         if winner is not None:
             await self.cog.refresh_match_image(interaction, game)

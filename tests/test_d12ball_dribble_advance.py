@@ -56,7 +56,7 @@ class DribbleAdvanceDestinationTests(unittest.TestCase):
         game = SimpleNamespace(match_state=match.to_dict(), game_id="g1")
         cog = mock.Mock()
         cog.games = {"g1": game}
-        cog.load_match_state = mock.Mock(return_value=match)
+        cog.engine.load_match_state = mock.Mock(return_value=match)
         return DribbleAdvanceChoiceView(cog, "g1")
 
     def labels(self, view: DribbleAdvanceChoiceView) -> list[str]:

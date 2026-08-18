@@ -38,6 +38,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.ai import build_ai_strategies
+from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
 
 
@@ -63,6 +64,10 @@ def build_cog() -> D12Ball:
     cog.basic_ruleset = load_basic_ruleset()
     cog.ai_strategies = build_ai_strategies(
         cog.player_catalog, cog.maneuver_catalog,
+    )
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
+        cog.ai_strategies,
     )
     cog.team_emojis = {}
     cog.condition_emojis = {}
@@ -429,7 +434,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch("cogs.d12ball.save_games"):
             await cog.end_period(interaction, game, match)
 
-        reloaded = cog.load_match_state(game)
+        reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.exhaustion.get(tired), 4)
         self.assertIn(tired, reloaded.exhausted)
 
@@ -490,7 +495,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
             for player_id in squad:
                 await view.pick(interaction, player_id)
 
-        reloaded = cog.load_match_state(game)
+        reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.shootout_order(TeamSide.HOME), squad)
         self.assertIn("Either player can roll", sent_texts(interaction)[-1])
         posted = interaction.followup.send.await_args.kwargs["view"]
@@ -607,7 +612,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(match.substitutions_remaining(), 1)
             self.assertEqual(
-                cog.substitution_button_label(match),
+                cog.engine.substitution_button_label(match),
                 "1 left before the shootout",
             )
 
@@ -735,7 +740,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
             )
 
         # Through a save and back, since this is what a restart reads.
-        reloaded = cog.load_match_state(game)
+        reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.pending_full_time_stage, "coaching_home")
         view, ask = cog.pending_turn_view(game.game_id, reloaded)
         self.assertIsInstance(view, CoachingHubView)
@@ -753,11 +758,11 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
 
         with mock.patch("cogs.d12ball.save_games"):
             where = await cog.resume_pending_prompt(
-                build_interaction(222), game, cog.load_match_state(game),
+                build_interaction(222), game, cog.engine.load_match_state(game),
             )
 
         self.assertIn("before the shootout", where)
-        reloaded = cog.load_match_state(game)
+        reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.pending_coaching_side, "visiting")
 
     async def test_the_ai_takes_its_own_window(self) -> None:
@@ -833,12 +838,12 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = await self.roll(cog, game, [12, 1])
 
-        reloaded = cog.load_match_state(game)
+        reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.shootout_goals_for(TeamSide.HOME), 1)
         self.assertEqual(reloaded.scoreboard.home_score, 2)
         self.assertEqual(reloaded.scoreboard.visiting_score, 1)
         self.assertIn(
-            cog.get_player_definition(home_shooter).name,
+            cog.engine.get_player_definition(home_shooter).name,
             sent_texts(interaction)[0],
         )
         # The shooters are retired in the same save as the goal.
@@ -855,7 +860,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = await self.roll(cog, game, [7, 7])
 
-        reloaded = cog.load_match_state(game)
+        reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.shootout_goals, {})
         self.assertEqual(reloaded.scoreboard.home_score, 1)
         self.assertEqual(reloaded.shootout_tests_taken(TeamSide.HOME), 1)
@@ -873,7 +878,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
 
         await self.roll(cog, game, [7, 7])
 
-        reloaded = cog.load_match_state(game)
+        reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.shootout_goals_for(TeamSide.VISITING), 1)
         self.assertEqual(reloaded.shootout_goals_for(TeamSide.HOME), 0)
 
@@ -887,7 +892,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
 
         await self.roll(cog, game, [9, 3])
 
-        reloaded = cog.load_match_state(game)
+        reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.exhaustion.get(shooter), 2)
 
     async def test_an_exhausted_shooter_owes_no_injury_check(
@@ -909,7 +914,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
 
         cog.begin_injury_tests.assert_not_awaited()
         cog.continue_shootout.assert_awaited_once()
-        self.assertNotIn(shooter, cog.load_match_state(game).injured)
+        self.assertNotIn(shooter, cog.engine.load_match_state(game).injured)
 
     async def test_the_last_test_of_the_shootout_ends_the_game(
         self,
@@ -933,7 +938,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.roll(cog, game, [12, 1])
 
         self.assertTrue(game.is_finished)
-        reloaded = cog.load_match_state(game)
+        reloaded = cog.engine.load_match_state(game)
         self.assertFalse(reloaded.pending_shootout)
         final = sent_texts(interaction)[-1]
         self.assertIn("extreme shootout is settled, 4-2", final)
@@ -953,11 +958,11 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         # injury queue would have made.
         with mock.patch("cogs.d12ball.save_games"):
             await cog.continue_shootout(
-                interaction, game, cog.load_match_state(game),
+                interaction, game, cog.engine.load_match_state(game),
             )
 
         self.assertFalse(game.is_finished)
-        reloaded = cog.load_match_state(game)
+        reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.shootout_round, 2)
         self.assertIn("sudden death", sent_texts(interaction)[-1])
         posted = interaction.followup.send.await_args.kwargs["view"]
@@ -1061,7 +1066,7 @@ class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
             await view.pick(interaction, squad[0])
 
         self.assertEqual(
-            cog.load_match_state(game).shootout_order(TeamSide.HOME),
+            cog.engine.load_match_state(game).shootout_order(TeamSide.HOME),
             [squad[0]],
         )
         content = interaction.response.edit_message.await_args.kwargs[
@@ -1082,7 +1087,7 @@ class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
             await view.restart(interaction)
 
         self.assertEqual(
-            cog.load_match_state(game).shootout_order(TeamSide.HOME), [],
+            cog.engine.load_match_state(game).shootout_order(TeamSide.HOME), [],
         )
 
     async def test_one_coach_running_both_sides_can_answer_twice(
@@ -1126,7 +1131,7 @@ class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("not reorder it", shown)
         for player_id in match.shootout_squad(TeamSide.HOME):
             self.assertIn(
-                cog.get_player_definition(player_id).name, shown,
+                cog.engine.get_player_definition(player_id).name, shown,
             )
 
     async def test_sudden_death_has_no_order_to_look_at(self) -> None:
@@ -1162,7 +1167,7 @@ class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
             await view.restart(interaction)
 
         self.assertEqual(
-            len(cog.load_match_state(game).shootout_order(TeamSide.HOME)),
+            len(cog.engine.load_match_state(game).shootout_order(TeamSide.HOME)),
             6,
         )
         self.assertIn(

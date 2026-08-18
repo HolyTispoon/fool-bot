@@ -26,6 +26,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 
 
@@ -37,6 +38,9 @@ def build_cog() -> D12Ball:
     cog.basic_ruleset = load_basic_ruleset()
     cog.team_emojis = {}
     cog.condition_emojis = {}
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     return cog
 
 
@@ -249,7 +253,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         match = self.build_match()
         player_id = match.home.field_players[0]
         profile = cog.player_catalog.effective_profile(
-            cog.get_player_definition(player_id),
+            cog.engine.get_player_definition(player_id),
         )
 
         side = cog.challenge_side(
@@ -333,9 +337,9 @@ class ManeuverPickHarness:
         match.active_player_id = match.home.field_players[0]
         match.challenger_id = match.visiting.field_players[0]
 
-        cog.load_match_state = mock.Mock(return_value=match)
-        cog.user_controls_possession = mock.Mock(return_value=offense)
-        cog.user_controls_defense = mock.Mock(return_value=not offense)
+        cog.engine.load_match_state = mock.Mock(return_value=match)
+        cog.engine.user_controls_possession = mock.Mock(return_value=offense)
+        cog.engine.user_controls_defense = mock.Mock(return_value=not offense)
 
         interaction = SimpleNamespace(
             user=SimpleNamespace(id=111),

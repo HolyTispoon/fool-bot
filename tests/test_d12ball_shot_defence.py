@@ -29,6 +29,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 from d12ball.render import (
     TEAM_COLORS,
@@ -46,6 +47,9 @@ def build_cog() -> D12Ball:
     cog.basic_ruleset = load_basic_ruleset()
     cog.team_emojis = {}
     cog.condition_emojis = {}
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.refresh_match_image = mock.AsyncMock()
     cog.begin_run_back = mock.AsyncMock()
     return cog
@@ -160,7 +164,7 @@ class InterveningDefenderTests(unittest.TestCase):
         match.ball.zone = Zone.MIDFIELD
         match.ball.space_index = 1
 
-        defenders = cog.intervening_defenders(match)
+        defenders = cog.engine.intervening_defenders(match)
 
         self.assertEqual(
             [defender.on_ball for defender in defenders],
@@ -180,7 +184,7 @@ class InterveningDefenderTests(unittest.TestCase):
         for player_id in list(match.visiting.field_players):
             match.move_meeple(player_id, Zone.HOME_GOAL, 0)
 
-        self.assertEqual(cog.intervening_defenders(match), [])
+        self.assertEqual(cog.engine.intervening_defenders(match), [])
 
 
 class ShotRollTests(unittest.IsolatedAsyncioTestCase):
@@ -206,7 +210,7 @@ class ShotRollTests(unittest.IsolatedAsyncioTestCase):
             match.active_player_id, match.ball.zone, match.ball.space_index,
         )
         match.pending_action = "shoot"
-        cog.intervening_defenders = mock.Mock(return_value=defenders)
+        cog.engine.intervening_defenders = mock.Mock(return_value=defenders)
         game = build_game()
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game

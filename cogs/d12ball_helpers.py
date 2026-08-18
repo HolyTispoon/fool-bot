@@ -27,6 +27,7 @@ from d12ball.game import (
     Team,
     team_display_name,
 )
+from discord_emoji_cache import EMOJI_REFETCH_INTERVAL
 
 
 LOGGER = logging.getLogger(__name__)
@@ -157,12 +158,10 @@ TEAM_EMOJI_FALLBACKS = {
 EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
 
 
-# How long a lookup that came up short waits before asking Discord
-# again. The emoji are uploaded to the application by hand, so a retry
-# is worth making at all -- but the answer changes about once a year,
-# and an application that has none of them uploaded comes up short
-# every single time it is asked.
-EMOJI_REFETCH_INTERVAL = 300.0
+# EMOJI_REFETCH_INTERVAL now lives in discord_emoji_cache.py, imported
+# above and re-exported here -- the value, and the retry-cache shape it
+# times, are shared with cogs/coins.py. Every existing `from
+# cogs.d12ball_helpers import EMOJI_REFETCH_INTERVAL` keeps working.
 
 
 CONDITION_EMOJI_NAMES = {

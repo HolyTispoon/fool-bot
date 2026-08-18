@@ -38,6 +38,7 @@ from d12ball.components import (
     setup_space_order,
     validate_assignment,
 )
+from d12ball.engine import RulesEngine
 from d12ball.ai import build_ai_strategies
 from d12ball.game import (
     AIOpponent,
@@ -54,6 +55,9 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.coin_emojis = {}
@@ -417,7 +421,7 @@ class BoardScopedFormationTests(unittest.TestCase):
                     setup.zones[Zone.VISITORS_GOAL].pop()
                 )
                 self.assertEqual(
-                    cog.current_formation(match, TeamSide.HOME), expected,
+                    cog.engine.current_formation(match, TeamSide.HOME), expected,
                 )
 
     def test_a_change_of_shape_is_refused_off_its_board(self) -> None:
@@ -659,14 +663,14 @@ class FormationReassignmentTests(unittest.TestCase):
         match = self.build_match()
 
         self.assertEqual(
-            cog.current_formation(match, TeamSide.HOME),
+            cog.engine.current_formation(match, TeamSide.HOME),
             Formation.TWO_TWO_TWO,
         )
 
         cog.apply_formation(match, TeamSide.HOME, Formation.ONE_THREE_TWO)
 
         self.assertEqual(
-            cog.current_formation(match, TeamSide.HOME),
+            cog.engine.current_formation(match, TeamSide.HOME),
             Formation.ONE_THREE_TWO,
         )
 
@@ -684,7 +688,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
             board_size=board_size,
         )
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         game.match_state = match.to_dict()
         return cog, game, match
@@ -694,7 +698,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
 
         for side in (TeamSide.HOME, TeamSide.VISITING):
             self.assertEqual(
-                cog.current_formation(match, side),
+                cog.engine.current_formation(match, side),
                 Formation.TWO_TWO_TWO,
             )
 
@@ -734,9 +738,9 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch("cogs.d12ball_views.save_games"):
             await view.choose(build_interaction(), Formation.THREE_TWO_ONE)
 
-        match = cog.load_match_state(game)
+        match = cog.engine.load_match_state(game)
         self.assertEqual(
-            cog.current_formation(match, TeamSide.HOME),
+            cog.engine.current_formation(match, TeamSide.HOME),
             Formation.THREE_TWO_ONE,
         )
         # Three cards into a three-space zone, one apiece.
@@ -773,9 +777,9 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
                 build_interaction(), Formation.TWO_THREE_ONE,
             )
 
-        match = cog.load_match_state(game)
+        match = cog.engine.load_match_state(game)
         self.assertEqual(
-            cog.current_formation(match, TeamSide.HOME),
+            cog.engine.current_formation(match, TeamSide.HOME),
             Formation.TWO_THREE_ONE,
         )
         # Cards and meeples together: nobody is left standing outside
@@ -797,11 +801,11 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
                 build_interaction(), Formation.ONE_THREE_TWO,
             )
 
-        match = cog.load_match_state(game)
+        match = cog.engine.load_match_state(game)
 
         def defense(player_id: str) -> int:
             return cog.player_catalog.effective_profile(
-                cog.get_player_definition(player_id)
+                cog.engine.get_player_definition(player_id)
             ).defense
 
         by_zone = [
@@ -837,12 +841,12 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
             visiting_player_number=2,
         )
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
 
         winger = next(
             player_id
             for player_id in match.home.field_players
-            if cog.get_player_definition(player_id).role == PlayerRole.WINGER
+            if cog.engine.get_player_definition(player_id).role == PlayerRole.WINGER
         )
         # The far midfield space, M3: within home's shooting range,
         # which is where a Winger's set-up can offer a shot at all
@@ -862,7 +866,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         match.set_ball_space(Zone.MIDFIELD, 2)
         match.active_player_id = winger
         game.match_state = match.to_dict()
-        return cog, game, match, cog.low_pass_receivers(match, 0)
+        return cog, game, match, cog.engine.low_pass_receivers(match, 0)
 
     def test_a_shared_destination_is_labelled_by_its_count(self) -> None:
         cog, game, _, others = self.build()

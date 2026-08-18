@@ -43,6 +43,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import (
     COLOR_TEAMS,
     SPECIES_TEAMS,
@@ -2634,7 +2635,9 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog = object.__new__(D12Ball)
         cog.games = {}
         cog.player_catalog = self.catalog
+        cog.basic_ruleset = self.rules
         cog.team_emojis = {}
+        cog.engine = RulesEngine(cog.player_catalog, cog.basic_ruleset, None, {})
         cog.refresh_match_image = mock.AsyncMock()
         cog.announce_board_update = mock.AsyncMock()
         cog.begin_loose_ball = mock.AsyncMock()
@@ -2770,7 +2773,9 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         cog = object.__new__(D12Ball)
         cog.games = {}
         cog.player_catalog = self.catalog
+        cog.basic_ruleset = self.rules
         cog.team_emojis = {}
+        cog.engine = RulesEngine(cog.player_catalog, cog.basic_ruleset, None, {})
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         cog.offer_scoring_attempt_choice = mock.AsyncMock()
@@ -2839,7 +2844,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         cog = self.build_cog()
         self.assertEqual(
-            cog.low_pass_candidates(match),
+            cog.engine.low_pass_candidates(match),
             [(-2, behind), (0, here), (2, ahead)],
         )
 
@@ -2867,7 +2872,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         cog = self.build_cog()
         self.assertEqual(
-            cog.low_pass_candidates(match),
+            cog.engine.low_pass_candidates(match),
             [(-1, near_behind), (1, near_ahead)],
         )
 
@@ -2885,7 +2890,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = handler
 
         cog = self.build_cog()
-        self.assertEqual(cog.low_pass_candidates(match), [(1, ahead)])
+        self.assertEqual(cog.engine.low_pass_candidates(match), [(1, ahead)])
 
     def test_low_pass_candidates_offer_a_teammate_sharing_the_space(
         self,
@@ -2903,7 +2908,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = handler
 
         cog = self.build_cog()
-        self.assertEqual(cog.low_pass_candidates(match), [(0, sharing)])
+        self.assertEqual(cog.engine.low_pass_candidates(match), [(0, sharing)])
 
     def test_low_pass_candidates_can_be_empty(self) -> None:
         # Nobody within two spaces and no self-pass allowed: the won
@@ -2918,7 +2923,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = handler
 
         cog = self.build_cog()
-        self.assertEqual(cog.low_pass_candidates(match), [])
+        self.assertEqual(cog.engine.low_pass_candidates(match), [])
 
     def test_low_pass_candidates_excludes_distances_clamped_off_the_board(
         self,
@@ -2937,7 +2942,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # ball's own space -- not real 1/2-space destinations, so they
         # must not appear even though a teammate is standing there (as
         # distance 0).
-        self.assertEqual(cog.low_pass_candidates(match), [(0, sharing)])
+        self.assertEqual(cog.engine.low_pass_candidates(match), [(0, sharing)])
 
     # -- low_pass_receivers -------------------------------------------
 
@@ -2956,9 +2961,9 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         cog = self.build_cog()
 
-        self.assertEqual(cog.low_pass_candidates(match), [(0, first)])
+        self.assertEqual(cog.engine.low_pass_candidates(match), [(0, first)])
         self.assertEqual(
-            cog.low_pass_receivers(match, 0), [first, second],
+            cog.engine.low_pass_receivers(match, 0), [first, second],
         )
 
     def test_low_pass_receivers_never_include_the_passer(self) -> None:
@@ -2973,7 +2978,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         cog = self.build_cog()
 
-        self.assertEqual(cog.low_pass_receivers(match, 0), [sharing])
+        self.assertEqual(cog.engine.low_pass_receivers(match, 0), [sharing])
 
     def test_low_pass_receivers_ignore_the_other_team(self) -> None:
         match = self.build_match()
@@ -2988,7 +2993,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         cog = self.build_cog()
 
-        self.assertEqual(cog.low_pass_receivers(match, 0), [teammate])
+        self.assertEqual(cog.engine.low_pass_receivers(match, 0), [teammate])
 
     async def test_a_winger_s_set_up_goes_to_the_chosen_receiver(
         self,
@@ -3207,7 +3212,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # space forward and is loose (2026-08-07), and still picks up
         # the maneuver's +1 speed on the way.
         cog = self.build_cog()
-        cog.side_controlled_by_ai = mock.Mock(return_value=False)
+        cog.engine.side_controlled_by_ai = mock.Mock(return_value=False)
         match = self.build_match()
         self.clear_board(match)
         handler = match.home.field_players[0]
@@ -3244,7 +3249,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # ball is loose where it already sits rather than claiming a
         # move it could not make.
         cog = self.build_cog()
-        cog.side_controlled_by_ai = mock.Mock(return_value=False)
+        cog.engine.side_controlled_by_ai = mock.Mock(return_value=False)
         match = self.build_match()
         self.clear_board(match)
         handler = match.home.field_players[0]
@@ -3479,7 +3484,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         """
         cog = self.build_cog()
         cog.apply_high_pass = mock.AsyncMock()
-        cog.side_controlled_by_ai = mock.Mock(return_value=False)
+        cog.engine.side_controlled_by_ai = mock.Mock(return_value=False)
         match = self.build_match()
         match.ball.possession = TeamSide.HOME
         match.active_player_id = self.player_with_role(
@@ -3497,7 +3502,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cog.apply_high_pass.await_count, 2)
         for call in cog.apply_high_pass.await_args_list:
             self.assertEqual(call.args[-1], 2)
-        cog.side_controlled_by_ai.assert_not_called()
+        cog.engine.side_controlled_by_ai.assert_not_called()
 
     def test_a_high_pass_distance_two_spaces_out_is_a_real_choice(
         self,
@@ -3562,17 +3567,17 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = self.player_with_role(
             match, TeamSide.HOME, PlayerRole.FULLBACK,
         )
-        self.assertEqual(cog.high_pass_distance_options(match), [2, 3, 4])
+        self.assertEqual(cog.engine.high_pass_distance_options(match), [2, 3, 4])
         match.active_player_id = self.player_with_role(
             match, TeamSide.HOME, PlayerRole.DEFENDER,
         )
-        self.assertEqual(cog.high_pass_distance_options(match), [2, 3])
+        self.assertEqual(cog.engine.high_pass_distance_options(match), [2, 3])
 
         match.set_ball_space(Zone.MIDFIELD, 2)  # flat 5, three of room
         match.active_player_id = self.player_with_role(
             match, TeamSide.HOME, PlayerRole.FULLBACK,
         )
-        self.assertEqual(cog.high_pass_distance_options(match), [2, 3])
+        self.assertEqual(cog.engine.high_pass_distance_options(match), [2, 3])
 
     async def test_apply_high_pass_overshoot_always_contests_on_decline(
         self,

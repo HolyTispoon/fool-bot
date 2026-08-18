@@ -35,6 +35,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 from roster import display_name, fielded
 
@@ -45,6 +46,9 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
@@ -133,10 +137,10 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
     ) -> list[int]:
         """Dice that make `winner` ("offense"/"defense") take the test."""
         offense_skill = cog.player_catalog.effective_profile(
-            cog.get_player_definition(receiver)
+            cog.engine.get_player_definition(receiver)
         ).offense
         defense_skill = cog.player_catalog.effective_profile(
-            cog.get_player_definition(challenger)
+            cog.engine.get_player_definition(challenger)
         ).defense
         # One total is pinned level with the other, then nudged.
         offense_roll = 6
@@ -213,7 +217,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         ):
             await view.roll(build_interaction())
 
-        saved = cog.load_match_state(game)
+        saved = cog.engine.load_match_state(game)
         self.assertEqual(saved.ball.possession, possession_before)
         self.assertFalse(saved.pending_run_back)
         cog.announce_run_back.assert_not_awaited()
@@ -245,7 +249,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         ):
             await view.roll(build_interaction())
 
-        saved = cog.load_match_state(game)
+        saved = cog.engine.load_match_state(game)
         self.assertNotEqual(saved.ball.possession, possession_before)
         self.assertTrue(saved.pending_run_back)
         cog.finish_maneuver_resolution.assert_not_awaited()
@@ -331,7 +335,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         ):
             await view.roll(build_interaction())
 
-        saved = cog.load_match_state(game)
+        saved = cog.engine.load_match_state(game)
         self.assertEqual(saved.ball.possession, possession_before)
         self.assertFalse(saved.pending_run_back)
 
@@ -363,7 +367,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         ):
             await view.roll(build_interaction())
 
-        saved = cog.load_match_state(game)
+        saved = cog.engine.load_match_state(game)
         self.assertNotEqual(saved.ball.possession, possession_before)
         self.assertTrue(saved.pending_run_back)
 
@@ -387,7 +391,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
             await view.roll(build_interaction())
 
         self.assertNotEqual(
-            cog.load_match_state(game).ball.possession, possession_before,
+            cog.engine.load_match_state(game).ball.possession, possession_before,
         )
 
     async def test_a_loose_ball_kept_by_the_offense_runs_nobody_back(
@@ -410,7 +414,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         ):
             await view.roll(build_interaction())
 
-        self.assertFalse(cog.load_match_state(game).pending_run_back)
+        self.assertFalse(cog.engine.load_match_state(game).pending_run_back)
         cog.announce_run_back.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
 
@@ -435,7 +439,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
     def build(self, zone: Zone, space: int, role: PlayerRole):
         cog = build_cog()
         cog.apply_high_pass = mock.AsyncMock()
-        cog.user_controls_possession = mock.Mock(return_value=True)
+        cog.engine.user_controls_possession = mock.Mock(return_value=True)
         game = build_game()
         match = MatchState.standard(
             catalog=self.catalog,
@@ -580,7 +584,7 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         cog.apply_exhaustion = mock.Mock(return_value="")
         # Nobody in the way, so the attacker's row is the whole test.
-        cog.intervening_defenders = mock.Mock(return_value=[])
+        cog.engine.intervening_defenders = mock.Mock(return_value=[])
         game = build_game()
         match = MatchState.standard(
             catalog=self.catalog,

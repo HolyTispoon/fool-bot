@@ -23,6 +23,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
 
 
@@ -32,6 +33,9 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
@@ -131,12 +135,12 @@ class HalftimeStageSequenceTests(unittest.TestCase):
             ("reposition_visiting", "coaching_visiting"),
         ):
             match.pending_halftime_stage = legacy
-            self.assertEqual(cog.halftime_stage(match), expected)
+            self.assertEqual(cog.engine.halftime_stage(match), expected)
 
         # And advancing from one lands on the next real stage rather
         # than clearing the sequence.
         match.pending_halftime_stage = "subs_visiting"
-        cog.next_halftime_stage(match)
+        cog.engine.next_halftime_stage(match)
         self.assertEqual(match.pending_halftime_stage, "coaching_home")
 
     def test_next_halftime_stage_cycles_through_and_terminates(self) -> None:
@@ -148,7 +152,7 @@ class HalftimeStageSequenceTests(unittest.TestCase):
         match.pending_halftime_stage = HALFTIME_STAGES[0]
         while match.pending_halftime_stage is not None:
             seen.append(match.pending_halftime_stage)
-            cog.next_halftime_stage(match)
+            cog.engine.next_halftime_stage(match)
 
         self.assertEqual(tuple(seen), HALFTIME_STAGES)
 

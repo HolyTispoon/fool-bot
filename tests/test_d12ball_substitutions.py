@@ -22,6 +22,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import Team
 from roster import benched, fielded
 
@@ -30,8 +31,13 @@ def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)
     cog.games = {}
     cog.player_catalog = load_player_catalog()
+    cog.basic_ruleset = load_basic_ruleset()
+    cog.maneuver_catalog = load_maneuver_catalog()
     cog.team_emojis = {}
     cog.condition_emojis = {}
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.announce_run_back = mock.AsyncMock()
     cog.begin_substitution_window = mock.AsyncMock()
     return cog
@@ -439,8 +445,10 @@ class ContinueRunBackKickoffFillTests(unittest.IsolatedAsyncioTestCase):
         cog = object.__new__(D12Ball)
         cog.games = {}
         cog.player_catalog = self.catalog
+        cog.basic_ruleset = self.rules
         cog.team_emojis = {}
         cog.condition_emojis = {}
+        cog.engine = RulesEngine(cog.player_catalog, cog.basic_ruleset, None, {})
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         return cog
