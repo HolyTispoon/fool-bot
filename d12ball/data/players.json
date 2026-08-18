@@ -1,6 +1,6 @@
 {
   "data_version": 1,
-  "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=0",
+  "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=6660238",
   "abilities_source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1822486506",
   "role_profiles": {
     "fullback": {
@@ -274,11 +274,11 @@
     },
     "teal": {
       "player_ids": [
+        "kindlefinger_striker",
+        "inferno_defender",
         "bulwark_fullback",
         "strider_midfielder",
         "pulsar_striker",
-        "inferno_defender",
-        "kindlefinger_striker",
         "vorix_defender",
         "zenith_winger",
         "ozul_playmaker",
@@ -287,80 +287,80 @@
     },
     "purple": {
       "player_ids": [
-        "dravox_defender",
-        "quillon_playmaker",
-        "zytheris_striker",
         "hellguard_fullback",
         "emberdash_playmaker",
         "quantor_winger",
         "tachyon_striker",
-        "viscor_defender",
-        "glompex_midfielder"
+        "dravox_defender",
+        "quillon_playmaker",
+        "zytheris_striker",
+        "glompex_midfielder",
+        "viscor_defender"
       ]
     },
     "slime": {
       "player_ids": [
-        "gurgoth_defender",
-        "spritz_winger",
-        "slitheron_striker",
         "scorchit_midfielder",
         "brightburn_striker",
         "flux_defender",
         "gearclaw_playmaker",
         "umbrik_fullback",
-        "hexis_playmaker"
+        "hexis_playmaker",
+        "gurgoth_defender",
+        "spritz_winger",
+        "slitheron_striker"
       ]
     },
     "fire_demons": {
       "player_ids": [
-        "hellguard_fullback",
         "blazebulk_defender",
-        "scorchit_midfielder",
         "sizzifizik_playmaker",
         "flickerwing_winger",
-        "kindlefinger_striker",
-        "inferno_defender",
+        "hellguard_fullback",
         "emberdash_playmaker",
-        "brightburn_striker"
+        "scorchit_midfielder",
+        "brightburn_striker",
+        "kindlefinger_striker",
+        "inferno_defender"
       ]
     },
     "cyborgs": {
       "player_ids": [
-        "bulwark_fullback",
         "voltus_defender",
-        "strider_midfielder",
         "synapse_playmaker",
         "quantor_winger",
-        "pulsar_striker",
+        "tachyon_striker",
         "flux_defender",
         "gearclaw_playmaker",
-        "tachyon_striker"
+        "bulwark_fullback",
+        "strider_midfielder",
+        "pulsar_striker"
       ]
     },
     "telekinetics": {
       "player_ids": [
-        "umbrik_fullback",
-        "vorix_defender",
         "spectra_midfielder",
-        "hexis_playmaker",
-        "zenith_winger",
         "noxar_striker",
         "dravox_defender",
         "quillon_playmaker",
-        "zytheris_striker"
+        "zytheris_striker",
+        "umbrik_fullback",
+        "hexis_playmaker",
+        "vorix_defender",
+        "zenith_winger"
       ]
     },
     "oozes": {
       "player_ids": [
         "goopkeeper_fullback",
-        "gurgoth_defender",
+        "acidel_striker",
         "glompex_midfielder",
-        "ozul_playmaker",
+        "viscor_defender",
+        "gurgoth_defender",
         "spritz_winger",
         "slitheron_striker",
-        "viscor_defender",
-        "zorch_playmaker",
-        "acidel_striker"
+        "ozul_playmaker",
+        "zorch_playmaker"
       ]
     }
   }

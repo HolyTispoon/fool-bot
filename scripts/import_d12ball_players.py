@@ -10,10 +10,15 @@ from pathlib import Path
 from typing import Iterable, NamedTuple
 
 
+# gid=0 was the sheet's original tab, one row per player, pre-reshuffle.
+# "Player Cards" (gid=6660238) replaced it once the reshuffle needed a
+# color team and a species on the same row plus the new {name}_{role}
+# ids -- gid=0 still exists but is stale, so importing from it silently
+# reproduces the old assignment. Confirmed with the author 2026-08-17.
 DEFAULT_SOURCE = (
     "https://docs.google.com/spreadsheets/d/"
     "1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/"
-    "export?format=csv&gid=0"
+    "export?format=csv&gid=6660238"
 )
 DEFAULT_ABILITIES_SOURCE = (
     "https://docs.google.com/spreadsheets/d/"
