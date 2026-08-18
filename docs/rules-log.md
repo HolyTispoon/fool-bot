@@ -55,6 +55,66 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-08-18 -- author, a loose ball is the one contest and a Block Deflect always makes one
+
+*The author, simplifying: "block deflect throws the ball back 1 and makes it a loose ball. A loose
+ball just means that there is no possession -- if there is only a player from one team, the other
+team has an opportunity to send someone to contest it. If there are no players there, the team who
+last had possession is asked first whether to send someone and then the other team. The only
+difference between this and a high pass contest is that in a high pass the team who made the pass
+has the speed modifier working in their favor (unless they overshot, in which case it's working
+against them)."*
+
+**Docs only so far. The code still plays the old rule** -- see the open questions at the end,
+which are what a code change is waiting on.
+
+- **Loose now means "nobody is in possession", not "the possessing team has nobody on the
+  space".** That was the definition doing all the work: it made "loose" a fact about where a
+  team's meeples were, so a ball on a space with the right meeple could not be loose however it
+  got there. It is now a fact about the ball, and the three ways it comes free -- a pass landing
+  where the passing side has nobody, a Block Deflect, a long High Pass -- all reach the same
+  contest.
+- **A side's contestant is whoever of theirs is standing on the ball, and otherwise a player they
+  may send.** One rule replaces three separate readings: the loose ball's "each side may send", the
+  High Pass contest's forced receiver, and the "only the other team is there, so they simply take
+  it" branch. The ordering is unchanged where it still applies -- the side that last had the ball
+  chooses first -- but it only applies when both sides have to choose.
+- **The uncontested take is gone.** A ball landing where only the *defense* is standing used to be
+  theirs outright: "nobody moves, nothing is rolled, and it is a steal." The side that lost it may
+  now send somebody to contest it, at the usual token a space. That is the change with the widest
+  reach -- it is the ordinary end of a badly aimed pass.
+- **A Block Deflect no longer leaves the ball with the offense**, whoever is standing there. It
+  knocked the ball out of the handler's possession; that a teammate happened to be a space back is
+  no longer enough to keep it without contesting. It also drops out of Choosing the handler's
+  "nobody in particular" list, since it now leaves nobody in possession rather than leaving the
+  ball loose-with-possession-intact.
+- **The overshoot exception survives untouched.** A deflection that runs out of field onto a
+  defender is still a scoring opportunity rather than a contest.
+- **The High Pass contest is now a paragraph rather than a rule.** It is the loose ball plus the
+  ball speed modifier, which is the only thing that was ever different about it. Stated from the
+  throwing side rather than from "the receiver", since with the receiver no longer a special case
+  the modifier belongs to the side that threw it.
+- **Sending a player is asked by three rules now, not four**, the loose ball and the High Pass
+  contest having become one.
+
+**What this leaves open, for the author:**
+
+- **Does a 2-space High Pass still settle without a contest?** With the loose ball and the contest
+  unified, distance is the only thing deciding whether a caught pass has to be won, and nothing
+  states why 2 is different.
+- **Does a High Pass landing on an empty space carry the modifier?** It does not today -- only the
+  contest path sets it. Under "the team who made the pass has the modifier in their favor" it
+  arguably should.
+- **Why do Pressure, Dribble Advance and a completed Low Pass keep the ball?** Pressure is the
+  closest case: the ball goes back a space and the challenger ends up standing on it, which is
+  exactly the Block Deflect position, and it is left with the handler by name.
+- **Which of a stack contests?** The rules now say the coach picks, on the 2026-08-17 precedent
+  for the maneuver challenge. The code takes the first of the list on both sides of a High Pass
+  contest.
+- **Is a pickup still uncontestable?** An out-of-bounds or ceded ball is handed to one side and
+  placed rather than contested. That is deliberate for ceding (2026-08-10) and unaffected by this,
+  but it is now the one place a ball sits on a space without being fought over.
+
 ### 2026-08-17 (newest) -- author, the coach picks which defender on the ball challenges
 
 *Raised as an open question by the rebuild below -- a defender already on the ball challenges
