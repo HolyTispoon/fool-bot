@@ -9,13 +9,23 @@ Moved out of cogs/d12ball.py rather than left there: nothing about
 these methods is an accident of where the class happens to live, and
 splitting them out is what lets a test build one without going through
 `commands.Bot`. What stayed behind in the cog either touches Discord
-directly, formats text for a prompt (which needs the emoji dicts
-`cog_load` fetches), or orchestrates a multi-step flow across several
-of these decisions plus a board refresh -- `continue_run_back` is the
-clearest example: it is *built from* `next_run_back_step` and
-`apply_forced_run_backs` below, but the loop itself sends messages and
-batches board writes, which is exactly the Discord-facing half this
-module has no business holding.
+directly, formats text that needs the emoji dicts `cog_load` fetches
+(`format_role_bracket` and everything built on it -- an emoji dict is
+live Discord data, not a fact about the match), or orchestrates a
+multi-step flow across several of these decisions plus a board refresh
+-- `continue_run_back` is the clearest example: it is *built from*
+`next_run_back_step` and `apply_forced_run_backs` below, but the loop
+itself sends messages and batches board writes, which is exactly the
+Discord-facing half this module has no business holding.
+
+Some methods here build prompt text or a `ChallengeSide` for the
+matchup image -- `build_turn_prompt`, `challenge_side`, and their
+kind. That is presentation, not a rule, but it is presentation over
+nothing but the match and the catalogs: no emoji, no interaction, no
+cog. `d12ball/formatting.py` is where the plain-text half of that
+lives (space codes, team-side labels, player names), imported here the
+same way it is imported into cogs/d12ball_helpers.py -- see that
+module's own docstring for why the split runs where it does.
 
 `D12Ball.engine` is the one instance a game's cog builds at startup,
 from the same four things `RulesEngine.__init__` takes: the player
@@ -48,7 +58,18 @@ from d12ball.components import (
     formation_space_order,
     zone_for_area,
 )
-from d12ball.game import AIOpponent, D12BallGame, Formation, team_display_name
+from d12ball.formatting import (
+    ROLE_INITIALS,
+    ball_space_label,
+    contest_noun,
+    destination_display_name,
+    format_player_with_team,
+    format_team_side_label,
+    space_label,
+    travel_space_label,
+)
+from d12ball.game import AIOpponent, D12BallGame, Formation, Team, team_display_name
+from d12ball.render import TEAM_COLORS, ChallengeSide
 
 
 # The halftime sequence's stages, in order -- see
@@ -1084,3 +1105,445 @@ class RulesEngine:
         if side is None:
             return None
         return [match.setup_for_side(side)]
+
+    def high_pass_destination_note(
+        self, match: MatchState, distance: int,
+    ) -> str:
+        """
+        What a High Pass of `distance` would find waiting, for
+        HighPassChoiceView's buttons -- the space it lands on plus the
+        first teammate standing there, or that there is none. A coach
+        choosing a distance is choosing a destination, and "3 spaces"
+        alone does not say whether anybody of theirs is there to catch
+        it.
+        """
+        offense_side = match.ball.possession
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        target_flat = match.relative_flat_index(
+            origin_flat, offense_side, distance,
+        )
+        zone, space_index = match.board.position_at_flat_index(target_flat)
+        offense_players = set(
+            match.setup_for_side(offense_side).field_players,
+        )
+        occupants = [
+            player_id
+            for player_id in match.board.spaces[zone][space_index]
+            if player_id in offense_players
+            and player_id != match.active_player_id
+        ]
+        if not occupants:
+            return "no teammate"
+        teammate = self.get_player_definition(occupants[0])
+        role_initial = ROLE_INITIALS[teammate.role.value]
+        return (
+            f"{space_label(zone, space_index)}-{teammate.name} "
+            f"[{role_initial}]"
+        )
+
+    def build_loose_ball_prompt(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> str:
+        """
+        Who is being asked, and for what.
+
+        It names the space as well as the contest, because this prompt
+        outlives the message that announced it: `/d12ball resume` puts
+        it back up on its own, and a restart re-arms it wherever it is
+        in the channel.
+        """
+        skill_type = self.loose_ball_side_on_the_clock(match)
+        number = (
+            self.possession_player_number(game, match)
+            if skill_type == "offense"
+            else self.defending_player_number(game, match)
+        )
+        mention = format_player_with_team(game, number, mention=True)
+        noun = contest_noun(match)
+        where = ball_space_label(match)
+        if skill_type == "offense":
+            return (
+                f"{mention}, you had the ball -- send the nearest player "
+                f"either side of the {noun} on {where}, or send nobody:"
+            )
+        return (
+            f"{mention}, choose who contests the {noun} on {where}, "
+            "or send nobody:"
+        )
+
+    def apply_formation(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        formation: Formation,
+    ) -> str:
+        """Switch a side into `formation` and describe where they land."""
+        side = TeamSide(side)
+        placement = self.formation_placement(match, side, formation)
+        match.deploy_side(side, placement)
+
+        setup = match.setup_for_side(side)
+        lines = [
+            f"**{format_team_side_label(setup)} switch to "
+            f"{formation.value}.** Best defenders furthest back; "
+            "rearranging costs no exhaustion."
+        ]
+        for area in SETUP_AREAS:
+            zone = zone_for_area(side, area)
+            names = ", ".join(
+                f"{self.format_roster_player(player_id)} "
+                f"({space_label(zone, space_index)})"
+                for player_id, placed_zone, space_index in placement
+                if placed_zone == zone
+            )
+            lines.append(
+                f"{destination_display_name(zone.value)}: {names}"
+            )
+        return "\n".join(lines)
+
+    def coaching_title(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> str:
+        """The line drawn across the top of a coach's own half-field."""
+        setup = match.setup_for_side(side)
+        formation = self.current_formation(match, side)
+        shape = f" - {formation.value}" if formation else ""
+        return f"{format_team_side_label(setup)}{shape}"
+
+    def coaching_prompt(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        note: str = "",
+        lead_in: str = "",
+    ) -> str:
+        """
+        The text above the coaching image. Rebuilt on every step, so
+        `note` is whatever that step has to say -- the question it is
+        asking, or what the last action did.
+        """
+        side = TeamSide(side)
+        setup = match.setup_for_side(side)
+        controller_id = self.side_controller_id(game, side)
+        mention = f"<@{controller_id}>" if controller_id else "Someone"
+        header = (
+            f"{mention}, **{format_team_side_label(setup)}** -- "
+            f"{self.substitution_allowance_label(match)}."
+        )
+        return "\n".join(
+            part
+            for part in (lead_in, "# Coaching Choice", header, note)
+            if part
+        )
+
+    def coaching_finish_refusal(
+        self,
+        match: MatchState,
+        side: TeamSide,
+    ) -> Optional[str]:
+        """
+        Why this side may not finish yet, or None. The only thing that
+        can hold a coach in the flow is the kickoff space: **every
+        arrangement covers its own side's** (see "Coaching Choice" in
+        docs/living-rules.md), and nothing else in a Coaching Choice
+        guarantees it.
+
+        It used to be asked of the side kicking off the coming period,
+        at setup and halftime alone. It is asked of both sides at every
+        occasion that positions anybody, because it is now a property
+        of an arrangement rather than of a kickoff -- which is what
+        lets a goal restart without the conceding side dropping
+        somebody back and paying for it. A window that positions
+        nothing (full time) has no arrangement to hold to it.
+
+        On board 6 the two sides kick off from different midfield
+        spaces, so this asks each about their own; on 7 and 9 it is one
+        space and both have to cover it.
+        """
+        side = TeamSide(side)
+        occasion = match.coaching_occasion
+        if occasion is None or not occasion.offers_positioning:
+            return None
+        if match.kickoff_space_occupied_by(side):
+            return None
+        return (
+            "Every arrangement has to cover its own kickoff space, so "
+            f"{side.value} need a player on "
+            f"{space_label(Zone.MIDFIELD, match.kickoff_space_for(side))} "
+            "before finishing."
+        )
+
+    def cede_confirmation(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> str:
+        """
+        What the coach is agreeing to, in place of the turn prompt --
+        see CedeConfirmView. Everything it names is a cost or a
+        consequence the button label has no room for: who gets the
+        ball, where, that the declaration goes with it, and that the
+        other coach is handed a window of their own on the back of it.
+        """
+        receiving = format_team_side_label(
+            match.setup_for_side(match.defending_side())
+        )
+        lines = [
+            "# Cede the ball?",
+            f"{receiving} take possession at "
+            f"{space_label(match.ball.zone, match.ball.space_index)}, where "
+            "it stands, and you open a Coaching Choice -- formation, "
+            "substitutions, zone assignment, space positioning, free of "
+            "exhaustion.",
+            "It uses up your Coaching Choice for this half, and "
+            f"{receiving} get one of their own to answer it.",
+        ]
+        if match.scoreboard.last_possession:
+            # The one case where the coaching never happens: a turnover
+            # under last possession is the end of the period, and
+            # ceding is a turnover.
+            lines.append(
+                "**This is last possession, so this ends the period "
+                "instead -- neither side gets to coach.**"
+            )
+        return "\n".join(lines)
+
+    def describe_run_back_options(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        player_id: str,
+    ) -> str:
+        """The spaces `player_id` may run back to in their own zone,
+        with what each costs -- so the coach sees every option up
+        front, alongside the buttons that offer the same choice and
+        carry the same labels."""
+        zone = match.setup_for_side(side).assigned_zone(player_id)
+        spaces = match.placement_spaces_in_zone(side, zone, player_id)
+        if not spaces:
+            return "No space in their zone."
+        options = ", ".join(
+            travel_space_label(
+                zone, index, match.run_back_distance(player_id, zone, index),
+            )
+            for index in spaces
+        )
+        return f"Options: {options} — one exhaustion token per space."
+
+    def shootout_mentions(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        sides: list[TeamSide],
+    ) -> str:
+        """Whoever a shootout step is still waiting on, named."""
+        parts = []
+        for side in sides:
+            controller_id = self.side_controller_id(game, side)
+            parts.append(
+                f"<@{controller_id}>"
+                if controller_id
+                else format_team_side_label(match.setup_for_side(side))
+            )
+        return " and ".join(parts) or "Someone"
+
+    def shootout_button_label(
+        self,
+        match: Optional[MatchState],
+        player_id: str,
+    ) -> str:
+        """
+        One player, on a button in the shootout's ephemeral menus. The
+        offensive skill is the whole of what a coach is choosing on --
+        it is the only modifier a shootout roll adds -- so it is on
+        the label rather than a card the coach has to go and find.
+        """
+        player = self.get_player_definition(player_id)
+        role = ROLE_INITIALS[player.role.value]
+        if match is not None and player_id in match.injured:
+            return f"{player.name} [{role}] injured"
+        offense = self.player_catalog.effective_profile(player).offense
+        return f"{player.name} [{role}] +{offense}"
+
+    def challenge_side(
+        self,
+        player_id: str,
+        team: Team,
+        attacking: bool,
+        modifiers: tuple[str, ...] = (),
+        contribution: Optional[int] = None,
+        halved: bool = False,
+    ) -> ChallengeSide:
+        """
+        A player as a matchup image draws them. The ability is the
+        short form: this is a caption under a portrait, next to
+        another player's, and the sentence version wrapped to three
+        lines and set the height of the whole image. The full text is
+        still what the roster and the rules listing show.
+
+        `contribution` and `halved` are a score attempt's defenders
+        only -- everyone else adds their whole skill and is drawn
+        without a word about it. `team` is which of the player's two
+        rosters this match is fielding them as -- read by both callers
+        off `match.team_for_player`, since a player's own definition no
+        longer carries one.
+        """
+        player = self.get_player_definition(player_id)
+        profile = self.player_catalog.effective_profile(player)
+        return ChallengeSide(
+            name=player.name,
+            role=ROLE_INITIALS[player.role.value],
+            team_color=TEAM_COLORS[Team(team)],
+            team_label=team_display_name(team),
+            skill_name="Offensive" if attacking else "Defensive",
+            skill=profile.offense if attacking else profile.defense,
+            ability=profile.short_ability,
+            modifiers=modifiers,
+            contribution=contribution,
+            halved=halved,
+        )
+
+    def format_roster_player(self, player_id: str) -> str:
+        player = self.get_player_definition(player_id)
+        initials = ROLE_INITIALS[player.role.value]
+        return f"{player.name} ({initials})"
+
+    def format_roster_player_with_team(
+        self, player_id: str, team: Team,
+    ) -> str:
+        player = self.get_player_definition(player_id)
+        initials = ROLE_INITIALS[player.role.value]
+        return f"{player.name} ({team_display_name(team)}, {initials})"
+
+    def roster_places(
+        self,
+        match: MatchState,
+        setup: TeamSetup,
+    ) -> list[tuple[str, list[tuple[str, Optional[str]]]]]:
+        """
+        The team's roster grouped by where its players actually are:
+        each board zone in board order, then the bench, then the back
+        bench. Each group is (heading, [(player_id, space label or
+        None)]), with the players inside a zone ordered by space.
+
+        Grouped by the meeple's *current* zone rather than the zone its
+        card is assigned to, because that is where the player is -- a
+        maneuver can leave a player standing outside their zone until
+        they run back (see MatchState.displaced_players). Every roster
+        player appears exactly once: anyone without a meeple falls
+        through to whichever bench holds them.
+        """
+        # Keyed by card id, not by the catalog's: this side may be
+        # holding the duplicate of a player the other side fields, and
+        # its meeple is on the board under that id. See "One player,
+        # both sides" in CLAUDE.md.
+        roster_order = {
+            setup.card_id_for(player.player_id): index
+            for index, player in enumerate(
+                self.player_catalog.teams[setup.team].players
+            )
+        }
+        placed: dict[Zone, list[tuple[int, int, str]]] = {
+            zone: [] for zone in Zone
+        }
+        for player_id in roster_order:
+            position = match.board.meeple_position(player_id)
+            if position is None:
+                continue
+            zone, space_index = position
+            placed[zone].append(
+                (space_index, roster_order[player_id], player_id)
+            )
+
+        on_board = {
+            player_id
+            for occupants in placed.values()
+            for _, _, player_id in occupants
+        }
+        groups: list[tuple[str, list[tuple[str, Optional[str]]]]] = [
+            (
+                destination_display_name(zone.value),
+                [
+                    (player_id, space_label(zone, space_index))
+                    for space_index, _, player_id in sorted(placed[zone])
+                ],
+            )
+            for zone in Zone
+        ]
+        for bench, benched in (
+            ("bench", setup.team_board.bench),
+            ("back_bench", setup.team_board.back_bench),
+        ):
+            groups.append(
+                (
+                    destination_display_name(bench),
+                    [
+                        (player_id, None)
+                        for player_id in benched
+                        if player_id not in on_board
+                    ],
+                )
+            )
+        return groups
+
+    def build_turn_prompt(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        carrying: bool = False,
+    ) -> str:
+        player_number = self.possession_player_number(game, match)
+        controller = format_player_with_team(
+            game,
+            player_number,
+            mention=player_number is not None,
+        )
+
+        if match.active_player_id is None:
+            return (
+                f"{controller}, it is your turn.\n\n"
+                "Choose which player in the ball's space will take "
+                "an action."
+            )
+
+        handler = self.format_roster_player(match.active_player_id)
+        # `carrying` is passed in rather than read off the match:
+        # select_ball_handler has already consumed ball_carrier_id by
+        # the time the prompt is built, so only the caller that did the
+        # selecting still knows the handler was forced.
+        handler_line = (
+            f"The ball was left with {handler}, who takes this turn."
+            if carrying
+            else f"{handler} will be handling the ball."
+        )
+        # PlayerActionView drops the shoot button short of shooting
+        # range and offers the cede in its place, so say why rather
+        # than leaving a coach to wonder where either went. The two are
+        # the same read: out of range is exactly when ceding is on
+        # offer, and the only thing that can take it away as well is a
+        # declaration already spent.
+        if match.can_attempt_score():
+            action_line = "Choose an action:"
+        elif match.may_cede_possession():
+            action_line = (
+                "The ball is out of shooting range, so there is no shot "
+                "from here. Maneuver, or cede the ball to coach:"
+            )
+        else:
+            action_line = (
+                "The ball is out of shooting range and your side has "
+                "already called its Coaching Choice this half, so there "
+                "is no shot and no cede -- only a maneuver:"
+            )
+        return (
+            f"{controller}, it is your turn.\n\n"
+            f"{handler_line}\n\n"
+            f"{action_line}"
+        )

@@ -514,7 +514,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
             TeamSide.VISITING, CoachingOccasion.HALFTIME,
         )
 
-        refusal = cog.coaching_finish_refusal(match, TeamSide.VISITING)
+        refusal = cog.engine.coaching_finish_refusal(match, TeamSide.VISITING)
 
         self.assertIsNotNone(refusal)
         self.assertIn("kickoff space", refusal)
@@ -530,7 +530,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
 
         self.assertIsNone(
-            cog.coaching_finish_refusal(match, TeamSide.HOME),
+            cog.engine.coaching_finish_refusal(match, TeamSide.HOME),
         )
 
         home_kickoff = match.kickoff_space_for(TeamSide.HOME)
@@ -540,7 +540,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
                 match.move_meeple(player_id, Zone.MIDFIELD, other)
 
         self.assertIsNotNone(
-            cog.coaching_finish_refusal(match, TeamSide.HOME),
+            cog.engine.coaching_finish_refusal(match, TeamSide.HOME),
         )
 
     def test_a_new_play_s_window_is_held_to_it_too(self) -> None:
@@ -553,7 +553,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertIsNotNone(
-            cog.coaching_finish_refusal(match, TeamSide.VISITING),
+            cog.engine.coaching_finish_refusal(match, TeamSide.VISITING),
         )
 
     def test_the_full_time_window_positions_nobody_and_holds_nobody(
@@ -566,7 +566,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertIsNone(
-            cog.coaching_finish_refusal(match, TeamSide.VISITING),
+            cog.engine.coaching_finish_refusal(match, TeamSide.VISITING),
         )
 
     def test_an_ai_visiting_side_covers_it_itself(self) -> None:
@@ -584,7 +584,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         # And whoever moved is a midfielder by assignment, so the move
         # stayed inside their own zone the way positioning has to.
         self.assertIsNone(
-            cog.coaching_finish_refusal(match, TeamSide.VISITING),
+            cog.engine.coaching_finish_refusal(match, TeamSide.VISITING),
         )
 
     def test_a_covered_space_is_left_alone(self) -> None:

@@ -24,11 +24,12 @@ python3 -m unittest discover -s tests
 | `discord_emoji_cache.py` | The cache-with-cooldown shape shared by every cog's application-emoji lookup (`cogs/coins.py`, `cogs/d12ball.py`) -- not what each cog loads, only the retry timing |
 | `botlog/` | Console logging setup, and the #logs channel mirror — see below |
 | `cogs/d12ball.py` | All D12 Ball slash commands and Discord interaction flow |
-| `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming |
+| `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming. Re-imports and re-exports everything `d12ball/formatting.py` holds, so an existing `from cogs.d12ball_helpers import space_label` keeps working; what stayed here needs an emoji dict or discord.py itself. |
 | `cogs/d12ball_views.py` | The `discord.ui.View` classes, one per prompt a player can be shown. `SafeView.load_match`/`require_match` are the shared "get the game and its match, or bail" lookup nearly every view opens with (silent for `__init__`, replying for a callback); `SafeView.is_game_participant` is the shared "is this one of the two coaches" check a roll button's `.roll` answers to. Both replaced call-site-by-call-site copies of themselves. |
 | `cogs/debug.py` | Maintenance commands, including the PBD channel-and-count reset |
 | `d12ball/components.py` | Game state model — `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog` |
-| `d12ball/engine.py` | `RulesEngine` — the cog's decisions and candidate lists that never touch Discord, over a fixed player catalog/ruleset/maneuver catalog/AI strategies. `D12Ball.engine` is the one instance a cog builds; every call site reads `self.engine.foo(...)` (or `self.cog.engine.foo(...)` from a view) instead of `self.foo(...)`. |
+| `d12ball/engine.py` | `RulesEngine` — the cog's decisions and candidate lists that never touch Discord, over a fixed player catalog/ruleset/maneuver catalog/AI strategies. `D12Ball.engine` is the one instance a cog builds; every call site reads `self.engine.foo(...)` (or `self.cog.engine.foo(...)` from a view) instead of `self.foo(...)`. Includes prompt-text and matchup-data builders (`build_turn_prompt`, `challenge_side`, ...) that are presentation but need nothing beyond the match and the catalogs -- no emoji dict, no cog. |
+| `d12ball/formatting.py` | Plain-text formatting over match/game/zone data with no Discord dependency -- space codes, team-side labels, player names. `cogs/d12ball_helpers.py` re-exports all of it; `d12ball/engine.py` imports it directly for the prompt/matchup builders above. |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board image rendering (Pillow) |
 | `d12ball/cards.py` | The six maneuvers as cards — the printed face and the hand the bot shows |

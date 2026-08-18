@@ -1140,7 +1140,7 @@ class BallHandlerSelectionView(SafeView):
 
         if match.active_player_id is not None:
             await interaction.response.edit_message(
-                content=self.cog.build_turn_prompt(game, match),
+                content=self.cog.engine.build_turn_prompt(game, match),
                 view=PlayerActionView(self.cog, self.game_id),
             )
             await interaction.followup.send(
@@ -1173,7 +1173,7 @@ class BallHandlerSelectionView(SafeView):
         game.match_state = match.to_dict()
         save_games(self.cog.games)
         await interaction.response.edit_message(
-            content=self.cog.build_turn_prompt(game, match),
+            content=self.cog.engine.build_turn_prompt(game, match),
             view=PlayerActionView(self.cog, self.game_id),
         )
 
@@ -1333,7 +1333,7 @@ class PlayerActionView(SafeView):
                 return
 
             await interaction.response.edit_message(
-                content=self.cog.cede_confirmation(game, match),
+                content=self.cog.engine.cede_confirmation(game, match),
                 view=CedeConfirmView(
                     self.cog, self.game_id, interaction.message.content,
                 ),
@@ -1627,7 +1627,7 @@ class ManeuverChallengeView(SafeView):
 
         if match.challenger_id is not None or match.maneuver_uncontested:
             await interaction.response.edit_message(
-                content=self.cog.build_turn_prompt(game, match),
+                content=self.cog.engine.build_turn_prompt(game, match),
                 view=PlayerActionView(self.cog, self.game_id),
             )
             await interaction.followup.send(
@@ -2850,7 +2850,7 @@ class HighPassChoiceView(SafeView):
 
         for distance in cog.engine.high_pass_distance_options(match):
             ability_note = " (Fullback ability)" if distance == 4 else ""
-            destination_note = cog.high_pass_destination_note(match, distance)
+            destination_note = cog.engine.high_pass_destination_note(match, distance)
             button = discord.ui.Button(
                 label=(
                     f"{distance} spaces{ability_note} ({destination_note})"
@@ -3563,7 +3563,7 @@ class CoachingView(SafeView):
         steps -- opening a submenu changes nothing on the board.
         """
         payload = {
-            "content": self.cog.coaching_prompt(
+            "content": self.cog.engine.coaching_prompt(
                 game, match, self.side(match), note,
             ),
             "view": view,
@@ -3629,7 +3629,7 @@ class CoachingView(SafeView):
         if with_space:
             position = match.board.meeple_position(player_id)
             where = space_label(*position) if position else where
-        return f"{self.cog.format_roster_player(player_id)} - {where}"[:80]
+        return f"{self.cog.engine.format_roster_player(player_id)} - {where}"[:80]
 
 
 class CoachingOfferView(CoachingView):
@@ -3888,7 +3888,7 @@ class CoachingHubView(CoachingView):
             return
 
         side = self.side(match)
-        refusal = self.cog.coaching_finish_refusal(match, side)
+        refusal = self.cog.engine.coaching_finish_refusal(match, side)
         if refusal is not None:
             await interaction.response.send_message(refusal, ephemeral=True)
             return
@@ -3976,7 +3976,7 @@ class CoachingFormationView(CoachingView):
             return
 
         try:
-            note = self.cog.apply_formation(
+            note = self.cog.engine.apply_formation(
                 match, self.side(match), formation,
             )
         except ValueError as error:
@@ -4078,7 +4078,7 @@ class CoachingSubstitutionInView(CoachingView):
 
         for player_id in match.substitution_pool(self.side(match)):
             button = discord.ui.Button(
-                label=cog.format_roster_player(player_id)[:80],
+                label=cog.engine.format_roster_player(player_id)[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:coach_sub_on:{game_id}:{player_id}",
             )
@@ -4408,7 +4408,7 @@ class CoachingPlaceSwapView(CoachingView):
             self.side(match), player_id, space_index,
         ):
             button = discord.ui.Button(
-                label=self.cog.format_roster_player(other_id)[:80],
+                label=self.cog.engine.format_roster_player(other_id)[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:coach_place_swap:{game_id}:{other_id}"
@@ -4513,7 +4513,7 @@ class HalftimeExtraTokenView(HalftimeView):
             if player_id in match.injured:
                 continue
             tokens = match.exhaustion.get(player_id, 0)
-            label = f"{cog.format_roster_player(player_id)} ({tokens})"
+            label = f"{cog.engine.format_roster_player(player_id)} ({tokens})"
             button = discord.ui.Button(
                 label=label[:80],
                 style=discord.ButtonStyle.secondary,
@@ -4739,7 +4739,7 @@ class LooseBallChoiceView(SafeView):
             return
 
         prompt_message = await interaction.followup.send(
-            self.cog.build_loose_ball_prompt(game, match),
+            self.cog.engine.build_loose_ball_prompt(game, match),
             view=self.cog.build_loose_ball_view(self.game_id, match),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -5249,7 +5249,7 @@ class ShootoutOrderSelectView(SafeView):
 
         for player_id in remaining:
             button = discord.ui.Button(
-                label=cog.shootout_button_label(match, player_id),
+                label=cog.engine.shootout_button_label(match, player_id),
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:shootout_order:{game_id}:"
@@ -5453,7 +5453,7 @@ class ShootoutPickSelectView(SafeView):
 
         for player_id in eligible:
             button = discord.ui.Button(
-                label=cog.shootout_button_label(match, player_id),
+                label=cog.engine.shootout_button_label(match, player_id),
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:shootout_pick:{game_id}:"

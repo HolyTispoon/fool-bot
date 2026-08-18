@@ -147,13 +147,13 @@ class CedeOfferTests(unittest.TestCase):
         cog.games[game.game_id] = game
 
         self.assertIn(
-            "cede the ball to coach", cog.build_turn_prompt(game, match),
+            "cede the ball to coach", cog.engine.build_turn_prompt(game, match),
         )
 
         match.declared_substitution.add(TeamSide.HOME.value)
         self.assertIn(
             "already called its Coaching Choice this half",
-            cog.build_turn_prompt(game, match),
+            cog.engine.build_turn_prompt(game, match),
         )
 
     def test_the_button_goes_with_the_declaration(self) -> None:

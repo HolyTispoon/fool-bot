@@ -474,12 +474,12 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
 
         # The standard deal already covers it, so nothing holds them.
         self.assertIsNone(
-            cog.coaching_finish_refusal(match, TeamSide.HOME),
+            cog.engine.coaching_finish_refusal(match, TeamSide.HOME),
         )
         # The visitors do not kick off the first half, so they are
         # never held here whatever they do.
         self.assertIsNone(
-            cog.coaching_finish_refusal(match, TeamSide.VISITING),
+            cog.engine.coaching_finish_refusal(match, TeamSide.VISITING),
         )
 
         for player_id in list(
@@ -492,7 +492,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
                 )
 
         self.assertIsNotNone(
-            cog.coaching_finish_refusal(match, TeamSide.HOME),
+            cog.engine.coaching_finish_refusal(match, TeamSide.HOME),
         )
 
     async def test_an_ai_side_passes_through_without_a_message(
@@ -558,7 +558,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
     def test_the_shape_is_reported_as_the_change_it_was(self) -> None:
         cog, _, match = self.build()
 
-        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
+        cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
 
         self.assertEqual(
             cog.coaching_summary(match, TeamSide.HOME),
@@ -572,8 +572,8 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         # through: it is read against the shape the side opened in.
         cog, _, match = self.build()
 
-        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
-        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_TWO_TWO)
+        cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
+        cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_TWO_TWO)
 
         self.assertEqual(cog.coaching_summary(match, TeamSide.HOME), [])
 
@@ -639,7 +639,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         # A restart mid-window resumes the same Coaching Choice, so it
         # has to close with what the coach did before the restart.
         cog, _, match = self.build()
-        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
+        cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
         outgoing = match.home.field_players[0]
         incoming = match.home.team_board.bench[0]
         cog.apply_substitution(match, TeamSide.HOME, outgoing, incoming)

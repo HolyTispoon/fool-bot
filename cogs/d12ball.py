@@ -54,7 +54,6 @@ from d12ball.cards import render_maneuver_hand
 from d12ball.render import (
     TEAM_COLORS,
     ZONE_LABELS,
-    ChallengeSide,
     render_coaching_image,
     render_field_image,
     render_injury_test_die,
@@ -87,7 +86,6 @@ from cogs.d12ball_helpers import (
     LOGGER,
     PBD_ARCHIVE_CATEGORY_NAME,
     PBD_GAMES_CATEGORY_NAME,
-    ROLE_INITIALS,
     add_full_image_button,
     add_full_image_button_to_response,
     ball_location_line,
@@ -121,7 +119,6 @@ from cogs.d12ball_helpers import (
     send_error_fallback,
     space_choices,
     space_label,
-    travel_space_label,
 )
 from cogs.d12ball_views import (
     BallHandlerSelectionView,
@@ -1893,42 +1890,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     # -- High Pass -----------------------------------------------------
 
 
-    def high_pass_destination_note(
-        self, match: MatchState, distance: int,
-    ) -> str:
-        """
-        What a High Pass of `distance` would find waiting, for
-        HighPassChoiceView's buttons -- the space it lands on plus the
-        first teammate standing there, or that there is none. A coach
-        choosing a distance is choosing a destination, and "3 spaces"
-        alone does not say whether anybody of theirs is there to catch
-        it.
-        """
-        offense_side = match.ball.possession
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
-        target_flat = match.relative_flat_index(
-            origin_flat, offense_side, distance,
-        )
-        zone, space_index = match.board.position_at_flat_index(target_flat)
-        offense_players = set(
-            match.setup_for_side(offense_side).field_players,
-        )
-        occupants = [
-            player_id
-            for player_id in match.board.spaces[zone][space_index]
-            if player_id in offense_players
-            and player_id != match.active_player_id
-        ]
-        if not occupants:
-            return "no teammate"
-        teammate = self.engine.get_player_definition(occupants[0])
-        role_initial = ROLE_INITIALS[teammate.role.value]
-        return (
-            f"{space_label(zone, space_index)}-{teammate.name} "
-            f"[{role_initial}]"
-        )
 
     async def resolve_high_pass(
         self,
@@ -2434,37 +2395,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match,
         )
 
-    def build_loose_ball_prompt(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> str:
-        """
-        Who is being asked, and for what.
-
-        It names the space as well as the contest, because this prompt
-        outlives the message that announced it: `/d12ball resume` puts
-        it back up on its own, and a restart re-arms it wherever it is
-        in the channel.
-        """
-        skill_type = self.engine.loose_ball_side_on_the_clock(match)
-        number = (
-            self.engine.possession_player_number(game, match)
-            if skill_type == "offense"
-            else self.engine.defending_player_number(game, match)
-        )
-        mention = format_player_with_team(game, number, mention=True)
-        noun = contest_noun(match)
-        where = ball_space_label(match)
-        if skill_type == "offense":
-            return (
-                f"{mention}, you had the ball -- send the nearest player "
-                f"either side of the {noun} on {where}, or send nobody:"
-            )
-        return (
-            f"{mention}, choose who contests the {noun} on {where}, "
-            "or send nobody:"
-        )
 
     async def begin_loose_ball(
         self,
@@ -2542,7 +2472,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         prompt_message = await interaction.followup.send(
-            self.build_loose_ball_prompt(game, match),
+            self.engine.build_loose_ball_prompt(game, match),
             view=self.build_loose_ball_view(game.game_id, match),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -3435,35 +3365,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
 
 
-    def apply_formation(
-        self,
-        match: MatchState,
-        side: TeamSide,
-        formation: Formation,
-    ) -> str:
-        """Switch a side into `formation` and describe where they land."""
-        side = TeamSide(side)
-        placement = self.engine.formation_placement(match, side, formation)
-        match.deploy_side(side, placement)
-
-        setup = match.setup_for_side(side)
-        lines = [
-            f"**{format_team_side_label(setup)} switch to "
-            f"{formation.value}.** Best defenders furthest back; "
-            "rearranging costs no exhaustion."
-        ]
-        for area in SETUP_AREAS:
-            zone = zone_for_area(side, area)
-            names = ", ".join(
-                f"{self.format_roster_player(player_id)} "
-                f"({space_label(zone, space_index)})"
-                for player_id, placed_zone, space_index in placement
-                if placed_zone == zone
-            )
-            lines.append(
-                f"{destination_display_name(zone.value)}: {names}"
-            )
-        return "\n".join(lines)
 
 
     def apply_reposition(
@@ -3499,16 +3400,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "place. No exhaustion cost."
         )
 
-    def coaching_title(
-        self,
-        match: MatchState,
-        side: TeamSide,
-    ) -> str:
-        """The line drawn across the top of a coach's own half-field."""
-        setup = match.setup_for_side(side)
-        formation = self.engine.current_formation(match, side)
-        shape = f" - {formation.value}" if formation else ""
-        return f"{format_team_side_label(setup)}{shape}"
 
     async def coaching_file(
         self,
@@ -3527,7 +3418,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match,
             self.player_catalog,
             side,
-            self.coaching_title(match, side),
+            self.engine.coaching_title(match, side),
         )
         return discord.File(
             io.BytesIO(png.getvalue()),
@@ -3648,7 +3539,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             note += f"\n{injured} {verb} injured and still on the field."
 
         prompt = await interaction.followup.send(
-            self.coaching_prompt(game, match, side, note, lead_in=lead_in),
+            self.engine.coaching_prompt(game, match, side, note, lead_in=lead_in),
             file=await self.coaching_file(game, match, side),
             view=(
                 CoachingOfferView(self, game.game_id)
@@ -3700,7 +3591,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else CoachingOfferView(self, game.game_id)
         )
         prompt = await interaction.followup.send(
-            self.coaching_prompt(
+            self.engine.coaching_prompt(
                 game,
                 match,
                 side,
@@ -3806,70 +3697,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         save_games(self.games)
         return "a choice, re-posted above"
 
-    def coaching_prompt(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        side: TeamSide,
-        note: str = "",
-        lead_in: str = "",
-    ) -> str:
-        """
-        The text above the coaching image. Rebuilt on every step, so
-        `note` is whatever that step has to say -- the question it is
-        asking, or what the last action did.
-        """
-        side = TeamSide(side)
-        setup = match.setup_for_side(side)
-        controller_id = self.engine.side_controller_id(game, side)
-        mention = f"<@{controller_id}>" if controller_id else "Someone"
-        header = (
-            f"{mention}, **{format_team_side_label(setup)}** -- "
-            f"{self.engine.substitution_allowance_label(match)}."
-        )
-        return "\n".join(
-            part
-            for part in (lead_in, "# Coaching Choice", header, note)
-            if part
-        )
 
 
-    def coaching_finish_refusal(
-        self,
-        match: MatchState,
-        side: TeamSide,
-    ) -> Optional[str]:
-        """
-        Why this side may not finish yet, or None. The only thing that
-        can hold a coach in the flow is the kickoff space: **every
-        arrangement covers its own side's** (see "Coaching Choice" in
-        docs/living-rules.md), and nothing else in a Coaching Choice
-        guarantees it.
-
-        It used to be asked of the side kicking off the coming period,
-        at setup and halftime alone. It is asked of both sides at every
-        occasion that positions anybody, because it is now a property
-        of an arrangement rather than of a kickoff -- which is what
-        lets a goal restart without the conceding side dropping
-        somebody back and paying for it. A window that positions
-        nothing (full time) has no arrangement to hold to it.
-
-        On board 6 the two sides kick off from different midfield
-        spaces, so this asks each about their own; on 7 and 9 it is one
-        space and both have to cover it.
-        """
-        side = TeamSide(side)
-        occasion = match.coaching_occasion
-        if occasion is None or not occasion.offers_positioning:
-            return None
-        if match.kickoff_space_occupied_by(side):
-            return None
-        return (
-            "Every arrangement has to cover its own kickoff space, so "
-            f"{side.value} need a player on "
-            f"{space_label(Zone.MIDFIELD, match.kickoff_space_for(side))} "
-            "before finishing."
-        )
 
     def coaching_summary(
         self,
@@ -3995,7 +3824,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         is.
         """
         side = TeamSide(side)
-        if self.coaching_finish_refusal(match, side) is None:
+        if self.engine.coaching_finish_refusal(match, side) is None:
             return None
 
         setup = match.setup_for_side(side)
@@ -4128,40 +3957,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     # -- Ceding the ball to coach --------------------------------------
 
-    def cede_confirmation(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> str:
-        """
-        What the coach is agreeing to, in place of the turn prompt --
-        see CedeConfirmView. Everything it names is a cost or a
-        consequence the button label has no room for: who gets the
-        ball, where, that the declaration goes with it, and that the
-        other coach is handed a window of their own on the back of it.
-        """
-        receiving = format_team_side_label(
-            match.setup_for_side(match.defending_side())
-        )
-        lines = [
-            "# Cede the ball?",
-            f"{receiving} take possession at "
-            f"{space_label(match.ball.zone, match.ball.space_index)}, where "
-            "it stands, and you open a Coaching Choice -- formation, "
-            "substitutions, zone assignment, space positioning, free of "
-            "exhaustion.",
-            "It uses up your Coaching Choice for this half, and "
-            f"{receiving} get one of their own to answer it.",
-        ]
-        if match.scoreboard.last_possession:
-            # The one case where the coaching never happens: a turnover
-            # under last possession is the end of the period, and
-            # ceding is a turnover.
-            lines.append(
-                "**This is last possession, so this ends the period "
-                "instead -- neither side gets to coach.**"
-            )
-        return "\n".join(lines)
 
     async def begin_cede(
         self,
@@ -4505,27 +4300,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
 
 
-    def describe_run_back_options(
-        self,
-        match: MatchState,
-        side: TeamSide,
-        player_id: str,
-    ) -> str:
-        """The spaces `player_id` may run back to in their own zone,
-        with what each costs -- so the coach sees every option up
-        front, alongside the buttons that offer the same choice and
-        carry the same labels."""
-        zone = match.setup_for_side(side).assigned_zone(player_id)
-        spaces = match.placement_spaces_in_zone(side, zone, player_id)
-        if not spaces:
-            return "No space in their zone."
-        options = ", ".join(
-            travel_space_label(
-                zone, index, match.run_back_distance(player_id, zone, index),
-            )
-            for index in spaces
-        )
-        return f"Options: {options} — one exhaustion token per space."
 
     def run_back_space_prompt(
         self,
@@ -4547,7 +4321,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return (
             f"{mention}, choose where "
             f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} runs back "
-            f"to:\n{self.describe_run_back_options(match, side, player_id)}"
+            f"to:\n{self.engine.describe_run_back_options(match, side, player_id)}"
         )
 
     def run_back_player_prompt(
@@ -5743,7 +5517,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             interaction,
             game,
             match,
-            f"{self.shootout_mentions(game, match, owing)}: set the "
+            f"{self.engine.shootout_mentions(game, match, owing)}: set the "
             "order your six players shoot in. Nobody else sees it.",
             ShootoutOrderPromptView(self, game.game_id),
             # Nobody has shot, so the usual "skill test 1 of 6, 0 — 0"
@@ -5790,7 +5564,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             interaction,
             game,
             match,
-            f"{self.shootout_mentions(game, match, owing)}: choose who "
+            f"{self.engine.shootout_mentions(game, match, owing)}: choose who "
             "goes out next, from the players who have not shot yet "
             "this round. Nobody else sees it until the reveal.",
             ShootoutPickPromptView(self, game.game_id),
@@ -5816,42 +5590,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt.id
         save_games(self.games)
 
-    def shootout_mentions(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        sides: list[TeamSide],
-    ) -> str:
-        """Whoever a shootout step is still waiting on, named."""
-        parts = []
-        for side in sides:
-            controller_id = self.engine.side_controller_id(game, side)
-            parts.append(
-                f"<@{controller_id}>"
-                if controller_id
-                else format_team_side_label(match.setup_for_side(side))
-            )
-        return " and ".join(parts) or "Someone"
 
 
 
-    def shootout_button_label(
-        self,
-        match: Optional[MatchState],
-        player_id: str,
-    ) -> str:
-        """
-        One player, on a button in the shootout's ephemeral menus. The
-        offensive skill is the whole of what a coach is choosing on --
-        it is the only modifier a shootout roll adds -- so it is on
-        the label rather than a card the coach has to go and find.
-        """
-        player = self.engine.get_player_definition(player_id)
-        role = ROLE_INITIALS[player.role.value]
-        if match is not None and player_id in match.injured:
-            return f"{player.name} [{role}] injured"
-        offense = self.player_catalog.effective_profile(player).offense
-        return f"{player.name} [{role}] +{offense}"
 
     def shootout_order_text(
         self,
@@ -6124,43 +5865,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"\n{self.describe_exhaustion_gain(match, defender_id, distance)}"
         )
 
-    def challenge_side(
-        self,
-        player_id: str,
-        team: Team,
-        attacking: bool,
-        modifiers: tuple[str, ...] = (),
-        contribution: Optional[int] = None,
-        halved: bool = False,
-    ) -> ChallengeSide:
-        """
-        A player as a matchup image draws them. The ability is the
-        short form: this is a caption under a portrait, next to
-        another player's, and the sentence version wrapped to three
-        lines and set the height of the whole image. The full text is
-        still what the roster and the rules listing show.
-
-        `contribution` and `halved` are a score attempt's defenders
-        only -- everyone else adds their whole skill and is drawn
-        without a word about it. `team` is which of the player's two
-        rosters this match is fielding them as -- read by both callers
-        off `match.team_for_player`, since a player's own definition no
-        longer carries one.
-        """
-        player = self.engine.get_player_definition(player_id)
-        profile = self.player_catalog.effective_profile(player)
-        return ChallengeSide(
-            name=player.name,
-            role=ROLE_INITIALS[player.role.value],
-            team_color=TEAM_COLORS[Team(team)],
-            team_label=team_display_name(team),
-            skill_name="Offensive" if attacking else "Defensive",
-            skill=profile.offense if attacking else profile.defense,
-            ability=profile.short_ability,
-            modifiers=modifiers,
-            contribution=contribution,
-            halved=halved,
-        )
 
     async def build_maneuver_challenge_file(
         self,
@@ -6179,12 +5883,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return discord.File(
             await asyncio.to_thread(
                 render_maneuver_challenge,
-                self.challenge_side(
+                self.engine.challenge_side(
                     match.active_player_id,
                     match.team_for_player(match.active_player_id),
                     attacking=True,
                 ),
-                self.challenge_side(
+                self.engine.challenge_side(
                     defender_id,
                     match.team_for_player(defender_id),
                     attacking=False,
@@ -6229,14 +5933,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return discord.File(
             await asyncio.to_thread(
                 render_score_attempt,
-                self.challenge_side(
+                self.engine.challenge_side(
                     shooter.player_id,
                     match.team_for_player(shooter.player_id),
                     attacking=True,
                     modifiers=tuple(modifiers),
                 ),
                 [
-                    self.challenge_side(
+                    self.engine.challenge_side(
                         defender.player.player_id,
                         match.team_for_player(defender.player.player_id),
                         attacking=False,
@@ -6691,17 +6395,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # anything it would take down with it.
             pass
 
-    def format_roster_player(self, player_id: str) -> str:
-        player = self.engine.get_player_definition(player_id)
-        initials = ROLE_INITIALS[player.role.value]
-        return f"{player.name} ({initials})"
 
-    def format_roster_player_with_team(
-        self, player_id: str, team: Team,
-    ) -> str:
-        player = self.engine.get_player_definition(player_id)
-        initials = ROLE_INITIALS[player.role.value]
-        return f"{player.name} ({team_display_name(team)}, {initials})"
 
     def format_team_roster_entry(
         self,
@@ -6740,76 +6434,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             entry += f"\n     *{ability}*"
         return entry
 
-    def roster_places(
-        self,
-        match: MatchState,
-        setup: TeamSetup,
-    ) -> list[tuple[str, list[tuple[str, Optional[str]]]]]:
-        """
-        The team's roster grouped by where its players actually are:
-        each board zone in board order, then the bench, then the back
-        bench. Each group is (heading, [(player_id, space label or
-        None)]), with the players inside a zone ordered by space.
-
-        Grouped by the meeple's *current* zone rather than the zone its
-        card is assigned to, because that is where the player is -- a
-        maneuver can leave a player standing outside their zone until
-        they run back (see MatchState.displaced_players). Every roster
-        player appears exactly once: anyone without a meeple falls
-        through to whichever bench holds them.
-        """
-        # Keyed by card id, not by the catalog's: this side may be
-        # holding the duplicate of a player the other side fields, and
-        # its meeple is on the board under that id. See "One player,
-        # both sides" in CLAUDE.md.
-        roster_order = {
-            setup.card_id_for(player.player_id): index
-            for index, player in enumerate(
-                self.player_catalog.teams[setup.team].players
-            )
-        }
-        placed: dict[Zone, list[tuple[int, int, str]]] = {
-            zone: [] for zone in Zone
-        }
-        for player_id in roster_order:
-            position = match.board.meeple_position(player_id)
-            if position is None:
-                continue
-            zone, space_index = position
-            placed[zone].append(
-                (space_index, roster_order[player_id], player_id)
-            )
-
-        on_board = {
-            player_id
-            for occupants in placed.values()
-            for _, _, player_id in occupants
-        }
-        groups: list[tuple[str, list[tuple[str, Optional[str]]]]] = [
-            (
-                destination_display_name(zone.value),
-                [
-                    (player_id, space_label(zone, space_index))
-                    for space_index, _, player_id in sorted(placed[zone])
-                ],
-            )
-            for zone in Zone
-        ]
-        for bench, benched in (
-            ("bench", setup.team_board.bench),
-            ("back_bench", setup.team_board.back_bench),
-        ):
-            groups.append(
-                (
-                    destination_display_name(bench),
-                    [
-                        (player_id, None)
-                        for player_id in benched
-                        if player_id not in on_board
-                    ],
-                )
-            )
-        return groups
 
 
     def build_team_roster_section(
@@ -6819,7 +6443,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         show_abilities: bool = False,
     ) -> str:
         lines = [f"**{format_team_side_label(setup)}**"]
-        for heading, members in self.roster_places(match, setup):
+        for heading, members in self.engine.roster_places(match, setup):
             lines.append(f"\n__{heading}__")
             if not members:
                 lines.append("*nobody*")
@@ -6835,60 +6459,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
         return "\n".join(lines)
 
-    def build_turn_prompt(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        carrying: bool = False,
-    ) -> str:
-        player_number = self.engine.possession_player_number(game, match)
-        controller = format_player_with_team(
-            game,
-            player_number,
-            mention=player_number is not None,
-        )
-
-        if match.active_player_id is None:
-            return (
-                f"{controller}, it is your turn.\n\n"
-                "Choose which player in the ball's space will take "
-                "an action."
-            )
-
-        handler = self.format_roster_player(match.active_player_id)
-        # `carrying` is passed in rather than read off the match:
-        # select_ball_handler has already consumed ball_carrier_id by
-        # the time the prompt is built, so only the caller that did the
-        # selecting still knows the handler was forced.
-        handler_line = (
-            f"The ball was left with {handler}, who takes this turn."
-            if carrying
-            else f"{handler} will be handling the ball."
-        )
-        # PlayerActionView drops the shoot button short of shooting
-        # range and offers the cede in its place, so say why rather
-        # than leaving a coach to wonder where either went. The two are
-        # the same read: out of range is exactly when ceding is on
-        # offer, and the only thing that can take it away as well is a
-        # declaration already spent.
-        if match.can_attempt_score():
-            action_line = "Choose an action:"
-        elif match.may_cede_possession():
-            action_line = (
-                "The ball is out of shooting range, so there is no shot "
-                "from here. Maneuver, or cede the ball to coach:"
-            )
-        else:
-            action_line = (
-                "The ball is out of shooting range and your side has "
-                "already called its Coaching Choice this half, so there "
-                "is no shot and no cede -- only a maneuver:"
-            )
-        return (
-            f"{controller}, it is your turn.\n\n"
-            f"{handler_line}\n\n"
-            f"{action_line}"
-        )
 
     async def play_ai_turn(
         self,
@@ -7020,7 +6590,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         turn_message = await interaction.followup.send(
-            self.build_turn_prompt(game, match, carrying=carrying),
+            self.engine.build_turn_prompt(game, match, carrying=carrying),
             view=view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -8390,7 +7960,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
         ]
         options = [
-            (player_id, self.format_roster_player(player_id))
+            (player_id, self.engine.format_roster_player(player_id))
             for player_id in roster_ids
         ]
         return filter_choices(current, options)
@@ -8503,7 +8073,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         options = [
             (
                 player_id,
-                self.format_roster_player_with_team(player_id, setup.team),
+                self.engine.format_roster_player_with_team(player_id, setup.team),
             )
             for setup in (match.home, match.visiting)
             for player_id in (
@@ -8589,7 +8159,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         options = [
             (
                 player_id,
-                self.format_roster_player_with_team(player_id, setup.team),
+                self.engine.format_roster_player_with_team(player_id, setup.team),
             )
             for setup in (match.home, match.visiting)
             for player_id in setup.field_players

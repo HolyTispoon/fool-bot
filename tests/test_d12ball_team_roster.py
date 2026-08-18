@@ -84,7 +84,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
 
         headings = [
             heading
-            for heading, _ in cog.roster_places(match, match.home)
+            for heading, _ in cog.engine.roster_places(match, match.home)
         ]
 
         self.assertEqual(
@@ -98,7 +98,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
 
         listed = [
             player_id
-            for _, members in cog.roster_places(match, match.home)
+            for _, members in cog.engine.roster_places(match, match.home)
             for player_id, _ in members
         ]
 
@@ -125,7 +125,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
         match.board.place_meeple(first, zone, 1)
         match.board.place_meeple(second, zone, 0)
 
-        places = dict(cog.roster_places(match, match.home))
+        places = dict(cog.engine.roster_places(match, match.home))
         self.assertEqual(
             places["Home Goal"],
             [(second, "H1"), (first, "H2")],
@@ -140,7 +140,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
         player_id = match.home.zones[Zone.HOME_GOAL][0]
         match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
 
-        places = dict(cog.roster_places(match, match.home))
+        places = dict(cog.engine.roster_places(match, match.home))
         self.assertNotIn(
             player_id, [listed for listed, _ in places["Home Goal"]],
         )

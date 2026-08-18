@@ -435,7 +435,7 @@ class BoardScopedFormationTests(unittest.TestCase):
         )
 
         with self.assertRaises(ValueError):
-            cog.apply_formation(match, TeamSide.HOME, Formation.THREE_TWO_ONE)
+            cog.engine.apply_formation(match, TeamSide.HOME, Formation.THREE_TWO_ONE)
 
     def test_the_ruleset_holds_2_2_2_open_to_every_board(self) -> None:
         # It is the shape every team is dealt, whatever board they are
@@ -667,7 +667,7 @@ class FormationReassignmentTests(unittest.TestCase):
             Formation.TWO_TWO_TWO,
         )
 
-        cog.apply_formation(match, TeamSide.HOME, Formation.ONE_THREE_TWO)
+        cog.engine.apply_formation(match, TeamSide.HOME, Formation.ONE_THREE_TWO)
 
         self.assertEqual(
             cog.engine.current_formation(match, TeamSide.HOME),

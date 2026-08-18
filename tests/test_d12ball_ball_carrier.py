@@ -418,7 +418,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         match.set_ball_carrier(handler)
         cog.resolve_loose_ball = mock.AsyncMock()
         cog.build_loose_ball_view = mock.Mock(return_value=None)
-        cog.build_loose_ball_prompt = mock.Mock(return_value="prompt")
+        cog.engine.build_loose_ball_prompt = mock.Mock(return_value="prompt")
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_loose_ball(build_interaction(), game, match, 1)
