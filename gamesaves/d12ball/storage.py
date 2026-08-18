@@ -3,10 +3,157 @@ import logging
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Optional
-from d12ball.game import D12BallGame
+from d12ball.game import TEAM_PAIRS, D12BallGame, Team
 
 
 LOGGER = logging.getLogger(__name__)
+
+# The color a species was fielded under exclusively, before the
+# 2026-08-17 reshuffle split each species across all four colors --
+# the mirror image of SPECIES_TEAM in
+# scripts/import_d12ball_players.py. A saved game from before that
+# change names its players `{legacy color}_{slug(name)}` and its two
+# sides' Team by this same color; kept here rather than imported from
+# the importer, since scripts/ is tools rather than a package and this
+# needs to run at load time.
+LEGACY_COLOR_FOR_SPECIES = {
+    "fire_demon": "orange",
+    "cyborg": "teal",
+    "telekinetic": "purple",
+    "ooze": "slime",
+}
+_LEGACY_COLOR_VALUES = frozenset(LEGACY_COLOR_FOR_SPECIES.values())
+
+# Built once and cached: load_player_catalog() reads and parses
+# players.json, and load_games() is called once at startup for every
+# saved game, so there is no reason to repeat that per game.
+_legacy_id_map: Optional[dict[str, str]] = None
+
+
+def _build_legacy_id_map() -> dict[str, str]:
+    """
+    `{old id: new id}` for every player who has one, reconstructed from
+    the *current* catalog rather than a hardcoded table of 36 pairs --
+    a player's old id was `{legacy color}_{slug(name)}`
+    (LEGACY_COLOR_FOR_SPECIES keyed off their species) and their new
+    one is already `player_id` on the catalog entry. See the
+    legacy-migration gotcha in CLAUDE.md.
+    """
+    global _legacy_id_map
+    if _legacy_id_map is not None:
+        return _legacy_id_map
+
+    # Imported here, not at module scope: d12ball.components is a much
+    # heavier import (Pillow-adjacent data model code) than anything
+    # else this module needs, and every other caller of load_games
+    # already pays for it elsewhere by the time this runs.
+    from d12ball.components import load_player_catalog
+
+    catalog = load_player_catalog()
+    legacy_ids: dict[str, str] = {}
+    for roster in catalog.teams.values():
+        for player in roster.players:
+            legacy_color = LEGACY_COLOR_FOR_SPECIES.get(player.species)
+            if legacy_color is None:
+                continue
+            legacy_id = f"{legacy_color}_{player.name.lower()}"
+            legacy_ids[legacy_id] = player.player_id
+
+    _legacy_id_map = legacy_ids
+    return legacy_ids
+
+
+def _remap_legacy_ids(value, mapping: dict[str, str]):
+    """
+    Walk a JSON-shaped value -- dicts, lists, and everything else --
+    replacing any string that is a key in `mapping`, **including dict
+    keys themselves** (exhaustion and assigned_positions are both
+    keyed by player id). Returns `(remapped_value, anything_replaced)`;
+    the flag is how the caller tells an old-shape save from a fresh
+    one apart without trusting a team value's name -- "orange" is a
+    legal Team both before and after the reshuffle, just for different
+    rosters, so the id strings actually present are the only reliable
+    signal.
+
+    One generic pass this way is what covers every field a legacy
+    save could hold a player id in -- board spaces, zones, both
+    benches, ball_carrier_id/challenger_id, exhaustion/injured sets,
+    pending_run_back_*, assigned_positions keys, shootout order/used/
+    shooters, goal-log player_ids -- without special-casing any of
+    them by name.
+    """
+    if isinstance(value, str):
+        if value in mapping:
+            return mapping[value], True
+        return value, False
+
+    if isinstance(value, list):
+        replaced = False
+        remapped = []
+        for item in value:
+            new_item, item_replaced = _remap_legacy_ids(item, mapping)
+            remapped.append(new_item)
+            replaced = replaced or item_replaced
+        return remapped, replaced
+
+    if isinstance(value, dict):
+        replaced = False
+        remapped = {}
+        for key, item in value.items():
+            new_key = key
+            if isinstance(key, str) and key in mapping:
+                new_key = mapping[key]
+                replaced = True
+            new_item, item_replaced = _remap_legacy_ids(item, mapping)
+            remapped[new_key] = new_item
+            replaced = replaced or item_replaced
+        return remapped, replaced
+
+    return value, False
+
+
+def migrate_legacy_game_data(game_data: dict) -> dict:
+    """
+    Tolerant, on-load remap of a game saved before the 2026-08-17
+    eight-team reshuffle, in the style already established for
+    `team_board`/`player_board` and `LEGACY_HALFTIME_STAGES` -- not a
+    one-time destructive rewrite of the save file, since both
+    developers run the bot from their own trees against their own
+    saves and a half-finished game outlives the change that broke it.
+
+    This is the concrete fix for a stuck game reported live: a saved
+    match's roster no longer matches the reshuffled catalog, so
+    `TeamSetup.validate` raises `ValueError('The setup does not match
+    the team roster.')` the moment `/d12ball resume` (or anything else)
+    tries to validate it. Every id the save names is reconstructed and
+    rewritten to its new form, and each side's Team is remapped from
+    the legacy color to its *paired species team* -- not left as the
+    color -- because that species roster is the one whose membership
+    the legacy save actually matches; the reshuffled color of the same
+    name now holds different players.
+
+    A game already in the new shape is returned untouched: nothing
+    here fires unless `_remap_legacy_ids` actually found a legacy id
+    somewhere in it.
+    """
+    legacy_ids = _build_legacy_id_map()
+    remapped, replaced = _remap_legacy_ids(game_data, legacy_ids)
+    if not replaced:
+        return game_data
+
+    for key in ("player_1_team", "player_2_team"):
+        value = remapped.get(key)
+        if value in _LEGACY_COLOR_VALUES:
+            remapped[key] = TEAM_PAIRS[Team(value)].value
+
+    match_state = remapped.get("match_state")
+    if match_state:
+        for side_key in ("home", "visiting"):
+            side = match_state.get(side_key)
+            if side and side.get("team") in _LEGACY_COLOR_VALUES:
+                side["team"] = TEAM_PAIRS[Team(side["team"])].value
+
+    return remapped
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_FOLDER = PROJECT_ROOT / "data"
@@ -62,6 +209,19 @@ def load_games() -> dict[str, D12BallGame]:
     known_fields = {field.name for field in fields(D12BallGame)}
 
     for game_id, game_data in raw_data.items():
+        # A game saved before the 2026-08-17 eight-team reshuffle names
+        # its players by their old id and its two sides by a legacy
+        # color -- migrate_legacy_game_data is a no-op the moment
+        # neither is true any more. See the legacy-migration gotcha in
+        # CLAUDE.md.
+        migrated = migrate_legacy_game_data(game_data)
+        if migrated is not game_data:
+            LOGGER.info(
+                "Migrated saved game %s off its pre-reshuffle team ids.",
+                game_id,
+            )
+            game_data = migrated
+
         # A key the record no longer has is a field that was removed
         # while games saved under it were still half-played --
         # `tie_mode`, when league mode went. Dropping it keeps those
