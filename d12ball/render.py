@@ -105,6 +105,17 @@ TEAM_COLORS.update(
         if color_team in (Team.ORANGE, Team.TEAL, Team.PURPLE, Team.SLIME)
     }
 )
+# Slime green is bright enough that white loses contrast against it,
+# on a meeple token or a die alike -- Oozes shares the same hex (see
+# "Team colors" in CLAUDE.md), so comparing the color catches both
+# without naming either team. Every other team's color keeps white.
+SLIME_GREEN = TEAM_COLORS[Team.SLIME]
+
+
+def high_contrast_ink(color: str) -> str:
+    return "#000000" if color == SLIME_GREEN else "#ffffff"
+
+
 ZONE_COLORS = {
     Zone.HOME_GOAL: "#3b4859",
     Zone.MIDFIELD: "#46554e",
@@ -1095,10 +1106,7 @@ def draw_meeple_group(
     )
 
     color = TEAM_COLORS[Team(team)]
-    # Slime green is bright enough that white loses contrast against it --
-    # black reads clearly on both the outline and the letters, where every
-    # other team's color keeps the usual white.
-    token_ink = "#000000" if Team(team) in (Team.SLIME, Team.OOZES) else "#ffffff"
+    token_ink = high_contrast_ink(color)
     for player_index, player_id in enumerate(occupants):
         player = players[player_id]
         draw.ellipse(
@@ -1238,6 +1246,7 @@ def render_skill_test_dice(
             color,
             str(value),
             font=FONT_DICE_VALUE,
+            text_color=high_contrast_ink(color),
         )
         label_width = draw.textlength(label, font=FONT_SMALL)
         draw.text(
@@ -1389,6 +1398,7 @@ def render_injury_test_die(
         color,
         str(value),
         font=FONT_DICE_VALUE,
+        text_color=high_contrast_ink(color),
     )
     team_width = draw.textlength(team_label, font=FONT_SMALL)
     draw.text(
@@ -1532,11 +1542,9 @@ def render_own_goal_dice(
             color if counted else OWN_GOAL_DROPPED_COLOR,
             str(value),
             font=FONT_DICE_VALUE,
-            outline=(
-                "#ffffff" if counted else OWN_GOAL_DROPPED_OUTLINE
-            ),
+            outline="#ffffff" if counted else OWN_GOAL_DROPPED_OUTLINE,
             text_color=(
-                "#ffffff" if counted else OWN_GOAL_DROPPED_TEXT
+                high_contrast_ink(color) if counted else OWN_GOAL_DROPPED_TEXT
             ),
         )
         if counted:
