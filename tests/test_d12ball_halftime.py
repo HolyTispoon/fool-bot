@@ -7,6 +7,7 @@ in docs/living-rules.md
 and D12Ball.begin_halftime in cogs/d12ball.py.
 """
 
+import inspect
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -726,6 +727,34 @@ class HalftimeEngineTests(unittest.TestCase):
         )
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.VISITING))
+
+
+class CogMethodBindingTests(unittest.TestCase):
+    """
+    A @staticmethod left behind when the function under it moved out
+    of the cog silently unbinds the *next* method: the call site still
+    writes `self.advance_halftime_stage(interaction, game, match)` and
+    the interpreter reads `self` as the interaction, so the last
+    argument goes missing. That is what aa2f7f5 did to
+    advance_halftime_stage, and it only surfaced when a real game
+    reached halftime. Nothing else in the suite would notice, so ask
+    the class directly.
+    """
+
+    def test_no_cog_method_is_a_staticmethod_taking_self(self) -> None:
+        for cls in (D12Ball,):
+            for name, attr in vars(cls).items():
+                if not isinstance(attr, staticmethod):
+                    continue
+                parameters = list(
+                    inspect.signature(attr.__func__).parameters
+                )
+                self.assertNotEqual(
+                    parameters[:1],
+                    ["self"],
+                    f"{cls.__name__}.{name} is a staticmethod whose first "
+                    "argument is self -- an orphaned decorator?",
+                )
 
 
 if __name__ == "__main__":
