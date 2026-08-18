@@ -44,6 +44,7 @@ from gamesaves.d12ball.storage import save_games
 
 from cogs.d12ball_helpers import (
     AI_OPPONENT_NAMES,
+    ERROR_RECOVERY_ADVICE,
     LOGGER,
     ROLE_INITIALS,
     add_full_image_button,
@@ -93,7 +94,8 @@ class SafeView(discord.ui.View):
         )
         await send_error_fallback(
             interaction,
-            "Something went wrong handling that click. Please try again.",
+            "Something went wrong handling that click. "
+            f"{ERROR_RECOVERY_ADVICE}",
         )
 
     def load_match(

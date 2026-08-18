@@ -797,6 +797,22 @@ def build_home_choice_message(game: D12BallGame) -> str:
     return text
 
 
+# What an unexpected exception leaves a coach to do. It used to ask
+# them to try again, which is advice for a dropped connection and for
+# nothing else -- a bug in the flow is reached identically on every
+# click, and a game left mid-turn stays there however many times it is
+# clicked. `/d12ball resume` is the actual recovery: it puts the
+# prompt back up from the match's own state, which is what a stranded
+# turn needs and what a failed click has not changed. Anything it
+# cannot fix is a bug, and the person running the bot is the only one
+# who can see the traceback -- see "Recovering a stuck game".
+ERROR_RECOVERY_ADVICE = (
+    "Trying again won't help. Use `/d12ball resume` to put the game's "
+    "prompt back up. If that doesn't help either, this is a bug -- let "
+    "the bot developer know."
+)
+
+
 async def send_error_fallback(
     interaction: discord.Interaction,
     message: str,
