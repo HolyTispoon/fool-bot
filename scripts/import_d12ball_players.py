@@ -315,15 +315,21 @@ def import_players(
         ("species", players_by_species_team),
     ):
         for team, ids in rosters.items():
+            # Not team_display_name (d12ball.game): this script reads a
+            # CSV and writes JSON with no other dependency on the
+            # package, and a team here is a plain key string, not a
+            # Team. Same fix, though -- "fire_demons".title() is
+            # "Fire_Demons" same as everywhere else this bug showed up.
+            team_label = team.replace("_", " ").title()
             if len(ids) != 9:
                 raise ValueError(
-                    f"{team.title()} ({roster_label} team) must have "
+                    f"{team_label} ({roster_label} team) must have "
                     f"exactly 9 players; found {len(ids)}."
                 )
             role_counts = Counter(flat_players[pid]["role"] for pid in ids)
             if role_counts != Counter(EXPECTED_ROLE_COUNTS):
                 raise ValueError(
-                    f"{team.title()} ({roster_label} team) has the wrong "
+                    f"{team_label} ({roster_label} team) has the wrong "
                     f"role distribution: {dict(role_counts)}."
                 )
 

@@ -24,7 +24,12 @@ from d12ball.components import (  # noqa: E402
     load_player_catalog,
 )
 from d12ball.components import TeamSide  # noqa: E402
-from d12ball.game import VALID_BOARD_SIZES, Formation, Team  # noqa: E402
+from d12ball.game import (  # noqa: E402
+    VALID_BOARD_SIZES,
+    Formation,
+    Team,
+    team_display_name,
+)
 from d12ball.render import (  # noqa: E402
     render_coaching_image,
     render_field_image,
@@ -185,7 +190,7 @@ def main() -> None:
             catalog,
             side,
             title=arguments.title or (
-                f"{setup.team.value.title()} ({side.value.title()})"
+                f"{team_display_name(setup.team)} ({side.value.title()})"
             ),
         )
     else:
@@ -193,8 +198,9 @@ def main() -> None:
             match,
             catalog,
             title=arguments.title or (
-                f"{label} - {match.home.team.value.title()} vs. "
-                f"{match.visiting.team.value.title()}, {period_label(match)}"
+                f"{label} - {team_display_name(match.home.team)} vs. "
+                f"{team_display_name(match.visiting.team)}, "
+                f"{period_label(match)}"
             ),
         )
 
