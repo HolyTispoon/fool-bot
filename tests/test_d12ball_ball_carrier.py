@@ -21,6 +21,7 @@ from unittest import mock
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import BallHandlerSelectionView, LooseBallSkillTestView
 from d12ball.ai import build_ai_strategies
+from d12ball.engine import RulesEngine
 from d12ball.components import (
     MatchState,
     PlayerRole,
@@ -44,6 +45,10 @@ def build_cog() -> D12Ball:
     cog.coin_emojis = {}
     cog.ai_strategies = build_ai_strategies(
         cog.player_catalog, cog.maneuver_catalog,
+    )
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
+        cog.ai_strategies,
     )
     cog.refresh_match_image = mock.AsyncMock()
     cog.announce_board_update = mock.AsyncMock()
@@ -127,7 +132,7 @@ class TurnHandlerCandidateTests(unittest.TestCase):
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
         handler, teammate = stack_two_home_players_on_the_ball(cog, match)
         game.match_state = match.to_dict()
         return cog, game, match, handler, teammate
@@ -235,7 +240,7 @@ class TurnHandlerCandidateTests(unittest.TestCase):
         match.set_ball_carrier(teammate)
         game.match_state = match.to_dict()
 
-        restored = cog.load_match_state(game)
+        restored = cog.engine.load_match_state(game)
 
         self.assertEqual(restored.ball_carrier_id, teammate)
         self.assertEqual(restored.turn_handler_candidates(), [teammate])
@@ -288,7 +293,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
         handler, teammate = stack_two_home_players_on_the_ball(cog, match)
         match.active_player_id = handler
         game.match_state = match.to_dict()
@@ -320,7 +325,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         challenger = next(
             player_id
             for player_id in match.visiting.field_players
-            if cog.get_player_definition(player_id).role == role
+            if cog.engine.get_player_definition(player_id).role == role
         )
         match.board.remove_meeple(challenger)
         match.board.place_meeple(
@@ -413,7 +418,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         match.set_ball_carrier(handler)
         cog.resolve_loose_ball = mock.AsyncMock()
         cog.build_loose_ball_view = mock.Mock(return_value=None)
-        cog.build_loose_ball_prompt = mock.Mock(return_value="prompt")
+        cog.engine.build_loose_ball_prompt = mock.Mock(return_value="prompt")
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_loose_ball(build_interaction(), game, match, 1)
@@ -452,7 +457,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         cog.end_period = mock.AsyncMock()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
 
         receiver = match.setup_for_side(match.ball.possession).field_players[0]
         challenger = match.setup_for_side(
@@ -474,10 +479,10 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
     ) -> list[int]:
         """Dice that make `winner` ("offense"/"defense") take the test."""
         offense_skill = cog.player_catalog.effective_profile(
-            cog.get_player_definition(receiver)
+            cog.engine.get_player_definition(receiver)
         ).offense
         defense_skill = cog.player_catalog.effective_profile(
-            cog.get_player_definition(challenger)
+            cog.engine.get_player_definition(challenger)
         ).defense
         offense_roll = 6
         defense_roll = offense_roll + offense_skill - defense_skill
@@ -498,7 +503,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
             "cogs.d12ball_views.render_skill_test_dice",
         ), mock.patch("cogs.d12ball_views.discord.File"):
             await view.roll(build_contest_interaction())
-        return cog.load_match_state(game)
+        return cog.engine.load_match_state(game)
 
     async def test_a_receiver_who_keeps_a_high_pass_carries_it(self) -> None:
         cog, game, _, receiver, challenger = self.build_contest(
@@ -613,7 +618,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
         cog.end_period = mock.AsyncMock()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
         return cog, game, match
 
     def displaced_winner(self, cog: D12Ball, match: MatchState) -> str:
@@ -646,7 +651,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(match.pending_run_back_stays_player_id, winner)
         self.assertNotIn(
-            winner, cog.run_back_displaced(match, TeamSide.VISITING),
+            winner, cog.engine.run_back_displaced(match, TeamSide.VISITING),
         )
 
     async def test_the_same_player_is_run_back_without_the_ball(
@@ -664,7 +669,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(match.pending_run_back_stays_player_id)
         self.assertIn(
-            winner, cog.run_back_displaced(match, TeamSide.VISITING),
+            winner, cog.engine.run_back_displaced(match, TeamSide.VISITING),
         )
 
     async def test_a_new_play_exempts_nobody(self) -> None:

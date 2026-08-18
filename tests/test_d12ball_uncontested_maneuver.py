@@ -34,6 +34,7 @@ from cogs.d12ball_views import (
     PlayerActionView,
 )
 from d12ball.ai import build_ai_strategies
+from d12ball.engine import RulesEngine
 from d12ball.components import (
     MatchState,
     TeamSide,
@@ -56,6 +57,10 @@ def build_cog() -> D12Ball:
     cog.coin_emojis = {}
     cog.ai_strategies = build_ai_strategies(
         cog.player_catalog, cog.maneuver_catalog,
+    )
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
+        cog.ai_strategies,
     )
     cog.refresh_match_image = mock.AsyncMock()
     cog.drop_turn_prompt = mock.AsyncMock()
@@ -128,7 +133,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game(**game_overrides)
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
 
         handler = next(
             player_id
@@ -177,7 +182,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = await self.go_unchallenged(cog, game)
 
-        match = cog.load_match_state(game)
+        match = cog.engine.load_match_state(game)
         self.assertTrue(match.maneuver_uncontested)
         self.assertIsNone(match.challenger_id)
         # The old behaviour was an ephemeral refusal that left the turn
@@ -226,7 +231,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
         # have had to pick for a tie -- there is no defense, so the
         # effect runs and nobody rolls.
         cog.begin_effect_resolution.assert_awaited_once()
-        match = cog.load_match_state(game)
+        match = cog.engine.load_match_state(game)
         self.assertIsNone(match.defense_maneuver)
 
     async def test_the_defense_is_told_there_is_nothing_to_pick(
@@ -267,7 +272,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
 
         await self.go_unchallenged(cog, game, user_id=111)
 
-        match = cog.load_match_state(game)
+        match = cog.engine.load_match_state(game)
         self.assertTrue(match.maneuver_uncontested)
         self.assertIsNotNone(match.offense_maneuver)
         cog.begin_effect_resolution.assert_awaited_once()
@@ -314,7 +319,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
         match.active_player_id = match.home.field_players[0]
         defender = match.eligible_challengers()[0]
         match.board.place_meeple(
@@ -350,7 +355,7 @@ class DeclinedChallengeTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game(**game_overrides)
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
 
         handler = next(
             player_id
@@ -393,7 +398,7 @@ class DeclinedChallengeTests(unittest.IsolatedAsyncioTestCase):
 
         await self.decline(cog, game)
 
-        match = cog.load_match_state(game)
+        match = cog.engine.load_match_state(game)
         self.assertTrue(match.maneuver_uncontested)
         self.assertIsNone(match.challenger_id)
         self.assertIsNone(match.pending_action)
@@ -407,7 +412,7 @@ class DeclinedChallengeTests(unittest.IsolatedAsyncioTestCase):
 
         await self.decline(cog, game)
 
-        after = cog.load_match_state(game)
+        after = cog.engine.load_match_state(game)
         self.assertEqual(
             {
                 player_id: after.board.meeple_position(player_id)
@@ -438,7 +443,7 @@ class DeclinedChallengeTests(unittest.IsolatedAsyncioTestCase):
             "defending",
             interaction.response.send_message.await_args.args[0],
         )
-        self.assertFalse(cog.load_match_state(game).maneuver_uncontested)
+        self.assertFalse(cog.engine.load_match_state(game).maneuver_uncontested)
 
     async def test_a_second_click_finds_the_question_settled(self) -> None:
         cog, game, _ = self.build()
@@ -467,7 +472,7 @@ class DeclinedChallengeTests(unittest.IsolatedAsyncioTestCase):
             "already been chosen",
             interaction.followup.send.await_args.args[0],
         )
-        self.assertFalse(cog.load_match_state(game).maneuver_uncontested)
+        self.assertFalse(cog.engine.load_match_state(game).maneuver_uncontested)
 
     def test_a_defender_on_the_ball_is_not_declinable(self) -> None:
         cog, game, match = self.build()
@@ -573,7 +578,7 @@ class AutomaticChallengerTests(DeclinedChallengeTests):
             interaction.followup.send.await_args.kwargs["view"],
             ManeuverChallengeView,
         )
-        self.assertIsNone(cog.load_match_state(game).challenger_id)
+        self.assertIsNone(cog.engine.load_match_state(game).challenger_id)
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, Team
 from roster import fielded
 
@@ -54,6 +55,10 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         cog.condition_emojis = {}
         cog.ai_strategies = build_ai_strategies(
             self.catalog, self.maneuvers,
+        )
+        cog.engine = RulesEngine(
+            cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
+            cog.ai_strategies,
         )
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
@@ -185,7 +190,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         await self.run_back(cog, game, match)
 
         self.assertEqual(
-            cog.run_back_displaced(match, TeamSide.VISITING), [],
+            cog.engine.run_back_displaced(match, TeamSide.VISITING), [],
         )
         cog.finish_maneuver_resolution.assert_awaited_once()
 
@@ -229,7 +234,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("choose where", prompt)
         cog.finish_maneuver_resolution.assert_not_awaited()
         self.assertNotEqual(
-            cog.run_back_movers(match, TeamSide.HOME), [],
+            cog.engine.run_back_movers(match, TeamSide.HOME), [],
         )
 
     async def test_a_stack_asks_the_coach_which_of_them_goes(self) -> None:
@@ -314,7 +319,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.run_back(cog, game, match)
 
         prompt = interaction.followup.send.await_args_list[-1].args[0]
-        side, (player_id,) = cog.next_run_back_step(match)
+        side, (player_id,) = cog.engine.next_run_back_step(match)
         zone = match.setup_for_side(side).assigned_zone(player_id)
         spaces = match.placement_spaces_in_zone(side, zone, player_id)
         self.assertTrue(spaces)
@@ -398,20 +403,25 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
         cog = object.__new__(D12Ball)
         cog.games = {}
         cog.player_catalog = self.catalog
+        cog.basic_ruleset = self.rules
+        cog.maneuver_catalog = self.maneuvers
         cog.team_emojis = {}
         cog.condition_emojis = {}
+        cog.engine = RulesEngine(
+            cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+        )
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
-        cog.apply_forced_run_backs = mock.Mock()
-        cog.next_run_back_step = mock.Mock(
+        cog.engine.apply_forced_run_backs = mock.Mock()
+        cog.engine.next_run_back_step = mock.Mock(
             return_value=(TeamSide.VISITING, [displaced]),
         )
-        cog.side_is_ai = mock.Mock(return_value=True)
-        cog.get_ai_strategy = mock.Mock(
+        cog.engine.side_is_ai = mock.Mock(return_value=True)
+        cog.engine.get_ai_strategy = mock.Mock(
             return_value=mock.Mock(choose_run_back_space=mock.Mock(return_value=0)),
         )
         cog.apply_exhaustion = mock.Mock(return_value="")
-        cog.get_player_definition = mock.Mock(
+        cog.engine.get_player_definition = mock.Mock(
             return_value=self.catalog.player_by_id(displaced),
         )
 

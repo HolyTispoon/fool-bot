@@ -1,6 +1,5 @@
 import logging
 import random
-import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -9,15 +8,11 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from discord_emoji_cache import EMOJI_REFETCH_INTERVAL, ensure_cached_emojis
+
 
 LOGGER = logging.getLogger(__name__)
 COIN_EMOJI_FALLBACK = "🪙"
-
-# How long a lookup that came up short waits before asking Discord
-# again -- see ensure_coin_emojis. Its own, rather than d12ball's: this
-# cog keeps its own coin emoji loading (the names and the faces differ)
-# and does not otherwise depend on that one.
-EMOJI_REFETCH_INTERVAL = 300.0
 
 
 class CoinFace(str, Enum):
@@ -120,21 +115,18 @@ class CoinCommands(commands.GroupCog, group_name="coin"):
         EMOJI_REFETCH_INTERVAL. An application with none of them
         uploaded is short of them on every flip, and the retry was
         costing an HTTP request per flip for an answer that had not
-        changed since startup.
+        changed since startup. The cache-with-cooldown shape is
+        `ensure_cached_emojis`, shared with the D12 Ball cog; the load
+        itself stays this cog's own -- see load_coin_emojis above.
         """
-        expected_count = len(COINS) * len(CoinFace)
-        if len(self.coin_emojis) >= expected_count:
-            return self.coin_emojis
-
-        now = time.monotonic()
-        if (
-            self.coin_emojis_checked_at is not None
-            and now - self.coin_emojis_checked_at < EMOJI_REFETCH_INTERVAL
-        ):
-            return self.coin_emojis
-        self.coin_emojis_checked_at = now
-
-        self.coin_emojis = await load_coin_emojis(self.bot)
+        self.coin_emojis, self.coin_emojis_checked_at = (
+            await ensure_cached_emojis(
+                self.coin_emojis,
+                self.coin_emojis_checked_at,
+                len(COINS) * len(CoinFace),
+                lambda: load_coin_emojis(self.bot),
+            )
+        )
         return self.coin_emojis
 
     @app_commands.command(

@@ -45,6 +45,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Formation, GameStatus, Team
 
 
@@ -58,6 +59,10 @@ def build_cog() -> D12Ball:
     cog.condition_emojis = {}
     cog.ai_strategies = build_ai_strategies(
         cog.player_catalog, cog.maneuver_catalog,
+    )
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
+        cog.ai_strategies,
     )
     cog.board_refresh_tasks = {}
     cog.board_refreshed_at = {}
@@ -660,7 +665,7 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
 
         await self.run_resume(cog, build_interaction(), force=True)
 
-        resumed = cog.load_match_state(game)
+        resumed = cog.engine.load_match_state(game)
         self.assertIsNone(resumed.pending_action)
         self.assertFalse(resumed.pending_run_back)
         self.assertIsNone(resumed.pending_coaching_side)
@@ -683,7 +688,7 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
 
                 cog.send_turn_prompt.assert_not_awaited()
                 self.assertIsNotNone(
-                    getattr(cog.load_match_state(game), stage_field),
+                    getattr(cog.engine.load_match_state(game), stage_field),
                 )
 
     async def test_force_will_not_skip_a_ceded_ball(self) -> None:
@@ -699,7 +704,7 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
         await self.run_resume(cog, build_interaction(), force=True)
 
         cog.send_turn_prompt.assert_not_awaited()
-        self.assertTrue(cog.load_match_state(game).pending_cede)
+        self.assertTrue(cog.engine.load_match_state(game).pending_cede)
 
     async def test_a_state_that_will_not_load_says_so(self) -> None:
         cog, _, _ = self.build()

@@ -28,6 +28,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 
 
@@ -37,6 +38,9 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
@@ -250,18 +254,18 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
     def test_the_prompt_says_why_the_shot_is_missing(self) -> None:
         cog, game, match = self.build_turn(Zone.MIDFIELD, 0)
         self.assertIn(
-            "no shot from here", cog.build_turn_prompt(game, match),
+            "no shot from here", cog.engine.build_turn_prompt(game, match),
         )
 
         cog, game, match = self.build_turn(Zone.VISITORS_GOAL, 0)
-        self.assertIn("Choose an action:", cog.build_turn_prompt(game, match))
+        self.assertIn("Choose an action:", cog.engine.build_turn_prompt(game, match))
 
     async def test_a_stale_shoot_click_is_refused(self) -> None:
         # The button is never built out of range, so reaching
         # choose_action("shoot") means the ball moved under a prompt
         # somebody was still looking at.
         cog, game, _ = self.build_turn(Zone.MIDFIELD, 0)
-        cog.user_controls_possession = mock.Mock(return_value=True)
+        cog.engine.user_controls_possession = mock.Mock(return_value=True)
         interaction = build_interaction()
 
         view = PlayerActionView(cog, game.game_id)

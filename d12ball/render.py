@@ -235,25 +235,47 @@ EXHAUST_ICON_PATH = (
     Path(__file__).resolve().parent / "images" / "emoji" / "exhaust.png"
 )
 EXHAUST_ICON_SIZE = 26
-_EXHAUST_ICON_CACHE: Optional[Image.Image] = None
-_EXHAUST_ICON_LOAD_ATTEMPTED = False
 
 EXHAUSTED_ICON_PATH = (
     Path(__file__).resolve().parent / "images" / "emoji" / "exhausted.png"
 )
 EXHAUSTED_ICON_SIZE = 26
-_EXHAUSTED_ICON_CACHE: Optional[Image.Image] = None
-_EXHAUSTED_ICON_LOAD_ATTEMPTED = False
 
 INJURED_ICON_PATH = (
     Path(__file__).resolve().parent / "images" / "emoji" / "injured.png"
 )
 INJURED_ICON_SIZE = 26
-_INJURED_ICON_CACHE: Optional[Image.Image] = None
-_INJURED_ICON_LOAD_ATTEMPTED = False
 
 PLAYER_IMAGES_DIR = Path(__file__).resolve().parent / "images" / "player_images"
 _PLAYER_PORTRAIT_CACHE: dict[str, Optional[Image.Image]] = {}
+
+# One cache for the three condition-token icons below, keyed by name.
+# A key present means the load was already attempted -- including a
+# key mapped to None, for a file that turned out missing -- which is
+# what stops a missing icon being retried on every render.
+_ICON_CACHE: dict[str, Optional[Image.Image]] = {}
+
+
+def _load_icon(path: Path, size: int, cache_key: str) -> Optional[Image.Image]:
+    """
+    Load (and cache) a small condition-token icon, thumbnailed to
+    `size`. Returns None -- and caches that -- when the file is missing
+    or unreadable, so rendering can gracefully skip it; see "A bundled
+    file's name is case-sensitive..." in CLAUDE.md for why this stays
+    silent rather than raising.
+    """
+    if cache_key in _ICON_CACHE:
+        return _ICON_CACHE[cache_key]
+
+    try:
+        with Image.open(path) as source:
+            icon = source.convert("RGBA")
+            icon.thumbnail((size, size), Image.Resampling.LANCZOS)
+            _ICON_CACHE[cache_key] = icon
+    except OSError:
+        _ICON_CACHE[cache_key] = None
+
+    return _ICON_CACHE[cache_key]
 
 
 def load_exhaust_icon() -> Optional[Image.Image]:
@@ -261,24 +283,7 @@ def load_exhaust_icon() -> Optional[Image.Image]:
     Load (and cache) the exhaustion token icon. Returns None if the image
     is not available so rendering can gracefully skip it.
     """
-    global _EXHAUST_ICON_CACHE, _EXHAUST_ICON_LOAD_ATTEMPTED
-
-    if _EXHAUST_ICON_LOAD_ATTEMPTED:
-        return _EXHAUST_ICON_CACHE
-
-    _EXHAUST_ICON_LOAD_ATTEMPTED = True
-    try:
-        with Image.open(EXHAUST_ICON_PATH) as source:
-            icon = source.convert("RGBA")
-            icon.thumbnail(
-                (EXHAUST_ICON_SIZE, EXHAUST_ICON_SIZE),
-                Image.Resampling.LANCZOS,
-            )
-            _EXHAUST_ICON_CACHE = icon
-    except OSError:
-        _EXHAUST_ICON_CACHE = None
-
-    return _EXHAUST_ICON_CACHE
+    return _load_icon(EXHAUST_ICON_PATH, EXHAUST_ICON_SIZE, "exhaust")
 
 
 def load_exhausted_icon() -> Optional[Image.Image]:
@@ -286,24 +291,7 @@ def load_exhausted_icon() -> Optional[Image.Image]:
     Load (and cache) the exhausted-condition icon. Returns None if the
     image is not available so rendering can gracefully skip it.
     """
-    global _EXHAUSTED_ICON_CACHE, _EXHAUSTED_ICON_LOAD_ATTEMPTED
-
-    if _EXHAUSTED_ICON_LOAD_ATTEMPTED:
-        return _EXHAUSTED_ICON_CACHE
-
-    _EXHAUSTED_ICON_LOAD_ATTEMPTED = True
-    try:
-        with Image.open(EXHAUSTED_ICON_PATH) as source:
-            icon = source.convert("RGBA")
-            icon.thumbnail(
-                (EXHAUSTED_ICON_SIZE, EXHAUSTED_ICON_SIZE),
-                Image.Resampling.LANCZOS,
-            )
-            _EXHAUSTED_ICON_CACHE = icon
-    except OSError:
-        _EXHAUSTED_ICON_CACHE = None
-
-    return _EXHAUSTED_ICON_CACHE
+    return _load_icon(EXHAUSTED_ICON_PATH, EXHAUSTED_ICON_SIZE, "exhausted")
 
 
 def load_injured_icon() -> Optional[Image.Image]:
@@ -311,24 +299,7 @@ def load_injured_icon() -> Optional[Image.Image]:
     Load (and cache) the injured-condition icon. Returns None if the
     image is not available so rendering can gracefully skip it.
     """
-    global _INJURED_ICON_CACHE, _INJURED_ICON_LOAD_ATTEMPTED
-
-    if _INJURED_ICON_LOAD_ATTEMPTED:
-        return _INJURED_ICON_CACHE
-
-    _INJURED_ICON_LOAD_ATTEMPTED = True
-    try:
-        with Image.open(INJURED_ICON_PATH) as source:
-            icon = source.convert("RGBA")
-            icon.thumbnail(
-                (INJURED_ICON_SIZE, INJURED_ICON_SIZE),
-                Image.Resampling.LANCZOS,
-            )
-            _INJURED_ICON_CACHE = icon
-    except OSError:
-        _INJURED_ICON_CACHE = None
-
-    return _INJURED_ICON_CACHE
+    return _load_icon(INJURED_ICON_PATH, INJURED_ICON_SIZE, "injured")
 
 
 def load_player_portrait(name: str) -> Optional[Image.Image]:
@@ -2223,6 +2194,10 @@ MANEUVER_DIAGRAM_CENTER = (680, 680)
 MANEUVER_DIAGRAM_NODE_RADIUS = 450
 MANEUVER_DIAGRAM_ARC_RADIUS = 180
 MANEUVER_DIAGRAM_BOX_SIZE = (340, 300)
+# d12ball/cards.py imports these two (as OFFENSE_COLOR/DEFENSE_COLOR)
+# rather than restating the hexes, the same reason TEAM_COLORS below is
+# one dict instead of a hex per call site. Don't add a second
+# definition there.
 MANEUVER_OFFENSE_COLOR = "#E24B4A"
 MANEUVER_DEFENSE_COLOR = "#97C459"
 MANEUVER_CARD_TEXT_COLOR = "#14202b"
@@ -2297,6 +2272,29 @@ def draw_dashed_line(
         drawing = not drawing
 
 
+def arrowhead_triangle(
+    tip: tuple[float, float],
+    direction: tuple[float, float],
+    length: float,
+    half_width: float,
+) -> list[tuple[float, float]]:
+    """
+    The three points of an arrowhead triangle at `tip`, pointing along
+    the unit vector `direction`: `length` back from the tip along that
+    direction, `half_width` either side of it on the perpendicular.
+    Shared by this function's own arrowhead and cards.py's
+    draw_arrowhead, which draw the same triangle through two different
+    drawing interfaces -- raw ImageDraw here, cards.Pen there.
+    """
+    dx, dy = direction
+    back_x = tip[0] - dx * length
+    back_y = tip[1] - dy * length
+    perp_x, perp_y = -dy, dx
+    left = (back_x + perp_x * half_width, back_y + perp_y * half_width)
+    right = (back_x - perp_x * half_width, back_y - perp_y * half_width)
+    return [tip, left, right]
+
+
 def draw_arc_arrow(
     draw: ImageDraw.ImageDraw,
     center: tuple[int, int],
@@ -2316,24 +2314,12 @@ def draw_arc_arrow(
     )
 
     theta = radians(end_deg)
-    tip_x = cx + radius * cos(theta)
-    tip_y = cy + radius * sin(theta)
-    tangent_x, tangent_y = -sin(theta), cos(theta)
-    perp_x, perp_y = -tangent_y, tangent_x
-
-    arrow_length = 34
-    arrow_half_width = 20
-    back_x = tip_x - tangent_x * arrow_length
-    back_y = tip_y - tangent_y * arrow_length
-    left = (
-        back_x + perp_x * arrow_half_width,
-        back_y + perp_y * arrow_half_width,
+    tip = (cx + radius * cos(theta), cy + radius * sin(theta))
+    tangent = (-sin(theta), cos(theta))
+    draw.polygon(
+        arrowhead_triangle(tip, tangent, length=34, half_width=20),
+        fill=fill,
     )
-    right = (
-        back_x - perp_x * arrow_half_width,
-        back_y - perp_y * arrow_half_width,
-    )
-    draw.polygon([(tip_x, tip_y), left, right], fill=fill)
 
 
 def _maneuver_cycle_order(

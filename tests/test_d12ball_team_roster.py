@@ -27,6 +27,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team, team_display_name
 
 
@@ -38,6 +39,9 @@ def build_cog() -> D12Ball:
     cog.basic_ruleset = load_basic_ruleset()
     cog.team_emojis = {}
     cog.condition_emojis = {}
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     return cog
 
 
@@ -80,7 +84,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
 
         headings = [
             heading
-            for heading, _ in cog.roster_places(match, match.home)
+            for heading, _ in cog.engine.roster_places(match, match.home)
         ]
 
         self.assertEqual(
@@ -94,7 +98,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
 
         listed = [
             player_id
-            for _, members in cog.roster_places(match, match.home)
+            for _, members in cog.engine.roster_places(match, match.home)
             for player_id, _ in members
         ]
 
@@ -121,7 +125,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
         match.board.place_meeple(first, zone, 1)
         match.board.place_meeple(second, zone, 0)
 
-        places = dict(cog.roster_places(match, match.home))
+        places = dict(cog.engine.roster_places(match, match.home))
         self.assertEqual(
             places["Home Goal"],
             [(second, "H1"), (first, "H2")],
@@ -136,7 +140,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
         player_id = match.home.zones[Zone.HOME_GOAL][0]
         match.board.place_meeple(player_id, Zone.MIDFIELD, 0)
 
-        places = dict(cog.roster_places(match, match.home))
+        places = dict(cog.engine.roster_places(match, match.home))
         self.assertNotIn(
             player_id, [listed for listed, _ in places["Home Goal"]],
         )
@@ -187,7 +191,7 @@ class RosterVisibilityTests(unittest.TestCase):
         game = build_game()
 
         self.assertEqual(
-            cog.roster_setups_for_user(game, match, game.player_2_id),
+            cog.engine.roster_setups_for_user(game, match, game.player_2_id),
             [match.visiting],
         )
 
@@ -197,7 +201,7 @@ class RosterVisibilityTests(unittest.TestCase):
         game = build_game()
 
         self.assertIsNone(
-            cog.roster_setups_for_user(game, match, 999),
+            cog.engine.roster_setups_for_user(game, match, 999),
         )
 
     def test_a_test_game_s_owner_runs_both_sides(self) -> None:
@@ -207,7 +211,7 @@ class RosterVisibilityTests(unittest.TestCase):
         game.test_game = True
 
         self.assertEqual(
-            cog.roster_setups_for_user(game, match, game.player_1_id),
+            cog.engine.roster_setups_for_user(game, match, game.player_1_id),
             [match.home, match.visiting],
         )
 

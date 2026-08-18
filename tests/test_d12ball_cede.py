@@ -24,6 +24,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 
 
@@ -33,6 +34,9 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
@@ -143,13 +147,13 @@ class CedeOfferTests(unittest.TestCase):
         cog.games[game.game_id] = game
 
         self.assertIn(
-            "cede the ball to coach", cog.build_turn_prompt(game, match),
+            "cede the ball to coach", cog.engine.build_turn_prompt(game, match),
         )
 
         match.declared_substitution.add(TeamSide.HOME.value)
         self.assertIn(
             "already called its Coaching Choice this half",
-            cog.build_turn_prompt(game, match),
+            cog.engine.build_turn_prompt(game, match),
         )
 
     def test_the_button_goes_with_the_declaration(self) -> None:
@@ -419,7 +423,7 @@ class CedeConfirmTests(unittest.IsolatedAsyncioTestCase):
     def build(self):
         cog = build_cog()
         cog.begin_cede = mock.AsyncMock()
-        cog.user_controls_possession = mock.Mock(return_value=True)
+        cog.engine.user_controls_possession = mock.Mock(return_value=True)
         game = build_game()
         match = MatchState.standard(
             catalog=self.catalog,

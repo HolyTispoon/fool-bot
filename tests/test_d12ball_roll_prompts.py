@@ -26,6 +26,7 @@ from cogs.d12ball_views import (
     SkillTestView,
 )
 from d12ball.ai import build_ai_strategies
+from d12ball.engine import RulesEngine
 from d12ball.components import (
     MatchState,
     TeamSide,
@@ -47,6 +48,10 @@ def build_cog() -> D12Ball:
     cog.coin_emojis = {}
     cog.ai_strategies = build_ai_strategies(
         cog.player_catalog, cog.maneuver_catalog,
+    )
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
+        cog.ai_strategies,
     )
     cog.refresh_match_image = mock.AsyncMock()
     cog.begin_effect_resolution = mock.AsyncMock()
@@ -109,7 +114,7 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
 
         handler = match.home.field_players[0]
         zone, space_index = match.board.meeple_position(handler)
@@ -142,7 +147,7 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
 
         handler = match.home.field_players[0]
         zone, space_index = match.own_goal_restart_space(TeamSide.HOME)
@@ -163,7 +168,7 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
 
         randint.assert_not_called()
         self.assertIsInstance(last_view(interaction), OwnGoalRollView)
-        self.assertTrue(cog.load_match_state(game).pending_own_goal)
+        self.assertTrue(cog.engine.load_match_state(game).pending_own_goal)
 
     async def test_what_the_roll_owes_is_persisted(self) -> None:
         cog, game, match = self.build()
@@ -176,7 +181,7 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
         # The clock cost of the maneuver that risked the own goal is
         # spent by the roll whichever way it goes, so it has to outlive
         # the wait for the click.
-        saved = cog.load_match_state(game)
+        saved = cog.engine.load_match_state(game)
         self.assertTrue(saved.pending_own_goal)
         self.assertEqual(saved.pending_own_goal_distance, 2)
 
@@ -216,8 +221,8 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_run_back.assert_awaited_once()
         self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])
         self.assertTrue(cog.begin_run_back.await_args.kwargs["turnover_occurred"])
-        self.assertFalse(cog.load_match_state(game).pending_own_goal)
-        self.assertEqual(cog.load_match_state(game).ball.speed, 1)
+        self.assertFalse(cog.engine.load_match_state(game).pending_own_goal)
+        self.assertEqual(cog.engine.load_match_state(game).ball.speed, 1)
 
     async def test_a_conceded_own_goal_still_restarts_play(self) -> None:
         cog, game, match = self.build()
@@ -258,7 +263,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
 
         offense = match.home.field_players[0]
         match.active_player_id = offense
@@ -300,7 +305,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsInstance(last_view(interaction), InjuryTestView)
         cog.begin_effect_resolution.assert_not_awaited()
-        saved = cog.load_match_state(game)
+        saved = cog.engine.load_match_state(game)
         self.assertEqual(saved.pending_injury_tests, [offense])
         self.assertEqual(
             saved.pending_injury_resume,
@@ -317,7 +322,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             cog.begin_effect_resolution.await_args.args[3], "Low Pass",
         )
-        saved = cog.load_match_state(game)
+        saved = cog.engine.load_match_state(game)
         self.assertEqual(saved.pending_injury_tests, [])
         self.assertIsNone(saved.pending_injury_resume)
 
@@ -327,7 +332,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
 
         await self.roll_injury(cog, game, offense, 1)
 
-        self.assertIn(offense, cog.load_match_state(game).injured)
+        self.assertIn(offense, cog.engine.load_match_state(game).injured)
         cog.begin_effect_resolution.assert_awaited_once()
 
     async def test_both_participants_are_asked_one_at_a_time(self) -> None:
@@ -338,7 +343,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
 
         await self.resolve_skill_test(cog, game)
         self.assertEqual(
-            cog.load_match_state(game).pending_injury_tests,
+            cog.engine.load_match_state(game).pending_injury_tests,
             [offense, defense],
         )
 
@@ -346,7 +351,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         await self.roll_injury(cog, game, offense, 12)
         cog.begin_effect_resolution.assert_not_awaited()
         self.assertEqual(
-            cog.load_match_state(game).pending_injury_tests, [defense],
+            cog.engine.load_match_state(game).pending_injury_tests, [defense],
         )
 
         await self.roll_injury(cog, game, defense, 12)
@@ -366,7 +371,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.roll_injury(cog, game, offense, 12)
         interaction.response.send_message.assert_awaited_once()
         self.assertEqual(
-            cog.load_match_state(game).pending_injury_tests, [defense],
+            cog.engine.load_match_state(game).pending_injury_tests, [defense],
         )
 
     async def test_an_injured_player_is_never_asked(self) -> None:
@@ -378,7 +383,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertNotIsInstance(last_view(interaction), InjuryTestView)
         cog.begin_effect_resolution.assert_awaited_once()
-        self.assertEqual(cog.load_match_state(game).pending_injury_tests, [])
+        self.assertEqual(cog.engine.load_match_state(game).pending_injury_tests, [])
 
     async def test_the_prompt_is_what_a_restart_comes_back_to(self) -> None:
         cog, game, _, offense = self.build_skill_test()
@@ -388,7 +393,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         # so the maneuver's own branches would answer first if the
         # queue were not checked ahead of them.
         view, _ = cog.pending_turn_view(
-            game.game_id, cog.load_match_state(game),
+            game.game_id, cog.engine.load_match_state(game),
         )
         self.assertIsInstance(view, InjuryTestView)
         self.assertEqual(view.player_id, offense)
@@ -406,7 +411,7 @@ class ContestInjuryResumeTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
 
         offense = match.home.field_players[0]
         match.move_meeple(offense, match.ball.zone, match.ball.space_index)
@@ -435,7 +440,7 @@ class ContestInjuryResumeTests(unittest.IsolatedAsyncioTestCase):
 
         cog.begin_run_back.assert_not_awaited()
         self.assertEqual(
-            cog.load_match_state(game).pending_injury_resume,
+            cog.engine.load_match_state(game).pending_injury_resume,
             {
                 "kind": "run_back",
                 "distance_moved": 3,

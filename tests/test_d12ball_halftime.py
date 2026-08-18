@@ -23,6 +23,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
 
 
@@ -32,6 +33,9 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
@@ -131,12 +135,12 @@ class HalftimeStageSequenceTests(unittest.TestCase):
             ("reposition_visiting", "coaching_visiting"),
         ):
             match.pending_halftime_stage = legacy
-            self.assertEqual(cog.halftime_stage(match), expected)
+            self.assertEqual(cog.engine.halftime_stage(match), expected)
 
         # And advancing from one lands on the next real stage rather
         # than clearing the sequence.
         match.pending_halftime_stage = "subs_visiting"
-        cog.next_halftime_stage(match)
+        cog.engine.next_halftime_stage(match)
         self.assertEqual(match.pending_halftime_stage, "coaching_home")
 
     def test_next_halftime_stage_cycles_through_and_terminates(self) -> None:
@@ -148,7 +152,7 @@ class HalftimeStageSequenceTests(unittest.TestCase):
         match.pending_halftime_stage = HALFTIME_STAGES[0]
         while match.pending_halftime_stage is not None:
             seen.append(match.pending_halftime_stage)
-            cog.next_halftime_stage(match)
+            cog.engine.next_halftime_stage(match)
 
         self.assertEqual(tuple(seen), HALFTIME_STAGES)
 
@@ -510,7 +514,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
             TeamSide.VISITING, CoachingOccasion.HALFTIME,
         )
 
-        refusal = cog.coaching_finish_refusal(match, TeamSide.VISITING)
+        refusal = cog.engine.coaching_finish_refusal(match, TeamSide.VISITING)
 
         self.assertIsNotNone(refusal)
         self.assertIn("kickoff space", refusal)
@@ -526,7 +530,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
 
         self.assertIsNone(
-            cog.coaching_finish_refusal(match, TeamSide.HOME),
+            cog.engine.coaching_finish_refusal(match, TeamSide.HOME),
         )
 
         home_kickoff = match.kickoff_space_for(TeamSide.HOME)
@@ -536,7 +540,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
                 match.move_meeple(player_id, Zone.MIDFIELD, other)
 
         self.assertIsNotNone(
-            cog.coaching_finish_refusal(match, TeamSide.HOME),
+            cog.engine.coaching_finish_refusal(match, TeamSide.HOME),
         )
 
     def test_a_new_play_s_window_is_held_to_it_too(self) -> None:
@@ -549,7 +553,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertIsNotNone(
-            cog.coaching_finish_refusal(match, TeamSide.VISITING),
+            cog.engine.coaching_finish_refusal(match, TeamSide.VISITING),
         )
 
     def test_the_full_time_window_positions_nobody_and_holds_nobody(
@@ -562,7 +566,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertIsNone(
-            cog.coaching_finish_refusal(match, TeamSide.VISITING),
+            cog.engine.coaching_finish_refusal(match, TeamSide.VISITING),
         )
 
     def test_an_ai_visiting_side_covers_it_itself(self) -> None:
@@ -580,7 +584,7 @@ class HalftimeKickoffCoverTests(unittest.IsolatedAsyncioTestCase):
         # And whoever moved is a midfielder by assignment, so the move
         # stayed inside their own zone the way positioning has to.
         self.assertIsNone(
-            cog.coaching_finish_refusal(match, TeamSide.VISITING),
+            cog.engine.coaching_finish_refusal(match, TeamSide.VISITING),
         )
 
     def test_a_covered_space_is_left_alone(self) -> None:

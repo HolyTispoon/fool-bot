@@ -23,7 +23,7 @@ things that match cannot find are listed explicitly below, each with
 the reason -- see EXTRA_ROLES and EXTRA_NOTES.
 """
 from io import BytesIO
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -32,7 +32,14 @@ from d12ball.components import (
     ManeuverDefinition,
     PlayerCatalog,
 )
-from d12ball.render import draw_dashed_line, load_font, wrap_text
+from d12ball.render import (
+    MANEUVER_DEFENSE_COLOR as DEFENSE_COLOR,
+    MANEUVER_OFFENSE_COLOR as OFFENSE_COLOR,
+    arrowhead_triangle,
+    draw_dashed_line,
+    load_font,
+    wrap_text,
+)
 
 
 # Poker size -- 2.5 x 3.5 inches at 300dpi -- with the 1/8in bleed a
@@ -59,11 +66,11 @@ CORNER = 40
 # sheet are the same white.
 EDGE_WIDTH = 5
 
-# The offense/defense colours the maneuver reference image already
-# uses, so a coach reading a card and a coach reading the bot's
-# hexagon are looking at the same two colours.
-OFFENSE_COLOR = "#E24B4A"
-DEFENSE_COLOR = "#97C459"
+# OFFENSE_COLOR/DEFENSE_COLOR are imported above, as
+# MANEUVER_OFFENSE_COLOR/MANEUVER_DEFENSE_COLOR -- the maneuver
+# reference image's own colours, aliased so a coach reading a card and
+# a coach reading the bot's hexagon are looking at the same two
+# colours by construction, not by two hex literals happening to agree.
 # The paper tone the boards are printed on. The cards are white
 # instead -- they are printed nine to a page and a tinted face is a
 # full page of ink for nothing, where a board is one sheet a game.
@@ -288,6 +295,29 @@ def line_height(pen: Pen, face: ImageFont.ImageFont) -> float:
     return pen.text_size("Hg", face)[1] * 1.62
 
 
+def fitted_bold_font(
+    pen: Pen,
+    text: str,
+    max_width: float,
+    max_size: int = 54,
+    min_size: int = 30,
+    step: int = 2,
+) -> Optional[ImageFont.ImageFont]:
+    """
+    The largest bold size in [min_size, max_size] (stepping down by
+    `step`) whose rendered `text` fits `max_width` on one line, or None
+    when even `min_size` doesn't -- the search `fitted_title` (which
+    falls back to a two-line title) and `player_cards.fitted_name`
+    (which falls back to a smaller floor size regardless) each build
+    their own fallback around.
+    """
+    for size in range(max_size, min_size - 1, -step):
+        face = font(size, bold=True)
+        if pen.text_size(text, face)[0] <= max_width:
+            return face
+    return None
+
+
 def fitted_title(
     pen: Pen, name: str, max_width: float
 ) -> tuple[list[str], ImageFont.ImageFont]:
@@ -296,12 +326,10 @@ def fitted_title(
     two if it cannot. "Steal Intercept" and "Dribble Advance" are the
     long ones and both break cleanly at their space.
     """
-    for size in range(54, 29, -2):
-        face = font(size, bold=True)
-        if pen.text_size(name, face)[0] <= max_width:
-            return [name], face
-    face = font(40, bold=True)
-    return name.split(" ", 1), face
+    face = fitted_bold_font(pen, name, max_width, max_size=54, min_size=30)
+    if face is not None:
+        return [name], face
+    return name.split(" ", 1), font(40, bold=True)
 
 
 # A role whose ability does not name the maneuver but belongs on its
@@ -408,16 +436,8 @@ def draw_arrowhead(
     size: float,
     fill: str,
 ) -> None:
-    dx, dy = direction
-    back = (tip[0] - dx * size, tip[1] - dy * size)
-    perp = (-dy, dx)
-    half = size * 0.55
     pen.polygon(
-        [
-            tip,
-            (back[0] + perp[0] * half, back[1] + perp[1] * half),
-            (back[0] - perp[0] * half, back[1] - perp[1] * half),
-        ],
+        arrowhead_triangle(tip, direction, length=size, half_width=size * 0.55),
         fill=fill,
     )
 

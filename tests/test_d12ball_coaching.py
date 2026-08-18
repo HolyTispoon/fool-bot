@@ -16,6 +16,7 @@ from unittest import mock
 from cogs.d12ball import SETUP_STAGES, D12Ball
 from cogs.d12ball_views import CoachingHubView
 from d12ball.ai import build_ai_strategies
+from d12ball.engine import RulesEngine
 from d12ball.components import (
     CoachingOccasion,
     MatchState,
@@ -38,6 +39,10 @@ def build_cog() -> D12Ball:
     cog.condition_emojis = {}
     cog.ai_strategies = build_ai_strategies(
         cog.player_catalog, cog.maneuver_catalog,
+    )
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
+        cog.ai_strategies,
     )
     cog.refresh_match_image = mock.AsyncMock()
     cog.post_new_play_board = mock.AsyncMock()
@@ -368,7 +373,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game(**game_overrides)
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
         game.match_state = match.to_dict()
         return cog, game, match
 
@@ -379,7 +384,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_setup_coaching(interaction, game)
 
-        match = cog.load_match_state(game)
+        match = cog.engine.load_match_state(game)
         self.assertEqual(match.pending_setup_stage, SETUP_STAGES[0])
         self.assertEqual(match.pending_coaching_side, "home")
         self.assertEqual(
@@ -399,7 +404,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_setup_coaching(build_interaction(), game)
 
-            match = cog.load_match_state(game)
+            match = cog.engine.load_match_state(game)
             await cog.finish_substitution_window(
                 build_interaction(), game, match,
             )
@@ -426,7 +431,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_setup_coaching(build_interaction(), game)
-            match = cog.load_match_state(game)
+            match = cog.engine.load_match_state(game)
             await cog.finish_substitution_window(
                 build_interaction(), game, match,
             )
@@ -447,10 +452,10 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_setup_coaching(build_interaction(), game)
-        match = cog.load_match_state(game)
+        match = cog.engine.load_match_state(game)
 
         self.assertIsNone(match.substitutions_remaining())
-        self.assertEqual(cog.substitution_button_label(match), "no limit")
+        self.assertEqual(cog.engine.substitution_button_label(match), "no limit")
 
         outgoing = match.home.field_players[0]
         incoming = match.home.team_board.bench[0]
@@ -469,12 +474,12 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
 
         # The standard deal already covers it, so nothing holds them.
         self.assertIsNone(
-            cog.coaching_finish_refusal(match, TeamSide.HOME),
+            cog.engine.coaching_finish_refusal(match, TeamSide.HOME),
         )
         # The visitors do not kick off the first half, so they are
         # never held here whatever they do.
         self.assertIsNone(
-            cog.coaching_finish_refusal(match, TeamSide.VISITING),
+            cog.engine.coaching_finish_refusal(match, TeamSide.VISITING),
         )
 
         for player_id in list(
@@ -487,7 +492,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
                 )
 
         self.assertIsNotNone(
-            cog.coaching_finish_refusal(match, TeamSide.HOME),
+            cog.engine.coaching_finish_refusal(match, TeamSide.HOME),
         )
 
     async def test_an_ai_side_passes_through_without_a_message(
@@ -503,7 +508,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_setup_coaching(interaction, game)
-            match = cog.load_match_state(game)
+            match = cog.engine.load_match_state(game)
             await cog.finish_substitution_window(interaction, game, match)
 
         self.assertIsNone(match.pending_setup_stage)
@@ -533,7 +538,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game()
         cog.games[game.game_id] = game
-        match = cog.initialize_standard_match(game)
+        match = cog.engine.initialize_standard_match(game)
         match.open_coaching_window(
             TeamSide.HOME,
             CoachingOccasion.NEW_PLAY,
@@ -553,7 +558,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
     def test_the_shape_is_reported_as_the_change_it_was(self) -> None:
         cog, _, match = self.build()
 
-        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
+        cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
 
         self.assertEqual(
             cog.coaching_summary(match, TeamSide.HOME),
@@ -567,8 +572,8 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         # through: it is read against the shape the side opened in.
         cog, _, match = self.build()
 
-        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
-        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_TWO_TWO)
+        cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
+        cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_TWO_TWO)
 
         self.assertEqual(cog.coaching_summary(match, TeamSide.HOME), [])
 
@@ -589,10 +594,10 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
             (second_on, summary[1]),
         ):
             self.assertIn(
-                cog.get_player_definition(player_id).name, line,
+                cog.engine.get_player_definition(player_id).name, line,
             )
         self.assertIn(
-            cog.get_player_definition(first_off).name, summary[0],
+            cog.engine.get_player_definition(first_off).name, summary[0],
         )
 
     async def test_done_puts_the_summary_where_it_survives(self) -> None:
@@ -610,10 +615,10 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         content = click.response.edit_message.await_args.kwargs["content"]
         self.assertIn("are done.", content)
         self.assertIn(
-            cog.get_player_definition(incoming).name, content,
+            cog.engine.get_player_definition(incoming).name, content,
         )
         self.assertIn(
-            cog.get_player_definition(outgoing).name, content,
+            cog.engine.get_player_definition(outgoing).name, content,
         )
         cog.finish_substitution_window.assert_awaited_once()
 
@@ -634,7 +639,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         # A restart mid-window resumes the same Coaching Choice, so it
         # has to close with what the coach did before the restart.
         cog, _, match = self.build()
-        cog.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
+        cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
         outgoing = match.home.field_players[0]
         incoming = match.home.team_board.bench[0]
         cog.apply_substitution(match, TeamSide.HOME, outgoing, incoming)

@@ -28,6 +28,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 
 
@@ -37,6 +38,9 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
@@ -105,7 +109,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
 
     def defense_skill(self, cog: D12Ball, player_id: str) -> int:
         return cog.player_catalog.effective_profile(
-            cog.get_player_definition(player_id)
+            cog.engine.get_player_definition(player_id)
         ).defense
 
     async def test_the_entry_token_s_exhausted_flag_is_saved(self) -> None:
@@ -129,7 +133,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch("cogs.d12ball.save_games"):
             await cog.resolve_maneuver(build_interaction(), game, match)
 
-        self.assertIn(offense_id, cog.load_match_state(game).exhausted)
+        self.assertIn(offense_id, cog.engine.load_match_state(game).exhausted)
 
     async def test_a_tie_s_token_is_in_force_for_the_injury_check(
         self,
@@ -158,7 +162,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
         with mock.patch("cogs.d12ball.save_games"):
             await cog.resolve_maneuver(interaction, game, match)
-        self.assertNotIn(offense_id, cog.load_match_state(game).exhausted)
+        self.assertNotIn(offense_id, cog.engine.load_match_state(game).exhausted)
 
         # Rolls chosen so the two totals land level. Neither of these
         # two is a Midfielder and neither maneuver is Steal Intercept,
@@ -167,7 +171,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         defense_roll = (
             offense_roll
             + cog.player_catalog.effective_profile(
-                cog.get_player_definition(offense_id)
+                cog.engine.get_player_definition(offense_id)
             ).offense
             - self.defense_skill(cog, defense_id)
         )
@@ -180,7 +184,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         ):
             await view.roll(interaction)
 
-        self.assertIn(offense_id, cog.load_match_state(game).exhausted)
+        self.assertIn(offense_id, cog.engine.load_match_state(game).exhausted)
         # A tie resolves nothing, so it owes no injury test: the
         # queue is only ever built when the contest ends.
         cog.begin_injury_tests.assert_not_awaited()
@@ -231,7 +235,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
                     )
 
                 self.assertEqual(
-                    cog.load_match_state(game).exhaustion.get(player_id), 1,
+                    cog.engine.load_match_state(game).exhaustion.get(player_id), 1,
                 )
 
     async def test_a_forced_run_back_still_tests_the_threshold(self) -> None:
@@ -243,10 +247,10 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         skill = self.defense_skill(cog, player_id)
 
         match.add_exhaustion(player_id, skill + 1)
-        self.assertTrue(cog.retest_exhausted(match, player_id))
+        self.assertTrue(cog.engine.retest_exhausted(match, player_id))
         self.assertIn(player_id, match.exhausted)
         # Only on the transition, so it can be announced once.
-        self.assertFalse(cog.retest_exhausted(match, player_id))
+        self.assertFalse(cog.engine.retest_exhausted(match, player_id))
 
 
 if __name__ == "__main__":

@@ -44,6 +44,7 @@ from d12ball.cards import (
     PANEL_COLOR,
     PANEL_EDGE,
     Pen,
+    fitted_bold_font,
     font,
     line_height,
 )
@@ -83,13 +84,12 @@ def fitted_name(
     The largest bold size the header will carry the name at. Player
     names are one word, so unlike a maneuver's there is nothing to
     break -- the size comes down until "Flickerwing" fits between the
-    role badge and the team.
+    role badge and the team, floored at 22 even if that still doesn't.
     """
-    for size in range(54, 21, -2):
-        face = font(size, bold=True)
-        if pen.text_size(name, face)[0] <= max_width:
-            return face
-    return font(22, bold=True)
+    return (
+        fitted_bold_font(pen, name, max_width, max_size=54, min_size=22)
+        or font(22, bold=True)
+    )
 
 
 def draw_header(
