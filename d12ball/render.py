@@ -1124,6 +1124,10 @@ def draw_meeple_group(
     )
 
     color = TEAM_COLORS[Team(team)]
+    # Slime green is bright enough that white loses contrast against it --
+    # black reads clearly on both the outline and the letters, where every
+    # other team's color keeps the usual white.
+    token_ink = "#000000" if Team(team) in (Team.SLIME, Team.OOZES) else "#ffffff"
     for player_index, player_id in enumerate(occupants):
         player = players[player_id]
         draw.ellipse(
@@ -1134,7 +1138,7 @@ def draw_meeple_group(
                 token_y + token_size,
             ),
             fill=color,
-            outline="#ffffff",
+            outline=token_ink,
             width=4,
         )
         initials = ROLE_INITIALS[player.role.value]
@@ -1146,7 +1150,7 @@ def draw_meeple_group(
             ),
             initials,
             font=FONT_TOKEN,
-            fill="#ffffff",
+            fill=token_ink,
         )
         label = shorten_to_width(
             draw, player.name, label_font, label_width_limit,
