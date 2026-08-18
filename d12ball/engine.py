@@ -586,15 +586,29 @@ class RulesEngine:
         side: TeamSide,
     ) -> list[str]:
         """
-        Who `side` may send after a loose ball -- the nearest player
-        either side of it, from any zone (see
-        MatchState.contest_candidates). A side with nobody fielded at
-        all sends nobody, which is not a failure state; it is also no
-        longer a state anybody reaches by standing in the wrong zone,
-        so out of bounds is now reached by declining and by nothing
-        else. resolve_loose_ball takes it from there either way.
+        Who `side` puts up for a loose ball. It is one of two pools and
+        never a mixture of them -- the same shape as
+        MatchState.challenge_candidates, and for the same reason.
+
+        **Whoever of theirs is standing on the ball contests it**, for
+        nothing, and a side with somebody there may not withhold them
+        (may_decline_loose_ball). Only a side with nobody there sends
+        anyone, from the nearest either side of the space
+        (MatchState.contest_candidates). Where a side has several
+        standing there the coach picks between them -- the author,
+        2026-08-18, the same call as the maneuver challenge's.
+
+        The passer is struck out of the offense's pool in a High Pass
+        contest -- see MatchState.loose_ball_occupants, which is the one
+        reading of who is standing on the ball here.
+
+        A side with nobody fielded at all puts nobody up, which is not
+        a failure state. resolve_loose_ball takes it from there.
         """
-        return match.contest_candidates(side)
+        return (
+            match.loose_ball_occupants(side)
+            or match.contest_candidates(side)
+        )
 
     def loose_ball_sides_ready(
         self,
@@ -631,6 +645,12 @@ class RulesEngine:
         back: sending them is optional, and declining is what puts the
         ball out of bounds, so one candidate is still a real choice
         between two outcomes.
+
+        **A lone player standing on the ball is**, because there is
+        nothing to ask: they contest for nothing and their side may not
+        withhold them, so the only choice a prompt could offer is one
+        the rules refuse. Two is the coach's pick, the same count-not-a-
+        flag reading choose_action makes of automatic_challengers.
         """
         for side, skill_type, choose in (
             (
@@ -652,6 +672,11 @@ class RulesEngine:
                       match.loose_ball_defense_declined)
             )
             if picked is not None or declined:
+                continue
+
+            on_the_ball = match.loose_ball_occupants(side)
+            if len(on_the_ball) == 1:
+                choose(on_the_ball[0])
                 continue
 
             candidates = self.loose_ball_candidates(match, side)
@@ -686,6 +711,24 @@ class RulesEngine:
         if not defense_ready:
             return "defense"
         return None
+
+    def build_loose_ball_headline(self, match: MatchState) -> str:
+        """
+        How a loose ball is announced, read off the position rather
+        than off what made it -- an empty space and an occupied one are
+        different questions to the coaches, and since 2026-08-18 both
+        are loose.
+        """
+        if self.is_landing_space_empty(match):
+            return (
+                "**Loose ball!** It comes down on an empty space -- each "
+                "side may send a nearby player to contest it."
+            )
+        return (
+            "**Loose ball!** Whoever is standing on it contests for "
+            "their side, for nothing; a side with nobody there may send "
+            "a nearby player after it."
+        )
 
     def loose_ball_prompt_side(self, match: MatchState) -> TeamSide:
         """The board side whose turn it is to pick."""
@@ -1165,6 +1208,16 @@ class RulesEngine:
         mention = format_player_with_team(game, number, mention=True)
         noun = contest_noun(match)
         where = ball_space_label(match)
+        side = self.loose_ball_prompt_side(match)
+        # A coach with several of theirs standing on the ball is
+        # picking which one contests, not whether to send anybody --
+        # the wording follows the button that is actually there (see
+        # LooseBallChoiceView).
+        if not match.may_decline_loose_ball(side):
+            return (
+                f"{mention}, more than one of yours is standing on the "
+                f"{noun} on {where} -- choose which of them contests it:"
+            )
         if skill_type == "offense":
             return (
                 f"{mention}, you had the ball -- send the nearest player "

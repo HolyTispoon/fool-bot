@@ -357,9 +357,11 @@ A loose ball won by the side that did not last have it is a steal.
 
 ### The High Pass contest
 
-A High Pass thrown 3 spaces or more is caught, but not kept: it leaves the ball [loose](#the-loose-ball) like anything else, and the receiver standing on it is their side's automatic contestant. An overshot pass whose set-up was declined comes to the same place. A pass of 2 does not — it is simply received.
+A High Pass of 3 spaces or more onto a teammate is caught, but not kept: it leaves the ball [loose](#the-loose-ball) like anything else, and the receiver standing on it is their side's automatic contestant. An overshot pass whose set-up was declined comes to the same place. A pass of 2 does not — a teammate there simply receives it and possession does not change, exactly as with a [Low Pass](#low-pass).
 
 The contest is the loose ball's, with one difference: the side that threw the pass adds the [ball speed modifier](#ball-speed), and adds it against themselves if the pass overshot.
+
+**A pass that reaches nobody carries no modifier.** It is not this contest at a disadvantage; it simply *is* a loose ball, and there is no receiver for the throw to have favoured.
 
 The ball is left with the winner. A receiver who loses it has been stolen from.
 

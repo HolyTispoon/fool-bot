@@ -2180,12 +2180,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         The long-pass contest: the receiver standing where the pass
-        landed still has to win a skill test to keep the ball. They are
-        the automatic offense contestant, and a defender already
-        sharing the same space (spaces are shared between both sides --
-        see defenders_between_ball_and_goal) is likewise automatic;
-        only a side with nobody exactly there still has to pick someone
-        nearby to send.
+        landed still has to win a skill test to keep the ball.
+
+        Since 2026-08-18 this is a loose ball and nothing else -- the
+        receiver contests because they are standing on the ball, which
+        is the ordinary rule, and so does a defender sharing the space.
+        The one thing still peculiar to a High Pass is the ball speed
+        modifier, which `is_high_pass` carries. So there is nothing here
+        but the flag: the contestants are read off the position by
+        loose_ball_candidates, and the passer is struck out of the
+        offense's pool by MatchState.loose_ball_occupants.
 
         Two paths reach it, and callers of both have already found the
         receiver on the landing space: an unclamped pass of 3 or 4, and
@@ -2195,12 +2199,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         receiver rather than for them -- the same sign the declined
         shot would have paid.
         """
-        receiver_candidates = self.engine.high_pass_receiver_candidates(
-            match, match.ball.possession,
-        )
-        defender_on_space = self.engine.scoring_opportunity_candidates(
-            match, match.defending_side(),
-        )
         await self.begin_loose_ball(
             interaction,
             game,
@@ -2209,10 +2207,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             lead_in=lead_in,
             headline=HIGH_PASS_CONTEST_HEADLINE,
             is_high_pass=True,
-            forced_offense_player=receiver_candidates[0],
-            forced_defense_player=(
-                defender_on_space[0] if defender_on_space else None
-            ),
         )
 
     async def offer_scoring_attempt_choice(
@@ -2323,47 +2317,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         The one check every maneuver-effect path runs through, via
         finish_maneuver_resolution: does the possessing team actually
         have a player on the ball's space? If not, this detours into
-        whatever loose-ball flow applies instead of letting the turn
-        proceed with nobody eligible to act -- returns True when it
-        took that detour, so the caller stops instead of continuing.
+        the loose ball instead of letting the turn proceed with nobody
+        eligible to act -- returns True when it took that detour, so
+        the caller stops instead of continuing.
+
+        **There is one detour now, not two.** A ball landing where only
+        the *other* side is standing used to be theirs outright: no
+        movement, no roll, a clean steal. It is a loose ball like any
+        other since 2026-08-18, and the side that lost it may send
+        somebody to contest it -- the defender standing there is simply
+        a contestant who costs their side nothing. See "The loose ball"
+        in docs/living-rules.md.
+
+        A Block Deflect does not come through here at all: it makes a
+        loose ball whoever is standing on the landing space, so its own
+        effect calls begin_loose_ball directly rather than answering a
+        question whose answer would be "not loose".
         """
         if match.eligible_ball_handlers():
             return False
 
-        if self.engine.is_landing_space_empty(match):
-            await self.begin_loose_ball(
-                interaction, game, match, distance_moved, lead_in=lead_in,
-            )
-            return True
-
-        # Not empty, but nobody from the possessing team is there --
-        # an opposing player is already standing on the ball. Clean,
-        # uncontested turnover: no movement, no skill test.
-        new_side = match.defending_side()
-        recoverer_id = match.board.spaces[match.ball.zone][
-            match.ball.space_index
-        ][0]
-        player = self.engine.get_player_definition(recoverer_id)
-        match.set_possession(new_side)
-        match.ball.speed = 1
-        game.match_state = match.to_dict()
-        save_games(self.games)
-
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-        await self.announce_board_update(
-            interaction,
-            game,
-            f"{prefix}# Turnover!\n"
-            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} is already "
-            f"on {ball_space_label(match)} -- "
-            f"{format_team_side_label(match.setup_for_side(new_side))} "
-            "wins the loose ball uncontested.",
-        )
-        # A loose ball the other team picks up is a steal, so no
-        # substitution window -- the ball never went dead.
-        await self.begin_run_back(
-            interaction, game, match,
-            distance_moved=distance_moved, turnover_occurred=True,
+        await self.begin_loose_ball(
+            interaction, game, match, distance_moved, lead_in=lead_in,
         )
         return True
 
@@ -2403,13 +2378,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
         distance_moved: int,
         lead_in: str = "",
-        headline: str = (
-            "**Loose ball!** The pass lands in an empty space -- each "
-            "side may send a nearby player to contest it."
-        ),
+        headline: Optional[str] = None,
         is_high_pass: bool = False,
-        forced_offense_player: Optional[str] = None,
-        forced_defense_player: Optional[str] = None,
     ) -> None:
         """
         `distance_moved` (the pass's own clamped travel) is stashed on
@@ -2421,18 +2391,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         `lead_in` is narration from the pass that hasn't been posted
         yet -- it rides along on this function's own first message.
 
-        `headline` overrides the default "lands in an empty space"
-        framing -- a High Pass reuses this same contest even when the
-        landing space isn't empty (a 3+ space pass, or a declined
-        2-space one, always makes the receiver win a skill test to
-        keep the ball), so its own call site passes wording that
-        doesn't claim emptiness.
+        `headline` overrides the wording, which is otherwise built from
+        the position by build_loose_ball_headline -- a loose ball may
+        now land on an occupied space, so nothing may assume emptiness.
 
-        `forced_offense_player`/`forced_defense_player` skip that
-        side's pick entirely -- a High Pass forces the contest even
-        when a side is already standing right on the landing space,
-        and that occupant is the only sensible contestant for their
-        side, not a fresh pick from the whole zone.
+        **Nobody's contestant is forced from here any more.** A side
+        with somebody standing on the ball puts them up, for nothing
+        and without being asked, and that is one rule read off the
+        position by loose_ball_candidates rather than two call sites
+        passing players in. It used to be the High Pass's alone; it is
+        now every loose ball's, so the High Pass had nothing left to
+        pass.
         """
         match.begin_loose_ball(distance_moved, is_high_pass=is_high_pass)
         # The ball is free and about to be contested, so nobody is
@@ -2441,14 +2410,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # anything. Whoever comes out of the contest with it is chosen
         # off the ball's space in the ordinary way.
         match.clear_ball_carrier()
-        if forced_offense_player is not None:
-            match.choose_loose_ball_offense_player(forced_offense_player)
-        if forced_defense_player is not None:
-            match.choose_loose_ball_defense_player(forced_defense_player)
         self.engine.auto_resolve_loose_ball_picks(game, match)
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        if headline is None:
+            headline = self.engine.build_loose_ball_headline(match)
         prefix = f"{lead_in}\n\n" if lead_in else ""
         if is_high_pass:
             # A High Pass is not a loose ball: the ball is on a player
@@ -2814,13 +2781,25 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
 
         if not candidates:
-            await self.refresh_match_image(interaction, game)
+            # A Block Deflect knocks the ball out of anybody's
+            # possession, so it is loose wherever it lands and whoever
+            # is standing there -- the author, 2026-08-18. It does not
+            # go through finish_maneuver_resolution's loose-ball check
+            # for that reason: that check asks whether the possessing
+            # team has somebody on the ball, and here the answer does
+            # not matter. Whoever is standing there contests for their
+            # side instead, at no cost.
+            #
+            # No refresh_match_image first: begin_loose_ball posts the
+            # board with the announcement, and refreshing here would
+            # write the same board twice (see "Discord's rate limits").
+            #
             # Block Deflect's time cost is a fixed 1 space minute per
             # the rules table, not "distance traveled" like Low/High
             # Pass, so this doesn't shrink if the move was clamped at
             # the edge (or grow with the Fullback's extra distance).
-            await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=1, lead_in=content,
+            await self.begin_loose_ball(
+                interaction, game, match, 1, lead_in=content,
             )
             return
 

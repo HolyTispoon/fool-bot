@@ -65,20 +65,22 @@ difference between this and a high pass contest is that in a high pass the team 
 has the speed modifier working in their favor (unless they overshot, in which case it's working
 against them)."*
 
-**Docs only so far. The code still plays the old rule** -- see the open questions at the end,
-which are what a code change is waiting on.
-
 - **Loose now means "nobody is in possession", not "the possessing team has nobody on the
   space".** That was the definition doing all the work: it made "loose" a fact about where a
   team's meeples were, so a ball on a space with the right meeple could not be loose however it
-  got there. It is now a fact about the ball, and the three ways it comes free -- a pass landing
-  where the passing side has nobody, a Block Deflect, a long High Pass -- all reach the same
+  got there. It is now a fact about the ball, and the ways it comes free all reach the same
   contest.
 - **A side's contestant is whoever of theirs is standing on the ball, and otherwise a player they
-  may send.** One rule replaces three separate readings: the loose ball's "each side may send", the
-  High Pass contest's forced receiver, and the "only the other team is there, so they simply take
-  it" branch. The ordering is unchanged where it still applies -- the side that last had the ball
-  chooses first -- but it only applies when both sides have to choose.
+  may send.** One rule replaces three separate readings: the loose ball's "each side may send",
+  the High Pass contest's forced receiver, and the "only the other team is there, so they simply
+  take it" branch. The ordering is unchanged where it still applies -- the side that last had the
+  ball chooses first -- but it only applies when both sides have to choose.
+- **A side with somebody on the ball may not withhold them.** Declining is a refusal to pay a
+  walk-in's exhaustion and they have no walk-in to pay for, exactly as with a challenge. So out of
+  bounds narrows to an empty space's outcome alone.
+- **Where several of a side are standing there, that coach picks which contests** -- the author,
+  answering directly, and the same call as the 2026-08-17 ruling on which defender challenges. One
+  of them is still put up without asking, because there is nothing to ask.
 - **The uncontested take is gone.** A ball landing where only the *defense* is standing used to be
   theirs outright: "nobody moves, nothing is rolled, and it is a steal." The side that lost it may
   now send somebody to contest it, at the usual token a space. That is the change with the widest
@@ -86,8 +88,7 @@ which are what a code change is waiting on.
 - **A Block Deflect no longer leaves the ball with the offense**, whoever is standing there. It
   knocked the ball out of the handler's possession; that a teammate happened to be a space back is
   no longer enough to keep it without contesting. It also drops out of Choosing the handler's
-  "nobody in particular" list, since it now leaves nobody in possession rather than leaving the
-  ball loose-with-possession-intact.
+  "nobody in particular" list, since it now leaves nobody in possession at all.
 - **The overshoot exception survives untouched.** A deflection that runs out of field onto a
   defender is still a scoring opportunity rather than a contest.
 - **The High Pass contest is now a paragraph rather than a rule.** It is the loose ball plus the
@@ -97,23 +98,34 @@ which are what a code change is waiting on.
 - **Sending a player is asked by three rules now, not four**, the loose ball and the High Pass
   contest having become one.
 
-**What this leaves open, for the author:**
+**What this deliberately does not change**, all of it the author's, answering the questions the
+first draft of this entry raised:
 
-- **Does a 2-space High Pass still settle without a contest?** With the loose ball and the contest
-  unified, distance is the only thing deciding whether a caught pass has to be won, and nothing
-  states why 2 is different.
-- **Does a High Pass landing on an empty space carry the modifier?** It does not today -- only the
-  contest path sets it. Under "the team who made the pass has the modifier in their favor" it
-  arguably should.
-- **Why do Pressure, Dribble Advance and a completed Low Pass keep the ball?** Pressure is the
-  closest case: the ball goes back a space and the challenger ends up standing on it, which is
-  exactly the Block Deflect position, and it is left with the handler by name.
-- **Which of a stack contests?** The rules now say the coach picks, on the 2026-08-17 precedent
-  for the maneuver challenge. The code takes the first of the list on both sides of a High Pass
-  contest.
-- **Is a pickup still uncontestable?** An out-of-bounds or ceded ball is handed to one side and
-  placed rather than contested. That is deliberate for ceding (2026-08-10) and unaffected by this,
-  but it is now the one place a ball sits on a space without being fought over.
+- **Pressure is unaffected.** Possession is never lost and never changes, so there is nothing to
+  contest -- the ball is left with the handler who was shoved back, exactly as before. It is the
+  closest position to a Block Deflect on the board and the furthest from it in the rules.
+- **A 2-space High Pass still requires no contest.** With an attacking player on the landing space
+  possession does not change, just like a Low Pass. Only 3 and 4 are caught-but-not-kept.
+- **A High Pass onto an empty space carries no modifier.** It is not a High Pass contest at a
+  disadvantage; it simply *is* a loose ball, and there is no receiver for the throw to have
+  favoured. A pass of 3 or 4 onto a teammate is the loose ball *plus* the modifier, and that is
+  the whole of the difference between them.
+- **Dribble Advance, a completed Low Pass and the pickup are untouched.**
+
+### 2026-08-18 -- author, Dinky throws to somebody rather than as far as possible
+
+*The author, alongside the change above: "Dinky should try to avoid picking a high pass target
+number where they have no teammate. So if dinky needs to choose between 2 or 3 or 4 - they should
+choose the highest number of those that has a teammate in it, rather than just higher distance as
+it does today."*
+
+- **`DinkyAI.choose_high_pass_distance` takes the longest pass that reaches a teammate**, and only
+  falls back to the longest available when none of them does. It is not a rules change -- a coach
+  could always throw short on purpose -- but it stops the AI's own maximizing from working against
+  it, which the change above sharpens: a pass landing where the offense has nobody is a loose ball,
+  so throwing as far as possible was throwing the ball away as often as possible.
+- **`MatchState.high_pass_receivers_at` is the lookahead it reads**, the before-the-throw twin of
+  `high_pass_receiver_candidates`, and it excludes the passer for the same reason that one does.
 
 ### 2026-08-17 (newest) -- author, the coach picks which defender on the ball challenges
 

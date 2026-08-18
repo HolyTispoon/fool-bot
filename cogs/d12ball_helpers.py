@@ -79,15 +79,15 @@ FIELD_IMAGE_FILENAME = "d12ball-field.png"
 MAX_PINNED_MESSAGES = 50
 MAX_PINS_ERROR_CODE = 30003
 
-# A High Pass reuses the loose-ball contest (see begin_loose_ball) even
-# when the landing space isn't empty -- a 3+ space pass, or a declined
-# 2-space one, always makes the receiver win a skill test to keep the
-# ball. This headline replaces begin_loose_ball's default "lands in an
-# empty space" framing, which wouldn't be true here. It doesn't mention
-# either side sending someone to contest: the receiver is always
-# already there, and the defense only gets a pick of their own when
-# they don't already have someone on that same space (see
-# apply_high_pass's forced_defense_player).
+# A High Pass *is* the loose-ball contest (see begin_loose_ball) -- a
+# 3+ space pass, or a declined 2-space one, makes the receiver win a
+# skill test to keep the ball, and since 2026-08-18 that is the
+# ordinary rule rather than this maneuver's own: they contest because
+# they are standing on the ball. This headline replaces the wording
+# build_loose_ball_headline would give it, which says the ball is loose
+# -- true, but not what either coach watched happen. It mentions
+# nobody being sent because both sides usually have their contestant
+# standing there already.
 HIGH_PASS_CONTEST_HEADLINE = (
     "**High Pass:** the receiving player must win a skill test to keep "
     "possession."
