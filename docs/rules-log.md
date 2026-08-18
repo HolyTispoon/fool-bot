@@ -45,29 +45,40 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
-### Advanced mode -- eighteen questions, none of them answered
+### Advanced mode -- two decisions and one blank still outstanding
 
 The author asked for advanced mode on 2026-08-17: **advanced maneuvers** (each of the six
 has a version that is more impactful when it succeeds and carries an extra cost when it is
 defeated) and **asymmetric teams** (a team playable with its own abilities and role
 composition instead of the standard one), with a game free to take one, both or neither.
 
-Nothing is settled yet, and the questions are kept in
-[advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) rather than here, because they
-come with the table they are asked against -- every advanced maneuver against every
-maneuver it can meet, and which cost or benefit applies. Five of the eighteen block the
-table itself: whether the advanced choice is made per turn or per game, whether an
-advanced card beats a basic one of the same rank, whether a skill test counts as
-succeeding or being defeated, whether an unopposed maneuver earns its bonus, and whether
-both sides' effects apply when both played advanced.
+Eighteen questions were asked against the table they belong to, and **fourteen were answered
+on 2026-08-18**. Both live in [advanced-maneuver-matrix.md](advanced-maneuver-matrix.md)
+rather than here, because a question about a pairing only makes sense beside the pairing.
+What the answers settle, in the order they matter:
 
-**The six advanced maneuvers are drafted in the sheet's `maneuvers` tab** -- six new rows
-beside the basic six, each identical to its counterpart in every column but the effect, so
-**an advanced maneuver keeps its rank and its place in the defeat cycle** and advanced mode
-adds no new way to *win* a maneuver. They are transcribed into the matrix and deliberately
-**not** imported: one draft is cut off mid-sentence, three costs name the maneuver that
-defeated them and so cannot be read against a lost skill test, and one distance collides
-with the 2026-08-12 rule that a passer never receives their own pass.
+- **A coach playing advanced holds six cards** and picks one secretly each maneuver -- but
+  **only when the maneuver is challenged**. An unchallenged maneuver is played from the basic
+  three, which makes declining a challenge a way to deny the offense their advanced cards.
+- **Rank alone decides.** Each advanced row is identical to its basic counterpart in every
+  column but the effect, and an advanced card does not beat a basic one of its own rank. So
+  one defeat cycle serves both sets, and **advanced mode adds no new way to win a maneuver**
+  -- what it adds is a consequence attached to winning and to losing.
+- **The costs are mostly effects granted to the opponent rather than a currency**, and
+  possession is among them. Only one of the six is paid in something the game already counts.
+
+**What is still open is two decisions and one blank.** Whether losing a skill test counts as
+being defeated -- three of the six costs name the maneuver that beat them and cannot be read
+against a tie, which is the argument for saying it does not; whether a winner's bonus and a
+loser's cost both apply when both sides played advanced; and Double Team's cost, which the
+draft cuts off mid-sentence.
+
+**Nothing is imported, and the importer could not read the tab if it were asked to.**
+`scripts/import_d12ball_maneuvers.py` requires each die face to be used once per side, and
+the advanced rows reuse their counterparts' faces, so it refuses the twelve-row tab outright;
+`ManeuverCatalog.relationships` separately raises on every advanced card, because the sheet's
+`Defeats` column names only basic maneuvers. Both are reproduced in the matrix's own closing
+section.
 
 The `Advanced` ability column is still empty for all thirty-six players, so asymmetric
 teams have no data at all.
@@ -1529,17 +1540,18 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
 ### Blocked or deferred
 
 - **Advanced mode** is asked for and unspecified -- see
-  [Advanced mode](#advanced-mode----eighteen-questions-none-of-them-answered) under Still
+  [Advanced mode](#advanced-mode----two-decisions-and-one-blank-still-outstanding) under Still
   open, and [advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) for the questions.
   Setup refuses it. It has two halves and they are blocked on different things:
   - **Advanced maneuvers** are drafted in the sheet's `maneuvers` tab and transcribed into
-    the matrix. They are not imported, and should not be until the drafts are finished --
-    Double Team's cost is cut off mid-sentence, and three of the six name the maneuver that
-    beat them, which a lost skill test is not. Note also that the tab's `Time` column still
-    carries the distance-based costs the 2026-08-16 flat-cost ruling replaced, so
-    **re-running `scripts/import_d12ball_maneuvers.py` today would revert `maneuvers.json`**
-    -- it is listed in [Where upstream is behind](#where-upstream-is-behind) and wants
-    fixing upstream before anything else is pulled.
+    the matrix. They are not imported, and **could not be**: the importer requires each die
+    face to be used once per side, and the advanced rows reuse their counterparts' faces, so
+    it refuses the twelve-row tab at the seventh. Retiring that validation is the same change
+    the author's "ignore the die value column" implies. Two rules gaps also remain -- Double
+    Team's cost is cut off mid-sentence, and three of the six costs name the maneuver that
+    beat them, which a lost skill test is not.
+    The `Time` column's stale distance-based costs, which would have reverted `maneuvers.json`
+    on the next import, have been **fixed upstream** by the author.
   - **Asymmetric teams** -- per-team abilities and role composition (the sheet's empty
     `Advanced` column) -- have no data at all. Formations left 4-1-1 and 2-1-3 to advanced
     mode on 2026-08-08, and neither fits a current board. It also holds up the **back of a
