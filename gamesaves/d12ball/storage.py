@@ -24,6 +24,30 @@ LEGACY_COLOR_FOR_SPECIES = {
 }
 _LEGACY_COLOR_VALUES = frozenset(LEGACY_COLOR_FOR_SPECIES.values())
 
+# `{name a legacy id was built from: that player's name now}`, for the
+# players who have been renamed since. A legacy id carries the name the
+# player had when the game was saved, and that is the one thing the
+# current catalog cannot tell you -- everything else about the old id
+# (the color, from the species) is still derivable, which is why this
+# is three entries rather than the table of 36 the rest of this
+# deliberately avoids. Written down because it has to be, not because
+# it was easier.
+#
+# These three landed in 36250a9 on 2026-08-17, a day before the
+# reshuffle and separately from it, so a game saved before that commit
+# has been failing `TeamSetup.validate` ever since -- first on the
+# rename, then on the reshuffle. That is the second live traceback:
+# `/d12ball resume` on a game older than both.
+#
+# Add to this whenever a player is renamed, or a save older than the
+# rename stops loading. `_unmapped_legacy_ids` is what says so out
+# loud if anybody forgets.
+LEGACY_RENAMED_NAMES = {
+    "blazekick": "brightburn",
+    "kindlefoot": "kindlefinger",
+    "sizzik": "sizzifizik",
+}
+
 # Built once and cached: load_player_catalog() reads and parses
 # players.json, and load_games() is called once at startup for every
 # saved game, so there is no reason to repeat that per game.
@@ -51,16 +75,58 @@ def _build_legacy_id_map() -> dict[str, str]:
 
     catalog = load_player_catalog()
     legacy_ids: dict[str, str] = {}
+    by_current_name: dict[str, tuple[str, str]] = {}
     for roster in catalog.teams.values():
         for player in roster.players:
             legacy_color = LEGACY_COLOR_FOR_SPECIES.get(player.species)
             if legacy_color is None:
                 continue
-            legacy_id = f"{legacy_color}_{player.name.lower()}"
-            legacy_ids[legacy_id] = player.player_id
+            current_name = player.name.lower()
+            legacy_ids[f"{legacy_color}_{current_name}"] = player.player_id
+            by_current_name[current_name] = (legacy_color, player.player_id)
+
+    # A renamed player answers to their old id as well. The color is
+    # still read off their species rather than written down, so a
+    # rename recorded here cannot disagree with the reshuffle about
+    # which team the save is from.
+    for old_name, current_name in LEGACY_RENAMED_NAMES.items():
+        renamed = by_current_name.get(current_name)
+        if renamed is None:
+            continue
+        legacy_color, player_id = renamed
+        legacy_ids[f"{legacy_color}_{old_name}"] = player_id
 
     _legacy_id_map = legacy_ids
     return legacy_ids
+
+
+def _unmapped_legacy_ids(value) -> set[str]:
+    """
+    Every string still shaped like a legacy id after a migration has
+    run -- `{legacy color}_{something}`, which no id in the reshuffled
+    catalog looks like.
+
+    A migration that fires but cannot map everything leaves a side
+    half-remapped, which is worse than not firing at all: the save
+    still fails `TeamSetup.validate`, and the traceback says only that
+    the setup does not match, naming nobody. Almost always a rename
+    missing from `LEGACY_RENAMED_NAMES`, so the leftovers *are* the
+    diagnosis and this is what puts them in the log.
+    """
+    if isinstance(value, str):
+        color, separator, rest = value.partition("_")
+        if separator and rest and color in _LEGACY_COLOR_VALUES:
+            return {value}
+        return set()
+    found: set[str] = set()
+    if isinstance(value, list):
+        for item in value:
+            found |= _unmapped_legacy_ids(item)
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            found |= _unmapped_legacy_ids(key)
+            found |= _unmapped_legacy_ids(item)
+    return found
 
 
 def _remap_legacy_ids(value, mapping: dict[str, str]):
@@ -152,6 +218,20 @@ def migrate_legacy_game_data(game_data: dict) -> dict:
             side = match_state.get(side_key)
             if side and side.get("team") in _LEGACY_COLOR_VALUES:
                 side["team"] = TEAM_PAIRS[Team(side["team"])].value
+
+        # Scoped to the match state, which is the only part of a save
+        # that holds player ids and the only part `validate` reads.
+        # A game's own name could carry anything.
+        leftovers = _unmapped_legacy_ids(match_state)
+        if leftovers:
+            LOGGER.error(
+                "D12 Ball game %s is a legacy save this build cannot fully "
+                "migrate: %s could not be matched to a current player, so "
+                "the game will not load. Almost certainly a rename missing "
+                "from LEGACY_RENAMED_NAMES in gamesaves/d12ball/storage.py.",
+                remapped.get("game_id", "?"),
+                ", ".join(sorted(leftovers)),
+            )
 
     return remapped
 

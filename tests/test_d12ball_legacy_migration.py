@@ -48,8 +48,23 @@ LEGACY_COLOR_FOR_SPECIES = {
 }
 
 
-def legacy_id_for(player) -> str:
-    return f"{LEGACY_COLOR_FOR_SPECIES[player.species]}_{player.name.lower()}"
+# The names these three players had before 36250a9 renamed them on
+# 2026-08-17 -- a day before the reshuffle, and a separate break. Kept
+# independent of storage.LEGACY_RENAMED_NAMES for the same reason the
+# color table above is: a fixture built from the module's own answer
+# key cannot catch the module being wrong.
+NAMES_BEFORE_THE_RENAME = {
+    "brightburn": "blazekick",
+    "kindlefinger": "kindlefoot",
+    "sizzifizik": "sizzik",
+}
+
+
+def legacy_id_for(player, before_the_rename: bool = False) -> str:
+    name = player.name.lower()
+    if before_the_rename:
+        name = NAMES_BEFORE_THE_RENAME.get(name, name)
+    return f"{LEGACY_COLOR_FOR_SPECIES[player.species]}_{name}"
 
 
 def rename_ids(value, renames: dict[str, str]):
@@ -88,7 +103,12 @@ class LegacyGameMigrationTests(unittest.TestCase):
         # players.json parse on top of the one setUpClass already did.
         storage._legacy_id_map = None
 
-    def build_legacy_match_state(self) -> dict:
+    def build_legacy_match_state(self, before_the_rename: bool = False) -> dict:
+        """
+        A pre-reshuffle save, optionally from before the three orange
+        players were renamed as well -- which is a *second*, earlier
+        break, and the one the migration shipped unable to handle.
+        """
         match = MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
@@ -100,7 +120,9 @@ class LegacyGameMigrationTests(unittest.TestCase):
         data = match.to_dict()
 
         new_to_old = {
-            player.player_id: legacy_id_for(player)
+            player.player_id: legacy_id_for(
+                player, before_the_rename=before_the_rename,
+            )
             for roster in self.catalog.teams.values()
             for player in roster.players
             if player.species in LEGACY_COLOR_FOR_SPECIES
@@ -110,7 +132,7 @@ class LegacyGameMigrationTests(unittest.TestCase):
         legacy_data["visiting"]["team"] = "teal"
         return legacy_data
 
-    def build_legacy_game_data(self) -> dict:
+    def build_legacy_game_data(self, before_the_rename: bool = False) -> dict:
         return {
             "game_id": "legacy-game",
             "game_number": 1,
@@ -125,7 +147,9 @@ class LegacyGameMigrationTests(unittest.TestCase):
             "player_2_team": "teal",
             "home_player_number": 1,
             "visiting_player_number": 2,
-            "match_state": self.build_legacy_match_state(),
+            "match_state": self.build_legacy_match_state(
+                before_the_rename=before_the_rename,
+            ),
         }
 
     def test_the_unmigrated_save_fails_exactly_as_reported(self) -> None:
@@ -180,6 +204,95 @@ class LegacyGameMigrationTests(unittest.TestCase):
                 # Resolves in the current catalog -- the whole point.
                 self.catalog.player_by_id(player_id)
 
+    def test_a_save_older_than_the_rename_migrates_too(self) -> None:
+        """
+        The second live traceback: `/d12ball resume` on a game started
+        before the eight-team split raised the same
+        `ValueError('The setup does not match the team roster.')`, on
+        the visiting side.
+
+        Its ids carry the names three orange players had before
+        36250a9, so the reconstruction -- which builds a legacy id out
+        of a player's *current* name -- could not produce them. Six of
+        that side's nine remapped and three did not, which is worse
+        than none: the save still fails to load, and the traceback
+        names nobody.
+        """
+        game_data = self.build_legacy_game_data(before_the_rename=True)
+
+        home_ids = [
+            player_id
+            for zone in game_data["match_state"]["home"]["zones"].values()
+            for player_id in zone
+        ] + game_data["match_state"]["home"]["team_board"]["bench"]
+        self.assertIn("orange_blazekick", home_ids)
+
+        migrated = storage.migrate_legacy_game_data(game_data)
+        match = MatchState.from_dict(migrated["match_state"], self.rules)
+        match.validate(self.catalog)
+
+        self.assertEqual(match.home.team, Team.FIRE_DEMONS)
+        self.assertEqual(match.visiting.team, Team.CYBORGS)
+        # The renamed three land on the players they became, not on
+        # whoever happens to hold that roster slot now.
+        self.assertIn(
+            "brightburn_striker",
+            match.home.field_players + match.home.team_board.bench,
+        )
+
+    def test_every_recorded_rename_names_a_player_who_exists(self) -> None:
+        """
+        A typo or a stale entry in the table would be silent: the old
+        id simply would not map, which is the bug it was added to fix.
+        """
+        current_names = {
+            player.name.lower()
+            for roster in self.catalog.teams.values()
+            for player in roster.players
+        }
+        self.assertTrue(storage.LEGACY_RENAMED_NAMES)
+        for old_name, current_name in storage.LEGACY_RENAMED_NAMES.items():
+            with self.subTest(old=old_name):
+                self.assertIn(current_name, current_names)
+                self.assertNotIn(old_name, current_names)
+
+        # And they reach the map under their legacy color, which is
+        # read off the species rather than written down beside them.
+        legacy_ids = storage._build_legacy_id_map()
+        for old_name in storage.LEGACY_RENAMED_NAMES:
+            with self.subTest(old=old_name):
+                self.assertIn(f"orange_{old_name}", legacy_ids)
+
+    def test_a_half_migrated_save_says_so_in_the_log(self) -> None:
+        """
+        The next rename that nobody records should not come back as
+        `The setup does not match the team roster.` with no name in
+        it. A leftover legacy id *is* the diagnosis, so it goes to
+        #logs -- an ERROR because somebody has to add the entry.
+        """
+        game_data = self.build_legacy_game_data()
+        zones = game_data["match_state"]["home"]["zones"]
+        first_zone = next(iter(zones))
+        zones[first_zone][0] = "orange_someone_renamed_later"
+
+        with self.assertLogs(storage.LOGGER, level="ERROR") as logged:
+            storage.migrate_legacy_game_data(game_data)
+
+        message = "\n".join(logged.output)
+        self.assertIn("orange_someone_renamed_later", message)
+        self.assertIn("LEGACY_RENAMED_NAMES", message)
+        self.assertIn("legacy-game", message)
+
+    def test_a_fully_migrated_save_logs_nothing(self) -> None:
+        for before_the_rename in (False, True):
+            with self.subTest(before_the_rename=before_the_rename):
+                game_data = self.build_legacy_game_data(
+                    before_the_rename=before_the_rename,
+                )
+                with mock.patch.object(storage.LOGGER, "error") as error:
+                    storage.migrate_legacy_game_data(game_data)
+                error.assert_not_called()
+
     def test_an_already_new_shape_save_is_untouched(self) -> None:
         # "orange" is a legal Team value both before and after the
         # reshuffle, just for a different roster -- so a fresh game
@@ -228,7 +341,14 @@ class LegacyGameMigrationTests(unittest.TestCase):
         match.validate(self.catalog)
 
     def test_a_migrated_match_plays_a_turn(self) -> None:
-        game_data = self.build_legacy_game_data()
+        for before_the_rename in (False, True):
+            with self.subTest(before_the_rename=before_the_rename):
+                self.play_a_turn(before_the_rename)
+
+    def play_a_turn(self, before_the_rename: bool) -> None:
+        game_data = self.build_legacy_game_data(
+            before_the_rename=before_the_rename,
+        )
         migrated = storage.migrate_legacy_game_data(game_data)
         match = MatchState.from_dict(migrated["match_state"], self.rules)
         match.validate(self.catalog)
