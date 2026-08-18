@@ -30,9 +30,14 @@ class Team(str, Enum):
 # Color <-> species, both directions readable off one dict rather than
 # two, since a game is only ever asking "what is this team's pair" and
 # never cares which axis it started from. This is the one source of
-# truth `TEAM_COLORS` (d12ball/render.py), the team picker's mutual
-# exclusion (cogs/d12ball_views.py) and the legacy-save migration
-# (gamesaves/d12ball/storage.py) all read.
+# truth `TEAM_COLORS` (d12ball/render.py) and the legacy-save migration
+# (gamesaves/d12ball/storage.py) both read.
+#
+# It **is** what says who may not play whom, for the color and not for
+# the roster: a pair shares a hex, so that one match would draw both
+# sides the same. Every other color/species matchup shares players too
+# -- 2 of them -- and is played with those fielded as two cards. See
+# "Team colors" and "One player, both sides" in CLAUDE.md.
 TEAM_PAIRS: dict[Team, Team] = {
     Team.ORANGE: Team.FIRE_DEMONS,
     Team.FIRE_DEMONS: Team.ORANGE,

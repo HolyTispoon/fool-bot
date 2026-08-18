@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from io import BytesIO
 from math import cos, hypot, pi, radians, sin
 from pathlib import Path
@@ -8,6 +8,7 @@ from typing import Optional
 from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.components import (
+    duplicate_card_id,
     ManeuverCatalog,
     ManeuverDefinition,
     MatchState,
@@ -582,10 +583,30 @@ def build_player_card(
 def player_index(
     catalog: PlayerCatalog,
 ) -> dict[str, PlayerDefinition]:
+    """
+    Every card id a match can hold, mapped to the player it draws.
+
+    That is each catalog player under their own id *and* under
+    `duplicate_card_id`, because both sides of a match can field the
+    same person and the visiting copy carries the suffix -- see "One
+    player, both sides" in CLAUDE.md. Aliased once here rather than
+    resolved at each of this module's `players[...]` lookups: they are
+    a plain dict index in a dozen places and the two copies draw the
+    same portrait, name, role and skills anyway. What tells them apart
+    on the board is the team color, which is read off the match.
+    """
     return {
-        player.player_id: player
+        card_id: (
+            player
+            if card_id == player.player_id
+            else replace(player, player_id=card_id)
+        )
         for roster in catalog.teams.values()
         for player in roster.players
+        for card_id in (
+            player.player_id,
+            duplicate_card_id(player.player_id),
+        )
     }
 
 

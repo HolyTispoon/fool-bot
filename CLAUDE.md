@@ -2070,19 +2070,33 @@ anywhere in the code.
   have two. The old scheme was `{old_color}_{slug(name)}`
   (`orange_hellguard`); see the legacy-migration Gotcha below for what
   that means for a game saved under it.
-- **Paired teams are mutually exclusive within one game, enforced at
-  the team picker, not in `MatchState` or `D12Ball`.**
-  `TeamSelectionView.excluded_teams` (`cogs/d12ball_views.py`) drops a
-  chosen team's own `paired_team()` from the other side's options, the
-  same way it already dropped the team itself -- the AI's random pick
-  is filtered the same way. This is the *only* place the rule is
-  checked: `MatchState.standard` will build a match for e.g. Orange vs
-  Fire Demons without complaint, silently fielding the three players
-  those rosters share on both sides at once, because every path that
-  creates a match reads `game.player_1_team`/`player_2_team`, and those
-  are only ever set through the picker. Don't add a second enforcement
-  point in the data layer for this -- it has never needed one, and two
-  places checking the same rule is exactly how they drift apart.
+- **A team may not play its own pair, and the reason is the color.**
+  `TEAM_COLORS` gives Fire Demons Orange's own `#FFA500`, so that one
+  match would draw both sides' cards, meeples and tokens in the same
+  color -- and the board is where a coach reads which meeples are
+  theirs. `TeamSelectionView.excluded_teams` (`cogs/d12ball_views.py`)
+  drops a chosen team's `paired_team()` from the other side's options,
+  the same way it already dropped the team itself, and the AI's random
+  pick is filtered the same way -- nobody is holding Dinky's buttons,
+  so that pool is the only check a solo game has.
+  - **It is not a rule about shared rosters, and must not be rewritten
+    as one.** Every other color/species matchup shares players too --
+    a color team is 3 of its own species plus **2 of each other**, so
+    it overlaps all four species teams and the pairing is only the
+    largest of the four. Those matchups are offered and are meant to
+    be: the shared players are fielded twice, once a side. See "One
+    player, both sides" below.
+  - **Enforced at the picker, not in `MatchState` or `D12Ball`.** Every
+    path that creates a match reads
+    `game.player_1_team`/`player_2_team`, and those are only ever set
+    through the picker. Don't add a second enforcement point in the
+    data layer: two places checking the same rule is how they drift
+    apart. What holds the one place up is
+    `test_every_matchup_the_picker_offers_builds_a_match`
+    (`tests/test_d12ball_coin_toss.py`), which walks every pair the
+    picker will offer and builds the match the coin flip is about to
+    build.
+
 - **The team-picking step is now its own screen, not shared with game
   settings.** Eight teams need two rows a side (a color row and a
   species row) where four needed one, which leaves nothing for the
@@ -2116,6 +2130,71 @@ anywhere in the code.
   species team's color is inherited through `TEAM_PAIRS`, so changing a
   color team's hex moves its species team's color with it for free;
   there is nothing to keep in sync by hand.
+
+## One player, both sides
+
+A player belongs to two rosters -- their color team and their species
+team -- so **any color side meets any species side holding 2 or 3 of the
+same people**. Those are played as two cards: the same person, in two
+kits, exhausted, injured, substituted and sent about independently, and
+free to challenge each other. Only the [paired teams](#team-colors) are
+refused a fixture, and that is about the color they share, not the
+players.
+
+Everything in a match is keyed by a **card id**. It is the catalog
+player's own id for the home copy and `duplicate_card_id` -- that id
+plus `DUPLICATE_CARD_SUFFIX` -- for the visiting one, both in
+`d12ball/components.py`. `catalog_player_id` maps a card id back, and
+is a pure function of the string rather than a lookup on the match, so
+anything holding a card id can resolve it.
+
+- **Distinct ids are what make the two copies separate players of the
+  game**, and that is the whole reason for the scheme. The board, both
+  benches, the exhaustion counts, `injured`, the injury queue,
+  `assigned_positions`, the shootout orders and every button's
+  custom_id go on saying "this player" with one string, exactly as they
+  did at four teams. The alternative was making all of them carry a
+  side as well.
+- **One suffix level is enough and always will be.** Two rosters can
+  share a player and a match has two sides, so a third copy has nowhere
+  to come from. `TeamDefinition`'s "9 unique players" check holds the
+  other half of that up.
+- **The visiting side is the one that carries the suffix**, applied in
+  `create_standard_setup` through its `duplicate_ids`, which
+  `MatchState.standard` fills from `PlayerCatalog.shared_player_ids`.
+  Two teams on one axis share nobody, so it is empty for every match
+  before the reshuffle and most of them since -- a home side's ids are
+  always the catalog's.
+- **`PlayerCatalog.player_by_id` hands back a definition carrying the
+  card's own id**, not the catalog's. This is load-bearing: some ninety
+  call sites resolve a card id to a `PlayerDefinition` and then read the
+  id back off it to ask `match.team_for_player(player.player_id)` which
+  side the card is on, and a definition answering with the catalog id
+  would name the home copy every time -- wrong emoji, wrong color, on
+  every message about that player. `player_index` in `d12ball/render.py`
+  aliases both forms the same way, since the renderer indexes that dict
+  in a dozen places.
+  - The two copies are the same person, so they draw the same name,
+    role, skills and portrait. **What tells them apart is the team
+    color**, which is read off the match -- which is also why the
+    paired teams cannot meet.
+- **Anything walking a *roster* and asking the match about each player
+  has to come through `TeamSetup.card_id_for`**, since a roster is the
+  catalog's and a match is keyed by card. `/ref`'s roster listing is the
+  one caller today; it was reading meeple positions under catalog ids,
+  which for a duplicated visiting side finds the home copy's meeple or
+  nothing at all.
+- **`tests/roster.py` translates too.** `fielded` and `benched` name a
+  player by role off the catalog on purpose -- see "The test suite" --
+  so they are exactly the helpers that have to know which id this match
+  holds that player under on that side.
+- **The way to be sure this is transparent is to force it.** Making
+  `MatchState.standard` suffix a visiting side's *whole* roster and
+  running the suite puts a duplicate card through every flow the tests
+  cover -- maneuvers, run backs, coaching windows, shootouts, saves,
+  renders -- rather than only through the ones that thought to build an
+  overlapping match. It passed clean when this landed, and it is a
+  two-line patch worth re-running after anything that touches ids.
 
 ## Player species
 

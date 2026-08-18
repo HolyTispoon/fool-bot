@@ -418,9 +418,17 @@ class TeamSelectionView(GameConfigurationView):
     ) -> set[Team]:
         """
         Every team this screen must refuse: whichever side(s) already
-        have one, and -- since paired teams are mutually exclusive in
-        one game (they are the same nine players under two names) --
-        each of those teams' own `paired_team()` too.
+        have one, and that team's own `paired_team()`.
+
+        **The pairing is refused for its color, not for its roster.**
+        A color team and its species team share a hex (`TEAM_COLORS`
+        gives Fire Demons Orange's own `#FFA500`), so that one match
+        would draw both sides' cards, meeples and tokens in the same
+        color -- the board is where a coach reads which meeples are
+        theirs, and there is nothing else on it that says. Every other
+        color/species matchup is offered and playable: the 2 or 3
+        players those rosters share are fielded as two cards, one a
+        side. See "One player, both sides" in CLAUDE.md.
         """
         if game is None:
             return set()

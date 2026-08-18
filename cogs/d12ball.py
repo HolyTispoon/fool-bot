@@ -7660,8 +7660,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player appears exactly once: anyone without a meeple falls
         through to whichever bench holds them.
         """
+        # Keyed by card id, not by the catalog's: this side may be
+        # holding the duplicate of a player the other side fields, and
+        # its meeple is on the board under that id. See "One player,
+        # both sides" in CLAUDE.md.
         roster_order = {
-            player.player_id: index
+            setup.card_id_for(player.player_id): index
             for index, player in enumerate(
                 self.player_catalog.teams[setup.team].players
             )
