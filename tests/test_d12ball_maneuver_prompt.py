@@ -252,7 +252,9 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
             cog.get_player_definition(player_id),
         )
 
-        side = cog.challenge_side(player_id, attacking=True)
+        side = cog.challenge_side(
+            player_id, match.team_for_player(player_id), attacking=True,
+        )
 
         self.assertEqual(side.ability, profile.ability_short)
         self.assertNotEqual(side.ability, profile.ability)

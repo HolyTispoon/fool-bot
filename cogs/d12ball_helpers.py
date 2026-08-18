@@ -25,6 +25,7 @@ from d12ball.game import (
     CoinFace,
     D12BallGame,
     Team,
+    team_display_name,
 )
 
 
@@ -135,12 +136,23 @@ TEAM_EMOJI_NAMES = {
     Team.TEAL: "team_teal",
     Team.PURPLE: "team_purple",
     Team.SLIME: "team_slime",
+    Team.FIRE_DEMONS: "team_fire_demons",
+    Team.CYBORGS: "team_cyborgs",
+    Team.TELEKINETICS: "team_telekinetics",
+    Team.OOZES: "team_oozes",
 }
 TEAM_EMOJI_FALLBACKS = {
     Team.ORANGE: "🟠",
     Team.TEAL: "🔵",
     Team.PURPLE: "🟣",
     Team.SLIME: "🟢",
+    # A species team shares its paired color team's ring (see "Team
+    # colors" in CLAUDE.md), so its fallback has to read differently
+    # from a plain colored circle before the real upload replaces it.
+    Team.FIRE_DEMONS: "🔥",
+    Team.CYBORGS: "🤖",
+    Team.TELEKINETICS: "🔮",
+    Team.OOZES: "🫧",
 }
 EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
 
@@ -346,9 +358,17 @@ def build_game_channel_name(
 def format_role_bracket(
     player: PlayerDefinition,
     team_emojis: dict[Team, str],
+    team: Team,
 ) -> str:
+    """
+    "🟠 Hellguard [FB]" -- the emoji names which of a player's two
+    rosters this card is being shown as, since `PlayerDefinition` no
+    longer carries a team of its own. Every caller already has a match
+    or a setup in scope to read it off (`match.team_for_player(...)`,
+    or `setup.team` when the player is known to be on that side).
+    """
     initials = ROLE_INITIALS[player.role.value]
-    team_emoji = get_team_emoji(team_emojis, player.team)
+    team_emoji = get_team_emoji(team_emojis, team)
     return f"{team_emoji} {player.name} [{initials}]"
 
 
@@ -359,7 +379,7 @@ def destination_display_name(destination: str) -> str:
 
 
 def format_team_side_label(setup) -> str:
-    return f"{setup.team.value.title()} ({setup.side.value.title()})"
+    return f"{team_display_name(setup.team)} ({setup.side.value.title()})"
 
 
 def space_label(zone: Zone, space_index: int) -> str:
@@ -574,7 +594,7 @@ def build_goal_log(
             ]
             lines.append(
                 f"{get_team_emoji(team_emojis, setup.team)} "
-                f"{setup.team.value.title()}: "
+                f"{team_display_name(setup.team)}: "
                 + (", ".join(scorers) if scorers else "none")
             )
         sections.append("\n".join(lines))
@@ -610,8 +630,8 @@ def build_full_time_summary(
     home_score = match.scoreboard.home_score
     visiting_score = match.scoreboard.visiting_score
     score_line = (
-        f"Final score: {match.home.team.value.title()} {home_score}:"
-        f"{visiting_score} {match.visiting.team.value.title()}"
+        f"Final score: {team_display_name(match.home.team)} {home_score}:"
+        f"{visiting_score} {team_display_name(match.visiting.team)}"
     )
 
     shootout = match.shootout_score_line()
@@ -634,7 +654,7 @@ def build_full_time_summary(
 
     return (
         f"{score_line}\n\n"
-        f"# {winning_setup.team.value.title()} wins!\n"
+        f"# {team_display_name(winning_setup.team)} wins!\n"
         f"Congratulations, {winner}!"
     )
 
@@ -723,7 +743,7 @@ def format_player_with_team(
         if player_number == 1
         else game.player_2_team
     )
-    team_name = team.value.title() if team else "Unknown team"
+    team_name = team_display_name(team) if team else "Unknown team"
     return f"{player} ({team_name})"
 
 

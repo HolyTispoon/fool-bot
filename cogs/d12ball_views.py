@@ -29,6 +29,9 @@ from d12ball.game import (
     GameStatus,
     HomeChoice,
     Team,
+    TEAM_PAIRS,
+    paired_team,
+    team_display_name,
 )
 from d12ball.render import (
     TEAM_COLORS,
@@ -1190,7 +1193,7 @@ class PlayerActionView(SafeView):
             await interaction.response.edit_message(
                 content=(
                     f"{offense_display} has chosen to {action_label} with "
-                    f"{format_role_bracket(handler, self.cog.team_emojis)}."
+                    f"{format_role_bracket(handler, self.cog.team_emojis, match.team_for_player(handler.player_id))}."
                 ),
                 view=None,
             )
@@ -1304,10 +1307,11 @@ class PlayerActionView(SafeView):
             else "these players are already on the ball, so one of "
             "them has to challenge -- choose which."
         )
+        handler_team = match.team_for_player(handler.player_id)
         challenge_view = ManeuverChallengeView(self.cog, self.game_id)
         challenge_message = await interaction.followup.send(
-            f"{format_role_bracket(handler, self.cog.team_emojis)} will "
-            f"maneuver for {handler.team.value.title()}.\n\n"
+            f"{format_role_bracket(handler, self.cog.team_emojis, handler_team)} will "
+            f"maneuver for {team_display_name(handler_team)}.\n\n"
             f"{defender_mention}, {ask}",
             view=challenge_view,
             wait=True,
@@ -2062,21 +2066,23 @@ class SkillTestView(SafeView):
             defense_detail.append(defense_ability_detail)
         if modifier_detail:
             defense_detail.append(modifier_detail)
+        offense_team = match.team_for_player(offense_player.player_id)
+        defense_team = match.team_for_player(defense_player.player_id)
         dice_file = discord.File(
             await asyncio.to_thread(
                 render_skill_test_dice,
                 [
                     (
                         offense_roll,
-                        TEAM_COLORS[offense_player.team],
-                        offense_player.team.value.title(),
+                        TEAM_COLORS[offense_team],
+                        team_display_name(offense_team),
                         offense_detail,
                         offense_total,
                     ),
                     (
                         defense_roll,
-                        TEAM_COLORS[defense_player.team],
-                        defense_player.team.value.title(),
+                        TEAM_COLORS[defense_team],
+                        team_display_name(defense_team),
                         defense_detail,
                         defense_total,
                     ),
@@ -2411,14 +2417,14 @@ class ScoreAttemptView(SafeView):
                     (
                         attack_roll,
                         TEAM_COLORS[attacking_setup.team],
-                        attacking_setup.team.value.title(),
+                        team_display_name(attacking_setup.team),
                         attack_detail,
                         attack_total,
                     ),
                     (
                         defense_roll,
                         TEAM_COLORS[defending_setup.team],
-                        defending_setup.team.value.title(),
+                        team_display_name(defending_setup.team),
                         defense_detail,
                         defense_total,
                     ),
@@ -2436,13 +2442,13 @@ class ScoreAttemptView(SafeView):
             match.award_goal(shooter.player_id)
             verdict = (
                 "# GOAL!\n"
-                f"{format_role_bracket(shooter, self.cog.team_emojis)} scores "
+                f"{format_role_bracket(shooter, self.cog.team_emojis, match.team_for_player(shooter.player_id))} scores "
                 f"for {format_team_side_label(attacking_setup)} on "
                 f"**{format_goal_time(match.goals[-1])}**!\n"
-                f"{match.home.team.value.title()} "
+                f"{team_display_name(match.home.team)} "
                 f"{match.scoreboard.home_score}:"
                 f"{match.scoreboard.visiting_score} "
-                f"{match.visiting.team.value.title()}"
+                f"{team_display_name(match.visiting.team)}"
             )
         else:
             verdict = (
@@ -2630,7 +2636,7 @@ class LowPassChoiceView(SafeView):
             origin_flat, offense_side, distance,
         )
         zone, space_index = match.board.position_at_flat_index(target_flat)
-        team_name = match.setup_for_side(offense_side).team.value.title()
+        team_name = team_display_name(match.setup_for_side(offense_side).team)
 
         if len(receivers) > 1:
             await interaction.response.edit_message(
@@ -2648,7 +2654,7 @@ class LowPassChoiceView(SafeView):
             content=(
                 f"**{interaction.user.display_name} ({team_name})** chose "
                 "to pass the ball to "
-                f"{format_role_bracket(teammate, self.cog.team_emojis)} at "
+                f"{format_role_bracket(teammate, self.cog.team_emojis, match.team_for_player(teammate.player_id))} at "
                 f"{space_label(zone, space_index)}."
             ),
             view=None,
@@ -2745,13 +2751,13 @@ class LowPassReceiverView(SafeView):
         zone, space_index = match.board.position_at_flat_index(
             match.relative_flat_index(origin_flat, offense_side, self.distance)
         )
-        team_name = match.setup_for_side(offense_side).team.value.title()
+        team_name = team_display_name(match.setup_for_side(offense_side).team)
 
         await interaction.response.edit_message(
             content=(
                 f"**{interaction.user.display_name} ({team_name})** chose "
                 "to pass the ball to "
-                f"{format_role_bracket(receiver, self.cog.team_emojis)} at "
+                f"{format_role_bracket(receiver, self.cog.team_emojis, match.team_for_player(receiver.player_id))} at "
                 f"{space_label(zone, space_index)}."
             ),
             view=None,
@@ -2942,7 +2948,7 @@ class SetUpAttemptChoiceView(SafeView):
         shooter = self.cog.get_player_definition(self.shooter_id)
         await interaction.response.edit_message(
             content=(
-                f"{format_role_bracket(shooter, self.cog.team_emojis)} "
+                f"{format_role_bracket(shooter, self.cog.team_emojis, match.team_for_player(shooter.player_id))} "
                 "takes the shot."
             ),
             view=None,
@@ -3223,7 +3229,7 @@ class ShooterChoiceView(SafeView):
         shooter = self.cog.get_player_definition(shooter_id)
         await interaction.response.edit_message(
             content=(
-                f"{format_role_bracket(shooter, self.cog.team_emojis)} "
+                f"{format_role_bracket(shooter, self.cog.team_emojis, match.team_for_player(shooter.player_id))} "
                 "takes the shot."
             ),
             view=None,
@@ -3453,7 +3459,7 @@ class RunBackChoiceView(SafeView):
         player = self.cog.get_player_definition(self.player_id)
         await interaction.response.edit_message(
             content=(
-                f"{format_role_bracket(player, self.cog.team_emojis)} "
+                f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} "
                 f"runs back to {space_label(zone, space_index)}."
                 f"\n{exhaustion_text}"
             ),
@@ -3681,7 +3687,7 @@ class CoachingOfferView(CoachingView):
         await interaction.response.edit_message(
             content=(
                 f"# Coaching Choice\n**{interaction.user.display_name} "
-                f"({setup.team.value.title()}) passed.**"
+                f"({team_display_name(setup.team)}) passed.**"
             ),
             view=None,
         )
@@ -4048,7 +4054,7 @@ class CoachingSubstitutionOutView(CoachingView):
             ),
             note=(
                 "Who comes on for "
-                f"{format_role_bracket(player, self.cog.team_emojis)}? "
+                f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))}? "
                 "They take their zone and their space exactly."
             ),
         )
@@ -4185,7 +4191,7 @@ class CoachingZoneView(CoachingView):
                 CoachingZoneView(self.cog, self.game_id, player_id),
                 note=(
                     "Who does "
-                    f"{format_role_bracket(player, self.cog.team_emojis)} "
+                    f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} "
                     "change places with?"
                 ),
             )
@@ -4253,7 +4259,7 @@ class CoachingPlaceView(CoachingView):
             CoachingPlaceSpaceView(self.cog, self.game_id, player_id),
             note=(
                 "Where should "
-                f"{format_role_bracket(player, self.cog.team_emojis)} "
+                f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} "
                 "stand? A space one of your own is already on trades "
                 "places with them."
             ),
@@ -4335,7 +4341,7 @@ class CoachingPlaceSpaceView(CoachingView):
                 note=(
                     "More than one of yours is standing there. Who "
                     "comes back to make room for "
-                    f"{format_role_bracket(player, self.cog.team_emojis)}?"
+                    f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))}?"
                 ),
             )
             return
@@ -4548,11 +4554,11 @@ class HalftimeExtraTokenView(HalftimeView):
 
         remaining = match.exhaustion.get(player_id, 0)
         text = (
-            f"{format_role_bracket(player, self.cog.team_emojis)} loses "
+            f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} loses "
             f"an extra exhaustion token (now {remaining})."
             if removed
             else (
-                f"{format_role_bracket(player, self.cog.team_emojis)} "
+                f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} "
                 "had no tokens to lose."
             )
         )
@@ -4697,7 +4703,7 @@ class LooseBallChoiceView(SafeView):
             interaction,
             game,
             match,
-            f"{format_role_bracket(player, self.cog.team_emojis)} "
+            f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} "
             f"contests the {contest_noun(match)} ({self.side}).",
         )
 
@@ -4944,14 +4950,16 @@ class LooseBallSkillTestView(SafeView):
 
         # No text breakdown alongside: the dice image already names
         # both players and shows every modifier that built the totals.
+        offense_team = match.team_for_player(offense_player.player_id)
+        defense_team = match.team_for_player(defense_player.player_id)
         dice_file = discord.File(
             await asyncio.to_thread(
                 render_skill_test_dice,
                 [
                     (
                         offense_roll,
-                        TEAM_COLORS[offense_player.team],
-                        offense_player.team.value.title(),
+                        TEAM_COLORS[offense_team],
+                        team_display_name(offense_team),
                         [
                             f"{offense_player.name} "
                             f"[{ROLE_INITIALS[offense_player.role.value]}]",
@@ -4963,8 +4971,8 @@ class LooseBallSkillTestView(SafeView):
                     ),
                     (
                         defense_roll,
-                        TEAM_COLORS[defense_player.team],
-                        defense_player.team.value.title(),
+                        TEAM_COLORS[defense_team],
+                        team_display_name(defense_team),
                         [
                             f"{defense_player.name} "
                             f"[{ROLE_INITIALS[defense_player.role.value]}]",
@@ -5052,7 +5060,9 @@ class LooseBallSkillTestView(SafeView):
 
         turnover_line = "# Turnover!\n\n" if turnover_occurred else ""
         winner_bracket = format_role_bracket(
-            winner_player, self.cog.team_emojis,
+            winner_player,
+            self.cog.team_emojis,
+            match.team_for_player(winner_player.player_id),
         )
         if is_high_pass:
             outcome_line = (
@@ -5538,7 +5548,7 @@ class ShootoutPickSelectView(SafeView):
         await interaction.response.edit_message(
             content=(
                 "You send out "
-                f"{format_role_bracket(player, self.cog.team_emojis)}."
+                f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))}."
             ),
             view=None,
         )
@@ -5604,6 +5614,7 @@ class ShootoutTestView(ShootoutView):
                 format_role_bracket(
                     self.cog.get_player_definition(player_id),
                     self.cog.team_emojis,
+                    match.team_for_player(player_id),
                 )
                 for player_id in match.shootout_eligible(side)
             ]
@@ -5679,8 +5690,8 @@ class ShootoutTestView(ShootoutView):
             dice.append(
                 (
                     rolls[side],
-                    TEAM_COLORS[player.team],
-                    player.team.value.title(),
+                    TEAM_COLORS[match.setup_for_side(side).team],
+                    team_display_name(match.setup_for_side(side).team),
                     [
                         f"{player.name} "
                         f"[{ROLE_INITIALS[player.role.value]}]",
@@ -5719,7 +5730,7 @@ class ShootoutTestView(ShootoutView):
             match.award_shootout_goal(winner, scorer.player_id)
             outcome = (
                 "## "
-                f"{format_role_bracket(scorer, self.cog.team_emojis)} "
+                f"{format_role_bracket(scorer, self.cog.team_emojis, match.team_for_player(scorer.player_id))} "
                 "scores!"
             )
 

@@ -40,237 +40,327 @@
       "ability_short": "+3 for scoring off setup"
     }
   },
+  "players": {
+    "acidel_striker": {
+      "name": "Acidel",
+      "role": "striker",
+      "species": "ooze",
+      "stat_overrides": {}
+    },
+    "blazebulk_defender": {
+      "name": "Blazebulk",
+      "role": "defender",
+      "species": "fire_demon",
+      "stat_overrides": {}
+    },
+    "brightburn_striker": {
+      "name": "Brightburn",
+      "role": "striker",
+      "species": "fire_demon",
+      "stat_overrides": {}
+    },
+    "bulwark_fullback": {
+      "name": "Bulwark",
+      "role": "fullback",
+      "species": "cyborg",
+      "stat_overrides": {}
+    },
+    "dravox_defender": {
+      "name": "Dravox",
+      "role": "defender",
+      "species": "telekinetic",
+      "stat_overrides": {}
+    },
+    "emberdash_playmaker": {
+      "name": "Emberdash",
+      "role": "playmaker",
+      "species": "fire_demon",
+      "stat_overrides": {}
+    },
+    "flickerwing_winger": {
+      "name": "Flickerwing",
+      "role": "winger",
+      "species": "fire_demon",
+      "stat_overrides": {}
+    },
+    "flux_defender": {
+      "name": "Flux",
+      "role": "defender",
+      "species": "cyborg",
+      "stat_overrides": {}
+    },
+    "gearclaw_playmaker": {
+      "name": "Gearclaw",
+      "role": "playmaker",
+      "species": "cyborg",
+      "stat_overrides": {}
+    },
+    "glompex_midfielder": {
+      "name": "Glompex",
+      "role": "midfielder",
+      "species": "ooze",
+      "stat_overrides": {}
+    },
+    "goopkeeper_fullback": {
+      "name": "Goopkeeper",
+      "role": "fullback",
+      "species": "ooze",
+      "stat_overrides": {}
+    },
+    "gurgoth_defender": {
+      "name": "Gurgoth",
+      "role": "defender",
+      "species": "ooze",
+      "stat_overrides": {}
+    },
+    "hellguard_fullback": {
+      "name": "Hellguard",
+      "role": "fullback",
+      "species": "fire_demon",
+      "stat_overrides": {}
+    },
+    "hexis_playmaker": {
+      "name": "Hexis",
+      "role": "playmaker",
+      "species": "telekinetic",
+      "stat_overrides": {}
+    },
+    "inferno_defender": {
+      "name": "Inferno",
+      "role": "defender",
+      "species": "fire_demon",
+      "stat_overrides": {}
+    },
+    "kindlefinger_striker": {
+      "name": "Kindlefinger",
+      "role": "striker",
+      "species": "fire_demon",
+      "stat_overrides": {}
+    },
+    "noxar_striker": {
+      "name": "Noxar",
+      "role": "striker",
+      "species": "telekinetic",
+      "stat_overrides": {}
+    },
+    "ozul_playmaker": {
+      "name": "Ozul",
+      "role": "playmaker",
+      "species": "ooze",
+      "stat_overrides": {}
+    },
+    "pulsar_striker": {
+      "name": "Pulsar",
+      "role": "striker",
+      "species": "cyborg",
+      "stat_overrides": {}
+    },
+    "quantor_winger": {
+      "name": "Quantor",
+      "role": "winger",
+      "species": "cyborg",
+      "stat_overrides": {}
+    },
+    "quillon_playmaker": {
+      "name": "Quillon",
+      "role": "playmaker",
+      "species": "telekinetic",
+      "stat_overrides": {}
+    },
+    "scorchit_midfielder": {
+      "name": "Scorchit",
+      "role": "midfielder",
+      "species": "fire_demon",
+      "stat_overrides": {}
+    },
+    "sizzifizik_playmaker": {
+      "name": "Sizzifizik",
+      "role": "playmaker",
+      "species": "fire_demon",
+      "stat_overrides": {}
+    },
+    "slitheron_striker": {
+      "name": "Slitheron",
+      "role": "striker",
+      "species": "ooze",
+      "stat_overrides": {}
+    },
+    "spectra_midfielder": {
+      "name": "Spectra",
+      "role": "midfielder",
+      "species": "telekinetic",
+      "stat_overrides": {}
+    },
+    "spritz_winger": {
+      "name": "Spritz",
+      "role": "winger",
+      "species": "ooze",
+      "stat_overrides": {}
+    },
+    "strider_midfielder": {
+      "name": "Strider",
+      "role": "midfielder",
+      "species": "cyborg",
+      "stat_overrides": {}
+    },
+    "synapse_playmaker": {
+      "name": "Synapse",
+      "role": "playmaker",
+      "species": "cyborg",
+      "stat_overrides": {}
+    },
+    "tachyon_striker": {
+      "name": "Tachyon",
+      "role": "striker",
+      "species": "cyborg",
+      "stat_overrides": {}
+    },
+    "umbrik_fullback": {
+      "name": "Umbrik",
+      "role": "fullback",
+      "species": "telekinetic",
+      "stat_overrides": {}
+    },
+    "viscor_defender": {
+      "name": "Viscor",
+      "role": "defender",
+      "species": "ooze",
+      "stat_overrides": {}
+    },
+    "voltus_defender": {
+      "name": "Voltus",
+      "role": "defender",
+      "species": "cyborg",
+      "stat_overrides": {}
+    },
+    "vorix_defender": {
+      "name": "Vorix",
+      "role": "defender",
+      "species": "telekinetic",
+      "stat_overrides": {}
+    },
+    "zenith_winger": {
+      "name": "Zenith",
+      "role": "winger",
+      "species": "telekinetic",
+      "stat_overrides": {}
+    },
+    "zorch_playmaker": {
+      "name": "Zorch",
+      "role": "playmaker",
+      "species": "ooze",
+      "stat_overrides": {}
+    },
+    "zytheris_striker": {
+      "name": "Zytheris",
+      "role": "striker",
+      "species": "telekinetic",
+      "stat_overrides": {}
+    }
+  },
   "teams": {
     "orange": {
-      "players": [
-        {
-          "id": "orange_hellguard",
-          "name": "Hellguard",
-          "role": "fullback",
-          "stat_overrides": {}
-        },
-        {
-          "id": "orange_blazebulk",
-          "name": "Blazebulk",
-          "role": "defender",
-          "stat_overrides": {}
-        },
-        {
-          "id": "orange_scorchit",
-          "name": "Scorchit",
-          "role": "midfielder",
-          "stat_overrides": {}
-        },
-        {
-          "id": "orange_sizzifizik",
-          "name": "Sizzifizik",
-          "role": "playmaker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "orange_flickerwing",
-          "name": "Flickerwing",
-          "role": "winger",
-          "stat_overrides": {}
-        },
-        {
-          "id": "orange_kindlefinger",
-          "name": "Kindlefinger",
-          "role": "striker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "orange_inferno",
-          "name": "Inferno",
-          "role": "defender",
-          "stat_overrides": {}
-        },
-        {
-          "id": "orange_emberdash",
-          "name": "Emberdash",
-          "role": "playmaker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "orange_brightburn",
-          "name": "Brightburn",
-          "role": "striker",
-          "stat_overrides": {}
-        }
+      "player_ids": [
+        "blazebulk_defender",
+        "sizzifizik_playmaker",
+        "flickerwing_winger",
+        "voltus_defender",
+        "synapse_playmaker",
+        "spectra_midfielder",
+        "noxar_striker",
+        "goopkeeper_fullback",
+        "acidel_striker"
       ]
     },
     "teal": {
-      "players": [
-        {
-          "id": "teal_bulwark",
-          "name": "Bulwark",
-          "role": "fullback",
-          "stat_overrides": {}
-        },
-        {
-          "id": "teal_voltus",
-          "name": "Voltus",
-          "role": "defender",
-          "stat_overrides": {}
-        },
-        {
-          "id": "teal_strider",
-          "name": "Strider",
-          "role": "midfielder",
-          "stat_overrides": {}
-        },
-        {
-          "id": "teal_synapse",
-          "name": "Synapse",
-          "role": "playmaker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "teal_quantor",
-          "name": "Quantor",
-          "role": "winger",
-          "stat_overrides": {}
-        },
-        {
-          "id": "teal_pulsar",
-          "name": "Pulsar",
-          "role": "striker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "teal_flux",
-          "name": "Flux",
-          "role": "defender",
-          "stat_overrides": {}
-        },
-        {
-          "id": "teal_gearclaw",
-          "name": "Gearclaw",
-          "role": "playmaker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "teal_tachyon",
-          "name": "Tachyon",
-          "role": "striker",
-          "stat_overrides": {}
-        }
+      "player_ids": [
+        "bulwark_fullback",
+        "strider_midfielder",
+        "pulsar_striker",
+        "inferno_defender",
+        "kindlefinger_striker",
+        "vorix_defender",
+        "zenith_winger",
+        "ozul_playmaker",
+        "zorch_playmaker"
       ]
     },
     "purple": {
-      "players": [
-        {
-          "id": "purple_umbrik",
-          "name": "Umbrik",
-          "role": "fullback",
-          "stat_overrides": {}
-        },
-        {
-          "id": "purple_vorix",
-          "name": "Vorix",
-          "role": "defender",
-          "stat_overrides": {}
-        },
-        {
-          "id": "purple_spectra",
-          "name": "Spectra",
-          "role": "midfielder",
-          "stat_overrides": {}
-        },
-        {
-          "id": "purple_hexis",
-          "name": "Hexis",
-          "role": "playmaker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "purple_zenith",
-          "name": "Zenith",
-          "role": "winger",
-          "stat_overrides": {}
-        },
-        {
-          "id": "purple_noxar",
-          "name": "Noxar",
-          "role": "striker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "purple_dravox",
-          "name": "Dravox",
-          "role": "defender",
-          "stat_overrides": {}
-        },
-        {
-          "id": "purple_quillon",
-          "name": "Quillon",
-          "role": "playmaker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "purple_zytheris",
-          "name": "Zytheris",
-          "role": "striker",
-          "stat_overrides": {}
-        }
+      "player_ids": [
+        "dravox_defender",
+        "quillon_playmaker",
+        "zytheris_striker",
+        "hellguard_fullback",
+        "emberdash_playmaker",
+        "quantor_winger",
+        "tachyon_striker",
+        "viscor_defender",
+        "glompex_midfielder"
       ]
     },
     "slime": {
-      "players": [
-        {
-          "id": "slime_goopkeeper",
-          "name": "Goopkeeper",
-          "role": "fullback",
-          "stat_overrides": {}
-        },
-        {
-          "id": "slime_gurgoth",
-          "name": "Gurgoth",
-          "role": "defender",
-          "stat_overrides": {}
-        },
-        {
-          "id": "slime_glompex",
-          "name": "Glompex",
-          "role": "midfielder",
-          "stat_overrides": {}
-        },
-        {
-          "id": "slime_ozul",
-          "name": "Ozul",
-          "role": "playmaker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "slime_spritz",
-          "name": "Spritz",
-          "role": "winger",
-          "stat_overrides": {}
-        },
-        {
-          "id": "slime_slitheron",
-          "name": "Slitheron",
-          "role": "striker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "slime_viscor",
-          "name": "Viscor",
-          "role": "defender",
-          "stat_overrides": {}
-        },
-        {
-          "id": "slime_zorch",
-          "name": "Zorch",
-          "role": "playmaker",
-          "stat_overrides": {}
-        },
-        {
-          "id": "slime_acidel",
-          "name": "Acidel",
-          "role": "striker",
-          "stat_overrides": {}
-        }
+      "player_ids": [
+        "gurgoth_defender",
+        "spritz_winger",
+        "slitheron_striker",
+        "scorchit_midfielder",
+        "brightburn_striker",
+        "flux_defender",
+        "gearclaw_playmaker",
+        "umbrik_fullback",
+        "hexis_playmaker"
+      ]
+    },
+    "fire_demons": {
+      "player_ids": [
+        "hellguard_fullback",
+        "blazebulk_defender",
+        "scorchit_midfielder",
+        "sizzifizik_playmaker",
+        "flickerwing_winger",
+        "kindlefinger_striker",
+        "inferno_defender",
+        "emberdash_playmaker",
+        "brightburn_striker"
+      ]
+    },
+    "cyborgs": {
+      "player_ids": [
+        "bulwark_fullback",
+        "voltus_defender",
+        "strider_midfielder",
+        "synapse_playmaker",
+        "quantor_winger",
+        "pulsar_striker",
+        "flux_defender",
+        "gearclaw_playmaker",
+        "tachyon_striker"
+      ]
+    },
+    "telekinetics": {
+      "player_ids": [
+        "umbrik_fullback",
+        "vorix_defender",
+        "spectra_midfielder",
+        "hexis_playmaker",
+        "zenith_winger",
+        "noxar_striker",
+        "dravox_defender",
+        "quillon_playmaker",
+        "zytheris_striker"
+      ]
+    },
+    "oozes": {
+      "player_ids": [
+        "goopkeeper_fullback",
+        "gurgoth_defender",
+        "glompex_midfielder",
+        "ozul_playmaker",
+        "spritz_winger",
+        "slitheron_striker",
+        "viscor_defender",
+        "zorch_playmaker",
+        "acidel_striker"
       ]
     }
   }

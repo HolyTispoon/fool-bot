@@ -77,7 +77,7 @@ def main() -> None:
     for team in teams:
         cards = []
         for index, player in enumerate(catalog.teams[team].players, start=1):
-            card = render_player_card(catalog, player, args.bleed)
+            card = render_player_card(catalog, player, team, args.bleed)
             slug = player.name.lower().replace(" ", "-")
             # Numbered by where the roster lists them, which is the
             # order the standard deal reads, so a printed team comes

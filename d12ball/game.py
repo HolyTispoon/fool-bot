@@ -4,10 +4,67 @@ from typing import Optional
 
 
 class Team(str, Enum):
+    """
+    Eight rosters along two axes, since the 2026-08-17 reshuffle: the
+    original four **color** teams (mixed roster, 3 of their own species
+    plus 2 of each other) and the four **species** teams the reshuffle
+    drew them from (Fire Demons, Cyborgs, Telekinetics, Oozes -- each
+    the pre-reshuffle grouping, unchanged in membership). A player now
+    belongs to exactly one of each, never two of the same axis -- see
+    `TEAM_PAIRS` for which color and which species go together, and
+    `PlayerCatalog`/`TeamDefinition` in `d12ball/components.py` for how
+    that dual membership is stored (a flat player table plus a roster
+    of ids per team, rather than a `team` field on the player).
+    """
+
     ORANGE = "orange"
     TEAL = "teal"
     PURPLE = "purple"
     SLIME = "slime"
+    FIRE_DEMONS = "fire_demons"
+    CYBORGS = "cyborgs"
+    TELEKINETICS = "telekinetics"
+    OOZES = "oozes"
+
+
+# Color <-> species, both directions readable off one dict rather than
+# two, since a game is only ever asking "what is this team's pair" and
+# never cares which axis it started from. This is the one source of
+# truth `TEAM_COLORS` (d12ball/render.py), the team picker's mutual
+# exclusion (cogs/d12ball_views.py) and the legacy-save migration
+# (gamesaves/d12ball/storage.py) all read.
+TEAM_PAIRS: dict[Team, Team] = {
+    Team.ORANGE: Team.FIRE_DEMONS,
+    Team.FIRE_DEMONS: Team.ORANGE,
+    Team.TEAL: Team.CYBORGS,
+    Team.CYBORGS: Team.TEAL,
+    Team.PURPLE: Team.TELEKINETICS,
+    Team.TELEKINETICS: Team.PURPLE,
+    Team.SLIME: Team.OOZES,
+    Team.OOZES: Team.SLIME,
+}
+
+
+def paired_team(team: Team) -> Team:
+    """
+    The team on the other axis that shares this one's hex color -- a
+    color team's own species team, or a species team's own color team.
+    """
+    return TEAM_PAIRS[Team(team)]
+
+
+def team_display_name(team: Team) -> str:
+    """
+    A team's name the way it is shown to a coach -- "Fire Demons", not
+    "Fire_Demons". `str.title()` alone doesn't turn an underscore into
+    a space, so every `team.value.title()` call site was silently wrong
+    the moment a team's value carried one; this is the one place that
+    turns a `Team` into words and every such call site reads it now.
+    Lives here, next to `Team` itself, rather than in a cog module,
+    since `d12ball/components.py` needs it too and cogs import from
+    `d12ball`, never the other way around.
+    """
+    return Team(team).value.replace("_", " ").title()
 
 
 class GameMode(str, Enum):

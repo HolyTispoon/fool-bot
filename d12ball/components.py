@@ -6,7 +6,7 @@ from math import ceil
 from pathlib import Path
 from typing import Optional
 
-from d12ball.game import Formation, Team
+from d12ball.game import Formation, Team, team_display_name
 
 
 DATA_FOLDER = Path(__file__).resolve().parent / "data"
@@ -183,13 +183,24 @@ class RoleProfile:
 
 @dataclass(frozen=True)
 class PlayerDefinition:
+    """
+    A player, independent of any team -- since the 2026-08-17 eight-team
+    split, one player belongs to two rosters at once (a color team and
+    a species team), so there is no single `Team` that is theirs to
+    carry. `PlayerCatalog.teams` says which rosters hold a given id;
+    `MatchState.team_for_player` says which of them a *match* is
+    fielding the player as. Nothing here should grow a `team` field
+    back -- see "Team colors" in CLAUDE.md.
+    """
+
     player_id: str
     name: str
-    team: Team
     role: PlayerRole
     stat_overrides: dict
-    # A player's species, independent of the team they're currently
-    # playing for. Optional so a players.json written before the column
+    # A player's species -- Fire Demon, Cyborg, Telekinetic or Ooze --
+    # which is what a species team's roster is drawn from and what a
+    # color team's roster now mixes three-of-its-own with two of each
+    # other. Optional so a players.json written before the column
     # existed still loads; nothing here defaults a missing species to
     # anything meaningful, so a caller that needs one has to check.
     species: str = ""
@@ -231,7 +242,7 @@ class TeamDefinition:
     def __post_init__(self) -> None:
         if len(self.players) != 9:
             raise ValueError(
-                f"{self.team.value.title()} must have exactly 9 players."
+                f"{team_display_name(self.team)} must have exactly 9 players."
             )
         if len({player.player_id for player in self.players}) != 9:
             raise ValueError("Player IDs must be unique within a team.")
@@ -1192,6 +1203,31 @@ class MatchState:
         if TeamSide(side) == TeamSide.HOME:
             return self.home
         return self.visiting
+
+    def team_for_player(self, player_id: str) -> Team:
+        """
+        Which `Team` this match is fielding `player_id` as -- never the
+        player's own `.team`, because `PlayerDefinition` no longer has
+        one. A player can belong to two rosters (their color team and
+        their species team), so the only thing that decides which one a
+        card is being played as is which side of *this match* it is on.
+
+        Checked against `field_players` plus both benches, the same
+        roster-membership test `move_meeple` already uses, so a benched
+        or back-benched player still resolves.
+        """
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            setup = self.setup_for_side(side)
+            roster_ids = (
+                setup.field_players
+                + setup.team_board.bench
+                + setup.team_board.back_bench
+            )
+            if player_id in roster_ids:
+                return setup.team
+        raise ValueError(
+            f"{player_id} is not on either side of this match."
+        )
 
     def eligible_ball_handlers(self) -> list[str]:
         possessing_team = self.setup_for_side(self.ball.possession)
@@ -3660,40 +3696,48 @@ class MatchState:
 def load_player_catalog(
     path: Path = PLAYERS_FILE,
 ) -> PlayerCatalog:
+    """
+    A flat `"players"` table (one entry a player, keyed by id) plus a
+    `"teams"` table naming each roster's ids into it -- since the
+    2026-08-17 eight-team split, one player's id is named by two
+    rosters (their color team and their species team), so embedding
+    the player's own record under each team would mean carrying every
+    dual-membership player's data twice. `players_by_id` is built once
+    and shared: a `TeamDefinition`'s `players` is a tuple of the same
+    `PlayerDefinition` objects a sibling roster names, not a copy.
+    """
     data = json.loads(path.read_text(encoding="utf-8"))
 
     role_profiles = {
         PlayerRole(role): RoleProfile(**profile)
         for role, profile in data["role_profiles"].items()
     }
-    teams: dict[Team, TeamDefinition] = {}
-    all_player_ids: set[str] = set()
 
+    players_by_id: dict[str, PlayerDefinition] = {
+        player_id: PlayerDefinition(
+            player_id=player_id,
+            name=player_data["name"],
+            role=PlayerRole(player_data["role"]),
+            stat_overrides=player_data.get("stat_overrides", {}),
+            species=player_data.get("species", ""),
+        )
+        for player_id, player_data in data["players"].items()
+    }
+
+    teams: dict[Team, TeamDefinition] = {}
     for team_value, team_data in data["teams"].items():
         team = Team(team_value)
-        players = tuple(
-            PlayerDefinition(
-                player_id=player["id"],
-                name=player["name"],
-                team=team,
-                role=PlayerRole(player["role"]),
-                stat_overrides=player.get("stat_overrides", {}),
-                species=player.get("species", ""),
+        try:
+            players = tuple(
+                players_by_id[player_id]
+                for player_id in team_data["player_ids"]
             )
-            for player in team_data["players"]
-        )
-        team_definition = TeamDefinition(team=team, players=players)
-
-        overlap = all_player_ids.intersection(
-            player.player_id for player in players
-        )
-        if overlap:
+        except KeyError as error:
             raise ValueError(
-                "Player IDs must be globally unique: "
-                + ", ".join(sorted(overlap))
-            )
-        all_player_ids.update(player.player_id for player in players)
-        teams[team] = team_definition
+                f"{team.value}: roster names an unknown player id "
+                f"{error.args[0]!r}."
+            ) from error
+        teams[team] = TeamDefinition(team=team, players=players)
 
     if set(teams) != set(Team):
         raise ValueError("The player catalog must define every team.")
@@ -3914,7 +3958,7 @@ def default_formation_deal(
         for role in ruleset.standard_setup[area]:
             if not players_by_role[role]:
                 raise ValueError(
-                    f"{roster.team.value.title()} has no available "
+                    f"{team_display_name(roster.team)} has no available "
                     f"{role.value} for the standard setup."
                 )
             ordered.append(players_by_role[role].popleft().player_id)

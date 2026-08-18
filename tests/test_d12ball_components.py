@@ -38,7 +38,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.game import Formation, Team
+from d12ball.game import TEAM_PAIRS, Formation, Team
 from d12ball.render import (
     BOARD_BOTTOM,
     EXHAUSTED_ICON_PATH,
@@ -91,16 +91,82 @@ class D12BallComponentTests(unittest.TestCase):
         cls.catalog = load_player_catalog()
         cls.rules = load_basic_ruleset()
 
-    def test_catalog_contains_four_nine_player_teams(self) -> None:
+    def test_catalog_contains_eight_nine_player_teams(self) -> None:
+        # Since the 2026-08-17 eight-team split: 4 color teams and 4
+        # species teams, each 9 players -- but 36 players total, not
+        # 72, because every id is named by exactly one of each. See
+        # "Team colors" in CLAUDE.md.
         self.assertEqual(set(self.catalog.teams), set(Team))
 
-        all_ids = []
-        for roster in self.catalog.teams.values():
-            self.assertEqual(len(roster.players), 9)
-            all_ids.extend(player.player_id for player in roster.players)
+        color_teams = (Team.ORANGE, Team.TEAL, Team.PURPLE, Team.SLIME)
+        species_teams = (
+            Team.FIRE_DEMONS, Team.CYBORGS, Team.TELEKINETICS, Team.OOZES,
+        )
+        self.assertEqual(set(TEAM_PAIRS), set(color_teams) | set(species_teams))
 
-        self.assertEqual(len(all_ids), 36)
-        self.assertEqual(len(set(all_ids)), 36)
+        ids_by_color: dict[str, Team] = {}
+        for team in color_teams:
+            roster = self.catalog.teams[team]
+            self.assertEqual(len(roster.players), 9)
+            for player in roster.players:
+                self.assertNotIn(
+                    player.player_id, ids_by_color,
+                    f"{player.player_id} is on two color teams.",
+                )
+                ids_by_color[player.player_id] = team
+
+        ids_by_species: dict[str, Team] = {}
+        for team in species_teams:
+            roster = self.catalog.teams[team]
+            self.assertEqual(len(roster.players), 9)
+            for player in roster.players:
+                self.assertNotIn(
+                    player.player_id, ids_by_species,
+                    f"{player.player_id} is on two species teams.",
+                )
+                ids_by_species[player.player_id] = team
+
+        self.assertEqual(len(ids_by_color), 36)
+        self.assertEqual(set(ids_by_color), set(ids_by_species))
+
+        # A player's species-team placement has to agree with their own
+        # `species` field -- e.g. every id under Fire Demons is a
+        # PlayerDefinition whose species is "fire_demon". (Every
+        # species value here happens to pluralize to its team's enum
+        # value, which is just English, not a rule to lean on
+        # elsewhere.)
+        players_by_id = {
+            player.player_id: player
+            for roster in self.catalog.teams.values()
+            for player in roster.players
+        }
+        for player_id, species_team in ids_by_species.items():
+            species = players_by_id[player_id].species
+            self.assertEqual(f"{species}s", species_team.value)
+
+        # And the reshuffle's own promise holds: each color team fields
+        # exactly 3 of its own paired species (TEAM_PAIRS) and 2 of
+        # each of the other three.
+        for color_team in color_teams:
+            own_species_team = TEAM_PAIRS[color_team]
+            species_counts: dict[Team, int] = {}
+            for player_id, team in ids_by_color.items():
+                if team != color_team:
+                    continue
+                species = players_by_id[player_id].species
+                species_team = Team(f"{species}s")
+                species_counts[species_team] = (
+                    species_counts.get(species_team, 0) + 1
+                )
+            for species_team in species_teams:
+                expected = 3 if species_team == own_species_team else 2
+                self.assertEqual(
+                    species_counts.get(species_team, 0),
+                    expected,
+                    f"{color_team.value}: expected {expected} "
+                    f"{species_team.value}, found "
+                    f"{species_counts.get(species_team, 0)}.",
+                )
 
     def test_every_player_has_a_portrait_image(self) -> None:
         for roster in self.catalog.teams.values():

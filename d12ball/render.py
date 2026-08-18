@@ -19,7 +19,7 @@ from d12ball.components import (
     TeamSide,
     Zone,
 )
-from d12ball.game import Team
+from d12ball.game import TEAM_PAIRS, Team, team_display_name
 
 
 IMAGE_WIDTH = 2200
@@ -94,6 +94,16 @@ TEAM_COLORS = {
     Team.PURPLE: "#9e4dff",
     Team.SLIME: "#66FF00",
 }
+# A species team shares its paired color team's hex -- see "Team
+# colors" in CLAUDE.md. Defined from TEAM_PAIRS rather than restated,
+# so there is still exactly one hex per color anywhere in the code.
+TEAM_COLORS.update(
+    {
+        species_team: TEAM_COLORS[color_team]
+        for color_team, species_team in TEAM_PAIRS.items()
+        if color_team in (Team.ORANGE, Team.TEAL, Team.PURPLE, Team.SLIME)
+    }
+)
 ZONE_COLORS = {
     Zone.HOME_GOAL: "#3b4859",
     Zone.MIDFIELD: "#46554e",
@@ -617,13 +627,14 @@ def draw_card(
     profile: RoleProfile,
     x: int,
     y: int,
+    team: Team,
     exhaustion: int = 0,
     exhausted: bool = False,
     injured: bool = False,
 ) -> None:
     card, row_top, row_bottom = rendered_player_card(player, profile)
 
-    border = TEAM_COLORS[player.team]
+    border = TEAM_COLORS[Team(team)]
     draw.rounded_rectangle(
         (x - 3, y - 3, x + CARD_SIZE[0] + 3, y + CARD_SIZE[1] + 3),
         radius=7,
@@ -819,6 +830,7 @@ def draw_assignment_cards(
                 catalog.effective_profile(player),
                 x,
                 y,
+                team=setup.team,
                 exhaustion=exhaustion.get(player_id, 0),
                 exhausted=player_id in exhausted,
                 injured=player_id in injured,
@@ -885,12 +897,12 @@ def draw_board(
             visiting_occupants = [
                 player_id
                 for player_id in occupants
-                if players[player_id].team == match.visiting.team
+                if player_id in match.visiting.field_players
             ]
             home_occupants = [
                 player_id
                 for player_id in occupants
-                if players[player_id].team == match.home.team
+                if player_id in match.home.field_players
             ]
             ball_is_here = (
                 match.ball.zone == zone
@@ -900,6 +912,7 @@ def draw_board(
                 draw,
                 visiting_occupants,
                 players,
+                match.visiting.team,
                 space_left,
                 space_right,
                 BOARD_TOP + 88,
@@ -915,6 +928,7 @@ def draw_board(
                 draw,
                 home_occupants,
                 players,
+                match.home.team,
                 space_left,
                 space_right,
                 BOARD_BOTTOM - 135,
@@ -1037,6 +1051,7 @@ def draw_meeple_group(
     draw: ImageDraw.ImageDraw,
     occupants: list[str],
     players: dict[str, PlayerDefinition],
+    team: Team,
     space_left: int,
     space_right: int,
     token_y: int,
@@ -1087,9 +1102,9 @@ def draw_meeple_group(
         max(label_bottom - label_top, MEEPLE_LABEL_MIN_SIZE),
     )
 
+    color = TEAM_COLORS[Team(team)]
     for player_index, player_id in enumerate(occupants):
         player = players[player_id]
-        color = TEAM_COLORS[player.team]
         draw.ellipse(
             (
                 token_x,
@@ -2518,7 +2533,7 @@ def draw_jumbotron(
         draw,
         home_center,
         JUMBOTRON_TOP + 20,
-        match.home.team.value.title(),
+        team_display_name(match.home.team),
         FONT_HEADING,
         TEAM_COLORS[match.home.team],
     )
@@ -2526,7 +2541,7 @@ def draw_jumbotron(
         draw,
         visiting_center,
         JUMBOTRON_TOP + 20,
-        match.visiting.team.value.title(),
+        team_display_name(match.visiting.team),
         FONT_HEADING,
         TEAM_COLORS[match.visiting.team],
     )
@@ -2589,7 +2604,7 @@ def draw_team_board(
     )
     draw.text(
         (x + 22, y + 16),
-        setup.team.value.title(),
+        team_display_name(setup.team),
         font=FONT_HEADING,
         fill=color,
     )
@@ -2611,6 +2626,7 @@ def draw_team_board(
             catalog.effective_profile(player),
             card_x,
             y + 68,
+            team=setup.team,
             exhaustion=exhaustion.get(player_id, 0),
             exhausted=player_id in exhausted,
             injured=player_id in injured,
@@ -2642,6 +2658,7 @@ def draw_team_board(
                 catalog.effective_profile(player),
                 card_x,
                 y + 68,
+                team=setup.team,
                 exhaustion=exhaustion.get(player_id, 0),
                 exhausted=player_id in exhausted,
                 injured=player_id in injured,
@@ -2751,6 +2768,7 @@ def render_coaching_image(
                     if player_id in team_players
                 ],
                 players,
+                setup.team,
                 space_left,
                 space_right,
                 COACHING_BOARD_TOP + 78,
@@ -2834,6 +2852,7 @@ def draw_coaching_benches(
                 catalog.effective_profile(player),
                 card_x,
                 COACHING_BENCH_CARDS_TOP,
+                team=setup.team,
                 exhaustion=match.exhaustion.get(player_id, 0),
                 exhausted=player_id in match.exhausted,
                 injured=player_id in match.injured,
@@ -2909,8 +2928,8 @@ def render_match_image(
             else "Second Half"
         )
         title = (
-            f"{match.home.team.value.title()} vs "
-            f"{match.visiting.team.value.title()}, {period}"
+            f"{team_display_name(match.home.team)} vs "
+            f"{team_display_name(match.visiting.team)}, {period}"
         )
     title_width = draw.textlength(title, font=FONT_TITLE)
     draw.text(
