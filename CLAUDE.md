@@ -2642,6 +2642,24 @@ different operating systems.
 - Assume either developer may be running the bot from the working tree at any
   time. Stop the bot before switching branches, and restart it after.
 
+**Two of those machines are the same person's, and only one of them is the
+real bot.** The Windows PC serves the live bot out of
+`K:\My Drive\Prophetic Fools Games\Discord Bots\fool-bot`; the Mac is that
+person's development checkout. So:
+
+- **A traceback from a `K:\` path is the live bot, and a fix on the Mac has not
+  reached it.** A change is not deployed until that checkout has pulled and the
+  bot has been restarted there -- see "Fonts" and `render.py`'s import-time
+  loading for why a restart is not optional.
+- **They are two checkouts, so everything that is per checkout is separate**:
+  `.env` (which is what decides whether a bot posts to `#logs` at all),
+  `data/d12ball_games.json`, and `data/bot_state.json`. The Mac's saved games
+  are not the live bot's, so `scripts/render_sample.py --game` cannot reproduce
+  a board from a game played on the server.
+- **The `K:\` drive is a mounted Google Drive letter**, which is the checkout
+  the swallowed-save handling under Gotchas was written for -- when the mount
+  goes away mid-game every `save_games` raises.
+
 ## Notes for Claude
 
 - **Keep this file current with the code.** When a change alters the

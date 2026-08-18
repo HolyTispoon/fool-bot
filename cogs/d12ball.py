@@ -5140,9 +5140,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         except ValueError as error:
             await interaction.followup.send(str(error), ephemeral=True)
 
-    @staticmethod
-
-
     async def advance_halftime_stage(
         self,
         interaction: discord.Interaction,
