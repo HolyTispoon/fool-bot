@@ -2349,6 +2349,17 @@ its channel. `/d12ball resume` puts the question back up and
 to either player in the game, or to anyone with `manage_channels`
 (`may_administer_game`).
 
+**So that is what a crash tells the coach to do.** The two catch-alls for an
+unexpected exception -- `SafeView.on_error` for a click and
+`cog_app_command_error` for a command -- share `ERROR_RECOVERY_ADVICE` in
+`cogs/d12ball_helpers.py`, which names `/d12ball resume` and then the person
+running the bot. They used to say "please try again", which is advice for a
+dropped connection and for nothing else: a bug in the flow is reached
+identically on every click, and the turn it stranded is the thing resume
+exists to put back. The traceback is in `#logs` and on the host's console and
+nowhere a coach can see, so the second half of that sentence is the only way
+it gets reported.
+
 **The ephemeral views in the game are the three secret picks**, and they are
 ephemeral for one reason: a coach must not see the other side's choice before
 the reveal, and it is the only thing Discord offers that hides it.

@@ -81,6 +81,7 @@ from cogs.d12ball_helpers import (
     BENCH_DESTINATIONS,
     COIN_EMOJI_NAMES,
     EMOJI_REFETCH_INTERVAL,
+    ERROR_RECOVERY_ADVICE,
     FIELD_IMAGE_FILENAME,
     HIGH_PASS_CONTEST_HEADLINE,
     LOGGER,
@@ -464,7 +465,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         await send_error_fallback(
             interaction,
-            "Something went wrong running that command. Please try again.",
+            "Something went wrong running that command. "
+            f"{ERROR_RECOVERY_ADVICE}",
         )
 
     async def ensure_coin_emojis(self) -> dict[CoinFace, str]:

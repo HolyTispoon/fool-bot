@@ -32,6 +32,7 @@ from cogs.d12ball_views import (
     PlayerActionView,
     RunBackChoiceView,
     RunBackPlayerChoiceView,
+    SafeView,
     ScoreAttemptView,
     SkillTestView,
 )
@@ -837,6 +838,54 @@ class AbandonGameTests(unittest.IsolatedAsyncioTestCase):
         await self.run_abandon(cog, build_interaction())
 
         cog.move_channel_to_archive.assert_not_awaited()
+
+
+class UnexpectedErrorNoticeTests(unittest.IsolatedAsyncioTestCase):
+    """
+    What a coach is told when a click or a command raises something
+    nobody expected. It used to be "please try again", which is only
+    ever right for a dropped connection: a bug in the flow raises on
+    every click alike, and the turn it stranded is exactly what
+    /d12ball resume is for. Asserted through the two handlers rather
+    than against the constant, since the wording is only useful if it
+    actually reaches the coach.
+    """
+
+    def build_interaction(self) -> SimpleNamespace:
+        return SimpleNamespace(
+            response=SimpleNamespace(
+                is_done=mock.Mock(return_value=True),
+                send_message=mock.AsyncMock(),
+            ),
+            followup=SimpleNamespace(send=mock.AsyncMock()),
+            command=None,
+        )
+
+    async def test_a_failed_click_points_at_resume(self) -> None:
+        interaction = self.build_interaction()
+        view = SafeView()
+
+        # ERROR is also what puts it in #logs, which is the only place
+        # the traceback the coach is being asked to report exists.
+        with self.assertLogs("cogs.d12ball_helpers", level="ERROR"):
+            await view.on_error(interaction, RuntimeError("boom"), None)
+
+        (message,), kwargs = interaction.followup.send.await_args
+        self.assertIn("/d12ball resume", message)
+        self.assertNotIn("try again.", message)
+        self.assertTrue(kwargs["ephemeral"])
+
+    async def test_a_failed_command_points_at_resume(self) -> None:
+        interaction = self.build_interaction()
+
+        with self.assertLogs("cogs.d12ball_helpers", level="ERROR"):
+            await D12Ball.cog_app_command_error(
+                build_cog(), interaction, RuntimeError("boom"),
+            )
+
+        (message,), _ = interaction.followup.send.await_args
+        self.assertIn("/d12ball resume", message)
+        self.assertNotIn("try again.", message)
 
 
 if __name__ == "__main__":
