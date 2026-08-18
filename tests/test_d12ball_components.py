@@ -2703,9 +2703,16 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         )
         cog.begin_run_back.assert_not_awaited()
 
-    async def test_opposing_player_alone_on_the_space_wins_it_uncontested(
+    async def test_opposing_player_alone_on_the_space_is_contested(
         self,
     ) -> None:
+        """
+        This used to be a clean steal -- no movement, no roll, the ball
+        simply theirs. Since 2026-08-18 it is a loose ball like any
+        other: the defender standing there contests for nothing, and the
+        side that lost the ball may send somebody after it. See "The
+        loose ball" in docs/living-rules.md.
+        """
         cog = self.build_cog()
         match = self.build_match()
         # Index 2 is never a home space under the standard formation
@@ -2736,21 +2743,13 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertTrue(detoured)
-        self.assertEqual(match.ball.possession, TeamSide.VISITING)
-        self.assertEqual(match.ball.speed, 1)
-        cog.begin_loose_ball.assert_not_awaited()
-        cog.begin_run_back.assert_awaited_once_with(
-            interaction, game, match,
-            distance_moved=1, turnover_occurred=True,
+        # Nothing is settled here any more: possession does not move
+        # until somebody wins the contest.
+        self.assertEqual(match.ball.possession, TeamSide.HOME)
+        cog.begin_run_back.assert_not_awaited()
+        cog.begin_loose_ball.assert_awaited_once_with(
+            interaction, game, match, 1, lead_in="Block Deflect happened.",
         )
-        # It goes out with the board, and names the space: "already
-        # there" is only readable next to where "there" is.
-        cog.announce_board_update.assert_awaited_once()
-        announcement = cog.announce_board_update.await_args.args[2]
-        self.assertIn("Block Deflect happened.", announcement)
-        self.assertIn("# Turnover!", announcement)
-        self.assertIn("uncontested", announcement)
-        self.assertIn("M3", announcement)
 
 
 class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
@@ -3351,6 +3350,11 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         shared between both sides) is likewise automatic rather than
         a zone-wide pick.
 
+        Since 2026-08-18 neither is forced by this call site: both are
+        standing on the ball, which is the ordinary loose-ball rule, so
+        the pools are read off the position. What this asserts is that
+        they come out the same.
+
         The pass is placed to land two short of the edge: a distance
         of 3 offers no scoring-opportunity setup unless it overshoots
         (2026-08-10), so landing with room to spare is what isolates
@@ -3389,8 +3393,22 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball.assert_awaited_once()
         _, kwargs = cog.begin_loose_ball.await_args
         self.assertEqual(kwargs["headline"], HIGH_PASS_CONTEST_HEADLINE)
-        self.assertEqual(kwargs["forced_offense_player"], receiver)
-        self.assertEqual(kwargs["forced_defense_player"], defender_on_space)
+        self.assertTrue(kwargs["is_high_pass"])
+
+        # begin_loose_ball is mocked, so raise the flag it would have
+        # raised and ask the pools the real one asks.
+        match.begin_loose_ball(3, is_high_pass=True)
+        self.assertEqual(
+            cog.engine.loose_ball_candidates(match, TeamSide.HOME),
+            [receiver],
+        )
+        self.assertEqual(
+            cog.engine.loose_ball_candidates(match, TeamSide.VISITING),
+            [defender_on_space],
+        )
+        # Neither may be held back, and neither is asked for.
+        self.assertFalse(match.may_decline_loose_ball(TeamSide.HOME))
+        self.assertFalse(match.may_decline_loose_ball(TeamSide.VISITING))
 
     async def test_apply_high_pass_distance_two_offers_setup_without_overshoot(
         self,
@@ -3689,8 +3707,14 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
         )
-        cog.finish_maneuver_resolution.assert_awaited_once()
-        _, kwargs = cog.finish_maneuver_resolution.await_args
+        # A Block Deflect knocks the ball out of possession, so it goes
+        # straight to the contest rather than through the loose-ball
+        # check on the end of an ordinary maneuver (2026-08-18).
+        cog.finish_maneuver_resolution.assert_not_awaited()
+        cog.begin_loose_ball.assert_awaited_once()
+        args, kwargs = cog.begin_loose_ball.await_args
+        # Its clock cost is a flat 1 whatever the deflection travelled.
+        self.assertEqual(args[3], 1)
         self.assertIn("Fullback ability", kwargs["lead_in"])
         self.assertIn("2 spaces back", kwargs["lead_in"])
 

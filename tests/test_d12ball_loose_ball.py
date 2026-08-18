@@ -350,7 +350,10 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         winning_side = match.defending_side()
 
         # Clear the ball's space of the possessing side and stand an
-        # opponent on it, which is the uncontested-turnover case.
+        # opponent on it. Until 2026-08-18 that handed them the ball
+        # outright; now they are simply the one contestant who costs
+        # their side nothing, and the side that lost it may send
+        # somebody after it -- or, as here, not.
         self.clear_the_ball_s_space(match)
         opponent = match.setup_for_side(winning_side).field_players[0]
         match.board.remove_meeple(opponent)
@@ -360,10 +363,24 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 
+        interaction = build_interaction()
         with mock.patch("cogs.d12ball.save_games"):
             handled = await cog.check_for_loose_ball(
-                build_interaction(), game, match, 2,
+                interaction, game, match, 2,
             )
+            # The defender standing on it is put up without being
+            # asked, and cannot be held back.
+            self.assertEqual(match.loose_ball_defense_player, opponent)
+            self.assertFalse(match.may_decline_loose_ball(winning_side))
+            # Nothing has changed hands yet -- the side that lost it is
+            # still to answer.
+            self.assertEqual(match.ball.possession, losing_side)
+            self.assertEqual(
+                cog.engine.loose_ball_side_on_the_clock(match), "offense",
+            )
+
+            match.decline_loose_ball(losing_side)
+            await cog.resolve_loose_ball(interaction, game, match)
 
         self.assertTrue(handled)
         self.assertEqual(match.ball.possession, winning_side)
@@ -503,6 +520,191 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         match.validate(self.catalog)
         round_tripped = MatchState.from_dict(match.to_dict(), self.rules)
         self.assertTrue(round_tripped.pending_ball_recovery)
+
+
+class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
+    """
+    A loose ball is contested by whoever is standing on it -- the
+    author, 2026-08-18. See "The loose ball" in docs/living-rules.md.
+
+    It used to be that a ball landing on a player settled itself: the
+    possessing team kept it, or the other team took it outright. Both
+    are now the same contest every other loose ball gets, and the
+    player standing there is simply a contestant who costs their side
+    nothing and whom their side may not withhold.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+    def stand_on_the_ball(
+        self, match: MatchState, side: TeamSide, count: int,
+    ) -> list[str]:
+        """Clear the ball's space and put `count` of `side` on it."""
+        for occupant in list(
+            match.board.spaces[match.ball.zone][match.ball.space_index]
+        ):
+            match.board.remove_meeple(occupant)
+        chosen = match.setup_for_side(side).field_players[:count]
+        for player_id in chosen:
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(
+                player_id, match.ball.zone, match.ball.space_index,
+            )
+        return chosen
+
+    def test_a_lone_player_on_the_ball_contests_without_being_asked(
+        self,
+    ) -> None:
+        # One of them is nothing to ask about: they contest for
+        # nothing and may not be held back, so the only choice a
+        # prompt could offer is one the rules refuse.
+        cog = build_cog()
+        game = build_game()
+        match = self.build_match()
+        defense = match.defending_side()
+        (defender,) = self.stand_on_the_ball(match, defense, 1)
+        match.begin_loose_ball(1)
+
+        cog.engine.auto_resolve_loose_ball_picks(game, match)
+
+        self.assertEqual(match.loose_ball_defense_player, defender)
+        self.assertFalse(match.may_decline_loose_ball(defense))
+        # The side that lost it is still a free choice, and still first.
+        self.assertEqual(
+            cog.engine.loose_ball_side_on_the_clock(match), "offense",
+        )
+        self.assertTrue(match.may_decline_loose_ball(match.ball.possession))
+
+    def test_several_on_the_ball_is_the_coach_s_pick(self) -> None:
+        # The same call as the maneuver challenge's (2026-08-17): they
+        # differ only in who they are, and that is the coach's to
+        # decide.
+        cog = build_cog()
+        game = build_game()
+        match = self.build_match()
+        defense = match.defending_side()
+        stack = self.stand_on_the_ball(match, defense, 2)
+        match.begin_loose_ball(1)
+
+        cog.engine.auto_resolve_loose_ball_picks(game, match)
+
+        self.assertIsNone(match.loose_ball_defense_player)
+        self.assertEqual(
+            cog.engine.loose_ball_candidates(match, defense), stack,
+        )
+        # Nobody may be walked in past them, either -- the pool is one
+        # of two and never a mixture.
+        for player_id in cog.engine.loose_ball_candidates(match, defense):
+            self.assertEqual(match.distance_to_ball(player_id), 0)
+
+    def test_the_stack_s_prompt_offers_no_way_out(self) -> None:
+        cog = build_cog()
+        game = build_game()
+        match = self.build_match()
+        defense = match.defending_side()
+        self.stand_on_the_ball(match, defense, 2)
+        match.begin_loose_ball(1)
+        match.decline_loose_ball(match.ball.possession)
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+
+        self.assertEqual(
+            cog.engine.loose_ball_side_on_the_clock(match), "defense",
+        )
+        view = cog.build_loose_ball_view(game.game_id, match)
+        labels = [item.label for item in view.children]
+        self.assertNotIn("Send nobody", labels)
+        self.assertEqual(len(labels), 2)
+        # And the prompt says which question it is asking.
+        prompt = cog.engine.build_loose_ball_prompt(game, match)
+        self.assertIn("which of them contests", prompt)
+
+    def test_both_sides_on_the_ball_go_straight_to_the_test(self) -> None:
+        cog = build_cog()
+        game = build_game()
+        match = self.build_match()
+        offense, defense = match.ball.possession, match.defending_side()
+        (attacker,) = self.stand_on_the_ball(match, offense, 1)
+        match.board.remove_meeple(
+            defender := match.setup_for_side(defense).field_players[0]
+        )
+        match.board.place_meeple(
+            defender, match.ball.zone, match.ball.space_index,
+        )
+        match.begin_loose_ball(1)
+
+        cog.engine.auto_resolve_loose_ball_picks(game, match)
+
+        self.assertEqual(match.loose_ball_offense_player, attacker)
+        self.assertEqual(match.loose_ball_defense_player, defender)
+        self.assertIsNone(cog.engine.loose_ball_side_on_the_clock(match))
+
+    async def test_a_block_deflect_onto_a_teammate_is_still_loose(
+        self,
+    ) -> None:
+        """
+        The rule this change is named for. The deflection knocks the
+        ball out of the handler's possession, and a teammate a space
+        back is no longer enough to keep it -- they contest for it.
+        """
+        cog = build_cog()
+        cog.begin_loose_ball = mock.AsyncMock()
+        game = build_game()
+        match = self.build_match()
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(Zone.MIDFIELD, 1)
+        match.challenger_id = match.visiting.field_players[0]
+        # HOME attacks left to right, so the deflection lands one space
+        # lower: put a home card there to be deflected onto.
+        landing = (Zone.MIDFIELD, 0)
+        teammate = match.home.field_players[0]
+        match.move_meeple(teammate, *landing)
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_block_deflect(
+                SimpleNamespace(), game, match,
+            )
+
+        self.assertEqual(
+            (match.ball.zone, match.ball.space_index), landing,
+        )
+        # The teammate is standing on it and possession has not moved,
+        # but it is a contest all the same.
+        self.assertIn(teammate, match.eligible_ball_handlers())
+        cog.finish_maneuver_resolution.assert_not_awaited()
+        cog.begin_loose_ball.assert_awaited_once()
+        self.assertEqual(cog.begin_loose_ball.await_args.args[3], 1)
+
+    def test_the_headline_does_not_claim_an_empty_space(self) -> None:
+        # A loose ball can land on somebody now, so the wording is read
+        # off the position rather than assuming a pass into space.
+        cog = build_cog()
+        match = self.build_match()
+        # The standard deal stands somebody on the kickoff space, which
+        # is where the ball starts -- clear it for the empty case.
+        for occupant in list(
+            match.board.spaces[match.ball.zone][match.ball.space_index]
+        ):
+            match.board.remove_meeple(occupant)
+        empty = cog.engine.build_loose_ball_headline(match)
+        self.assertIn("empty space", empty)
+
+        self.stand_on_the_ball(match, match.defending_side(), 1)
+        occupied = cog.engine.build_loose_ball_headline(match)
+        self.assertNotIn("empty space", occupied)
+        self.assertIn("standing on it", occupied)
 
 
 if __name__ == "__main__":

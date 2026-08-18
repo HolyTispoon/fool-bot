@@ -4581,6 +4581,12 @@ class LooseBallChoiceView(SafeView):
     that last held it loses it (see resolve_loose_ball). It is
     offered even when there's only one candidate, which is why a lone
     candidate isn't auto-picked the way a forced run back is.
+
+    **It is not offered to a side with somebody standing on the ball**
+    (may_decline_loose_ball): they contest for nothing, so there is no
+    walk-in for that coach to refuse to pay. Such a prompt is only ever
+    a pick between two or more of them -- one is settled without asking.
+    Built, not disabled: there is nothing a coach could do to enable it.
     """
 
     def __init__(
@@ -4633,14 +4639,19 @@ class LooseBallChoiceView(SafeView):
             button.callback = callback
             self.add_item(button)
 
-        decline = discord.ui.Button(
-            label="Send nobody",
-            style=discord.ButtonStyle.secondary,
-            custom_id=f"d12ball:loose_ball_decline:{game_id}:{side}",
-            row=4,
-        )
-        decline.callback = self.decline
-        self.add_item(decline)
+        if match.may_decline_loose_ball(
+            match.ball.possession
+            if side == "offense"
+            else match.defending_side()
+        ):
+            decline = discord.ui.Button(
+                label="Send nobody",
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"d12ball:loose_ball_decline:{game_id}:{side}",
+                row=4,
+            )
+            decline.callback = self.decline
+            self.add_item(decline)
 
     async def claim(
         self,
@@ -4709,6 +4720,17 @@ class LooseBallChoiceView(SafeView):
             if self.side == "offense"
             else match.defending_side()
         )
+        # The button is not built for a side with somebody on the ball,
+        # so this is a stale click -- a prompt a restart re-attached
+        # from before the ball reached them. Same reason
+        # ManeuverChallengeView.decline re-checks its own.
+        if not match.may_decline_loose_ball(side):
+            await interaction.response.send_message(
+                "Somebody of theirs is standing on the ball -- they "
+                "contest it, and cannot be held back.",
+                ephemeral=True,
+            )
+            return
         match.decline_loose_ball(side)
         await self.settled(
             interaction,

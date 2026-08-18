@@ -132,7 +132,7 @@ The team in possession takes a turn, in this order.
 1. Choose [which of their players on the ball's space handles it](#choosing-the-handler).
 2. Choose the action: a [score attempt](#score-attempt) if the ball is in that team's shooting range, and otherwise a [maneuver](#maneuvers) or [ceding the ball](#ceding-the-ball).
 3. Resolve the action, and anything it leads to.
-4. If the team in possession has nobody on the ball's space, resolve a [loose ball](#the-loose-ball).
+4. If the action left nobody in possession, contest the [loose ball](#the-loose-ball).
 5. If the ball changed hands, resolve the [turnover](#turnovers).
 6. Advance the clock by what the action cost.
 
@@ -144,7 +144,7 @@ Any of the possessing team's players standing on the ball's space may handle it,
 
 These leave the ball with a particular player: a Dribble Advance, with the player who dribbled it; a completed Low Pass and a received 2-space High Pass, with the receiver; a Steal Intercept, with the interceptor; a won loose ball or High Pass contest, with the winner; and a Pressure, with the handler who was shoved back still holding it — including one who has just survived an own-goal roll, and with the Defender instead where their Pressure also stole it.
 
-These leave it with nobody in particular: a Block Deflect, which sends the ball to a space rather than to a player; a kickoff or any other restart; and a required pickup.
+These leave it with nobody in particular: a kickoff or any other restart, and a required [pickup](#picking-the-ball-up). A [Block Deflect](#block-deflect) leaves nobody in possession at all, so the ball is contested before anybody handles it.
 
 It holds for one turn only. If that player is no longer on the ball by the time the turn comes round, their coach chooses in the ordinary way. The player holding the ball also [never runs back](#running-back-after-a-steal).
 
@@ -154,7 +154,7 @@ A score attempt is offered only inside the team's [shooting range](#shooting-ran
 
 ### Finishing the turn
 
-The loose-ball check comes first: the ball is loose if the team in possession has nobody standing on its space, however the action left it there.
+The [loose ball](#the-loose-ball) comes first: an action that left nobody in possession is contested before anything else, however it left the ball there.
 
 Then the turnover, if the ball changed hands. A [steal](#running-back-after-a-steal) runs players back and play carries straight on; a [new play](#resetting-after-a-new-play) resets both sides and offers a Coaching Choice.
 
@@ -269,9 +269,9 @@ The ball moves 1 space back — toward the goal the offense is defending. Ball s
 
 *Fullback:* deflects the ball 2 spaces instead of 1.
 
-A Block Deflect turns nothing over by itself. If it leaves the ball on a space with none of the possessing team standing there, the ball is [loose](#the-loose-ball) like any other.
+A Block Deflect turns nothing over by itself, and settles nothing either: it knocks the ball out of anybody's possession, so it is [loose](#the-loose-ball) wherever it lands and whoever is standing there. A player of either side already on that space contests it for nothing; a side with nobody there may send somebody after it or let it go.
 
-The one exception is a deflection that runs out of field **and** finds a defending player standing on the landing space: that player gets a [scoring opportunity](#scoring-opportunities). Possession flips for it and speed resets, and it is the shot that follows — goal or miss — that makes the new play.
+The one exception is a deflection that runs out of field **and** finds a defending player standing on the landing space: rather than being contested, that player gets a [scoring opportunity](#scoring-opportunities). Possession flips for it and speed resets, and it is the shot that follows — goal or miss — that makes the new play.
 
 ### Steal Intercept
 
@@ -301,7 +301,7 @@ The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is ha
 
 Only four maneuvers change it: Low Pass adds 1, Block Deflect takes 1 off, and Dribble Advance and Steal Intercept let the player change it by up to their own skill. **Every turnover resets it to 1.**
 
-The modifier is added in three places and nowhere else: to a [score attempt](#score-attempt), by the attack; to a maneuver skill test, by a defense contesting with Steal Intercept; and to a [High Pass contest](#the-high-pass-contest), by the receiver. A [loose ball](#the-loose-ball) belongs to nobody yet, so neither contestant adds it there.
+The modifier is added in three places and nowhere else: to a [score attempt](#score-attempt), by the attack; to a maneuver skill test, by a defense contesting with Steal Intercept; and to a [High Pass contest](#the-high-pass-contest), by the side that threw the pass. Any other [loose ball](#the-loose-ball) belongs to nobody yet, so neither contestant adds it there.
 
 An overshot High Pass turns the sign around: the modifier counts against the shot it sets up and against the contest behind it.
 
@@ -324,7 +324,7 @@ Taking the shot costs its own space minute on top of the maneuver that set it up
 
 ## Sending a player
 
-Four rules ask a coach to send a player to the ball's space: the [maneuver challenge](#determining-the-two-players), the [loose ball](#the-loose-ball), the [High Pass contest](#the-high-pass-contest), and the [pickup](#picking-the-ball-up) after an out-of-bounds or ceded ball. All four ask it in the same way, and a player's zone has nothing to do with it.
+Three rules ask a coach to send a player to the ball's space: the [maneuver challenge](#determining-the-two-players), the [loose ball](#the-loose-ball) — the [High Pass contest](#the-high-pass-contest) included — and the [pickup](#picking-the-ball-up) after an out-of-bounds or ceded ball. All three ask it in the same way, and a player's zone has nothing to do with it.
 
 A coach may send either of their two nearest players to the space: the nearest one in front of it and the nearest one behind it, counted in spaces along the field. Where two or more are tied for nearest on one side, the coach chooses between them.
 
@@ -338,27 +338,30 @@ Nothing brings a sent player home again. They stay where the contest left them u
 
 ### The loose ball
 
-After a maneuver, the ball is **loose** whenever the team in possession has nobody standing on its space.
+The ball is **loose** whenever nobody is in possession of it. It has to be won before play carries on, and it is won the same way however it came free: a pass that lands where the passing team has nobody, a [Block Deflect](#block-deflect) wherever it lands, and a long [High Pass](#the-high-pass-contest), which is this contest with one difference.
 
-Where only the other team is standing there, they simply take it: nobody moves, nothing is rolled, and it is a steal.
+Each side puts up at most one contestant.
 
-Where the space is empty, the side that has just lost the ball chooses first — send a player, or send nobody — and the other side chooses after them.
+- **A player of theirs already standing on the ball's space contests automatically.** They are not sent anywhere and pay nothing. Where a side has several standing there, their coach picks between them.
+- **A side with nobody there may [send a player](#sending-a-player), or send nobody.** Where both sides have to choose, the side that last had the ball chooses first and the other side chooses after them.
 
-- **Both send.** They walk in, each paying for their own distance, and roll a skill test: the side that had the ball adds their player's offensive skill, the other side adds their player's defensive skill. The higher total wins the ball and is left holding it. A tie is rolled again, at a token each.
-- **One sends.** That player collects the ball without a test.
-- **Neither sends.** The ball goes [out of bounds](#out-of-bounds).
+What follows is decided by how many of them there turn out to be.
 
-Neither side adds the ball speed modifier: the ball is nobody's yet.
+- **Both sides put somebody up.** They roll a skill test: the side that last had the ball adds their player's offensive skill, the other side adds their player's defensive skill. The higher total wins the ball and is left holding it. A tie is rolled again, at a token each.
+- **One side only.** That player takes the ball without a test.
+- **Neither.** The ball goes [out of bounds](#out-of-bounds) — which only an empty space can come to, since a player standing on the ball is a contestant their side cannot withhold.
 
-A loose ball won by the side that did not have it is a steal.
+Neither side adds the ball speed modifier: the ball is nobody's yet. A High Pass is the one exception, below.
+
+A loose ball won by the side that did not last have it is a steal.
 
 ### The High Pass contest
 
-A High Pass thrown 3 spaces or more is caught, but not kept: the receiver still has to win the ball. An overshot pass whose set-up was declined comes to the same contest. A pass of 2 never does — it is simply received.
+A High Pass of 3 spaces or more onto a teammate is caught, but not kept: it leaves the ball [loose](#the-loose-ball) like anything else, and the receiver standing on it is their side's automatic contestant. An overshot pass whose set-up was declined comes to the same place. A pass of 2 does not — a teammate there simply receives it and possession does not change, exactly as with a [Low Pass](#low-pass).
 
-The receiver is the offense's contestant automatically. A defending player already on that space contests automatically too; otherwise the defending coach may [send a player](#sending-a-player), or send nobody — in which case the receiver keeps the ball without rolling.
+The contest is the loose ball's, with one difference: the side that threw the pass adds the [ball speed modifier](#ball-speed), and adds it against themselves if the pass overshot.
 
-The roll is the loose ball's, with one difference: the receiver adds the [ball speed modifier](#ball-speed), and adds it against themselves if the pass overshot.
+**A pass that reaches nobody carries no modifier.** It is not this contest at a disadvantage; it simply *is* a loose ball, and there is no receiver for the throw to have favoured.
 
 The ball is left with the winner. A receiver who loses it has been stolen from.
 
@@ -391,7 +394,7 @@ Every change of possession resets ball speed to 1. There are three kinds, and wh
 
 | Cause | Kind | What follows |
 | --- | --- | --- |
-| Steal Intercept, a Defender's won Pressure, a lost High Pass contest, a loose ball the other side wins or is already standing on | Steal | Players run back. No pause and no Coaching Choice: the ball is still live. |
+| Steal Intercept, a Defender's won Pressure, a lost High Pass contest, a loose ball the other side wins | Steal | Players run back. No pause and no Coaching Choice: the ball is still live. |
 | A goal, a missed shot, an own goal conceded or avoided, a ball out of bounds | New play | Both sides reset, and the side with the ball may call a Coaching Choice. |
 | Ceding | Cede | Both coaches take a Coaching Choice. Nobody runs back and nothing resets. |
 

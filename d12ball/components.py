@@ -1548,6 +1548,30 @@ class MatchState:
             if not self.high_pass_overshoots(side, distance)
         ]
 
+    def high_pass_receivers_at(
+        self, side: TeamSide, distance: int,
+    ) -> list[str]:
+        """
+        Which of `side` would be standing where a High Pass of
+        `distance` lands, less the passer -- who never receives their
+        own pass. Read before the ball moves, so it is the lookahead
+        `high_pass_receiver_candidates` is after the fact.
+
+        It is what lets a coach -- or Dinky -- prefer a distance that
+        reaches somebody over one that merely goes further.
+        """
+        origin_flat = self.board.flat_index(
+            self.ball.zone, self.ball.space_index,
+        )
+        target_flat = self.relative_flat_index(origin_flat, side, distance)
+        zone, space_index = self.board.position_at_flat_index(target_flat)
+        occupants = set(self.board.spaces[zone][space_index])
+        return [
+            player_id
+            for player_id in self.setup_for_side(side).field_players
+            if player_id in occupants and player_id != self.active_player_id
+        ]
+
     def high_pass_distance_is_moot(self, side: TeamSide) -> bool:
         """
         Whether there is anything to choose about a High Pass's
@@ -1719,6 +1743,68 @@ class MatchState:
         handler -- contest_candidates read from the defense's end.
         """
         return self.contest_candidates(self.defending_side())
+
+    def contest_occupants(self, side: TeamSide) -> list[str]:
+        """
+        `side`'s players already standing on the ball's own space --
+        their contestant in a [loose ball](docs/living-rules.md), put up
+        for nothing rather than sent. The same players
+        automatic_challengers picks out for the defense, asked of either
+        side.
+
+        In the setup's own order rather than the board's: where there
+        are several the coach picks between them, and the buttons they
+        are offered have to come back the same way twice.
+        """
+        occupants = set(
+            self.board.spaces[self.ball.zone][self.ball.space_index]
+        )
+        return [
+            player_id
+            for player_id in self.setup_for_side(side).field_players
+            if player_id in occupants
+        ]
+
+    def loose_ball_occupants(self, side: TeamSide) -> list[str]:
+        """
+        `side`'s contestants already on the ball in *this* loose ball --
+        contest_occupants, less the passer where it is a High Pass
+        contest and `side` threw it. They never receive their own pass,
+        so the contest is fought by whoever did.
+
+        That exclusion can only bite on a pass the field clamped to 0
+        spaces, which reaches finish_maneuver_resolution rather than any
+        contest. It is stated as a rule about every High Pass anyway, so
+        a later maneuver that moves a handler cannot reopen the hole
+        quietly -- exactly as high_pass_receiver_candidates states it.
+
+        This, and not contest_occupants, is what the pool, the decline
+        and the auto-pick all read, so the three cannot disagree about
+        who is standing there.
+        """
+        occupants = self.contest_occupants(side)
+        if (
+            self.pending_loose_ball_is_high_pass
+            and TeamSide(side) == self.ball.possession
+        ):
+            return [
+                player_id
+                for player_id in occupants
+                if player_id != self.active_player_id
+            ]
+        return occupants
+
+    def may_decline_loose_ball(self, side: TeamSide) -> bool:
+        """
+        Whether `side` may send nobody after a loose ball. A side with
+        somebody standing on the ball may not: declining is a refusal
+        to pay a walk-in's exhaustion and they have no walk-in to pay
+        for, exactly as with a challenge (may_decline_challenge).
+
+        It is also what keeps out of bounds an empty space's outcome
+        alone -- see "The loose ball" in docs/living-rules.md.
+        """
+        return not self.loose_ball_occupants(side)
 
     def automatic_challengers(self) -> list[str]:
         """

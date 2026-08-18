@@ -298,12 +298,26 @@ class DinkyAI(AIStrategy):
         match: MatchState,
         distances: list[int],
     ) -> int:
-        """Always take the longest pass available -- same maximizing
-        spirit as choose_dribble_advance_distance. This never chases
-        the 2-space scoring-opportunity option in favor of distance.
-        The list is already free of distances that overshoot, so the
-        longest is a real pass rather than a clamped one."""
-        return distances[-1]
+        """
+        The longest pass that actually reaches a teammate, and
+        otherwise the longest available -- the author, 2026-08-18.
+        Distance alone was throwing the ball past everybody: a pass
+        landing where the offense has nobody is a loose ball, so
+        maximizing it was maximizing how often Dinky gave the ball
+        away.
+
+        Still maximizing within that, in the same spirit as
+        choose_dribble_advance_distance, and still never chasing the
+        2-space scoring-opportunity option for its own sake. The list
+        is already free of distances that overshoot, so the longest is
+        a real pass rather than a clamped one.
+        """
+        reaching = [
+            distance
+            for distance in distances
+            if match.high_pass_receivers_at(match.ball.possession, distance)
+        ]
+        return (reaching or distances)[-1]
 
     def choose_scoring_opportunity_attempt(self, match: MatchState) -> bool:
         """Always take the shot when offered one."""

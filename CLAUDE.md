@@ -343,14 +343,15 @@ everything but how it was bought.
 
 ## Sending a player
 
-Four rules ask a coach to send somebody to the ball's space, and since
+Three rules ask a coach to send somebody to the ball's space, and since
 2026-08-16 they ask it the same way: **the nearest player either side of the
 space, from any zone**. `MatchState.contest_candidates` is the whole of it --
-see "Sending a player" in the living rules -- and the four are the maneuver
+see "Sending a player" in the living rules -- and the three are the maneuver
 challenge (`eligible_challengers`), the loose ball (`loose_ball_candidates`),
-the long High Pass contest (which borrows the loose ball's), and the pickup
-after an out-of-bounds or ceded ball (`begin_ball_recovery`,
-`recover_out_of_bounds_ball`).
+and the pickup after an out-of-bounds or ceded ball (`begin_ball_recovery`,
+`recover_out_of_bounds_ball`). It was four until 2026-08-18: the long High
+Pass contest **is** the loose ball now rather than borrowing it -- see
+[Loose balls and the board](#loose-balls-and-the-board).
 
 - **Distance is the measure, and it always was -- the zone was a second gate
   on top of it.** Every one of these charges a token a space, so a defender
@@ -805,6 +806,16 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
   picks from, and `choose`'s refusal of a click on a menu the ball has moved out
   from under. Those buttons carry no message id, so an older prompt in the
   channel does dispatch.
+- **Dinky throws to the furthest teammate it can reach, not simply the
+  furthest** (2026-08-18). `MatchState.high_pass_receivers_at` is the
+  lookahead -- the before-the-throw twin of `high_pass_receiver_candidates`,
+  excluding the passer for the same reason -- and
+  `DinkyAI.choose_high_pass_distance` falls back to the longest available only
+  when no distance reaches anybody. It is not a rules change; it is that the AI's
+  own maximizing was working against it, and
+  [the loose ball](#who-contests-a-loose-ball) sharpened the cost: a pass
+  landing where the offense has nobody is a loose ball, so throwing as far as
+  possible was giving the ball away as often as possible.
 - **An overshoot is therefore only ever the no-menu case.** When even the
   shortest pass runs out of field -- the ball 0 or 1 spaces from the end --
   `resolve_high_pass` skips the prompt and applies the minimum distance
@@ -865,12 +876,69 @@ pickup use.
 - **The pick prompt names the space as well**, because it outlives the message
   that announced it: `/d12ball resume` puts that prompt back up on its own, and
   a restart re-arms it wherever it has scrolled to.
-- The uncontested turnover -- the ball landing on a space only the *other* side
-  occupies -- goes out the same way. "So-and-so is already there" cannot be read
-  without knowing where there is.
+- **The headline is read off the position, not off what made the ball
+  loose.** `build_loose_ball_headline` words an empty space and an occupied one
+  differently, because they are different questions to the two coaches, and
+  since 2026-08-18 both are loose. A caller passing its own `headline=` is
+  saying the wording would be a lie, which is the High Pass's case and nobody
+  else's.
 - `ball_location_line` and `ball_space_label` in `cogs/d12ball_helpers.py` are
   the wording, over `space_label`. The line spells the zone out beside the code
   because "M2" alone means nothing to anyone not already looking at the board.
+
+## Who contests a loose ball
+
+**A loose ball is a ball nobody is in possession of, and it is won the same
+way however it came free** -- the author, 2026-08-18. See "The loose ball" in
+the living rules. That replaced a definition -- "the possessing team has
+nobody standing on the ball's space" -- which made *loose* a fact about where
+meeples were rather than about the ball, so a ball landing on the right meeple
+could not be loose however it got there.
+
+Each side's contestant is **whoever of theirs is standing on the ball, and
+otherwise a player they may send**. `MatchState.loose_ball_occupants` is the
+first half and `MatchState.contest_candidates` the second;
+`RulesEngine.loose_ball_candidates` is `occupants or candidates` -- one of two
+pools and never a mixture, exactly the shape `challenge_candidates` has, and
+for the same reason.
+
+- **Three readings collapsed into that one.** The old "each side may send"
+  (an empty space), the High Pass contest's forced receiver, and the
+  uncontested take -- a ball landing where only the *defense* stood was theirs
+  outright, no movement and no roll. The last is the change with the widest
+  reach: it is the ordinary end of a badly aimed pass, and it is now a contest
+  the side that lost the ball may enter.
+- **`begin_loose_ball` forces nobody any more.** It used to take
+  `forced_offense_player`/`forced_defense_player`, passed only by
+  `begin_high_pass_contest`. Being on the ball is the ordinary rule now, so
+  that function has nothing left to pass but `is_high_pass` -- which is the
+  only thing still peculiar to a High Pass, the ball speed modifier.
+- **A side with somebody on the ball may not withhold them**
+  (`may_decline_loose_ball`), the same reading `may_decline_challenge` makes:
+  declining is a refusal to pay a walk-in's exhaustion and they have no
+  walk-in to pay for. `LooseBallChoiceView` does not build the Send nobody
+  button rather than disabling it, and `decline` re-checks for a stale click.
+  **That is also what keeps out of bounds an empty space's outcome alone.**
+- **Skipping the prompt is a count, not a flag**, exactly as with the
+  challenge. `auto_resolve_loose_ball_picks` puts up a **lone** player on the
+  ball unasked -- there is nothing to ask -- and leaves two to the coach
+  (2026-08-18, the same call as the maneuver challenge's). `build_loose_ball_prompt`
+  words that case differently, because the question is which of them rather
+  than whether to send anybody.
+- **The passer is struck out of the offense's pool in a High Pass contest**,
+  in `loose_ball_occupants` and nowhere else, so the pool, the decline and the
+  auto-pick cannot disagree about who is standing there. It can only bite on a
+  pass clamped to 0 spaces, which never reaches a contest -- stated anyway, for
+  the reason `high_pass_receiver_candidates` states it.
+- **A Block Deflect calls `begin_loose_ball` directly** rather than going
+  through `finish_maneuver_resolution`. It knocks the ball out of possession
+  whoever is standing there, so `check_for_loose_ball`'s question -- does the
+  possessing team have somebody on the ball -- has an answer that does not
+  matter. It also stops refreshing the board first, since `begin_loose_ball`
+  posts one.
+- **`check_for_loose_ball` has one detour now, not two.** Its guard still
+  earns its keep: the maneuvers that leave the ball with a named player are not
+  loose, and that is what it asks.
 
 ## The ball carrier
 
@@ -914,8 +982,8 @@ ball's space -- see "Choosing the handler" in the living rules.
   the roll, or unopposed. That covers the long High Pass, which routes through
   the same machinery. The out-of-bounds branch is the exception: nobody
   contested it, so it stays clear and the pickup is an ordinary placement.
-  Block Deflect sets nothing either -- it sends the ball to a space rather
-  than to a player.
+  Block Deflect sets nothing either -- it makes a loose ball, and the contest
+  names the carrier.
 - **The run-back exemption is the carry, read from the other end.**
   `begin_run_back` sets `pending_run_back_stays_player_id` from
   `ball_carrier_id` rather than taking it as an argument -- the player holding
