@@ -45,33 +45,40 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
-### Advanced mode -- two decisions and one blank still outstanding
+### Advanced mode -- the interaction table is settled; the cards are not finished
 
-The author asked for advanced mode on 2026-08-17: **advanced maneuvers** (each of the six
-has a version that is more impactful when it succeeds and carries an extra cost when it is
+The author asked for advanced mode on 2026-08-17: **advanced maneuvers** (each of the six has
+a version that is more impactful when it succeeds and carries an extra cost when it is
 defeated) and **asymmetric teams** (a team playable with its own abilities and role
 composition instead of the standard one), with a game free to take one, both or neither.
 
-Eighteen questions were asked against the table they belong to, and **fourteen were answered
-on 2026-08-18**. Both live in [advanced-maneuver-matrix.md](advanced-maneuver-matrix.md)
-rather than here, because a question about a pairing only makes sense beside the pairing.
-What the answers settle, in the order they matter:
+Eighteen questions were asked against the table they belong to, and all of the ones that
+blocked it were answered on 2026-08-18. Both live in
+[advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) rather than here, because a
+question about a pairing only makes sense beside the pairing. What they settle:
 
 - **A coach playing advanced holds six cards** and picks one secretly each maneuver -- but
   **only when the maneuver is challenged**. An unchallenged maneuver is played from the basic
   three, which makes declining a challenge a way to deny the offense their advanced cards.
 - **Rank alone decides.** Each advanced row is identical to its basic counterpart in every
   column but the effect, and an advanced card does not beat a basic one of its own rank. So
-  one defeat cycle serves both sets, and **advanced mode adds no new way to win a maneuver**
-  -- what it adds is a consequence attached to winning and to losing.
-- **The costs are mostly effects granted to the opponent rather than a currency**, and
-  possession is among them. Only one of the six is paid in something the game already counts.
+  one defeat cycle serves both sets, and **advanced mode adds no new way to win a maneuver**.
+- **Only an outright result carries.** The author: *"only an outright win and outright lose of
+  advanced maneuver carry the benefit/cost."* A maneuver settled by a **skill test** carries
+  neither, for either side -- including a test forced by the injured player's disadvantage,
+  which he ruled on separately. Twenty-four of the thirty-six pairings are decisive and carry
+  effects; twelve are ties and carry none. This is also what retires the drafting problem that
+  three of the six costs named the maneuver that defeated them and could not be read against a
+  tie.
+- **The costs are effects granted to the opponent**, and possession is among them. Only
+  Clear's is paid in something the game already counts.
 
-**What is still open is two decisions and one blank.** Whether losing a skill test counts as
-being defeated -- three of the six costs name the maneuver that beat them and cannot be read
-against a tie, which is the argument for saying it does not; whether a winner's bonus and a
-loser's cost both apply when both sides played advanced; and Double Team's cost, which the
-draft cuts off mid-sentence.
+**What is not settled is inside the cards**, and it is listed in the matrix: Dribble Burst's
+cost invokes a speed-manipulation step neither of its defeaters has, and is the first
+exception to "every turnover resets ball speed to 1"; Double Team now leaves **two defenders
+challenging the next maneuver**, where one challenger is an assumption throughout the code;
+and the `Interactions` column still carries each advanced row's basic counterpart's role
+abilities, three of which contradict the card they sit on.
 
 **Nothing is imported, and the importer could not read the tab if it were asked to.**
 `scripts/import_d12ball_maneuvers.py` requires each die face to be used once per side, and
@@ -1540,7 +1547,7 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
 ### Blocked or deferred
 
 - **Advanced mode** is asked for and unspecified -- see
-  [Advanced mode](#advanced-mode----two-decisions-and-one-blank-still-outstanding) under Still
+  [Advanced mode](#advanced-mode----the-interaction-table-is-settled-the-cards-are-not-finished) under Still
   open, and [advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) for the questions.
   Setup refuses it. It has two halves and they are blocked on different things:
   - **Advanced maneuvers** are drafted in the sheet's `maneuvers` tab and transcribed into
