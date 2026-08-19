@@ -1112,7 +1112,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.continue_injury_tests(interaction, game, match)
             return
 
-        roll = random.randint(1, 12)
+        # The script fixes injury checks to pass for the whole
+        # tutorial -- see BLANKET_ROLLS. The check still runs and the
+        # coach still watches it.
+        scripted = self.tutorial_dice(game, "injury", 1)
+        roll = scripted[0] if scripted else random.randint(1, 12)
         current_tokens = match.exhaustion.get(player.player_id, 0)
         safe = roll > current_tokens
         player_team = match.team_for_player(player.player_id)
@@ -3474,17 +3478,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side = TeamSide(side)
         occasion = CoachingOccasion(occasion)
 
-        # The tutorial's last lesson, and the one occasion it does not
-        # script: the goal at the end of beat 5 is a new play, and a
-        # new play offers this window on its own. So the note goes in
-        # front of the real thing rather than the script staging a
-        # sixth beat to demonstrate it. Only for the coach's own side
-        # -- Dinky's window runs itself -- and only once, which
-        # `tutorial_coaching_explained` records.
+        # The tutorial's last lesson, and the one it cannot schedule:
+        # a new play offers this window to the side *restarting* play,
+        # which after the coach's goal is Dinky. So the note fires at
+        # the first window this coach is ever offered, whenever the
+        # game gets round to it -- which is why it reads `tutorial`
+        # rather than `in_tutorial`, and usually lands a few turns
+        # after the script has finished. `skip_tutorial` sets the flag
+        # so a coach who opted out is not taught anyway.
         if (
-            game.in_tutorial
-            and side == self.tutorial_player_side(game)
+            game.tutorial
             and not game.tutorial_coaching_explained
+            and side == self.tutorial_player_side(game)
         ):
             game.tutorial_coaching_explained = True
             save_games(self.games)
@@ -5190,6 +5195,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        # The one position the tutorial sets, before the board that
+        # shows it. Everything after this is played, not placed -- see
+        # `tutorial.apply_opening`.
+        if game.tutorial:
+            tutorial.apply_opening(
+                match, self.player_catalog, self.tutorial_player_side(game),
+            )
+            match.validate(self.player_catalog)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
         kicking_off = match.setup_for_side(match.ball.possession)
         await self.post_new_play_board(
             interaction,
@@ -6635,14 +6651,61 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return None
         return tutorial.beat_for_step(game.tutorial_step)
 
+    def tutorial_choice_refused(
+        self,
+        game: D12BallGame,
+        key: str,
+        value,
+    ) -> bool:
+        """
+        Whether the beat now running rails this choice away.
+
+        One question for every sub-choice a beat pins down -- the
+        dribble distance, the ball speed, the pass distance, the set-up
+        shot -- so a view adds a rail with one argument rather than a
+        branch of its own. See `d12ball/tutorial.py` for why those four
+        are railed and a run-back space is not.
+        """
+        return tutorial.choice_is_refused(
+            self.tutorial_beat(game), key, value,
+        )
+
+    def tutorial_dice(
+        self,
+        game: D12BallGame,
+        kind: str,
+        count: int,
+    ) -> Optional[list[int]]:
+        """
+        The die values the script fixes for this contest, or None to
+        roll for real.
+
+        Every `random.randint(1, 12)` in a contest a tutorial can reach
+        asks this first. What it answers for, and what it deliberately
+        leaves to the dice, is in `d12ball/tutorial.py` -- the short of
+        it is that a beat only scripts a roll the *next* beat depends
+        on, and the score attempt at the end is not one of them.
+        """
+        return tutorial.scripted_dice(
+            self.tutorial_beat(game), kind, count,
+        )
+
     async def stage_tutorial_beat(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
     ) -> None:
         """
-        Advance the script to the turn about to be played, set the
-        board to the position that beat wants, and post its lesson.
+        Advance the script to the turn about to be played and post its
+        lesson.
+
+        **It moves nothing.** The board is set once, at kickoff, and
+        every beat after that is played from wherever the previous
+        turn left it -- see the module docstring in
+        `d12ball/tutorial.py`. This used to re-deal both sides before
+        each beat, which put a seam in the middle of the story; if a
+        beat ever needs a position again, the fix is to change the
+        script so the play arrives there.
 
         Called at the top of every `send_turn_prompt` for a tutorial
         game, which is once a turn -- so the *advance* is what counts
@@ -6651,11 +6714,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         force:true`) also send a turn prompt without a turn having been
         played, and re-entering a beat must not silently skip the next
         one.
-
-        The position is written before the prompt rather than after the
-        previous turn resolved, so a beat cannot be left half-applied
-        by a restart: whatever the last turn ended as, the next beat
-        lays both sides down whole.
         """
         if not game.in_tutorial:
             return
@@ -6676,19 +6734,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await interaction.followup.send(tutorial.HANDOVER)
             return
 
-        match = self.engine.load_match_state(game)
-        tutorial.apply_beat(
-            match,
-            self.player_catalog,
-            beat,
-            self.tutorial_player_side(game),
-        )
-        match.validate(self.player_catalog)
-        game.match_state = match.to_dict()
         game.tutorial_staged = True
         save_games(self.games)
-
-        await self.refresh_match_image(interaction, game)
         await interaction.followup.send(beat.lesson)
 
     async def send_turn_prompt(
@@ -7832,6 +7879,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         game.tutorial_step = None
         game.tutorial_staged = False
+        # A coach who opted out is not taught the Coaching Choice
+        # either, whenever the game next offers them one.
+        game.tutorial_coaching_explained = True
         save_games(self.games)
 
         await interaction.response.send_message(tutorial.SKIPPED)

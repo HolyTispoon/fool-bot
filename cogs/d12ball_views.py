@@ -716,9 +716,21 @@ class CoinFlipView(GameConfigurationView):
         game.start_game()
 
         if game.is_solo_game and winner_player_number == 2:
-            ai_choice = self.cog.engine.get_ai_strategy(
-                game,
-            ).choose_home_or_visiting()
+            # The tutorial's script is written for a coach with the
+            # ball at kickoff, so Dinky takes the visiting side and
+            # leaves them home. `DinkyAI.choose_home_or_visiting` is a
+            # coin flip of its own and is overridden here rather than
+            # inside the strategy: it takes no arguments, so it cannot
+            # know which game is asking, and a tutorial is a property
+            # of the game. The coach's own half of this is the rail on
+            # HomeAwaySelectionView.
+            ai_choice = (
+                HomeChoice.VISITING
+                if game.tutorial
+                else self.cog.engine.get_ai_strategy(
+                    game,
+                ).choose_home_or_visiting()
+            )
             game.choose_home_or_visiting(2, ai_choice)
             self.cog.engine.initialize_standard_match(game)
 
@@ -790,6 +802,14 @@ class HomeAwaySelectionView(SafeView):
                 else HomeChoice.VISITING
             )
 
+        # A tutorial is scripted from the kickoff forward and its coach
+        # starts with the ball, so a coach who wins the toss is railed
+        # onto Home -- built disabled rather than hidden, like every
+        # other rail. Dinky's half of this is in CoinFlipView.flip_coin.
+        tutorial_home_only = bool(
+            game is not None and game.tutorial and not assignment_complete
+        )
+
         for label, choice in (
             ("Home", HomeChoice.HOME),
             ("Visiting", HomeChoice.VISITING),
@@ -808,7 +828,10 @@ class HomeAwaySelectionView(SafeView):
                 custom_id=(
                     f"d12ball:home_choice:{game_id}:{choice.value}"
                 ),
-                disabled=assignment_complete,
+                disabled=(
+                    assignment_complete
+                    or (tutorial_home_only and choice != HomeChoice.HOME)
+                ),
             )
 
             async def callback(
@@ -1950,11 +1973,7 @@ class ManeuverActionSelectView(SafeView):
         # narrows a human's. See d12ball/tutorial.py.
         game = cog.games.get(game_id)
         allowed = (
-            tutorial.allowed_maneuvers(
-                cog.tutorial_beat(game),
-                cog.tutorial_player_side(game),
-                side,
-            )
+            tutorial.allowed_maneuvers(cog.tutorial_beat(game), side)
             if game is not None
             else None
         )
@@ -2058,9 +2077,7 @@ class ManeuverActionSelectView(SafeView):
         # for that reason, exactly as the distances are in
         # HighPassChoiceView.choose.
         allowed = tutorial.allowed_maneuvers(
-            self.cog.tutorial_beat(game),
-            self.cog.tutorial_player_side(game),
-            self.side,
+            self.cog.tutorial_beat(game), self.side,
         )
         if allowed is not None and maneuver_name not in allowed:
             await interaction.response.edit_message(
@@ -2166,8 +2183,11 @@ class SkillTestView(SafeView):
             defense_player,
         ).defense
 
-        offense_roll = random.randint(1, 12)
-        defense_roll = random.randint(1, 12)
+        scripted = self.cog.tutorial_dice(game, "skill_test", 2)
+        offense_roll, defense_roll = (
+            scripted if scripted else
+            (random.randint(1, 12), random.randint(1, 12))
+        )
         offense_total = offense_roll + offense_skill
         defense_total = defense_roll + defense_skill
 
@@ -2913,14 +2933,6 @@ class HighPassChoiceView(SafeView):
         if game is None:
             return
 
-        # The one sub-choice a tutorial beat rails, because it is the
-        # one that changes what the beat *is*: only a pass of 2 is
-        # caught cleanly, and beat 5 exists to end in the set-up shot
-        # that catch offers. See d12ball/tutorial.py.
-        forced = tutorial.forced_high_pass_distance(
-            cog.tutorial_beat(game)
-        )
-
         for distance in cog.engine.high_pass_distance_options(match):
             ability_note = " (Fullback ability)" if distance == 4 else ""
             destination_note = cog.engine.high_pass_destination_note(match, distance)
@@ -2930,7 +2942,9 @@ class HighPassChoiceView(SafeView):
                 ),
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:high_pass:{game_id}:{distance}",
-                disabled=forced is not None and distance != forced,
+                disabled=cog.tutorial_choice_refused(
+                    game, "high_pass", distance,
+                ),
             )
 
             async def callback(
@@ -2972,14 +2986,11 @@ class HighPassChoiceView(SafeView):
             )
             return
 
-        forced = tutorial.forced_high_pass_distance(
-            self.cog.tutorial_beat(game)
-        )
-        if forced is not None and distance != forced:
+        if self.cog.tutorial_choice_refused(game, "high_pass", distance):
             await interaction.response.send_message(
-                f"This step of the tutorial wants a **{forced}-space** "
-                "pass -- that is the one that lands cleanly on your "
-                "striker.",
+                "The tutorial is on one step of a single continuous game, "
+                "so this choice is fixed. Use the prompt at the "
+                "bottom of the channel.",
                 ephemeral=True,
             )
             return
@@ -3048,6 +3059,11 @@ class SetUpAttemptChoiceView(SafeView):
             ),
             style=discord.ButtonStyle.secondary,
             custom_id=f"d12ball:setup_attempt:{game_id}:decline",
+            # The tutorial ends on this shot, so declining it would end
+            # the script on a pass and no goal.
+            disabled=cog.tutorial_choice_refused(
+                cog.games.get(game_id), "setup_attempt", "decline",
+            ),
         )
         decline_button.callback = self.decline
         self.add_item(decline_button)
@@ -3146,6 +3162,14 @@ class DribbleAdvanceChoiceView(SafeView):
                 label=f"Advance {distance} {space_word}{destination_note}",
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:dribble_advance:{game_id}:{distance}",
+                # Railed during the tutorial: where the ball ends up is
+                # what the next beat is written against.
+                disabled=(
+                    game is not None
+                    and cog.tutorial_choice_refused(
+                        game, "dribble_advance", distance,
+                    )
+                ),
             )
 
             async def callback(
@@ -3171,6 +3195,17 @@ class DribbleAdvanceChoiceView(SafeView):
         ):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
+                ephemeral=True,
+            )
+            return
+
+        if self.cog.tutorial_choice_refused(
+            game, "dribble_advance", distance,
+        ):
+            await interaction.response.send_message(
+                "The tutorial is on one step of a single continuous game, "
+                "so this choice is fixed. Use the prompt at the "
+                "bottom of the channel.",
                 ephemeral=True,
             )
             return
@@ -3232,6 +3267,9 @@ class SpeedDeltaChoiceView(SafeView):
                 label=label,
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:speed:{game_id}:{target}",
+                # Railed during the tutorial: the score attempt the
+                # script ends on is priced at a ball speed of 1.
+                disabled=cog.tutorial_choice_refused(game, "speed", target),
             )
 
             async def callback(
@@ -5015,8 +5053,11 @@ class LooseBallSkillTestView(SafeView):
             ).defense
         )
 
-        offense_roll = random.randint(1, 12)
-        defense_roll = random.randint(1, 12)
+        scripted = self.cog.tutorial_dice(game, "loose_ball", 2)
+        offense_roll, defense_roll = (
+            scripted if scripted else
+            (random.randint(1, 12), random.randint(1, 12))
+        )
         offense_total = offense_roll + offense_skill
         defense_total = defense_roll + defense_skill
 

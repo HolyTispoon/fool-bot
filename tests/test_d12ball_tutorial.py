@@ -2,32 +2,37 @@
 The scripted opening a tutorial game plays -- see `d12ball/tutorial.py`
 and "The tutorial" in CLAUDE.md.
 
-Three things here are worth guarding, and they are the three the script
-cannot check for itself:
+The centrepiece is `TutorialPlaythroughTests`, which plays the whole
+script through the **real cog** with Discord mocked, pressing whichever
+button the rails leave enabled. It exists because the script's one
+promise is hard to check any other way: the five beats are one
+continuous game, so beat 4 is played from wherever beat 3's turn left
+the ball, and a change anywhere -- a maneuver's effect, the run back,
+the loose-ball rule -- can put the story out of joint without breaking
+anything the rest of the suite watches. What it asserts is that
 
-- **A beat's position produces the outcome its lesson promises.** The
-  text says "Dribble Advance beats Block Deflect" and "this one goes to
-  the dice"; the maneuver catalog is imported data, so those claims are
-  asserted against `ManeuverCatalog.resolve` rather than trusted.
-- **Every beat plays the same on either side of the board.** Nothing
-  forces the coin toss, so a spec written from a coach's own goal
-  forward has to mirror -- and the shot at beat 5 has to be the same
-  shot whichever end it is taken at.
-- **The step counter cannot skip a beat.** `send_turn_prompt` is what
-  advances it and the recovery commands call that without a turn having
-  been played, which is exactly the way a lesson would go missing.
+- the board is set **once**, at kickoff, and never again;
+- nothing moves between a turn ending and the next lesson being posted;
+- every railed step leaves exactly one button pressable; and
+- the whole thing arrives at a goal, at the minute it is meant to.
 
-The lesson *text* is deliberately not asserted. It is prose, it will be
-revised, and a test quoting it would only ever break on a reword.
+The lesson *text* is deliberately not asserted anywhere. It is prose,
+it will be revised, and a test quoting it would only ever break on a
+reword. What is asserted is every claim it makes that the data could
+contradict.
 """
 
 import unittest
 from types import SimpleNamespace
 from unittest import mock
 
+import discord
+
+from cogs import d12ball as d12ball_cog
+from cogs import d12ball_views as views_mod
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
-    HighPassChoiceView,
+    HomeAwaySelectionView,
     ManeuverActionSelectView,
     PlayerActionView,
 )
@@ -35,7 +40,6 @@ from d12ball import tutorial
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     MatchState,
-    PlayerRole,
     TeamSide,
     Zone,
     load_basic_ruleset,
@@ -43,25 +47,46 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
-from d12ball.game import D12BallGame, Formation, GameStatus, Team
+from d12ball.game import (
+    CoinFace,
+    D12BallGame,
+    Formation,
+    GameStatus,
+    Team,
+)
+
+
+CATALOG = load_player_catalog()
+RULES = load_basic_ruleset()
+MANEUVERS = load_maneuver_catalog()
 
 
 def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)
     cog.games = {}
-    cog.player_catalog = load_player_catalog()
-    cog.maneuver_catalog = load_maneuver_catalog()
-    cog.basic_ruleset = load_basic_ruleset()
+    cog.player_catalog = CATALOG
+    cog.maneuver_catalog = MANEUVERS
+    cog.basic_ruleset = RULES
     cog.team_emojis = {}
     cog.condition_emojis = {}
-    cog.ai_strategies = build_ai_strategies(
-        cog.player_catalog, cog.maneuver_catalog,
-    )
-    cog.engine = RulesEngine(
-        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
-        cog.ai_strategies,
-    )
+    cog.coin_emojis = {}
+    cog.ai_strategies = build_ai_strategies(CATALOG, MANEUVERS)
+    cog.engine = RulesEngine(CATALOG, RULES, MANEUVERS, cog.ai_strategies)
+    # Everything that draws or uploads.
     cog.refresh_match_image = mock.AsyncMock()
+    cog.announce_board_update = mock.AsyncMock()
+    cog.post_new_play_board = mock.AsyncMock()
+    cog.build_match_file = mock.AsyncMock(return_value=None)
+    cog.build_field_file = mock.AsyncMock(return_value=None)
+    cog.build_maneuver_challenge_file = mock.AsyncMock(return_value=None)
+    cog.build_score_attempt_file = mock.AsyncMock(return_value=None)
+    cog.render_match_png = mock.AsyncMock(return_value=b"")
+    cog.match_file_from_png = mock.Mock(return_value=None)
+    cog.coaching_file = mock.AsyncMock(return_value=None)
+    cog.build_maneuver_hand_file = mock.Mock(return_value=None)
+    cog.build_maneuver_reference_file = mock.Mock(return_value=None)
+    cog.drop_turn_prompt = mock.AsyncMock()
+    cog.close_maneuver_prompt = mock.AsyncMock()
     return cog
 
 
@@ -86,10 +111,10 @@ def build_game(**overrides) -> D12BallGame:
     return D12BallGame(**fields)
 
 
-def build_match(catalog, rules) -> MatchState:
+def build_match() -> MatchState:
     return MatchState.standard(
-        catalog=catalog,
-        ruleset=rules,
+        catalog=CATALOG,
+        ruleset=RULES,
         board_size=7,
         home_team=Team.ORANGE,
         visiting_team=Team.PURPLE,
@@ -97,49 +122,90 @@ def build_match(catalog, rules) -> MatchState:
     )
 
 
-def build_interaction(user_id: int = 111) -> SimpleNamespace:
+def build_interaction(recorder=None, user_id: int = 111) -> SimpleNamespace:
+    """
+    Enough of a `discord.Interaction` for the flow to run. When a
+    `recorder` is given, every message and view the cog sends is
+    collected on it -- which is what the playthrough drives from.
+    """
+
+    def note(content, view):
+        if recorder is None:
+            return
+        if content:
+            recorder.messages.append(str(content))
+        if view is not None:
+            recorder.views.append(view)
+
+    async def send(content=None, **kwargs):
+        note(content, kwargs.get("view"))
+        return SimpleNamespace(
+            id=999, attachments=[], edit=mock.AsyncMock(),
+        )
+
+    async def edit_message(content=None, **kwargs):
+        note(content, kwargs.get("view"))
+
+    async def send_message(content=None, **kwargs):
+        note(content, kwargs.get("view"))
+
+    async def edit_original_response(content=None, **kwargs):
+        note(content, kwargs.get("view"))
+        return SimpleNamespace(
+            id=999, attachments=[], edit=mock.AsyncMock(),
+        )
+
     return SimpleNamespace(
         channel_id=2,
         guild=None,
-        user=SimpleNamespace(id=user_id, display_name="One"),
+        message=SimpleNamespace(id=999, content="prompt", attachments=[]),
+        user=SimpleNamespace(id=user_id, display_name="Coach"),
+        edit_original_response=edit_original_response,
+        original_response=mock.AsyncMock(
+            return_value=SimpleNamespace(id=999, attachments=[]),
+        ),
         response=SimpleNamespace(
-            defer=mock.AsyncMock(), send_message=mock.AsyncMock(),
+            defer=mock.AsyncMock(),
+            send_message=send_message,
+            edit_message=edit_message,
         ),
-        followup=SimpleNamespace(
-            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
-        ),
+        followup=SimpleNamespace(send=send),
     )
 
 
-BOTH_SIDES = (TeamSide.HOME, TeamSide.VISITING)
+def board_signature(match: MatchState) -> tuple:
+    """
+    Everything about a position the script depends on, as one
+    comparable value -- who is standing where, where the ball is, and
+    whose it is.
+    """
+    return (
+        tuple(tuple(sorted(occ)) for occ in match.board.spaces_in_order()),
+        match.ball.zone.value,
+        match.ball.space_index,
+        match.ball.possession.value,
+    )
 
 
 class TutorialScriptTests(unittest.TestCase):
     """The beats as data: do they say what they claim to say."""
 
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.catalog = load_player_catalog()
-        cls.rules = load_basic_ruleset()
-        cls.maneuvers = load_maneuver_catalog()
-
     def test_every_card_a_beat_names_is_in_the_catalog(self) -> None:
         # The maneuvers are imported from a spreadsheet, so this is the
         # check that a rename upstream fails the cog load rather than
         # railing a coach onto a button that no longer exists.
-        tutorial.validate_script(self.maneuvers)
+        tutorial.validate_script(MANEUVERS)
 
     def test_each_beat_lands_the_outcome_it_teaches(self) -> None:
-        # The five lessons in order: a decisive win for the coach, a
-        # tie into the skill test, the steal that takes the ball off
-        # them, the Pressure they defend with, and the High Pass that
-        # sets the shot up. Read off the ranking rather than restated,
-        # because the ranking is the data and the lesson is the claim.
+        # Read off the ranking rather than restated, because the
+        # ranking is the data and the lesson is the claim. Beat 2 is
+        # the tie, and the only beat whose outcome the ranking does not
+        # settle -- its dice do, which is what `rolls` is for.
         expected = {
             1: "offense",   # Dribble Advance over Block Deflect
             2: "tie",       # Low Pass and Block Deflect, both rank 1
-            3: "defense",   # Steal Intercept over Low Pass
-            4: "defense",   # the coach's Pressure over Dribble Advance
+            3: "defense",   # the coach's Pressure over Dribble Advance
+            4: "defense",   # the coach's Steal Intercept over Low Pass
             5: "offense",   # High Pass over Steal Intercept
         }
         for beat in tutorial.BEATS:
@@ -150,18 +216,16 @@ class TutorialScriptTests(unittest.TestCase):
                     else (beat.dinky_maneuver, beat.player_maneuver)
                 )
                 self.assertEqual(
-                    self.maneuvers.resolve(offense, defense),
-                    expected[beat.step],
+                    MANEUVERS.resolve(offense, defense), expected[beat.step],
                 )
 
-    def test_the_coach_wins_every_beat_that_is_not_the_lesson_in_losing(
-        self,
-    ) -> None:
-        # Beat 3 is the one the coach is meant to lose -- it is the
-        # turnover lesson. Any other beat resolving against them would
-        # be a script that teaches the opposite of what it says.
+    def test_the_only_beat_the_coach_loses_is_the_scripted_one(self) -> None:
+        # Beat 2 is the lesson in losing the ball, and it is lost on
+        # rigged dice rather than on rank. Every other beat has to
+        # resolve the coach's way, or the script teaches the opposite
+        # of what it says.
         for beat in tutorial.BEATS:
-            outcome = self.maneuvers.resolve(
+            outcome = MANEUVERS.resolve(
                 *(
                     (beat.player_maneuver, beat.dinky_maneuver)
                     if beat.player_has_ball
@@ -170,26 +234,25 @@ class TutorialScriptTests(unittest.TestCase):
             )
             coach_side = "offense" if beat.player_has_ball else "defense"
             with self.subTest(beat=beat.step):
-                if beat.step == 3:
-                    self.assertNotEqual(outcome, coach_side)
-                elif outcome != "tie":
+                if beat.step == 2:
+                    self.assertEqual(outcome, "tie")
+                    self.assertIn("skill_test", beat.rolls)
+                else:
                     self.assertEqual(outcome, coach_side)
 
     def test_only_one_card_is_ever_offered(self) -> None:
-        for side in BOTH_SIDES:
-            for beat in tutorial.BEATS:
-                menu = "offense" if beat.player_has_ball else "defense"
-                with self.subTest(beat=beat.step, side=side.value):
-                    self.assertEqual(
-                        tutorial.allowed_maneuvers(beat, side, menu),
-                        (beat.player_maneuver,),
-                    )
+        for beat in tutorial.BEATS:
+            menu = "offense" if beat.player_has_ball else "defense"
+            with self.subTest(beat=beat.step):
+                self.assertEqual(
+                    tutorial.allowed_maneuvers(beat, menu),
+                    (beat.player_maneuver,),
+                )
 
     def test_dinky_never_picks_out_of_the_coachs_own_menu(self) -> None:
         # The two halves of the menu are keyed "offense"/"defense" and
         # the coach is on one of them; a beat handing Dinky a card for
-        # the coach's half would overwrite the pick they are being
-        # railed onto.
+        # the coach's half would overwrite the pick they are railed on.
         for beat in tutorial.BEATS:
             coach_menu = "offense" if beat.player_has_ball else "defense"
             with self.subTest(beat=beat.step):
@@ -201,56 +264,99 @@ class TutorialScriptTests(unittest.TestCase):
                     beat.dinky_maneuver,
                 )
 
-
-class TutorialPositionTests(unittest.TestCase):
-    """
-    The board a beat sets. Every one is checked on both sides, because
-    the toss is not forced and a spec is mirrored on the way in.
-    """
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.catalog = load_player_catalog()
-        cls.rules = load_basic_ruleset()
-
-    def staged(self, beat, player_side) -> MatchState:
-        match = build_match(self.catalog, self.rules)
-        tutorial.apply_beat(match, self.catalog, beat, player_side)
-        return match
-
-    def test_every_beat_leaves_a_match_that_validates(self) -> None:
-        for side in BOTH_SIDES:
-            for beat in tutorial.BEATS:
-                with self.subTest(beat=beat.step, side=side.value):
-                    self.staged(beat, side).validate(self.catalog)
-
-    def test_the_ball_is_with_the_side_the_beat_says(self) -> None:
-        for side in BOTH_SIDES:
-            for beat in tutorial.BEATS:
-                match = self.staged(beat, side)
-                with self.subTest(beat=beat.step, side=side.value):
+    def test_a_scripted_contest_fixes_both_dice(self) -> None:
+        # A contest rolls two. A beat naming one would send the caller
+        # back an unpackable pair.
+        for beat in tutorial.BEATS:
+            for kind in ("skill_test", "loose_ball"):
+                if kind not in beat.rolls:
+                    continue
+                with self.subTest(beat=beat.step, kind=kind):
                     self.assertEqual(
-                        match.ball.possession == side, beat.player_has_ball,
+                        len(tutorial.scripted_dice(beat, kind, 2)), 2,
                     )
 
-    def test_the_handler_is_never_a_choice(self) -> None:
-        # A beat with two of the coach's players on the ball would open
-        # with a handler prompt the lesson does not mention.
-        for side in BOTH_SIDES:
-            for beat in tutorial.BEATS:
-                match = self.staged(beat, side)
-                with self.subTest(beat=beat.step, side=side.value):
-                    self.assertEqual(len(match.eligible_ball_handlers()), 1)
+    def test_asking_for_more_dice_than_a_beat_fixes_is_refused(self) -> None:
+        # Quietly padding would let a flow change roll an unscripted
+        # die inside a scripted contest and nobody would notice.
+        beat = tutorial.beat_for_step(2)
+        with self.assertRaises(ValueError):
+            tutorial.scripted_dice(beat, "skill_test", 3)
 
-    def test_a_beat_records_its_position_as_the_coachs_arrangement(
-        self,
-    ) -> None:
-        # A new play restores to `assigned_positions`, and the goal at
-        # the end of beat 5 is a new play -- so without this the reset
-        # after it would put both sides back on the *deal* rather than
-        # on the position the tutorial has been playing from.
-        for side in BOTH_SIDES:
-            match = self.staged(tutorial.BEATS[4], side)
+    def test_injury_checks_pass_for_the_whole_opening(self) -> None:
+        # A card going down injured is a mechanic the script never
+        # introduces and cannot plan around -- see BLANKET_ROLLS.
+        for beat in tutorial.BEATS:
+            with self.subTest(beat=beat.step):
+                self.assertEqual(
+                    tutorial.scripted_dice(beat, "injury", 1), [12],
+                )
+
+    def test_the_score_attempt_is_left_to_the_dice(self) -> None:
+        # The one roll in the tutorial that decides something the coach
+        # wants. The position makes it a heavy favourite; nothing makes
+        # it certain.
+        for beat in tutorial.BEATS:
+            with self.subTest(beat=beat.step):
+                self.assertIsNone(
+                    tutorial.scripted_dice(beat, "score_attempt", 2),
+                )
+
+    def test_nothing_is_railed_without_a_beat(self) -> None:
+        self.assertIsNone(tutorial.allowed_actions(None))
+        self.assertIsNone(tutorial.allowed_maneuvers(None, "offense"))
+        self.assertIsNone(tutorial.scripted_dice(None, "injury", 1))
+        self.assertFalse(tutorial.choice_is_refused(None, "speed", 7))
+
+
+class TutorialOpeningTests(unittest.TestCase):
+    """
+    The one position the script sets. It is checked on both sides of
+    the board even though the coach is always home -- the shapes are
+    written from a side's own goal forward and Dinky's half is read
+    through the mirror, so the mirror has to hold.
+    """
+
+    def staged(self, player_side: TeamSide) -> MatchState:
+        match = build_match()
+        tutorial.apply_opening(match, CATALOG, player_side)
+        return match
+
+    def test_the_opening_leaves_a_match_that_validates(self) -> None:
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            with self.subTest(side=side.value):
+                self.staged(side).validate(CATALOG)
+
+    def test_the_coach_starts_with_the_ball_and_one_handler(self) -> None:
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match = self.staged(side)
+            with self.subTest(side=side.value):
+                self.assertEqual(match.ball.possession, side)
+                self.assertEqual(len(match.eligible_ball_handlers()), 1)
+
+    def test_the_opening_starts_out_of_shooting_range(self) -> None:
+        # Beat 1's lesson says the shot is not offered because the ball
+        # is short of range, and beat 2's says it has appeared. Both
+        # are claims about this space.
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match = self.staged(side)
+            with self.subTest(side=side.value):
+                self.assertFalse(match.can_attempt_score())
+
+    def test_dinky_has_somebody_on_the_ball_to_challenge(self) -> None:
+        # Beat 1's note says so, and an empty space would make the
+        # opening maneuver uncontested instead.
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match = self.staged(side)
+            with self.subTest(side=side.value):
+                self.assertEqual(len(match.automatic_challengers()), 1)
+
+    def test_the_opening_is_recorded_as_the_coachs_arrangement(self) -> None:
+        # The goal at the end is a new play, and a new play restores
+        # this -- so without it the reset would put both sides back on
+        # the *deal* rather than on the position being played from.
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match = self.staged(side)
             for player_id in match.setup_for_side(side).field_players:
                 zone, space_index = match.board.meeple_position(player_id)
                 with self.subTest(side=side.value, player=player_id):
@@ -259,113 +365,359 @@ class TutorialPositionTests(unittest.TestCase):
                         [zone.value, space_index],
                     )
 
-    def test_a_beat_clears_the_exhaustion_the_last_one_left(self) -> None:
-        match = build_match(self.catalog, self.rules)
-        somebody = match.home.field_players[0]
-        match.exhaustion[somebody] = 3
-        match.exhausted.add(somebody)
-
-        tutorial.apply_beat(
-            match, self.catalog, tutorial.BEATS[1], TeamSide.HOME,
-        )
-
-        self.assertEqual(match.exhaustion, {})
-        self.assertEqual(match.exhausted, set())
-
-    def test_beat_two_makes_the_defense_walk_somebody_in(self) -> None:
-        # The lesson is the walk-in and what it costs, so the ball has
-        # to start on a space the defense has nobody on -- otherwise
-        # they challenge for free and the lesson describes nothing.
-        for side in BOTH_SIDES:
-            for beat in (tutorial.BEATS[1], tutorial.BEATS[2]):
-                match = self.staged(beat, side)
-                with self.subTest(beat=beat.step, side=side.value):
-                    self.assertEqual(match.automatic_challengers(), [])
-                    self.assertTrue(match.eligible_challengers())
-
-    def test_beat_one_and_four_challenge_off_the_ball_for_free(self) -> None:
-        # Their lessons both say the challenger was already standing
-        # there, which is what makes the challenge free and unasked.
-        for side in BOTH_SIDES:
-            for beat in (tutorial.BEATS[0], tutorial.BEATS[3]):
-                match = self.staged(beat, side)
-                with self.subTest(beat=beat.step, side=side.value):
-                    self.assertEqual(len(match.automatic_challengers()), 1)
-
-    def test_beat_five_puts_the_striker_two_spaces_away_and_in_range(
-        self,
-    ) -> None:
-        beat = tutorial.BEATS[4]
-        for side in BOTH_SIDES:
-            match = self.staged(beat, side)
-            striker = tutorial.card_for_role(
-                match, self.catalog, side, PlayerRole.STRIKER,
-            )
-            ball_flat = match.board.flat_index(
-                match.ball.zone, match.ball.space_index,
-            )
-            landing = match.relative_flat_index(
-                ball_flat, match.ball.possession, beat.high_pass_distance,
-            )
-            with self.subTest(side=side.value):
-                zone, space_index = match.board.meeple_position(striker)
-                self.assertEqual(
-                    match.board.flat_index(zone, space_index), landing,
-                )
-                self.assertTrue(
-                    match.board.is_in_shooting_range(side, landing)
-                )
-
-    def test_beat_five_leaves_one_halved_defender_in_the_lane(self) -> None:
-        # The shot is meant to be near-certain without a die being
-        # rigged: a lone defender off the ball contributes half their
-        # skill, which is what makes the striker's +9 against +3. A
-        # second defender in the lane would quietly drop it to 75%.
-        beat = tutorial.BEATS[4]
-        for side in BOTH_SIDES:
-            match = self.staged(beat, side)
-            ball_flat = match.board.flat_index(
-                match.ball.zone, match.ball.space_index,
-            )
-            landing = match.relative_flat_index(
-                ball_flat, match.ball.possession, beat.high_pass_distance,
-            )
-            zone, space_index = match.board.position_at_flat_index(landing)
-            match.ball.zone, match.ball.space_index = zone, space_index
-
-            defenders = match.defenders_between_ball_and_goal()
-            with self.subTest(side=side.value):
-                self.assertEqual(len(defenders), 1)
-                self.assertFalse(defenders[0][1], "should not be on the ball")
-
-    def test_beat_five_offers_the_distance_it_rails(self) -> None:
-        # The rail disables everything but 2. If 2 were not on offer
-        # the coach would be left with nothing clickable at all.
-        beat = tutorial.BEATS[4]
-        for side in BOTH_SIDES:
-            match = self.staged(beat, side)
-            with self.subTest(side=side.value):
-                self.assertIn(
-                    beat.high_pass_distance,
-                    match.high_pass_distances(match.ball.possession, 3),
-                )
-
-    def test_every_beat_covers_the_coachs_own_kickoff_space(self) -> None:
-        # `coaching_finish_refusal` holds a coach in a window until
-        # somebody of theirs is on it, and beat 5's goal opens one --
-        # so a beat that empties the space would strand them there.
-        for side in BOTH_SIDES:
-            for beat in tutorial.BEATS:
-                match = self.staged(beat, side)
+    def test_both_sides_cover_their_own_kickoff_space(self) -> None:
+        # The goal at the end opens a Coaching Choice, and
+        # `coaching_finish_refusal` holds a coach in one until somebody
+        # of theirs is standing on it.
+        for player_side in (TeamSide.HOME, TeamSide.VISITING):
+            match = self.staged(player_side)
+            for side in (TeamSide.HOME, TeamSide.VISITING):
                 occupants = match.board.spaces[Zone.MIDFIELD][
                     match.kickoff_space_for(side)
                 ]
-                with self.subTest(beat=beat.step, side=side.value):
+                with self.subTest(coach=player_side.value, side=side.value):
                     self.assertTrue(
                         set(occupants)
-                        & set(match.setup_for_side(side).field_players),
-                        "nobody of this side is on their kickoff space",
+                        & set(match.setup_for_side(side).field_players)
                     )
+
+    def test_dinky_keeps_one_card_in_the_lane(self) -> None:
+        # What makes the shot at the end a striker's +9 against a
+        # single halved +3. A second card in the goal zone would drop
+        # it from 90% to 75% and nothing else would notice.
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match = self.staged(side)
+            dinky = (
+                TeamSide.VISITING if side is TeamSide.HOME else TeamSide.HOME
+            )
+            goal_zone = (
+                Zone.VISITORS_GOAL
+                if dinky is TeamSide.VISITING
+                else Zone.HOME_GOAL
+            )
+            in_zone = [
+                player_id
+                for occupants in match.board.spaces[goal_zone]
+                for player_id in occupants
+                if player_id in match.setup_for_side(dinky).field_players
+            ]
+            with self.subTest(side=side.value):
+                self.assertEqual(len(in_zone), 1)
+
+
+class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The whole script, played through the real cog. See the module
+    docstring for why this exists.
+    """
+
+    async def play(self):
+        """
+        Kick off and then press the single enabled button at every
+        step until the script hands over. Returns the cog, the game,
+        and a log of what happened.
+        """
+        recorder = SimpleNamespace(messages=[], views=[])
+        cog = build_cog()
+        game = build_game(tutorial_step=None)
+        game.match_state = build_match().to_dict()
+        cog.games["g1"] = game
+
+        openings = []
+        real_opening = tutorial.apply_opening
+
+        def counting_opening(*args, **kwargs):
+            openings.append(True)
+            return real_opening(*args, **kwargs)
+
+        multi_choice = []
+        signatures = []
+
+        with mock.patch.object(d12ball_cog, "save_games"), \
+                mock.patch.object(views_mod, "save_games"), \
+                mock.patch.object(
+                    views_mod, "add_full_image_button", mock.AsyncMock()), \
+                mock.patch.object(
+                    views_mod, "add_full_image_button_to_response",
+                    mock.AsyncMock()), \
+                mock.patch.object(
+                    d12ball_cog, "add_full_image_button", mock.AsyncMock()), \
+                mock.patch.object(
+                    d12ball_cog, "pin_board_message", mock.AsyncMock()), \
+                mock.patch.object(
+                    d12ball_cog.tutorial, "apply_opening", counting_opening):
+
+            await cog.finish_setup_coaching(
+                build_interaction(recorder),
+                game,
+                cog.engine.load_match_state(game),
+            )
+
+            for _ in range(40):
+                if not recorder.views or not game.in_tutorial:
+                    break
+                view = recorder.views.pop()
+                recorder.views.clear()
+                live = [
+                    item for item in view.children
+                    if not getattr(item, "disabled", False)
+                    and item.label != "Maneuver Reference"
+                ]
+                if not live:
+                    raise AssertionError(
+                        f"{type(view).__name__} had nothing enabled"
+                    )
+                if len(live) > 1:
+                    multi_choice.append(
+                        (type(view).__name__, [i.label for i in live])
+                    )
+                before = board_signature(cog.engine.load_match_state(game))
+                step_before = game.tutorial_step
+                await live[0].callback(build_interaction(recorder))
+                signatures.append(
+                    (
+                        step_before,
+                        type(view).__name__,
+                        before,
+                        board_signature(cog.engine.load_match_state(game)),
+                    )
+                )
+
+        return cog, game, SimpleNamespace(
+            messages=recorder.messages,
+            openings=len(openings),
+            multi_choice=multi_choice,
+            signatures=signatures,
+        )
+
+    async def test_the_board_is_set_once_and_only_once(self) -> None:
+        # The whole of "no seams", in one number. A beat that re-deals
+        # is exactly the discontinuity this design was rewritten to
+        # remove.
+        _, _, log = await self.play()
+
+        self.assertEqual(log.openings, 1)
+
+    async def test_nothing_moves_between_a_turn_and_the_next_lesson(
+        self,
+    ) -> None:
+        # Staging a beat posts its lesson and must change nothing. If
+        # it ever moves a meeple again, the story has a seam in it
+        # wherever this fires.
+        cog = build_cog()
+        game = build_game(tutorial_step=2, tutorial_staged=True)
+        match = build_match()
+        tutorial.apply_opening(match, CATALOG, TeamSide.HOME)
+        game.match_state = match.to_dict()
+        cog.games["g1"] = game
+        before = board_signature(cog.engine.load_match_state(game))
+
+        with mock.patch.object(d12ball_cog, "save_games"):
+            await cog.stage_tutorial_beat(build_interaction(), game)
+
+        self.assertEqual(
+            board_signature(cog.engine.load_match_state(game)), before,
+        )
+
+    async def test_every_railed_step_leaves_one_button(self) -> None:
+        # A step with two live buttons is a step the script does not
+        # control, and every one of those has to be a choice the beats
+        # after it genuinely do not depend on. Today that is the run
+        # back alone -- anything else appearing here means a rail has
+        # gone missing.
+        _, _, log = await self.play()
+
+        unexpected = [
+            entry for entry in log.multi_choice
+            if not entry[0].startswith("RunBack")
+        ]
+        self.assertEqual(unexpected, [])
+
+    async def test_the_script_ends_in_a_goal_at_the_minute_it_should(
+        self,
+    ) -> None:
+        # Five beats charge four maneuvers, a High Pass and the shot.
+        # The shot is real dice, so this is the position doing the
+        # work: a striker's +9 against a lone halved +3.
+        with mock.patch(
+            "cogs.d12ball_views.random.randint", return_value=6,
+        ):
+            cog, game, log = await self.play()
+
+        match = cog.engine.load_match_state(game)
+        self.assertEqual(match.scoreboard.home_score, 1)
+        self.assertEqual(match.scoreboard.visiting_score, 0)
+        self.assertEqual(match.scoreboard.time, 7)
+
+    async def test_the_script_reaches_the_handover(self) -> None:
+        _, game, log = await self.play()
+
+        self.assertFalse(game.in_tutorial)
+        self.assertIsNone(game.tutorial_step)
+        self.assertIn(tutorial.HANDOVER, log.messages)
+
+    async def test_every_lesson_is_posted_in_order(self) -> None:
+        _, _, log = await self.play()
+
+        posted = [
+            message for message in log.messages
+            if message in {beat.lesson for beat in tutorial.BEATS}
+        ]
+        self.assertEqual(
+            posted, [beat.lesson for beat in tutorial.BEATS],
+        )
+
+    async def test_possession_changes_hands_the_three_scripted_times(
+        self,
+    ) -> None:
+        # Beat 2 hands the ball to Dinky, beat 4 takes it back, and the
+        # goal at the end of beat 5 hands it over again for the
+        # restart. A script where possession never changes is one where
+        # beats 3 and 4 have nothing to teach.
+        _, _, log = await self.play()
+
+        possession = [after[3] for _, _, _, after in log.signatures]
+        changes = [
+            (before, after)
+            for before, after in zip(possession, possession[1:])
+            if before != after
+        ]
+        self.assertEqual(
+            changes,
+            [("home", "visiting"), ("visiting", "home"),
+             ("home", "visiting")],
+        )
+
+
+class TutorialRailTests(unittest.TestCase):
+    """
+    What the coach may press. Every rail builds its button **disabled**
+    rather than leaving it out -- a lesson about the three cards in
+    your hand cannot be taught by hiding two of them.
+    """
+
+    def build(self, beat_index: int):
+        cog = build_cog()
+        beat = tutorial.BEATS[beat_index]
+        game = build_game(tutorial_step=beat.step, tutorial_staged=True)
+        match = build_match()
+        tutorial.apply_opening(match, CATALOG, TeamSide.HOME)
+        if beat.player_has_ball:
+            match.select_ball_handler(match.eligible_ball_handlers()[0])
+        game.match_state = match.to_dict()
+        cog.games["g1"] = game
+        return cog, game, beat
+
+    def labels(self, view):
+        return {item.label: item.disabled for item in view.children}
+
+    def test_only_the_beats_action_is_live(self) -> None:
+        cog, game, _ = self.build(0)
+
+        labels = self.labels(PlayerActionView(cog, "g1"))
+
+        self.assertFalse(labels["Maneuver"])
+        self.assertTrue(
+            labels["Cede ball to coach"],
+            "ceding should be visible but not pressable",
+        )
+
+    def test_the_other_two_cards_are_shown_and_disabled(self) -> None:
+        cog, game, beat = self.build(0)
+
+        labels = self.labels(ManeuverActionSelectView(cog, "g1", "offense"))
+
+        self.assertEqual(len(labels), 4, "three cards and the reference")
+        self.assertFalse(labels[beat.player_maneuver])
+        self.assertTrue(
+            all(
+                disabled
+                for label, disabled in labels.items()
+                if label not in (beat.player_maneuver, "Maneuver Reference")
+            )
+        )
+
+    def test_a_defending_beat_rails_the_defense_menu(self) -> None:
+        cog, game, beat = self.build(2)
+
+        labels = self.labels(ManeuverActionSelectView(cog, "g1", "defense"))
+
+        self.assertFalse(labels[beat.player_maneuver])
+
+    def test_a_beats_sub_choices_are_railed(self) -> None:
+        cog, game, beat = self.build(0)
+
+        self.assertFalse(
+            cog.tutorial_choice_refused(game, "dribble_advance", 2)
+        )
+        self.assertTrue(
+            cog.tutorial_choice_refused(game, "dribble_advance", 1)
+        )
+
+    def test_a_choice_the_beat_says_nothing_about_is_free(self) -> None:
+        # Beat 1 pins the dribble and the speed and nothing else, so a
+        # pass distance is nobody's business but the coach's.
+        cog, game, _ = self.build(0)
+
+        self.assertFalse(cog.tutorial_choice_refused(game, "high_pass", 3))
+
+    def test_nothing_is_railed_once_the_tutorial_is_over(self) -> None:
+        cog, game, _ = self.build(0)
+        game.tutorial_step = None
+
+        labels = self.labels(ManeuverActionSelectView(cog, "g1", "offense"))
+
+        self.assertFalse(any(labels.values()))
+        self.assertFalse(
+            cog.tutorial_choice_refused(game, "dribble_advance", 1)
+        )
+
+    def test_an_ordinary_game_is_railed_by_nothing(self) -> None:
+        cog, game, _ = self.build(0)
+        game.tutorial = False
+        game.tutorial_step = None
+
+        self.assertFalse(
+            any(self.labels(PlayerActionView(cog, "g1")).values())
+        )
+
+    def test_a_tutorial_coach_who_wins_the_toss_must_take_home(
+        self,
+    ) -> None:
+        # The script opens with the ball theirs, so the visiting side
+        # would leave every beat's lesson describing the wrong end of
+        # the board.
+        cog = build_cog()
+        game = build_game(
+            home_player_number=None,
+            visiting_player_number=None,
+            coin_flipped=True,
+            coin_winner_player_number=1,
+            coin_face=CoinFace.FORTUNE,
+        )
+        cog.games["g1"] = game
+
+        labels = self.labels(HomeAwaySelectionView(cog, "g1"))
+
+        self.assertFalse(labels["Home"])
+        self.assertTrue(labels["Visiting"])
+
+    def test_an_ordinary_game_may_still_choose_either(self) -> None:
+        cog = build_cog()
+        game = build_game(
+            tutorial=False,
+            tutorial_step=None,
+            home_player_number=None,
+            visiting_player_number=None,
+            coin_flipped=True,
+            coin_winner_player_number=1,
+            coin_face=CoinFace.FORTUNE,
+        )
+        cog.games["g1"] = game
+
+        labels = self.labels(HomeAwaySelectionView(cog, "g1"))
+
+        self.assertFalse(any(labels.values()))
 
 
 class TutorialStagingTests(unittest.IsolatedAsyncioTestCase):
@@ -375,23 +727,24 @@ class TutorialStagingTests(unittest.IsolatedAsyncioTestCase):
     too, and a beat skipped there is a lesson nobody sees.
     """
 
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.catalog = load_player_catalog()
-        cls.rules = load_basic_ruleset()
-
     def build(self, **overrides):
         cog = build_cog()
         game = build_game(**overrides)
-        game.match_state = build_match(self.catalog, self.rules).to_dict()
-        cog.games[game.game_id] = game
+        match = build_match()
+        tutorial.apply_opening(match, CATALOG, TeamSide.HOME)
+        game.match_state = match.to_dict()
+        cog.games["g1"] = game
         return cog, game
 
     async def stage(self, cog, game):
         interaction = build_interaction()
-        with mock.patch("cogs.d12ball.save_games"):
+        recorded = []
+        interaction.followup.send = mock.AsyncMock(
+            side_effect=lambda content=None, **kw: recorded.append(content),
+        )
+        with mock.patch.object(d12ball_cog, "save_games"):
             await cog.stage_tutorial_beat(interaction, game)
-        return interaction
+        return recorded
 
     async def test_the_first_staging_does_not_advance(self) -> None:
         cog, game = self.build()
@@ -411,8 +764,7 @@ class TutorialStagingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_re_entering_an_unplayed_beat_skips_nothing(self) -> None:
         # `/d12ball resume force:true` sends a turn prompt without a
-        # turn having been played. Staging twice with the flag cleared
-        # in between is that path, and it must not count as two turns.
+        # turn having been played. That must not count as one.
         cog, game = self.build()
 
         await self.stage(cog, game)
@@ -426,138 +778,31 @@ class TutorialStagingTests(unittest.IsolatedAsyncioTestCase):
             tutorial_step=tutorial.BEATS[-1].step, tutorial_staged=True,
         )
 
-        interaction = await self.stage(cog, game)
+        posted = await self.stage(cog, game)
 
         self.assertIsNone(game.tutorial_step)
         self.assertFalse(game.in_tutorial)
-        self.assertIn(
-            tutorial.HANDOVER,
-            [call.args[0] for call in interaction.followup.send.await_args_list],
-        )
+        self.assertIn(tutorial.HANDOVER, posted)
 
     async def test_a_game_that_is_not_a_tutorial_is_left_alone(self) -> None:
         cog, game = self.build(tutorial=False, tutorial_step=None)
         before = dict(game.match_state)
 
-        interaction = await self.stage(cog, game)
+        posted = await self.stage(cog, game)
 
         self.assertEqual(game.match_state, before)
-        interaction.followup.send.assert_not_awaited()
+        self.assertEqual(posted, [])
 
-    async def test_staging_posts_the_lesson_and_moves_the_board(self) -> None:
+    async def test_staging_posts_the_lesson(self) -> None:
         cog, game = self.build(tutorial_step=2)
 
-        interaction = await self.stage(cog, game)
+        posted = await self.stage(cog, game)
 
-        self.assertIn(
-            tutorial.BEATS[1].lesson,
-            [call.args[0] for call in interaction.followup.send.await_args_list],
-        )
-        cog.refresh_match_image.assert_awaited()
-
-
-class TutorialRailTests(unittest.TestCase):
-    """
-    What the coach may press. Every rail is built **disabled** rather
-    than left out -- a lesson about the three cards in your hand cannot
-    be taught by hiding two of them.
-    """
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.catalog = load_player_catalog()
-        cls.rules = load_basic_ruleset()
-
-    def build(self, beat_index: int):
-        cog = build_cog()
-        beat = tutorial.BEATS[beat_index]
-        game = build_game(tutorial_step=beat.step, tutorial_staged=True)
-        match = build_match(self.catalog, self.rules)
-        tutorial.apply_beat(match, self.catalog, beat, TeamSide.HOME)
-        if beat.player_has_ball:
-            # A maneuver's effect views are only ever built after the
-            # handler has been selected, which is what send_turn_prompt
-            # does before the prompt goes up.
-            match.select_ball_handler(match.eligible_ball_handlers()[0])
-        game.match_state = match.to_dict()
-        cog.games[game.game_id] = game
-        return cog, game, beat
-
-    def labels(self, view):
-        return {item.label: item.disabled for item in view.children}
-
-    def test_only_the_beats_action_is_live(self) -> None:
-        cog, game, beat = self.build(0)
-
-        labels = self.labels(PlayerActionView(cog, game.game_id))
-
-        self.assertFalse(labels["Maneuver"])
-        self.assertTrue(
-            labels["Cede ball to coach"],
-            "ceding should be visible but not pressable",
-        )
-
-    def test_the_other_two_cards_are_shown_and_disabled(self) -> None:
-        cog, game, beat = self.build(0)
-
-        labels = self.labels(
-            ManeuverActionSelectView(cog, game.game_id, "offense")
-        )
-
-        self.assertEqual(len(labels), 4, "three cards and the reference")
-        self.assertFalse(labels[beat.player_maneuver])
-        self.assertTrue(
-            all(
-                disabled
-                for label, disabled in labels.items()
-                if label not in (beat.player_maneuver, "Maneuver Reference")
-            )
-        )
-
-    def test_the_defending_beat_rails_the_defense_menu(self) -> None:
-        cog, game, beat = self.build(3)
-
-        labels = self.labels(
-            ManeuverActionSelectView(cog, game.game_id, "defense")
-        )
-
-        self.assertFalse(labels[beat.player_maneuver])
-
-    def test_the_high_pass_is_railed_to_the_distance_that_sets_up(
-        self,
-    ) -> None:
-        cog, game, beat = self.build(4)
-
-        view = HighPassChoiceView(cog, game.game_id)
-        live = [
-            item.label for item in view.children if not item.disabled
-        ]
-
-        self.assertEqual(len(live), 1)
-        self.assertTrue(live[0].startswith(f"{beat.high_pass_distance} "))
-
-    def test_nothing_is_railed_once_the_tutorial_is_over(self) -> None:
-        cog, game, _ = self.build(0)
-        game.tutorial_step = None
-
-        labels = self.labels(
-            ManeuverActionSelectView(cog, game.game_id, "offense")
-        )
-
-        self.assertFalse(any(labels.values()))
-
-    def test_an_ordinary_game_is_railed_by_nothing(self) -> None:
-        cog, game, _ = self.build(0)
-        game.tutorial = False
-        game.tutorial_step = None
-
-        self.assertFalse(
-            any(self.labels(PlayerActionView(cog, game.game_id)).values())
-        )
+        self.assertIn(tutorial.BEATS[1].lesson, posted)
 
 
 class TutorialGameRecordTests(unittest.TestCase):
-    """The three fields, and what a save written before them does."""
+    """The fields, and what a save written before them does."""
 
     def test_a_game_saved_before_the_tutorial_existed_still_loads(
         self,
@@ -589,6 +834,77 @@ class TutorialGameRecordTests(unittest.TestCase):
         self.assertTrue(restored.tutorial_staged)
 
 
+class TutorialCoachingNoteTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The lesson the script cannot schedule. A new play offers the window
+    to the side *restarting* play, which after the coach's goal is
+    Dinky -- so the note fires at the first window this coach is ever
+    offered, however long that takes.
+    """
+
+    def build(self, **overrides):
+        cog = build_cog()
+        overrides.setdefault("tutorial_step", None)
+        game = build_game(**overrides)
+        match = build_match()
+        tutorial.apply_opening(match, CATALOG, TeamSide.HOME)
+        game.match_state = match.to_dict()
+        cog.games["g1"] = game
+        return cog, game, match
+
+    async def open_window(self, cog, game, match, side=TeamSide.HOME):
+        interaction = build_interaction()
+        posted = []
+        interaction.followup.send = mock.AsyncMock(
+            side_effect=lambda content=None, **kw: posted.append(content)
+            or SimpleNamespace(id=1, attachments=[]),
+        )
+        with mock.patch.object(d12ball_cog, "save_games"):
+            await cog.begin_substitution_window(
+                interaction, game, match, side,
+            )
+        return posted
+
+    async def test_it_fires_after_the_script_has_finished(self) -> None:
+        cog, game, match = self.build()
+
+        posted = await self.open_window(cog, game, match)
+
+        self.assertIn(tutorial.COACHING_NOTE, posted)
+        self.assertTrue(game.tutorial_coaching_explained)
+
+    async def test_it_fires_only_once(self) -> None:
+        cog, game, match = self.build()
+
+        await self.open_window(cog, game, match)
+        posted = await self.open_window(cog, game, match)
+
+        self.assertNotIn(tutorial.COACHING_NOTE, posted)
+
+    async def test_dinkys_own_window_is_not_taught(self) -> None:
+        cog, game, match = self.build()
+
+        posted = await self.open_window(cog, game, match, TeamSide.VISITING)
+
+        self.assertNotIn(tutorial.COACHING_NOTE, posted)
+
+    async def test_an_ordinary_game_never_sees_it(self) -> None:
+        cog, game, match = self.build(tutorial=False)
+
+        posted = await self.open_window(cog, game, match)
+
+        self.assertNotIn(tutorial.COACHING_NOTE, posted)
+
+    async def test_skipping_the_tutorial_suppresses_it(self) -> None:
+        cog, game, match = self.build(
+            tutorial_step=2, tutorial_coaching_explained=True,
+        )
+
+        posted = await self.open_window(cog, game, match)
+
+        self.assertNotIn(tutorial.COACHING_NOTE, posted)
+
+
 class TutorialCreationTests(unittest.IsolatedAsyncioTestCase):
     """
     What `/d12ball create_game tutorial:true` refuses. A tutorial is one
@@ -604,18 +920,19 @@ class TutorialCreationTests(unittest.IsolatedAsyncioTestCase):
         )
         interaction = build_interaction()
         interaction.guild = SimpleNamespace(id=1)
-        interaction.user = mock.MagicMock(spec=__import__("discord").Member)
+        interaction.user = mock.MagicMock(spec=discord.Member)
         interaction.user.id = 111
         interaction.user.bot = False
-        interaction.user.display_name = "One"
+        interaction.user.display_name = "Coach"
         interaction.response.defer = mock.AsyncMock()
+        interaction.response.send_message = mock.AsyncMock()
         interaction.followup.send = mock.AsyncMock()
 
         await D12Ball.create_game.callback(cog, interaction, **kwargs)
         return cog, interaction
 
     async def test_a_tutorial_against_a_person_is_refused(self) -> None:
-        other = mock.MagicMock(spec=__import__("discord").Member)
+        other = mock.MagicMock(spec=discord.Member)
         other.id, other.bot = 222, False
 
         cog, interaction = await self.run_create(tutorial=True, p2=other)
@@ -624,14 +941,12 @@ class TutorialCreationTests(unittest.IsolatedAsyncioTestCase):
         interaction.response.send_message.assert_awaited()
 
     async def test_a_tutorial_test_game_is_refused(self) -> None:
-        cog, interaction = await self.run_create(
-            tutorial=True, test_game=True,
-        )
+        cog, _ = await self.run_create(tutorial=True, test_game=True)
 
         cog.open_new_game.assert_not_awaited()
 
     async def test_a_solo_tutorial_is_created(self) -> None:
-        cog, interaction = await self.run_create(tutorial=True)
+        cog, _ = await self.run_create(tutorial=True)
 
         cog.open_new_game.assert_awaited()
         self.assertTrue(cog.open_new_game.await_args.kwargs["tutorial"])
