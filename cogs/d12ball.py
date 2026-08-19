@@ -5195,17 +5195,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
-        # The one position the tutorial sets, before the board that
-        # shows it. Everything after this is played, not placed -- see
-        # `tutorial.apply_opening`.
-        if game.tutorial:
-            tutorial.apply_opening(
-                match, self.player_catalog, self.tutorial_player_side(game),
-            )
-            match.validate(self.player_catalog)
-            game.match_state = match.to_dict()
-            save_games(self.games)
-
         kicking_off = match.setup_for_side(match.ball.possession)
         await self.post_new_play_board(
             interaction,
@@ -6651,23 +6640,31 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return None
         return tutorial.beat_for_step(game.tutorial_step)
 
-    def tutorial_choice_refused(
+    def tutorial_railed_option(
         self,
-        game: D12BallGame,
+        game: Optional[D12BallGame],
         key: str,
-        value,
-    ) -> bool:
+        options,
+    ) -> Optional[object]:
         """
-        Whether the beat now running rails this choice away.
+        The one option the beat now running allows out of `options`, or
+        None when nothing is railed.
 
         One question for every sub-choice a beat pins down -- the
         dribble distance, the ball speed, the pass distance, the set-up
-        shot -- so a view adds a rail with one argument rather than a
-        branch of its own. See `d12ball/tutorial.py` for why those four
-        are railed and a run-back space is not.
+        shot, whether a loose ball may be waved through -- so a view
+        adds a rail with one call rather than a branch of its own. See
+        `d12ball/tutorial.py` for why those are railed and a run-back
+        space is not.
+
+        It takes the options rather than a single value because one of
+        the rails cannot name its value up front: the ball speed a
+        steal may set is capped by the stealer's own defensive skill.
         """
-        return tutorial.choice_is_refused(
-            self.tutorial_beat(game), key, value,
+        if game is None:
+            return None
+        return tutorial.resolve_choice(
+            self.tutorial_beat(game), key, options,
         )
 
     def tutorial_dice(

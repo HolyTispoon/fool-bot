@@ -2933,7 +2933,10 @@ class HighPassChoiceView(SafeView):
         if game is None:
             return
 
-        for distance in cog.engine.high_pass_distance_options(match):
+        distances = cog.engine.high_pass_distance_options(match)
+        railed = cog.tutorial_railed_option(game, "high_pass", distances)
+
+        for distance in distances:
             ability_note = " (Fullback ability)" if distance == 4 else ""
             destination_note = cog.engine.high_pass_destination_note(match, distance)
             button = discord.ui.Button(
@@ -2942,9 +2945,7 @@ class HighPassChoiceView(SafeView):
                 ),
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:high_pass:{game_id}:{distance}",
-                disabled=cog.tutorial_choice_refused(
-                    game, "high_pass", distance,
-                ),
+                disabled=railed is not None and distance != railed,
             )
 
             async def callback(
@@ -2986,7 +2987,11 @@ class HighPassChoiceView(SafeView):
             )
             return
 
-        if self.cog.tutorial_choice_refused(game, "high_pass", distance):
+        railed = self.cog.tutorial_railed_option(
+            game, "high_pass",
+            self.cog.engine.high_pass_distance_options(match),
+        )
+        if railed is not None and distance != railed:
             await interaction.response.send_message(
                 "The tutorial is on one step of a single continuous game, "
                 "so this choice is fixed. Use the prompt at the "
@@ -3061,9 +3066,11 @@ class SetUpAttemptChoiceView(SafeView):
             custom_id=f"d12ball:setup_attempt:{game_id}:decline",
             # The tutorial ends on this shot, so declining it would end
             # the script on a pass and no goal.
-            disabled=cog.tutorial_choice_refused(
-                cog.games.get(game_id), "setup_attempt", "decline",
-            ),
+            disabled=cog.tutorial_railed_option(
+                cog.games.get(game_id),
+                "setup_attempt",
+                ("attempt", "decline"),
+            ) == "attempt",
         )
         decline_button.callback = self.decline
         self.add_item(decline_button)
@@ -3144,6 +3151,8 @@ class DribbleAdvanceChoiceView(SafeView):
             else None
         )
 
+        railed = cog.tutorial_railed_option(game, "dribble_advance", (1, 2))
+
         for distance in (1, 2):
             space_word = "space" if distance == 1 else "spaces"
             destination = (
@@ -3164,12 +3173,7 @@ class DribbleAdvanceChoiceView(SafeView):
                 custom_id=f"d12ball:dribble_advance:{game_id}:{distance}",
                 # Railed during the tutorial: where the ball ends up is
                 # what the next beat is written against.
-                disabled=(
-                    game is not None
-                    and cog.tutorial_choice_refused(
-                        game, "dribble_advance", distance,
-                    )
-                ),
+                disabled=railed is not None and distance != railed,
             )
 
             async def callback(
@@ -3199,9 +3203,10 @@ class DribbleAdvanceChoiceView(SafeView):
             )
             return
 
-        if self.cog.tutorial_choice_refused(
-            game, "dribble_advance", distance,
-        ):
+        railed = self.cog.tutorial_railed_option(
+            game, "dribble_advance", (1, 2),
+        )
+        if railed is not None and distance != railed:
             await interaction.response.send_message(
                 "The tutorial is on one step of a single continuous game, "
                 "so this choice is fixed. Use the prompt at the "
@@ -3249,13 +3254,18 @@ class SpeedDeltaChoiceView(SafeView):
         skill = profile.offense if skill_type == "offense" else profile.defense
         current = match.ball.speed
 
-        seen_targets: set[int] = set()
+        # The targets are collected before any button is built, because
+        # the tutorial's speed rail is "take the highest offered" -- the
+        # cap is the stealer's own defensive skill, so the script cannot
+        # name a number. See D12Ball.tutorial_railed_option.
+        targets: list[int] = []
         for delta in range(-skill, skill + 1):
             target = max(1, min(12, current + delta))
-            if target in seen_targets:
-                continue
-            seen_targets.add(target)
+            if target not in targets:
+                targets.append(target)
+        railed = cog.tutorial_railed_option(game, "speed", targets)
 
+        for target in targets:
             actual_delta = target - current
             if actual_delta == 0:
                 label = f"{target} (no change)"
@@ -3267,9 +3277,10 @@ class SpeedDeltaChoiceView(SafeView):
                 label=label,
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:speed:{game_id}:{target}",
-                # Railed during the tutorial: the score attempt the
-                # script ends on is priced at a ball speed of 1.
-                disabled=cog.tutorial_choice_refused(game, "speed", target),
+                # Railed during the tutorial -- the ball speed a steal
+                # leaves behind is still on the ball when the striker
+                # shoots two beats later.
+                disabled=railed is not None and target != railed,
             )
 
             async def callback(
@@ -4773,6 +4784,16 @@ class LooseBallChoiceView(SafeView):
                 style=discord.ButtonStyle.secondary,
                 custom_id=f"d12ball:loose_ball_decline:{game_id}:{side}",
                 row=4,
+                # Railed during the tutorial. Waving the ball through
+                # would not derail the story -- Dinky takes it either
+                # way -- but the lesson beside this prompt is that both
+                # sides send somebody, and a greyed button is the one
+                # way to say so on the prompt itself.
+                disabled=cog.tutorial_railed_option(
+                    cog.games.get(game_id),
+                    "loose_ball_decline",
+                    ("never",),
+                ) == "never",
             )
             decline.callback = self.decline
             self.add_item(decline)
@@ -4855,6 +4876,17 @@ class LooseBallChoiceView(SafeView):
                 ephemeral=True,
             )
             return
+
+        if self.cog.tutorial_railed_option(
+            game, "loose_ball_decline", ("never",),
+        ) == "never":
+            await interaction.response.send_message(
+                "This step of the tutorial is about fighting for a "
+                "loose ball -- send somebody after it.",
+                ephemeral=True,
+            )
+            return
+
         match.decline_loose_ball(side)
         await self.settled(
             interaction,
