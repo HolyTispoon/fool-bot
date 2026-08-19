@@ -3,14 +3,14 @@ The scripted opening a `/d12ball create_game tutorial:true` game plays
 before it becomes an ordinary game against Dinky.
 
 **Every lesson is a real turn, and the five of them are one continuous
-play.** The tutorial sets the board **once**, at kickoff (`OPENING`),
-and never touches it again: each beat is played from wherever the
-previous beat's turn actually left the ball. That is the whole design.
-An earlier version re-dealt both sides before every beat, which made
-each lesson self-contained at the cost of the story -- a coach drove
-Dinky backwards with a Pressure and then found the ball back in
-midfield with no explanation. There is no such seam now, and there must
-not be one again: **nothing here may move a meeple between beats.**
+play.** The script **places nothing at all**: the game kicks off from
+the standard deal and each beat is played from wherever the previous
+beat's turn actually left the ball. That is the whole design. An
+earlier version re-dealt both sides before every beat, which made each
+lesson self-contained at the cost of the story -- a coach drove Dinky
+backwards with a Pressure and then found the ball back in midfield with
+no explanation. There is no such seam now, and there must not be one
+again: **nothing here may move a meeple, at any point.**
 
 What that costs is determinism. A chained script only works if every
 step of it lands where the next beat expects, so:
