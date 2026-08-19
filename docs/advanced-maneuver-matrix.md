@@ -311,3 +311,48 @@ Two of these are **verified failures with reproductions**, not predictions.
   about 75px wide in Discord against 131px today, so the challenged hand wants two rows.
 - **`GameMode` is a single enum.** "One or both" makes it two independent switches on the
   saved game record.
+
+---
+
+## Where a build starts
+
+The order matters, because the first two steps are blocked on nobody and everything else is
+blocked on them. Nothing below is started.
+
+1. **Give a maneuver an identity that is not its printed name.** `match.offense_maneuver`
+   holds the string `"Low Pass"`, and around ten sites compare against those literals. The
+   advanced cards have entirely different names, so this is needed whatever else is decided,
+   and it shrinks every step after it. No ruling required.
+2. **Fix the two reproduced failures.** Drop the importer's one-die-face-per-side validation,
+   which is what "ignore the die value column" implies; and make `ManeuverCatalog.relationships`
+   resolve by **rank** rather than by searching for an opponent whose `Defeats` names the card,
+   returning both members of each relation instead of one. Both have reproductions in the
+   section above. No ruling required.
+3. **Import the twelve rows**, reading the tier from the `Mode` column. Only possible after 1
+   and 2.
+4. **Split `GameMode` into two independent switches** on the saved game record — advanced
+   maneuvers and asymmetric teams are chosen separately — keeping the existing enum loadable.
+5. **Add the outright rule to the resolution.** It is one condition: an advanced effect fires
+   on a decisive result and never on a skill test. `settled_maneuver_winner` already separates
+   those two cases, which is where it goes.
+6. **Build the six effects**, easiest first, because they differ enormously in how much new
+   machinery each needs:
+   - **Clear** — 2 exhaustion, and a 3-space deflection. Nearly ordinary.
+   - **Precise Pass** — an unbounded Low Pass and speed +3; the cost grants the defense a Low
+     Pass it does not otherwise get.
+   - **Setup Pass** — reuses `high_pass_receiver_candidates` for its 0, and the existing
+     out-of-bounds path for its failure. Its cost is a loose ball at a chosen distance.
+   - **Intercept** — a sign flip on the basic steal's movement, plus naming the carrier; the
+     run-back exemption follows for free.
+   - **Dribble Burst** — a run of arbitrary length charging a token a space, and a cost that
+     is **the first exception to "every turnover resets ball speed to 1"**.
+   - **Double Team** — a persisted two-challenger state lasting into the next maneuver. The
+     largest by some distance: one challenger is assumed by `challenger_id`, the matchup image
+     and the skill test alike.
+7. **Then the presentation**: two offense hands (three cards unchallenged, six challenged) and
+   one for the defense, with the challenged hand laid out in two rows so the cards stay
+   readable; then the printed maneuver cards; then `DinkyAI`, which still picks by rolling a
+   d6 through `die_values` and needs a real policy once it holds six cards.
+
+Steps 5 and 6 are the ones that will surface the questions under
+[Still open](#still-open). Nothing there prevents starting at 1.

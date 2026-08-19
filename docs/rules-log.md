@@ -248,9 +248,10 @@ declined costs only the maneuver's own flat cost, same as if there had been no s
 - **`maneuvers.json`'s printed `time` field is hand-edited, not re-imported.** It is normally
   regenerated whole from the Google Sheet's own "time" column (see "The maneuver cards" in
   CLAUDE.md), but this rule came from the author directly rather than from a sheet pull, so the
-  json was updated by hand to keep the printed cards honest. **The sheet still says the old
-  distance-based costs and needs the author to update it upstream**, or the next
-  `scripts/import_d12ball_maneuvers.py` run will silently revert this file to the old wording.
+  json was updated by hand to keep the printed cards honest. The sheet still said the old
+  distance-based costs, so the next `scripts/import_d12ball_maneuvers.py` run would have
+  silently reverted this file to the old wording -- **the author fixed the column upstream on
+  2026-08-18**, and the tab now carries the flat costs. The hazard is closed.
 
 ### 2026-08-16 -- author, a contest is answered by the nearest players, not by the zone
 
