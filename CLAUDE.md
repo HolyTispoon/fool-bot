@@ -2352,13 +2352,16 @@ to either player in the game, or to anyone with `manage_channels`
 **So that is what a crash tells the coach to do.** The two catch-alls for an
 unexpected exception -- `SafeView.on_error` for a click and
 `cog_app_command_error` for a command -- share `ERROR_RECOVERY_ADVICE` in
-`cogs/d12ball_helpers.py`, which names `/d12ball resume` and then the person
-running the bot. They used to say "please try again", which is advice for a
-dropped connection and for nothing else: a bug in the flow is reached
+`cogs/d12ball_helpers.py`: try again, then `/d12ball resume`, then the person
+running the bot. They used to stop at the first of those, which is advice for
+a dropped connection and for nothing else -- a bug in the flow is reached
 identically on every click, and the turn it stranded is the thing resume
-exists to put back. The traceback is in `#logs` and on the host's console and
-nowhere a coach can see, so the second half of that sentence is the only way
-it gets reported.
+exists to put back. **The retry stays first, and is not hedged.** A coach
+whose click failed cannot be told which kind of failure they have hit, the
+transient one does clear on a second press, and a message opening by ruling
+that out is both discouraging and, often enough, wrong. The traceback is in
+`#logs` and on the host's console and nowhere a coach can see, so the last
+step is the only way a bug resume cannot fix ever gets reported.
 
 **The ephemeral views in the game are the three secret picks**, and they are
 ephemeral for one reason: a coach must not see the other side's choice before

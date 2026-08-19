@@ -843,12 +843,12 @@ class AbandonGameTests(unittest.IsolatedAsyncioTestCase):
 class UnexpectedErrorNoticeTests(unittest.IsolatedAsyncioTestCase):
     """
     What a coach is told when a click or a command raises something
-    nobody expected. It used to be "please try again", which is only
-    ever right for a dropped connection: a bug in the flow raises on
-    every click alike, and the turn it stranded is exactly what
-    /d12ball resume is for. Asserted through the two handlers rather
-    than against the constant, since the wording is only useful if it
-    actually reaches the coach.
+    nobody expected. It used to be "please try again" and nothing
+    else, which is only ever right for a dropped connection: a bug in
+    the flow raises on every click alike, and the turn it stranded is
+    exactly what /d12ball resume is for. Asserted through the two
+    handlers rather than against the constant, since the wording is
+    only useful if it actually reaches the coach.
     """
 
     def build_interaction(self) -> SimpleNamespace:
@@ -872,7 +872,6 @@ class UnexpectedErrorNoticeTests(unittest.IsolatedAsyncioTestCase):
 
         (message,), kwargs = interaction.followup.send.await_args
         self.assertIn("/d12ball resume", message)
-        self.assertNotIn("try again.", message)
         self.assertTrue(kwargs["ephemeral"])
 
     async def test_a_failed_command_points_at_resume(self) -> None:
@@ -885,7 +884,6 @@ class UnexpectedErrorNoticeTests(unittest.IsolatedAsyncioTestCase):
 
         (message,), _ = interaction.followup.send.await_args
         self.assertIn("/d12ball resume", message)
-        self.assertNotIn("try again.", message)
 
 
 if __name__ == "__main__":
