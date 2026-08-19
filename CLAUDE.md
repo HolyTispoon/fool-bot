@@ -36,6 +36,7 @@ python3 -m unittest discover -s tests
 | `d12ball/player_cards.py` | The roster as cards, print-only, over `cards.py`'s print machinery |
 | `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
+| `d12ball/tutorial.py` | The scripted opening a tutorial game plays -- the five beats as data, and the rails -- see below |
 | `d12ball/data/` | `players.json`, `basic_rules.json` |
 | `d12ball/images/` | Card art and emoji |
 | `d12ball/fonts/` | Bundled DejaVu — see "Fonts" below |
@@ -1208,6 +1209,134 @@ travelled (2026-08-16).
   the flow assumes that -- an AI *receiving* a ceded ball runs its reply window
   through `run_ai_substitution_window` like any other -- it is just that giving
   the ball away is a judgement call and Dinky makes none.
+
+## The tutorial
+
+`/d12ball create_game tutorial:true` is an ordinary solo game against
+Dinky whose first five turns are scripted. `d12ball/tutorial.py` holds
+the whole script -- the beats as data, plus the three questions the cog
+asks of it -- and the cog reads it in six places, each behind a single
+`if game.in_tutorial`.
+
+**Every lesson is a real turn.** The tutorial does not simulate the game
+or narrate a game played elsewhere: it sets a position, says what to
+press and why, and the coach presses it on the same buttons, the same
+board and the same cards they will use for the rest of the match. Two
+things follow, and both are why it was built this way:
+
+- **Nothing in `pending_turn_view` changes, and `/d12ball resume` needs
+  no branch of its own.** A beat leaves the match in states the game
+  already knows how to resume. What a restart loses is a lesson's
+  *text*, which is already in the channel above the prompt it explained.
+- **A beat sets its own position**, through `MatchState.deploy_side` --
+  the atomic, exhaustion-free placement a formation change is made of --
+  so a beat cannot inherit a mess from the one before it, and the five
+  specs read as what the coach will be looking at.
+
+### The three fields, and the counter
+
+`tutorial`, `tutorial_step` and `tutorial_staged` are on `D12BallGame`,
+not on `MatchState`: a tutorial is a property of the *game* the way
+`test_game` and `ai_opponent` are, and the rails are read by views that
+hold a game id and may not have loaded a match yet. A save written
+before they existed defaults them, so nothing migrates.
+
+- **`in_tutorial` is the one question every rail asks**, and it is
+  `tutorial and tutorial_step is not None`. Clearing the step is
+  therefore the whole of turning the rails off -- which is all
+  `/d12ball skip_tutorial` does. `tutorial` itself stays True, so the
+  game record and the channel name still say what it was created as.
+- **`stage_tutorial_beat` runs at the top of `send_turn_prompt`**,
+  which is called once a turn -- so the advance is what counts the
+  beats. `tutorial_staged` is what keeps that honest: `/d12ball
+  offensive_choice` and `/d12ball resume force:true` also send a turn
+  prompt without a turn having been played, and re-entering a beat must
+  not silently skip the next one.
+- **It is ahead of the AI branch in `send_turn_prompt`.** Beat 4 is a
+  turn the coach *defends*, and its position has to be down before
+  Dinky takes a turn on it.
+- **Setup coaching is skipped** (`begin_setup_coaching`), and the script
+  arms at the kickoff rather than at creation -- so teams, the toss and
+  home-or-visiting are played exactly as an ordinary game plays them.
+
+### The rails
+
+A beat names the turn action and the maneuver the coach must pick, and
+the views build every other button **disabled** rather than omitting it:
+the lesson is about what the hand holds, which cannot be taught by
+hiding two of the three cards. Three views read it -- `PlayerActionView`,
+`ManeuverActionSelectView` and `HighPassChoiceView` -- and each re-checks
+in its callback, because an earlier beat's prompt is still in the channel
+and the maneuver menus are restored message-agnostically after a restart
+(`restore_maneuver_menus`).
+
+- **Sub-choices are deliberately not railed.** A Low Pass's destination,
+  a Dribble Advance's distance, a ball-speed delta and a run-back space
+  are legal moves with no wrong answer, and they are where a coach
+  learns by doing. Which maneuver outranks which is what decides a
+  beat's outcome, so leaving them free cannot stop a lesson landing.
+  The one exception is beat 5's High Pass distance: only a pass of 2 is
+  caught cleanly, and the set-up that catch offers *is* the beat.
+- **Dinky's card is written straight into the match**, in
+  `begin_maneuver_action_selection`, rather than through the strategy.
+  `choose_maneuver_action` takes a side and nothing else, so it cannot
+  know which beat is running, and changing its signature for one caller
+  would put the script inside the AI. Dinky still picks before the coach
+  does, exactly as always -- the rails decide what the coach may answer
+  with, not the other way round.
+
+### The script
+
+Five turns, and the outcome of each is decided by rank alone, which is
+why the tutorial can promise what it teaches **without touching a die**:
+beat 1 a decisive win, beat 2 a tie into the skill test, beat 3 the
+steal that takes the ball off them, beat 4 the Pressure they defend
+with, beat 5 the High Pass that sets up the shot.
+`tests/test_d12ball_tutorial.py` asserts each against
+`ManeuverCatalog.resolve` rather than trusting the prose.
+
+- **Beat 5 ends in a goal about 90% of the time, and nothing is
+  rigged.** A 2-space High Pass onto a striker already in shooting range
+  is a scoring opportunity, and the Striker's ability is +3 on exactly
+  that shot -- so it is `d12 + 6 + 3` against `d12 +` whatever is in the
+  way, and ties go to the shooter. The spec leaves **one** defender in
+  the lane, off the ball, contributing half of 6: margin 6, so 89.6%.
+  Clearing the lane entirely would make it 97.9% and a second defender
+  would drop it to 75%, which is why the test asserts the count rather
+  than only that a defender exists.
+- **There is no beat for the Coaching Choice.** The goal is a new play
+  and a new play offers the window itself, so `COACHING_NOTE` is posted
+  in front of the real thing from `begin_substitution_window`.
+  `tutorial_coaching_explained` keeps it to the first window the coach
+  is offered.
+- **Positions are written from a coach's own goal forward** and mirrored
+  by `absolute_index`, the same convention a formation is dealt in.
+  Nothing forces the toss, so every beat is asserted on both sides --
+  including the shot, which has to be the same shot at either end.
+- **A beat clears exhaustion with the position**, because it is a fresh
+  lesson rather than a continuation, and it records the arrangement with
+  `set_assigned_positions` -- without which the new play after beat 5's
+  goal would reset both sides onto the *deal* rather than onto the
+  position the tutorial has been playing from.
+- **Every beat covers its coach's own kickoff space.** Beat 5's goal
+  opens a Coaching Choice and `coaching_finish_refusal` holds a coach
+  there until somebody of theirs is standing on it, so a spec that
+  emptied it would strand them.
+- **The lesson text is not asserted by the suite.** It is prose, it will
+  be revised, and a test quoting it would only ever break on a reword.
+  What is asserted is every claim it makes that the data could
+  contradict.
+- **`validate_script` runs in `D12Ball.__init__`**, against the catalog
+  as it is read: the maneuvers are imported from a spreadsheet, so a
+  rename upstream would otherwise leave a beat railing a coach onto a
+  card that no longer exists -- and a rail matching nothing shows as
+  three disabled buttons rather than as an error.
+
+**The score and the clock carry over.** The five beats charge about
+seven space minutes and usually a goal, so the real game starts around
+minute 7 of the first half with the coach a goal up. That is the
+author's call -- resetting the clock and score at the handover was the
+alternative -- and it is why nothing touches the scoreboard there.
 
 ## Logging and the #logs channel
 

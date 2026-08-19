@@ -170,6 +170,30 @@ class D12BallGame:
     # a game created without one gets the players' names instead.
     game_name: Optional[str] = None
 
+    # The scripted opening -- see d12ball/tutorial.py. `tutorial` is
+    # what the game was created as and never changes; `tutorial_step`
+    # is the beat in progress and is cleared when the script runs out
+    # or the coach skips it, which is what turns the rails off. Both
+    # live here rather than on MatchState because a tutorial is a
+    # property of the *game*, the way test_game and ai_opponent are,
+    # and because the rails are read by views that hold a game id and
+    # may not have loaded a match yet.
+    #
+    # `tutorial_staged` says whether the current beat's position and
+    # lesson have been applied. It is what makes staging idempotent:
+    # `send_turn_prompt` is called once a turn and advances the step,
+    # but `/d12ball offensive_choice` and `/d12ball resume force:true`
+    # call it too, and neither of those is a new turn.
+    tutorial: bool = False
+    tutorial_step: Optional[int] = None
+    tutorial_staged: bool = False
+    # Whether the Coaching Choice note has been posted. The script does
+    # not stage a beat for it -- the goal at the end of beat 5 is a new
+    # play, and a new play offers the window itself -- so this is what
+    # keeps the note to the first window the coach is offered rather
+    # than every one of them.
+    tutorial_coaching_explained: bool = False
+
     # Game configuration
     mode: GameMode = GameMode.BASIC
     status: GameStatus = GameStatus.SETUP
@@ -280,6 +304,17 @@ class D12BallGame:
         True when Player 2 is controlled by the AI.
         """
         return self.player_2_id is None
+
+    @property
+    def in_tutorial(self) -> bool:
+        """
+        Whether the scripted opening is still running -- which is what
+        every rail in the views asks. A tutorial game that has finished
+        its script, or whose coach skipped it, answers False and plays
+        exactly like any other solo game; `tutorial` stays True so the
+        channel and the game record still say what it was created as.
+        """
+        return self.tutorial and self.tutorial_step is not None
 
     @property
     def is_in_setup(self) -> bool:

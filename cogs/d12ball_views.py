@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Optional
 import aiohttp
 import discord
 
+from d12ball import tutorial
 from d12ball.components import (
     MatchState,
     PlayerRole,
@@ -1238,11 +1239,20 @@ class PlayerActionView(SafeView):
                 ),
             )
 
+        # A tutorial beat names the one action it wants pressed, and
+        # the rest are built **disabled** rather than left out: a coach
+        # should see that shooting and ceding exist and read in the
+        # lesson why neither is theirs yet. See d12ball/tutorial.py.
+        allowed = tutorial.allowed_actions(
+            self.cog.tutorial_beat(game) if game is not None else None
+        )
+
         for label, action, style in actions:
             button = discord.ui.Button(
                 label=label,
                 style=style,
                 custom_id=f"d12ball:action:{game_id}:{action}",
+                disabled=allowed is not None and action not in allowed,
             )
 
             async def callback(
@@ -1284,6 +1294,18 @@ class PlayerActionView(SafeView):
             await interaction.response.send_message(
                 "Only the player whose team has possession can "
                 "choose this action.",
+                ephemeral=True,
+            )
+            return
+
+        # The button was built disabled, so this is a click on a prompt
+        # from an earlier beat still sitting in the channel -- the same
+        # stale-view guard the shot and the cede keep below.
+        allowed = tutorial.allowed_actions(self.cog.tutorial_beat(game))
+        if allowed is not None and action not in allowed:
+            await interaction.response.send_message(
+                "The tutorial is on this step's action. Use the prompt "
+                "at the bottom of the channel.",
                 ephemeral=True,
             )
             return
@@ -1920,6 +1942,23 @@ class ManeuverActionSelectView(SafeView):
             if side == "offense"
             else cog.maneuver_catalog.defense
         )
+
+        # A tutorial beat rails the coach onto one card, and the other
+        # two are built **disabled** rather than left out -- the whole
+        # point of the lesson is reading what the hand holds. Dinky's
+        # half of the menu is never built at all, so this only ever
+        # narrows a human's. See d12ball/tutorial.py.
+        game = cog.games.get(game_id)
+        allowed = (
+            tutorial.allowed_maneuvers(
+                cog.tutorial_beat(game),
+                cog.tutorial_player_side(game),
+                side,
+            )
+            if game is not None
+            else None
+        )
+
         for maneuver in sorted(maneuvers, key=lambda item: item.rank):
             button = discord.ui.Button(
                 label=maneuver.name,
@@ -1927,6 +1966,9 @@ class ManeuverActionSelectView(SafeView):
                 custom_id=(
                     f"d12ball:maneuver_pick:{game_id}:{side}:"
                     f"{maneuver.name}"
+                ),
+                disabled=(
+                    allowed is not None and maneuver.name not in allowed
                 ),
             )
 
@@ -2007,6 +2049,27 @@ class ManeuverActionSelectView(SafeView):
             await interaction.response.send_message(
                 "Only the player on that side can choose this maneuver.",
                 ephemeral=True,
+            )
+            return
+
+        # These menus are restored message-agnostically after a restart
+        # (`D12Ball.restore_maneuver_menus`), so a coach can still be
+        # holding one an earlier beat opened. The rail is re-read here
+        # for that reason, exactly as the distances are in
+        # HighPassChoiceView.choose.
+        allowed = tutorial.allowed_maneuvers(
+            self.cog.tutorial_beat(game),
+            self.cog.tutorial_player_side(game),
+            self.side,
+        )
+        if allowed is not None and maneuver_name not in allowed:
+            await interaction.response.edit_message(
+                content=(
+                    "This step of the tutorial wants "
+                    f"**{allowed[0]}**. Open your hand again from the "
+                    "prompt at the bottom of the channel."
+                ),
+                view=None,
             )
             return
 
@@ -2850,6 +2913,14 @@ class HighPassChoiceView(SafeView):
         if game is None:
             return
 
+        # The one sub-choice a tutorial beat rails, because it is the
+        # one that changes what the beat *is*: only a pass of 2 is
+        # caught cleanly, and beat 5 exists to end in the set-up shot
+        # that catch offers. See d12ball/tutorial.py.
+        forced = tutorial.forced_high_pass_distance(
+            cog.tutorial_beat(game)
+        )
+
         for distance in cog.engine.high_pass_distance_options(match):
             ability_note = " (Fullback ability)" if distance == 4 else ""
             destination_note = cog.engine.high_pass_destination_note(match, distance)
@@ -2859,6 +2930,7 @@ class HighPassChoiceView(SafeView):
                 ),
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:high_pass:{game_id}:{distance}",
+                disabled=forced is not None and distance != forced,
             )
 
             async def callback(
@@ -2896,6 +2968,18 @@ class HighPassChoiceView(SafeView):
             await interaction.response.send_message(
                 f"A {distance}-space pass runs off the end of the field "
                 "from where the ball is now.",
+                ephemeral=True,
+            )
+            return
+
+        forced = tutorial.forced_high_pass_distance(
+            self.cog.tutorial_beat(game)
+        )
+        if forced is not None and distance != forced:
+            await interaction.response.send_message(
+                f"This step of the tutorial wants a **{forced}-space** "
+                "pass -- that is the one that lands cleanly on your "
+                "striker.",
                 ephemeral=True,
             )
             return
