@@ -1214,43 +1214,83 @@ travelled (2026-08-16).
 
 `/d12ball create_game tutorial:true` is an ordinary solo game against
 Dinky whose first five turns are scripted. `d12ball/tutorial.py` holds
-the whole script -- the opening position, the beats, and the questions
-the cog asks of it -- and the cog reads it behind `if game.in_tutorial`
-in a handful of places.
+the whole script -- the beats and the questions the cog asks of it --
+and the cog reads it behind `if game.in_tutorial` in a handful of
+places.
 
 **Every lesson is a real turn, and the five of them are one continuous
-play.** The board is set **once**, at kickoff, and never touched again:
-each beat is played from wherever the previous beat's turn left the
-ball. It did not start that way -- the first version re-dealt both
+play.** Each beat is played from wherever the previous beat's turn left
+the ball. It did not start that way: the first version re-dealt both
 sides before every beat, which made each lesson self-contained and the
-story nonsense: a coach drove Dinky backwards with a Pressure and then
-found the ball back in midfield with nothing to explain it. **Nothing
-may move a meeple between beats.** If a beat needs a different
-position, the fix is to change the script so the play arrives there.
+story nonsense -- a coach drove Dinky backwards with a Pressure and
+then found the ball back in midfield with nothing to explain it.
+**Nothing may move a meeple between beats.** If a beat needs a
+different position, the fix is to change the script so the play arrives
+there.
 
 Two things follow from lessons being real turns:
 
 - **Nothing in `pending_turn_view` changes and `/d12ball resume` needs
   no branch of its own.** A beat leaves the match in states the game
   already knows how to resume. What a restart loses is a lesson's
-  *text*, which is already in the channel above the prompt it explained.
-- **The opening goes down through `MatchState.deploy_side`**, the
-  atomic exhaustion-free placement a formation change is made of, and
-  is recorded with `set_assigned_positions` -- which is load-bearing:
-  the goal at the end is a new play, and a new play restores that
-  arrangement.
+  *text*, which is already in the channel above the prompt it
+  explained.
+- **The clock and the score carry over**, so the real game starts
+  around minute 7 of the first half with the coach a goal up. That is
+  the author's call and it is why nothing resets the scoreboard at the
+  handover.
+
+### The opening is the standard deal
+
+The script **places nothing**. Both sides are dealt the standard
+**2-2-2**, exactly as every game deals them, and `MatchState.standard`
+records that as `assigned_positions` itself -- which is load-bearing,
+because the tutorial skips setup coaching and the goal at the end is a
+new play that restores the arrangement.
+
+A hand-written opening was tried and dropped. It put the coach in 2-3-1
+and Dinky in 1-3-2 to buy a thinner defensive lane for the final shot,
+which meant a tutorial teaching the game from two shapes no game ever
+kicks off in. **A beat that wants a different position has to play its
+way there.** What the deal gives the script for free is exactly what it
+needs:
+
+- the coach's **playmaker on M2** with the ball, one space short of
+  shooting range, so Shoot is not offered until beat 1's dribble earns
+  it -- and beat 2's lesson is written on it appearing;
+- **Dinky's playmaker on the same space**, so the opening maneuver has
+  an automatic challenger and beat 1 needs no walk-in to explain yet;
+- the coach's **striker on V2**, which is where beat 5's 2-space High
+  Pass lands and is inside shooting range;
+- **Dinky's fullback on V2 with them**, which is what prices the final
+  shot -- a defender on the ball adds their whole defensive skill.
+
+`TutorialOpeningTests` asserts each of those against the deal rather
+than against a table, since all of them are claims the lesson text
+makes and `basic_rules.json` could quietly change any of them.
 
 ### Determinism: rails and dice
 
 A chained script only works if every step lands where the next beat
 expects.
 
-- **The rails cover every choice that moves the ball**, not only the
-  maneuver: the turn action, the card, the dribble distance, the ball
-  speed, the pass distance and the set-up shot. `TutorialBeat.choices`
-  is the table and `D12Ball.tutorial_choice_refused` is the one
-  question the views ask, so a view adds a rail with one argument
-  rather than a branch.
+- **The rails cover every choice that moves the ball or prices the
+  shot**: the turn action, the card, the dribble distance, the ball
+  speed, the pass distance, the set-up shot, and whether a loose ball
+  may be waved through. `TutorialBeat.choices` is the table and
+  `D12Ball.tutorial_railed_option` is the one question the views ask,
+  so a view adds a rail with one call rather than a branch.
+  - **A rail names a value, except when it cannot.** The ball speed a
+    steal may set is capped by the stealer's own defensive skill, and
+    who does the stealing is not something the script fixes -- so
+    `CHOICE_MAX` means "the highest offered" and `resolve_choice` takes
+    the option list rather than a single value. That is also why
+    `SpeedDeltaChoiceView` collects its targets before building any
+    button.
+  - **A rail matching nothing on offer is no rail**, rather than a
+    prompt with every button dead. The script and the flow can only
+    disagree by mistake, and a coach with nothing to press is a worse
+    failure than a lesson that did not land.
 - **Rails build the button disabled, never absent.** A lesson about the
   three cards in your hand cannot be taught by hiding two of them, and
   a coach should see that Shoot and Cede exist and read why neither is
@@ -1258,11 +1298,12 @@ expects.
   beat's prompt is still in the channel, and the maneuver menus are
   restored message-agnostically after a restart.
 - **What is left free is left free on purpose** -- a run-back space,
-  which of two of the coach's own players challenges. Those are legal
-  moves with no wrong answer and the beats after them do not depend on
-  which is picked. `TutorialPlaythroughTests` asserts that the run back
-  is the *only* place a second button is ever live, so a rail going
-  missing shows up as a failure rather than as a story that drifts.
+  and which of the coach's players is sent after beat 2's loose ball.
+  Both are legal moves with no wrong answer whose outcome no later beat
+  reads. `TutorialPlaythroughTests.FREE_CHOICES` is that list, and the
+  suite fails on anything else showing two live buttons, so a rail
+  going missing shows up as a failure rather than as a story that
+  drifts.
 - **Some dice are scripted** (`TutorialBeat.rolls`, read through
   `D12Ball.tutorial_dice`). Beat 2 is a tie the coach has to **lose**,
   or the ball never comes free and beats 3 and 4 have nothing to defend
@@ -1273,37 +1314,37 @@ expects.
   after it planning around a board it did not expect. The check still
   runs and the coach still watches it.
 - **The score attempt is deliberately not scripted.** It is the one
-  roll that decides something the coach wants, and the position makes
-  it a heavy favourite rather than a certainty: a striker's +9 against
-  a lone halved +3, **89.6%**. A tutorial that cannot lose its last
-  shot is not teaching the game.
+  roll that decides something the coach wants, and the play is built so
+  it is a heavy favourite rather than a certainty: the striker's
+  **d12+11** against the fullback's **d12+6**, which is **85.4%**,
+  measured at 87% over 200 playthroughs. A tutorial that cannot lose
+  its last shot is not teaching the game.
+  - **Beat 4's speed rail is worth a whole point of that margin**, and
+    is the reason the lesson explains it rather than just greying the
+    buttons. A turnover resets ball speed, so beat 1's speed choice is
+    thrown away and only the one set *after* beat 4's steal survives to
+    the shot -- half of it, rounded down, is added to the attempt.
+
+### The five beats
+
+Each is one turn, and the position it starts from is the one the
+previous turn produced -- these are outcomes, not settings:
+
+| # | Coach plays | Dinky plays | Result |
+| --- | --- | --- | --- |
+| 1 | Dribble Advance | Block Deflect | Decisive win, the Playmaker's own 2 spaces: M2 → V1 |
+| 2 | Low Pass | Block Deflect | Rank 1 both: a tie, a skill test the coach loses, the ball knocked to M3 and loose, and Dinky wins the scramble |
+| 3 | Pressure | Dribble Advance | The coach defends and wins: Dinky driven back to V1 |
+| 4 | Steal Intercept | Low Pass | Turnover, the ball back to M3, the run back, and the speed crank |
+| 5 | High Pass | Steal Intercept | 2 spaces onto the striker on V2 -- a scoring opportunity, a set-up shot, and a goal |
 
 ### The coach always plays home
 
-The script opens with the ball theirs, so a coach who wins the toss is
+The standard deal gives home the ball, so a coach who wins the toss is
 railed onto Home (`HomeAwaySelectionView`) and Dinky takes the visitors
 when Dinky wins it (`CoinFlipView.flip_coin`, overriding
 `DinkyAI.choose_home_or_visiting` at the call site -- it takes no
-arguments, so it cannot know which game is asking). Shapes are still
-written from a side's own goal forward and mirrored by
-`absolute_index`, which is how Dinky's half of the opening is read and
-the frame a formation is dealt in.
-
-### The opening position
-
-Every space in `OPENING` is load-bearing, and the tests say so:
-
-- The coach's **playmaker has the ball on M1**, two short of shooting
-  range, so the early maneuvers happen out of range and Shoot is not
-  offered until it is earned. Beat 2 is written to use its appearance.
-- The coach's **striker stands on V1**, where beat 5's 2-space High
-  Pass lands, inside shooting range.
-- **Dinky keeps exactly one card in their own goal zone**, on V2. That
-  single halved defender is what prices the final shot; a second would
-  drop it to 75% and nothing else would notice.
-- **The coach covers M2**, their kickoff space, because the goal
-  restores this arrangement and `coaching_finish_refusal` holds a coach
-  in a window until somebody of theirs is standing on it.
+arguments, so it cannot know which game is asking).
 
 ### The three fields, and the counter
 
@@ -1320,12 +1361,13 @@ A save written before them defaults them; nothing migrates.
   say what the game was created as.
 - **`stage_tutorial_beat` runs at the top of `send_turn_prompt`**,
   which is called once a turn -- so the advance is what counts the
-  beats. `tutorial_staged` keeps that honest: `/d12ball
-  offensive_choice` and `/d12ball resume force:true` also send a turn
-  prompt without a turn having been played.
-- **It is ahead of the AI branch** in `send_turn_prompt`, because beats
-  3 and 4 are turns the coach *defends* and their lessons have to be
-  posted before Dinky moves.
+  beats. It **moves nothing**; it posts the lesson and nothing else.
+  `tutorial_staged` keeps the count honest: `/d12ball offensive_choice`
+  and `/d12ball resume force:true` also send a turn prompt without a
+  turn having been played.
+- **It is ahead of the AI branch** in `send_turn_prompt`, because beat
+  3 is a turn the coach *defends* and its lesson has to be posted
+  before Dinky moves.
 - **Setup coaching is skipped**, and the script arms at the kickoff --
   so teams, the toss and home-or-visiting are played exactly as an
   ordinary game plays them.
@@ -1350,22 +1392,18 @@ opted out is not taught anyway.
 leave enabled. It is the only thing that can catch what this design is
 most fragile to: a change to a maneuver's effect, the run back or the
 loose-ball rule putting the story out of joint without breaking
-anything else in the suite. It asserts the board is set exactly once,
-that staging a beat moves nothing, that the run back is the only
-unrailed choice, that possession changes hands the three scripted
-times, and that the whole thing arrives at a goal on minute 7.
+anything else in the suite. It asserts that **no side is ever
+re-dealt** (`MatchState.deploy_side` is called zero times), that
+staging a beat moves nothing, that only the two intended choices ever
+leave two buttons live, that possession changes hands the three
+scripted times, and that the whole thing arrives at a goal on minute 7.
 
 **The lesson text is not asserted anywhere.** It is prose, it will be
 revised, and a test quoting it would only ever break on a reword. What
 is asserted is every claim it makes that the data could contradict --
-which maneuver beats which, that the opening is out of shooting range,
-that Dinky has one card in the lane.
-
-**The score and the clock carry over.** The five beats charge four
-maneuvers, a High Pass and the shot -- about seven space minutes -- so
-the real game starts around minute 7 of the first half with the coach a
-goal up. That is the author's call, and it is why nothing resets the
-scoreboard at the handover.
+which maneuver beats which, that the deal starts out of shooting range,
+that the striker is on the space the last pass lands on, that exactly
+one Dinky card is standing there.
 
 ## Logging and the #logs channel
 
