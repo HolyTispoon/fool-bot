@@ -3,23 +3,25 @@ The scripted opening a `/d12ball create_game tutorial:true` game plays
 before it becomes an ordinary game against Dinky.
 
 **Every lesson is a real turn, and the five of them are one continuous
-play.** The tutorial sets the board **once**, at kickoff (`OPENING`),
-and never touches it again: each beat is played from wherever the
-previous beat's turn actually left the ball. That is the whole design.
-An earlier version re-dealt both sides before every beat, which made
-each lesson self-contained at the cost of the story -- a coach drove
-Dinky backwards with a Pressure and then found the ball back in
-midfield with no explanation. There is no such seam now, and there must
-not be one again: **nothing here may move a meeple between beats.**
+play.** The script **places nothing at all**: the game kicks off from
+the standard deal and each beat is played from wherever the previous
+beat's turn actually left the ball. That is the whole design. An
+earlier version re-dealt both sides before every beat, which made each
+lesson self-contained at the cost of the story -- a coach drove Dinky
+backwards with a Pressure and then found the ball back in midfield with
+no explanation. There is no such seam now, and there must not be one
+again: **nothing here may move a meeple, at any point.**
 
 What that costs is determinism. A chained script only works if every
 step of it lands where the next beat expects, so:
 
-- **The rails cover every choice that moves the ball**, not just the
-  maneuver: the turn action, the card, and the dribble distance, ball
-  speed, pass distance and set-up shot (`choices`). Anything left free
-  -- a run-back space, which of two of your own players challenges --
-  is free precisely because the beats that follow do not depend on it.
+- **The rails cover every choice that moves the ball or prices the
+  shot**, not just the maneuver: the turn action, the card, the dribble
+  distance, the ball speed, the pass distance, the set-up shot, and
+  whether a loose ball may be waved through (`choices`). Anything left
+  free -- a run-back space, which player is sent after the loose ball,
+  which of two of your own challenges -- is free precisely because the
+  beats that follow do not depend on it.
 - **Some dice are scripted** (`rolls`). Beat 2 is a tie the coach has
   to *lose*, or the ball never comes free and beats 3 and 4 have
   nothing to defend against; the loose ball behind it has to go Dinky's
@@ -28,9 +30,14 @@ step of it lands where the next beat expects, so:
   mechanic the script never introduces and cannot plan around.
 - **The score attempt at the end is not scripted.** It is the one roll
   in the tutorial that decides something the coach actually wants, and
-  the position is built so it is a heavy favourite rather than a
-  certainty -- a striker's +9 against a lone halved defender, 89.6%.
-  A tutorial that cannot lose its last shot is not teaching the game.
+  the play is built so it is a heavy favourite rather than a certainty:
+  the striker's d12+11 -- offensive skill 6, the Striker's +3 off a
+  set-up, and +2 for the ball speed beat 4 told the coach to crank --
+  against the fullback's d12+6, which is **85.4%**. A tutorial that
+  cannot lose its last shot is not teaching the game. That the speed
+  rail in beat 4 is worth a whole point of that margin is the reason it
+  is railed at all, and the reason the lesson explains it rather than
+  just greying the buttons.
 
 **There is no beat for the Coaching Choice**, and there cannot be one:
 a new play offers the window to the side *restarting* play, which after
@@ -42,12 +49,20 @@ round to it, and `tutorial_coaching_explained` is what keeps it to one.
 Skipping the tutorial suppresses it, which is what `skip_tutorial`
 setting that flag is for.
 
-**The coach always plays home**, because the script opens with the ball
-theirs: `HomeAwaySelectionView` rails a coach who wins the toss onto
-Home, and `CoinFlipView.flip_coin` sends Dinky to the visitors when
-Dinky wins it. Shapes are still written from a side's own goal forward
-and mirrored by `absolute_index` -- that is how Dinky's half of
-`OPENING` is read, and it is the frame a formation is dealt in.
+**The opening position is the standard deal**, and the script places
+nothing. Both sides are dealt 2-2-2 exactly as every game deals them:
+the coach's playmaker has the ball on M2 with Dinky's playmaker
+standing on it to challenge, the coach's striker is on V2, and Dinky's
+fullback is on V2 with them. Writing a position of our own was tried
+and dropped -- it put both sides in shapes (2-3-1 and 1-3-2) no game
+ever kicks off in, which taught the wrong thing before the first
+button was pressed. **A beat that wants a different position has to
+play its way there.**
+
+**The coach always plays home**, because the deal gives home the ball:
+`HomeAwaySelectionView` rails a coach who wins the toss onto Home, and
+`CoinFlipView.flip_coin` sends Dinky to the visitors when Dinky wins
+it.
 
 Everything the script leaves the game in is a state the game already
 knows: nothing here adds a branch to `pending_turn_view`, and
@@ -74,78 +89,11 @@ STEAL_INTERCEPT = "Steal Intercept"
 PRESSURE = "Pressure"
 
 
-# A side's six by role, at a **forward index** counted from that side's
-# own goal end. Written out rather than derived: the point of a scripted
-# position is that it can be read off the page and checked against the
-# board.
-Shape = dict[PlayerRole, int]
-
-
-def absolute_index(board_size: int, side: TeamSide, forward: int) -> int:
-    """
-    A forward index -- counted from `side`'s own goal end -- as a flat
-    index across the board.
-
-    Home attacks from low indices to high, so its forward index *is*
-    the flat one; the visitors attack the other way and read mirrored.
-    The same convention a formation is dealt in.
-    """
-    if TeamSide(side) is TeamSide.HOME:
-        return forward
-    return board_size - 1 - forward
-
-
-@dataclass(frozen=True)
-class OpeningPosition:
-    """
-    The board the whole script is played from, laid down once at
-    kickoff and never again.
-
-    It is not the standard deal, and the welcome says so: the tutorial
-    skips setup coaching, so this stands in for the line-ups two
-    coaches would have set. Every space in it is load-bearing --
-
-    - The coach's **playmaker has the ball on M1**, two spaces short of
-      shooting range, so the maneuvers before the shot happen out of
-      range and the Shoot button is not offered until it is earned.
-      Beat 2 is the exception and is written to use it.
-    - The coach's **striker stands on V1**, which is where beat 5's
-      2-space High Pass lands, and is inside shooting range.
-    - **Dinky keeps exactly one card in their own goal zone**, on V2,
-      which is what makes the shot at the end a striker's +9 against a
-      single halved +3 rather than against two of them. Their shape is
-      1-3-2, an attacking one, which is also why they have somebody on
-      M1 to challenge the opening maneuver.
-    - The coach covers **M2**, their kickoff space, because the goal at
-      the end restores this arrangement and opens a Coaching Choice --
-      and `coaching_finish_refusal` holds a coach there until somebody
-      of theirs is standing on it.
-    """
-
-    player_shape: Shape
-    dinky_shape: Shape
-    ball_forward: int
-
-
-OPENING = OpeningPosition(
-    player_shape={
-        PlayerRole.FULLBACK: 0,     # H1
-        PlayerRole.DEFENDER: 1,     # H2
-        PlayerRole.PLAYMAKER: 2,    # M1 -- on the ball
-        PlayerRole.MIDFIELDER: 3,   # M2 -- the kickoff space
-        PlayerRole.WINGER: 4,       # M3
-        PlayerRole.STRIKER: 5,      # V1 -- beat 5 lands here
-    },
-    dinky_shape={
-        PlayerRole.FULLBACK: 0,     # V2 -- the only card in the lane
-        PlayerRole.DEFENDER: 2,     # M3
-        PlayerRole.MIDFIELDER: 4,   # M1 -- challenges beat 1
-        PlayerRole.PLAYMAKER: 3,    # M2
-        PlayerRole.WINGER: 5,       # H2
-        PlayerRole.STRIKER: 6,      # H1
-    },
-    ball_forward=2,
-)
+# A rail that cannot name its value up front, because the value
+# depends on who is standing where: the ball speed a steal may set is
+# capped by the stealer's own defensive skill, so "the highest offered"
+# is the only way to write it down.
+CHOICE_MAX = "max"
 
 
 @dataclass(frozen=True)
@@ -225,8 +173,9 @@ BEATS: tuple[TutorialBeat, ...] = (
         title="Your first turn",
         lesson=(
             "## 1. Your first turn\n"
-            "Both line-ups are set and the ball is yours, on **M1** in "
-            "midfield.\n\n"
+            "Both sides are dealt the standard **2-2-2** -- two cards in "
+            "your own goal zone, two in midfield, two in the zone you "
+            "are attacking -- and the ball is yours, on **M2**.\n\n"
             "The field is **seven spaces** across in three zones: your "
             "own goal (H1-H2), midfield (M1-M3), and the goal you are "
             "attacking (V1-V2). Your six cards are on the board as "
@@ -236,11 +185,11 @@ BEATS: tuple[TutorialBeat, ...] = (
             "A turn starts with whoever is standing on the ball -- the "
             "**handler**. You have one player there, your playmaker, so "
             "they are chosen for you. Then you decide what they do.\n\n"
-            "There are three things a handler can do: shoot, maneuver, "
-            "or cede the ball to buy a coaching window. **You are not "
-            "offered the shot** -- a shot may only be taken from inside "
-            "your shooting range, which is the far third of the field "
-            "(M3 and beyond), and you are two spaces short of it.\n\n"
+            "A handler can do three things: shoot, maneuver, or cede "
+            "the ball to buy a coaching window. **You are not offered "
+            "the shot** -- a shot may only be taken from inside your "
+            "shooting range, which is M3 and beyond, and you are one "
+            "space short of it.\n\n"
             "**Press Maneuver.**"
         ),
         maneuver_note=(
@@ -259,8 +208,8 @@ BEATS: tuple[TutorialBeat, ...] = (
             "the other side's, ties with one, and loses to one. The "
             "Maneuver Reference button draws the whole thing, and you "
             "can open it whenever you like.\n\n"
-            "Dinky's midfielder is standing on the ball, so they are "
-            "the one challenging you.\n\n"
+            "Dinky's playmaker is standing on the ball, so they are the "
+            "one challenging you.\n\n"
             "**Pick Dribble Advance.** It beats Block Deflect, which is "
             "what Dinky has played, and it is the card that carries the "
             "ball up the field."
@@ -269,8 +218,10 @@ BEATS: tuple[TutorialBeat, ...] = (
         player_maneuver=DRIBBLE_ADVANCE,
         dinky_maneuver=BLOCK_DEFLECT,
         # Two spaces is the Playmaker's own ability and this beat exists
-        # partly to show it. No speed change keeps the ball at 1, which
-        # is what the score attempt at the end is priced against.
+        # partly to show it. The speed dial is pinned at no change
+        # rather than taught here: the turnover in beat 2 resets the
+        # ball's speed, so anything set now is thrown away, and beat 4
+        # is where a change actually reaches the shot.
         choices={"dribble_advance": "2", "speed": "1"},
     ),
     TutorialBeat(
@@ -280,24 +231,24 @@ BEATS: tuple[TutorialBeat, ...] = (
             "## 2. Every role has an ability\n"
             "Dribble Advance beat Block Deflect outright -- no dice, "
             "because the cycle had already settled it -- and your "
-            "playmaker carried the ball **two** spaces, to M3.\n\n"
+            "playmaker carried the ball **two** spaces, from M2 to "
+            "**V1**.\n\n"
             "Two was not the ordinary move. A dribble advances one "
             "space; the **Playmaker** may make it two, and that is "
             "their role's ability. **Every player has a role and every "
             "role has an ability**, printed on their card and worth "
             "reading before you pick a maneuver -- the Fullback throws "
-            "a longer High Pass, the Striker is deadly off a set-up, "
-            "the Defender can steal off a won Pressure. Two commands "
-            "list them whenever you want: **`/d12ball role_abilities`** "
-            "for all six, and **`/d12ball team_roster`** for who on "
-            "your team has which.\n\n"
-            "You are on M3 now, which is inside your shooting range, so "
+            "a longer High Pass, the Midfielder gets +3 on a Low Pass "
+            "or Pressure test, the Defender steals the ball off a won "
+            "Pressure. Two commands list them whenever you want: "
+            "**`/d12ball role_abilities`** for all six, and **`/d12ball "
+            "team_roster`** for who on your team has which.\n\n"
+            "You are on V1 now, which is inside your shooting range, so "
             "the **Shoot** button has appeared. It is greyed out here, "
-            "and it would be a bad shot anyway: your playmaker's "
-            "offensive skill is 4, and Dinky's defender is standing on "
-            "the ball with you -- a defender on the ball adds their "
-            "**whole** defensive skill to the save. We will make a much "
-            "better shot shortly.\n\n"
+            "and it would be a poor shot anyway: your playmaker's "
+            "offensive skill is 4, Dinky's defender is standing on the "
+            "ball and their fullback is behind them -- roughly d12+4 "
+            "against d12+8. We will make a much better one shortly.\n\n"
             "**Press Maneuver.**"
         ),
         maneuver_note=(
@@ -315,14 +266,9 @@ BEATS: tuple[TutorialBeat, ...] = (
             "and Dinky is going to win it. Watch what a won Block "
             "Deflect does: the ball is knocked back a space and comes "
             "**loose**, belonging to nobody, and each side sends "
-            "somebody to fight over it.\n\n"
-            "Then watch the **run back**. Every zone has to stay "
-            "covered -- you may not leave one of your zone's spaces "
-            "empty while two of your players share another -- so when "
-            "the dust settles you will be asked to send somebody back "
-            "to cover M1. That costs **one exhaustion token per "
-            "space**, and each button prices the trip. Anyone left "
-            "outside their own zone entirely runs back the same way."
+            "somebody to fight over it. You will be asked who -- and "
+            "each name comes with the distance, because walking in "
+            "costs a token a space."
         ),
         player_has_ball=True,
         player_maneuver=LOW_PASS,
@@ -330,6 +276,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         # The coach has to lose both of these, or the ball never comes
         # free and beats 3 and 4 -- the two lessons in defending -- have
         # nothing to defend against. See the module docstring.
+        choices={"loose_ball_decline": "never"},
         rolls={"skill_test": (2, 11), "loose_ball": (2, 11)},
     ),
     TutorialBeat(
@@ -338,14 +285,13 @@ BEATS: tuple[TutorialBeat, ...] = (
         lesson=(
             "## 3. Your turn to defend\n"
             "That is the ball lost. Dinky won the skill test, their "
-            "Block Deflect knocked it back a space and loose, and they "
-            "won the scramble that followed. They are coming at your "
-            "goal now.\n\n"
-            "You have a player standing on the ball, so they challenge "
-            "without going anywhere. That matters: sending a player who "
-            "is **not** already on the ball costs one exhaustion token "
-            "for every space they walk, which is why where your meeples "
-            "stand is worth thinking about.\n\n"
+            "Block Deflect knocked it back to **M3** and loose, and "
+            "they won the scramble that followed. Whoever of yours was "
+            "left standing outside their own zone has run back into it "
+            "-- and paid a token a space to do it.\n\n"
+            "Dinky is coming at your goal now. You have a player "
+            "standing on the ball already, so they challenge without "
+            "going anywhere and without paying anything.\n\n"
             "You press nothing to start a turn you are defending -- "
             "Dinky moves first, and then you are asked for a card. Sit "
             "tight."
@@ -376,48 +322,55 @@ BEATS: tuple[TutorialBeat, ...] = (
         lesson=(
             "## 4. Winning the ball back\n"
             "Pressure drove them backwards: their handler and the ball "
-            "went back a space, and your challenger moved up onto them. "
-            "Dinky still has it -- but they have lost ground, and you "
-            "are standing on the ball.\n\n"
+            "went back a space to **V1**, and your challenger moved up "
+            "onto them. Dinky still has it -- but they have lost "
+            "ground, and you are standing on the ball.\n\n"
             "Now take it off them."
         ),
         maneuver_note=(
-            "### Turnovers, and the run back\n"
+            "### Turnovers, the run back, and ball speed\n"
             "**Pick Steal Intercept.** Dinky is playing Low Pass, and "
             "Steal Intercept beats it -- the ball is yours.\n\n"
-            "A steal takes the ball back a space with the player who "
-            "won it, and anyone it leaves out of position runs back at "
-            "the usual token a space -- Dinky will have to do that, "
-            "and you will see them pay for it.\n\n"
-            "Not every turnover works this way. A **steal** keeps the "
-            "ball live and charges for the scramble. A goal or a "
-            "missed shot is a **new play** instead: the ball is dead, "
-            "both sides reset to the arrangement their coach set, and "
-            "nobody pays anything. You are about to cause one of "
-            "each."
+            "Two things happen after it. Your player takes the ball "
+            "back a space with them, and **anyone left standing outside "
+            "their own zone runs back into it** at a token a space, the "
+            "same cost you watched Dinky pay two turns ago.\n\n"
+            "Then you get to set the **ball's speed**, up to your "
+            "stealer's defensive skill. Speed is worth half itself, "
+            "rounded down, **added to a score attempt** -- and it is "
+            "reset by every turnover, so a speed set now is one that "
+            "survives. You are about to shoot. **Take the highest "
+            "number offered**; the rest are greyed out."
         ),
         player_has_ball=False,
         player_maneuver=STEAL_INTERCEPT,
         dinky_maneuver=LOW_PASS,
-        # Steal Intercept offers the stealer the same speed dial a
-        # dribble does, and the shot two beats later is priced at
-        # speed 1.
-        choices={"speed": "1"},
+        # The one speed change in the script that survives to the shot:
+        # a turnover resets the ball's speed and this is set *after*
+        # the reset, so it is still on the ball when the striker takes
+        # aim a beat later. CHOICE_MAX because the cap is the stealer's
+        # own defensive skill, and who does the stealing is not
+        # something the script fixes.
+        choices={"speed": CHOICE_MAX, "loose_ball_decline": "never"},
     ),
     TutorialBeat(
         step=5,
         title="A shot at goal",
         lesson=(
             "## 5. A shot at goal\n"
-            "The ball is yours again, back in midfield, and this is the "
-            "last lesson -- it is worth a goal.\n\n"
-            "Look at **V1**. Your striker has been standing there all "
-            "game, inside your shooting range, and there is exactly one "
-            "Dinky card behind them between that space and the goal.\n\n"
-            "A High Pass of exactly 2 spaces lands on V1. A pass that "
+            "The ball is yours again, on **M3**, and moving fast. This "
+            "is the last lesson, and it is worth a goal.\n\n"
+            "M3 is inside your shooting range, so **Shoot** is offered "
+            "again -- and again it is the wrong button. Your midfielder "
+            "has an offensive skill of 3 and Dinky's cards are between "
+            "you and the goal.\n\n"
+            "Look at **V2** instead. Your striker has been standing "
+            "there all game, inside shooting range, offensive skill "
+            "**6** -- the best on your team.\n\n"
+            "A High Pass of exactly 2 spaces lands on V2. A pass that "
             "reaches a teammate already inside shooting range is a "
-            "**scoring opportunity**: they take a shot immediately, out "
-            "of turn. And your striker's ability is worth **+3** on "
+            "**scoring opportunity**: they shoot immediately, out of "
+            "turn. And the Striker's ability is worth **+3** on "
             "precisely that shot.\n\n"
             "**Press Maneuver.**"
         ),
@@ -425,19 +378,24 @@ BEATS: tuple[TutorialBeat, ...] = (
             "### High Pass, and what a shot is up against\n"
             "**Pick High Pass.** Dinky is playing Steal Intercept, and "
             "High Pass beats it, so the pass gets through.\n\n"
-            "You will be asked how far to throw. **Take 2 spaces** -- "
-            "the longer throws are greyed out this once, because only a "
-            "pass of 2 is caught cleanly. A 3-space pass has to be "
-            "*won* by whoever it lands near, with the ball's speed "
-            "counting against them.\n\n"
+            "You will be asked how far to throw. **2 spaces** is the "
+            "only distance offered here -- a longer throw would run off "
+            "the end of the field, and the menu never offers one that "
+            "would. It is also the distance you want: a pass of 2 is "
+            "caught cleanly, where a 3-space throw has to be *won* by "
+            "whoever it lands near, with the ball's speed counting "
+            "against them.\n\n"
             "Then take the shot. A score attempt is your d12 plus the "
-            "shooter's offensive skill, against Dinky's d12 plus every "
-            "defender in the way -- one standing on the ball adds all "
-            "of their defensive skill, one further back adds half, "
-            "rounded up. Ties go to the shooter.\n\n"
-            "Your striker rolls **d12+9** against their fullback's "
-            "**d12+3**. That is a real roll and it can still miss -- "
-            "but you should be, about nine times in ten."
+            "shooter's offensive skill and half the ball's speed, "
+            "against Dinky's d12 plus every defender in the way -- one "
+            "standing **on** the ball adds all of their defensive "
+            "skill, one further back adds half, rounded up. Ties go to "
+            "the shooter.\n\n"
+            "Their fullback is standing on V2, so you get their whole "
+            "defensive skill of 6 against you. Even so: your striker "
+            "rolls **d12+11** against their **d12+6**. That is a real "
+            "roll and it can miss -- but you should score about six "
+            "times in seven."
         ),
         player_has_ball=True,
         player_maneuver=HIGH_PASS,
@@ -523,70 +481,6 @@ SKIPPED = (
 )
 
 
-def card_for_role(
-    match: MatchState,
-    catalog,
-    side: TeamSide,
-    role: PlayerRole,
-) -> str:
-    """The card this side has on the field in `role`."""
-    for player_id in match.setup_for_side(side).field_players:
-        if catalog.player_by_id(player_id).role == role:
-            return player_id
-    raise LookupError(
-        f"The {TeamSide(side).value} side has no {role.value} on the field."
-    )
-
-
-def apply_opening(
-    match: MatchState,
-    catalog,
-    player_side: TeamSide,
-) -> None:
-    """
-    Lay both line-ups down for the start of the script. **The only
-    thing in this module that moves a meeple**, and it runs once, at
-    kickoff, before the first board is posted.
-
-    Goes through `deploy_side`, which sets each card's zone assignment
-    and its meeple's space together and charges nothing, and then
-    records the result with `set_assigned_positions` -- which is
-    load-bearing twice over: the goal at the end of beat 5 is a new
-    play, and a new play both restores this arrangement and opens the
-    Coaching Choice the last lesson is written on.
-    """
-    player_side = TeamSide(player_side)
-    dinky_side = (
-        TeamSide.VISITING
-        if player_side is TeamSide.HOME
-        else TeamSide.HOME
-    )
-    board_size = match.board.layout.board_size
-
-    for side, shape in (
-        (player_side, OPENING.player_shape),
-        (dinky_side, OPENING.dinky_shape),
-    ):
-        placement = []
-        for role, forward in shape.items():
-            flat = absolute_index(board_size, side, forward)
-            zone, space_index = match.board.position_at_flat_index(flat)
-            placement.append(
-                (card_for_role(match, catalog, side, role), zone, space_index)
-            )
-        match.deploy_side(side, placement)
-        match.set_assigned_positions(side)
-
-    ball_flat = absolute_index(
-        board_size, player_side, OPENING.ball_forward,
-    )
-    zone, space_index = match.board.position_at_flat_index(ball_flat)
-    match.ball.zone = zone
-    match.ball.space_index = space_index
-    match.ball.possession = player_side
-    match.ball.speed = 1
-
-
 def beat_for_step(step: Optional[int]) -> Optional[TutorialBeat]:
     """The beat a step names, or None once the beats have run out."""
     if step is None:
@@ -624,29 +518,36 @@ def allowed_maneuvers(
     return None if wanted is None else (wanted,)
 
 
-def railed_choice(
+def resolve_choice(
     beat: Optional[TutorialBeat],
     key: str,
-) -> Optional[str]:
+    options,
+) -> Optional[object]:
     """
-    The one value a beat allows for `key`, or None for no rail.
+    The one option out of `options` this beat allows, or None for no
+    rail.
 
     Keys name the view that asks: `dribble_advance`, `speed`,
-    `low_pass`, `high_pass`, `setup_attempt`. Every one of them decides
-    where the ball ends up, which is why they are railed at all -- see
-    the module docstring on what is deliberately left free.
+    `high_pass`, `setup_attempt`, `loose_ball_decline`. Every one of
+    them decides where the ball ends up or what it is worth, which is
+    why they are railed at all -- see the module docstring on what is
+    deliberately left free.
+
+    **A rail matching nothing on offer is no rail**, rather than a
+    prompt with every button dead. The script and the flow can only
+    disagree by mistake, and a coach stuck with nothing to press is a
+    worse failure than a lesson that did not land.
     """
-    return None if beat is None else beat.choices.get(key)
-
-
-def choice_is_refused(
-    beat: Optional[TutorialBeat],
-    key: str,
-    value,
-) -> bool:
-    """Whether this beat's rail rules `value` out. False with no rail."""
-    wanted = railed_choice(beat, key)
-    return wanted is not None and str(value) != wanted
+    wanted = None if beat is None else beat.choices.get(key)
+    if wanted is None:
+        return None
+    options = list(options)
+    if wanted == CHOICE_MAX:
+        return max(options) if options else None
+    for option in options:
+        if str(option) == wanted:
+            return option
+    return None
 
 
 def scripted_dice(
