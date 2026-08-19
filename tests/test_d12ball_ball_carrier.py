@@ -355,7 +355,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_run_back = mock.AsyncMock()
 
         with mock.patch("cogs.d12ball.save_games"):
-            await cog.resolve_steal_intercept(
+            await cog.resolve_steal(
                 build_interaction(), game, match,
             )
 

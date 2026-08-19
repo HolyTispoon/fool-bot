@@ -636,6 +636,19 @@ class TutorialRailTests(unittest.TestCase):
     def labels(self, view):
         return {item.label: item.disabled for item in view.children}
 
+    def cards(self, view):
+        """
+        A maneuver menu by **key**, which is what a rail names -- the
+        label is the printed name and moves when the author renames a
+        card. The reference button carries no maneuver, so it is left
+        out; `labels` is still the way to ask about it.
+        """
+        return {
+            item.custom_id.rsplit(":", 1)[1]: item.disabled
+            for item in view.children
+            if item.custom_id.startswith("d12ball:maneuver_pick:")
+        }
+
     def test_only_the_beats_action_is_live(self) -> None:
         cog, game, _ = self.build(0)
 
@@ -650,24 +663,26 @@ class TutorialRailTests(unittest.TestCase):
     def test_the_other_two_cards_are_shown_and_disabled(self) -> None:
         cog, game, beat = self.build(0)
 
-        labels = self.labels(ManeuverActionSelectView(cog, "g1", "offense"))
+        view = ManeuverActionSelectView(cog, "g1", "offense")
+        cards = self.cards(view)
 
-        self.assertEqual(len(labels), 4, "three cards and the reference")
-        self.assertFalse(labels[beat.player_maneuver])
+        self.assertEqual(len(cards), 3, "the basic three")
+        self.assertIn("Maneuver Reference", self.labels(view))
+        self.assertFalse(cards[beat.player_maneuver])
         self.assertTrue(
             all(
                 disabled
-                for label, disabled in labels.items()
-                if label not in (beat.player_maneuver, "Maneuver Reference")
+                for key, disabled in cards.items()
+                if key != beat.player_maneuver
             )
         )
 
     def test_a_defending_beat_rails_the_defense_menu(self) -> None:
         cog, game, beat = self.build(2)
 
-        labels = self.labels(ManeuverActionSelectView(cog, "g1", "defense"))
+        cards = self.cards(ManeuverActionSelectView(cog, "g1", "defense"))
 
-        self.assertFalse(labels[beat.player_maneuver])
+        self.assertFalse(cards[beat.player_maneuver])
 
     def test_a_beats_sub_choices_are_railed(self) -> None:
         cog, game, beat = self.build(0)

@@ -296,14 +296,13 @@ class GameConfigurationView(SafeView):
         if game is None:
             return
 
-        if selected_mode == GameMode.ADVANCED:
-            await interaction.response.send_message(
-                "advanced mode is not yet ready, please play in basic mode",
-                ephemeral=True,
-            )
-            return
-
-        game.mode = GameMode.BASIC
+        # **Advanced mode is the second set of maneuvers, and only
+        # that.** Its other half -- a unique ability per player -- is
+        # not built: the sheet's advanced ability column is empty for
+        # all thirty-six, so there is nothing to import. A coach
+        # picking it here gets six cards a side instead of three and
+        # the roster they already know.
+        game.mode = selected_mode
         save_games(self.cog.games)
 
         refreshed_view = type(self)(
@@ -2263,6 +2262,28 @@ class SkillTestView(SafeView):
             defense_total += modifier
             modifier_detail = f"+{modifier} ball speed modifier"
 
+        # **A won Double Team lands on the *next* maneuver**: both
+        # defenders challenge the ball holder, and both add their
+        # defensive skill. `double_team_defenders` is challenger-first
+        # and holds the second only while `pending_double_team` is set,
+        # which one card sets and a new play clears -- so this is a
+        # no-op in every game that never played it.
+        double_team_detail = ""
+        partners = [
+            player_id
+            for player_id in self.cog.engine.double_team_defenders(match)
+            if player_id != match.challenger_id
+        ]
+        for player_id in partners:
+            partner = self.cog.engine.get_player_definition(player_id)
+            partner_skill = self.cog.player_catalog.effective_profile(
+                partner
+            ).defense
+            defense_total += partner_skill
+            double_team_detail = (
+                f"+{partner_skill} {partner.name} (Double Team)"
+            )
+
         # The dice image carries the whole arithmetic -- who rolled,
         # what they rolled, every modifier and the total -- so no
         # message repeats it in text. See render_skill_test_dice.
@@ -2280,6 +2301,8 @@ class SkillTestView(SafeView):
             defense_detail.append(defense_ability_detail)
         if modifier_detail:
             defense_detail.append(modifier_detail)
+        if double_team_detail:
+            defense_detail.append(double_team_detail)
         offense_team = match.team_for_player(offense_player.player_id)
         defense_team = match.team_for_player(defense_player.player_id)
         dice_file = discord.File(
@@ -2741,16 +2764,28 @@ class LowPassChoiceView(SafeView):
     persistent view in this cog follows.
     """
 
-    def __init__(self, cog: "D12Ball", game_id: str):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        key: str = "low_pass",
+        free: bool = False,
+    ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
+        # Which card is being resolved, so the destinations offered are
+        # the ones that card actually reaches -- a Precise Pass reaches
+        # any teammate on the board. `free` is the unopposed pass
+        # Precise Pass's cost hands the defense, which charges no clock.
+        self.key = key
+        self.free = free
 
         game, match = self.load_match()
         if game is None:
             return
 
-        for distance, teammate_id in cog.engine.low_pass_candidates(match):
+        for distance, teammate_id in cog.engine.pass_candidates(match, key):
             teammate = cog.engine.get_player_definition(teammate_id)
             origin_flat = match.board.flat_index(
                 match.ball.zone, match.ball.space_index,
@@ -2827,7 +2862,10 @@ class LowPassChoiceView(SafeView):
                     f"passing to {space_label(zone, space_index)}. Which "
                     "player receives it?"
                 ),
-                view=LowPassReceiverView(self.cog, self.game_id, distance),
+                view=LowPassReceiverView(
+                    self.cog, self.game_id, distance,
+                    key=self.key, free=self.free,
+                ),
             )
             return
 
@@ -2843,6 +2881,7 @@ class LowPassChoiceView(SafeView):
         )
         await self.cog.apply_low_pass(
             interaction, game, match, distance, receiver_id=receivers[0],
+            key=self.key, free=self.free,
         )
 
 
@@ -2860,11 +2899,20 @@ class LowPassReceiverView(SafeView):
     Nothing has been committed at that point.
     """
 
-    def __init__(self, cog: "D12Ball", game_id: str, distance: int):
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        distance: int,
+        key: str = "low_pass",
+        free: bool = False,
+    ):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
         self.distance = distance
+        self.key = key
+        self.free = free
 
         game, match = self.load_match()
         if game is None:
@@ -2940,6 +2988,184 @@ class LowPassReceiverView(SafeView):
         )
         await self.cog.apply_low_pass(
             interaction, game, match, self.distance, receiver_id=receiver_id,
+            key=self.key, free=self.free,
+        )
+
+
+class SetupPassChoiceView(SafeView):
+    """
+    Where a won **Setup Pass** lands: 0, 1 or 3 spaces, and the
+    teammate standing there takes a scoring opportunity.
+
+    Reconstructible on restart from match state, the same as every
+    other persistent view here -- but only reached at all while
+    `pending_effect_continuation` says the speed half of the card is
+    already done, which is what `build_effect_choice_view` reads.
+
+    **A distance reaching nobody is not offered**, the same rule
+    `HighPassChoiceView` follows: the card is a set-up, so a landing
+    space with none of the passing side on it is not a shorter version
+    of the pass. When none of the three reaches anybody the view is not
+    shown -- the pass goes out (see `D12Ball.apply_setup_pass_out`).
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+        game, match = self.load_match()
+        if game is None:
+            return
+
+        for distance in cog.engine.setup_pass_distances(match):
+            note = (
+                "same space"
+                if distance == 0
+                else cog.engine.high_pass_destination_note(match, distance)
+            )
+            button = discord.ui.Button(
+                label=(
+                    f"{distance} spaces ({note})"
+                    if distance
+                    else f"0 spaces ({note})"
+                ),
+                style=discord.ButtonStyle.primary,
+                custom_id=f"d12ball:setup_pass:{game_id}:{distance}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_distance: int = distance,
+            ) -> None:
+                await self.choose(interaction, chosen_distance)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        distance: int,
+    ) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+
+        if not self.cog.engine.user_controls_possession(
+            interaction.user.id, game, match,
+        ):
+            await interaction.response.send_message(
+                "Only the player resolving this effect can choose.",
+                ephemeral=True,
+            )
+            return
+
+        # Re-read rather than trusted: this prompt carries no message
+        # id, so an older one still in the channel dispatches here too.
+        if distance not in self.cog.engine.setup_pass_distances(match):
+            await interaction.response.edit_message(
+                content=(
+                    "There is no teammate at that distance any more. Use "
+                    "`/d12ball resume` to put the choice back up."
+                ),
+                view=None,
+                attachments=[],
+            )
+            return
+
+        team_name = team_display_name(
+            match.setup_for_side(match.ball.possession).team
+        )
+        # The field strip goes with the question: it shows the ball
+        # where it was before the pass, so leaving it under the answer
+        # would put a stale position in the channel.
+        await interaction.response.edit_message(
+            content=(
+                f"**{interaction.user.display_name} ({team_name})** picks "
+                f"out a **Setup Pass** of {distance}."
+            ),
+            view=None,
+            attachments=[],
+        )
+        await self.cog.apply_setup_pass(interaction, game, match, distance)
+
+
+class SetupPassPushBackView(SafeView):
+    """
+    **Setup Pass's cost**, put to the coach who beat it: how far back
+    the ball is driven -- 1, 2 or 3 spaces -- before it is left loose.
+
+    The choice belongs to the *defending* side, which is the side that
+    won the maneuver, so this is the one prompt in a maneuver's effect
+    that the defense answers and the offense watches.
+
+    Not reconstructible from match state: by the time it is up, the
+    deflection has already landed and nothing on the match says a
+    push-back is owed. A restart mid-choice comes back to whatever
+    `pending_turn_view` makes of the position, which is the same gap
+    `SetUpAttemptChoiceView` has and for the same reason -- nothing has
+    been applied yet.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+        game, match = self.load_match()
+        if game is None:
+            return
+
+        offense_side = match.ball.possession
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        for distance in (1, 2, 3):
+            target_flat = match.relative_flat_index(
+                origin_flat, offense_side, -distance,
+            )
+            if abs(target_flat - origin_flat) != distance:
+                continue
+            zone, space_index = match.board.position_at_flat_index(target_flat)
+            button = discord.ui.Button(
+                label=(
+                    f"{distance} back ({space_label(zone, space_index)})"
+                ),
+                style=discord.ButtonStyle.primary,
+                custom_id=f"d12ball:setup_pass_push:{game_id}:{distance}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_distance: int = distance,
+            ) -> None:
+                await self.choose(interaction, chosen_distance)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        distance: int,
+    ) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+
+        if not self.cog.engine.user_controls_defense(
+            interaction.user.id, game, match,
+        ):
+            await interaction.response.send_message(
+                "Only the coach who beat the Setup Pass can choose.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.edit_message(view=None)
+        await self.cog.apply_setup_pass_push_back(
+            interaction, game, match, distance,
         )
 
 

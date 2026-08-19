@@ -22,6 +22,7 @@ down here; see "Every ability is imported twice" in CLAUDE.md. The two
 things that match cannot find are listed explicitly below, each with
 the reason -- see EXTRA_ROLES and EXTRA_NOTES.
 """
+import re
 from io import BytesIO
 from math import ceil
 from typing import NamedTuple, Optional, Sequence
@@ -383,27 +384,43 @@ def role_abilities(
     advanced card lists the one thing that *is* settled about how it
     resolves: what it does when a skill test decides it.
     """
-    needle = maneuver.name.lower()
+    # Matched on **whole words**, not as a substring. It was a
+    # substring while every maneuver name was two words: the author
+    # renamed the basic D2 card to "Steal" on 2026-08-18, and "steal"
+    # is inside "Steals the ball when resolving Pressure" -- so the
+    # Defender's ability, which is Pressure's, silently appeared on
+    # Steal's card as well.
+    needle = re.compile(
+        r"\b" + r"\s+".join(
+            re.escape(word) for word in maneuver.name.lower().split()
+        ) + r"\b"
+    )
     extra = EXTRA_ROLES.get(maneuver.key, ())
     rows = [
         (role.value.upper(), profile.ability)
         for role, profile in catalog.role_profiles.items()
-        if needle in profile.ability.lower() or role.value in extra
+        if needle.search(profile.ability.lower()) or role.value in extra
     ]
     rows.extend(EXTRA_NOTES.get(maneuver.key, ()))
     if maneuver.is_advanced and maneuvers is not None:
-        rows.append(skill_test_note(maneuvers, maneuver))
+        rows.append(tie_note(maneuvers, maneuver))
     return rows
 
 
-def skill_test_note(
+def tie_note(
     catalog: ManeuverCatalog, maneuver: ManeuverDefinition
 ) -> tuple[str, str]:
     """
-    The line every advanced card carries: an advanced effect fires only
-    on an **outright** result, and a maneuver a skill test settled
-    resolves as the basic card on the same rank instead (the author,
-    2026-08-18).
+    The line every advanced card carries: **an advanced effect follows
+    the cards, not the dice.**
+
+    A tie on the cards carries no advanced effect either way and
+    resolves as the basic card on the same rank instead. A skill test
+    the cards did *not* tie -- one an injured player's disadvantage
+    forced -- is still an outright result, so it carries the effects
+    and the roll only decides which way (the author, 2026-08-19). That
+    is the same reading that makes an injured player's automatic loss
+    of a tie carry nothing: what matters is the tie on the cards.
 
     The counterpart is looked up by rank rather than written down,
     because rank is what pairs the two cards -- see
@@ -411,9 +428,10 @@ def skill_test_note(
     """
     counterpart = catalog.counterpart(maneuver)
     return (
-        "SKILL TEST",
-        f"Won or lost on a skill test, this resolves as "
-        f"{counterpart.name} and neither side's advanced effect fires.",
+        "TIE",
+        f"A tie resolves as {counterpart.name}, with no advanced "
+        "effect either way. A skill test forced by injury still carries "
+        "them.",
     )
 
 

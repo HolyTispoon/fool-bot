@@ -394,14 +394,14 @@ class ManeuverMenuRestoreTests(unittest.IsolatedAsyncioTestCase):
         ):
             store.dispatch_view(
                 discord.ComponentType.button.value,
-                f"d12ball:maneuver_pick:{game.game_id}:offense:Low Pass",
+                f"d12ball:maneuver_pick:{game.game_id}:offense:low_pass",
                 # An id no view was registered under: an ephemeral
                 # message the bot has never seen before.
                 SimpleNamespace(message=SimpleNamespace(id=123456789)),
             )
 
         self.assertEqual(len(dispatched), 1, "the None-keyed fallback is gone")
-        self.assertEqual(dispatched[0].label, "low_pass")
+        self.assertEqual(dispatched[0].label, "Low Pass")
 
     def test_a_restart_mid_maneuver_restores_the_menus(self) -> None:
         # End to end through the startup path: the prompt view is what

@@ -309,7 +309,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved.pending_injury_tests, [offense])
         self.assertEqual(
             saved.pending_injury_resume,
-            {"kind": "maneuver_effect", "winner_name": "low_pass"},
+            {"kind": "maneuver_effect", "winner_key": "low_pass"},
         )
 
     async def test_the_effect_follows_the_roll(self) -> None:

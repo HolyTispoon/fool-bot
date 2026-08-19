@@ -742,6 +742,12 @@ class BasicRuleset:
 # always been played; advanced is the second set the 2026-08-17 ruling
 # added, one card per basic card at the same rank -- see "Advanced
 # maneuvers" in docs/living-rules.md.
+# Setup Pass's three distances, and its clock cost. It is High Pass's
+# rank and carries High Pass's two space minutes; 0 is a teammate
+# sharing the passer's own space.
+SETUP_PASS_DISTANCES = (0, 1, 3)
+SETUP_PASS_CLOCK_COST = 2
+
 MANEUVER_TIER_BASIC = "basic"
 MANEUVER_TIER_ADVANCED = "advanced"
 MANEUVER_TIERS = (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
@@ -1296,6 +1302,27 @@ class MatchState:
     pending_run_back_turnover: bool = True
     pending_run_back_stays_player_id: Optional[str] = None
     pending_run_back_speed_choice: bool = False
+    # **What a maneuver's effect still owes once its last prompt has
+    # been answered**, as `{"kind": ..., ...}` -- or None, which is
+    # nearly always.
+    #
+    # Two of the advanced effects reach past their own maneuver.
+    # Setup Pass adjusts ball speed and *then* sets up a scoring
+    # opportunity; Precise Pass, when it is beaten, hands the defense
+    # an unopposed Low Pass once the steal has settled. Both sit behind
+    # a speed choice, which is the last human step of an effect and has
+    # always led straight into `finish_maneuver_resolution`. Rather
+    # than a flag per case this says what is left to do, the same shape
+    # `pending_injury_resume` uses for the same reason -- and it is
+    # persisted for the same reason too: a restart between the roll and
+    # what it was going to lead to has no other way to know.
+    pending_effect_continuation: Optional[dict] = None
+    # The two defenders a won Double Team put on the ball, who both
+    # challenge the ball holder on the defending side's **next**
+    # maneuver, each adding their defensive skill. Empty otherwise.
+    # Cleared by a new play, which is the one thing the card says ends
+    # it: "so long as it's not a new play".
+    pending_double_team: list[str] = field(default_factory=list)
     pending_kickoff_fill: bool = False
     pending_shot_is_set_up: bool = False
     # The base clock cost of the maneuver that offered a pending set-up
@@ -2337,6 +2364,39 @@ class MatchState:
             return False
         return self.maneuver_uncontested or self.defense_maneuver is not None
 
+    def spaces_to_attacking_end(
+        self, player_id: str, side: TeamSide,
+    ) -> int:
+        """
+        How far `player_id` is from the last space of the goal zone
+        `side` attacks -- what a Dribble Burst runs, and what it is
+        charged a token a space for.
+
+        Measured off the board rather than off the zone, because "the
+        last space of the goal they attack" is the far end of the
+        field: `relative_flat_index` clamps there, so asking for the
+        whole board is asking for exactly that space.
+        """
+        origin_flat = self.board.flat_index(
+            *self.board.meeple_position(player_id)
+        )
+        target_flat = self.relative_flat_index(
+            origin_flat, side, self.board.layout.board_size,
+        )
+        return abs(target_flat - origin_flat)
+
+    def opposing_maneuver(self, key: str) -> Optional[str]:
+        """
+        The card played against `key` this maneuver, or None when `key`
+        is neither side's pick -- which is how an uncontested maneuver
+        answers, since there is no defense card at all.
+        """
+        if key == self.offense_maneuver:
+            return self.defense_maneuver
+        if key == self.defense_maneuver:
+            return self.offense_maneuver
+        return None
+
     def choose_offense_maneuver(self, key: str) -> None:
         """
         Record the offense's pick, by **maneuver key** -- see
@@ -2440,6 +2500,7 @@ class MatchState:
         self.pending_run_back_turnover = True
         self.pending_run_back_stays_player_id = None
         self.pending_run_back_speed_choice = False
+        self.pending_effect_continuation = None
         self.pending_kickoff_fill = False
         self.pending_shot_is_set_up = False
         self.pending_shot_setup_cost = 0
@@ -3814,6 +3875,8 @@ class MatchState:
             "pending_run_back_stays_player_id": (
                 self.pending_run_back_stays_player_id
             ),
+            "pending_effect_continuation": self.pending_effect_continuation,
+            "pending_double_team": list(self.pending_double_team),
             "pending_run_back_speed_choice": (
                 self.pending_run_back_speed_choice
             ),
@@ -3945,6 +4008,10 @@ class MatchState:
             pending_run_back_stays_player_id=data.get(
                 "pending_run_back_stays_player_id"
             ),
+            pending_effect_continuation=data.get(
+                "pending_effect_continuation"
+            ),
+            pending_double_team=list(data.get("pending_double_team", [])),
             pending_run_back_speed_choice=data.get(
                 "pending_run_back_speed_choice", False
             ),
