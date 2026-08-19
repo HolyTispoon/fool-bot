@@ -1,75 +1,165 @@
 {
-  "data_version": 7,
+  "data_version": 8,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1487033386",
   "maneuvers": {
     "offense": [
       {
         "name": "Low Pass",
+        "key": "low_pass",
         "rank": 1,
+        "tier": "basic",
         "die_values": [
           1,
           2
         ],
-        "defeats": "Pressure",
         "effect": "Ball to the nearest teammate ahead or behind, max 2 spaces; or to one sharing its space, and the passer moves forward 1. Ball speed +1.",
-        "time": "1 space minute"
+        "time": "1 space minute",
+        "defeats_rank": 3
+      },
+      {
+        "name": "Precise Pass",
+        "key": "precise_pass",
+        "rank": 1,
+        "tier": "advanced",
+        "die_values": [
+          1,
+          2
+        ],
+        "effect": "Ball to any teammate. Ball speed +3. If defeated, defender may low pass unopposed after stealing.",
+        "time": "1 space minute",
+        "defeats_rank": 3
       },
       {
         "name": "Dribble Advance",
+        "key": "dribble_advance",
         "rank": 2,
+        "tier": "basic",
         "die_values": [
           3,
           4
         ],
-        "defeats": "Block Deflect",
         "effect": "Player and ball move forward 1 space. Manipulate ball speed (up to oSkill).",
-        "time": "1 space minute"
+        "time": "1 space minute",
+        "defeats_rank": 1
+      },
+      {
+        "name": "Dribble Burst",
+        "key": "dribble_burst",
+        "rank": 2,
+        "tier": "advanced",
+        "die_values": [
+          3,
+          4
+        ],
+        "effect": "Player and ball move forward all the way to the goal, gaining exhaustion for distance traveled. Manipulate ball speed (up to oSkill). If defeated, lose posession and ball speed doesn't go down to 1 before the defender gets to manipulate ball speed.",
+        "time": "1 space minute",
+        "defeats_rank": 1
       },
       {
         "name": "High Pass",
+        "key": "high_pass",
         "rank": 3,
+        "tier": "basic",
         "die_values": [
           5,
           6
         ],
-        "defeats": "Steal Intercept",
         "effect": "Ball moves forward 2-3 spaces. 2: received, and may set up for scoring. 3+: receiver must win a skill test to keep it, adding ball speed.",
-        "time": "2 space minutes"
+        "time": "2 space minutes",
+        "defeats_rank": 2
+      },
+      {
+        "name": "Setup Pass",
+        "key": "setup_pass",
+        "rank": 3,
+        "tier": "advanced",
+        "die_values": [
+          5,
+          6
+        ],
+        "effect": "Adjust ball speed up to oSkill and then setup a scoring opportunity for distances 0,1, or 3 (*with* ball speed benefit). If defeated, other coach chooses whether the ball goes back 1-2-3 spaces, where it will be a loose ball.",
+        "time": "2 space minutes",
+        "defeats_rank": 2
       }
     ],
     "defense": [
       {
         "name": "Block Deflect",
+        "key": "block_deflect",
         "rank": 1,
+        "tier": "basic",
         "die_values": [
           1,
           2
         ],
-        "defeats": "High Pass",
         "effect": "Ball moves back 1 space. If overshoots the goal, may set up scoring. Ball speed -1.",
-        "time": "1 space minute"
+        "time": "1 space minute",
+        "defeats_rank": 3
       },
       {
-        "name": "Steal Intercept",
+        "name": "Clear",
+        "key": "clear",
+        "rank": 1,
+        "tier": "advanced",
+        "die_values": [
+          1,
+          2
+        ],
+        "effect": "Ball moves back 3 space. If overshoots the goal, may set up scoring. Ball speed -3. if defeated, add 2 exhaustion.",
+        "time": "1 space minute",
+        "defeats_rank": 3
+      },
+      {
+        "name": "Steal",
+        "key": "steal",
         "rank": 2,
+        "tier": "basic",
         "die_values": [
           3,
           4
         ],
-        "defeats": "Low Pass",
         "effect": "Turnover. Defender and ball move back 1 space. Manipulate ball speed after turnover (up to dSkill).",
-        "time": "1 space minute"
+        "time": "1 space minute",
+        "defeats_rank": 1
+      },
+      {
+        "name": "Intercept",
+        "key": "intercept",
+        "rank": 2,
+        "tier": "advanced",
+        "die_values": [
+          3,
+          4
+        ],
+        "effect": "Turnover. Defender and ball move forward 1 space. Manipulate ball speed after turnover (up to dSkill). If defeated, high pass reception is not contested.",
+        "time": "1 space minute",
+        "defeats_rank": 1
       },
       {
         "name": "Pressure",
+        "key": "pressure",
         "rank": 3,
+        "tier": "basic",
         "die_values": [
           5,
           6
         ],
-        "defeats": "Dribble Advance",
         "effect": "Player and ball go back 1 space. Defender moves 1 forward. If overshoots goal, own goal risk.",
-        "time": "1 space minute"
+        "time": "1 space minute",
+        "defeats_rank": 2
+      },
+      {
+        "name": "Double Team",
+        "key": "double_team",
+        "rank": 3,
+        "tier": "advanced",
+        "die_values": [
+          5,
+          6
+        ],
+        "effect": "Player and ball go back 2 spaces, Defender and one teammate that is closest (to the space where the play started) joins as well (no exhuastion cost). So long as it's not a new play, on their next maneuver, both defending players challenge the ball holder (both add their dSkill to skill test or special abilties). If overshoots goal, own goal risk. If defeated, defender and closest teammate go 1 forward (away from their own goal).",
+        "time": "1 space minute",
+        "defeats_rank": 2
       }
     ]
   }

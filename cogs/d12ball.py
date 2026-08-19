@@ -20,6 +20,8 @@ from d12ball.engine import (
     RulesEngine,
 )
 from d12ball.components import (
+    MANEUVER_TIER_ADVANCED,
+    MANEUVER_TIER_BASIC,
     MIN_HIGH_PASS_DISTANCE,
     SECOND_HALF_START_MINUTE,
     SETUP_AREAS,
@@ -35,6 +37,7 @@ from d12ball.components import (
     Zone,
     formation_space_order,
     kickoff_space_index,
+    legacy_maneuver_key,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -243,21 +246,35 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # matches nothing shows as three disabled buttons rather than
         # as an error. See d12ball/tutorial.py.
         tutorial.validate_script(self.maneuver_catalog)
-        self.maneuver_reference_image_bytes = render_maneuver_reference_image(
-            self.maneuver_catalog
-        ).read()
-        # A side's three maneuver cards, which is what a coach is shown
-        # when they open the pick. Both are drawn here for the same
+        # One hexagon per tier: the two are the same six positions with
+        # different names on them, so an advanced game reads its own
+        # cards off its own picture.
+        self.maneuver_reference_image_bytes = {
+            tier: render_maneuver_reference_image(
+                self.maneuver_catalog, tier
+            ).read()
+            for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
+        }
+        # A side's playable cards, which is what a coach is shown when
+        # they open the pick. All of them are drawn here for the same
         # reason the reference image is: it is the one place a render
         # can block the loop harmlessly, and the alternative is drawing
-        # three cards on every click of a button pressed several times
-        # a turn. They cannot go stale -- nothing about a maneuver card
-        # depends on the match.
+        # up to seven cards on every click of a button pressed several
+        # times a turn. They cannot go stale -- nothing about a maneuver
+        # card depends on the match.
+        #
+        # **Three hands a side, not one**, keyed by the tiers a coach
+        # may play: basic, and (in an advanced game) both. See
+        # `RulesEngine.maneuver_tiers` for who gets which.
         self.maneuver_hand_image_bytes = {
-            side: render_maneuver_hand(
-                self.maneuver_catalog, self.player_catalog, side
+            (side, tiers): render_maneuver_hand(
+                self.maneuver_catalog, self.player_catalog, side, tiers
             ).read()
             for side in ("offense", "defense")
+            for tiers in (
+                (MANEUVER_TIER_BASIC,),
+                (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
+            )
         }
         self.coin_emojis: dict[CoinFace, str] = {}
         # When the coin emoji were last asked after, on the monotonic
@@ -580,21 +597,37 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
 
 
-    def build_maneuver_reference_file(self) -> discord.File:
+    def reference_tier(self, game: Optional[D12BallGame]) -> str:
+        """
+        Which hexagon to post: the advanced one for an advanced game,
+        the basic one everywhere else -- including outside a game's
+        channel, where there is nothing to ask.
+        """
+        if game is not None and game.mode == GameMode.ADVANCED:
+            return MANEUVER_TIER_ADVANCED
+        return MANEUVER_TIER_BASIC
+
+    def build_maneuver_reference_file(
+        self, tier: str = MANEUVER_TIER_BASIC,
+    ) -> discord.File:
         return discord.File(
-            io.BytesIO(self.maneuver_reference_image_bytes),
-            filename="maneuver_reference.png",
+            io.BytesIO(self.maneuver_reference_image_bytes[tier]),
+            filename=f"maneuver_reference_{tier}.png",
         )
 
-    def build_maneuver_hand_file(self, side: str) -> discord.File:
+    def build_maneuver_hand_file(
+        self,
+        side: str,
+        tiers: tuple[str, ...] = (MANEUVER_TIER_BASIC,),
+    ) -> discord.File:
         """
-        A side's three cards, wrapped fresh each time: uploading a
+        The cards a coach may play, wrapped fresh each time: uploading a
         `discord.File` consumes the stream inside it, so the bytes are
         what is kept and the file is built per send -- the same reason
         `render_match_png` returns bytes rather than a File.
         """
         return discord.File(
-            io.BytesIO(self.maneuver_hand_image_bytes[side]),
+            io.BytesIO(self.maneuver_hand_image_bytes[(side, tuple(tiers))]),
             filename=f"maneuver_hand_{side}.png",
         )
 
@@ -728,7 +761,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if self.engine.possession_player_number(game, match) == 2:
                 scripted = beat.dinky_maneuver_for("offense") if beat else None
                 match.choose_offense_maneuver(
-                    scripted or ai_strategy.choose_maneuver_action("offense")
+                    scripted
+                    or ai_strategy.choose_maneuver_action(
+                        "offense",
+                        self.engine.maneuver_hand(game, match, "offense"),
+                    )
                 )
             if (
                 not match.maneuver_uncontested
@@ -736,7 +773,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             ):
                 scripted = beat.dinky_maneuver_for("defense") if beat else None
                 match.choose_defense_maneuver(
-                    scripted or ai_strategy.choose_maneuver_action("defense")
+                    scripted
+                    or ai_strategy.choose_maneuver_action(
+                        "defense",
+                        self.engine.maneuver_hand(game, match, "defense"),
+                    )
                 )
 
         game.match_state = match.to_dict()
@@ -802,8 +843,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
     ) -> None:
-        offense_name = match.offense_maneuver
-        defense_name = match.defense_maneuver
+        # Keys are what the match holds and what everything below
+        # dispatches on; the names are only ever printed.
+        offense_key = match.offense_maneuver
+        defense_key = match.defense_maneuver
+        offense_name = self.engine.maneuver_name(offense_key)
+        defense_name = self.engine.maneuver_name(defense_key)
         offense_number = self.engine.possession_player_number(game, match)
         defense_number = self.engine.defending_player_number(game, match)
         offense_display = format_player_with_team(game, offense_number)
@@ -818,7 +863,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"unchallenged.\n\n## **{offense_name}** succeeds!"
             )
             await self.begin_effect_resolution(
-                interaction, game, match, offense_name,
+                interaction, game, match, offense_key,
             )
             return
 
@@ -832,11 +877,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # worded. `outcome` is the ranking on its own, which is what
         # separates a win on the cards from a win handed over by the
         # other player's injury.
-        outcome = self.maneuver_catalog.resolve(offense_name, defense_name)
-        winner_name = self.engine.settled_maneuver_winner(match)
+        outcome = self.maneuver_catalog.resolve(offense_key, defense_key)
+        winner_key = self.engine.settled_maneuver_winner(match)
+        winner_name = self.engine.maneuver_name(winner_key)
         defense_injured = match.challenger_id in match.injured
 
-        if winner_name is not None:
+        if winner_key is not None:
             if outcome == "tie":
                 # A tie with exactly one injured participant: they lose
                 # it outright. Nothing is rolled, so neither side pays
@@ -865,7 +911,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     f"{reveal}\n\n## **{winner_name}** wins!"
                 )
             await self.begin_effect_resolution(
-                interaction, game, match, winner_name,
+                interaction, game, match, winner_key,
             )
             return
 
@@ -1061,8 +1107,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.continue_shootout(interaction, game, match)
             return
         if kind == "maneuver_effect":
+            # `winner_name` is what this carried before maneuvers had
+            # keys, and a game saved mid-injury-test outlives the
+            # change -- so the old spelling is still read and never
+            # written. Same tolerance as `legacy_maneuver_key`.
             await self.begin_effect_resolution(
-                interaction, game, match, resume["winner_name"],
+                interaction,
+                game,
+                match,
+                resume.get("winner_key")
+                or legacy_maneuver_key(resume.get("winner_name")),
             )
             return
         if kind == "run_back":
@@ -1205,22 +1259,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         always reconstructs the first-stage distance choice instead.
         Nothing has been applied by then, so the coach re-picks.
         """
-        winner_name = self.engine.settled_maneuver_winner(match)
-        if winner_name is None:
+        winner_key = self.engine.settled_maneuver_winner(match)
+        if winner_key is None:
             # Still owed a skill test, so no effect is pending yet.
             return None
-        if winner_name == "Low Pass":
+        if winner_key in ("low_pass", "precise_pass"):
             return LowPassChoiceView(self, game_id)
-        if winner_name == "High Pass":
+        if winner_key == "high_pass":
             return HighPassChoiceView(self, game_id)
-        if winner_name == "Dribble Advance":
+        if winner_key == "setup_pass":
+            return SpeedDeltaChoiceView(
+                self, game_id, match.active_player_id, "offense",
+            )
+        if winner_key in ("dribble_advance", "dribble_burst"):
             handler = self.engine.get_player_definition(match.active_player_id)
-            if handler.role == PlayerRole.PLAYMAKER:
+            if winner_key == "dribble_advance" and (
+                handler.role == PlayerRole.PLAYMAKER
+            ):
                 return DribbleAdvanceChoiceView(self, game_id)
             return SpeedDeltaChoiceView(
                 self, game_id, match.active_player_id, "offense",
             )
-        if winner_name == "Steal Intercept":
+        if winner_key in ("steal", "intercept"):
             return SpeedDeltaChoiceView(
                 self, game_id, match.challenger_id, "defense",
             )
@@ -1622,10 +1682,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
-        winner_name: str,
+        winner_key: str,
     ) -> None:
         """
-        Dispatch a decisively-won maneuver to its effect.
+        Dispatch a decisively-won maneuver to its effect, by **key**.
         `offense_maneuver`/`defense_maneuver`/`active_player_id`/
         `challenger_id` all stay set until the whole pipeline (effect,
         any run-back, time) finishes -- reset_maneuver() only happens
@@ -1634,14 +1694,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         left off (see build_effect_choice_view).
         """
         handlers = {
-            "Low Pass": self.resolve_low_pass,
-            "Dribble Advance": self.resolve_dribble_advance,
-            "High Pass": self.resolve_high_pass,
-            "Block Deflect": self.resolve_block_deflect,
-            "Steal Intercept": self.resolve_steal_intercept,
-            "Pressure": self.resolve_pressure,
+            "low_pass": self.resolve_low_pass,
+            "dribble_advance": self.resolve_dribble_advance,
+            "high_pass": self.resolve_high_pass,
+            "block_deflect": self.resolve_block_deflect,
+            "steal": self.resolve_steal,
+            "pressure": self.resolve_pressure,
+            "precise_pass": self.resolve_precise_pass,
+            "dribble_burst": self.resolve_dribble_burst,
+            "setup_pass": self.resolve_setup_pass,
+            "clear": self.resolve_clear,
+            "intercept": self.resolve_intercept,
+            "double_team": self.resolve_double_team,
         }
-        handler = handlers.get(winner_name)
+        handler = handlers.get(winner_key)
         if handler is None:
             # Unrecognized maneuver name (future data) -- nothing to
             # automate; leave it to a human, same as before this pass.
@@ -7550,7 +7616,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
     ) -> None:
         await interaction.response.send_message(
-            file=self.build_maneuver_reference_file(),
+            file=self.build_maneuver_reference_file(
+                self.reference_tier(
+                    self.game_for_channel(interaction.channel_id)
+                )
+            ),
         )
         await add_full_image_button_to_response(interaction)
 

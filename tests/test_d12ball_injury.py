@@ -123,22 +123,22 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Pressure"  # Low Pass beats Pressure.
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "pressure"  # Low Pass beats Pressure.
 
         await self.resolve(cog, game, match)
 
         cog.begin_effect_resolution.assert_awaited_once()
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "Low Pass",
+            cog.begin_effect_resolution.await_args.args[3], "low_pass",
         )
 
     async def test_decisive_win_by_injured_player_forces_a_skill_test(
         self,
     ) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Pressure"  # Would auto-win for offense.
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "pressure"  # Would auto-win for offense.
         match.injured.add(match.active_player_id)
 
         interaction = await self.resolve(cog, game, match)
@@ -151,8 +151,8 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Steal Intercept"  # Beats Low Pass.
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "steal"  # Beats Low Pass.
         match.injured.add(match.challenger_id)
 
         interaction = await self.resolve(cog, game, match)
@@ -164,8 +164,8 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Block Deflect"  # Same rank -- a tie.
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "block_deflect"  # Same rank -- a tie.
         match.injured.add(match.active_player_id)
 
         await self.resolve(cog, game, match)
@@ -173,13 +173,13 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         # The healthy side (defense) wins outright, no skill test.
         cog.begin_effect_resolution.assert_awaited_once()
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "Block Deflect",
+            cog.begin_effect_resolution.await_args.args[3], "block_deflect",
         )
 
     async def test_an_auto_loss_charges_neither_side_a_token(self) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Block Deflect"
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "block_deflect"
         match.injured.add(match.active_player_id)
 
         await self.resolve(cog, game, match)
@@ -193,8 +193,8 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Block Deflect"
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "block_deflect"
         match.injured.add(match.active_player_id)
         match.injured.add(match.challenger_id)
 
@@ -208,7 +208,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
+        match.offense_maneuver = "low_pass"
         match.defense_maneuver = None
         match.challenger_id = None
         match.maneuver_uncontested = True
@@ -220,7 +220,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         # so the disadvantage has nothing to bite on.
         cog.begin_effect_resolution.assert_awaited_once()
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "Low Pass",
+            cog.begin_effect_resolution.await_args.args[3], "low_pass",
         )
 
 
@@ -251,8 +251,8 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
         )
         match.active_player_id = midfielder
         match.challenger_id = match.visiting.field_players[0]
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Block Deflect"
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "block_deflect"
         if injure_midfielder:
             match.injured.add(midfielder)
         game.match_state = match.to_dict()
@@ -520,8 +520,8 @@ class SettledWinnerRestoreTests(unittest.TestCase):
         self,
     ) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Pressure"
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "pressure"
         match.injured.add(match.active_player_id)
 
         self.assertIsNone(cog.engine.settled_maneuver_winner(match))
@@ -530,13 +530,13 @@ class SettledWinnerRestoreTests(unittest.TestCase):
 
     def test_an_auto_loss_restores_the_winners_effect_choice(self) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Block Deflect"
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "block_deflect"
         match.injured.add(match.challenger_id)
 
         # The ranking says tie, which used to mean "a skill test is
         # pending"; the injured challenger has already lost it.
-        self.assertEqual(cog.engine.settled_maneuver_winner(match), "Low Pass")
+        self.assertEqual(cog.engine.settled_maneuver_winner(match), "low_pass")
         self.assertIsInstance(
             cog.build_effect_choice_view(game.game_id, match),
             LowPassChoiceView,
@@ -544,12 +544,12 @@ class SettledWinnerRestoreTests(unittest.TestCase):
 
     def test_an_uncontested_maneuver_is_its_own_winner(self) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
+        match.offense_maneuver = "low_pass"
         match.defense_maneuver = None
         match.challenger_id = None
         match.maneuver_uncontested = True
 
-        self.assertEqual(cog.engine.settled_maneuver_winner(match), "Low Pass")
+        self.assertEqual(cog.engine.settled_maneuver_winner(match), "low_pass")
 
 
 if __name__ == "__main__":

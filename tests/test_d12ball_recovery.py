@@ -268,8 +268,8 @@ class PendingTurnViewTests(unittest.TestCase):
         match.challenger_id = match.visiting.field_players[0]
         # A tie on the cards, so a skill test is owed and no effect is
         # pending yet.
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Block Deflect"
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "block_deflect"
 
         view, _ = cog.pending_turn_view("g1", match)
 
@@ -332,7 +332,7 @@ class ManeuverMenuRestoreTests(unittest.IsolatedAsyncioTestCase):
 
     def test_a_side_that_has_already_picked_is_not_restored(self) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
+        match.offense_maneuver = "low_pass"
 
         self.assertEqual(cog.restore_maneuver_menus(game, match), 1)
         self.assertEqual(cog.bot.add_view.call_args.args[0].side, "defense")
@@ -401,7 +401,7 @@ class ManeuverMenuRestoreTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(len(dispatched), 1, "the None-keyed fallback is gone")
-        self.assertEqual(dispatched[0].label, "Low Pass")
+        self.assertEqual(dispatched[0].label, "low_pass")
 
     def test_a_restart_mid_maneuver_restores_the_menus(self) -> None:
         # End to end through the startup path: the prompt view is what

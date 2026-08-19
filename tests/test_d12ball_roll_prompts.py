@@ -190,8 +190,8 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
         # The Pressure that risked it is still the live maneuver, so
         # everything below the own goal in pending_turn_view is set.
         match.challenger_id = match.visiting.field_players[0]
-        match.offense_maneuver = "Dribble Advance"
-        match.defense_maneuver = "Pressure"
+        match.offense_maneuver = "dribble_advance"
+        match.defense_maneuver = "pressure"
         match.pending_own_goal = True
 
         view, _ = cog.pending_turn_view(game.game_id, match)
@@ -268,8 +268,8 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         offense = match.home.field_players[0]
         match.active_player_id = offense
         match.challenger_id = match.visiting.field_players[0]
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Block Deflect"
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "block_deflect"
         exhaust(match, offense)
         game.match_state = match.to_dict()
         return cog, game, match, offense
@@ -309,7 +309,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved.pending_injury_tests, [offense])
         self.assertEqual(
             saved.pending_injury_resume,
-            {"kind": "maneuver_effect", "winner_name": "Low Pass"},
+            {"kind": "maneuver_effect", "winner_name": "low_pass"},
         )
 
     async def test_the_effect_follows_the_roll(self) -> None:
@@ -320,7 +320,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
 
         cog.begin_effect_resolution.assert_awaited_once()
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "Low Pass",
+            cog.begin_effect_resolution.await_args.args[3], "low_pass",
         )
         saved = cog.engine.load_match_state(game)
         self.assertEqual(saved.pending_injury_tests, [])

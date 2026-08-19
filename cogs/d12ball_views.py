@@ -17,6 +17,7 @@ import discord
 from d12ball import tutorial
 from d12ball.components import (
     MatchState,
+    MANEUVER_TIER_BASIC,
     PlayerRole,
     TeamSide,
     Zone,
@@ -1866,7 +1867,9 @@ class ManeuverActionPromptView(SafeView):
         view = ManeuverActionSelectView(self.cog, self.game_id, side)
         await interaction.response.send_message(
             content="Pick your maneuver:",
-            file=self.cog.build_maneuver_hand_file(side),
+            file=self.cog.build_maneuver_hand_file(
+                side, self.cog.engine.maneuver_tiers(game, match),
+            ),
             view=view,
             ephemeral=True,
         )
@@ -1960,42 +1963,48 @@ class ManeuverActionSelectView(SafeView):
         self.game_id = game_id
         self.side = side
 
+        # **The hand is the engine's answer, not the whole catalog.** A
+        # basic game is three cards and an advanced one is six, and an
+        # unchallenged maneuver is basic whatever the mode -- see
+        # `RulesEngine.maneuver_tiers`. Asking there is what keeps these
+        # buttons, the hand image above them and `pick`'s own check from
+        # disagreeing about what a coach may play.
+        game, match = self.load_match()
         maneuvers = (
-            cog.maneuver_catalog.offense
-            if side == "offense"
-            else cog.maneuver_catalog.defense
+            cog.engine.maneuver_hand(game, match, side)
+            if game is not None and match is not None
+            else cog.maneuver_catalog.for_tier(side, MANEUVER_TIER_BASIC)
         )
 
-        # A tutorial beat rails the coach onto one card, and the other
-        # two are built **disabled** rather than left out -- the whole
+        # A tutorial beat rails the coach onto one card, and the others
+        # are built **disabled** rather than left out -- the whole
         # point of the lesson is reading what the hand holds. Dinky's
         # half of the menu is never built at all, so this only ever
         # narrows a human's. See d12ball/tutorial.py.
-        game = cog.games.get(game_id)
         allowed = (
             tutorial.allowed_maneuvers(cog.tutorial_beat(game), side)
             if game is not None
             else None
         )
 
-        for maneuver in sorted(maneuvers, key=lambda item: item.rank):
+        for maneuver in maneuvers:
             button = discord.ui.Button(
                 label=maneuver.name,
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:maneuver_pick:{game_id}:{side}:"
-                    f"{maneuver.name}"
+                    f"{maneuver.key}"
                 ),
                 disabled=(
-                    allowed is not None and maneuver.name not in allowed
+                    allowed is not None and maneuver.key not in allowed
                 ),
             )
 
             async def callback(
                 interaction: discord.Interaction,
-                chosen_name: str = maneuver.name,
+                chosen_key: str = maneuver.key,
             ) -> None:
-                await self.pick(interaction, chosen_name)
+                await self.pick(interaction, chosen_key)
 
             button.callback = callback
             self.add_item(button)
@@ -2023,7 +2032,9 @@ class ManeuverActionSelectView(SafeView):
         for at any time, so nothing is hidden by it -- only the timing.
         """
         await interaction.response.send_message(
-            file=self.cog.build_maneuver_reference_file(),
+            file=self.cog.build_maneuver_reference_file(
+                self.cog.reference_tier(self.cog.games.get(self.game_id))
+            ),
             ephemeral=True,
         )
         # The hexagon's labels are small print at the size Discord shows
@@ -2035,7 +2046,7 @@ class ManeuverActionSelectView(SafeView):
     async def pick(
         self,
         interaction: discord.Interaction,
-        maneuver_name: str,
+        maneuver_key: str,
     ) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -2079,27 +2090,50 @@ class ManeuverActionSelectView(SafeView):
         allowed = tutorial.allowed_maneuvers(
             self.cog.tutorial_beat(game), self.side,
         )
-        if allowed is not None and maneuver_name not in allowed:
+        if allowed is not None and maneuver_key not in allowed:
             await interaction.response.edit_message(
                 content=(
                     "This step of the tutorial wants "
-                    f"**{allowed[0]}**. Open your hand again from the "
-                    "prompt at the bottom of the channel."
+                    f"**{self.cog.engine.maneuver_name(allowed[0])}**. Open "
+                    "your hand again from the prompt at the bottom of the "
+                    "channel."
+                ),
+                view=None,
+            )
+            return
+
+        # An older menu can still be open -- these views are restored
+        # message-agnostically -- and an advanced card clicked out of a
+        # basic hand would be a maneuver the game does not play. Same
+        # re-check as the rail above, for the same reason.
+        playable = {
+            maneuver.key
+            for maneuver in self.cog.engine.maneuver_hand(game, match, self.side)
+        }
+        if maneuver_key not in playable:
+            await interaction.response.edit_message(
+                content=(
+                    "That maneuver isn't in your hand for this turn. Open "
+                    "your hand again from the prompt at the bottom of the "
+                    "channel."
                 ),
                 view=None,
             )
             return
 
         if self.side == "offense":
-            match.choose_offense_maneuver(maneuver_name)
+            match.choose_offense_maneuver(maneuver_key)
         else:
-            match.choose_defense_maneuver(maneuver_name)
+            match.choose_defense_maneuver(maneuver_key)
 
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
         await interaction.response.edit_message(
-            content=f"You chose **{maneuver_name}**.",
+            content=(
+                "You chose "
+                f"**{self.cog.engine.maneuver_name(maneuver_key)}**."
+            ),
             view=None,
         )
 
@@ -2197,10 +2231,20 @@ class SkillTestView(SafeView):
         # own offensive or defensive skill, and only in a contest --
         # every other modifier still applies (see "Injured players" in
         # docs/living-rules.md).
+        #
+        # **Read by rank, so an advanced card inherits it.** The
+        # Midfielder's +3 and the ball speed modifier below are listed
+        # against both cards on their rank in the sheet's own
+        # `Interactions` column, and neither contradicts what the
+        # advanced card does. The three that *do* contradict -- the
+        # Fullback on Clear, the Playmaker on Dribble Burst, the
+        # Fullback's pass distance on Setup Pass -- are the author's to
+        # settle and are deliberately not inherited anywhere; see
+        # "Still open" in docs/advanced-maneuver-matrix.md.
         offense_ability_detail = ""
         if (
             offense_player.role == PlayerRole.MIDFIELDER
-            and match.offense_maneuver == "Low Pass"
+            and match.offense_maneuver in ("low_pass", "precise_pass")
         ):
             offense_total += 3
             offense_ability_detail = "+3 Midfielder ability"
@@ -2208,13 +2252,13 @@ class SkillTestView(SafeView):
         defense_ability_detail = ""
         if (
             defense_player.role == PlayerRole.MIDFIELDER
-            and match.defense_maneuver == "Pressure"
+            and match.defense_maneuver in ("pressure", "double_team")
         ):
             defense_total += 3
             defense_ability_detail = "+3 Midfielder ability"
 
         modifier_detail = ""
-        if match.defense_maneuver == "Steal Intercept":
+        if match.defense_maneuver in ("steal", "intercept"):
             modifier = match.ball.speed // 2
             defense_total += modifier
             modifier_detail = f"+{modifier} ball speed modifier"
@@ -2296,11 +2340,12 @@ class SkillTestView(SafeView):
             return
 
         outcome = "offense" if offense_total > defense_total else "defense"
-        winner_name = (
+        winner_key = (
             match.offense_maneuver
             if outcome == "offense"
             else match.defense_maneuver
         )
+        winner_name = self.cog.engine.maneuver_name(winner_key)
 
         exhausted_participants = [
             player
@@ -2333,7 +2378,7 @@ class SkillTestView(SafeView):
             game,
             match,
             exhausted_participants,
-            {"kind": "maneuver_effect", "winner_name": winner_name},
+            {"kind": "maneuver_effect", "winner_key": winner_key},
         )
 
 
@@ -3311,10 +3356,10 @@ class SpeedDeltaChoiceView(SafeView):
             )
             return
 
-        # Steal Intercept has already flipped possession (and run the
-        # defense back) by the time this view is shown; Dribble
-        # Advance never triggers a turnover at all.
-        turnover_occurred = match.defense_maneuver == "Steal Intercept" and (
+        # A steal -- basic or Intercept -- has already flipped possession
+        # (and run the defense back) by the time this view is shown; a
+        # dribble never triggers a turnover at all.
+        turnover_occurred = match.defense_maneuver in ("steal", "intercept") and (
             self.skill_type == "defense"
         )
 

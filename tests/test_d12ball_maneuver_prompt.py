@@ -20,6 +20,7 @@ from cogs.d12ball_views import (
 )
 from d12ball.cards import render_maneuver_hand
 from d12ball.components import (
+    MANEUVER_TIER_BASIC,
     MatchState,
     Zone,
     load_basic_ruleset,
@@ -307,9 +308,19 @@ class ManeuverPickHarness:
         # Drawn once for the whole class, as the cog draws it once for
         # the whole process -- six cards a test is most of a second.
         catalog = load_maneuver_catalog()
-        cls.hands = {
+        # Keyed the way the cog keys them -- by side *and* by the tiers
+        # a coach may play. A basic game is the only one this harness
+        # builds, so the advanced entry is the same bytes rather than a
+        # second render: nothing here reads it, and drawing seven more
+        # cards a class is most of a second for nothing.
+        basic = {
             side: render_maneuver_hand(catalog, cls.catalog, side).read()
             for side in ("offense", "defense")
+        }
+        cls.hands = {
+            (side, tiers): basic[side]
+            for side in ("offense", "defense")
+            for tiers in (("basic",), ("basic", "advanced"))
         }
 
     def build_ready_cog(self) -> D12Ball:
@@ -407,18 +418,15 @@ class ManeuverPickShowsTheCardsTests(
         # rather than gone. Order matters: the reference falling to the
         # end is what keeps the three picks where a coach looks for them.
         cog = self.build_ready_cog()
-        for side, maneuvers in (
-            ("offense", cog.maneuver_catalog.offense),
-            ("defense", cog.maneuver_catalog.defense),
-        ):
+        for side in ("offense", "defense"):
             with self.subTest(side=side):
                 view = ManeuverActionSelectView(cog, "g1", side)
                 self.assertEqual(
                     [item.label for item in view.children],
                     [
                         maneuver.name
-                        for maneuver in sorted(
-                            maneuvers, key=lambda item: item.rank,
+                        for maneuver in cog.maneuver_catalog.for_tier(
+                            side, MANEUVER_TIER_BASIC,
                         )
                     ]
                     + ["Maneuver Reference"],

@@ -208,11 +208,11 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
                 mock.patch("cogs.d12ball.save_games"):
             await ManeuverActionSelectView(
                 cog, game.game_id, "offense",
-            ).pick(build_interaction(), "Dribble Advance")
+            ).pick(build_interaction(), "dribble_advance")
 
         self.assertEqual(
             cog.begin_effect_resolution.await_args.args[-1],
-            "Dribble Advance",
+            "dribble_advance",
         )
 
     async def test_no_skill_test_can_be_reached_without_a_challenger(
@@ -225,7 +225,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
                 mock.patch("cogs.d12ball.save_games"):
             await ManeuverActionSelectView(
                 cog, game.game_id, "offense",
-            ).pick(build_interaction(), "Low Pass")
+            ).pick(build_interaction(), "low_pass")
 
         # Low Pass ties Block Deflect, which is what the defense would
         # have had to pick for a tie -- there is no defense, so the
@@ -280,7 +280,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
     def test_the_flag_survives_a_save_and_reload(self) -> None:
         cog, _, match = self.build()
         match.begin_uncontested_maneuver()
-        match.choose_offense_maneuver("High Pass")
+        match.choose_offense_maneuver("high_pass")
 
         reloaded = MatchState.from_dict(match.to_dict(), cog.basic_ruleset)
 
@@ -295,7 +295,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
         # pass saved mid-effect will not load again.
         cog, _, match = self.build()
         match.begin_uncontested_maneuver()
-        match.choose_offense_maneuver("High Pass")
+        match.choose_offense_maneuver("high_pass")
         zone, space_index = match.board.meeple_position(
             match.active_player_id,
         )
@@ -332,7 +332,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
     def test_the_restored_view_is_the_offense_s_effect_choice(self) -> None:
         cog, game, match = self.build()
         match.begin_uncontested_maneuver()
-        match.choose_offense_maneuver("High Pass")
+        match.choose_offense_maneuver("high_pass")
 
         view = cog.build_effect_choice_view(game.game_id, match)
 

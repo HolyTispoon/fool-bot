@@ -9,7 +9,7 @@ MatchState.relative_move_destination -- the same reading
 move_player_relative moves by, so the label cannot promise a space the
 move does not go to.
 
-See DribbleAdvanceChoiceView, and "Dribble Advance" in
+See DribbleAdvanceChoiceView, and "dribble_advance" in
 docs/living-rules.md.
 """
 

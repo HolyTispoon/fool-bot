@@ -42,11 +42,14 @@ from typing import Optional
 
 from d12ball.ai import AIStrategy
 from d12ball.components import (
+    MANEUVER_TIER_ADVANCED,
+    MANEUVER_TIER_BASIC,
     SETUP_AREAS,
     BasicRuleset,
     CoachingOccasion,
     FormationShape,
     ManeuverCatalog,
+    ManeuverDefinition,
     MatchState,
     PlayerCatalog,
     PlayerDefinition,
@@ -68,7 +71,14 @@ from d12ball.formatting import (
     space_label,
     travel_space_label,
 )
-from d12ball.game import AIOpponent, D12BallGame, Formation, Team, team_display_name
+from d12ball.game import (
+    AIOpponent,
+    D12BallGame,
+    Formation,
+    GameMode,
+    Team,
+    team_display_name,
+)
 from d12ball.render import TEAM_COLORS, ChallengeSide
 
 
@@ -133,6 +143,60 @@ class RulesEngine:
         self.basic_ruleset = basic_ruleset
         self.maneuver_catalog = maneuver_catalog
         self.ai_strategies = ai_strategies
+
+    def maneuver_tiers(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> tuple[str, ...]:
+        """
+        Which tiers a coach may pick from **this turn** -- the whole of
+        who holds which cards, asked in one place so the hand a coach
+        is shown, the buttons built under it and the click that answers
+        cannot disagree.
+
+        Two things narrow it, and both are rules rather than settings:
+
+        - **A basic game is the basic three.** Advanced maneuvers are
+          what `GameMode.ADVANCED` turns on.
+        - **An unchallenged maneuver is always basic** (the author):
+          *"Advanced maneuver can only be played when a maneuver is
+          challenged."* That is answerable here because all three
+          routes into the unopposed branch settle it before the offense
+          is prompted, so `maneuver_uncontested` is already set by the
+          time a hand is drawn. It also makes declining a challenge a
+          defensive weapon rather than only a saving -- sending nobody
+          denies the offense their advanced cards.
+        """
+        if game.mode != GameMode.ADVANCED or match.maneuver_uncontested:
+            return (MANEUVER_TIER_BASIC,)
+        return (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
+
+    def maneuver_hand(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: str,
+    ) -> tuple[ManeuverDefinition, ...]:
+        """One side's playable cards this turn, in the order they read."""
+        tiers = self.maneuver_tiers(game, match)
+        return tuple(
+            sorted(
+                (
+                    maneuver
+                    for maneuver in self.maneuver_catalog.side(side)
+                    if maneuver.tier in tiers
+                ),
+                key=lambda item: (
+                    item.rank,
+                    item.tier != MANEUVER_TIER_BASIC,
+                ),
+            )
+        )
+
+    def maneuver_name(self, key: Optional[str]) -> str:
+        """What to print for a stored maneuver key."""
+        return self.maneuver_catalog.display_name(key)
 
     def formation_shape(
         self,
