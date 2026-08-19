@@ -36,6 +36,7 @@ python3 -m unittest discover -s tests
 | `d12ball/player_cards.py` | The roster as cards, print-only, over `cards.py`'s print machinery |
 | `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
+| `d12ball/tutorial.py` | The scripted opening a tutorial game plays -- the five beats as data, and the rails -- see below |
 | `d12ball/data/` | `players.json`, `basic_rules.json` |
 | `d12ball/images/` | Card art and emoji |
 | `d12ball/fonts/` | Bundled DejaVu — see "Fonts" below |
@@ -1208,6 +1209,163 @@ travelled (2026-08-16).
   the flow assumes that -- an AI *receiving* a ceded ball runs its reply window
   through `run_ai_substitution_window` like any other -- it is just that giving
   the ball away is a judgement call and Dinky makes none.
+
+## The tutorial
+
+`/d12ball create_game tutorial:true` is an ordinary solo game against
+Dinky whose first five turns are scripted. `d12ball/tutorial.py` holds
+the whole script -- the opening position, the beats, and the questions
+the cog asks of it -- and the cog reads it behind `if game.in_tutorial`
+in a handful of places.
+
+**Every lesson is a real turn, and the five of them are one continuous
+play.** The board is set **once**, at kickoff, and never touched again:
+each beat is played from wherever the previous beat's turn left the
+ball. It did not start that way -- the first version re-dealt both
+sides before every beat, which made each lesson self-contained and the
+story nonsense: a coach drove Dinky backwards with a Pressure and then
+found the ball back in midfield with nothing to explain it. **Nothing
+may move a meeple between beats.** If a beat needs a different
+position, the fix is to change the script so the play arrives there.
+
+Two things follow from lessons being real turns:
+
+- **Nothing in `pending_turn_view` changes and `/d12ball resume` needs
+  no branch of its own.** A beat leaves the match in states the game
+  already knows how to resume. What a restart loses is a lesson's
+  *text*, which is already in the channel above the prompt it explained.
+- **The opening goes down through `MatchState.deploy_side`**, the
+  atomic exhaustion-free placement a formation change is made of, and
+  is recorded with `set_assigned_positions` -- which is load-bearing:
+  the goal at the end is a new play, and a new play restores that
+  arrangement.
+
+### Determinism: rails and dice
+
+A chained script only works if every step lands where the next beat
+expects.
+
+- **The rails cover every choice that moves the ball**, not only the
+  maneuver: the turn action, the card, the dribble distance, the ball
+  speed, the pass distance and the set-up shot. `TutorialBeat.choices`
+  is the table and `D12Ball.tutorial_choice_refused` is the one
+  question the views ask, so a view adds a rail with one argument
+  rather than a branch.
+- **Rails build the button disabled, never absent.** A lesson about the
+  three cards in your hand cannot be taught by hiding two of them, and
+  a coach should see that Shoot and Cede exist and read why neither is
+  theirs yet. Each railed view re-checks in its callback: an earlier
+  beat's prompt is still in the channel, and the maneuver menus are
+  restored message-agnostically after a restart.
+- **What is left free is left free on purpose** -- a run-back space,
+  which of two of the coach's own players challenges. Those are legal
+  moves with no wrong answer and the beats after them do not depend on
+  which is picked. `TutorialPlaythroughTests` asserts that the run back
+  is the *only* place a second button is ever live, so a rail going
+  missing shows up as a failure rather than as a story that drifts.
+- **Some dice are scripted** (`TutorialBeat.rolls`, read through
+  `D12Ball.tutorial_dice`). Beat 2 is a tie the coach has to **lose**,
+  or the ball never comes free and beats 3 and 4 have nothing to defend
+  against; the loose ball behind it goes Dinky's way for the same
+  reason. Injury checks pass for the whole opening (`BLANKET_ROLLS`) --
+  a card going down injured is a mechanic the script never introduces,
+  lands on whichever player the dice pick, and would leave every beat
+  after it planning around a board it did not expect. The check still
+  runs and the coach still watches it.
+- **The score attempt is deliberately not scripted.** It is the one
+  roll that decides something the coach wants, and the position makes
+  it a heavy favourite rather than a certainty: a striker's +9 against
+  a lone halved +3, **89.6%**. A tutorial that cannot lose its last
+  shot is not teaching the game.
+
+### The coach always plays home
+
+The script opens with the ball theirs, so a coach who wins the toss is
+railed onto Home (`HomeAwaySelectionView`) and Dinky takes the visitors
+when Dinky wins it (`CoinFlipView.flip_coin`, overriding
+`DinkyAI.choose_home_or_visiting` at the call site -- it takes no
+arguments, so it cannot know which game is asking). Shapes are still
+written from a side's own goal forward and mirrored by
+`absolute_index`, which is how Dinky's half of the opening is read and
+the frame a formation is dealt in.
+
+### The opening position
+
+Every space in `OPENING` is load-bearing, and the tests say so:
+
+- The coach's **playmaker has the ball on M1**, two short of shooting
+  range, so the early maneuvers happen out of range and Shoot is not
+  offered until it is earned. Beat 2 is written to use its appearance.
+- The coach's **striker stands on V1**, where beat 5's 2-space High
+  Pass lands, inside shooting range.
+- **Dinky keeps exactly one card in their own goal zone**, on V2. That
+  single halved defender is what prices the final shot; a second would
+  drop it to 75% and nothing else would notice.
+- **The coach covers M2**, their kickoff space, because the goal
+  restores this arrangement and `coaching_finish_refusal` holds a coach
+  in a window until somebody of theirs is standing on it.
+
+### The three fields, and the counter
+
+`tutorial`, `tutorial_step` and `tutorial_staged` live on
+`D12BallGame`, not on `MatchState`: a tutorial is a property of the
+*game* the way `test_game` and `ai_opponent` are, and the rails are
+read by views that hold a game id and may not have loaded a match yet.
+A save written before them defaults them; nothing migrates.
+
+- **`in_tutorial` is the one question every rail asks**, and it is
+  `tutorial and tutorial_step is not None`. Clearing the step is the
+  whole of turning the rails off, which is all `/d12ball skip_tutorial`
+  does; `tutorial` stays True so the record and the channel name still
+  say what the game was created as.
+- **`stage_tutorial_beat` runs at the top of `send_turn_prompt`**,
+  which is called once a turn -- so the advance is what counts the
+  beats. `tutorial_staged` keeps that honest: `/d12ball
+  offensive_choice` and `/d12ball resume force:true` also send a turn
+  prompt without a turn having been played.
+- **It is ahead of the AI branch** in `send_turn_prompt`, because beats
+  3 and 4 are turns the coach *defends* and their lessons have to be
+  posted before Dinky moves.
+- **Setup coaching is skipped**, and the script arms at the kickoff --
+  so teams, the toss and home-or-visiting are played exactly as an
+  ordinary game plays them.
+
+### The Coaching Choice, which the script cannot schedule
+
+There is no beat for it and there cannot be one: a new play offers the
+window to the side **restarting** play, which after the coach's goal is
+Dinky -- and an AI window never formally declares, so no reply comes
+back the coach's way either. `COACHING_NOTE` is a one-off explainer
+fired from `begin_substitution_window` at the first window this coach
+is ever offered, whenever the game gets round to it. It therefore reads
+`game.tutorial` rather than `in_tutorial`, and usually lands a few
+turns after the script has finished. `tutorial_coaching_explained`
+keeps it to one, and `skip_tutorial` sets that flag so a coach who
+opted out is not taught anyway.
+
+### The playthrough test
+
+`tests/test_d12ball_tutorial.py` plays the whole script through the
+**real cog** with Discord mocked, pressing whichever button the rails
+leave enabled. It is the only thing that can catch what this design is
+most fragile to: a change to a maneuver's effect, the run back or the
+loose-ball rule putting the story out of joint without breaking
+anything else in the suite. It asserts the board is set exactly once,
+that staging a beat moves nothing, that the run back is the only
+unrailed choice, that possession changes hands the three scripted
+times, and that the whole thing arrives at a goal on minute 7.
+
+**The lesson text is not asserted anywhere.** It is prose, it will be
+revised, and a test quoting it would only ever break on a reword. What
+is asserted is every claim it makes that the data could contradict --
+which maneuver beats which, that the opening is out of shooting range,
+that Dinky has one card in the lane.
+
+**The score and the clock carry over.** The five beats charge four
+maneuvers, a High Pass and the shot -- about seven space minutes -- so
+the real game starts around minute 7 of the first half with the coach a
+goal up. That is the author's call, and it is why nothing resets the
+scoreboard at the handover.
 
 ## Logging and the #logs channel
 

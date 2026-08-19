@@ -51,6 +51,7 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball.cards import render_maneuver_hand
+from d12ball import tutorial
 from d12ball.render import (
     TEAM_COLORS,
     ZONE_LABELS,
@@ -235,6 +236,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.player_catalog = load_player_catalog()
         self.basic_ruleset = load_basic_ruleset()
         self.maneuver_catalog = load_maneuver_catalog()
+        # Checked here, against the catalog as it is read: the
+        # maneuvers are imported from a spreadsheet, so a rename
+        # upstream would otherwise leave a tutorial beat railing a
+        # coach onto a card that no longer exists -- and a rail that
+        # matches nothing shows as three disabled buttons rather than
+        # as an error. See d12ball/tutorial.py.
+        tutorial.validate_script(self.maneuver_catalog)
         self.maneuver_reference_image_bytes = render_maneuver_reference_image(
             self.maneuver_catalog
         ).read()
@@ -707,17 +715,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         if game.is_solo_game:
             ai_strategy = self.engine.get_ai_strategy(game)
+            # A tutorial beat names the card Dinky plays, and it is
+            # written straight into the match here rather than through
+            # the strategy: `choose_maneuver_action` takes a side and
+            # nothing else, so it has no way to know which beat is
+            # running, and changing its signature for one caller would
+            # put the script inside the AI. Dinky's pick is made before
+            # the coach's exactly as it always is -- the rails decide
+            # what the coach may answer with, not the other way round.
+            beat = self.tutorial_beat(game)
 
             if self.engine.possession_player_number(game, match) == 2:
+                scripted = beat.dinky_maneuver_for("offense") if beat else None
                 match.choose_offense_maneuver(
-                    ai_strategy.choose_maneuver_action("offense")
+                    scripted or ai_strategy.choose_maneuver_action("offense")
                 )
             if (
                 not match.maneuver_uncontested
                 and self.engine.defending_player_number(game, match) == 2
             ):
+                scripted = beat.dinky_maneuver_for("defense") if beat else None
                 match.choose_defense_maneuver(
-                    ai_strategy.choose_maneuver_action("defense")
+                    scripted or ai_strategy.choose_maneuver_action("defense")
                 )
 
         game.match_state = match.to_dict()
@@ -753,6 +772,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "the button to make your pick."
             )
         )
+        # The cards are what this beat is about, so its note goes in
+        # front of the menu rather than with the lesson two messages
+        # up: by the time a coach opens their hand they have watched a
+        # challenger walk in and are looking at three buttons, which is
+        # the moment the explanation is worth reading.
+        tutorial_beat = self.tutorial_beat(game)
+        if tutorial_beat is not None:
+            await interaction.followup.send(tutorial_beat.maneuver_note)
+
         prompt_view = ManeuverActionPromptView(self, game.game_id)
         prompt_message = await interaction.followup.send(
             f"{' and '.join(waiting_on)}, {instruction}",
@@ -1084,7 +1112,11 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.continue_injury_tests(interaction, game, match)
             return
 
-        roll = random.randint(1, 12)
+        # The script fixes injury checks to pass for the whole
+        # tutorial -- see BLANKET_ROLLS. The check still runs and the
+        # coach still watches it.
+        scripted = self.tutorial_dice(game, "injury", 1)
+        roll = scripted[0] if scripted else random.randint(1, 12)
         current_tokens = match.exhaustion.get(player.player_id, 0)
         safe = roll > current_tokens
         player_team = match.team_for_player(player.player_id)
@@ -3445,6 +3477,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         side = TeamSide(side)
         occasion = CoachingOccasion(occasion)
+
+        # The tutorial's last lesson, and the one it cannot schedule:
+        # a new play offers this window to the side *restarting* play,
+        # which after the coach's goal is Dinky. So the note fires at
+        # the first window this coach is ever offered, whenever the
+        # game gets round to it -- which is why it reads `tutorial`
+        # rather than `in_tutorial`, and usually lands a few turns
+        # after the script has finished. `skip_tutorial` sets the flag
+        # so a coach who opted out is not taught anyway.
+        if (
+            game.tutorial
+            and not game.tutorial_coaching_explained
+            and side == self.tutorial_player_side(game)
+        ):
+            game.tutorial_coaching_explained = True
+            save_games(self.games)
+            await interaction.followup.send(tutorial.COACHING_NOTE)
+
         restored = (
             match.restore_assigned_positions(side)
             if occasion.offers_positioning
@@ -5064,6 +5114,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         A coach happy with the deal finishes without changing anything.
         """
         match = self.engine.load_match_state(game)
+
+        # A tutorial kicks off on the standard deal. The Coaching
+        # Choice is the most involved menu in the game and the script
+        # explains it at beat 6, on the window a real new play offers;
+        # putting a coach through it before they have seen a turn is
+        # asking them to rearrange a board they cannot read yet. It
+        # costs them nothing -- both sides are dealt the same 2-2-2,
+        # and the tutorial re-deals both of them every beat anyway.
+        if game.tutorial:
+            match.pending_setup_stage = None
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            await self.finish_setup_coaching(interaction, game, match)
+            return
+
         match.pending_setup_stage = SETUP_STAGES[0]
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -5130,13 +5195,41 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        # The one position the tutorial sets, before the board that
+        # shows it. Everything after this is played, not placed -- see
+        # `tutorial.apply_opening`.
+        if game.tutorial:
+            tutorial.apply_opening(
+                match, self.player_catalog, self.tutorial_player_side(game),
+            )
+            match.validate(self.player_catalog)
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
         kicking_off = match.setup_for_side(match.ball.possession)
         await self.post_new_play_board(
             interaction,
             game,
-            "**Both coaches are set.** The game kicks off with "
-            f"{format_team_side_label(kicking_off)} in possession.",
+            (
+                "**The teams are dealt.** The game kicks off with "
+                f"{format_team_side_label(kicking_off)} in possession."
+                if game.tutorial
+                else "**Both coaches are set.** The game kicks off with "
+                f"{format_team_side_label(kicking_off)} in possession."
+            ),
         )
+
+        # The script arms here rather than at creation, so everything
+        # up to the kickoff -- teams, the toss, home or visiting -- is
+        # played exactly as an ordinary game plays it. The welcome goes
+        # under the board it describes; the first beat is staged by the
+        # send_turn_prompt below.
+        if game.tutorial:
+            game.tutorial_step = tutorial.FIRST_STEP
+            game.tutorial_staged = False
+            save_games(self.games)
+            await interaction.followup.send(tutorial.WELCOME)
+
         try:
             await self.send_turn_prompt(interaction, game)
         except ValueError as error:
@@ -6531,11 +6624,131 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = challenge_message.id
         save_games(self.games)
 
+    def tutorial_player_side(self, game: D12BallGame) -> TeamSide:
+        """
+        Which side of the board the coach being taught is playing.
+
+        Player 1 is always the human in a tutorial -- it is refused any
+        other shape (see `create_game`) -- so this is whichever side the
+        coin toss put them on. Nothing forces that toss, which is why
+        every beat's position is written from a side's own goal forward
+        and mirrored on the way in. See `d12ball/tutorial.py`.
+        """
+        return (
+            TeamSide.HOME
+            if game.home_player_number == 1
+            else TeamSide.VISITING
+        )
+
+    def tutorial_beat(self, game: D12BallGame):
+        """
+        The beat now in progress, or None when no rail applies -- an
+        ordinary game, or a tutorial whose script has run out or been
+        skipped. Every rail in the views comes through here, so there
+        is one answer to "is this coach being taught right now".
+        """
+        if not game.in_tutorial:
+            return None
+        return tutorial.beat_for_step(game.tutorial_step)
+
+    def tutorial_choice_refused(
+        self,
+        game: D12BallGame,
+        key: str,
+        value,
+    ) -> bool:
+        """
+        Whether the beat now running rails this choice away.
+
+        One question for every sub-choice a beat pins down -- the
+        dribble distance, the ball speed, the pass distance, the set-up
+        shot -- so a view adds a rail with one argument rather than a
+        branch of its own. See `d12ball/tutorial.py` for why those four
+        are railed and a run-back space is not.
+        """
+        return tutorial.choice_is_refused(
+            self.tutorial_beat(game), key, value,
+        )
+
+    def tutorial_dice(
+        self,
+        game: D12BallGame,
+        kind: str,
+        count: int,
+    ) -> Optional[list[int]]:
+        """
+        The die values the script fixes for this contest, or None to
+        roll for real.
+
+        Every `random.randint(1, 12)` in a contest a tutorial can reach
+        asks this first. What it answers for, and what it deliberately
+        leaves to the dice, is in `d12ball/tutorial.py` -- the short of
+        it is that a beat only scripts a roll the *next* beat depends
+        on, and the score attempt at the end is not one of them.
+        """
+        return tutorial.scripted_dice(
+            self.tutorial_beat(game), kind, count,
+        )
+
+    async def stage_tutorial_beat(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        """
+        Advance the script to the turn about to be played and post its
+        lesson.
+
+        **It moves nothing.** The board is set once, at kickoff, and
+        every beat after that is played from wherever the previous
+        turn left it -- see the module docstring in
+        `d12ball/tutorial.py`. This used to re-deal both sides before
+        each beat, which put a seam in the middle of the story; if a
+        beat ever needs a position again, the fix is to change the
+        script so the play arrives there.
+
+        Called at the top of every `send_turn_prompt` for a tutorial
+        game, which is once a turn -- so the *advance* is what counts
+        the beats. `tutorial_staged` is what keeps that honest: the
+        recovery commands (`/d12ball offensive_choice` and `resume
+        force:true`) also send a turn prompt without a turn having been
+        played, and re-entering a beat must not silently skip the next
+        one.
+        """
+        if not game.in_tutorial:
+            return
+
+        if game.tutorial_staged:
+            game.tutorial_step = (game.tutorial_step or 0) + 1
+            game.tutorial_staged = False
+
+        beat = tutorial.beat_for_step(game.tutorial_step)
+
+        if beat is None:
+            # Past the last beat: the script is over. The flag is
+            # cleared before anything else, so the prompt this turn
+            # puts up is built with no rails on it at all.
+            game.tutorial_step = None
+            game.tutorial_staged = False
+            save_games(self.games)
+            await interaction.followup.send(tutorial.HANDOVER)
+            return
+
+        game.tutorial_staged = True
+        save_games(self.games)
+        await interaction.followup.send(beat.lesson)
+
     async def send_turn_prompt(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
     ) -> None:
+        # Ahead of everything, including the AI branch below: a beat
+        # the coach is *defending* is still a beat, and its position
+        # has to be down before Dinky takes a turn on it.
+        if game.in_tutorial:
+            await self.stage_tutorial_beat(interaction, game)
+
         refresh_player_names(game, interaction.guild)
         match = self.engine.load_match_state(game)
         # The carrier, when the last resolution left the ball with
@@ -6881,6 +7094,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         test_game=(
             "Create a test game where you control Player 1 and Player 2."
         ),
+        tutorial=(
+            "Play a guided warm-up against Dinky before the real game "
+            "starts. Best for a first game."
+        ),
     )
     @app_commands.guild_only()
     async def create_game(
@@ -6890,6 +7107,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         p2: Optional[discord.Member] = None,
         game_name: Optional[app_commands.Range[str, 1, 80]] = None,
         test_game: bool = False,
+        tutorial: bool = False,
     ) -> None:
         guild = interaction.guild
 
@@ -6910,6 +7128,21 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if test_game and (p1 is not None or p2 is not None):
             await interaction.response.send_message(
                 "A test game cannot specify p1 or p2; you control both sides.",
+                ephemeral=True,
+            )
+            return
+
+        # The tutorial is a scripted warm-up against Dinky and nothing
+        # else -- see d12ball/tutorial.py. Its five beats set a position
+        # a side at a time and rail one coach onto one card, neither of
+        # which means anything with a second human in the game or with
+        # one person holding both sides' menus. Refused rather than
+        # quietly ignored: a coach who asked for a tutorial and got an
+        # ordinary game would have no way to tell.
+        if tutorial and (p1 is not None or p2 is not None or test_game):
+            await interaction.response.send_message(
+                "A tutorial game is played against Dinky on your own, so "
+                "it cannot take p1, p2 or test_game.",
                 ephemeral=True,
             )
             return
@@ -6976,6 +7209,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 test_game=test_game,
                 created_by=interaction.user,
                 game_name=game_name,
+                tutorial=tutorial,
             )
         except ValueError as error:
             await interaction.followup.send(str(error), ephemeral=True)
@@ -6997,6 +7231,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         board_size: int = 7,
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,
+        tutorial: bool = False,
     ) -> D12BallGame:
         """
         Create the private channel for a game, save the game record,
@@ -7023,7 +7258,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game_number,
             player_1_name,
             player_2_name or format_ai_name(resolved_ai_opponent),
-            game_name=game_name,
+            # A tutorial names its own channel unless the coach named
+            # it, so the one game in the category whose opening is
+            # scripted says so from the channel list. It goes through
+            # `game_name` rather than being appended to the pattern,
+            # because the number's position in the name is what
+            # CHANNEL_NAME_PATTERN reads back -- see "Game channels".
+            game_name=game_name or ("tutorial" if tutorial else None),
         )
 
         bot_member = guild.me
@@ -7132,6 +7373,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             status=GameStatus.SETUP,
             board_size=board_size,
             ai_opponent=resolved_ai_opponent,
+            tutorial=tutorial,
+            # The step is set at kickoff, not here: setup is played
+            # exactly as an ordinary game plays it -- teams, the coin
+            # toss, home or visiting -- and the script starts with the
+            # first turn. `in_tutorial` is False until then, so nothing
+            # in setup is on rails.
+            tutorial_step=None,
         )
 
         self.games[game_id] = game
@@ -7582,6 +7830,61 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return True
         permissions = getattr(interaction.user, "guild_permissions", None)
         return bool(permissions is not None and permissions.manage_channels)
+
+    @app_commands.command(
+        name="skip_tutorial",
+        description="End the guided warm-up and play the rest for real.",
+    )
+    @app_commands.guild_only()
+    async def skip_tutorial(self, interaction: discord.Interaction) -> None:
+        """
+        Turn the rails off where they stand.
+
+        Clearing `tutorial_step` is the whole of it: every rail asks
+        `game.in_tutorial` and every one of them answers "no rail" once
+        it is None, so nothing has to be undone. The board, the clock
+        and the score are left exactly as the warm-up left them --
+        skipping is leaving a lesson, not rewinding the game, and the
+        position a beat set is a legal one either way.
+
+        Deliberately **not** gated on `may_administer_game`: a tutorial
+        is one human against Dinky, so its only player is the only
+        person this could mean anything to, and a moderator ending
+        somebody else's lesson is not a thing worth building.
+        """
+        game = self.game_for_channel(interaction.channel_id)
+
+        if game is None:
+            await interaction.response.send_message(
+                "This channel does not have a D12 Ball game in it.",
+                ephemeral=True,
+            )
+            return
+
+        if interaction.user.id != game.player_1_id:
+            await interaction.response.send_message(
+                "Only the coach being taught can end the tutorial.",
+                ephemeral=True,
+            )
+            return
+
+        if not game.in_tutorial:
+            await interaction.response.send_message(
+                "This game is not in the tutorial."
+                if not game.tutorial
+                else "The tutorial has already finished.",
+                ephemeral=True,
+            )
+            return
+
+        game.tutorial_step = None
+        game.tutorial_staged = False
+        # A coach who opted out is not taught the Coaching Choice
+        # either, whenever the game next offers them one.
+        game.tutorial_coaching_explained = True
+        save_games(self.games)
+
+        await interaction.response.send_message(tutorial.SKIPPED)
 
     @app_commands.command(
         name="resume",
