@@ -45,6 +45,51 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
+### Advanced mode -- the interaction table is settled; the cards are not finished
+
+The author asked for advanced mode on 2026-08-17: **advanced maneuvers** (each of the six has
+a version that is more impactful when it succeeds and carries an extra cost when it is
+defeated) and **asymmetric teams** (a team playable with its own abilities and role
+composition instead of the standard one), with a game free to take one, both or neither.
+
+Eighteen questions were asked against the table they belong to, and all of the ones that
+blocked it were answered on 2026-08-18. Both live in
+[advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) rather than here, because a
+question about a pairing only makes sense beside the pairing. What they settle:
+
+- **A coach playing advanced holds six cards** and picks one secretly each maneuver -- but
+  **only when the maneuver is challenged**. An unchallenged maneuver is played from the basic
+  three, which makes declining a challenge a way to deny the offense their advanced cards.
+- **Rank alone decides.** Each advanced row is identical to its basic counterpart in every
+  column but the effect, and an advanced card does not beat a basic one of its own rank. So
+  one defeat cycle serves both sets, and **advanced mode adds no new way to win a maneuver**.
+- **Only an outright result carries.** The author: *"only an outright win and outright lose of
+  advanced maneuver carry the benefit/cost."* A maneuver settled by a **skill test** carries
+  neither, for either side -- including a test forced by the injured player's disadvantage,
+  which he ruled on separately. Twenty-four of the thirty-six pairings are decisive and carry
+  effects; twelve are ties and carry none. This is also what retires the drafting problem that
+  three of the six costs named the maneuver that defeated them and could not be read against a
+  tie.
+- **The costs are effects granted to the opponent**, and possession is among them. Only
+  Clear's is paid in something the game already counts.
+
+**What is not settled is inside the cards**, and it is listed in the matrix: Dribble Burst's
+cost invokes a speed-manipulation step neither of its defeaters has, and is the first
+exception to "every turnover resets ball speed to 1"; Double Team now leaves **two defenders
+challenging the next maneuver**, where one challenger is an assumption throughout the code;
+and the `Interactions` column still carries each advanced row's basic counterpart's role
+abilities, three of which contradict the card they sit on.
+
+**Nothing is imported, and the importer could not read the tab if it were asked to.**
+`scripts/import_d12ball_maneuvers.py` requires each die face to be used once per side, and
+the advanced rows reuse their counterparts' faces, so it refuses the twelve-row tab outright;
+`ManeuverCatalog.relationships` separately raises on every advanced card, because the sheet's
+`Defeats` column names only basic maneuvers. Both are reproduced in the matrix's own closing
+section.
+
+The `Advanced` ability column is still empty for all thirty-six players, so asymmetric
+teams have no data at all.
+
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
 
@@ -275,9 +320,10 @@ declined costs only the maneuver's own flat cost, same as if there had been no s
 - **`maneuvers.json`'s printed `time` field is hand-edited, not re-imported.** It is normally
   regenerated whole from the Google Sheet's own "time" column (see "The maneuver cards" in
   CLAUDE.md), but this rule came from the author directly rather than from a sheet pull, so the
-  json was updated by hand to keep the printed cards honest. **The sheet still says the old
-  distance-based costs and needs the author to update it upstream**, or the next
-  `scripts/import_d12ball_maneuvers.py` run will silently revert this file to the old wording.
+  json was updated by hand to keep the printed cards honest. The sheet still said the old
+  distance-based costs, so the next `scripts/import_d12ball_maneuvers.py` run would have
+  silently reverted this file to the old wording -- **the author fixed the column upstream on
+  2026-08-18**, and the tab now carries the flat costs. The hazard is closed.
 
 ### 2026-08-16 -- author, a contest is answered by the nearest players, not by the zone
 
@@ -1573,8 +1619,22 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
 
 ### Blocked or deferred
 
-- **Advanced mode** -- per-team abilities (the sheet's empty `Advanced` column) -- is
-  unspecified. Setup refuses it. Formations left it for basic mode on 2026-08-08.
-  It also holds up the **back of a printed player card**, which is that player's
-  advanced version (the author, 2026-08-12): the printed cards are one-sided until
-  the column is filled, and filling it is what unblocks them.
+- **Advanced mode** is asked for and unspecified -- see
+  [Advanced mode](#advanced-mode----the-interaction-table-is-settled-the-cards-are-not-finished) under Still
+  open, and [advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) for the questions.
+  Setup refuses it. It has two halves and they are blocked on different things:
+  - **Advanced maneuvers** are drafted in the sheet's `maneuvers` tab and transcribed into
+    the matrix. They are not imported, and **could not be**: the importer requires each die
+    face to be used once per side, and the advanced rows reuse their counterparts' faces, so
+    it refuses the twelve-row tab at the seventh. Retiring that validation is the same change
+    the author's "ignore the die value column" implies. Two rules gaps also remain -- Double
+    Team's cost is cut off mid-sentence, and three of the six costs name the maneuver that
+    beat them, which a lost skill test is not.
+    The `Time` column's stale distance-based costs, which would have reverted `maneuvers.json`
+    on the next import, have been **fixed upstream** by the author.
+  - **Asymmetric teams** -- per-team abilities and role composition (the sheet's empty
+    `Advanced` column) -- have no data at all. Formations left 4-1-1 and 2-1-3 to advanced
+    mode on 2026-08-08, and neither fits a current board. It also holds up the **back of a
+    printed player card**, which is that player's advanced version (the author,
+    2026-08-12): the printed cards are one-sided until the column is filled, and filling it
+    is what unblocks them.
