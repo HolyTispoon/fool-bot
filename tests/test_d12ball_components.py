@@ -85,6 +85,7 @@ from d12ball.render import (
     SKILL_TEST_DIE_RADIUS,
     TEAM_COLORS,
     load_font,
+    load_goal_zone_font,
     player_index,
     render_coaching_image,
     render_field_image,
@@ -3834,7 +3835,11 @@ class D12BallFontTests(unittest.TestCase):
     """
 
     def test_bundled_font_files_exist(self) -> None:
-        for file_name in ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"):
+        for file_name in (
+            "DejaVuSans.ttf",
+            "DejaVuSans-Bold.ttf",
+            "RacingSansOne-Regular.ttf",
+        ):
             self.assertTrue(
                 (FONT_DIR / file_name).is_file(),
                 f"Missing bundled font {FONT_DIR / file_name}",
@@ -3867,6 +3872,30 @@ class D12BallFontTests(unittest.TestCase):
             Path(font.path).name,
             "DejaVuSans-Bold.ttf",
         )
+
+    def test_load_goal_zone_font_honours_requested_size(self) -> None:
+        for size in (40, 68, 90):
+            with self.subTest(size=size):
+                font = load_goal_zone_font(size)
+                self.assertEqual(font.size, size)
+
+    def test_load_goal_zone_font_uses_bundled_file_not_system_fonts(
+        self,
+    ) -> None:
+        real_truetype = ImageFont.truetype
+
+        def only_absolute_paths(font=None, size=10, *args, **kwargs):
+            if isinstance(font, str) and not Path(font).is_absolute():
+                raise OSError("cannot open resource")
+            return real_truetype(font, size, *args, **kwargs)
+
+        with mock.patch.object(
+            ImageFont, "truetype", side_effect=only_absolute_paths
+        ):
+            font = load_goal_zone_font(68)
+
+        self.assertEqual(font.size, 68)
+        self.assertEqual(Path(font.path).name, "RacingSansOne-Regular.ttf")
 
     def test_bundled_art_is_named_exactly_as_the_code_asks_for_it(
         self,
