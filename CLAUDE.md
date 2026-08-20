@@ -32,12 +32,12 @@ python3 -m unittest discover -s tests
 | `d12ball/formatting.py` | Plain-text formatting over match/game/zone data with no Discord dependency -- space codes, team-side labels, player names. `cogs/d12ball_helpers.py` re-exports all of it; `d12ball/engine.py` imports it directly for the prompt/matchup builders above. |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board image rendering (Pillow) |
-| `d12ball/cards.py` | The six maneuvers as cards — the printed face and the hand the bot shows |
+| `d12ball/cards.py` | The twelve maneuvers as cards — the printed face, the one shared back, and the hand the bot shows |
 | `d12ball/player_cards.py` | The roster as cards, print-only, over `cards.py`'s print machinery |
 | `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
 | `d12ball/tutorial.py` | The scripted opening a tutorial game plays -- the five beats as data, and the rails -- see below |
-| `d12ball/data/` | `players.json`, `basic_rules.json` |
+| `d12ball/data/` | `players.json`, `basic_rules.json`, `maneuvers.json` |
 | `d12ball/images/` | Card art and emoji |
 | `d12ball/fonts/` | Bundled DejaVu — see "Fonts" below |
 | `gamesaves/d12ball/storage.py` | Persistence to `data/d12ball_games.json` |
@@ -84,13 +84,15 @@ earn their keep when upstream moves:
   stays a reviewable diff.
 
 [docs/advanced-maneuver-matrix.md](docs/advanced-maneuver-matrix.md) is a third document and a
-different kind of thing: a **worksheet for a ruleset that does not exist yet**. Advanced mode
-was asked for on 2026-08-17 and nothing about it is settled, so the matrix states the questions
-next to the table they are asked against -- every advanced maneuver against every maneuver it
-can meet -- with each assumption named and each undecided cell marked. **Nothing in it is a
-rule**; a rule reaches the living rules only once the author has answered, and the worksheet's
-answered parts are then deleted rather than kept in parallel. Don't read it as a specification,
-and don't implement from it.
+different kind of thing: the **worksheet advanced mode was built from**, cut back to what is
+still open. It was a table of every advanced maneuver against every maneuver it could meet,
+with each assumption named and each undecided cell marked; the author answered, the six cards
+went into the living rules on 2026-08-19, and **the answered parts were deleted rather than
+kept in parallel** -- which is what happens to a worksheet, and the reason a settled rule has
+exactly one home. **Nothing left in it is a rule.** What it still holds is the three role
+abilities the sheet lists against an advanced card that contradict it, the player abilities
+that have no data yet, and the map of where advanced mode touches the code. Don't read it as a
+specification, and don't implement from it.
 
 **Take rules questions to the author rather than inferring them from the code** -- several
 mechanics exist only in the code, so there a bug and a deliberate decision look identical.
@@ -465,10 +467,138 @@ nothing downstream has to know which happened.
   test. A decline moves nobody and charges nobody, so it is also the one of
   the three that asks for no board refresh.
 
+## A maneuver's identity is not its printed name
+
+`match.offense_maneuver` and `defense_maneuver` hold a **key** --
+`low_pass`, `double_team` -- and never a display name.
+`maneuver_key` in `d12ball/components.py` is the slug, and every
+dispatch table, button custom_id and comparison in the cog and the
+views is keyed on it.
+
+It used to be the name. That made a rename upstream a code change and
+put a display string in every saved game, and the author renamed the
+basic D2 card from "Steal Intercept" to "Steal" on 2026-08-18 -- which
+under names would have silently broken a dozen comparisons, five
+tutorial rails and every game saved mid-turn.
+
+- **`legacy_maneuver_key` translates a game saved before the keys.**
+  Almost every name slugs straight to its key, so only the one that
+  does not is written down. Same tolerant shape as `player_board` and
+  `tie_mode`: nothing writes a name any more, so it dies out on its
+  own. Don't add a migration pass, and don't drop it until no
+  half-finished game can predate the change.
+- **`RulesEngine.maneuver_name` is the only way back to a name**, and
+  it is only ever for wording. A caller that has a key and wants to
+  print it asks; a caller that wants to *decide* something compares
+  keys.
+- **Relations are by rank.** `ManeuverDefinition.defeats_rank`
+  replaced `defeats`, because since advanced mode each rank carries
+  two cards -- the basic one and its counterpart -- and **rank alone
+  decides** who wins (the author, 2026-08-18). Naming one of the two
+  would be naming half a relation. `ManeuverCatalog.counterpart` is
+  the pairing, looked up by rank rather than tabulated.
+- **The importer resolves the sheet's `Defeats` name into that rank**,
+  so the cycle is still data rather than something written into the
+  code. It carries one alias -- the sheet renamed the row without
+  rewriting its own four references to it -- which can be dropped once
+  upstream catches up.
+
+## Advanced maneuvers
+
+Six more cards, one per basic card's rank, turned on by
+`GameMode.ADVANCED`. See "Advanced maneuvers" in the living rules;
+what is left open is in
+[docs/advanced-maneuver-matrix.md](docs/advanced-maneuver-matrix.md).
+
+**`RulesEngine.maneuver_tiers` is the only answer to who holds what**,
+and the buttons, the hand image and the click that answers all read
+it. Two things narrow it, and both are rules: a basic game is the
+basic three, and **an unchallenged maneuver is always basic** (the
+author) -- which is answerable at the moment a hand is drawn because
+all three routes into the unopposed branch settle it before the
+offense is prompted. That also makes declining a challenge a defensive
+weapon rather than only a saving.
+
+- **`advanced_effects_apply` is the whole of the outright rule**, and
+  it is one condition: **the cards decided, not the dice.** A matchup
+  the cards decided carries the winner's benefit and the loser's cost;
+  a matchup the cards **tied** carries neither, and `resolving_maneuver`
+  substitutes the basic counterpart so the skill test's winner
+  resolves that instead. The two injury cases fall out of the same
+  reading rather than being exceptions to it: an automatic loss of a
+  tie carries nothing (it *was* a tie), and a skill test forced by the
+  disadvantage still carries them (it was not) -- the author,
+  2026-08-19. **Nothing is persisted for this**; it is read off the
+  two stored keys, so a restart mid-effect answers the same way.
+- **Each benefit is its basic counterpart parameterised, not a second
+  function.** `apply_deflection`, `apply_steal`, `apply_pressure` and
+  `apply_low_pass` each take a key and serve both cards on their rank.
+  A change to what a deflection *is* reaches Clear for free, which is
+  the point -- the two differ by a distance and a speed drop and
+  nothing else.
+- **Every cost bites inside the winning maneuver's own resolution**,
+  which is why there is no cost dispatcher. `advanced_cost` names the
+  card that was beaten and the winner's handler asks it: Clear's 2
+  exhaustion and Double Team's shove are charged by the card that beat
+  them, Intercept's uncontested reception is a branch of the High
+  Pass, and Dribble Burst's is the first exception to "every turnover
+  resets ball speed to 1". A generic "and then pay the cost" step
+  would have to know where inside each effect it belonged, which is
+  the thing the handler already knows.
+- **`pending_effect_continuation` is what lets an effect reach past
+  its own maneuver**, as `{"kind": ...}` -- the same shape
+  `pending_injury_resume` uses and for the same reason. Two need it:
+  Setup Pass sets the ball's speed and *then* picks the pass out, and a
+  beaten Precise Pass hands the defense an unopposed Low Pass once the
+  steal has settled. A speed choice had always been the *last* human
+  step of an effect, leading straight into
+  `finish_maneuver_resolution`; `continue_effect` is the branch, and
+  it clears the record before dispatching so the state that follows
+  speaks for itself. An unrecognised kind falls through to the
+  ordinary end of a maneuver rather than stranding the turn.
+- **`pending_double_team` is the two defenders, not a flag.** A won
+  Double Team leaves both challenging the next maneuver, each adding
+  their defensive skill, and what the following turn needs is *who* --
+  a flag would leave it re-deriving "the nearest teammate" off a board
+  that has moved since. `announce_new_play_reset` clears it, which is
+  the one thing the card says ends it; `reset_maneuver` deliberately
+  does not, since that runs at the end of the turn that set it.
+- **"The teammate closest to where the play started" is read before
+  anything moves**, by both the benefit and the cost. A moment later
+  the handler has been shoved back two and the ball with them, and the
+  nearest defender to *that* space can be somebody else. The cost's
+  caller reads it before the pass moves the ball and passes it in,
+  which is why `pay_double_team_cost` takes a partner rather than
+  looking one up.
+- **A Setup Pass that finds nobody is a fourth `new_play=True` call
+  site.** The card cannot overshoot: with no teammate at 0, 1 or 3 the
+  ball goes out of play, which is the existing out-of-bounds outcome.
+  The other three are the score attempt, a conceded own goal and the
+  out-of-bounds loose ball.
+- **Two role abilities are inherited by rank and three are not.** The
+  Midfielder's +3 and the ball speed modifier a rank-D2 defense adds
+  are listed against both cards on their rank in the sheet's own
+  `Interactions` column and neither contradicts what the advanced card
+  does, so both apply. The Fullback against Clear and against Setup
+  Pass, and the Playmaker against Dribble Burst, all contradict theirs
+  -- those are the author's to settle and are applied nowhere.
+- **Dinky rolls its rank as it always has and picks the tier at
+  random.** That is not a policy and is not meant to be one: an
+  advanced card carries a cost as well as a benefit, and weighing the
+  two is judgement, which Dinky makes none of. The alternative was
+  Dinky never playing an advanced card, which leaves half of advanced
+  mode unreachable in a solo game.
+- **`EveryMatchupResolvesTests` is the guard worth keeping.** It walks
+  all thirty-six pairings on all three boards through the real
+  `resolve_maneuver`, for two coaches and against Dinky, and asserts
+  almost nothing about what happens. Twelve cards reached from four
+  directions apiece is a lot of branches nobody would think to build a
+  fixture for; it caught two real bugs the day it was written.
+
 ## Who wins a maneuver
 
 **`D12Ball.settled_maneuver_winner` is the only answer to that**, and it
-returns the winning maneuver's name or `None` when a skill test still has to
+returns the winning maneuver's **key** or `None` when a skill test still has to
 decide. Three call sites ask it and none of them may go back to reading
 `maneuver_catalog.resolve()` on its own -- see "Injured players" in the living
 rules for why the ranking is no longer the whole story.
@@ -1886,7 +2016,7 @@ defenders has none, and packs to its own content.
 
 ### The maneuver cards
 
-`d12ball/cards.py` draws the six maneuvers as cards. They exist because the
+`d12ball/cards.py` draws the twelve maneuvers as cards. They exist because the
 selection d6 they replaced made a coach hold the rules in their head: the die
 said "3-4" and the coach had to remember that was Dribble Advance if they had
 the ball and Steal Intercept if they did not, what it beat, and which role
@@ -1925,13 +2055,21 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
   - **Ephemeral for the pick's reason, not its own.** The hexagon hides
     nothing -- answering in the channel would just tell the other side that
     this coach is still choosing.
-- **Both hands are drawn once in `D12Ball.__init__`**, like the maneuver
+- **Every hand is drawn once in `D12Ball.__init__`**, like the maneuver
   reference image and for the same two reasons: startup is the one place a
-  render can block the loop harmlessly, and the alternative is drawing three
-  cards on every click of a button pressed several times a turn. Nothing about
-  a card depends on the match, so they cannot go stale.
+  render can block the loop harmlessly, and the alternative is drawing up to
+  seven cards on every click of a button pressed several times a turn. Nothing
+  about a card depends on the match, so they cannot go stale.
   `build_maneuver_hand_file` re-wraps the bytes per send, because uploading a
   `discord.File` consumes the stream inside it.
+  - **Four hands, not two**, keyed by side *and* by the tiers a coach may play
+    -- the basic three, or all six in an advanced game. Which one a coach gets
+    is `RulesEngine.maneuver_tiers`, the same question the buttons under it
+    ask. There is one reference hexagon per tier for the same reason.
+  - **Seven cards do not fit one row.** Discord scales an inline image to the
+    message's width, so a row of seven arrives at about 75px a card against
+    131px for a row of four. `HAND_MAX_COLUMNS` is 4, and anything past it
+    wraps -- which keeps every card the width a coach already reads.
 - **The hand is drawn at a third of the print card's width.** Discord scales an
   inline image down whatever it is sent, so the extra pixels would only be
   payload -- and this send is ephemeral, once per coach per maneuver. The
@@ -1968,8 +2106,9 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through
-  `load_maneuver_catalog` and `ManeuverCatalog.relationships`; the abilities
-  come from `players.json`. So a card cannot claim a rule the bot does not
+  `load_maneuver_catalog` and `ManeuverCatalog.relationships` -- **narrowed to
+  the card's own tier**, which loses nothing, since rank decides and each rank
+  carries one card per tier; the abilities come from `players.json`. So a card cannot claim a rule the bot does not
   play, and an import is carried onto the cards by re-running this rather than
   by editing them.
 - **Which roles a card lists is mostly matched, not tabulated.** A role is on
@@ -1978,6 +2117,18 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
   to each. The sentence is never cut down here -- see "Every ability is
   imported twice". A new ability that mentions a maneuver reaches its card
   without anything in the script being touched.
+  - **The match is on whole words, not substrings.** It was a substring while
+    every maneuver name was two words; the author renamed the basic D2 card to
+    "Steal" on 2026-08-18, and "steal" is inside "Steals the ball when
+    resolving Pressure" -- so the Defender's ability, which is Pressure's,
+    silently appeared on Steal's card as well.
+  - **No role ability names an advanced maneuver**, and that is the data being
+    honest rather than a gap: the sheet's `Advanced` ability column is empty
+    for all thirty-six. What an advanced card carries instead is the one thing
+    settled about how it resolves -- `tie_note`, which says a tie resolves it
+    as the basic card on its rank with no advanced effect, and that a skill
+    test forced by injury still carries them. The counterpart it names is
+    looked up by rank rather than written down.
   - **Two things the match cannot find are listed explicitly**, and both are
     the author's call rather than an oversight in the data. `EXTRA_ROLES` puts
     the **Striker** on High Pass: its +3 is for scoring off a set-up, one step
@@ -1989,11 +2140,19 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
   - **Neither can live in `maneuvers.json`**: `scripts/import_d12ball_maneuvers.py`
     rewrites that file whole from the sheet, so a field added to it survives
     until the next import and no longer.
+  - **`EXTRA_NOTES` is keyed by rank in practice**: the ball speed modifier is
+    on Steal *and* Intercept, since the sheet lists it against both rows and it
+    is what decides that rank's skill test either way.
 - **The strip diagram is what a card can say that a die face cannot**, so it
-  carries the geometry and the effect text carries the wording. It is the
-  standard seven-space board with the ball on the third space, which is the
-  only position from which every maneuver fits: a High Pass of 4 lands on the
-  last space and a Fullback's Block Deflect of 2 on the first.
+  carries the geometry and the effect text carries the wording. A basic card is
+  drawn on the standard seven-space board with the ball on the third space,
+  which is the only position from which every basic maneuver fits: a High Pass
+  of 4 lands on the last space and a Fullback's Block Deflect of 2 on the
+  first. **An advanced card is drawn on the nine-space board** with the ball on
+  the fourth, because Clear drives the ball back 3 and Dribble Burst runs it to
+  the far end -- 3 back and 5 forward, which the seven-space strip has no room
+  for. `STRIP_GEOMETRY` is the pair, per tier, and the nine-space board is a
+  real board rather than a strip invented to fit.
   - **A dashed arc is a role's variant and a solid one is the ordinary move.**
     That is the only thing the dashes mean, which is why Low Pass's backward
     option is solid -- it is a choice any passer has, not an ability.
@@ -2026,9 +2185,21 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
   white there is nothing else to say where a card ends, which is why the
   corner radius is drawn rather than implied and why `FRAME` is small enough
   that the outline is the card's own edge.
-- **One back for all six.** A coach holding both sets must not show which side
-  of the ball they are reading. It carries the defeat cycle, which is public
-  and which every coach may look at anyway.
+- **One back for all twelve.** A coach holding both sets must not show which
+  side of the ball -- or which tier -- they are reading, and in advanced mode
+  the offense holds six. It carries the defeat cycle, which is public and which
+  every coach may look at anyway.
+  - **A node is a rank and carries the two cards on it**, basic name over
+    advanced, split by a hairline. Rank alone decides who beats whom, so the
+    hexagon is six nodes however many cards there are -- a second back was
+    never available, and two cycles laid on top of each other is not a hexagon.
+  - **One size for all six nodes, and it is the tightest of them.** With one
+    name to a node the tightest fit was a single long word and capping there
+    shrank every other node for nothing; with both tiers on a node all six are
+    four lines of much the same length, so the tightest is a real constraint.
+    `CYCLE_LABEL_MARGIN` went from 8 to 24 for the same reason: the outer two
+    of four lines sit where the circle curves away hardest, and at 8 the
+    longest cleared the chord by under two pixels a side.
   - **The cycle draws both relations: a solid arrow to what a maneuver beats,
     a dashed line to what it ties with.** The ties were left to the caption
     ("same rank ties"), which made them the one thing on the card a coach had
@@ -2047,10 +2218,16 @@ python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
   width a card plus a quarter of a gutter -- every cut but the first came out
   off-centre. `D12BallManeuverTests` divides a rendered sheet and checks the
   pieces, since nothing else would notice.
-- **The header's corner names the mode, not the die faces.** It printed
-  "die 1-2" while the cards and the selection die had to coexist; it now reads
-  "BASIC MANEUVER", which is what will still mean something once a second set
-  of maneuvers exists.
+- **The header's corner names the tier, not the die faces.** It printed
+  "die 1-2" while the cards and the selection die had to coexist, then "BASIC
+  MANEUVER" while there was only one set; it now reads the card's own tier,
+  and is **the one thing on a card that tells the two sets apart** -- the back
+  cannot, and must not.
+- **The effect text's size is searched, not set.** The effects run from Block
+  Deflect's twenty words to Double Team's seventy against a band that is
+  whatever the strip, the matchups and the abilities leave behind. A fixed size
+  fitted the short cards and ran Double Team's paragraph straight over three
+  bands at once, silently, because nothing measured what it had been given.
 - `cards/` is generated output and is gitignored, like `board.png`.
 
 ### The player cards
@@ -2182,7 +2359,11 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
 - **No die value is printed anywhere, and since 2026-08-17 that is the rule
   rather than a divergence from it.** Maneuvers are chosen with the cards, so
   the two selection d6s are off the team board and the head coach cell lists
-  the six maneuvers by rank (O1, D2) instead of by face. The author retired
+  the maneuvers by rank (O1, D2) instead of by face -- **a row is a rank with
+  both its cards on it**, the basic name in ink and its advanced counterpart
+  under it in grey. Three rows a column however many cards exist: listing them
+  per card would print two O1s with nothing saying they are the same rank, in a
+  panel sized for three. The author retired
   them from the rules outright, so the living rules no longer mention them
   either -- see the dated entry in the rules log.
   **The data and the code have not caught up.** `basic_rules.json` still

@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-17.
+**As of:** 2026-08-19.
 
 ## Where the rules come from
 
@@ -45,50 +45,38 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
-### Advanced mode -- the interaction table is settled; the cards are not finished
+### Advanced mode -- the maneuvers are built; the player abilities are not
 
 The author asked for advanced mode on 2026-08-17: **advanced maneuvers** (each of the six has
 a version that is more impactful when it succeeds and carries an extra cost when it is
-defeated) and **asymmetric teams** (a team playable with its own abilities and role
-composition instead of the standard one), with a game free to take one, both or neither.
+defeated) and, alongside them, **a unique ability per player**, with a game free to take one,
+both or neither.
 
-Eighteen questions were asked against the table they belong to, and all of the ones that
-blocked it were answered on 2026-08-18. Both live in
-[advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) rather than here, because a
-question about a pairing only makes sense beside the pairing. What they settle:
+**The six advanced maneuvers are in the living rules and in the bot as of 2026-08-19** -- see
+the dated entry below. What is left of advanced mode is the abilities, and they have no data:
+the sheet's `Advanced` ability column is still empty for all thirty-six players. Nothing can be
+imported and nothing can be built until it is filled, so a coach playing advanced mode today
+gets six cards a side and the roster they already know.
 
-- **A coach playing advanced holds six cards** and picks one secretly each maneuver -- but
-  **only when the maneuver is challenged**. An unchallenged maneuver is played from the basic
-  three, which makes declining a challenge a way to deny the offense their advanced cards.
-- **Rank alone decides.** Each advanced row is identical to its basic counterpart in every
-  column but the effect, and an advanced card does not beat a basic one of its own rank. So
-  one defeat cycle serves both sets, and **advanced mode adds no new way to win a maneuver**.
-- **Only an outright result carries.** The author: *"only an outright win and outright lose of
-  advanced maneuver carry the benefit/cost."* A maneuver settled by a **skill test** carries
-  neither, for either side -- including a test forced by the injured player's disadvantage,
-  which he ruled on separately. Twenty-four of the thirty-six pairings are decisive and carry
-  effects; twelve are ties and carry none. This is also what retires the drafting problem that
-  three of the six costs named the maneuver that defeated them and could not be read against a
-  tie.
-- **The costs are effects granted to the opponent**, and possession is among them. Only
-  Clear's is paid in something the game already counts.
+Three details inside the cards are still the author's to settle, and all three are the same
+shape -- a role ability the sheet lists against an advanced row that contradicts what that row
+does. **None of them is applied**; each card resolves without the ability rather than guessing
+at it:
 
-**What is not settled is inside the cards**, and it is listed in the matrix: Dribble Burst's
-cost invokes a speed-manipulation step neither of its defeaters has, and is the first
-exception to "every turnover resets ball speed to 1"; Double Team now leaves **two defenders
-challenging the next maneuver**, where one challenger is an assumption throughout the code;
-and the `Interactions` column still carries each advanced row's basic counterpart's role
-abilities, three of which contradict the card they sit on.
+- **Clear** carries the Fullback's "Block deflect: ball goes back 2", which against a 3-space
+  clearance is a reduction.
+- **Dribble Burst** carries the Playmaker's "may advance 2", which against a run to the goal is
+  not a bonus at all.
+- **Setup Pass** carries the Fullback's "High pass up to 4", which is a fourth distance against
+  a card that offers 0, 1 and 3.
 
-**Nothing is imported, and the importer could not read the tab if it were asked to.**
-`scripts/import_d12ball_maneuvers.py` requires each die face to be used once per side, and
-the advanced rows reuse their counterparts' faces, so it refuses the twelve-row tab outright;
-`ManeuverCatalog.relationships` separately raises on every advanced card, because the sheet's
-`Defeats` column names only basic maneuvers. Both are reproduced in the matrix's own closing
-section.
+The abilities that do **not** contradict their advanced card are inherited by rank, and are the
+two that only ever change a skill test: the Midfielder's +3, and the ball speed modifier a
+rank-D2 defense adds.
 
-The `Advanced` ability column is still empty for all thirty-six players, so asymmetric
-teams have no data at all.
+One question the build raised and the author answered: **Intercept moves the new possessor
+forward, so it can run out of field.** Where the interceptor is already on the last space that
+way, *"it's a scoring opportunity"* (2026-08-19).
 
 Everything else has been answered. What remains unbuilt is in
 [Implementation status](#implementation-status).
@@ -99,6 +87,37 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-19 -- author, the advanced maneuvers land, and the outright rule is about the cards
+
+*Two answers, and a rename. On the injury downgrade: "a skill test from a downgraded injured
+play does trigger the cost and benefit of advanced maneuver. It wasn't a tie on the cards, so
+it can trigger the benefit/cost depending on the results of the skill test. Otherwise, it would
+be inconsistent with the way the document resolves an injured player's automatic loss which is
+a 'tie on the cards'." On an Intercept with no field left ahead of it: "it's a scoring
+opportunity."*
+
+- **The outright rule is about the cards, not the dice**, which corrects what the matrix had.
+  A matchup the cards decided carries the winner's benefit and the loser's cost; a matchup the
+  cards **tied** carries neither, and the winner of the skill test resolves the basic card on
+  their rank instead. The two injury cases then read the same way round rather than opposite
+  ways: an automatic loss of a tie carries nothing because it was a tie, and a skill test
+  forced by the disadvantage still carries them because it was not.
+- **A skill test that settles a tie resolves the *basic* card**, which is what the coach was
+  told the tie would cost them. It is on every advanced card's face.
+- **The basic D2 card is now "Steal"**, since the advanced D2 card is "Intercept". The sheet
+  renames the row but not the four references to it in its own `Defeats`/`Defeated by`
+  columns; the importer carries one alias for that and it can be dropped once upstream catches
+  up.
+- **`Time` is flat and `Die value` is ignored.** Both were already true of the rules
+  (2026-08-16 and 2026-08-17); this is where the importer caught up. An advanced card sits on
+  its counterpart's rank and reuses its faces, so the one-face-per-side check had to go.
+- **Rank alone decides, so the defeat cycle is one cycle.** The printed card back is one back
+  for all twelve, with each node carrying the two cards on its rank.
+
+What this leaves upstream: the `Interactions` column still lists each advanced row's basic
+counterpart's role abilities, three of which contradict the card they sit on, and the
+`Advanced` ability column is still empty. See [Still open](#still-open).
 
 ### 2026-08-18 -- author, a loose ball is the one contest and a Block Deflect always makes one
 
@@ -266,7 +285,7 @@ good, and it should be reconstructed from what the code actually plays, in full 
   it: a run back moves only the players standing outside their zone plus the stacks a zone has
   room to break up, not "every non-carrier"; the arrangement is recorded whenever a side takes up
   a window that offers positioning, whether or not they moved anybody, and a side that passes
-  keeps the one it had; and Dribble Advance's and Steal Intercept's speed change is up or down,
+  keeps the one it had; and Dribble Advance's and Steal's speed change is up or down,
   bounded by 1 and 12. The kickoff-space fallback that picks a midfield player when an
   arrangement leaves the space empty was undocumented and stays that way deliberately -- it is a
   fallback for games saved before the arrangement rule, not a rule.
@@ -1603,6 +1622,12 @@ From the author, for `foolbot.py`'s generic commands:
 - **The Low Pass receiver**, where the destination space holds more than one teammate.
 - **The unchallenged maneuver.** With no defender in the ball's zone the offense picks a
   maneuver on its own and it resolves as an outright win, with no reveal and no skill test.
+- **The six advanced maneuvers**, end to end, behind the game's mode: six cards a side when the
+  maneuver is challenged and three when it is not, one hexagon per tier, the outright rule, and
+  all twelve effects with their costs. `pending_double_team` carries a won Double Team into the
+  next maneuver; `pending_effect_continuation` is what lets Setup Pass set the speed and *then*
+  pick the pass out, and what hands the defense the Low Pass a beaten Precise Pass owes them.
+  Dinky rolls its rank as it always has and picks the tier at random.
 - **The injured player's maneuver disadvantage:** a tie against exactly one injured
   participant is their automatic loss, rolling nothing, and a decisive maneuver owed to an
   injured player is downgraded to a skill test they have to win. Specified since the rules
@@ -1619,22 +1644,17 @@ Nothing. What is left unbuilt is blocked on something, and is in the next sectio
 
 ### Blocked or deferred
 
-- **Advanced mode** is asked for and unspecified -- see
-  [Advanced mode](#advanced-mode----the-interaction-table-is-settled-the-cards-are-not-finished) under Still
-  open, and [advanced-maneuver-matrix.md](advanced-maneuver-matrix.md) for the questions.
-  Setup refuses it. It has two halves and they are blocked on different things:
-  - **Advanced maneuvers** are drafted in the sheet's `maneuvers` tab and transcribed into
-    the matrix. They are not imported, and **could not be**: the importer requires each die
-    face to be used once per side, and the advanced rows reuse their counterparts' faces, so
-    it refuses the twelve-row tab at the seventh. Retiring that validation is the same change
-    the author's "ignore the die value column" implies. Two rules gaps also remain -- Double
-    Team's cost is cut off mid-sentence, and three of the six costs name the maneuver that
-    beat them, which a lost skill test is not.
-    The `Time` column's stale distance-based costs, which would have reverted `maneuvers.json`
-    on the next import, have been **fixed upstream** by the author.
-  - **Asymmetric teams** -- per-team abilities and role composition (the sheet's empty
-    `Advanced` column) -- have no data at all. Formations left 4-1-1 and 2-1-3 to advanced
-    mode on 2026-08-08, and neither fits a current board. It also holds up the **back of a
-    printed player card**, which is that player's advanced version (the author,
-    2026-08-12): the printed cards are one-sided until the column is filled, and filling it
-    is what unblocks them.
+- **The advanced player abilities**, which are the other half of advanced mode -- see
+  [Advanced mode](#advanced-mode----the-maneuvers-are-built-the-player-abilities-are-not) under
+  Still open. They have no data at all: the sheet's `Advanced` column is empty for all
+  thirty-six players. It also holds up the **back of a printed player card**, which is that
+  player's advanced version (the author, 2026-08-12): the printed cards are one-sided until the
+  column is filled, and filling it is what unblocks them.
+- **Three role abilities against their advanced card.** The sheet's `Interactions` column
+  carries each advanced row's basic counterpart's abilities, and three of them contradict the
+  card they sit on -- the Fullback against Clear and against Setup Pass, the Playmaker against
+  Dribble Burst. None is applied; the cards resolve without them. Listed under Still open.
+- **Asymmetric teams**, and the formations 4-1-1 and 2-1-3 that were left to advanced mode on
+  2026-08-08. Neither shape fits a current board, and per-team role composition has never been
+  specified. It is not part of what the author asked for on 2026-08-17 -- that was maneuvers
+  and player abilities -- so this is a separate thread rather than a blocked half.

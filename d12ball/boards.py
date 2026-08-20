@@ -48,6 +48,7 @@ from d12ball.cards import (
     PANEL_EDGE,
 )
 from d12ball.components import (
+    MANEUVER_TIER_BASIC,
     BasicRuleset,
     BoardLayout,
     BoardState,
@@ -1719,9 +1720,16 @@ def draw_maneuver_legend(
     bottom: float,
 ) -> float:
     """
-    The six maneuvers, by the rank the matchup table names them by.
-    This is a coach's hand, not a die's faces -- the cards carry the
-    effects, so what belongs here is only which three are which.
+    The maneuvers, by the rank the matchup table names them by. This is
+    a coach's hand, not a die's faces -- the cards carry the effects, so
+    what belongs here is only which is which.
+
+    **Three rows a column, however many cards there are.** A rank
+    carries one card per tier and rank alone decides who beats whom, so
+    a row is a rank with both its names on it -- the basic card, and
+    its advanced counterpart under the same number. Twelve rows in a
+    panel sized for three is what listing them per card would give, and
+    it would print two O1s with nothing saying they are the same rank.
 
     **The rows divide what is left of the cell rather than measuring a
     fixed height.** Three rows at a size that fits one sheet run off
@@ -1738,21 +1746,24 @@ def draw_maneuver_legend(
     )
     column_width = (right - left) / 2
     rows_top = top + sheet.u(58)
-    row_height = (bottom - rows_top) / len(maneuvers.offense)
-    # Sized to the row rather than to the sheet, so the three lines
-    # breathe on a board with room and close up on one without.
-    body_size = min(20, row_height / sheet.unit * 0.5)
-    rank_face = sheet.font(body_size, bold=True)
+    ranks = sorted({m.rank for m in maneuvers.offense})
+    row_height = (bottom - rows_top) / len(ranks)
+    # Sized to the row rather than to the sheet, so the lines breathe
+    # on a board with room and close up on one without. A row now
+    # carries two names stacked, so it takes a third of its height
+    # rather than a half.
+    body_size = min(18, row_height / sheet.unit * 0.34)
+    rank_face = sheet.font(body_size * 1.15, bold=True)
     rank_left = sheet.u(44)
 
     columns = (
         ("WITH THE BALL", maneuvers.offense, OFFENSE_COLOR, "O"),
         ("CHALLENGING", maneuvers.defense, DEFENSE_COLOR, "D"),
     )
-    # All six names at one size, fitted to the longest of them. Fitting
-    # each on its own left "Steal Intercept" half the height of
-    # "Pressure" beside it, which reads as emphasis rather than as the
-    # accident of length it is.
+    # Every name at one size, fitted to the longest of them. Fitting
+    # each on its own left "Double Team" half the height of "Clear"
+    # beside it, which reads as emphasis rather than as the accident of
+    # length it is.
     name_width = column_width - rank_left - sheet.u(10)
     name_face = sheet.font(body_size)
     for maneuver in maneuvers.offense + maneuvers.defense:
@@ -1768,22 +1779,34 @@ def draw_maneuver_legend(
             sheet.fitted_font(heading, column_width * 0.9, 15, bold=True),
             color,
         )
-        for row, maneuver in enumerate(sorted(side, key=lambda m: m.rank)):
+        for row, rank in enumerate(ranks):
             row_y = rows_top + row_height * (row + 0.5)
             sheet.text(
                 (column_left, row_y),
-                f"{letter}{maneuver.rank}",
+                f"{letter}{rank}",
                 rank_face,
                 color,
                 anchor="lm",
             )
-            sheet.text(
-                (column_left + rank_left, row_y),
-                maneuver.name,
-                name_face,
-                INK,
-                anchor="lm",
+            # Basic over advanced, the same order and the same reason
+            # as a node on the printed card back.
+            on_rank = sorted(
+                (m for m in side if m.rank == rank),
+                key=lambda m: m.tier != MANEUVER_TIER_BASIC,
             )
+            offsets = (
+                (0.0,)
+                if len(on_rank) == 1
+                else (-row_height * 0.22, row_height * 0.22)
+            )
+            for maneuver, offset in zip(on_rank, offsets):
+                sheet.text(
+                    (column_left + rank_left, row_y + offset),
+                    maneuver.name,
+                    name_face,
+                    INK if not maneuver.is_advanced else MUTED,
+                    anchor="lm",
+                )
     return bottom
 
 
