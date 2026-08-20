@@ -552,10 +552,20 @@ weapon rather than only a saving.
   beaten Precise Pass hands the defense an unopposed Low Pass once the
   steal has settled. A speed choice had always been the *last* human
   step of an effect, leading straight into
-  `finish_maneuver_resolution`; `continue_effect` is the branch, and
-  it clears the record before dispatching so the state that follows
-  speaks for itself. An unrecognised kind falls through to the
-  ordinary end of a maneuver rather than stranding the turn.
+  `finish_maneuver_resolution`; `continue_effect` is the branch.
+  - **The record is cleared by whatever applies the step, not by the
+    dispatch.** A continuation is one more prompt and a coach may take
+    hours over it, so between dispatching and the click that answers,
+    this field is the only thing on the match saying what is owed --
+    which is why `build_effect_choice_view` reads it *first*, ahead of
+    the winner. Clearing it at dispatch (which is what `finish_cede`
+    does with `pending_cede`, for a flow with no prompt left in it)
+    would leave a restart in that window putting the speed choice back
+    up and letting a coach answer it twice.
+  - An unrecognised kind falls through to the ordinary end of a
+    maneuver rather than stranding the turn -- and *that* branch does
+    clear it, or the next speed choice in the game would find it still
+    set.
 - **`pending_double_team` is the two defenders, not a flag.** A won
   Double Team leaves both challenging the next maneuver, each adding
   their defensive skill, and what the following turn needs is *who* --

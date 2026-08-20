@@ -27,7 +27,10 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_views import ManeuverActionSelectView
+from cogs.d12ball_views import (
+    ManeuverActionSelectView,
+    SetupPassChoiceView,
+)
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     MANEUVER_TIER_ADVANCED,
@@ -771,6 +774,40 @@ class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             restored.pending_effect_continuation, {"kind": "setup_pass_shot"},
         )
+
+    async def test_a_restart_between_the_halves_comes_back_to_the_pass(
+        self,
+    ) -> None:
+        """
+        The window is wide -- a coach may take hours over the second
+        prompt -- so the continuation has to outlive its dispatch and
+        `build_effect_choice_view` has to read it. Reading the winner
+        instead would put Setup Pass's *speed* choice back up, and let
+        a coach set the speed twice.
+        """
+        cog, game, match = self.build("setup_pass", "steal", board_size=9)
+        self.put_a_teammate_at(match, 3)
+        cog.offer_speed_choice = mock.AsyncMock()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_setup_pass(build_interaction(), game, match)
+        game.match_state = match.to_dict()
+        cog.engine.load_match_state = mock.Mock(return_value=match)
+
+        restored = cog.build_effect_choice_view(game.game_id, match)
+
+        self.assertIsInstance(restored, SetupPassChoiceView)
+
+    async def test_the_pass_spends_the_continuation(self) -> None:
+        cog, game, match = self.build("setup_pass", "steal", board_size=9)
+        self.put_a_teammate_at(match, 3)
+        match.pending_effect_continuation = {"kind": "setup_pass_shot"}
+        cog.offer_scoring_attempt_choice = mock.AsyncMock()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_setup_pass(build_interaction(), game, match, 3)
+
+        self.assertIsNone(match.pending_effect_continuation)
 
     async def test_the_pass_offers_a_scoring_opportunity(self) -> None:
         cog, game, match = self.build("setup_pass", "steal", board_size=9)

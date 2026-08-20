@@ -1262,6 +1262,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         always reconstructs the first-stage distance choice instead.
         Nothing has been applied by then, so the coach re-picks.
         """
+        # **An effect continuation is read first**, because it says the
+        # effect is already past the prompt its winner would restore.
+        # Setup Pass's speed choice has been answered by the time one
+        # is set, and a beaten Precise Pass's Low Pass belongs to the
+        # *defense* -- reading the winner there would put the steal's
+        # speed choice back up and let a coach answer it twice. See
+        # `continue_effect` for why the field outlives its dispatch.
+        continuation = match.pending_effect_continuation or {}
+        if continuation.get("kind") == "setup_pass_shot":
+            return SetupPassChoiceView(self, game_id)
+        if continuation.get("kind") == "free_low_pass":
+            return LowPassChoiceView(self, game_id, key="low_pass", free=True)
+
         winner_key = self.engine.settled_maneuver_winner(match)
         if winner_key is None:
             # Still owed a skill test, so no effect is pending yet.
@@ -1863,6 +1876,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         free: bool = False,
     ) -> None:
         name = self.engine.maneuver_name(key)
+        # A pass granted by Precise Pass's cost is a continuation, and
+        # applying it is what spends it -- see `continue_effect`.
+        if free:
+            match.pending_effect_continuation = None
         offense_side = match.ball.possession
         handler = self.engine.get_player_definition(match.active_player_id)
         # Read before the ball moves, because the receivers are
@@ -2357,6 +2374,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         distance: int,
     ) -> None:
         offense_side = match.ball.possession
+        # Applied, so the continuation is spent -- see `continue_effect`
+        # for why it survived until now.
+        match.pending_effect_continuation = None
         actual_distance = match.move_ball_relative(offense_side, distance)
         receivers = self.engine.high_pass_receiver_candidates(
             match, offense_side,
@@ -2413,6 +2433,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         those are: the ball went dead rather than being taken off
         anybody.
         """
+        match.pending_effect_continuation = None
         match.ball.possession = match.defending_side()
         match.ball.speed = 1
         match.clear_ball_carrier()
@@ -3946,19 +3967,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Run whatever an advanced effect still owes once its last prompt
-        has been answered, and clear the record of it **before**
-        dispatching, so the state that follows speaks for itself -- the
-        same reason `finish_cede` clears `pending_cede` first.
+        has been answered.
+
+        **The record is cleared by whatever applies the step, not
+        here.** A continuation is one more prompt, and a coach may take
+        hours over it -- so between dispatching and the click that
+        answers, the only thing on the match saying what is owed is
+        this field. Clearing it at dispatch (which is what
+        `finish_cede` does with `pending_cede`, for a flow with no
+        prompt left in it) would leave a restart in that window
+        reading the maneuver's winner instead and re-offering the
+        speed choice a coach had already answered.
+        `build_effect_choice_view` reads this first for the same
+        reason.
 
         An unrecognised kind falls through to the ordinary end of a
         maneuver rather than stranding the turn: a continuation written
         by a version of the bot this one does not have is a game to
-        finish, not a game to lose.
+        finish, not a game to lose. That branch *does* clear it, or the
+        next speed choice in the game would find it still set.
         """
         continuation = match.pending_effect_continuation or {}
-        match.pending_effect_continuation = None
-        game.match_state = match.to_dict()
-        save_games(self.games)
 
         if continuation.get("kind") == "free_low_pass":
             # **Precise Pass's cost.** The defense stole the ball and
@@ -3985,6 +4014,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.offer_setup_pass_distance(interaction, game, match)
             return
 
+        match.pending_effect_continuation = None
+        game.match_state = match.to_dict()
+        save_games(self.games)
         await self.finish_maneuver_resolution(
             interaction,
             game,
