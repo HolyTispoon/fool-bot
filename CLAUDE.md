@@ -2043,7 +2043,7 @@ reading the same card, so neither gets a design of its own.
 ```bash
 python3 scripts/render_maneuver_cards.py --out cards/ --sheet  # print-sheet.png
 python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
-python3 scripts/render_maneuver_cards.py --hands   # what the bot sends
+python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot sends
 ```
 
 - **The hand replaced a paragraph per maneuver.** `build_maneuver_choice_text`
