@@ -77,10 +77,10 @@ A team is nine players, and in basic mode the two teams are identical. Every pla
 
 | Role | Offense | Defense | Ability |
 | --- | ---: | ---: | --- |
-| Fullback | 1 | 6 | May throw a High Pass up to 4 spaces, and deflects the ball 2 spaces with a Block Deflect. |
+| Fullback | 1 | 6 | **+1 space** on a pass or a deflection: a High Pass up to 4, a Block Deflect of 2, a Clear of 4, a Setup Pass that may also reach 4. |
 | Defender | 2 | 5 | A won Pressure also steals the ball. |
 | Midfielder | 3 | 4 | Adds 3 to a skill test for a Low Pass or a Pressure. |
-| Playmaker | 4 | 3 | May advance 2 spaces with a Dribble Advance. |
+| Playmaker | 4 | 3 | May advance 2 spaces with a Dribble Advance, and pays one exhaustion token fewer for a Dribble Burst. |
 | Winger | 5 | 2 | A completed Low Pass may set up a scoring opportunity. |
 | Striker | 6 | 1 | Adds 3 to a score attempt taken off a set-up. |
 
@@ -343,6 +343,8 @@ Ball speed rises by **3**, to a maximum of 12. Everything else is a Low Pass's: 
 
 The handler carries the ball to the **last space of the goal zone they attack**, and defenders are no obstacle. There is no distance to choose. The handler gains **1 exhaustion token per space travelled** — the only maneuver that charges by distance.
 
+*Playmaker:* pays one token fewer for the run.
+
 They then change the ball's speed by up to their offensive skill, in either direction. The ball is left with the handler.
 
 *Beaten:* possession is lost, and the ball **keeps the speed the burst put into it** rather than resetting to 1 — the one exception to [every turnover resetting it](#ball-speed). The defense then changes that speed by up to the challenger's defensive skill, as a steal's would.
@@ -355,6 +357,8 @@ Two steps, in this order. The passer first changes the ball's speed by up to the
 
 `0` means a teammate sharing the passer's own space — a passer never receives their own pass. Only distances that actually reach a teammate are offered.
 
+*Fullback:* may also set up at 4 spaces.
+
 **A Setup Pass cannot overshoot.** With no teammate at any of the three the pass runs [out of play](#out-of-bounds): the other team gains possession, both sides reset, and the gaining side sends somebody to pick the ball up.
 
 *Beaten:* the coach who beat it drives the ball a further 1, 2 or 3 spaces back, their choice, and it is [loose](#the-loose-ball) where it stops.
@@ -364,6 +368,8 @@ Two steps, in this order. The passer first changes the ball's speed by up to the
 **Rank D1. Costs 1 space minute. Beats High Pass and Setup Pass, loses to Dribble Advance and Dribble Burst.**
 
 A Block Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves, and the ball is [loose](#the-loose-ball) where it lands — including the deflection that runs out of field onto a defending player, which offers that player a [scoring opportunity](#scoring-opportunities) exactly as a Block Deflect's does.
+
+*Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 — a Fullback's extra space is distance, not speed, exactly as it is on a Block Deflect.
 
 *Beaten:* the defender who played it gains **2 exhaustion tokens**.
 

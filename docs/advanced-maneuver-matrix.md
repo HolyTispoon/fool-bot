@@ -31,22 +31,6 @@ the data drifts.
 
 ## Still open
 
-### The three abilities that contradict their card
-
-The sheet's `Interactions` column carries each advanced row's basic counterpart's role
-abilities. Three of them contradict the card they sit on, and **none is applied** — each card
-resolves without the ability rather than the code guessing at what was meant:
-
-| Card | The ability it carries | Why it does not fit |
-| --- | --- | --- |
-| **Clear** | Fullback: "Block deflect: ball goes back 2" | Clear goes back 3, so the ability is a *reduction* |
-| **Dribble Burst** | Playmaker: "may advance 2" | The burst runs to the goal; 2 is not a bonus |
-| **Setup Pass** | Fullback: "High pass up to 4" | A fourth distance against a card that offers 0, 1 and 3 |
-
-The two that do **not** contradict anything are inherited by rank and are live: the
-Midfielder's +3 on a skill test, and the ball speed modifier a rank-D2 defense adds. Both only
-ever change a skill test, which is why they carry over cleanly.
-
 ### The advanced player abilities
 
 The other half of what the author asked for on 2026-08-17, and the half with no data: the

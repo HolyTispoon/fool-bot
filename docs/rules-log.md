@@ -115,9 +115,33 @@ opportunity."*
 - **Rank alone decides, so the defeat cycle is one cycle.** The printed card back is one back
   for all twelve, with each node carrying the two cards on its rank.
 
-What this leaves upstream: the `Interactions` column still lists each advanced row's basic
-counterpart's role abilities, three of which contradict the card they sit on, and the
-`Advanced` ability column is still empty. See [Still open](#still-open).
+What this leaves upstream: the `Advanced` ability column is still empty for all thirty-six
+players. See [Still open](#still-open).
+
+### 2026-08-19 -- author, the three contradicting abilities are +1 distance and a token off
+
+*"Fullback on clear/setup pass - should get +1 distance, so clear goes 4 and setup pass is
+0,1,3,4. Playmaker on dribble burst - minus 1 to exhaustion cost."*
+
+The sheet's `Interactions` column carries each advanced row's basic counterpart's abilities,
+and three of them read as nonsense against the card they sit on: a Fullback's "ball goes back
+2" is a *reduction* on a 3-space Clear, its "high pass up to 4" is a fourth number against a
+card offering 0, 1 and 3, and a Playmaker's "may advance 2" is no bonus at all on a run to the
+end of the field. All three were left unapplied pending this.
+
+- **The Fullback's ability is +1 distance**, and that is what carries. The sentence states a
+  number because it was written against one card; the rule behind it takes a High Pass from 3
+  to 4, a Block Deflect from 1 to 2, a **Clear from 3 to 4**, and adds **4** to a Setup Pass's
+  0, 1 and 3. So it is inherited by rank like the Midfielder's +3, rather than being a table.
+- **A Fullback's Clear still drops the speed by 3.** The extra space is distance and not speed,
+  exactly as it is on a Block Deflect, whose Fullback deflection of 2 has always cost 1 speed.
+- **The Playmaker's ability reads differently on the two cards of its rank**, and is the only
+  one that does. A Dribble Burst's distance is not a choice, so the ability lands on the one
+  thing the card has that its counterpart does not: it **pays one exhaustion token fewer** for
+  the run. Floored at 0 — a discount cannot hand a token back.
+
+Nothing here is in the sheet: the `Interactions` column still carries the counterpart's
+sentences. The cards print what the ability does on the card it is on, out of `EXTRA_NOTES`.
 
 ### 2026-08-18 -- author, a loose ball is the one contest and a Block Deflect always makes one
 
