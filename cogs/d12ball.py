@@ -1877,6 +1877,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if receiver_id not in receivers:
             receiver_id = receivers[0] if receivers else None
 
+        # Read before the ball moves too, and for the same reason a
+        # won Double Team reads it before the push: "the closest
+        # teammate" is measured from where the play started, which is
+        # where the ball is standing right now. See
+        # `pay_double_team_cost`.
+        double_team_partner = (
+            self.engine.double_team_partner(match)
+            if self.engine.advanced_cost(match, key) == "double_team"
+            else None
+        )
+
         actual_distance = match.move_ball_relative(offense_side, distance)
         match.ball.speed = min(
             12, match.ball.speed + self.engine.pass_speed_bonus(key)
@@ -1917,12 +1928,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         # **Double Team's cost**: beaten by a pass, the defender who
         # played it and the teammate who would have joined them are
-        # each shoved a space forward, away from their own goal. Read
-        # after the pass has moved the ball, because "closest teammate"
-        # is a question about the defense's own shape rather than about
-        # where the ball ended up -- and the challenger is standing on
-        # the space the play started from either way.
-        content += self.pay_double_team_cost(match, key)
+        # each shoved a space forward, away from their own goal.
+        content += self.pay_double_team_cost(match, key, double_team_partner)
         # Low Pass's own cost is a flat 1 space minute regardless of
         # distance (2026-08-16), the same as every maneuver but High
         # Pass. A pass granted by Precise Pass's cost is not this
@@ -2127,11 +2134,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             lead_in=lead_in,
         )
 
-    def pay_double_team_cost(self, match: MatchState, winner_key: str) -> str:
+    def pay_double_team_cost(
+        self,
+        match: MatchState,
+        winner_key: str,
+        partner_id: Optional[str],
+    ) -> str:
         """
         Double Team's cost, charged inside the pass that beat it: the
         defender who played it and the nearest teammate each move a
         space forward, away from their own goal.
+
+        `partner_id` is passed rather than looked up, because by the
+        time this runs the pass has already moved the ball and "the
+        closest teammate" would be measured from the wrong space -- the
+        card means the space the play started from. Its caller reads it
+        before the ball moves, the same way a won Double Team does.
 
         No exhaustion -- nobody chose to go, and every per-space charge
         in the game is for a move somebody was sent on. Empty string
@@ -2142,10 +2160,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return ""
         defense_side = match.defending_side()
         moved = []
-        for player_id in (
-            match.challenger_id,
-            self.engine.double_team_partner(match),
-        ):
+        for player_id in (match.challenger_id, partner_id):
             if player_id is None:
                 continue
             match.move_player_relative(player_id, defense_side, 1)
@@ -2343,7 +2358,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         offense_side = match.ball.possession
         actual_distance = match.move_ball_relative(offense_side, distance)
-        receivers = self.engine.high_pass_receiver_candidates(match)
+        receivers = self.engine.high_pass_receiver_candidates(
+            match, offense_side,
+        )
         if not receivers:
             # The board moved under a stale click -- the pass has
             # nobody to reach, which is the same "goes out" outcome the
@@ -3664,6 +3681,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         overshot = abs(target_flat - origin_flat) < push
 
+        # **Read before anything moves.** The card says "the teammate
+        # closest to the space where the play started", and the play
+        # started where the ball is standing now -- a moment later the
+        # handler has been shoved back two and the ball with them, and
+        # the nearest defender to *that* space can be somebody else
+        # entirely. Asked here, so the answer is the one the card
+        # describes.
+        partner_id = (
+            self.engine.double_team_partner(match)
+            if key == "double_team"
+            else None
+        )
+
         actual_distance = match.move_player_relative(
             match.active_player_id, offense_side, -push,
         )
@@ -3672,7 +3702,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
 
         # The challenger advances onto the handler's space. A Double
-        # Team brings the nearest teammate onto it as well, free of
+        # Team brings that teammate onto it as well, free of
         # exhaustion -- so they are *placed* rather than run, which is
         # what "no exhaustion cost" means in a game where every other
         # way to reach a space charges a token a space.
@@ -3680,11 +3710,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.active_player_id
         )
         match.move_meeple(match.challenger_id, handler_zone, handler_space)
-        partner_id = None
-        if key == "double_team":
-            partner_id = self.engine.double_team_partner(match)
-            if partner_id is not None:
-                match.move_meeple(partner_id, handler_zone, handler_space)
+        if partner_id is not None:
+            match.move_meeple(partner_id, handler_zone, handler_space)
 
         # Losing to a pressure does not lose the ball: the handler was
         # shoved back still holding it, so they take the next turn.
