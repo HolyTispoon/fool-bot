@@ -4,9 +4,13 @@ plain csv.DictReader gets wrong.
 
 The sheet spells the short-form column "Abbreivated" and stores that
 header with a trailing space, so the name has to be matched loosely.
-And a cell whose text starts with "+3" is typed with a leading
+And a cell whose text starts with "+3" may be typed with a leading
 backtick, or a spreadsheet reads it as a formula -- the escape is in
-the CSV export and is not part of the ability.
+the CSV export and is not part of the ability. **It is on sentences as
+well as abbreviations**, and not predictably: the Striker's sentence
+carries one and the Midfielder's, which also starts "+3", does not. So
+every ability column is stripped rather than the ones somebody has
+checked.
 
 See scripts/import_d12ball_players.py, and "The rules" in CLAUDE.md for
 where the sheet lives.
@@ -56,7 +60,10 @@ ABILITIES_CSV = (
     "Dribble Advance up to 2\r\n"
     "Winger,May set up a scoring opportunity with a low pass.,May set up "
     "with low pass\r\n"
-    "Striker,Gain +3 for scoring attempts off a set up.,`+3 for scoring "
+    # The Striker's *sentence* carries the escape too, exactly as the
+    # real sheet stores it. It was the case nothing stripped, so it
+    # reached players.json and printed on the maneuver card.
+    "Striker,`+3 for scoring attempts off a set up.,`+3 for scoring "
     "off setup\r\n"
 )
 
@@ -112,6 +119,17 @@ class AbilitiesSheetTests(unittest.TestCase):
         )
         self.assertEqual(abilities["striker"].short, "+3 for scoring off setup")
 
+    def test_the_escape_is_stripped_from_the_sentence_as_well(self) -> None:
+        # The half that was missed. A short form is only ever drawn
+        # next to a portrait; the sentence is what the maneuver card,
+        # the roster and the rules listing print, so a stray backtick
+        # there is the more visible of the two.
+        abilities = read_abilities()
+
+        self.assertEqual(
+            abilities["striker"].text, "+3 for scoring attempts off a set up.",
+        )
+
     def test_a_role_without_a_short_form_is_an_error(self) -> None:
         # Better here than at render time, where all that can be done
         # about it is to draw the sentence and hope it fits.
@@ -153,6 +171,29 @@ class ShortAbilityTests(unittest.TestCase):
         for role, profile in catalog.role_profiles.items():
             with self.subTest(role=role):
                 self.assertTrue(profile.ability_short)
+
+    def test_no_shipped_ability_carries_a_formula_escape(self) -> None:
+        """
+        Asked of the data rather than of the importer, because the
+        importer was only half wrong: it stripped the abbreviations and
+        not the sentences, so every test about it passed while the
+        Striker's sentence shipped as "`+3 for scoring off a set up."
+        and printed that way on the High Pass card.
+
+        This is the assertion that would have caught it, and it catches
+        the next column somebody adds without asking.
+        """
+        catalog = load_player_catalog()
+
+        for role, profile in catalog.role_profiles.items():
+            for label, text in (
+                ("ability", profile.ability),
+                ("ability_short", profile.ability_short),
+            ):
+                with self.subTest(role=role, field=label):
+                    self.assertEqual(
+                        text, importer.strip_formula_escape(text),
+                    )
                 self.assertLess(
                     len(profile.ability_short), len(profile.ability),
                 )

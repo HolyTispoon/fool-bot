@@ -92,8 +92,19 @@ def strip_formula_escape(value: str) -> str:
     """
     Drop the leading backtick or apostrophe a spreadsheet needs on a
     cell whose text starts with +, - or =, which it would otherwise
-    read as a formula. Two of the abbreviations start with "+3", so
-    the escape is in the export and is not part of the ability.
+    read as a formula. The escape is in the export and is not part of
+    the ability.
+
+    **Every ability column, not only the abbreviations.** It was on the
+    abbreviations alone, because those were where the "+3"s were first
+    noticed -- and the Striker's *sentence* starts "+3" too, so it went
+    into `players.json` as "`+3 for scoring off a set up." and printed
+    that way on the maneuver card, the roster and the rules listing.
+    Whether a given cell carries the guard is the spreadsheet's
+    business and not something to predict: the Midfielder's sentence
+    also starts "+3" and is stored without one. So this is applied to
+    anything that might be an ability rather than to the columns
+    somebody has checked.
     """
     if value[:1] in ("`", "'") and value[1:2] in ("+", "-", "="):
         return value[1:]
@@ -153,7 +164,7 @@ def import_abilities(
 
     for row_number, row in enumerate(rows, start=2):
         role = (row.get("Role") or "").strip().lower()
-        ability = (row.get("Ability") or "").strip()
+        ability = strip_formula_escape((row.get("Ability") or "").strip())
         short = strip_formula_escape((row.get(short_column) or "").strip())
 
         if not role:
@@ -216,7 +227,10 @@ def import_players(
         name = (row.get("Name") or "").strip()
         team = (row.get("Team") or "").strip().lower()
         species = (row.get("Species") or "").strip().lower().replace(" ", "_")
-        basic = (row.get(BASIC_COLUMN) or "").strip()
+        # Stripped for the same reason the abilities sheet's own column
+        # is, and it has to be the same way round: the Basic column is a
+        # copy of that one, and the check below compares them.
+        basic = strip_formula_escape((row.get(BASIC_COLUMN) or "").strip())
         if (row.get("Advanced") or "").strip():
             advanced_count += 1
 

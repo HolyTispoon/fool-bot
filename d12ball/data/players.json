@@ -36,7 +36,7 @@
     "striker": {
       "offense": 6,
       "defense": 1,
-      "ability": "`+3 for scoring off a set up.",
+      "ability": "+3 for scoring off a set up.",
       "ability_short": "+3 for scoring off setup"
     }
   },

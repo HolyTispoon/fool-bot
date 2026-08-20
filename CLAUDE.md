@@ -61,6 +61,11 @@ body that has only ever existed in the author's head:
 - a [Google Sheet](https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw)
   for component data. The share URL is not fetchable but `export?format=csv&gid=<gid>` is,
   which is how `scripts/import_d12ball_players.py` works.
+  **Don't guess a gid -- run the import script, or read its `DEFAULT_SOURCE`.** The workbook
+  keeps its old tabs: `gid=0` is the pre-reshuffle player table, still there and still
+  answering, with nine-of-one-species rosters and the retired `{colour}_{name}` ids. Fetching
+  it by hand and reading it as current is a mistake that has been made; the live tab is
+  "Player Cards" (`gid=6660238`), and the scripts already point at the right ones.
 
 **Every ability is imported twice**, in full and abbreviated -- `ability` and `ability_short` on
 each role profile in `players.json`, from the `basic_abilities` sheet's own two columns. Text
@@ -70,8 +75,18 @@ the sentence when there is no short form. **Don't shorten an ability in code.** 
 two-part ability survives is a rules judgement, so the author makes it upstream and the import
 carries it. Two quirks of that sheet are handled in the script and covered by
 `tests/test_d12ball_player_import.py`: the column is spelled `Abbreivated` and stored with a
-trailing space, and an abbreviation beginning `+3` is typed with a leading backtick so the
+trailing space, and a cell beginning `+3` may be typed with a leading backtick so the
 spreadsheet doesn't read it as a formula.
+
+**The escape is on sentences as well as abbreviations, and not predictably.** It was stripped
+from the abbreviated column alone -- which is where the `+3`s were first noticed -- and the
+Striker's *sentence* starts `+3` too, so it shipped in `players.json` as
+`` "`+3 for scoring off a set up." `` and printed with the backtick on the maneuver card, the
+roster and the rules listing. Whether a given cell carries the guard is the spreadsheet's
+business: the Midfielder's sentence also starts `+3` and is stored without one. So
+`strip_formula_escape` is applied to **every** ability column, and
+`test_no_shipped_ability_carries_a_formula_escape` asks the shipped catalog rather than the
+importer -- the importer was only half wrong, so every test about it passed.
 
 [docs/rules-log.md](docs/rules-log.md) is the other half: every rules change with its date and
 where it came from, what is still unanswered, and what the answers unblock. Two parts of it
