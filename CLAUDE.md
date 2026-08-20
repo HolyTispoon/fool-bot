@@ -2476,6 +2476,50 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   drawing it.
 - `print/` is generated output and is gitignored, like `cards/`.
 
+### End zones
+
+`draw_end_zone` gives each goal its own zone, American-football style, beyond
+H1 and beyond the board's last V space -- not squeezed into either one's own
+space, because both are already full of meeples under the standard deal (see
+"Formations and occupancy"). It is drawn in the margin between the board and
+the canvas edge, so `GOAL_ZONE_WIDTH` is whatever that margin leaves once
+`GOAL_ZONE_EDGE_MARGIN` (to the canvas edge) and `GOAL_ZONE_GAP` (to the
+board's own outline) are taken out -- there is no spare canvas to grow it
+into without widening the board itself.
+
+- **"GOAL" runs the zone's length in the defending team's own color** --
+  the home team's to the left of H1, the visitors' to the right of the
+  board's last V space -- rotated 90°, the way a real end zone's lettering
+  reads sideways on a field running left to right. Letters are spaced apart
+  by `GOAL_ZONE_LETTER_SPACING`, on top of the font's own advance, because a
+  four-letter word at a font size that fits the zone's width reads as a
+  small cluster rather than something that fills a tall zone.
+- **The visitors' end zone is rotated a further 180°** (`angle=270` on
+  `draw_end_zone`, the author's call) from the home end zone's -- a real
+  field's two ends face opposite directions rather than both reading the
+  same way. The coordinate math for where the "O" (and the ball standing in
+  for it) lands after rotation was verified empirically against Pillow's
+  actual `rotate(90)`/`rotate(270)` output, not derived on paper -- a sign
+  error here is silent, not a crash.
+- **A blank d12 stands in for the "O" itself**, not a separate emblem placed
+  over the whole word: the letter is left undrawn and its slot remembered,
+  so the ball can be centered exactly there once the word is rotated. It is
+  fully opaque and sized to the letter it replaces (`ball_radius`, computed
+  from the "O"'s own advance and the word's cell height) rather than a fixed
+  constant, so it cannot end up visibly smaller than the letters around it.
+  The "12" on it is rotated the same angle as the word, so it reads in the
+  same orientation rather than sideways against it.
+- **The jumbotron and both team boards now span the field's full width,
+  end zones included** (`FIELD_FAR_LEFT`/`FIELD_FAR_RIGHT`, `JUMBOTRON_LEFT`/
+  `JUMBOTRON_RIGHT`), rather than stopping at the board's own edge and
+  leaving the end zones looking like they belong to nobody.
+- **`BENCH`/`BACK BENCH` position off the team name's own measured width**,
+  not a fixed offset -- a species team's name (`Fire Demons`, `Telekinetics`)
+  is wider than a color team's and was landing underneath "BENCH" rather
+  than beside it. `TEAM_BOARD_BENCH_MIN_X`/`TEAM_BOARD_BACK_BENCH_MIN_X` are
+  what a short name already left in place, so nothing shifts for the common
+  case.
+
 ### Fonts
 
 Fonts are bundled in `d12ball/fonts/` and loaded by absolute path. **Do not go
@@ -2486,6 +2530,15 @@ everywhere. When every name misses, Pillow's `load_default()` returns a face
 pinned to size 10 that ignores the requested size, and every label on the
 board silently collapses to tiny text. That was a real bug; the tests in
 `D12BallFontTests` exist to keep it from coming back.
+
+**A second family, Racing Sans One, is bundled the same way** for the goal
+zone's own "GOAL" lettering (`load_goal_zone_font`) -- an uppercase, slightly
+slanted display face, picked over several others tried in the same slot
+(DejaVu Bold read as too plain, Anton's condensed width didn't leave room to
+also space the letters out, Bungee read as too blocky) for the author's own
+taste, over the same bundled-path-first fallback chain and falling back to
+DejaVu Bold rather than Pillow's built-in face. Its OFL license is
+`RacingSansOne-OFL.txt` in the same directory, alongside the DejaVu one.
 
 `render.py` builds its font objects at **import time**, so a running bot keeps
 whatever it resolved at startup. Restart after any render change.
