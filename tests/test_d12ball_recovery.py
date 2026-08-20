@@ -268,8 +268,8 @@ class PendingTurnViewTests(unittest.TestCase):
         match.challenger_id = match.visiting.field_players[0]
         # A tie on the cards, so a skill test is owed and no effect is
         # pending yet.
-        match.offense_maneuver = "Low Pass"
-        match.defense_maneuver = "Block Deflect"
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "block_deflect"
 
         view, _ = cog.pending_turn_view("g1", match)
 
@@ -332,7 +332,7 @@ class ManeuverMenuRestoreTests(unittest.IsolatedAsyncioTestCase):
 
     def test_a_side_that_has_already_picked_is_not_restored(self) -> None:
         cog, game, match = self.build()
-        match.offense_maneuver = "Low Pass"
+        match.offense_maneuver = "low_pass"
 
         self.assertEqual(cog.restore_maneuver_menus(game, match), 1)
         self.assertEqual(cog.bot.add_view.call_args.args[0].side, "defense")
@@ -394,7 +394,7 @@ class ManeuverMenuRestoreTests(unittest.IsolatedAsyncioTestCase):
         ):
             store.dispatch_view(
                 discord.ComponentType.button.value,
-                f"d12ball:maneuver_pick:{game.game_id}:offense:Low Pass",
+                f"d12ball:maneuver_pick:{game.game_id}:offense:low_pass",
                 # An id no view was registered under: an ephemeral
                 # message the bot has never seen before.
                 SimpleNamespace(message=SimpleNamespace(id=123456789)),

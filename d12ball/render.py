@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.components import (
     duplicate_card_id,
+    MANEUVER_TIER_BASIC,
     ManeuverCatalog,
     ManeuverDefinition,
     MatchState,
@@ -2332,36 +2333,52 @@ def draw_arc_arrow(
 
 def _maneuver_cycle_order(
     catalog: ManeuverCatalog,
+    tier: str = MANEUVER_TIER_BASIC,
 ) -> list[tuple[ManeuverDefinition, bool]]:
     """
-    Walk the single defeat cycle formed by the maneuver catalog,
-    alternating offense/defense, starting from the lowest-rank offense
-    maneuver. Returns (maneuver, is_offense) pairs in cycle order,
-    matching the hexagon diagram's node order.
+    Walk the single defeat cycle formed by one tier of the maneuver
+    catalog, alternating offense/defense, starting from the lowest-rank
+    offense maneuver. Returns (maneuver, is_offense) pairs in cycle
+    order, matching the hexagon diagram's node order.
+
+    **One tier at a time, and the two hexagons are the same shape.**
+    Rank alone decides who beats whom (the author, 2026-08-18), so an
+    advanced card sits exactly where its basic counterpart does; the
+    advanced diagram is the basic one with six names swapped. Walking
+    both tiers at once would be walking two cycles laid on top of each
+    other, which is not a hexagon.
     """
-    offense_by_name = catalog.offense_by_name()
-    defense_by_name = catalog.defense_by_name()
-    start = min(catalog.offense, key=lambda item: item.rank)
+    offense = {m.rank: m for m in catalog.for_tier("offense", tier)}
+    defense = {m.rank: m for m in catalog.for_tier("defense", tier)}
+    start = offense[min(offense)]
 
     order: list[tuple[ManeuverDefinition, bool]] = [(start, True)]
     current, is_offense = start, True
-    node_count = len(catalog.offense) + len(catalog.defense)
+    node_count = len(offense) + len(defense)
     for _ in range(node_count - 1):
         if is_offense:
-            current = defense_by_name[current.defeats]
+            current = defense[current.defeats_rank]
             is_offense = False
         else:
-            current = offense_by_name[current.defeats]
+            current = offense[current.defeats_rank]
             is_offense = True
         order.append((current, is_offense))
     return order
 
 
-def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
+def render_maneuver_reference_image(
+    catalog: ManeuverCatalog,
+    tier: str = MANEUVER_TIER_BASIC,
+) -> BytesIO:
     """
-    Render the maneuvers arranged in their defeat cycle: arrows trace
-    who beats whom, dashed diameters connect the tie pairs (opposite
-    nodes), and each card carries its die range and full effect text.
+    Render one tier's maneuvers arranged in their defeat cycle: arrows
+    trace who beats whom, dashed diameters connect the tie pairs
+    (opposite nodes), and each card carries its die range and full
+    effect text.
+
+    An advanced-mode game gets the advanced hexagon; the two are the
+    same six positions with different names on them, because rank is
+    what decides.
     """
     canvas = Image.new(
         "RGBA",
@@ -2373,7 +2390,7 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
     node_radius = MANEUVER_DIAGRAM_NODE_RADIUS
     box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
 
-    order = _maneuver_cycle_order(catalog)
+    order = _maneuver_cycle_order(catalog, tier)
     node_count = len(order)
     angles = [270 + 360 * index / node_count for index in range(node_count)]
     centers = [

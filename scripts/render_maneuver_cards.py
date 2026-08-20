@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Render the six maneuver cards for the physical game.
+"""Render the twelve maneuver cards for the physical game.
 
-Six faces and one shared back, print-ready at 2.5 x 3.5 inches (poker size):
+Twelve faces and one shared back, print-ready at 2.5 x 3.5 inches (poker size):
 
     python3 scripts/render_maneuver_cards.py --out cards/
     python3 scripts/render_maneuver_cards.py --bleed --sheet
@@ -29,6 +29,8 @@ from d12ball.cards import (  # noqa: E402
     render_maneuver_hand,
 )
 from d12ball.components import (  # noqa: E402
+    MANEUVER_TIER_ADVANCED,
+    MANEUVER_TIER_BASIC,
     load_maneuver_catalog,
     load_player_catalog,
 )
@@ -36,7 +38,7 @@ from d12ball.components import (  # noqa: E402
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Render the six maneuver cards and their shared back.",
+        description="Render the twelve maneuver cards and their shared back.",
     )
     parser.add_argument(
         "--out",
@@ -105,12 +107,25 @@ def main() -> None:
         print(f"wrote {sheet_path}")
 
     if args.hands:
+        # Every hand the bot can send: the basic three a coach holds in
+        # a basic game or an unchallenged maneuver, and all six in an
+        # advanced one. See `RulesEngine.maneuver_tiers` for who gets
+        # which.
         for side in ("offense", "defense"):
-            hand_path = args.out / f"hand-{side}.png"
-            hand_path.write_bytes(
-                render_maneuver_hand(catalog, players, side).getvalue()
-            )
-            print(f"wrote {hand_path}")
+            for label, tiers in (
+                ("basic", (MANEUVER_TIER_BASIC,)),
+                (
+                    "advanced",
+                    (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
+                ),
+            ):
+                hand_path = args.out / f"hand-{side}-{label}.png"
+                hand_path.write_bytes(
+                    render_maneuver_hand(
+                        catalog, players, side, tiers,
+                    ).getvalue()
+                )
+                print(f"wrote {hand_path}")
 
 
 if __name__ == "__main__":

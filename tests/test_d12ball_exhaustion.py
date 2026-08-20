@@ -85,8 +85,8 @@ def build_interaction() -> SimpleNamespace:
 
 
 def tie_maneuvers(cog: D12Ball) -> tuple[str, str]:
-    for offense in (m.name for m in cog.maneuver_catalog.offense):
-        for defense in (m.name for m in cog.maneuver_catalog.defense):
+    for offense in (m.key for m in cog.maneuver_catalog.offense):
+        for defense in (m.key for m in cog.maneuver_catalog.defense):
             if cog.maneuver_catalog.resolve(offense, defense) == "tie":
                 return offense, defense
     raise AssertionError("The catalog has no tying maneuver pair.")

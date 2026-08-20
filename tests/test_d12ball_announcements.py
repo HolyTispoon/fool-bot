@@ -124,8 +124,8 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         match.challenger_id = match.setup_for_side(
             match.defending_side()
         ).field_players[0]
-        for offense in (m.name for m in cog.maneuver_catalog.offense):
-            for defense in (m.name for m in cog.maneuver_catalog.defense):
+        for offense in (m.key for m in cog.maneuver_catalog.offense):
+            for defense in (m.key for m in cog.maneuver_catalog.defense):
                 if cog.maneuver_catalog.resolve(offense, defense) == "tie":
                     match.offense_maneuver = offense
                     match.defense_maneuver = defense
@@ -154,7 +154,9 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         # the message it is attached to is the image and nothing else.
         self.assertIsNone(dice_message["content"])
         self.assertIn(
-            f"**{match.offense_maneuver}** wins the skill test!",
+            "**"
+            f"{cog.engine.maneuver_name(match.offense_maneuver)}"
+            "** wins the skill test!",
             sent_texts(interaction)[0],
         )
 
@@ -246,8 +248,8 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
             match.defending_side()
         ).field_players[0]
         winner = None
-        for offense in (m.name for m in cog.maneuver_catalog.offense):
-            for defense in (m.name for m in cog.maneuver_catalog.defense):
+        for offense in (m.key for m in cog.maneuver_catalog.offense):
+            for defense in (m.key for m in cog.maneuver_catalog.defense):
                 if cog.maneuver_catalog.resolve(offense, defense) == "offense":
                     match.offense_maneuver = offense
                     match.defense_maneuver = defense
@@ -260,7 +262,9 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
             await cog.resolve_maneuver(interaction, game, match)
 
         announcement = sent_texts(interaction)[0]
-        self.assertIn(f"## **{winner}** wins!", announcement)
+        self.assertIn(
+            f"## **{cog.engine.maneuver_name(winner)}** wins!", announcement,
+        )
         self.assertNotIn("resolves the effect", announcement)
         self.assertNotIn("<@", announcement)
         cog.begin_effect_resolution.assert_awaited_once()

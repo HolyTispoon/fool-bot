@@ -23,6 +23,8 @@ from d12ball.cards import (
     tie_pairs,
 )
 from d12ball.components import (
+    MANEUVER_TIER_ADVANCED,
+    MANEUVER_TIER_BASIC,
     catalog_player_id,
     duplicate_card_id,
     DUPLICATE_CARD_SUFFIX,
@@ -1014,8 +1016,8 @@ class D12BallComponentTests(unittest.TestCase):
             match.choose_defense_maneuver("Block Deflect")
 
         restored = MatchState.from_dict(match.to_dict(), self.rules)
-        self.assertEqual(restored.offense_maneuver, "Low Pass")
-        self.assertEqual(restored.defense_maneuver, "Pressure")
+        self.assertEqual(restored.offense_maneuver, "low_pass")
+        self.assertEqual(restored.defense_maneuver, "pressure")
 
         match.reset_maneuver()
         self.assertIsNone(match.active_player_id)
@@ -2387,39 +2389,92 @@ class D12BallManeuverTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.catalog = load_maneuver_catalog()
 
-    def test_catalog_has_three_offense_and_defense_maneuvers(self) -> None:
-        self.assertEqual(len(self.catalog.offense), 3)
-        self.assertEqual(len(self.catalog.defense), 3)
+    def test_each_side_has_three_maneuvers_per_tier(self) -> None:
+        for side in ("offense", "defense"):
+            with self.subTest(side=side):
+                self.assertEqual(len(self.catalog.side(side)), 6)
+                for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED):
+                    self.assertEqual(
+                        sorted(
+                            m.rank
+                            for m in self.catalog.for_tier(side, tier)
+                        ),
+                        [1, 2, 3],
+                    )
+
+    def test_every_card_is_paired_with_its_counterpart_by_rank(self) -> None:
+        """
+        The pairing is what "a skill test resolves it as the basic
+        card" is read off, and what the shared back's nodes carry. It
+        has to be an involution: a card's counterpart's counterpart is
+        the card itself, on the same side and rank.
+        """
+        for maneuver in self.catalog.offense + self.catalog.defense:
+            with self.subTest(maneuver=maneuver.key):
+                other = self.catalog.counterpart(maneuver)
+                self.assertNotEqual(other.tier, maneuver.tier)
+                self.assertEqual(other.rank, maneuver.rank)
+                self.assertEqual(
+                    self.catalog.counterpart(other).key, maneuver.key
+                )
 
     def test_die_faces_cover_one_through_six_with_no_overlap(self) -> None:
         # The die is off the rules (2026-08-17) but the data and
-        # DinkyAI still carry it -- see "The printed boards".
-        for maneuvers in (self.catalog.offense, self.catalog.defense):
+        # DinkyAI still carry it -- see "The printed boards". Only the
+        # basic rows have to cover the six: an advanced card sits on
+        # its counterpart's rank and reuses its faces, which is why the
+        # importer stopped validating them for uniqueness.
+        for side in ("offense", "defense"):
             faces = [
                 value
-                for maneuver in maneuvers
+                for maneuver in self.catalog.for_tier(
+                    side, MANEUVER_TIER_BASIC,
+                )
                 for value in maneuver.die_values
             ]
             self.assertEqual(sorted(faces), list(range(1, 7)))
 
     def test_matchup_triangle_resolves_as_expected(self) -> None:
         expected = {
-            ("Low Pass", "Block Deflect"): "tie",
-            ("Low Pass", "Steal Intercept"): "defense",
-            ("Low Pass", "Pressure"): "offense",
-            ("Dribble Advance", "Block Deflect"): "offense",
-            ("Dribble Advance", "Steal Intercept"): "tie",
-            ("Dribble Advance", "Pressure"): "defense",
-            ("High Pass", "Block Deflect"): "defense",
-            ("High Pass", "Steal Intercept"): "offense",
-            ("High Pass", "Pressure"): "tie",
+            ("low_pass", "block_deflect"): "tie",
+            ("low_pass", "steal"): "defense",
+            ("low_pass", "pressure"): "offense",
+            ("dribble_advance", "block_deflect"): "offense",
+            ("dribble_advance", "steal"): "tie",
+            ("dribble_advance", "pressure"): "defense",
+            ("high_pass", "block_deflect"): "defense",
+            ("high_pass", "steal"): "offense",
+            ("high_pass", "pressure"): "tie",
         }
-        for (offense_name, defense_name), outcome in expected.items():
+        for (offense_key, defense_key), outcome in expected.items():
             self.assertEqual(
-                self.catalog.resolve(offense_name, defense_name),
+                self.catalog.resolve(offense_key, defense_key),
                 outcome,
-                f"{offense_name} vs {defense_name}",
+                f"{offense_key} vs {defense_key}",
             )
+
+    def test_an_advanced_card_resolves_exactly_as_its_counterpart(
+        self,
+    ) -> None:
+        """
+        **Advanced mode adds no new way to win a maneuver** -- the
+        author, 2026-08-18: "Rank alone decides." So the 6x6 grid is
+        the basic 3x3 cycle repeated four times, and swapping either
+        card for its counterpart cannot change the outcome. Asserted
+        over the whole grid rather than the nine advanced-on-advanced
+        cells, because it is the *mixed* pairings a rank-blind
+        resolution would get wrong.
+        """
+        for offense in self.catalog.offense:
+            for defense in self.catalog.defense:
+                with self.subTest(pair=(offense.key, defense.key)):
+                    self.assertEqual(
+                        self.catalog.resolve(offense.key, defense.key),
+                        self.catalog.resolve(
+                            self.catalog.counterpart(offense).key,
+                            self.catalog.counterpart(defense).key,
+                        ),
+                    )
 
     def test_reference_image_renders_as_png(self) -> None:
         image_data = render_maneuver_reference_image(self.catalog)
@@ -2427,26 +2482,44 @@ class D12BallManeuverTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
 
-    def test_each_side_gets_a_hand_of_three_cards_and_the_back(self) -> None:
+    def test_each_side_gets_a_hand_of_its_cards_and_the_back(self) -> None:
         """
         The suite cannot see the picture, so what it can check is that
-        the hand is as wide as a side's three maneuvers plus the shared
-        back and no wider -- a fourth maneuver added to a side, or a
-        back that stopped being drawn with the hand, would otherwise
-        reach a coach's pick silently. The back is what replaced the
-        "Maneuver Reference" button on the pick menu, so it is the
-        whole of the reference a coach has while choosing.
+        the hand is as wide as the cards it holds plus the shared back
+        and no wider -- a card added to a side, or a back that stopped
+        being drawn with the hand, would otherwise reach a coach's pick
+        silently. The back is what replaced the "Maneuver Reference"
+        button on the pick menu, so it is the whole of the reference a
+        coach has while choosing.
+
+        **The advanced hand is two rows**, which is the point of
+        checking the width rather than the card count: seven across
+        arrives in Discord at about 75px a card, and a layout that
+        quietly went back to one row would be unreadable rather than
+        broken.
         """
         players = load_player_catalog()
-        expected = (
-            HAND_MARGIN * 2 + HAND_CARD_WIDTH * 4 + HAND_GAP * 3
+
+        def width(columns: int) -> int:
+            return (
+                HAND_MARGIN * 2
+                + HAND_CARD_WIDTH * columns
+                + HAND_GAP * (columns - 1)
+            )
+
+        cases = (
+            ((MANEUVER_TIER_BASIC,), 4, width(4)),
+            ((MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED), 7, width(4)),
         )
         for side in ("offense", "defense"):
-            with self.subTest(side=side):
-                hand = render_maneuver_hand(self.catalog, players, side)
-                with Image.open(hand) as image:
-                    self.assertEqual(image.format, "PNG")
-                    self.assertEqual(image.width, expected)
+            for tiers, cards, expected in cases:
+                with self.subTest(side=side, tiers=tiers):
+                    hand = render_maneuver_hand(
+                        self.catalog, players, side, tiers,
+                    )
+                    with Image.open(hand) as image:
+                        self.assertEqual(image.format, "PNG")
+                        self.assertEqual(image.width, expected)
 
     def test_the_back_joins_every_pair_that_ties(self) -> None:
         """
@@ -2456,18 +2529,23 @@ class D12BallManeuverTests(unittest.TestCase):
         maneuvers. Three pairs, each a genuine tie, and every maneuver
         in exactly one.
         """
+        # Six nodes, so three lines: an advanced card ties exactly what
+        # its basic counterpart ties, and drawing all twelve would put
+        # the same three diagonals down four times over.
+        basic = self.catalog.for_tier(
+            "offense", MANEUVER_TIER_BASIC,
+        ) + self.catalog.for_tier("defense", MANEUVER_TIER_BASIC)
         pairs = tie_pairs(self.catalog)
-        self.assertEqual(len(pairs), len(self.catalog.offense))
+        self.assertEqual(len(pairs), 3)
         for offense, defense in pairs:
-            with self.subTest(pair=(offense.name, defense.name)):
+            with self.subTest(pair=(offense.key, defense.key)):
                 self.assertEqual(
-                    self.catalog.resolve(offense.name, defense.name), "tie"
+                    self.catalog.resolve(offense.key, defense.key), "tie"
                 )
-        named = [maneuver.name for pair in pairs for maneuver in pair]
-        self.assertEqual(sorted(named), sorted(
-            maneuver.name
-            for maneuver in self.catalog.offense + self.catalog.defense
-        ))
+        named = [maneuver.key for pair in pairs for maneuver in pair]
+        self.assertEqual(
+            sorted(named), sorted(maneuver.key for maneuver in basic)
+        )
 
     def test_a_print_sheet_divides_evenly_into_its_cards(self) -> None:
         """
@@ -2530,19 +2608,37 @@ class D12BallManeuverTests(unittest.TestCase):
         """
         players = load_player_catalog()
         by_maneuver = {
-            maneuver.name: {
+            maneuver.key: {
                 label
-                for label, _ in role_abilities(players, maneuver)
+                for label, _ in role_abilities(players, maneuver, self.catalog)
             }
             for maneuver in self.catalog.offense + self.catalog.defense
         }
 
-        self.assertEqual(by_maneuver["Low Pass"], {"MIDFIELDER", "WINGER"})
-        self.assertEqual(by_maneuver["Dribble Advance"], {"PLAYMAKER"})
-        self.assertEqual(by_maneuver["High Pass"], {"FULLBACK", "STRIKER"})
-        self.assertEqual(by_maneuver["Block Deflect"], {"FULLBACK"})
-        self.assertEqual(by_maneuver["Steal Intercept"], {"BALL SPEED"})
-        self.assertEqual(by_maneuver["Pressure"], {"DEFENDER", "MIDFIELDER"})
+        self.assertEqual(by_maneuver["low_pass"], {"MIDFIELDER", "WINGER"})
+        self.assertEqual(by_maneuver["dribble_advance"], {"PLAYMAKER"})
+        self.assertEqual(by_maneuver["high_pass"], {"FULLBACK", "STRIKER"})
+        self.assertEqual(by_maneuver["block_deflect"], {"FULLBACK"})
+        self.assertEqual(by_maneuver["steal"], {"BALL SPEED"})
+        self.assertEqual(by_maneuver["pressure"], {"DEFENDER", "MIDFIELDER"})
+
+        # **No role ability names an advanced maneuver**, which is the
+        # data being honest rather than a gap: advanced mode's other
+        # half is a unique ability per player and the sheet's column
+        # for it is empty for all thirty-six. What every advanced card
+        # does carry is the skill-test line, and Intercept carries the
+        # ball speed modifier its rank has always carried.
+        self.assertEqual(by_maneuver["precise_pass"], {"TIE"})
+        self.assertEqual(by_maneuver["double_team"], {"TIE"})
+        self.assertEqual(by_maneuver["intercept"], {"BALL SPEED", "TIE"})
+
+        # **Three abilities reach a card their sentence does not name**
+        # (the author, 2026-08-19), so they cannot be matched and are
+        # placed by hand. The card says what the ability does *there*:
+        # the Fullback's +1 distance, the Playmaker's token off.
+        self.assertEqual(by_maneuver["clear"], {"FULLBACK", "TIE"})
+        self.assertEqual(by_maneuver["setup_pass"], {"FULLBACK", "TIE"})
+        self.assertEqual(by_maneuver["dribble_burst"], {"PLAYMAKER", "TIE"})
 
     def reference_skill_test_height(self) -> int:
         """A two-detail-line skill test, the size the others match."""
@@ -2637,7 +2733,12 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog.player_catalog = self.catalog
         cog.basic_ruleset = self.rules
         cog.team_emojis = {}
-        cog.engine = RulesEngine(cog.player_catalog, cog.basic_ruleset, None, {})
+        cog.engine = RulesEngine(
+            cog.player_catalog,
+            cog.basic_ruleset,
+            load_maneuver_catalog(),
+            {},
+        )
         cog.refresh_match_image = mock.AsyncMock()
         cog.announce_board_update = mock.AsyncMock()
         cog.begin_loose_ball = mock.AsyncMock()
@@ -2774,7 +2875,12 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         cog.player_catalog = self.catalog
         cog.basic_ruleset = self.rules
         cog.team_emojis = {}
-        cog.engine = RulesEngine(cog.player_catalog, cog.basic_ruleset, None, {})
+        cog.engine = RulesEngine(
+            cog.player_catalog,
+            cog.basic_ruleset,
+            load_maneuver_catalog(),
+            {},
+        )
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         cog.offer_scoring_attempt_choice = mock.AsyncMock()

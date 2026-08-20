@@ -42,11 +42,16 @@ from typing import Optional
 
 from d12ball.ai import AIStrategy
 from d12ball.components import (
+    SETUP_PASS_DISTANCES,
+    SETUP_PASS_FULLBACK_DISTANCE,
+    MANEUVER_TIER_ADVANCED,
+    MANEUVER_TIER_BASIC,
     SETUP_AREAS,
     BasicRuleset,
     CoachingOccasion,
     FormationShape,
     ManeuverCatalog,
+    ManeuverDefinition,
     MatchState,
     PlayerCatalog,
     PlayerDefinition,
@@ -68,7 +73,14 @@ from d12ball.formatting import (
     space_label,
     travel_space_label,
 )
-from d12ball.game import AIOpponent, D12BallGame, Formation, Team, team_display_name
+from d12ball.game import (
+    AIOpponent,
+    D12BallGame,
+    Formation,
+    GameMode,
+    Team,
+    team_display_name,
+)
 from d12ball.render import TEAM_COLORS, ChallengeSide
 
 
@@ -133,6 +145,143 @@ class RulesEngine:
         self.basic_ruleset = basic_ruleset
         self.maneuver_catalog = maneuver_catalog
         self.ai_strategies = ai_strategies
+
+    def maneuver_tiers(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> tuple[str, ...]:
+        """
+        Which tiers a coach may pick from **this turn** -- the whole of
+        who holds which cards, asked in one place so the hand a coach
+        is shown, the buttons built under it and the click that answers
+        cannot disagree.
+
+        Two things narrow it, and both are rules rather than settings:
+
+        - **A basic game is the basic three.** Advanced maneuvers are
+          what `GameMode.ADVANCED` turns on.
+        - **An unchallenged maneuver is always basic** (the author):
+          *"Advanced maneuver can only be played when a maneuver is
+          challenged."* That is answerable here because all three
+          routes into the unopposed branch settle it before the offense
+          is prompted, so `maneuver_uncontested` is already set by the
+          time a hand is drawn. It also makes declining a challenge a
+          defensive weapon rather than only a saving -- sending nobody
+          denies the offense their advanced cards.
+        """
+        if game.mode != GameMode.ADVANCED or match.maneuver_uncontested:
+            return (MANEUVER_TIER_BASIC,)
+        return (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
+
+    def maneuver_hand(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: str,
+    ) -> tuple[ManeuverDefinition, ...]:
+        """One side's playable cards this turn, in the order they read."""
+        tiers = self.maneuver_tiers(game, match)
+        return tuple(
+            sorted(
+                (
+                    maneuver
+                    for maneuver in self.maneuver_catalog.side(side)
+                    if maneuver.tier in tiers
+                ),
+                key=lambda item: (
+                    item.rank,
+                    item.tier != MANEUVER_TIER_BASIC,
+                ),
+            )
+        )
+
+    def advanced_effects_apply(self, match: MatchState) -> bool:
+        """
+        Whether this maneuver carries its cards' advanced benefit and
+        cost -- **the whole of the outright rule**, in one predicate.
+
+        An advanced effect follows the **cards**, not the dice. A
+        matchup the cards decided carries the winner's benefit and the
+        loser's cost; a matchup the cards **tied** carries neither, and
+        resolves as the basic cards on those ranks instead.
+
+        Two consequences worth stating, because they look like
+        exceptions and are not:
+
+        - **An injured player's automatic loss of a tie carries
+          nothing.** It was a tie on the cards; the injury only settled
+          it without a roll.
+        - **A skill test forced by an injury downgrade still carries
+          them.** The cards were decisive, so the effects are in force
+          and the roll only decides which way they point -- the winner
+          of the test takes their card's benefit and the loser pays
+          their card's cost. The author, 2026-08-19: *"It wasn't a tie
+          on the cards, so it can trigger the benefit/cost depending on
+          the results of the skill test."* The two readings above are
+          the same reading: what matters is the tie on the cards.
+
+        An unchallenged maneuver is always basic (there is no advanced
+        card in that hand), so it answers False without having to know
+        that.
+        """
+        if match.maneuver_uncontested:
+            return False
+        if match.offense_maneuver is None or match.defense_maneuver is None:
+            return False
+        return (
+            self.maneuver_catalog.resolve(
+                match.offense_maneuver, match.defense_maneuver,
+            )
+            != "tie"
+        )
+
+    def resolving_maneuver(self, match: MatchState, winner_key: str) -> str:
+        """
+        Which card's effect actually runs. It is the winner's own
+        except where a **tie** was settled by a skill test: an advanced
+        card that wins a tie resolves as the basic card on its rank,
+        since a tie carries no advanced effect (see
+        `advanced_effects_apply`).
+        """
+        maneuver = self.maneuver_catalog.get(winner_key)
+        if maneuver is None or not maneuver.is_advanced:
+            return winner_key
+        if self.advanced_effects_apply(match):
+            return winner_key
+        return self.maneuver_catalog.counterpart(maneuver).key
+
+    def advanced_cost(
+        self, match: MatchState, winner_key: str,
+    ) -> Optional[str]:
+        """
+        The **losing** card's key, when that card is advanced and its
+        cost is in force -- otherwise None.
+
+        Each of the six costs is a rule the *opponent* gets to use, and
+        every one of them bites somewhere inside the winning maneuver's
+        own resolution rather than as a step after it: an unopposed Low
+        Pass once a steal has landed, a turnover that skips the speed
+        reset, a reception that is not contested. So there is no
+        cost-tail dispatcher -- the winner's handler asks this what the
+        card it just beat was, which is also the only place that knows
+        where the cost belongs.
+        """
+        if not self.advanced_effects_apply(match):
+            return None
+        loser_key = match.opposing_maneuver(winner_key)
+        loser = (
+            self.maneuver_catalog.get(loser_key)
+            if loser_key is not None
+            else None
+        )
+        if loser is None or not loser.is_advanced:
+            return None
+        return loser.key
+
+    def maneuver_name(self, key: Optional[str]) -> str:
+        """What to print for a stored maneuver key."""
+        return self.maneuver_catalog.display_name(key)
 
     def formation_shape(
         self,
@@ -463,6 +612,164 @@ class RulesEngine:
                     candidates.append((distance, receivers[0]))
                     break
         return candidates
+
+    def setup_pass_distances(self, match: MatchState) -> list[int]:
+        """
+        Which of Setup Pass's distances -- 0, 1 and 3, plus 4 for a
+        Fullback -- actually reach a teammate to set up.
+
+        A distance reaching nobody is left off, for the reason
+        `high_pass_distances` leaves off a throw that would clamp: the
+        card is a *set-up*, so a landing space with none of the passing
+        side on it is not a shorter version of the pass, it is no pass
+        at all. When none of them reaches anybody the pass goes out --
+        see `D12Ball.apply_setup_pass_out`.
+
+        **The Fullback's ability is +1 distance, and that is what it
+        inherits** (the author, 2026-08-19). Its sentence reads "High
+        pass up to 4", which read as a number is a fourth distance
+        against a card that offers 0, 1 and 3 -- and read as the rule
+        behind the number is the same +1 that takes a basic High Pass
+        from 3 to 4 and a Clear from 3 to 4. The rule is what carries,
+        so the extra distance is appended rather than replacing the 3.
+        """
+        offense_side = match.ball.possession
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        offense_players = set(match.setup_for_side(offense_side).field_players)
+
+        handler = self.get_player_definition(match.active_player_id)
+        distances = list(SETUP_PASS_DISTANCES)
+        if handler.role == PlayerRole.FULLBACK:
+            distances.append(SETUP_PASS_FULLBACK_DISTANCE)
+
+        reachable = []
+        for distance in distances:
+            target_flat = match.relative_flat_index(
+                origin_flat, offense_side, distance,
+            )
+            if abs(target_flat - origin_flat) != distance:
+                continue
+            zone, space_index = match.board.position_at_flat_index(target_flat)
+            occupants = [
+                player_id
+                for player_id in match.board.spaces[zone][space_index]
+                if player_id in offense_players
+                # A passer never receives their own pass (2026-08-12),
+                # which is the whole of what makes 0 mean "a teammate
+                # sharing the passer's space".
+                and player_id != match.active_player_id
+            ]
+            if occupants:
+                reachable.append(distance)
+        return reachable
+
+    def double_team_partner(self, match: MatchState) -> Optional[str]:
+        """
+        The teammate a Double Team brings in with the challenger: the
+        defending player, other than the challenger, standing nearest
+        the ball.
+
+        **Nearest the ball, which is where the play started.** The card
+        says "closest to the space where the play started", and by the
+        time a maneuver resolves the ball has not moved yet -- the
+        challenger was walked onto it and the handler is still standing
+        there. So `distance_to_ball` is that measurement rather than an
+        approximation of it. Ties break on `field_players` order, the
+        way every other list a coach could be offered does, so the same
+        question asked twice comes back the same way.
+
+        None when the defending side has nobody else on the field,
+        which `validate()` makes unreachable from a game that loads --
+        the branch is a guard, not a state.
+        """
+        defense = match.setup_for_side(match.defending_side())
+        candidates = [
+            player_id
+            for player_id in defense.field_players
+            if player_id != match.challenger_id
+            and match.board.meeple_position(player_id) is not None
+        ]
+        if not candidates:
+            return None
+        return min(candidates, key=match.distance_to_ball)
+
+    def double_team_defenders(self, match: MatchState) -> list[str]:
+        """
+        Everyone challenging this maneuver: the challenger, and the
+        second defender a Double Team left on the ball last time.
+        Ordered challenger-first, so the skill test reads as one
+        defender with help rather than as a pair with no lead.
+
+        Empty of the second whenever a Double Team is not in force,
+        which is nearly always -- `pending_double_team` is set by one
+        card and cleared by a new play.
+        """
+        defenders = [match.challenger_id] if match.challenger_id else []
+        for player_id in match.pending_double_team:
+            if (
+                player_id not in defenders
+                and player_id in match.setup_for_side(
+                    match.defending_side()
+                ).field_players
+            ):
+                defenders.append(player_id)
+        return defenders
+
+    def pass_speed_bonus(self, maneuver_key: str) -> int:
+        """
+        What a pass adds to ball speed: Low Pass's +1, or Precise
+        Pass's +3. Both are capped at 12 by the caller, the way every
+        speed change is.
+        """
+        return 3 if maneuver_key == "precise_pass" else 1
+
+    def precise_pass_candidates(
+        self,
+        match: MatchState,
+    ) -> list[tuple[int, str]]:
+        """
+        Precise Pass's destinations: **every** teammate on the board,
+        as (distance, receiver) pairs ordered back-to-front, rather
+        than the nearest one each way within two spaces.
+
+        That is the whole of what the card buys over a Low Pass, so it
+        is written as the same shape -- `LowPassChoiceView`, the
+        receiver pick behind it and `DinkyAI` all read whichever list
+        `pass_candidates` hands them and cannot tell the two apart.
+        Unbounded in both directions: "any teammate" has no reach, and
+        the board is what bounds it.
+        """
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        reach = match.board.layout.board_size - 1
+        candidates: list[tuple[int, str]] = []
+        for distance in range(-reach, reach + 1):
+            receivers = self.low_pass_receivers(match, distance)
+            if receivers:
+                candidates.append((distance, receivers[0]))
+        return candidates
+
+    def pass_candidates(
+        self,
+        match: MatchState,
+        maneuver_key: Optional[str] = None,
+    ) -> list[tuple[int, str]]:
+        """
+        The destinations the pass being resolved actually offers --
+        Precise Pass's whole board, or a Low Pass's nearest each way.
+        Asked in one place so the buttons, the AI and the click that
+        answers cannot disagree about what was on offer.
+        """
+        if maneuver_key is None:
+            maneuver_key = self.resolving_maneuver(
+                match, match.offense_maneuver,
+            ) if match.offense_maneuver else None
+        if maneuver_key == "precise_pass":
+            return self.precise_pass_candidates(match)
+        return self.low_pass_candidates(match)
 
     def low_pass_receivers(
         self,

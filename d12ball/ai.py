@@ -8,9 +8,15 @@ and the AIStrategy interface, never to a specific template.
 
 import random
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Sequence
 
-from .components import MatchState, ManeuverCatalog, PlayerCatalog
+from .components import (
+    MANEUVER_TIER_BASIC,
+    ManeuverCatalog,
+    ManeuverDefinition,
+    MatchState,
+    PlayerCatalog,
+)
 from .game import AIOpponent, HomeChoice
 
 
@@ -48,7 +54,14 @@ class AIStrategy(ABC):
         ...
 
     @abstractmethod
-    def choose_maneuver_action(self, side: str) -> str:
+    def choose_maneuver_action(
+        self,
+        side: str,
+        hand: Optional[Sequence[ManeuverDefinition]] = None,
+    ) -> str:
+        """The maneuver **key** this side plays. `hand` is what the
+        game actually offers -- three cards in a basic game, six in an
+        advanced one -- and None means the basic three."""
         ...
 
     @abstractmethod
@@ -254,15 +267,43 @@ class DinkyAI(AIStrategy):
             return "shoot"
         return "maneuver"
 
-    def choose_maneuver_action(self, side: str) -> str:
+    def choose_maneuver_action(
+        self,
+        side: str,
+        hand: Optional[Sequence[ManeuverDefinition]] = None,
+    ) -> str:
         """
         Always roll a d6 and take whichever maneuver that die value
-        maps to.
+        maps to -- then, when the hand holds more than one card on that
+        rank, pick between the tiers at random.
+
+        **Dinky makes no judgement here and this does not change
+        that.** The die picks a rank, exactly as it always has; the
+        second draw only decides whether the card is the basic one or
+        its advanced counterpart, which is the same coin-flip
+        indifference Dinky brings to every other choice it is not
+        maximizing. What it is *not* is a policy: an advanced card
+        carries a cost as well as a benefit and weighing the two is
+        judgement, which Dinky does not do -- see "Dinky never cedes".
+        The alternative was Dinky never playing an advanced card at
+        all, which would leave half of advanced mode unreachable in a
+        solo game.
         """
         roll = random.randint(1, 6)
         if side == "offense":
-            return self.maneuver_catalog.offense_for_die(roll).name
-        return self.maneuver_catalog.defense_for_die(roll).name
+            rank = self.maneuver_catalog.offense_for_die(roll).rank
+        else:
+            rank = self.maneuver_catalog.defense_for_die(roll).rank
+
+        if hand is None:
+            hand = self.maneuver_catalog.for_tier(side, MANEUVER_TIER_BASIC)
+        on_rank = [maneuver for maneuver in hand if maneuver.rank == rank]
+        if not on_rank:
+            # A hand that does not cover every rank is not a state the
+            # game produces, but picking out of what is actually there
+            # is cheaper than a branch that can never be right.
+            on_rank = list(hand)
+        return random.choice(on_rank).key
 
     def choose_low_pass(
         self,

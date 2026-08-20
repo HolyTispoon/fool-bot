@@ -355,11 +355,11 @@ class LegacyGameMigrationTests(unittest.TestCase):
 
         handler = match.turn_handler_candidates()[0]
         match.active_player_id = handler
-        match.choose_offense_maneuver("Dribble Advance")
+        match.choose_offense_maneuver("dribble_advance")
 
         challenger = match.challenge_candidates()[0]
         match.choose_challenger(challenger)
-        match.choose_defense_maneuver("Pressure")
+        match.choose_defense_maneuver("pressure")
 
         self.assertTrue(match.maneuver_selections_complete)
         winner = self.maneuvers.resolve(

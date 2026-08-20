@@ -22,12 +22,16 @@ down here; see "Every ability is imported twice" in CLAUDE.md. The two
 things that match cannot find are listed explicitly below, each with
 the reason -- see EXTRA_ROLES and EXTRA_NOTES.
 """
+import re
 from io import BytesIO
-from typing import NamedTuple, Optional
+from math import ceil
+from typing import NamedTuple, Optional, Sequence
 
 from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.components import (
+    MANEUVER_TIER_ADVANCED,
+    MANEUVER_TIER_BASIC,
     ManeuverCatalog,
     ManeuverDefinition,
     PlayerCatalog,
@@ -88,12 +92,10 @@ BACK_EDGE = "#8c9aa6"
 # the cycle still reads as the first thing on the card.
 TIE_COLOR = "#7e8d9a"
 
-# The strip diagram is the standard seven-space board with the ball on
-# the third space, which is the only position from which every maneuver
-# on every card fits: a High Pass of 4 lands on the last space and a
-# Fullback's Block Deflect of 2 on the first.
-STRIP_SPACES = 7
-BALL_SPACE = 2
+# Which board a tier's strip diagram is drawn on lives in
+# STRIP_GEOMETRY, below the moves it has to hold. The offense always
+# attacks right, so a move's offset is along that one axis and never
+# "forward" or "back" from anybody's point of view.
 ATTACK_RIGHT = True
 
 
@@ -340,27 +342,47 @@ def fitted_title(
 # The sentence still comes from players.json; only the placement is
 # here.
 EXTRA_ROLES: dict[str, tuple[str, ...]] = {
-    "High Pass": ("striker",),
+    "high_pass": ("striker",),
 }
 
 # What a maneuver's own rules add to it, where no role ability names it
-# and so nothing in the data can be matched against. Steal Intercept's
-# is the one modifier that decides the maneuver and the only maneuver
-# whose card would otherwise be blank; the wording is the author's.
-# It cannot live in maneuvers.json, which the sheet import rewrites
-# whole.
+# and so nothing in the data can be matched against. Steal's is the one
+# modifier that decides the maneuver and the only maneuver whose card
+# would otherwise be blank; the wording is the author's. None of it can
+# live in maneuvers.json, which the sheet import rewrites whole.
+BALL_SPEED_NOTE = (
+    "BALL SPEED",
+    "The defender adds the ball speed modifier to this skill test.",
+)
+# **Three abilities that reach an advanced card their sentence does not
+# name** (the author, 2026-08-19). Each role's sentence is written
+# against its basic counterpart and states a *number*; what carries to
+# the advanced card is the rule behind the number, which for the
+# Fullback is +1 distance and for the Playmaker is one less token. So
+# the sentence cannot be matched or reused, and the card says what the
+# ability does *there* instead.
 EXTRA_NOTES: dict[str, tuple[tuple[str, str], ...]] = {
-    "Steal Intercept": (
-        (
-            "BALL SPEED",
-            "The defender adds the ball speed modifier to this skill test.",
-        ),
+    "steal": (BALL_SPEED_NOTE,),
+    # Intercept is the advanced Steal and settles the same way, so it
+    # carries the same modifier -- the sheet's Interactions column says
+    # so for both rows.
+    "intercept": (BALL_SPEED_NOTE,),
+    "clear": (
+        ("FULLBACK", "Ball goes back 4 spaces instead of 3."),
+    ),
+    "setup_pass": (
+        ("FULLBACK", "May also set up at 4 spaces."),
+    ),
+    "dribble_burst": (
+        ("PLAYMAKER", "Pays one exhaustion token fewer for the run."),
     ),
 }
 
 
 def role_abilities(
-    catalog: PlayerCatalog, maneuver: ManeuverDefinition
+    catalog: PlayerCatalog,
+    maneuver: ManeuverDefinition,
+    maneuvers: Optional[ManeuverCatalog] = None,
 ) -> list[tuple[str, str]]:
     """
     What the abilities band says: the roles whose ability names this
@@ -368,16 +390,64 @@ def role_abilities(
     own modifiers. Matching on the name is what keeps the first group
     in step with an import -- a new ability mentioning a maneuver
     reaches the card without anything here being edited.
+
+    **No role ability names an advanced maneuver, and that is the
+    data being honest rather than a gap in the match.** Advanced mode
+    has two halves -- the second set of maneuvers and a unique ability
+    per player -- and only the first is built; the sheet's `Abilities`
+    column for the advanced roster is empty for all thirty-six. So an
+    advanced card lists the one thing that *is* settled about how it
+    resolves: what it does when a skill test decides it.
     """
-    needle = maneuver.name.lower()
-    extra = EXTRA_ROLES.get(maneuver.name, ())
+    # Matched on **whole words**, not as a substring. It was a
+    # substring while every maneuver name was two words: the author
+    # renamed the basic D2 card to "Steal" on 2026-08-18, and "steal"
+    # is inside "Steals the ball when resolving Pressure" -- so the
+    # Defender's ability, which is Pressure's, silently appeared on
+    # Steal's card as well.
+    needle = re.compile(
+        r"\b" + r"\s+".join(
+            re.escape(word) for word in maneuver.name.lower().split()
+        ) + r"\b"
+    )
+    extra = EXTRA_ROLES.get(maneuver.key, ())
     rows = [
         (role.value.upper(), profile.ability)
         for role, profile in catalog.role_profiles.items()
-        if needle in profile.ability.lower() or role.value in extra
+        if needle.search(profile.ability.lower()) or role.value in extra
     ]
-    rows.extend(EXTRA_NOTES.get(maneuver.name, ()))
+    rows.extend(EXTRA_NOTES.get(maneuver.key, ()))
+    if maneuver.is_advanced and maneuvers is not None:
+        rows.append(tie_note(maneuvers, maneuver))
     return rows
+
+
+def tie_note(
+    catalog: ManeuverCatalog, maneuver: ManeuverDefinition
+) -> tuple[str, str]:
+    """
+    The line every advanced card carries: **an advanced effect follows
+    the cards, not the dice.**
+
+    A tie on the cards carries no advanced effect either way and
+    resolves as the basic card on the same rank instead. A skill test
+    the cards did *not* tie -- one an injured player's disadvantage
+    forced -- is still an outright result, so it carries the effects
+    and the roll only decides which way (the author, 2026-08-19). That
+    is the same reading that makes an injured player's automatic loss
+    of a tie carry nothing: what matters is the tie on the cards.
+
+    The counterpart is looked up by rank rather than written down,
+    because rank is what pairs the two cards -- see
+    `ManeuverCatalog.counterpart`.
+    """
+    counterpart = catalog.counterpart(maneuver)
+    return (
+        "TIE",
+        f"A tie resolves as {counterpart.name}, with no advanced "
+        "effect either way. A skill test forced by injury still carries "
+        "them.",
+    )
 
 
 class Move(NamedTuple):
@@ -446,27 +516,27 @@ def draw_arrowhead(
 # that is the only thing the dashes mean -- Low Pass's backward option
 # is solid because it is a choice any passer has.
 STRIP_MOVES: dict[str, tuple[Move, ...]] = {
-    "Low Pass": (
+    "low_pass": (
         Move(2, "nearest ahead", "offense"),
         Move(-2, "or behind", "offense"),
     ),
-    "Dribble Advance": (
+    "dribble_advance": (
         Move(1, "handler + ball", "offense"),
         Move(2, "playmaker", "offense", dashed=True),
     ),
-    "High Pass": (
+    "high_pass": (
         Move(2, "received\nmay set up scoring", "offense"),
         Move(3, "contested", "offense", caption_at=3.5),
         Move(4, "fullback", "offense", dashed=True),
     ),
-    "Block Deflect": (
+    "block_deflect": (
         Move(-1, "ball back", "defense"),
         Move(-2, "fullback", "defense", dashed=True),
     ),
     # The interceptor falls back toward their own goal, which is the one
     # the offense was attacking -- so a steal moves the ball the way the
     # offense was going, not against it.
-    "Steal Intercept": (
+    "steal": (
         Move(1, "carrier + ball", "defense", start=19),
     ),
     # Both end on the same space: the handler is shoved back and the
@@ -474,21 +544,99 @@ STRIP_MOVES: dict[str, tuple[Move, ...]] = {
     # steals, which it could not do from anywhere else.
     # Each arc runs token to token, or the two would share an endpoint
     # and one arrowhead would be drawn under the other.
-    "Pressure": (
+    "pressure": (
         Move(-1, "handler + ball", "offense", start=-19, end=-19),
         Move(-1, "challenger", "defense", start=19, end=19, lift=26, row=1),
+    ),
+    # -- advanced ------------------------------------------------------
+    # "Any teammate" has no distance, so the two arcs are drawn to the
+    # ends of the strip: the card says *any*, and the picture says the
+    # whole field either way rather than picking a number out of the
+    # air.
+    "precise_pass": (
+        Move(4, "any teammate ahead", "offense", caption_at=3.4),
+        Move(-4, "or behind", "offense"),
+    ),
+    # One arc, to the last space of the goal they attack -- the run is
+    # not a distance the coach picks, which is why nothing is captioned
+    # with a number.
+    "dribble_burst": (
+        Move(4, "handler + ball,\n1 token a space", "offense", caption_at=3.2),
+    ),
+    # 0 is a teammate already sharing the passer's space, so its arc
+    # runs shoulder to shoulder rather than to a neighbouring space.
+    "setup_pass": (
+        Move(0, "same space", "offense", start=-19, end=19, lift=8),
+        Move(1, "or 1", "offense", lift=18),
+        Move(3, "or 3", "offense"),
+        Move(4, "fullback", "offense", dashed=True),
+    ),
+    "clear": (
+        Move(-3, "ball back", "defense"),
+        Move(-4, "fullback", "defense", dashed=True),
+    ),
+    # Intercept is the one card that moves the ball *against* the way
+    # the offense was going: the interceptor carries it toward the goal
+    # they now attack, which is the opposite of the basic steal's fall
+    # back. Verified against `move_player_relative`, not reasoned about.
+    "intercept": (
+        Move(-1, "interceptor + ball", "defense", start=-19, end=-19),
+    ),
+    # Three pieces end on one space: the handler shoved back two, the
+    # challenger, and the teammate nearest where the play started, who
+    # joins from wherever they are -- dashed, because how far they come
+    # is not a number on the card.
+    "double_team": (
+        Move(-2, "handler + ball", "offense", start=-19, end=-19),
+        Move(-2, "challenger", "defense", start=19, end=19, lift=26, row=1),
+        Move(
+            -2,
+            "+ nearest teammate",
+            "defense",
+            dashed=True,
+            start=57,
+            end=19,
+            lift=54,
+            row=2,
+        ),
     ),
 }
 # What stands on the ball's space to begin with, and what a landing
 # space is drawn holding. A blank landing means the ball alone, and the
 # space carries the distance instead.
 STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
-    "Low Pass": ("H", {2: "R", -2: "R"}),
-    "Dribble Advance": ("H", {1: "H", 2: "H"}),
-    "High Pass": ("H", {}),
-    "Block Deflect": ("H", {}),
-    "Steal Intercept": ("HC", {1: "C"}),
-    "Pressure": ("HC", {-1: "HC"}),
+    "low_pass": ("H", {2: "R", -2: "R"}),
+    "dribble_advance": ("H", {1: "H", 2: "H"}),
+    "high_pass": ("H", {}),
+    "block_deflect": ("H", {}),
+    "steal": ("HC", {1: "C"}),
+    "pressure": ("HC", {-1: "HC"}),
+    "precise_pass": ("H", {4: "R", -4: "R"}),
+    "dribble_burst": ("H", {4: "H"}),
+    # 0 lands on the passer's own space, which already carries the
+    # handler's token, so only 1 and 3 name a receiver.
+    "setup_pass": ("H", {1: "R", 3: "R", 4: "R"}),
+    "clear": ("H", {}),
+    "intercept": ("HC", {-1: "C"}),
+    "double_team": ("HC", {-2: "HCC"}),
+}
+
+# How wide the strip is and where the ball stands on it, per tier.
+#
+# **The basic strip is the standard seven-space board with the ball on
+# the third space, which is the only position from which every basic
+# maneuver fits**: a High Pass of 4 lands on the last space and a
+# Fullback's Block Deflect of 2 on the first. The advanced cards do not
+# fit it -- a Fullback's Clear drives the ball back 4 and Dribble Burst
+# runs it to the far end -- so they are drawn on the **nine-space
+# board**, which is a real board and not a made-up strip, with the ball
+# in the middle. That gives 4 either way, which is exactly the range
+# the six advanced cards need once the Fullback is allowed near a Clear
+# and a Setup Pass: before that ruling the ball sat a space back and a
+# Fullback's clearance ran off the end of the panel.
+STRIP_GEOMETRY: dict[str, tuple[int, int]] = {
+    MANEUVER_TIER_BASIC: (7, 2),
+    MANEUVER_TIER_ADVANCED: (9, 4),
 }
 
 
@@ -520,10 +668,11 @@ def draw_strip(
         width=2,
     )
 
-    moves = STRIP_MOVES[maneuver.name]
-    standing, landings = STRIP_ACTORS[maneuver.name]
+    moves = STRIP_MOVES[maneuver.key]
+    standing, landings = STRIP_ACTORS[maneuver.key]
+    strip_spaces, ball_space = STRIP_GEOMETRY[maneuver.tier]
 
-    space_width = (right - left) / STRIP_SPACES
+    space_width = (right - left) / strip_spaces
     strip_height = 76
     # How deep the caption block is depends on the maneuver: High Pass
     # says two lines about its 2-space landing and still needs a row
@@ -555,7 +704,7 @@ def draw_strip(
     ink_above = strip_height / 2 - 30 - tallest - 12
     block = strip_height + label_room - ink_above
     strip_top = top + 46 + ((height - 54) - block) / 2 - ink_above
-    for index in range(STRIP_SPACES):
+    for index in range(strip_spaces):
         space_left = left + index * space_width
         pen.rect(
             (
@@ -572,7 +721,7 @@ def draw_strip(
 
     colors = {"offense": OFFENSE_COLOR, "defense": DEFENSE_COLOR}
     forward = 1 if ATTACK_RIGHT else -1
-    here = BALL_SPACE
+    here = ball_space
 
     def center(index: float) -> tuple[float, float]:
         return (
@@ -659,18 +808,27 @@ def draw_strip(
             y += caption_line
 
     def ghosts(index: float, who: str) -> None:
+        """
+        The pieces a space is drawn holding, spread evenly across it.
+        One is centred; two straddle the middle; Double Team's three --
+        the handler, the challenger and the teammate who joined -- pack
+        tighter still, which is what the shrinking radius is for.
+        """
         if len(who) == 1:
             token(index, colors["offense" if who in "HR" else "defense"], who,
                   ghost=True)
             return
-        for label, offset in zip(who, (-19, 19)):
+        gap = 38 if len(who) == 2 else 32
+        radius = 20 if len(who) == 2 else 16
+        first = -gap * (len(who) - 1) / 2
+        for position, label in enumerate(who):
             token(
                 index,
                 colors["offense" if label in "HR" else "defense"],
                 label,
                 ghost=True,
-                offset=offset,
-                radius=20,
+                offset=first + gap * position,
+                radius=radius,
             )
 
     for move in moves:
@@ -745,9 +903,18 @@ def draw_matchups(
     other side of the ball, so the labels carry the meaning rather than
     the colour -- an offense card's three names are all defense
     maneuvers, and colouring them would say nothing.
+
+    **Narrowed to this card's own tier**, which loses nothing: rank
+    alone decides who beats whom (the author, 2026-08-18), and each
+    rank carries one card per tier -- so a basic card naming the basic
+    opponent and its advanced counterpart naming the advanced one are
+    the same relation read twice. Naming both would put four words in
+    a column sized for two, to say that a rank beats a rank.
     """
     side = "offense" if is_offense else "defense"
-    defeats, defeated_by, ties = catalog.relationships(maneuver.name, side)
+    defeats, defeated_by, ties = catalog.relationships(
+        maneuver.key, side, maneuver.tier,
+    )
     column_width = (CARD_WIDTH - MARGIN * 2) / 3
 
     pen.line(
@@ -761,10 +928,10 @@ def draw_matchups(
         ("TIES", ties, MUTED),
         ("LOSES TO", defeated_by, MUTED),
     )
-    for index, (label, name, color) in enumerate(columns):
+    for index, (label, names, color) in enumerate(columns):
         cx = MARGIN + column_width * (index + 0.5)
         pen.text((cx, top + 26), label, font(17, bold=True), MUTED, anchor="mm")
-        for line_index, line in enumerate(name.split(" ")):
+        for line_index, line in enumerate(" ".join(names).split(" ")):
             pen.text(
                 (cx, top + 56 + line_index * 26),
                 line,
@@ -899,11 +1066,13 @@ def render_maneuver_card(
 
     # What kind of card this is, rather than which die faces it stands
     # in for. The faces were printed here while the cards and the
-    # selection die had to coexist; naming the mode is what will still
-    # mean something once a second set of maneuvers exists.
+    # selection die had to coexist; naming the mode is what still means
+    # something now that the second set of maneuvers exists -- and this
+    # is the one thing on the *face* that tells the two sets apart,
+    # since the back cannot (see `render_maneuver_card_back`).
     pen.text(
         (CARD_WIDTH - FRAME - 62, header_top + header_height / 2),
-        "BASIC\nMANEUVER",
+        f"{maneuver.tier.upper()}\nMANEUVER",
         font(15, bold=True),
         "#ffffff",
         anchor="mm",
@@ -932,7 +1101,7 @@ def render_maneuver_card(
     # The two bands below are placed from the bottom edge up, so the
     # effect gets the whole of the remaining middle and stays the thing
     # in the centre of the card whatever length the other two run to.
-    abilities = role_abilities(players, maneuver)
+    abilities = role_abilities(players, maneuver, catalog)
     _, ability_height = laid_out_abilities(pen, abilities)
 
     abilities_top = CARD_HEIGHT - FRAME - 18 - ability_height
@@ -948,13 +1117,31 @@ def render_maneuver_card(
     # under it -- the clock is part of what the maneuver costs, so it
     # belongs to the effect rather than to the diagram, where it used
     # to sit and collide with the board strip.
-    effect_font = font(29)
+    #
+    # **The size is searched, not set.** The effects run from Block
+    # Deflect's twenty words to Double Team's seventy, and the band
+    # they share is whatever the strip, the matchups and the abilities
+    # leave behind -- so a fixed size fits the short cards and runs the
+    # long ones straight over the matchup row. Which it did: Double
+    # Team's paragraph overran three bands at once, silently, because
+    # nothing here measured what it was given. The largest size that
+    # fits is what is drawn, and 17 is the floor rather than a fit,
+    # since a card nobody can read is a different failure from one that
+    # overflows.
     time_font = font(19, bold=True)
-    lines = pen.wrapped(maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20)
-    step = line_height(pen, effect_font)
     time_text = f"TIME · {maneuver.time}"
     time_width = pen.text_size(time_text, time_font)[0] + 34
-    block_height = step * len(lines) + 26 + 38
+    room = matchup_top - (strip_top + strip_height) - 16
+
+    for size in range(29, 16, -1):
+        effect_font = font(size)
+        lines = pen.wrapped(
+            maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20
+        )
+        step = line_height(pen, effect_font)
+        block_height = step * len(lines) + 26 + 38
+        if block_height <= room:
+            break
 
     y = (strip_top + strip_height + matchup_top) / 2 - block_height / 2
     for line in lines:
@@ -983,16 +1170,28 @@ def render_maneuver_card(
 
 # The cycle on the back, sized to the card rather than to itself. It
 # is the whole of what that side says, and a coach reads it off the
-# deck between them, so it is drawn as wide as the card will carry: the
-# side vertices clear the cut line by CYCLE_SIDE_MARGIN and nothing
-# else on the card is wider. The vertical radius is the shorter of the
-# two because the heading and the caption bound it there and the width
-# is what was asked for -- a tenth of an ellipse, which reads as a
-# hexagon.
-CYCLE_NODE_RADIUS = 76
-CYCLE_RADIUS_X = 315
-CYCLE_RADIUS_Y = 284
-CYCLE_CENTER_Y = 548
+# deck between them, so it is drawn as wide as the card will carry.
+# The vertical radius is the shorter of the two because the heading and
+# the caption bound it there and the width is what was asked for -- a
+# tenth of an ellipse, which reads as a hexagon.
+#
+# **A node carries both cards on its rank, which is what keeps this
+# one back for all twelve.** A coach in advanced mode holds six -- the
+# three basic cards and the three advanced ones -- and must not show
+# which they are reading, so a second back is not available as a way
+# out. What is available is that the two tiers are the same cycle:
+# rank alone decides (the author, 2026-08-18), so an advanced card
+# sits exactly where its basic counterpart does and the node is one
+# position with two names on it rather than two positions.
+#
+# That is what the node radius grew for, and the ring shrank to pay
+# for it. The horizontal radius is still the wider of the two -- the
+# heading and the caption bound the vertical one -- so the ring still
+# reads as a hexagon rather than a circle.
+CYCLE_NODE_RADIUS = 98
+CYCLE_RADIUS_X = 262
+CYCLE_RADIUS_Y = 250
+CYCLE_CENTER_Y = 560
 
 # A node's label is the maneuver's name alone, one word to a line --
 # the O1/D1 rank badge that used to sit above it named the selection
@@ -1004,19 +1203,20 @@ CYCLE_CENTER_Y = 548
 # is below the middle and so on a shorter chord than the diameter, and
 # "Pressure" is a single line with the whole circle to itself.
 CYCLE_LINE_GAP = 6
-CYCLE_LABEL_MARGIN = 8
+# How much of the chord a line has to leave alone. It was 8 while a
+# node carried one name on one or two lines near the middle of the
+# circle, where the chord is nearly the diameter and 8 is plenty. A
+# node carrying both tiers is four lines, and the outer two sit where
+# the circle is curving away hardest -- at 8 the longest of them
+# cleared the chord by under two pixels a side, which is arithmetically
+# inside the circle and reads as bursting out of it.
+CYCLE_LABEL_MARGIN = 24
 
-# Sized independently every node would grow to whatever its own name
-# allows, and "Low Pass"/"High Pass" have nothing holding them back --
-# so the six read as different alphabets rather than one. This is the
-# name that pins the ceiling instead: the widest pairing that still
-# only asks for two lines, so it is the most any node can carry
-# without the short names ballooning past it. Named rather than
-# computed as the tightest fit across all six, because the tightest is
-# "Steal Intercept" -- "Intercept" alone -- and capping there would
-# shrink "Block Deflect" for no reason; the two constraints happen to
-# be close but are not the same one.
-CYCLE_LABEL_REFERENCE = "Block Deflect"
+# The advanced half of a node: how far under the basic name it sits,
+# and the hairline that separates the two. Without the rule the four
+# lines read as one four-word name.
+CYCLE_TIER_GAP = 13
+CYCLE_TIER_RULE_WIDTH = 3
 
 # How far short of a node's edge a tie line stops, and how it is
 # drawn. Stopping outside the circle keeps the dashes from running
@@ -1055,6 +1255,11 @@ def tie_pairs(
     The maneuvers that tie, asked of the catalog rather than read off
     the diagram.
 
+    Asked of the basic six alone, because the hexagon has six nodes
+    and each node is a rank: an advanced card ties exactly what its
+    basic counterpart ties, so walking all twelve would return the same
+    three lines four times over.
+
     On the current six they are the ranks facing each other -- O1/D1,
     O2/D2, O3/D3 -- which the cycle happens to draw as the three
     diagonals of the hexagon. That is a property of a six-node cycle
@@ -1064,9 +1269,9 @@ def tie_pairs(
     """
     return [
         (offense, defense)
-        for offense in catalog.offense
-        for defense in catalog.defense
-        if catalog.resolve(offense.name, defense.name) == "tie"
+        for offense in catalog.for_tier("offense", MANEUVER_TIER_BASIC)
+        for defense in catalog.for_tier("defense", MANEUVER_TIER_BASIC)
+        if catalog.resolve(offense.key, defense.key) == "tie"
     ]
 
 
@@ -1088,37 +1293,80 @@ def fit_node_label(
     caller measure one name and cap the rest of the cycle at it -- see
     `render_maneuver_card_back`'s use of "Block Deflect" as the ceiling.
     """
+    return fit_node_block(pen, [words], radius, max_size)
+
+
+def fit_node_block(
+    pen: Pen,
+    stacks: list[list[str]],
+    radius: float,
+    max_size: int = 64,
+) -> tuple[list[tuple[str, ImageFont.ImageFont]], list[float], int]:
+    """
+    The same fit over **several** stacks of words, kept apart by
+    `CYCLE_TIER_GAP` -- a node carrying a rank's basic name over its
+    advanced one is two stacks, and both are set at one size so
+    neither reads as the more important of the two.
+
+    The chord test is what makes this worth doing rather than measuring
+    against a square: four lines in a circle put the outer two on very
+    short chords, and a square would refuse a size those two actually
+    clear.
+    """
+    words = [word for stack in stacks for word in stack]
+    breaks = set()
+    seen = 0
+    for stack in stacks[:-1]:
+        seen += len(stack)
+        breaks.add(seen - 1)
+
     for size in range(max_size, 13, -1):
         face = font(size, bold=True)
         boxes = [pen.ink_box(word, face) for word in words]
         heights = [box[3] - box[1] for box in boxes]
-        total_height = sum(heights) + CYCLE_LINE_GAP * (len(words) - 1)
+        gaps = [
+            CYCLE_TIER_GAP if index in breaks else CYCLE_LINE_GAP
+            for index in range(len(words) - 1)
+        ]
+        total_height = sum(heights) + sum(gaps)
         if total_height > radius * 2 - CYCLE_LABEL_MARGIN:
             continue
         top = -total_height / 2
         fits = True
-        for word, box, height in zip(words, boxes, heights):
+        for index, (word, box, height) in enumerate(zip(words, boxes, heights)):
             mid = top + height / 2
             span = radius * radius - mid * mid
             chord = 2 * span**0.5 if span > 0 else 0
             if (box[2] - box[0]) > chord - CYCLE_LABEL_MARGIN:
                 fits = False
                 break
-            top += height + CYCLE_LINE_GAP
+            top += height + (gaps[index] if index < len(gaps) else 0)
         if fits:
             return [(word, face) for word in words], heights, size
 
     face = font(13, bold=True)
     boxes = [pen.ink_box(word, face) for word in words]
-    return [(word, face) for word in words], [box[3] - box[1] for box in boxes], 13
+    return (
+        [(word, face) for word in words],
+        [box[3] - box[1] for box in boxes],
+        13,
+    )
 
 
 def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Image:
     """
-    One back for all six, because a coach holding both sets must not
-    show which side of the ball they are reading. It carries the defeat
-    cycle, which is public information every coach is entitled to see
-    at any time.
+    One back for all **twelve**, because a coach holding both sets must
+    not show which side of the ball -- or which tier -- they are
+    reading. In advanced mode the offense holds six: the three basic
+    cards and the three advanced ones. It carries the defeat cycle,
+    which is public information every coach is entitled to see at any
+    time.
+
+    **The cycle is six nodes however many cards there are**, because
+    rank alone decides who beats whom (the author, 2026-08-18). Each
+    node is a rank and carries the two cards on it -- the basic name
+    over its advanced counterpart -- so the picture a coach reads a
+    matchup off is one hexagon rather than one per tier.
 
     The cycle is two relations, not one: a solid arrow to what a
     maneuver beats, and a dashed line to the one it ties with. The ties
@@ -1137,21 +1385,24 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         width=EDGE_WIDTH,
     )
     pen.text(
-        (CARD_WIDTH / 2, 104),
+        (CARD_WIDTH / 2, 96),
         "D12 BALL",
-        font(46, bold=True),
+        font(44, bold=True),
         INK,
         anchor="mm",
     )
     pen.text(
-        (CARD_WIDTH / 2, 150),
-        "BASIC MANEUVERS",
-        font(22, bold=True),
+        (CARD_WIDTH / 2, 138),
+        "MANEUVERS",
+        font(21, bold=True),
         MUTED,
         anchor="mm",
     )
 
-    order = _maneuver_cycle_order(catalog)
+    # The basic tier gives the six positions; the advanced card on each
+    # rank is looked up rather than walked, because it is the same
+    # cycle and walking it twice would only prove that again.
+    order = _maneuver_cycle_order(catalog, MANEUVER_TIER_BASIC)
     center = (CARD_WIDTH / 2, CYCLE_CENTER_Y)
     from math import cos, radians, sin
 
@@ -1168,12 +1419,12 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
     # dashed line is the quieter of the two relations and reads as the
     # background of the cycle rather than a step in it.
     node_at = {
-        (maneuver.name, is_offense): point
+        (maneuver.key, is_offense): point
         for (maneuver, is_offense), point in zip(order, points)
     }
     for offense, defense in tie_pairs(catalog):
         draw_tie_line(
-            pen, node_at[(offense.name, True)], node_at[(defense.name, False)]
+            pen, node_at[(offense.key, True)], node_at[(defense.key, False)]
         )
 
     for index, point in enumerate(points):
@@ -1189,19 +1440,28 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         pen.line([start, end], fill=MUTED, width=6)
         draw_arrowhead(pen, end, (ux, uy), 24, MUTED)
 
-    # Sized independently, "Low Pass" and "High Pass" balloon past
-    # every other node -- two short words leave them almost the whole
-    # circle to grow into, where "Steal Intercept" and "Block Deflect"
-    # are held back by "Intercept" and "Deflect" alone. "Block Deflect"
-    # is the widest pairing that still only asks for two lines, so its
-    # own best fit is the most any node can carry without the two short
-    # names reading oversized next to the rest of the cycle; every node
-    # is capped there, even the ones that already fit smaller.
-    reference = next(
-        maneuver for maneuver, _ in order if maneuver.name == CYCLE_LABEL_REFERENCE
-    )
-    _, _, cap_size = fit_node_label(
-        pen, reference.name.split(" "), CYCLE_NODE_RADIUS
+    # **One size for all six nodes, and it is the tightest of them.**
+    # Sized independently they read as six different alphabets: "Low
+    # Pass" over "Precise Pass" has short words and grows to fill the
+    # circle, where "Pressure" over "Double Team" is held back by
+    # "Pressure" alone -- a spread of a third at the same radius.
+    #
+    # This used to cap at one named pairing's fit instead, because with
+    # one name to a node the tightest fit was a single long word and
+    # capping there shrank every other node for nothing. With both
+    # tiers on a node that is no longer true: all six are four lines of
+    # much the same length, so the tightest is a real constraint rather
+    # than one outlier, and matching it costs the roomiest node three
+    # points to make the cycle read as one picture.
+    stacks = [
+        [
+            maneuver.name.split(" "),
+            catalog.counterpart(maneuver).name.split(" "),
+        ]
+        for maneuver, _ in order
+    ]
+    cap_size = min(
+        fit_node_block(pen, stack, CYCLE_NODE_RADIUS)[2] for stack in stacks
     )
 
     for (maneuver, is_offense), point in zip(order, points):
@@ -1212,12 +1472,21 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         # one-word name and a two-word one both sit in the middle of the
         # circle. Written as fixed offsets it was measured against the
         # two-line case and left the whole stack low in the circle.
-        words = maneuver.name.split(" ")
-        lines, heights, _ = fit_node_label(
-            pen, words, CYCLE_NODE_RADIUS, max_size=cap_size
+        basic_words = maneuver.name.split(" ")
+        advanced = catalog.counterpart(maneuver)
+        advanced_words = advanced.name.split(" ")
+        lines, heights, _ = fit_node_block(
+            pen,
+            [basic_words, advanced_words],
+            CYCLE_NODE_RADIUS,
+            max_size=cap_size,
         )
         boxes = [pen.ink_box(text, face) for text, face in lines]
-        gaps = [CYCLE_LINE_GAP] * (len(lines) - 1)
+        split = len(basic_words)
+        gaps = [
+            CYCLE_TIER_GAP if index == split - 1 else CYCLE_LINE_GAP
+            for index in range(len(lines) - 1)
+        ]
         top = point[1] - (sum(heights) + sum(gaps)) / 2
         for index, (text, face) in enumerate(lines):
             middle = top + heights[index] / 2
@@ -1228,12 +1497,35 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
                 INK,
                 anchor="mm",
             )
-            top += heights[index] + (gaps[index] if index < len(gaps) else 0)
+            top += heights[index]
+            if index < len(gaps):
+                # The hairline between the two tiers, drawn in the gap
+                # it is the reason for -- without it the four lines read
+                # as one four-word name.
+                if index == split - 1:
+                    rule_y = top + gaps[index] / 2
+                    rule_half = CYCLE_NODE_RADIUS * 0.52
+                    pen.line(
+                        [
+                            (point[0] - rule_half, rule_y),
+                            (point[0] + rule_half, rule_y),
+                        ],
+                        fill=CARD_FACE,
+                        width=CYCLE_TIER_RULE_WIDTH,
+                    )
+                top += gaps[index]
 
     pen.text(
-        (CARD_WIDTH / 2, CARD_HEIGHT - 108),
+        (CARD_WIDTH / 2, CARD_HEIGHT - 128),
+        "each node is one rank: basic card over advanced",
+        font(19),
+        MUTED,
+        anchor="mm",
+    )
+    pen.text(
+        (CARD_WIDTH / 2, CARD_HEIGHT - 100),
         "solid: beats what it points to · dashed: ties",
-        font(20),
+        font(19),
         MUTED,
         anchor="mm",
     )
@@ -1250,24 +1542,31 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
 HAND_CARD_WIDTH = 520
 HAND_GAP = 22
 HAND_MARGIN = 22
+# Four across is the basic hand -- three cards and the back -- and it
+# is also the widest row this draws. An advanced hand is seven, which
+# on one row arrives in Discord at about 75px a card against 131px
+# today; two rows of four and three keep every card the size a coach
+# already reads.
+HAND_MAX_COLUMNS = 4
 
 
 def render_maneuver_hand(
     catalog: ManeuverCatalog,
     players: PlayerCatalog,
     side: str,
+    tiers: Sequence[str] = (MANEUVER_TIER_BASIC,),
 ) -> BytesIO:
     """
-    One side's three maneuvers, side by side and in rank order, with
-    the shared card back beside them -- the hand a coach is choosing
-    from, and what beats what.
+    One side's maneuvers, in rank order, with the shared card back
+    beside them -- the hand a coach is choosing from, and what beats
+    what.
 
     It is the same layout as the printed card rather than a second
     design, so a coach who has played at the table recognises what the
-    bot is showing them. The bot builds both sides once at startup;
-    see `D12Ball.__init__`.
+    bot is showing them. The bot builds every hand once at startup; see
+    `D12Ball.__init__`.
 
-    **The back is the fourth card, and it replaced a button.** The pick
+    **The back is the last card, and it replaced a button.** The pick
     menu carried a "Maneuver Reference" button that posted the defeat
     cycle as a second ephemeral message: a click, a round trip and an
     upload to see the one thing a coach needs *while* they are choosing.
@@ -1275,13 +1574,34 @@ def render_maneuver_hand(
     coach may look at whenever they like, and at the table it is face
     up on the deck in front of them -- so it belongs in the hand rather
     than behind a button.
+
+    **`tiers` is what a coach may actually play, not a display
+    option.** A basic game is the three basic cards; an advanced game
+    is all six, and an *unchallenged* maneuver in an advanced game is
+    the three basic ones again -- an advanced maneuver can only be
+    played when a maneuver is challenged (the author). So the caller
+    passes the hand, and this draws it.
+
+    **Seven cards do not fit one row.** Discord scales an inline image
+    to the message's width, so a row of seven arrives about 75px a card
+    against 131px for a row of four -- small print at the size the
+    abilities band already needs a full-image link for. Anything past
+    four cards is laid out in two rows instead, which keeps every card
+    the width it has always been.
     """
-    maneuvers = catalog.offense if side == "offense" else catalog.defense
+    maneuvers = [
+        maneuver
+        for maneuver in catalog.side(side)
+        if maneuver.tier in tiers
+    ]
     cards = [
         render_maneuver_card(
             catalog, players, maneuver, side == "offense", bleed=False
         )
-        for maneuver in sorted(maneuvers, key=lambda item: item.rank)
+        for maneuver in sorted(
+            maneuvers,
+            key=lambda item: (item.rank, item.tier != MANEUVER_TIER_BASIC),
+        )
     ]
     cards.append(render_maneuver_card_back(catalog, bleed=False))
 
@@ -1292,20 +1612,26 @@ def render_maneuver_hand(
         for card in cards
     ]
 
+    columns = min(len(sized), HAND_MAX_COLUMNS)
+    rows = ceil(len(sized) / columns)
     canvas = Image.new(
         "RGB",
         (
             HAND_MARGIN * 2
-            + HAND_CARD_WIDTH * len(sized)
-            + HAND_GAP * (len(sized) - 1),
-            HAND_MARGIN * 2 + height,
+            + HAND_CARD_WIDTH * columns
+            + HAND_GAP * (columns - 1),
+            HAND_MARGIN * 2 + height * rows + HAND_GAP * (rows - 1),
         ),
         FACE_COLOR,
     )
     for index, card in enumerate(sized):
+        column, row = index % columns, index // columns
         canvas.paste(
             card,
-            (HAND_MARGIN + index * (HAND_CARD_WIDTH + HAND_GAP), HAND_MARGIN),
+            (
+                HAND_MARGIN + column * (HAND_CARD_WIDTH + HAND_GAP),
+                HAND_MARGIN + row * (height + HAND_GAP),
+            ),
         )
 
     buffer = BytesIO()

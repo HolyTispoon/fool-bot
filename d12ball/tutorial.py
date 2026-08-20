@@ -77,16 +77,22 @@ from typing import Optional
 from .components import MatchState, PlayerRole, TeamSide
 
 
-# Maneuver names, spelled once. They are the catalog's own, out of
-# `d12ball/data/maneuvers.json` -- a beat naming one that has been
-# renamed upstream should fail loudly rather than silently rail a coach
-# onto nothing, which is what `validate_script` is for.
-LOW_PASS = "Low Pass"
-DRIBBLE_ADVANCE = "Dribble Advance"
-HIGH_PASS = "High Pass"
-BLOCK_DEFLECT = "Block Deflect"
-STEAL_INTERCEPT = "Steal Intercept"
-PRESSURE = "Pressure"
+# Maneuver **keys**, spelled once. They are the catalog's own, out of
+# `d12ball/data/maneuvers.json` -- a beat naming one that is not in the
+# catalog should fail loudly rather than silently rail a coach onto
+# nothing, which is what `validate_script` is for.
+#
+# Keys rather than printed names, for the reason keys exist at all: the
+# author renamed the basic D2 card from "Steal Intercept" to "Steal" on
+# 2026-08-18, and under names that rename was five silent rails
+# matching nothing. The lesson prose still spells the names out, and it
+# has to be edited by hand when one changes -- prose is prose.
+LOW_PASS = "low_pass"
+DRIBBLE_ADVANCE = "dribble_advance"
+HIGH_PASS = "high_pass"
+BLOCK_DEFLECT = "block_deflect"
+STEAL = "steal"
+PRESSURE = "pressure"
 
 
 # A rail that cannot name its value up front, because the value
@@ -302,7 +308,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "- **Block Deflect** -- knocks the ball back a space and "
             "loose, for either side to fight over. You were on the "
             "wrong end of one last turn.\n"
-            "- **Steal Intercept** -- takes the ball outright. A "
+            "- **Steal** -- takes the ball outright. A "
             "turnover.\n"
             "- **Pressure** -- drives the handler and the ball back a "
             "space and moves your challenger forward onto them. Push a "
@@ -329,8 +335,8 @@ BEATS: tuple[TutorialBeat, ...] = (
         ),
         maneuver_note=(
             "### Turnovers, the run back, and ball speed\n"
-            "**Pick Steal Intercept.** Dinky is playing Low Pass, and "
-            "Steal Intercept beats it -- the ball is yours.\n\n"
+            "**Pick Steal.** Dinky is playing Low Pass, and "
+            "Steal beats it -- the ball is yours.\n\n"
             "Two things happen after it. Your player takes the ball "
             "back a space with them, and **anyone left standing outside "
             "their own zone runs back into it** at a token a space, the "
@@ -343,7 +349,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "number offered**; the rest are greyed out."
         ),
         player_has_ball=False,
-        player_maneuver=STEAL_INTERCEPT,
+        player_maneuver=STEAL,
         dinky_maneuver=LOW_PASS,
         # The one speed change in the script that survives to the shot:
         # a turnover resets the ball's speed and this is set *after*
@@ -376,7 +382,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         ),
         maneuver_note=(
             "### High Pass, and what a shot is up against\n"
-            "**Pick High Pass.** Dinky is playing Steal Intercept, and "
+            "**Pick High Pass.** Dinky is playing Steal, and "
             "High Pass beats it, so the pass gets through.\n\n"
             "You will be asked how far to throw. **2 spaces** is the "
             "only distance offered here -- a longer throw would run off "
@@ -399,7 +405,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         ),
         player_has_ball=True,
         player_maneuver=HIGH_PASS,
-        dinky_maneuver=STEAL_INTERCEPT,
+        dinky_maneuver=STEAL,
         choices={"high_pass": "2", "setup_attempt": "attempt"},
     ),
 )
@@ -588,7 +594,7 @@ def validate_script(maneuver_catalog) -> None:
     loudly.
     """
     known = {
-        maneuver.name
+        maneuver.key
         for maneuver in (
             list(maneuver_catalog.offense) + list(maneuver_catalog.defense)
         )

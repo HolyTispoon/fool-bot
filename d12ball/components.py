@@ -1,4 +1,5 @@
 import json
+import re
 from collections import defaultdict, deque
 from collections.abc import Collection
 from dataclasses import dataclass, field, replace
@@ -737,73 +738,251 @@ class BasicRuleset:
         return shape
 
 
+# The two tiers a maneuver can belong to. Basic is the game as it has
+# always been played; advanced is the second set the 2026-08-17 ruling
+# added, one card per basic card at the same rank -- see "Advanced
+# maneuvers" in docs/living-rules.md.
+# Setup Pass's three distances, and its clock cost. It is High Pass's
+# rank and carries High Pass's two space minutes; 0 is a teammate
+# sharing the passer's own space.
+SETUP_PASS_DISTANCES = (0, 1, 3)
+# The Fullback's +1, which is the same ability that takes a basic High
+# Pass from 3 to 4 and a Clear from 3 to 4 (the author, 2026-08-19).
+SETUP_PASS_FULLBACK_DISTANCE = 4
+SETUP_PASS_CLOCK_COST = 2
+
+MANEUVER_TIER_BASIC = "basic"
+MANEUVER_TIER_ADVANCED = "advanced"
+MANEUVER_TIERS = (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
+
+
+def maneuver_key(name: str) -> str:
+    """
+    The stable identifier for a maneuver, derived from its printed
+    name: `"Steal Intercept"` -> `"steal_intercept"`.
+
+    **A maneuver's identity is not its printed name.** It used to be:
+    `match.offense_maneuver` held the string `"Low Pass"` and a dozen
+    sites compared against those literals, which meant a rename
+    upstream was a code change and a saved game held a display string.
+    The author renamed the basic D2 card from "Steal Intercept" to
+    "Steal" on 2026-08-18, when the advanced D2 card became
+    "Intercept", and that is exactly the change that would have
+    silently broken every one of them.
+    """
+    return re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")
+
+
+# A saved game written before maneuvers had keys holds the printed
+# name in `offense_maneuver`/`defense_maneuver`. Almost all of them
+# slug straight to their key, so only the one that does not is written
+# down: the author renamed the basic D2 card from "Steal Intercept" to
+# "Steal" on 2026-08-18, when the advanced D2 card became "Intercept".
+#
+# Same tolerant shape as `player_board`/`team_board` and `tie_mode`:
+# nothing writes a name any more, so this dies out on its own. Don't
+# add a migration pass for it, and don't drop it until no half-finished
+# game can predate the change -- both developers run the bot from their
+# own tree against their own saves.
+LEGACY_MANEUVER_KEYS = {
+    "steal_intercept": "steal",
+}
+
+
+def legacy_maneuver_key(stored: Optional[str]) -> Optional[str]:
+    """A stored maneuver, as a key, whichever form it was saved in."""
+    if stored is None:
+        return None
+    key = maneuver_key(stored)
+    return LEGACY_MANEUVER_KEYS.get(key, key)
+
+
 @dataclass(frozen=True)
 class ManeuverDefinition:
+    """
+    One maneuver as the spreadsheet prints it.
+
+    `key` is what the match, the buttons and every dispatch table hold;
+    `name` is only ever displayed. `defeats_rank` is the *rank* this
+    maneuver beats rather than a name, because since advanced mode
+    landed each rank has two cards on it -- the basic one and its
+    advanced counterpart -- and **rank alone decides** who wins (the
+    author, 2026-08-18). Naming one of the two would be naming half a
+    relation.
+    """
+
     name: str
+    key: str
     rank: int
+    tier: str
     die_values: tuple[int, ...]
-    defeats: str
+    defeats_rank: int
     effect: str
     time: str
+
+    @property
+    def is_advanced(self) -> bool:
+        return self.tier == MANEUVER_TIER_ADVANCED
 
 
 @dataclass(frozen=True)
 class ManeuverCatalog:
+    """
+    Every maneuver in the game, both tiers, split by side.
+
+    **Lookups are by key, never by printed name.** `offense`/`defense`
+    hold basic and advanced together, ordered by rank then tier, and a
+    caller that wants only one tier asks `for_tier`. Which maneuvers a
+    particular game offers is the game's mode to decide, not the
+    catalog's -- see `RulesEngine.maneuver_hand`.
+    """
+
     data_version: int
     source: str
     offense: tuple[ManeuverDefinition, ...]
     defense: tuple[ManeuverDefinition, ...]
 
-    def offense_by_name(self) -> dict[str, ManeuverDefinition]:
-        return {maneuver.name: maneuver for maneuver in self.offense}
+    def side(self, side: str) -> tuple[ManeuverDefinition, ...]:
+        return self.offense if side == "offense" else self.defense
 
-    def defense_by_name(self) -> dict[str, ManeuverDefinition]:
-        return {maneuver.name: maneuver for maneuver in self.defense}
+    def by_key(self) -> dict[str, ManeuverDefinition]:
+        return {
+            maneuver.key: maneuver
+            for maneuver in self.offense + self.defense
+        }
+
+    def get(self, key: str) -> Optional[ManeuverDefinition]:
+        return self.by_key().get(key)
+
+    def definition(self, key: str) -> ManeuverDefinition:
+        maneuver = self.get(key)
+        if maneuver is None:
+            raise KeyError(f"Unknown maneuver key {key!r}.")
+        return maneuver
+
+    def display_name(self, key: Optional[str]) -> str:
+        """
+        What to print for a maneuver key. Falls back to the key itself
+        for a maneuver the data no longer carries, so a game saved
+        against an older `maneuvers.json` still words its messages.
+        """
+        if key is None:
+            return ""
+        maneuver = self.get(key)
+        return maneuver.name if maneuver is not None else key
+
+    def for_tier(
+        self, side: str, tier: str,
+    ) -> tuple[ManeuverDefinition, ...]:
+        return tuple(
+            maneuver
+            for maneuver in self.side(side)
+            if maneuver.tier == tier
+        )
+
+    def counterpart(self, maneuver: ManeuverDefinition) -> ManeuverDefinition:
+        """
+        The card on the same side and rank in the other tier -- an
+        advanced maneuver's basic equivalent, or the other way round.
+
+        The pairing is by **rank**, not by a table: every advanced card
+        is identical to its basic counterpart in every column but
+        `Effect` (see docs/advanced-maneuver-matrix.md), which is what
+        makes "a skill test resolves it as the basic card" a rule the
+        data can answer rather than six sentences somebody wrote down.
+        """
+        other = (
+            MANEUVER_TIER_BASIC
+            if maneuver.is_advanced
+            else MANEUVER_TIER_ADVANCED
+        )
+        for candidate in self.for_tier(self.side_of(maneuver.key), other):
+            if candidate.rank == maneuver.rank:
+                return candidate
+        raise KeyError(
+            f"{maneuver.name} has no {other} counterpart at rank "
+            f"{maneuver.rank}."
+        )
+
+    def side_of(self, key: str) -> str:
+        if any(maneuver.key == key for maneuver in self.offense):
+            return "offense"
+        if any(maneuver.key == key for maneuver in self.defense):
+            return "defense"
+        raise KeyError(f"Unknown maneuver key {key!r}.")
 
     def offense_for_die(self, value: int) -> ManeuverDefinition:
-        for maneuver in self.offense:
+        for maneuver in self.for_tier("offense", MANEUVER_TIER_BASIC):
             if value in maneuver.die_values:
                 return maneuver
         raise ValueError(f"No offense maneuver covers die value {value}.")
 
     def defense_for_die(self, value: int) -> ManeuverDefinition:
-        for maneuver in self.defense:
+        for maneuver in self.for_tier("defense", MANEUVER_TIER_BASIC):
             if value in maneuver.die_values:
                 return maneuver
         raise ValueError(f"No defense maneuver covers die value {value}.")
 
-    def resolve(self, offense_name: str, defense_name: str) -> str:
+    def resolve(self, offense_key: str, defense_key: str) -> str:
         """
         The outcome of an offense maneuver against a defense maneuver:
-        "offense" or "defense" if one defeats the other, otherwise "tie".
-        """
-        offense = self.offense_by_name()[offense_name]
-        defense = self.defense_by_name()[defense_name]
+        "offense" or "defense" if one defeats the other, otherwise
+        "tie".
 
-        if offense.defeats == defense_name:
+        **Rank alone decides** (the author, 2026-08-18), so advanced
+        mode adds no new way to win a maneuver: the 12x12 grid is the
+        existing 3x3 cycle repeated four times. An advanced card beats
+        exactly what its basic counterpart beats, including that
+        counterpart itself.
+        """
+        offense = self.definition(offense_key)
+        defense = self.definition(defense_key)
+
+        if offense.defeats_rank == defense.rank:
             return "offense"
-        if defense.defeats == offense_name:
+        if defense.defeats_rank == offense.rank:
             return "defense"
         return "tie"
 
-    def relationships(self, name: str, side: str) -> tuple[str, str, str]:
+    def relationships(
+        self,
+        key: str,
+        side: str,
+        tier: Optional[str] = None,
+    ) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
         """
-        The opposing-side maneuver `name` defeats, is defeated by, and
-        ties with -- each offense maneuver beats exactly one defense
-        maneuver and loses to exactly one other, so the third is
-        always a tie.
-        """
-        if side == "offense":
-            own = self.offense_by_name()[name]
-            opposing = self.defense
-        else:
-            own = self.defense_by_name()[name]
-            opposing = self.offense
+        The opposing-side maneuvers this one defeats, is defeated by,
+        and ties with -- each as a tuple of **names**, because each
+        relation now has one member per tier rather than one member.
 
-        defeats = own.defeats
-        defeated_by = next(m.name for m in opposing if m.defeats == name)
-        ties_with = next(
-            m.name for m in opposing if m.name not in (defeats, defeated_by)
+        `tier` narrows the opponents to one tier, which is what a card
+        face wants: a basic card names the basic opponents a coach
+        recognises, and its advanced counterpart names the advanced
+        ones. The relation is the same either way -- it is the rank
+        that decides -- so narrowing loses nothing but the second name.
+        """
+        own = self.definition(key)
+        if own.key not in {m.key for m in self.side(side)}:
+            raise KeyError(f"{key!r} is not a {side} maneuver.")
+
+        opposing = [
+            maneuver
+            for maneuver in self.side(
+                "defense" if side == "offense" else "offense"
+            )
+            if tier is None or maneuver.tier == tier
+        ]
+
+        defeats = tuple(
+            m.name for m in opposing if m.rank == own.defeats_rank
+        )
+        defeated_by = tuple(
+            m.name for m in opposing if m.defeats_rank == own.rank
+        )
+        ties_with = tuple(
+            m.name
+            for m in opposing
+            if m.rank != own.defeats_rank and m.defeats_rank != own.rank
         )
         return defeats, defeated_by, ties_with
 
@@ -1112,6 +1291,10 @@ class MatchState:
     # it is what tells a restart that the missing defense_maneuver is
     # never coming. See begin_uncontested_maneuver.
     maneuver_uncontested: bool = False
+    # Both hold a **maneuver key** (`low_pass`, `double_team`), never a
+    # printed name -- see `maneuver_key`. A game saved before the keys
+    # existed holds a name, which `legacy_maneuver_key` translates on
+    # load.
     offense_maneuver: Optional[str] = None
     defense_maneuver: Optional[str] = None
     exhaustion: dict[str, int] = field(default_factory=dict)
@@ -1122,6 +1305,27 @@ class MatchState:
     pending_run_back_turnover: bool = True
     pending_run_back_stays_player_id: Optional[str] = None
     pending_run_back_speed_choice: bool = False
+    # **What a maneuver's effect still owes once its last prompt has
+    # been answered**, as `{"kind": ..., ...}` -- or None, which is
+    # nearly always.
+    #
+    # Two of the advanced effects reach past their own maneuver.
+    # Setup Pass adjusts ball speed and *then* sets up a scoring
+    # opportunity; Precise Pass, when it is beaten, hands the defense
+    # an unopposed Low Pass once the steal has settled. Both sit behind
+    # a speed choice, which is the last human step of an effect and has
+    # always led straight into `finish_maneuver_resolution`. Rather
+    # than a flag per case this says what is left to do, the same shape
+    # `pending_injury_resume` uses for the same reason -- and it is
+    # persisted for the same reason too: a restart between the roll and
+    # what it was going to lead to has no other way to know.
+    pending_effect_continuation: Optional[dict] = None
+    # The two defenders a won Double Team put on the ball, who both
+    # challenge the ball holder on the defending side's **next**
+    # maneuver, each adding their defensive skill. Empty otherwise.
+    # Cleared by a new play, which is the one thing the card says ends
+    # it: "so long as it's not a new play".
+    pending_double_team: list[str] = field(default_factory=list)
     pending_kickoff_fill: bool = False
     pending_shot_is_set_up: bool = False
     # The base clock cost of the maneuver that offered a pending set-up
@@ -2163,15 +2367,54 @@ class MatchState:
             return False
         return self.maneuver_uncontested or self.defense_maneuver is not None
 
-    def choose_offense_maneuver(self, name: str) -> None:
+    def spaces_to_attacking_end(
+        self, player_id: str, side: TeamSide,
+    ) -> int:
+        """
+        How far `player_id` is from the last space of the goal zone
+        `side` attacks -- what a Dribble Burst runs, and what it is
+        charged a token a space for.
+
+        Measured off the board rather than off the zone, because "the
+        last space of the goal they attack" is the far end of the
+        field: `relative_flat_index` clamps there, so asking for the
+        whole board is asking for exactly that space.
+        """
+        origin_flat = self.board.flat_index(
+            *self.board.meeple_position(player_id)
+        )
+        target_flat = self.relative_flat_index(
+            origin_flat, side, self.board.layout.board_size,
+        )
+        return abs(target_flat - origin_flat)
+
+    def opposing_maneuver(self, key: str) -> Optional[str]:
+        """
+        The card played against `key` this maneuver, or None when `key`
+        is neither side's pick -- which is how an uncontested maneuver
+        answers, since there is no defense card at all.
+        """
+        if key == self.offense_maneuver:
+            return self.defense_maneuver
+        if key == self.defense_maneuver:
+            return self.offense_maneuver
+        return None
+
+    def choose_offense_maneuver(self, key: str) -> None:
+        """
+        Record the offense's pick, by **maneuver key** -- see
+        `maneuver_key`. The printed name is never stored: a rename
+        upstream would then be a change to every saved game.
+        """
         if self.offense_maneuver is not None:
             raise ValueError("The offense has already chosen a maneuver.")
-        self.offense_maneuver = name
+        self.offense_maneuver = key
 
-    def choose_defense_maneuver(self, name: str) -> None:
+    def choose_defense_maneuver(self, key: str) -> None:
+        """The defense's pick, by maneuver key -- see above."""
         if self.defense_maneuver is not None:
             raise ValueError("The defense has already chosen a maneuver.")
-        self.defense_maneuver = name
+        self.defense_maneuver = key
 
     def begin_loose_ball(
         self, distance_moved: int, is_high_pass: bool = False,
@@ -2260,6 +2503,7 @@ class MatchState:
         self.pending_run_back_turnover = True
         self.pending_run_back_stays_player_id = None
         self.pending_run_back_speed_choice = False
+        self.pending_effect_continuation = None
         self.pending_kickoff_fill = False
         self.pending_shot_is_set_up = False
         self.pending_shot_setup_cost = 0
@@ -3634,6 +3878,8 @@ class MatchState:
             "pending_run_back_stays_player_id": (
                 self.pending_run_back_stays_player_id
             ),
+            "pending_effect_continuation": self.pending_effect_continuation,
+            "pending_double_team": list(self.pending_double_team),
             "pending_run_back_speed_choice": (
                 self.pending_run_back_speed_choice
             ),
@@ -3746,8 +3992,12 @@ class MatchState:
             pending_action=data.get("pending_action"),
             challenger_id=data.get("challenger_id"),
             maneuver_uncontested=data.get("maneuver_uncontested", False),
-            offense_maneuver=data.get("offense_maneuver"),
-            defense_maneuver=data.get("defense_maneuver"),
+            offense_maneuver=legacy_maneuver_key(
+                data.get("offense_maneuver")
+            ),
+            defense_maneuver=legacy_maneuver_key(
+                data.get("defense_maneuver")
+            ),
             exhaustion=exhaustion,
             exhausted=exhausted,
             injured=injured,
@@ -3761,6 +4011,10 @@ class MatchState:
             pending_run_back_stays_player_id=data.get(
                 "pending_run_back_stays_player_id"
             ),
+            pending_effect_continuation=data.get(
+                "pending_effect_continuation"
+            ),
+            pending_double_team=list(data.get("pending_double_team", [])),
             pending_run_back_speed_choice=data.get(
                 "pending_run_back_speed_choice", False
             ),
@@ -4043,17 +4297,33 @@ def load_maneuver_catalog(
     data = json.loads(path.read_text(encoding="utf-8"))
 
     def build(maneuver_type: str) -> tuple[ManeuverDefinition, ...]:
-        return tuple(
+        maneuvers = tuple(
             ManeuverDefinition(
                 name=maneuver["name"],
+                key=maneuver.get("key") or maneuver_key(maneuver["name"]),
                 rank=maneuver["rank"],
+                tier=maneuver.get("tier", MANEUVER_TIER_BASIC),
                 die_values=tuple(maneuver["die_values"]),
-                defeats=maneuver["defeats"],
+                defeats_rank=maneuver["defeats_rank"],
                 effect=maneuver["effect"],
                 time=maneuver["time"],
             )
             for maneuver in data["maneuvers"][maneuver_type]
         )
+        for maneuver in maneuvers:
+            if maneuver.tier not in MANEUVER_TIERS:
+                raise ValueError(
+                    f"{maneuver.name}: unknown tier {maneuver.tier!r}."
+                )
+        # One card per rank per tier, so nothing can quietly go missing
+        # and nothing can double up -- which is the whole of what makes
+        # `resolve` answerable from a rank.
+        seen = {(m.rank, m.tier) for m in maneuvers}
+        if len(seen) != len(maneuvers):
+            raise ValueError(
+                f"{maneuver_type} maneuvers must be one per rank per tier."
+            )
+        return maneuvers
 
     return ManeuverCatalog(
         data_version=data["data_version"],
