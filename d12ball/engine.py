@@ -43,6 +43,7 @@ from typing import Optional
 from d12ball.ai import AIStrategy
 from d12ball.components import (
     SETUP_PASS_DISTANCES,
+    SETUP_PASS_FULLBACK_DISTANCE,
     MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
     SETUP_AREAS,
@@ -614,21 +615,23 @@ class RulesEngine:
 
     def setup_pass_distances(self, match: MatchState) -> list[int]:
         """
-        Which of Setup Pass's three distances -- 0, 1 and 3 -- actually
-        reach a teammate to set up.
+        Which of Setup Pass's distances -- 0, 1 and 3, plus 4 for a
+        Fullback -- actually reach a teammate to set up.
 
         A distance reaching nobody is left off, for the reason
         `high_pass_distances` leaves off a throw that would clamp: the
         card is a *set-up*, so a landing space with none of the passing
         side on it is not a shorter version of the pass, it is no pass
-        at all. When none of the three reaches anybody the pass goes
-        out -- see `D12Ball.apply_setup_pass_out`.
+        at all. When none of them reaches anybody the pass goes out --
+        see `D12Ball.apply_setup_pass_out`.
 
-        **The Fullback's four spaces are not inherited.** Its ability
-        reads "High pass up to 4", which against a card that offers 0,
-        1 and 3 is a fourth distance nobody has settled; the matrix
-        lists it as one of three interactions that contradict their
-        advanced card.
+        **The Fullback's ability is +1 distance, and that is what it
+        inherits** (the author, 2026-08-19). Its sentence reads "High
+        pass up to 4", which read as a number is a fourth distance
+        against a card that offers 0, 1 and 3 -- and read as the rule
+        behind the number is the same +1 that takes a basic High Pass
+        from 3 to 4 and a Clear from 3 to 4. The rule is what carries,
+        so the extra distance is appended rather than replacing the 3.
         """
         offense_side = match.ball.possession
         origin_flat = match.board.flat_index(
@@ -636,8 +639,13 @@ class RulesEngine:
         )
         offense_players = set(match.setup_for_side(offense_side).field_players)
 
+        handler = self.get_player_definition(match.active_player_id)
+        distances = list(SETUP_PASS_DISTANCES)
+        if handler.role == PlayerRole.FULLBACK:
+            distances.append(SETUP_PASS_FULLBACK_DISTANCE)
+
         reachable = []
-        for distance in SETUP_PASS_DISTANCES:
+        for distance in distances:
             target_flat = match.relative_flat_index(
                 origin_flat, offense_side, distance,
             )

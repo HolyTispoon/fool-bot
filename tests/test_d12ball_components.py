@@ -2629,11 +2629,16 @@ class D12BallManeuverTests(unittest.TestCase):
         # does carry is the skill-test line, and Intercept carries the
         # ball speed modifier its rank has always carried.
         self.assertEqual(by_maneuver["precise_pass"], {"TIE"})
-        self.assertEqual(by_maneuver["dribble_burst"], {"TIE"})
-        self.assertEqual(by_maneuver["setup_pass"], {"TIE"})
-        self.assertEqual(by_maneuver["clear"], {"TIE"})
-        self.assertEqual(by_maneuver["intercept"], {"BALL SPEED", "TIE"})
         self.assertEqual(by_maneuver["double_team"], {"TIE"})
+        self.assertEqual(by_maneuver["intercept"], {"BALL SPEED", "TIE"})
+
+        # **Three abilities reach a card their sentence does not name**
+        # (the author, 2026-08-19), so they cannot be matched and are
+        # placed by hand. The card says what the ability does *there*:
+        # the Fullback's +1 distance, the Playmaker's token off.
+        self.assertEqual(by_maneuver["clear"], {"FULLBACK", "TIE"})
+        self.assertEqual(by_maneuver["setup_pass"], {"FULLBACK", "TIE"})
+        self.assertEqual(by_maneuver["dribble_burst"], {"PLAYMAKER", "TIE"})
 
     def reference_skill_test_height(self) -> int:
         """A two-detail-line skill test, the size the others match."""

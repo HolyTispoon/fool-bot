@@ -346,21 +346,36 @@ EXTRA_ROLES: dict[str, tuple[str, ...]] = {
 }
 
 # What a maneuver's own rules add to it, where no role ability names it
-# and so nothing in the data can be matched against. Steal Intercept's
-# is the one modifier that decides the maneuver and the only maneuver
-# whose card would otherwise be blank; the wording is the author's.
-# It cannot live in maneuvers.json, which the sheet import rewrites
-# whole.
+# and so nothing in the data can be matched against. Steal's is the one
+# modifier that decides the maneuver and the only maneuver whose card
+# would otherwise be blank; the wording is the author's. None of it can
+# live in maneuvers.json, which the sheet import rewrites whole.
 BALL_SPEED_NOTE = (
     "BALL SPEED",
     "The defender adds the ball speed modifier to this skill test.",
 )
+# **Three abilities that reach an advanced card their sentence does not
+# name** (the author, 2026-08-19). Each role's sentence is written
+# against its basic counterpart and states a *number*; what carries to
+# the advanced card is the rule behind the number, which for the
+# Fullback is +1 distance and for the Playmaker is one less token. So
+# the sentence cannot be matched or reused, and the card says what the
+# ability does *there* instead.
 EXTRA_NOTES: dict[str, tuple[tuple[str, str], ...]] = {
     "steal": (BALL_SPEED_NOTE,),
     # Intercept is the advanced Steal and settles the same way, so it
     # carries the same modifier -- the sheet's Interactions column says
     # so for both rows.
     "intercept": (BALL_SPEED_NOTE,),
+    "clear": (
+        ("FULLBACK", "Ball goes back 4 spaces instead of 3."),
+    ),
+    "setup_pass": (
+        ("FULLBACK", "May also set up at 4 spaces."),
+    ),
+    "dribble_burst": (
+        ("PLAYMAKER", "Pays one exhaustion token fewer for the run."),
+    ),
 }
 
 
@@ -539,14 +554,14 @@ STRIP_MOVES: dict[str, tuple[Move, ...]] = {
     # whole field either way rather than picking a number out of the
     # air.
     "precise_pass": (
-        Move(5, "any teammate ahead", "offense", caption_at=4.4),
-        Move(-3, "or behind", "offense"),
+        Move(4, "any teammate ahead", "offense", caption_at=3.4),
+        Move(-4, "or behind", "offense"),
     ),
     # One arc, to the last space of the goal they attack -- the run is
     # not a distance the coach picks, which is why nothing is captioned
     # with a number.
     "dribble_burst": (
-        Move(5, "handler + ball,\n1 token a space", "offense", caption_at=4.2),
+        Move(4, "handler + ball,\n1 token a space", "offense", caption_at=3.2),
     ),
     # 0 is a teammate already sharing the passer's space, so its arc
     # runs shoulder to shoulder rather than to a neighbouring space.
@@ -554,9 +569,11 @@ STRIP_MOVES: dict[str, tuple[Move, ...]] = {
         Move(0, "same space", "offense", start=-19, end=19, lift=8),
         Move(1, "or 1", "offense", lift=18),
         Move(3, "or 3", "offense"),
+        Move(4, "fullback", "offense", dashed=True),
     ),
     "clear": (
         Move(-3, "ball back", "defense"),
+        Move(-4, "fullback", "defense", dashed=True),
     ),
     # Intercept is the one card that moves the ball *against* the way
     # the offense was going: the interceptor carries it toward the goal
@@ -594,11 +611,11 @@ STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
     "block_deflect": ("H", {}),
     "steal": ("HC", {1: "C"}),
     "pressure": ("HC", {-1: "HC"}),
-    "precise_pass": ("H", {5: "R", -3: "R"}),
-    "dribble_burst": ("H", {5: "H"}),
+    "precise_pass": ("H", {4: "R", -4: "R"}),
+    "dribble_burst": ("H", {4: "H"}),
     # 0 lands on the passer's own space, which already carries the
     # handler's token, so only 1 and 3 name a receiver.
-    "setup_pass": ("H", {1: "R", 3: "R"}),
+    "setup_pass": ("H", {1: "R", 3: "R", 4: "R"}),
     "clear": ("H", {}),
     "intercept": ("HC", {-1: "C"}),
     "double_team": ("HC", {-2: "HCC"}),
@@ -610,14 +627,16 @@ STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
 # the third space, which is the only position from which every basic
 # maneuver fits**: a High Pass of 4 lands on the last space and a
 # Fullback's Block Deflect of 2 on the first. The advanced cards do not
-# fit it -- Clear drives the ball back 3 and Dribble Burst runs it to
-# the far end -- so they are drawn on the **nine-space board**, which
-# is a real board and not a made-up strip, with the ball on the fourth
-# space. That gives 3 back and 5 forward, which is exactly the range
-# the six advanced cards need.
+# fit it -- a Fullback's Clear drives the ball back 4 and Dribble Burst
+# runs it to the far end -- so they are drawn on the **nine-space
+# board**, which is a real board and not a made-up strip, with the ball
+# in the middle. That gives 4 either way, which is exactly the range
+# the six advanced cards need once the Fullback is allowed near a Clear
+# and a Setup Pass: before that ruling the ball sat a space back and a
+# Fullback's clearance ran off the end of the panel.
 STRIP_GEOMETRY: dict[str, tuple[int, int]] = {
     MANEUVER_TIER_BASIC: (7, 2),
-    MANEUVER_TIER_ADVANCED: (9, 3),
+    MANEUVER_TIER_ADVANCED: (9, 4),
 }
 
 

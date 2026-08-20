@@ -89,10 +89,10 @@ still open. It was a table of every advanced maneuver against every maneuver it 
 with each assumption named and each undecided cell marked; the author answered, the six cards
 went into the living rules on 2026-08-19, and **the answered parts were deleted rather than
 kept in parallel** -- which is what happens to a worksheet, and the reason a settled rule has
-exactly one home. **Nothing left in it is a rule.** What it still holds is the three role
-abilities the sheet lists against an advanced card that contradict it, the player abilities
-that have no data yet, and the map of where advanced mode touches the code. Don't read it as a
-specification, and don't implement from it.
+exactly one home. **Nothing left in it is a rule.** What it still holds is the player
+abilities that have no data yet, one cell that may be inert, two judgement calls the build
+made, and the map of where advanced mode touches the code. Don't read it as a specification,
+and don't implement from it.
 
 **Take rules questions to the author rather than inferring them from the code** -- several
 mechanics exist only in the code, so there a bug and a deliberate decision look identical.
@@ -585,13 +585,30 @@ weapon rather than only a saving.
   ball goes out of play, which is the existing out-of-bounds outcome.
   The other three are the score attempt, a conceded own goal and the
   out-of-bounds loose ball.
-- **Two role abilities are inherited by rank and three are not.** The
-  Midfielder's +3 and the ball speed modifier a rank-D2 defense adds
-  are listed against both cards on their rank in the sheet's own
-  `Interactions` column and neither contradicts what the advanced card
-  does, so both apply. The Fullback against Clear and against Setup
-  Pass, and the Playmaker against Dribble Burst, all contradict theirs
-  -- those are the author's to settle and are applied nowhere.
+- **A role ability is inherited by rank, and what carries is the rule
+  rather than the number.** Each sentence in `players.json` was written
+  against one card and states a number, so read literally three of them
+  are nonsense on their advanced counterpart: a Fullback's "ball goes
+  back 2" is a *reduction* on a 3-space Clear, its "high pass up to 4"
+  is a fourth number against a card offering 0/1/3, and a Playmaker's
+  "may advance 2" is no bonus at all on a run to the end of the field.
+  The author settled all three on 2026-08-19 -- **the Fullback's
+  ability is +1 distance** (High Pass 3->4, Block Deflect 1->2, Clear
+  3->4, Setup Pass gains a 4), and **the Playmaker's is one exhaustion
+  token off a Dribble Burst**, which is the only ability that reads
+  differently on the two cards of a rank. The Midfielder's +3 and the
+  rank-D2 ball speed modifier were already uniform and needed no
+  ruling.
+  - **A Fullback's extra space is distance, not speed.** A Block
+    Deflect of 2 has always cost 1 speed, so a Clear of 4 still costs
+    3. `apply_deflection` keeps `speed_drop` as the card's own number
+    rather than deriving it from the distance -- written the other way
+    it read correctly until the Fullback was let near a Clear.
+  - **The three cannot be matched out of the ability sentences and
+    cannot live in `maneuvers.json`**, which the sheet import rewrites
+    whole. They are `EXTRA_NOTES` entries in `d12ball/cards.py`, which
+    say what the ability does *on the card it is on* -- the same escape
+    hatch Steal's ball speed modifier uses, and for the same reason.
 - **Dinky rolls its rank as it always has and picks the tier at
   random.** That is not a policy and is not meant to be one: an
   advanced card carries a cost as well as a benefit, and weighing the

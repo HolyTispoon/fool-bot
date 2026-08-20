@@ -2097,11 +2097,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         distance -- every other per-space charge in the game is a walk
         somebody was sent on.
 
-        **The Playmaker's extra space is not inherited.** Its ability
-        reads "May advance 2 spaces when resolving Dribble Advance",
-        which against a run to the goal is not a bonus at all; the
-        matrix lists it as one of three interactions that contradict
-        their advanced card.
+        **The Playmaker pays one token fewer** (the author,
+        2026-08-19). Its ability is an extra space on a Dribble
+        Advance, which against a run to the end of the field is no
+        bonus at all -- there is no distance left to add to. So the
+        ability lands on the one thing this card does have that its
+        counterpart does not: what the run costs. It is the only role
+        ability that reads differently on the two cards of a rank.
         """
         offense_side = match.ball.possession
         handler = self.engine.get_player_definition(match.active_player_id)
@@ -2116,8 +2118,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             *match.board.meeple_position(match.active_player_id)
         )
         match.set_ball_carrier(match.active_player_id)
+        playmaker_bonus = handler.role == PlayerRole.PLAYMAKER
+        # Floored at 0 rather than allowed to go negative: a burst that
+        # moved nowhere costs nothing, and a Playmaker's discount
+        # cannot turn a run into a token back.
+        tokens = max(0, actual_distance - (1 if playmaker_bonus else 0))
         exhaustion_text = self.apply_exhaustion(
-            match, match.active_player_id, actual_distance,
+            match, match.active_player_id, tokens,
         )
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -2133,6 +2140,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{actual_distance} {space_word} to the last space of the goal "
             "they attack, past everyone in the way."
         )
+        if playmaker_bonus:
+            lead_in += " That costs them a token less (Playmaker ability)."
         if exhaustion_text:
             lead_in += f"\n{exhaustion_text}"
 
@@ -3276,11 +3285,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         it -- the overshoot set-up, the loose ball it leaves behind --
         is the same, which is why the two share one function.
 
-        **The Fullback's extra space is not inherited.** Its ability
-        reads "Block deflect: ball goes back 2 spaces", which against a
-        3-space clearance is a *reduction*; the matrix lists it as one
-        of three interactions that contradict their advanced card, and
-        it is the author's to settle. Nothing here applies it.
+        **The Fullback's ability is +1 distance, so a Clear it plays
+        goes back 4** (the author, 2026-08-19). Its sentence reads
+        "Block deflect: ball goes back 2 spaces", which read as a
+        number is a *reduction* against a 3-space clearance and read as
+        the rule behind the number is the +1 that takes a basic
+        deflection from 1 to 2. The rule is what carries.
         """
         await self.apply_deflection(interaction, game, match, "clear")
 
@@ -3296,15 +3306,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         defender = self.engine.get_player_definition(match.challenger_id)
         name = self.engine.maneuver_name(key)
 
-        if key == "clear":
-            deflect_distance = 3
-            fullback_bonus = False
-        else:
-            # Role ability -- Fullback: deflects the ball back 2 spaces
-            # instead of the usual 1.
-            fullback_bonus = defender.role == PlayerRole.FULLBACK
-            deflect_distance = 2 if fullback_bonus else 1
-        speed_drop = deflect_distance if key == "clear" else 1
+        # Role ability -- Fullback: +1 space on a deflection, which
+        # takes a Block Deflect from 1 to 2 and a Clear from 3 to 4.
+        fullback_bonus = defender.role == PlayerRole.FULLBACK
+        base_distance = 3 if key == "clear" else 1
+        deflect_distance = base_distance + (1 if fullback_bonus else 0)
+
+        # **The speed drop is the card's, not the distance's.** A
+        # Fullback's Block Deflect has always moved the ball 2 and
+        # dropped the speed by 1, so the two are separate numbers that
+        # happen to match on an ordinary deflection -- and a Clear's
+        # -3 stays -3 when the Fullback pushes it to 4 spaces. Written
+        # as `deflect_distance` this read correctly right up until the
+        # Fullback was let near a Clear.
+        speed_drop = base_distance
 
         # Overshoot: the deflection is clamped short of the full
         # distance, i.e. the ball was already close enough to the

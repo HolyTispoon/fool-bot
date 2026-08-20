@@ -482,7 +482,12 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cog, game, match = self.build("dribble_burst", "clear")
-        handler = match.active_player_id
+        # Explicitly not the Playmaker, who pays one fewer -- the deal
+        # puts one in midfield, so "whoever has the ball" was quietly
+        # testing the discounted case.
+        handler = fielded(match, PlayerRole.MIDFIELDER)
+        match.active_player_id = handler
+        match.move_meeple(handler, match.ball.zone, match.ball.space_index)
         start = self.flat_of(match, handler)
         cog.offer_speed_choice = mock.AsyncMock()
 
@@ -497,6 +502,27 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.exhaustion[handler], end - start)
         self.assertEqual(match.ball_carrier_id, handler)
         cog.offer_speed_choice.assert_awaited_once()
+
+    async def test_a_playmaker_pays_one_token_fewer(self) -> None:
+        """
+        The one role ability that reads differently on the two cards of
+        its rank (the author, 2026-08-19). A Dribble Burst's distance
+        is not a choice, so the Playmaker's extra space has nothing to
+        add to -- it lands on what the run costs instead.
+        """
+        cog, game, match = self.build("dribble_burst", "clear")
+        playmaker = fielded(match, PlayerRole.PLAYMAKER)
+        match.active_player_id = playmaker
+        match.move_meeple(playmaker, match.ball.zone, match.ball.space_index)
+        start = self.flat_of(match, playmaker)
+        cog.offer_speed_choice = mock.AsyncMock()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_dribble_burst(build_interaction(), game, match)
+
+        travelled = self.flat_of(match, playmaker) - start
+        self.assertGreater(travelled, 0)
+        self.assertEqual(match.exhaustion[playmaker], travelled - 1)
 
     async def test_defenders_are_no_obstacle(self) -> None:
         """
@@ -563,12 +589,13 @@ class ClearTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.ball.speed, 5)
         cog.begin_loose_ball.assert_awaited_once()
 
-    async def test_the_fullbacks_two_spaces_are_not_inherited(self) -> None:
+    async def test_a_fullback_clears_four_spaces(self) -> None:
         """
-        Its ability reads "Block deflect: ball goes back 2", which
-        against a 3-space clearance is a *reduction*. The matrix lists
-        it as one of three interactions that contradict their advanced
-        card, and it is the author's to settle -- so nothing applies it.
+        The Fullback's ability is **+1 distance** (the author,
+        2026-08-19), so it takes a Clear from 3 to 4 the same way it
+        takes a Block Deflect from 1 to 2. Its sentence states a number
+        because it was written against one card; the rule behind the
+        number is what carries.
         """
         cog, game, match = self.build("high_pass", "clear", board_size=9)
         fullback = fielded(match, PlayerRole.FULLBACK, TeamSide.VISITING)
@@ -580,7 +607,48 @@ class ClearTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         with mock.patch("cogs.d12ball.save_games"):
             await cog.resolve_clear(build_interaction(), game, match)
 
-        self.assertEqual(self.flat(match), start - 3)
+        self.assertEqual(self.flat(match), start - 4)
+
+    async def test_a_fullbacks_extra_space_is_not_extra_speed(self) -> None:
+        """
+        The speed drop is the card's, not the distance's. A Fullback's
+        Block Deflect has always moved the ball 2 and cost 1 speed, so
+        a Fullback's Clear moves 4 and still costs 3 -- the two numbers
+        happen to match on an ordinary Clear, which is exactly how a
+        distance-derived speed drop read correctly until now.
+        """
+        cog, game, match = self.build("high_pass", "clear", board_size=9)
+        fullback = fielded(match, PlayerRole.FULLBACK, TeamSide.VISITING)
+        match.challenger_id = fullback
+        match.move_meeple(fullback, match.ball.zone, match.ball.space_index)
+        match.ball.speed = 9
+        cog.begin_loose_ball = mock.AsyncMock()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_clear(build_interaction(), game, match)
+
+        self.assertEqual(match.ball.speed, 6)
+
+    async def test_a_basic_deflection_is_unchanged_by_the_ruling(
+        self,
+    ) -> None:
+        # The same +1, read on the card it was written against: 2
+        # spaces, and still only 1 off the speed.
+        cog, game, match = self.build("dribble_advance", "block_deflect")
+        fullback = fielded(match, PlayerRole.FULLBACK, TeamSide.VISITING)
+        match.challenger_id = fullback
+        match.move_meeple(fullback, match.ball.zone, match.ball.space_index)
+        match.ball.speed = 9
+        start = self.flat(match)
+        cog.begin_loose_ball = mock.AsyncMock()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_block_deflect(
+                build_interaction(), game, match,
+            )
+
+        self.assertEqual(self.flat(match), start - 2)
+        self.assertEqual(match.ball.speed, 8)
 
 
 class InterceptTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
@@ -720,6 +788,48 @@ class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
             )
             with self.subTest(distance=distance):
                 self.assertEqual(distance in offered, occupied)
+
+    def test_a_fullback_may_also_set_up_at_four(self) -> None:
+        """
+        The same +1 the Fullback brings to a High Pass and a Clear, on
+        the card its sentence does not name. It is **appended** rather
+        than replacing the 3: the ability adds a distance, it does not
+        move one.
+        """
+        cog, game, match = self.build("setup_pass", "steal", board_size=9)
+        fullback = fielded(match, PlayerRole.FULLBACK)
+        match.active_player_id = fullback
+        match.move_meeple(fullback, match.ball.zone, match.ball.space_index)
+        teammate = [
+            player_id
+            for player_id in match.home.field_players
+            if player_id != fullback
+        ][0]
+        target = match.relative_flat_index(
+            self.flat(match), match.ball.possession, 4,
+        )
+        zone, space_index = match.board.position_at_flat_index(target)
+        match.move_meeple(teammate, zone, space_index)
+
+        self.assertIn(4, cog.engine.setup_pass_distances(match))
+
+    def test_nobody_else_may_set_up_at_four(self) -> None:
+        cog, game, match = self.build("setup_pass", "steal", board_size=9)
+        striker = fielded(match, PlayerRole.STRIKER)
+        match.active_player_id = striker
+        match.move_meeple(striker, match.ball.zone, match.ball.space_index)
+        teammate = [
+            player_id
+            for player_id in match.home.field_players
+            if player_id != striker
+        ][0]
+        target = match.relative_flat_index(
+            self.flat(match), match.ball.possession, 4,
+        )
+        zone, space_index = match.board.position_at_flat_index(target)
+        match.move_meeple(teammate, zone, space_index)
+
+        self.assertNotIn(4, cog.engine.setup_pass_distances(match))
 
     def test_zero_means_a_teammate_sharing_the_passers_space(self) -> None:
         """

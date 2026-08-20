@@ -746,6 +746,9 @@ class BasicRuleset:
 # rank and carries High Pass's two space minutes; 0 is a teammate
 # sharing the passer's own space.
 SETUP_PASS_DISTANCES = (0, 1, 3)
+# The Fullback's +1, which is the same ability that takes a basic High
+# Pass from 3 to 4 and a Clear from 3 to 4 (the author, 2026-08-19).
+SETUP_PASS_FULLBACK_DISTANCE = 4
 SETUP_PASS_CLOCK_COST = 2
 
 MANEUVER_TIER_BASIC = "basic"
