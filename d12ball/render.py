@@ -33,8 +33,6 @@ OUTPUT_SIZE = (
 )
 BOARD_LEFT = 100
 BOARD_RIGHT = IMAGE_WIDTH - 100
-JUMBOTRON_LEFT = BOARD_LEFT
-JUMBOTRON_RIGHT = BOARD_RIGHT
 JUMBOTRON_TOP = 78
 JUMBOTRON_BOTTOM = 238
 BOARD_TOP = 430
@@ -50,13 +48,54 @@ CARD_DEFENSE_COLOR = "#0f7a35"
 TEAM_BOARD_TOP = 1030
 TEAM_BOARD_BOTTOM = IMAGE_HEIGHT - 25
 TEAM_BOARD_GAP = 30
+# Where BENCH and BACK BENCH sit relative to a team board's own left
+# edge, when a short team name leaves room for the old fixed offsets.
+# A longer name (a species team's) pushes bench_x right of this; see
+# draw_team_board.
+TEAM_BOARD_BENCH_MIN_X = 220
+TEAM_BOARD_BACK_BENCH_MIN_X = 620
+TEAM_BOARD_NAME_GAP = 40
+TEAM_BOARD_SECTION_GAP = 40
+TEAM_BOARD_BENCH_CARD_SPAN = 3 * (CARD_SIZE[0] + 14) - 14
+
+# The end zones, American-football style -- a zone of their own beyond
+# H1 and beyond the board's last V space, not squeezed into either
+# one's existing space alongside its own meeples. "GOAL" runs the
+# length of each in the defending team's own color, with a blank d12
+# stamped over it -- the way an end zone carries a team's color and a
+# logo underfoot. Drawn in the margin between the board and the
+# canvas edge, so its width is what that margin leaves once the gap to
+# the board's own outline and a small edge margin are taken out.
+GOAL_ZONE_EDGE_MARGIN = 10
+GOAL_ZONE_GAP = 8
+GOAL_ZONE_WIDTH = BOARD_LEFT - GOAL_ZONE_EDGE_MARGIN - GOAL_ZONE_GAP
+GOAL_ZONE_FILL = "#0c141c"
+# Extra room between each letter, on top of the font's own advance --
+# a word this short otherwise reads as a small cluster in a tall zone
+# rather than something that fills it.
+GOAL_ZONE_LETTER_SPACING = 27
+GOAL_ZONE_BALL_PAD = 6
+GOAL_ZONE_BALL_OUTLINE = "#243347"
+# Fully opaque and bright -- it stands in for the "O" itself now
+# rather than floating over the whole word, so there is no lettering
+# underneath it left to show through.
+GOAL_ZONE_BALL_COLOR = "#ffffff"
 
 # The field image: the match image's board and nothing else. Drawn on
 # a full-size canvas and cut out of it, so it is the same pixels the
-# board everyone is reading is made of -- see render_field_image. The
-# margin keeps the board's rounded corners and its 4px outline off the
-# edge of the crop.
-FIELD_MARGIN = 24
+# board everyone is reading is made of -- see render_field_image. Wide
+# enough to keep the board's rounded corners and its 4px outline, and
+# now the end zones hung off it, off the edge of the crop.
+FIELD_MARGIN = BOARD_LEFT - GOAL_ZONE_EDGE_MARGIN
+
+# The full width of the field, end zones included -- what the jumbotron
+# and the two team boards below now match, rather than stopping at the
+# board's own edge and leaving the end zones looking unclaimed by
+# either.
+FIELD_FAR_LEFT = BOARD_LEFT - GOAL_ZONE_GAP - GOAL_ZONE_WIDTH
+FIELD_FAR_RIGHT = BOARD_RIGHT + GOAL_ZONE_GAP + GOAL_ZONE_WIDTH
+JUMBOTRON_LEFT = FIELD_FAR_LEFT
+JUMBOTRON_RIGHT = FIELD_FAR_RIGHT
 
 # The coaching image: the field cut in half horizontally, showing one
 # coach their own band of it. Narrower than the match image on purpose
@@ -181,11 +220,39 @@ def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
+def load_goal_zone_font(size: int) -> ImageFont.ImageFont:
+    """
+    Racing Sans One -- an uppercase, slightly slanted display face --
+    for the goal zone's own "GOAL" lettering, over the
+    bundled-path-first chain `load_font` uses and for the same reason
+    (see the fonts note above). Falls back to the bundled DejaVu Bold
+    rather than Pillow's built-in face, so a missing Racing Sans One
+    file degrades to a plainer bold rather than an unreadable size-10
+    face.
+    """
+    bundled = FONT_DIR / "RacingSansOne-Regular.ttf"
+    for candidate in (str(bundled), "RacingSansOne-Regular.ttf"):
+        try:
+            return ImageFont.truetype(candidate, size)
+        except OSError:
+            continue
+
+    LOGGER.warning(
+        "No scalable Racing Sans One font found for size %d; falling "
+        "back to the bundled DejaVu Bold. Expected a bundled font at %s.",
+        size,
+        bundled,
+    )
+    return load_font(size, bold=True)
+
+
 FONT_TITLE = load_font(50, bold=True)
 FONT_HEADING = load_font(40, bold=True)
 FONT_BODY = load_font(32)
 FONT_SMALL = load_font(19)
 FONT_MEEPLE = load_font(27, bold=True)
+# The goal zone's own "GOAL" watermark -- see the constants above.
+FONT_GOAL_ZONE = load_goal_zone_font(95)
 # The coaching image draws the same three zone headings across 1280px
 # rather than 2200, and "VISITORS GOAL" at FONT_HEADING overruns a
 # two-space zone there. Its own smaller size fits every board.
@@ -972,8 +1039,174 @@ def draw_board(
                     text_color="#243347",
                 )
 
+    draw_end_zone(
+        canvas,
+        draw,
+        match.home.team,
+        BOARD_LEFT - GOAL_ZONE_GAP - GOAL_ZONE_WIDTH,
+        BOARD_LEFT - GOAL_ZONE_GAP,
+    )
+    draw_end_zone(
+        canvas,
+        draw,
+        match.visiting.team,
+        BOARD_RIGHT + GOAL_ZONE_GAP,
+        BOARD_RIGHT + GOAL_ZONE_GAP + GOAL_ZONE_WIDTH,
+        angle=270,
+    )
     draw_shooting_range_edges(draw, match, bounds)
     return bounds
+
+
+def draw_end_zone(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    team: Team,
+    left: int,
+    right: int,
+    top: int = BOARD_TOP,
+    bottom: int = BOARD_BOTTOM,
+    angle: int = 90,
+) -> None:
+    """
+    A goal zone of its own, American-football style, beyond H1 or
+    beyond the board's last V space rather than squeezed into either
+    one's own space -- see "Formations and occupancy" in CLAUDE.md for
+    why H1 and the last V space are already full at kickoff. "GOAL"
+    runs the zone's length in the defending team's color -- rotated
+    90°, the way an end zone's lettering reads sideways on a field
+    running left to right -- with a blank d12 stamped over it, the way
+    a field carries a logo at midfield. `team` is the side that
+    defends this zone: the home team to the left of H1, the visitors
+    to the right of the board's last V space.
+
+    `angle` is 90 or 270 -- the visitors' end zone is drawn at 270 (the
+    author's call), turned a further 180° from the home end zone's, the
+    way a real field's two end zones face opposite ways rather than
+    both reading the same direction at each end.
+    """
+    assert angle in (90, 270)
+    draw.rectangle(
+        (left, top, right, bottom),
+        fill=GOAL_ZONE_FILL,
+        outline="#d7dde5",
+        width=3,
+    )
+
+    color = TEAM_COLORS[Team(team)]
+    word = "GOAL"
+    # A dark outline around each letter for a bolder, more "sports
+    # poster" look, on the same bundled bold face rather than a new
+    # font asset -- see "Fonts" in CLAUDE.md for why a face is loaded
+    # from the bundle rather than by name.
+    stroke_width = 4
+    stroke_color = "#14202b"
+
+    word_bbox = draw.textbbox((0, 0), word, font=FONT_GOAL_ZONE)
+    cell_height = word_bbox[3] - word_bbox[1]
+    pad = 8 + stroke_width
+    widths = [draw.textlength(ch, font=FONT_GOAL_ZONE) for ch in word]
+    spacing = GOAL_ZONE_LETTER_SPACING
+    total_width = sum(widths) + spacing * (len(word) - 1)
+
+    text_layer = Image.new(
+        "RGBA",
+        (round(total_width) + pad * 2, round(cell_height) + pad * 2),
+        (0, 0, 0, 0),
+    )
+    text_draw = ImageDraw.Draw(text_layer)
+
+    # The "O" is left undrawn -- the d12 stands in its place instead of
+    # floating near the word -- and its slot is remembered so the ball
+    # can be centered exactly there, and sized to it, once the word is
+    # rotated. Letters are spaced apart (`spacing`, on top of the
+    # font's own advance) so a four-letter word reads as something
+    # that fills the zone rather than a small cluster inside it.
+    o_slot: tuple[float, float] | None = None
+    x = float(pad)
+    for index, (ch, width) in enumerate(zip(word, widths)):
+        if ch == "O":
+            o_slot = (x, x + width)
+        else:
+            text_draw.text(
+                (x, pad - word_bbox[1]),
+                ch,
+                font=FONT_GOAL_ZONE,
+                fill=color,
+                stroke_width=stroke_width,
+                stroke_fill=stroke_color,
+            )
+        x += width
+        if index < len(word) - 1:
+            x += spacing
+    assert o_slot is not None
+
+    rotated = text_layer.rotate(angle, expand=True)
+    paste_x = round(left + (right - left - rotated.width) / 2)
+    paste_y = round(top + (bottom - top - rotated.height) / 2)
+    canvas.paste(rotated, (paste_x, paste_y), rotated)
+
+    # Where the "O" would have sat, in canvas coordinates. rotate(90)
+    # maps an unrotated point (x, y) to (y, layer_width - x); rotate(270)
+    # maps it to (layer_height - y, x) -- verified empirically, not
+    # derived, since a sign error here is silent (the ball just lands
+    # a bit off) rather than loud. Either way the slot's full-height
+    # y-range becomes the rotated block's full width (the ball sits
+    # centered across its thickness, like every letter), and its
+    # x-range becomes a y-band within the block -- reversed at 90,
+    # direct at 270.
+    ball_center_x = paste_x + rotated.width / 2
+    if angle == 90:
+        ball_center_y = paste_y + text_layer.width - sum(o_slot) / 2
+    else:
+        ball_center_y = paste_y + sum(o_slot) / 2
+
+    # Sized to the "O" it replaces, not a fixed constant -- at least as
+    # tall as the other letters and at least as wide as the "O"'s own
+    # slot, so it reads as a letter in the word rather than a smaller
+    # badge dropped onto it.
+    ball_radius = round(max(cell_height, o_slot[1] - o_slot[0]) / 2)
+
+    # Its own transparent layer, not the shared `draw` -- the fill has
+    # to carry an alpha channel so the lettering behind it still shows
+    # through, and painting straight onto `canvas` only ever
+    # overwrites a pixel, never blends one.
+    ball_span = ball_radius * 2 + GOAL_ZONE_BALL_PAD * 2
+    ball_layer = Image.new("RGBA", (ball_span, ball_span), (0, 0, 0, 0))
+    ball_draw = ImageDraw.Draw(ball_layer)
+    ball_center = ball_span / 2
+    ball_draw.polygon(
+        polygon_points(ball_center, ball_center, ball_radius, 12),
+        fill=GOAL_ZONE_BALL_COLOR,
+        outline=GOAL_ZONE_BALL_OUTLINE,
+        width=3,
+    )
+    # "12" rotated the same angle as the lettering, so it reads in the
+    # same orientation as the word rather than sideways against it.
+    label_bbox = ball_draw.textbbox((0, 0), "12", font=FONT_TOKEN)
+    label_width = label_bbox[2] - label_bbox[0]
+    label_height = label_bbox[3] - label_bbox[1]
+    label_layer = Image.new(
+        "RGBA", (round(label_width) + 4, round(label_height) + 4), (0, 0, 0, 0)
+    )
+    ImageDraw.Draw(label_layer).text(
+        (2 - label_bbox[0], 2 - label_bbox[1]),
+        "12",
+        font=FONT_TOKEN,
+        fill=GOAL_ZONE_BALL_OUTLINE,
+    )
+    rotated_label = label_layer.rotate(angle, expand=True)
+    ball_layer.paste(
+        rotated_label,
+        (
+            round(ball_center - rotated_label.width / 2),
+            round(ball_center - rotated_label.height / 2),
+        ),
+        rotated_label,
+    )
+    ball_x = round(ball_center_x - ball_center)
+    ball_y = round(ball_center_y - ball_center)
+    canvas.paste(ball_layer, (ball_x, ball_y), ball_layer)
 
 
 def draw_shooting_range_edges(
@@ -2638,14 +2871,24 @@ def draw_team_board(
         outline=color,
         width=5,
     )
+    name = team_display_name(setup.team)
     draw.text(
         (x + 22, y + 16),
-        team_display_name(setup.team),
+        name,
         font=FONT_HEADING,
         fill=color,
     )
 
-    bench_x = x + 220
+    # A name's own width decides where the bench starts -- "Purple" and
+    # "Fire Demons" are not the same number of pixels, and a fixed
+    # offset put the longer species names underneath "BENCH" instead of
+    # beside it. TEAM_BOARD_BENCH_MIN_X is what a short name already
+    # left in place, so nothing shifts for the common case.
+    name_width = draw.textlength(name, font=FONT_HEADING)
+    bench_x = x + max(
+        TEAM_BOARD_BENCH_MIN_X,
+        round(name_width) + 22 + TEAM_BOARD_NAME_GAP,
+    )
     draw.text(
         (bench_x, y + 20),
         "BENCH",
@@ -2669,7 +2912,13 @@ def draw_team_board(
         )
         card_x += CARD_SIZE[0] + 14
 
-    back_bench_x = x + 620
+    # Same reasoning as bench_x, from the other side: the bench itself
+    # is up to three cards wide, and a bench pushed right by a long
+    # name must clear its own cards before "BACK BENCH" starts.
+    back_bench_x = max(
+        x + TEAM_BOARD_BACK_BENCH_MIN_X,
+        bench_x + TEAM_BOARD_BENCH_CARD_SPAN + TEAM_BOARD_SECTION_GAP,
+    )
     draw.text(
         (back_bench_x, y + 20),
         "BACK BENCH",
@@ -3003,7 +3252,7 @@ def render_match_image(
         match.injured,
     )
     team_board_width = (
-        BOARD_RIGHT - BOARD_LEFT - TEAM_BOARD_GAP
+        FIELD_FAR_RIGHT - FIELD_FAR_LEFT - TEAM_BOARD_GAP
     ) // 2
     draw_team_board(
         canvas,
@@ -3011,7 +3260,7 @@ def render_match_image(
         match.home,
         players,
         catalog,
-        BOARD_LEFT,
+        FIELD_FAR_LEFT,
         TEAM_BOARD_TOP,
         team_board_width,
         match.exhaustion,
@@ -3024,7 +3273,7 @@ def render_match_image(
         match.visiting,
         players,
         catalog,
-        BOARD_LEFT + team_board_width + TEAM_BOARD_GAP,
+        FIELD_FAR_LEFT + team_board_width + TEAM_BOARD_GAP,
         TEAM_BOARD_TOP,
         team_board_width,
         match.exhaustion,

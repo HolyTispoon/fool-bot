@@ -57,3 +57,20 @@ and Bitstream Inc., shall not be used in advertising or otherwise to promote
 the sale, use or other dealings in this Font Software without prior written
 authorization from the Gnome Foundation or Bitstream Inc., respectively. For
 further information, contact: fonts at gnome dot org.
+
+
+Racing Sans One
+===============
+
+The file RacingSansOne-Regular.ttf is redistributed unmodified from the
+Racing Sans One project.
+
+    Source:  https://github.com/google/fonts/tree/main/ofl/racingsansone
+    Version: 1.001 (2012)
+
+Bundled for the same reason as DejaVu above -- see d12ball/render.py -- and
+used for the goal zone's own lettering. Licensed under the SIL Open Font
+License, Version 1.1; the full text is in RacingSansOne-OFL.txt in this
+directory. Copyright (c) 2012, Pablo Impallari (www.impallari.com) and
+Rodrigo Fuenzalida (www.rfuenzalida.com), with Reserved Font Name Racing
+Sans.
