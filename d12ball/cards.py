@@ -976,17 +976,17 @@ def draw_matchups(
         zip(labels, groups)
     ):
         cx = MARGIN + column_width * (index + 0.5)
-        max_width = column_width - 18
-        pen.text((cx, top + 22), label, font(15, bold=True), MUTED, anchor="mm")
+        max_width = column_width - 14
+        pen.text((cx, top + 22), label, font(16, bold=True), MUTED, anchor="mm")
         pen.text(
-            (cx, top + 46),
+            (cx, top + 47),
             f"{opposing_letter}{rank}",
-            font(19, bold=True),
+            font(21, bold=True),
             rank_color,
             anchor="mm",
         )
-        name_y = top + 70
-        name_font = font(17, bold=True)
+        name_y = top + 74
+        name_font = font(19, bold=True)
         for name, color in (
             (basic.name, INK),
             (advanced.name, DEFENSE_COLOR_ADVANCED if is_offense else OFFENSE_COLOR_ADVANCED),
@@ -1015,8 +1015,8 @@ def laid_out_abilities(
     before it knows where it starts, and a second measurement that
     disagreed would push the effect text off centre.
     """
-    label_font = font(19, bold=True)
-    body = font(19)
+    label_font = font(21, bold=True)
+    body = font(21)
     height = 62.0
     rows: list[tuple[str, float, list[str]]] = []
 
@@ -1172,7 +1172,7 @@ def render_maneuver_card(
     # Taller than a single-tier row needs, now that each column carries
     # a rank badge and both tiers' names rather than one name -- see
     # matchup_rank_groups.
-    matchup_height = 172
+    matchup_height = 188
     matchup_top = abilities_top - matchup_height
 
     draw_matchups(
