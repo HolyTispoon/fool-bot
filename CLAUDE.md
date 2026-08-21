@@ -913,10 +913,17 @@ whole rule, over `BoardState.is_in_shooting_range`.
   says why), `choose_action` refuses a stale click, `DinkyAI` only ever shoots
   from the scoring space, and the 2-space High Pass's set-up asks
   `can_attempt_score`.
-- **The board image draws where range begins**, in `draw_shooting_range_edges`
-  -- one dash column on board 6, two on 7 and 9 bracketing the space in nobody's
-  range. The rule is positional and the board is where both coaches read
-  position.
+- **The board image draws where range begins**, in `draw_shooting_range_band`
+  -- a labelled bracket under the field, one for each side's range and (on
+  board 7 and 9) a third over the space in nobody's. It used to be a dashed
+  line drawn straight through the spaces, which marked the same edge but said
+  nothing about what it meant; the labelled bracket is the same marking
+  `boards.py`'s printed field board already carried (`draw_shooting_ranges`),
+  so the two now agree by construction rather than by two separate drawings
+  of the same rule. `shooting_range_bands` reads `is_in_shooting_range` a
+  space at a time, the same reading the print board's own version makes, so
+  neither can drift from the rule the bot enforces. The rule is positional and
+  the board is where both coaches read position.
 
 ## What a shot is up against
 
@@ -2107,7 +2114,9 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
   - **Four hands, not two**, keyed by side *and* by the tiers a coach may play
     -- the basic three, or all six in an advanced game. Which one a coach gets
     is `RulesEngine.maneuver_tiers`, the same question the buttons under it
-    ask. There is one reference hexagon per tier for the same reason.
+    ask. **The reference hexagon is not keyed this way** -- there is one image
+    for both tiers (see below), since a coach in a basic game and one in an
+    advanced game are reading the same defeat cycle either way.
   - **Seven cards do not fit one row.** Discord scales an inline image to the
     message's width, so a row of seven arrives at about 75px a card against
     131px for a row of four. `HAND_MAX_COLUMNS` is 4, and anything past it
@@ -2148,11 +2157,24 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through
-  `load_maneuver_catalog` and `ManeuverCatalog.relationships` -- **narrowed to
-  the card's own tier**, which loses nothing, since rank decides and each rank
-  carries one card per tier; the abilities come from `players.json`. So a card cannot claim a rule the bot does not
-  play, and an import is carried onto the cards by re-running this rather than
-  by editing them.
+  `load_maneuver_catalog` and `cards.matchup_rank_groups`; the abilities come
+  from `players.json`. So a card cannot claim a rule the bot does not play, and
+  an import is carried onto the cards by re-running this rather than by
+  editing them.
+  - **Each column names the rank it faces, not one maneuver.** Every column
+    used to narrow to the card's own tier -- naming only the basic opponent on
+    a basic card and only the advanced one on its counterpart -- on the
+    reasoning that rank decides and each rank carries one card per tier, so
+    the second name was the same relation read twice. That reads backwards on
+    an advanced card: naming only its own tier's opponent makes the twelve
+    maneuvers look like two cycles with no relation between them, which is
+    exactly wrong when a tie on the cards resolves as the basic pair (see
+    `tie_note` below). `matchup_rank_groups` names the rank instead --
+    `O2`/`D1`/etc, coloured the opposing side's colour -- with **both** tiers'
+    names under it, basic in ink and advanced in its own colour. This is true
+    of a basic card as well as an advanced one: what a basic card beats is
+    still a rank, and that rank still has an advanced card on it once
+    advanced mode is in play.
 - **Which roles a card lists is mostly matched, not tabulated.** A role is on
   the card when its ability sentence names that maneuver, which is why the
   Fullback is on both High Pass and Block Deflect, carrying its whole sentence
@@ -2214,7 +2236,12 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
     to the next caption on its row, and ability variants get a second row.
 - **The offense red and defense green are the maneuver reference image's**, so
   a coach reading a card and a coach reading the bot's hexagon are looking at
-  the same two colours.
+  the same two colours. **An advanced card is a distinct shade, not a tint of
+  the basic one** -- a darker red/green rather than a lighter or darker version
+  of the same hue, since a basic and its advanced counterpart sit side by side
+  in the reference image and back to back in the print run, and two cards that
+  read as the same colour under different lighting is exactly what a coach
+  must not confuse.
 - **A card is white, and the colour is its edge and its header.** It used to
   be a saturated frame edge to edge on a cream face, with a near-black back --
   which is a page of ink per sheet of nine and the first thing a home printer
@@ -2235,6 +2262,15 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
     advanced, split by a hairline. Rank alone decides who beats whom, so the
     hexagon is six nodes however many cards there are -- a second back was
     never available, and two cycles laid on top of each other is not a hexagon.
+  - **The rank itself (O1, D2, ...) sits outside the circle, along the spoke
+    from the ellipse's own centre through the node**, in the node's own
+    green/red. A node already carries two names; putting the rank inside it
+    as well would be a fifth line in a circle sized for four. Outside it, the
+    badge is what tells a coach the two tiers resolve by rank rather than as
+    twelve maneuvers with no relation between them -- the same reason
+    `render_maneuver_reference_image` carries one now (see below). The two
+    caption lines at the foot of the card were pushed lower to clear the D1
+    badge, whose spoke runs straight down into where they used to start.
   - **One size for all six nodes, and it is the tightest of them.** With one
     name to a node the tightest fit was a single long word and capping there
     shrank every other node for nothing; with both tiers on a node all six are
@@ -2519,6 +2555,24 @@ into without widening the board itself.
   than beside it. `TEAM_BOARD_BENCH_MIN_X`/`TEAM_BOARD_BACK_BENCH_MIN_X` are
   what a short name already left in place, so nothing shifts for the common
   case.
+- **The printed field board carries its own end zones now**, `draw_field_end_zones`
+  in `boards.py` -- the print counterpart of `draw_end_zone`, not a second
+  drawing of the same pixels: it is a different rendering stack (`Sheet`
+  rather than a raw canvas) at a different resolution (300dpi rather than the
+  bot's fixed 2200px), so the geometry and the font-fit are worked out fresh
+  rather than shared. `FieldGeometry` narrows the strip itself to
+  `strip_left`/`strip_right`, reserving `end_zone_width` plus a gap on each
+  side for it; `left`/`right` stay the full content width for the header, the
+  direction arrows and the shooting-range bracket, which read the wide pair
+  same as the bot's own jumbotron and team boards span its end zones. **It is
+  drawn in ink, not a team's colour** -- the field board is a template for the
+  tabletop game with no match to read a team from, unlike the bot's own board,
+  which always has one.
+  - **`end_zone_width` is a tight fit, not a generous one.** `FieldGeometry`'s
+    own test floors a space at 1.5in -- both sides of a meeple's base -- and
+    board 9's nine spaces divide whatever the strip is left with; the end
+    zone's width came down from an initial guess until that floor held again.
+    Don't grow it without checking `test_a_space_is_big_enough_to_stand_meeples_on`.
 
 ### Fonts
 

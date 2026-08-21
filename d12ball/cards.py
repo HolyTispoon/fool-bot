@@ -38,7 +38,9 @@ from d12ball.components import (
 )
 from d12ball.render import (
     MANEUVER_DEFENSE_COLOR as DEFENSE_COLOR,
+    MANEUVER_DEFENSE_COLOR_ADVANCED as DEFENSE_COLOR_ADVANCED,
     MANEUVER_OFFENSE_COLOR as OFFENSE_COLOR,
+    MANEUVER_OFFENSE_COLOR_ADVANCED as OFFENSE_COLOR_ADVANCED,
     arrowhead_triangle,
     draw_dashed_line,
     load_font,
@@ -890,6 +892,54 @@ def draw_strip(
     )
 
 
+def matchup_rank_groups(
+    catalog: ManeuverCatalog,
+    maneuver: ManeuverDefinition,
+    is_offense: bool,
+) -> tuple[
+    tuple[int, tuple[ManeuverDefinition, ManeuverDefinition]],
+    tuple[int, tuple[ManeuverDefinition, ManeuverDefinition]],
+    tuple[int, tuple[ManeuverDefinition, ManeuverDefinition]],
+]:
+    """
+    The three opposing ranks this maneuver beats, ties and loses to,
+    each as `(rank, (basic, advanced))` -- **both tiers of that rank**,
+    because rank alone decides who beats whom (the author,
+    2026-08-18) and a card naming only its own tier's opponent reads
+    as though the twelve maneuvers were two separate cycles rather
+    than one, which is exactly backwards: a tie between two advanced
+    cards resolves as their basic counterparts, so the basic pair is
+    never not in play.
+
+    Read off `maneuver`'s own rank and `defeats_rank` -- identical
+    between a rank's basic and advanced card, so it makes no
+    difference which tier `maneuver` itself is.
+    """
+    side = "offense" if is_offense else "defense"
+    opposing_side = "defense" if is_offense else "offense"
+    opposing_basic = catalog.for_tier(opposing_side, MANEUVER_TIER_BASIC)
+
+    beats_rank = maneuver.defeats_rank
+    defeated_by_rank = next(
+        m.rank for m in opposing_basic if m.defeats_rank == maneuver.rank
+    )
+    tie_rank = next(
+        m.rank
+        for m in opposing_basic
+        if m.rank != beats_rank and m.defeats_rank != maneuver.rank
+    )
+
+    def pair(rank: int) -> tuple[ManeuverDefinition, ManeuverDefinition]:
+        basic = next(m for m in opposing_basic if m.rank == rank)
+        return basic, catalog.counterpart(basic)
+
+    return (
+        (beats_rank, pair(beats_rank)),
+        (tie_rank, pair(tie_rank)),
+        (defeated_by_rank, pair(defeated_by_rank)),
+    )
+
+
 def draw_matchups(
     pen: Pen,
     catalog: ManeuverCatalog,
@@ -899,23 +949,21 @@ def draw_matchups(
     height: float,
 ) -> None:
     """
-    Who this beats, ties and loses to. All three opponents are on the
-    other side of the ball, so the labels carry the meaning rather than
-    the colour -- an offense card's three names are all defense
-    maneuvers, and colouring them would say nothing.
+    Who this beats, ties and loses to -- named by **rank**, with both
+    the basic and advanced card on it, since rank rather than the card
+    itself is what a matchup is decided by. All three opponents are on
+    the other side of the ball, so the column headers carry the
+    "beats/ties/loses to" meaning and the rank badge is coloured the
+    opposing side's colour rather than this card's own.
 
-    **Narrowed to this card's own tier**, which loses nothing: rank
-    alone decides who beats whom (the author, 2026-08-18), and each
-    rank carries one card per tier -- so a basic card naming the basic
-    opponent and its advanced counterpart naming the advanced one are
-    the same relation read twice. Naming both would put four words in
-    a column sized for two, to say that a rank beats a rank.
+    It used to name only this card's own tier's opponent, which reads
+    naturally for a basic card but makes an advanced card look like it
+    belongs to a cycle of its own -- see `matchup_rank_groups`.
     """
-    side = "offense" if is_offense else "defense"
-    defeats, defeated_by, ties = catalog.relationships(
-        maneuver.key, side, maneuver.tier,
-    )
+    opposing_letter = "D" if is_offense else "O"
+    groups = matchup_rank_groups(catalog, maneuver, is_offense)
     column_width = (CARD_WIDTH - MARGIN * 2) / 3
+    rank_color = DEFENSE_COLOR if is_offense else OFFENSE_COLOR
 
     pen.line(
         [(MARGIN + 10, top), (CARD_WIDTH - MARGIN - 10, top)],
@@ -923,26 +971,33 @@ def draw_matchups(
         width=2,
     )
 
-    columns = (
-        ("BEATS", defeats, INK),
-        ("TIES", ties, MUTED),
-        ("LOSES TO", defeated_by, MUTED),
-    )
-    for index, (label, names, color) in enumerate(columns):
+    labels = ("BEATS", "TIES", "LOSES TO")
+    for index, (label, (rank, (basic, advanced))) in enumerate(
+        zip(labels, groups)
+    ):
         cx = MARGIN + column_width * (index + 0.5)
-        pen.text((cx, top + 26), label, font(17, bold=True), MUTED, anchor="mm")
-        for line_index, line in enumerate(" ".join(names).split(" ")):
-            pen.text(
-                (cx, top + 56 + line_index * 26),
-                line,
-                font(21, bold=True),
-                color,
-                anchor="mm",
-            )
+        max_width = column_width - 18
+        pen.text((cx, top + 22), label, font(15, bold=True), MUTED, anchor="mm")
+        pen.text(
+            (cx, top + 46),
+            f"{opposing_letter}{rank}",
+            font(19, bold=True),
+            rank_color,
+            anchor="mm",
+        )
+        name_y = top + 70
+        name_font = font(17, bold=True)
+        for name, color in (
+            (basic.name, INK),
+            (advanced.name, DEFENSE_COLOR_ADVANCED if is_offense else OFFENSE_COLOR_ADVANCED),
+        ):
+            for line in pen.wrapped(name, name_font, max_width):
+                pen.text((cx, name_y), line, name_font, color, anchor="mm")
+                name_y += line_height(pen, name_font)
         if index:
             pen.line(
                 [
-                    (MARGIN + column_width * index, top + 14),
+                    (MARGIN + column_width * index, top + 12),
                     (MARGIN + column_width * index, top + height - 8),
                 ],
                 fill=PANEL_EDGE,
@@ -1026,7 +1081,16 @@ def render_maneuver_card(
     is_offense: bool,
     bleed: bool,
 ) -> Image.Image:
-    color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
+    # A distinct shade for an advanced card, not a tint of the basic
+    # one -- the two sit side by side in a coach's hand and back to
+    # back in the print run, so they have to read as two cards at a
+    # glance rather than as the same colour under different light. The
+    # "ADVANCED MANEUVER" corner label is the only other thing on the
+    # face that says so; the back cannot, since one back serves both.
+    if maneuver.is_advanced:
+        color = OFFENSE_COLOR_ADVANCED if is_offense else DEFENSE_COLOR_ADVANCED
+    else:
+        color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
     pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
 
     # The card is a rounded rectangle on the sheet's white, outlined in
@@ -1105,7 +1169,10 @@ def render_maneuver_card(
     _, ability_height = laid_out_abilities(pen, abilities)
 
     abilities_top = CARD_HEIGHT - FRAME - 18 - ability_height
-    matchup_height = 118
+    # Taller than a single-tier row needs, now that each column carries
+    # a rank badge and both tiers' names rather than one name -- see
+    # matchup_rank_groups.
+    matchup_height = 172
     matchup_top = abilities_top - matchup_height
 
     draw_matchups(
@@ -1217,6 +1284,12 @@ CYCLE_LABEL_MARGIN = 24
 # lines read as one four-word name.
 CYCLE_TIER_GAP = 13
 CYCLE_TIER_RULE_WIDTH = 3
+
+# The rank badge outside each node -- O1, D2, and so on -- in the same
+# green/red as the node itself. Placed past the node's own edge rather
+# than inside it, since the circle is already carrying two names.
+CYCLE_RANK_LABEL_GAP = 34
+CYCLE_RANK_FONT_SIZE = 30
 
 # How far short of a node's edge a tie line stops, and how it is
 # drawn. Stopping outside the circle keeps the dashes from running
@@ -1468,6 +1541,28 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
         pen.circle(point, CYCLE_NODE_RADIUS, fill=color)
 
+        # The rank, outside the circle rather than inside it -- a node
+        # already carries two names, and O1/D2 is what says the two
+        # cards on it resolve by rank rather than as six basic and six
+        # advanced maneuvers with no relation to each other. Placed
+        # along the spoke from the ellipse's own centre through the
+        # node, so it sits wherever has room on that node's own side of
+        # the ring rather than colliding with a neighbour.
+        spoke_x, spoke_y = point[0] - center[0], point[1] - center[1]
+        spoke_length = (spoke_x * spoke_x + spoke_y * spoke_y) ** 0.5
+        ux, uy = spoke_x / spoke_length, spoke_y / spoke_length
+        rank_label = f"{'O' if is_offense else 'D'}{maneuver.rank}"
+        pen.text(
+            (
+                point[0] + ux * (CYCLE_NODE_RADIUS + CYCLE_RANK_LABEL_GAP),
+                point[1] + uy * (CYCLE_NODE_RADIUS + CYCLE_RANK_LABEL_GAP),
+            ),
+            rank_label,
+            font(CYCLE_RANK_FONT_SIZE, bold=True),
+            color,
+            anchor="mm",
+        )
+
         # The label is centred as a block rather than line by line, so a
         # one-word name and a two-word one both sit in the middle of the
         # circle. Written as fixed offsets it was measured against the
@@ -1515,15 +1610,18 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
                     )
                 top += gaps[index]
 
+    # Pushed lower than the two captions used to sit, to clear the D1
+    # rank badge below the bottom node -- the one node whose spoke runs
+    # straight down into where the caption block used to start.
     pen.text(
-        (CARD_WIDTH / 2, CARD_HEIGHT - 128),
+        (CARD_WIDTH / 2, CARD_HEIGHT - 76),
         "each node is one rank: basic card over advanced",
         font(19),
         MUTED,
         anchor="mm",
     )
     pen.text(
-        (CARD_WIDTH / 2, CARD_HEIGHT - 100),
+        (CARD_WIDTH / 2, CARD_HEIGHT - 48),
         "solid: beats what it points to · dashed: ties",
         font(19),
         MUTED,

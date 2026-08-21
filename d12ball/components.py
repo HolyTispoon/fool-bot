@@ -944,48 +944,6 @@ class ManeuverCatalog:
             return "defense"
         return "tie"
 
-    def relationships(
-        self,
-        key: str,
-        side: str,
-        tier: Optional[str] = None,
-    ) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
-        """
-        The opposing-side maneuvers this one defeats, is defeated by,
-        and ties with -- each as a tuple of **names**, because each
-        relation now has one member per tier rather than one member.
-
-        `tier` narrows the opponents to one tier, which is what a card
-        face wants: a basic card names the basic opponents a coach
-        recognises, and its advanced counterpart names the advanced
-        ones. The relation is the same either way -- it is the rank
-        that decides -- so narrowing loses nothing but the second name.
-        """
-        own = self.definition(key)
-        if own.key not in {m.key for m in self.side(side)}:
-            raise KeyError(f"{key!r} is not a {side} maneuver.")
-
-        opposing = [
-            maneuver
-            for maneuver in self.side(
-                "defense" if side == "offense" else "offense"
-            )
-            if tier is None or maneuver.tier == tier
-        ]
-
-        defeats = tuple(
-            m.name for m in opposing if m.rank == own.defeats_rank
-        )
-        defeated_by = tuple(
-            m.name for m in opposing if m.defeats_rank == own.rank
-        )
-        ties_with = tuple(
-            m.name
-            for m in opposing
-            if m.rank != own.defeats_rank and m.defeats_rank != own.rank
-        )
-        return defeats, defeated_by, ties_with
-
 
 @dataclass
 class BallState:
