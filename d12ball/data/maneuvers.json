@@ -1,5 +1,5 @@
 {
-  "data_version": 8,
+  "data_version": 9,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1487033386",
   "maneuvers": {
     "offense": [
@@ -51,7 +51,7 @@
           3,
           4
         ],
-        "effect": "Player and ball move forward all the way to the goal, gaining exhaustion for distance traveled. Manipulate ball speed (up to oSkill). If defeated, lose posession and ball speed doesn't go down to 1 before the defender gets to manipulate ball speed.",
+        "effect": "Player and ball run to the goal, gaining 1 exhaustion per space. Adjust ball speed up to oSkill. If defeated, lose possession,ball speed does not reset and defender adjusts it up to dSkill.",
         "time": "1 space minute",
         "defeats_rank": 1
       },
@@ -77,7 +77,7 @@
           5,
           6
         ],
-        "effect": "Adjust ball speed up to oSkill and then setup a scoring opportunity for distances 0,1, or 3 (*with* ball speed benefit). If defeated, other coach chooses whether the ball goes back 1-2-3 spaces, where it will be a loose ball.",
+        "effect": "Adjust ball speed up to oSkill, then set up scoring at 0, 1, or 3 (with the speed bonus). If defeated, opponent picks 1-2-3 spaces back as a loose ball.",
         "time": "2 space minutes",
         "defeats_rank": 2
       }
@@ -105,7 +105,7 @@
           1,
           2
         ],
-        "effect": "Ball moves back 3 space. If overshoots the goal, may set up scoring. Ball speed -3. if defeated, add 2 exhaustion.",
+        "effect": "Ball moves back 3. Overshoot may set up scoring. Ball speed -3. if defeated, gain 2 exhaustion.",
         "time": "1 space minute",
         "defeats_rank": 3
       },
@@ -131,7 +131,7 @@
           3,
           4
         ],
-        "effect": "Turnover. Defender and ball move forward 1 space. Manipulate ball speed after turnover (up to dSkill). If defeated, high pass reception is not contested.",
+        "effect": "Turnover. Defender and ball move forward 1. Manipulate ball speed after turnover (up to dSkill). If defeated, High Pass reception is uncontested.",
         "time": "1 space minute",
         "defeats_rank": 1
       },
@@ -157,7 +157,7 @@
           5,
           6
         ],
-        "effect": "Player and ball go back 2 spaces, Defender and one teammate that is closest (to the space where the play started) joins as well (no exhuastion cost). So long as it's not a new play, on their next maneuver, both defending players challenge the ball holder (both add their dSkill to skill test or special abilties). If overshoots goal, own goal risk. If defeated, defender and closest teammate go 1 forward (away from their own goal).",
+        "effect": "Player and ball go back 2. The nearest teammate joins the defender for free. Unless it's a new play, both challenge the ball holder next maneuver (both add dSkill). Overshoot risks an own goal. If defeated, both go 1 forward.",
         "time": "1 space minute",
         "defeats_rank": 2
       }
