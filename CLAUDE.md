@@ -2281,15 +2281,21 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
     beats whom, so the hexagon is six nodes however many cards there are -- a
     second back was never available, and two cycles laid on top of each other
     is not a hexagon.
-  - **The rank itself (O1, D2, ...) sits outside the circle, along the spoke
-    from the ellipse's own centre through the node**, in the node's own
-    green/red. A node already carries two names; putting the rank inside it
-    as well would be a fifth line in a circle sized for four. Outside it, the
-    badge is what tells a coach the two tiers resolve by rank rather than as
-    twelve maneuvers with no relation between them -- the same reason
-    `render_maneuver_reference_image` carries one now (see below). The two
-    caption lines at the foot of the card were pushed lower to clear the D1
-    badge, whose spoke runs straight down into where they used to start.
+  - **The rank itself (O1, D2, ...) sits outside the circle, straight above
+    or below the node** -- whichever side faces away from the ellipse's own
+    centre -- in the node's own green/red. A node already carries two names;
+    putting the rank inside it as well would be a fifth line in a circle
+    sized for four. Outside it, the badge is what tells a coach the two
+    tiers resolve by rank rather than as twelve maneuvers with no relation
+    between them -- the same reason `render_maneuver_reference_image`
+    carries one now (see below). **It used to sit out along the spoke from
+    the ellipse's centre through the node instead**, which for the four
+    off-axis nodes pushed it toward the card's corners -- close enough to
+    the edge that the label's own width ran past it. Vertical is the
+    direction every node has clear room in, since the hexagon already
+    clears the header above and the caption below. The two caption lines at
+    the foot of the card were pushed lower to clear the D1 badge below the
+    bottom node, which still sits on this same vertical line.
   - **One size for all six nodes, and it is the tightest of them.** With one
     name to a node the tightest fit was a single long word and capping there
     shrank every other node for nothing; with both tiers on a node all six are
