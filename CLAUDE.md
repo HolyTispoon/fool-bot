@@ -2175,6 +2175,16 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
     of a basic card as well as an advanced one: what a basic card beats is
     still a rank, and that rank still has an advanced card on it once
     advanced mode is in play.
+  - **The row's own height is measured, not a fixed constant.** It used to be
+    sized for a name long enough to wrap to two lines, which left every card
+    whose names were shorter than that -- almost all of them -- a band of
+    blank space under its own column. `matchup_content_height` counts the
+    actual wrapped lines at the row's own name size (22, large enough that
+    every maneuver name in the game still fits one line in a column this
+    wide) and `render_maneuver_card` sizes the row to that, the same way it
+    already sizes the abilities band to `laid_out_abilities`' measured
+    height. The room either measurement frees goes to the effect band
+    between them.
 - **Which roles a card lists is mostly matched, not tabulated.** A role is on
   the card when its ability sentence names that maneuver, which is why the
   Fullback is on both High Pass and Block Deflect, carrying its whole sentence
