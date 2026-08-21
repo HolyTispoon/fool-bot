@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.components import (
     duplicate_card_id,
+    MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
     ManeuverCatalog,
     ManeuverDefinition,
@@ -2765,23 +2766,28 @@ def _maneuver_cycle_order(
     return order
 
 
-def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
+def render_maneuver_reference_image(
+    catalog: ManeuverCatalog,
+    tier: str = MANEUVER_TIER_ADVANCED,
+) -> BytesIO:
     """
     Every maneuver arranged in the defeat cycle its rank sits on: arrows
     trace who beats whom, dashed diameters connect the tie pairs
-    (opposite nodes), and each of the six rank positions carries two
-    boxes side by side -- the basic card on the left, its advanced
-    counterpart on the right -- under one prominent rank badge (O1,
-    D2, ...).
+    (opposite nodes), and each of the six rank positions carries one
+    prominent rank badge (O1, D2, ...).
 
-    **One hexagon for both tiers, not one per tier.** Rank alone
+    **`tier` picks how many maneuvers a rank shows.**
+    `MANEUVER_TIER_ADVANCED` (the default) draws both -- the basic card
+    and its advanced counterpart side by side -- since rank alone
     decides who beats whom (2026-08-18), so an advanced card sits
     exactly where its basic counterpart does and the two cannot be
     drawn as two unrelated cycles without implying a second rule that
-    does not exist. A coach in a basic game reads the same picture as
-    one in an advanced game; the six pairs on the right just are not
-    theirs to play yet.
+    does not exist. `MANEUVER_TIER_BASIC` draws one box a rank instead:
+    a basic-mode coach has no advanced cards to read a matchup for, so
+    showing them anyway would be describing a rule this game is not
+    playing by. The one box gets the room the pair would have shared.
     """
+    both_tiers = tier == MANEUVER_TIER_ADVANCED
     canvas = Image.new(
         "RGBA",
         (MANEUVER_DIAGRAM_WIDTH, MANEUVER_DIAGRAM_HEIGHT),
@@ -2790,8 +2796,9 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
     draw = ImageDraw.Draw(canvas)
     cx, cy = MANEUVER_DIAGRAM_CENTER
     node_radius = MANEUVER_DIAGRAM_NODE_RADIUS
-    box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
-    pair_width = box_width * 2 + MANEUVER_DIAGRAM_TIER_GAP
+    box_unit_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
+    pair_width = box_unit_width * 2 + MANEUVER_DIAGRAM_TIER_GAP
+    box_width = box_unit_width if both_tiers else pair_width
     pair_height = box_height + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
 
     order = _maneuver_cycle_order(catalog, MANEUVER_TIER_BASIC)
@@ -2843,7 +2850,6 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
         )
 
     for (basic, is_offense), (center_x, center_y) in zip(order, centers):
-        advanced = catalog.counterpart(basic)
         rank_letter = "O" if is_offense else "D"
         rank_color = (
             MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR
@@ -2861,22 +2867,23 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
         )
 
         box_top = pair_top + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
-        for offset, (maneuver, fill, text_color) in enumerate((
+        boxes = [
             (
                 basic,
-                MANEUVER_OFFENSE_COLOR
-                if is_offense
-                else MANEUVER_DEFENSE_COLOR,
+                MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR,
                 MANEUVER_CARD_TEXT_COLOR,
             ),
-            (
+        ]
+        if both_tiers:
+            advanced = catalog.counterpart(basic)
+            boxes.append((
                 advanced,
                 MANEUVER_OFFENSE_COLOR_ADVANCED
                 if is_offense
                 else MANEUVER_DEFENSE_COLOR_ADVANCED,
                 MANEUVER_CARD_TEXT_COLOR_ADVANCED,
-            ),
-        )):
+            ))
+        for offset, (maneuver, fill, text_color) in enumerate(boxes):
             box_left = pair_left + offset * (box_width + MANEUVER_DIAGRAM_TIER_GAP)
             draw.rounded_rectangle(
                 (box_left, box_top, box_left + box_width, box_top + box_height),
@@ -2930,10 +2937,14 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
             draw.textlength(label, font=FONT_MANEUVER_LEGEND)
         ) + 44
 
-    legend_swatch(MANEUVER_OFFENSE_COLOR, "Offense (basic)")
-    legend_swatch(MANEUVER_OFFENSE_COLOR_ADVANCED, "Offense (advanced)")
-    legend_swatch(MANEUVER_DEFENSE_COLOR, "Defense (basic)")
-    legend_swatch(MANEUVER_DEFENSE_COLOR_ADVANCED, "Defense (advanced)")
+    if both_tiers:
+        legend_swatch(MANEUVER_OFFENSE_COLOR, "Offense (basic)")
+        legend_swatch(MANEUVER_OFFENSE_COLOR_ADVANCED, "Offense (advanced)")
+        legend_swatch(MANEUVER_DEFENSE_COLOR, "Defense (basic)")
+        legend_swatch(MANEUVER_DEFENSE_COLOR_ADVANCED, "Defense (advanced)")
+    else:
+        legend_swatch(MANEUVER_OFFENSE_COLOR, "Offense")
+        legend_swatch(MANEUVER_DEFENSE_COLOR, "Defense")
 
     relation_y = MANEUVER_DIAGRAM_HEIGHT - 48
     relation_x = 100
@@ -2962,7 +2973,9 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
     )
     draw.text(
         (tie_x + 120, relation_y + 3),
-        "Ties -- a skill test, or the rank's basic card if either side is injured",
+        "Ties -- a skill test, or the rank's basic card if either side is injured"
+        if both_tiers
+        else "Ties -- a skill test",
         font=FONT_MANEUVER_LEGEND,
         fill="#ffffff",
     )

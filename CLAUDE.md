@@ -2114,9 +2114,10 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
   - **Four hands, not two**, keyed by side *and* by the tiers a coach may play
     -- the basic three, or all six in an advanced game. Which one a coach gets
     is `RulesEngine.maneuver_tiers`, the same question the buttons under it
-    ask. **The reference hexagon is not keyed this way** -- there is one image
-    for both tiers (see below), since a coach in a basic game and one in an
-    advanced game are reading the same defeat cycle either way.
+    ask. **The reference hexagon is keyed the same way** (see below): a hand's
+    own `tiers` says which back it needs, `MANEUVER_TIER_ADVANCED` in it or
+    not, so a basic hand and its back agree without a second question being
+    asked.
   - **Seven cards do not fit one row.** Discord scales an inline image to the
     message's width, so a row of seven arrives at about 75px a card against
     131px for a row of four. `HAND_MAX_COLUMNS` is 4, and anything past it
@@ -2264,14 +2265,22 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
   white there is nothing else to say where a card ends, which is why the
   corner radius is drawn rather than implied and why `FRAME` is small enough
   that the outline is the card's own edge.
-- **One back for all twelve.** A coach holding both sets must not show which
-  side of the ball -- or which tier -- they are reading, and in advanced mode
-  the offense holds six. It carries the defeat cycle, which is public and which
-  every coach may look at anyway.
-  - **A node is a rank and carries the two cards on it**, basic name over
-    advanced, split by a hairline. Rank alone decides who beats whom, so the
-    hexagon is six nodes however many cards there are -- a second back was
-    never available, and two cycles laid on top of each other is not a hexagon.
+- **The back is keyed by tier -- `render_maneuver_card_back(catalog, bleed,
+  tier=...)`.** `MANEUVER_TIER_ADVANCED` (the default) is one back for all
+  twelve: a coach holding both sets in advanced mode must not show which side
+  of the ball -- or which tier -- they are reading, and the offense there
+  holds six. `MANEUVER_TIER_BASIC` draws six nodes with one name apiece
+  instead: a basic-mode coach's hand is never anything but the three basic
+  cards, so there is no tier to hide, and a name with no counterpart stacked
+  under it reads larger in the same circle. `render_maneuver_hand` picks
+  between them off its own `tiers` argument -- `MANEUVER_TIER_ADVANCED` in it
+  or not -- so a hand and the back riding along with it can't disagree about
+  which a coach is holding.
+  - **A node is a rank**, and in advanced mode carries the two cards on it,
+    basic name over advanced, split by a hairline. Rank alone decides who
+    beats whom, so the hexagon is six nodes however many cards there are -- a
+    second back was never available, and two cycles laid on top of each other
+    is not a hexagon.
   - **The rank itself (O1, D2, ...) sits outside the circle, along the spoke
     from the ellipse's own centre through the node**, in the node's own
     green/red. A node already carries two names; putting the rank inside it
