@@ -25,7 +25,7 @@ from d12ball.game import TEAM_PAIRS, Team, team_display_name
 
 
 IMAGE_WIDTH = 2200
-IMAGE_HEIGHT = 1280
+IMAGE_HEIGHT = 1302
 OUTPUT_SCALE = 1.5
 OUTPUT_SIZE = (
     round(IMAGE_WIDTH * OUTPUT_SCALE),
@@ -37,6 +37,15 @@ JUMBOTRON_TOP = 78
 JUMBOTRON_BOTTOM = 238
 BOARD_TOP = 430
 BOARD_BOTTOM = 805
+# The labelled shooting-range bracket under the field -- see
+# draw_shooting_range_band. It replaced a dashed line drawn through
+# the spaces themselves, which nobody could read, so it needs its own
+# band rather than overlapping anything already on the board; the
+# canvas grew by the same amount everything below it shifted down.
+RANGE_BAND_TOP = BOARD_BOTTOM + 8
+RANGE_BAND_HEIGHT = 30
+RANGE_BAND_BOTTOM = RANGE_BAND_TOP + RANGE_BAND_HEIGHT
+HOME_ASSIGNMENT_CARDS_TOP = RANGE_BAND_BOTTOM + 14
 CARD_SIZE = (110, 154)
 CARD_INTERNAL_SCALE = 3
 CARD_INTERNAL_SIZE = (
@@ -45,7 +54,7 @@ CARD_INTERNAL_SIZE = (
 )
 CARD_OFFENSE_COLOR = "#dc143c"
 CARD_DEFENSE_COLOR = "#0f7a35"
-TEAM_BOARD_TOP = 1030
+TEAM_BOARD_TOP = HOME_ASSIGNMENT_CARDS_TOP + CARD_SIZE[1] + 41
 TEAM_BOARD_BOTTOM = IMAGE_HEIGHT - 25
 TEAM_BOARD_GAP = 30
 # Where BENCH and BACK BENCH sit relative to a team board's own left
@@ -114,13 +123,19 @@ COACHING_BOARD_LEFT = 40
 COACHING_BOARD_RIGHT = COACHING_WIDTH - 40
 COACHING_BOARD_TOP = 64
 COACHING_BOARD_BOTTOM = COACHING_BOARD_TOP + 250
+# The same labelled shooting-range bracket the match image carries
+# under its own field -- see RANGE_BAND_TOP above and
+# draw_shooting_range_band. Narrower here, since the whole image is.
+COACHING_RANGE_TOP = COACHING_BOARD_BOTTOM + 6
+COACHING_RANGE_HEIGHT = 24
+COACHING_RANGE_BOTTOM = COACHING_RANGE_TOP + COACHING_RANGE_HEIGHT
 # The card rows below the board: each zone's assigned cards under that
 # zone, then the two benches. Cards are the only place exhaustion
 # counts and the Exhausted and Injured badges are drawn, and all three
 # decide what a coach does with this menu, so the flow would be asking
 # them to remember numbers off a board they cannot see otherwise.
 COACHING_CARD_GAP = 12
-COACHING_ZONE_CARDS_TOP = COACHING_BOARD_BOTTOM + 18
+COACHING_ZONE_CARDS_TOP = COACHING_RANGE_BOTTOM + 10
 COACHING_BENCH_LABEL_TOP = COACHING_ZONE_CARDS_TOP + CARD_SIZE[1] + 22
 COACHING_BENCH_CARDS_TOP = COACHING_BENCH_LABEL_TOP + 40
 COACHING_HEIGHT = COACHING_BENCH_CARDS_TOP + CARD_SIZE[1] + 20
@@ -1054,7 +1069,9 @@ def draw_board(
         BOARD_RIGHT + GOAL_ZONE_GAP + GOAL_ZONE_WIDTH,
         angle=270,
     )
-    draw_shooting_range_edges(draw, match, bounds)
+    draw_shooting_range_band(
+        draw, match, BOARD_LEFT, BOARD_RIGHT, RANGE_BAND_TOP, RANGE_BAND_BOTTOM,
+    )
     return bounds
 
 
@@ -1209,22 +1226,35 @@ def draw_end_zone(
     canvas.paste(ball_layer, (ball_x, ball_y), ball_layer)
 
 
-def draw_shooting_range_edges(
+def fit_range_label_font(
     draw: ImageDraw.ImageDraw,
-    match: MatchState,
-    bounds: dict[Zone, tuple[int, int]],
-    top: int = BOARD_TOP,
-    bottom: int = BOARD_BOTTOM,
-) -> None:
+    text: str,
+    max_width: float,
+) -> ImageFont.ImageFont:
     """
-    Where each side's shooting range begins, dashed down the field,
-    because that is now what decides whether a team may shoot -- see
-    "Field, direction, and shooting range" in the living rules.
+    The largest range-label size (down to a floor) that fits a band no
+    wider than one space -- the "neither" band on the coaching image,
+    which is a third the match image's width and cannot carry
+    `FONT_RANGE_LABEL` at its usual size.
+    """
+    size = 15
+    while size > 9:
+        font = load_font(size, bold=True)
+        if draw.textlength(text, font=font) <= max_width:
+            return font
+        size -= 1
+    return load_font(9, bold=True)
 
-    Never a zone boundary: on every board size the edge falls
-    somewhere inside midfield. An odd-sized board has a middle space
-    that is in neither side's range, so it gets two lines, one either
-    side of that space, rather than one drawn through it.
+
+def shooting_range_bands(match: MatchState) -> list[tuple[int, int, int]]:
+    """
+    The board's spaces cut into runs that share a shooting range side:
+    `(side, first_index, last_index)`, left to right -- 1 for home,
+    -1 for the visitors, 0 for the space in neither's, which only ever
+    exists on an odd-sized board (see "Field, direction, and shooting
+    range" in the living rules). The same reading `boards.py`'s printed
+    bracket makes off `is_in_shooting_range`, so the two brackets
+    cannot disagree about where the line falls.
     """
     def range_side(index: int) -> int:
         if match.board.is_in_shooting_range(TeamSide.HOME, index):
@@ -1233,23 +1263,78 @@ def draw_shooting_range_edges(
             return -1
         return 0
 
-    for index in range(1, match.board.layout.board_size):
-        if range_side(index) == range_side(index - 1):
-            continue
+    bands: list[tuple[int, int, int]] = []
+    for index in range(match.board.layout.board_size):
+        side = range_side(index)
+        if bands and bands[-1][0] == side:
+            bands[-1] = (side, bands[-1][1], index)
+        else:
+            bands.append((side, index, index))
+    return bands
 
-        zone, space_index = match.board.position_at_flat_index(index)
-        left, right = bounds[zone]
-        space_width = (right - left) / len(match.board.spaces[zone])
-        x = round(left + space_index * space_width)
 
-        y = top + 50
-        while y < bottom - 4:
-            draw.line(
-                (x, y, x, min(y + 16, bottom - 4)),
-                fill="#f2f6fa",
-                width=3,
+def draw_dashed_rect_outline(
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    fill: str,
+    width: int = 2,
+) -> None:
+    left, top, right, bottom = box
+    for x1, y1, x2, y2 in (
+        (left, top, right, top),
+        (right, top, right, bottom),
+        (right, bottom, left, bottom),
+        (left, bottom, left, top),
+    ):
+        draw_dashed_line(draw, x1, y1, x2, y2, fill, width, 8, 6)
+
+
+def draw_shooting_range_band(
+    draw: ImageDraw.ImageDraw,
+    match: MatchState,
+    left: int,
+    right: int,
+    top: int,
+    bottom: int,
+) -> None:
+    """
+    A labelled bracket under the field, one per run of
+    `shooting_range_bands` -- what decides whether a team may shoot
+    from here, replacing a dashed line drawn straight through the
+    spaces themselves that said nothing about what it meant. The same
+    marking as the printed field board's own bracket (`boards.py`,
+    `draw_shooting_ranges`), so a coach reading either reads the same
+    rule.
+    """
+    space_width = (right - left) / match.board.layout.board_size
+    labels = {1: "HOME RANGE", -1: "VISITORS RANGE", 0: "NEITHER'S RANGE"}
+
+    for side, first, last in shooting_range_bands(match):
+        band_left = round(left + first * space_width) + 4
+        band_right = round(left + (last + 1) * space_width) - 4
+        box = (band_left, top, band_right, bottom)
+        label = labels[side]
+        if side == 0:
+            draw_dashed_rect_outline(draw, box, fill="#5d6b78", width=2)
+            text_color = "#9aabbc"
+        else:
+            draw.rounded_rectangle(
+                box,
+                radius=6,
+                fill="#1a2836",
+                outline="#9aabbc",
+                width=2,
             )
-            y += 30
+            text_color = "#e7edf3"
+        font = fit_range_label_font(draw, label, band_right - band_left - 12)
+        draw_centered_text(
+            draw,
+            (band_left + band_right) / 2,
+            (top + bottom) / 2 - 8,
+            label,
+            font,
+            text_color,
+        )
 
 
 def ball_token_x(
@@ -3062,12 +3147,13 @@ def render_coaching_image(
                 label_bottom=COACHING_BOARD_BOTTOM - 14,
             )
 
-    draw_shooting_range_edges(
+    draw_shooting_range_band(
         draw,
         match,
-        bounds,
-        top=COACHING_BOARD_TOP,
-        bottom=COACHING_BOARD_BOTTOM,
+        COACHING_BOARD_LEFT,
+        COACHING_BOARD_RIGHT,
+        COACHING_RANGE_TOP,
+        COACHING_RANGE_BOTTOM,
     )
     draw_assignment_cards(
         canvas,
@@ -3246,7 +3332,7 @@ def render_match_image(
         players,
         catalog,
         bounds,
-        835,
+        HOME_ASSIGNMENT_CARDS_TOP,
         match.exhaustion,
         match.exhausted,
         match.injured,

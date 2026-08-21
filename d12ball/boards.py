@@ -71,6 +71,7 @@ from d12ball.render import (
     ZONE_LABELS,
     draw_dashed_line,
     load_font,
+    load_goal_zone_font,
     polygon_points,
     space_code,
 )
@@ -365,10 +366,21 @@ class FieldGeometry:
     **The clock and the score are not among them**: they went to the
     [jumbotron board](#the-jumbotron-board), which is what leaves the
     strip nearly half the sheet again taller.
+
+    **`left`/`right` are the full content width and `strip_left`/
+    `strip_right` are narrower** -- the header, the direction arrows
+    and the shooting-range bracket all read the wide pair, the way the
+    bot's own jumbotron and team boards span its end zones and all;
+    the spaces themselves, and everything measured off them
+    (`space_bounds`, `span_bounds`, `space_width`), read the narrow
+    pair, which leaves the gap between the two wide enough for a goal
+    zone on each side -- see `draw_field_end_zones`.
     """
 
     left: float
     right: float
+    strip_left: float
+    strip_right: float
     header_top: float
     header_bottom: float
     direction_top: float
@@ -389,6 +401,16 @@ class FieldGeometry:
         bottom = sheet.height - margin
         content = bottom - top
 
+        # The end zone beyond each end of the strip, and the gap to its
+        # own outline -- the print counterpart of `GOAL_ZONE_WIDTH` and
+        # `GOAL_ZONE_GAP` in render.py, sized as a share of the sheet
+        # rather than a fixed pixel count so it scales with paper size
+        # the way every other measurement here does.
+        end_zone_gap = sheet.u(6)
+        end_zone_width = sheet.u(42)
+        strip_left = left + end_zone_width + end_zone_gap
+        strip_right = right - end_zone_width - end_zone_gap
+
         gap = content * 0.018
         header = content * 0.085
         direction = content * 0.05
@@ -405,6 +427,8 @@ class FieldGeometry:
         return cls(
             left=left,
             right=right,
+            strip_left=strip_left,
+            strip_right=strip_right,
             header_top=top,
             header_bottom=header_bottom,
             direction_top=direction_top,
@@ -413,7 +437,7 @@ class FieldGeometry:
             strip_bottom=strip_bottom,
             range_top=range_top,
             range_bottom=range_top + ranges,
-            space_width=(right - left) / layout.board_size,
+            space_width=(strip_right - strip_left) / layout.board_size,
             board_size=layout.board_size,
         )
 
@@ -430,8 +454,8 @@ class FieldGeometry:
 
     def space_bounds(self, index: int) -> tuple[float, float]:
         return (
-            self.left + index * self.space_width,
-            self.left + (index + 1) * self.space_width,
+            self.strip_left + index * self.space_width,
+            self.strip_left + (index + 1) * self.space_width,
         )
 
     def span_bounds(self, first: int, last: int) -> tuple[float, float]:
@@ -464,6 +488,7 @@ def render_field_board(
     draw_field_header(sheet, geometry, layout)
     draw_attack_directions(sheet, geometry, board)
     draw_field_strip(sheet, geometry, layout)
+    draw_field_end_zones(sheet, geometry)
     draw_shooting_ranges(sheet, geometry, board)
 
     return add_bleed(sheet.image) if bleed else sheet.image
@@ -623,7 +648,6 @@ def draw_field_strip(
         index += spaces
 
     draw_kickoff_marks(sheet, geometry, layout)
-    draw_range_edges(sheet, geometry, BoardState.empty(layout))
 
 
 def kickoff_marks(layout: BoardLayout) -> dict[int, list[TeamSide]]:
@@ -697,39 +721,174 @@ def draw_kickoff_marks(
         )
 
 
+def draw_field_end_zones(sheet: Sheet, geometry: FieldGeometry) -> None:
+    """
+    A goal zone of its own beyond each end of the strip, American-
+    football style, in the margin `FieldGeometry.for_sheet` set aside
+    for it -- the print counterpart of `draw_end_zone` in render.py.
+
+    The field board is a template rather than a match in progress, so
+    there is no team to colour a zone by the way the bot's board does;
+    "GOAL" is set in ink here, the same as every other label on the
+    print, rather than in a team's colour.
+    """
+    gap = sheet.u(8)
+    draw_field_end_zone(
+        sheet,
+        geometry.left, geometry.strip_left - gap,
+        geometry.strip_top, geometry.strip_bottom,
+        angle=90,
+    )
+    draw_field_end_zone(
+        sheet,
+        geometry.strip_right + gap, geometry.right,
+        geometry.strip_top, geometry.strip_bottom,
+        angle=270,
+    )
+
+
+def draw_field_end_zone(
+    sheet: Sheet,
+    left: float,
+    right: float,
+    top: float,
+    bottom: float,
+    angle: int,
+) -> None:
+    """
+    One end zone -- "GOAL" lettered along its length with a blank d12
+    standing in for the "O", rotated so the word reads sideways the way
+    a real end zone's does. `angle` is 90 or 270, the same pair
+    render.py's own end zone takes and for the same reason: the two
+    ends of a real field face opposite ways rather than both reading
+    the same direction.
+    """
+    assert angle in (90, 270)
+    sheet.rect(
+        (round(left), round(top), round(right), round(bottom)),
+        fill=PANEL_COLOR,
+        outline=INK,
+        width=sheet.u(2.5),
+    )
+
+    word = "GOAL"
+    stroke_width = max(1, round(sheet.u(1.2)))
+    letter_spacing = sheet.u(10)
+    zone_width = right - left
+    zone_length = bottom - top
+
+    # The largest size (in whole pixels, not `sheet.u()` -- this is
+    # fitted directly against the zone's own measured extent rather
+    # than eyeballed the way `sheet.font` is elsewhere) that fits the
+    # word along the zone's length once rotated, and each letter
+    # within its width.
+    size = round(zone_length)
+    while size > 24:
+        font = load_goal_zone_font(size)
+        bbox = sheet.draw.textbbox((0, 0), word, font=font)
+        cell_height = bbox[3] - bbox[1]
+        widths = [sheet.draw.textlength(ch, font=font) for ch in word]
+        total_width = sum(widths) + letter_spacing * (len(word) - 1)
+        if cell_height <= zone_width * 0.8 and total_width <= zone_length * 0.88:
+            break
+        size = round(size * 0.9)
+    else:
+        font = load_goal_zone_font(24)
+        bbox = sheet.draw.textbbox((0, 0), word, font=font)
+        cell_height = bbox[3] - bbox[1]
+        widths = [sheet.draw.textlength(ch, font=font) for ch in word]
+        total_width = sum(widths) + letter_spacing * (len(word) - 1)
+
+    pad = 6 + stroke_width
+    text_layer = Image.new(
+        "RGBA",
+        (round(total_width) + pad * 2, round(cell_height) + pad * 2),
+        (0, 0, 0, 0),
+    )
+    text_draw = ImageDraw.Draw(text_layer)
+
+    # The "O" is left undrawn and its slot remembered, so the d12 can
+    # be centred exactly there once the word is rotated -- the same
+    # trick render.py's own end zone uses, and for the same reason: it
+    # stands in for the letter rather than floating near the word.
+    o_slot: tuple[float, float] | None = None
+    x = float(pad)
+    for index, (ch, width) in enumerate(zip(word, widths)):
+        if ch == "O":
+            o_slot = (x, x + width)
+        else:
+            text_draw.text(
+                (x, pad - bbox[1]),
+                ch,
+                font=font,
+                fill=INK,
+                stroke_width=stroke_width,
+                stroke_fill=FACE_COLOR,
+            )
+        x += width
+        if index < len(word) - 1:
+            x += letter_spacing
+    assert o_slot is not None
+
+    rotated = text_layer.rotate(angle, expand=True)
+    paste_x = round(left + (zone_width - rotated.width) / 2)
+    paste_y = round(top + (zone_length - rotated.height) / 2)
+    sheet.image.paste(rotated, (paste_x, paste_y), rotated)
+
+    # Where the "O" would have sat, in sheet coordinates -- the same
+    # rotate(90)/rotate(270) mapping render.py's own end zone verified
+    # empirically against Pillow's actual output.
+    ball_center_x = paste_x + rotated.width / 2
+    if angle == 90:
+        ball_center_y = paste_y + text_layer.width - sum(o_slot) / 2
+    else:
+        ball_center_y = paste_y + sum(o_slot) / 2
+
+    ball_radius = round(max(cell_height, o_slot[1] - o_slot[0]) / 2)
+    ball_pad = max(2, round(sheet.u(2)))
+    ball_span = ball_radius * 2 + ball_pad * 2
+    ball_layer = Image.new("RGBA", (ball_span, ball_span), (0, 0, 0, 0))
+    ball_draw = ImageDraw.Draw(ball_layer)
+    ball_center = ball_span / 2
+    ball_draw.polygon(
+        polygon_points(ball_center, ball_center, ball_radius, 12),
+        fill=FACE_COLOR,
+        outline=INK,
+        width=max(1, round(sheet.u(1.5))),
+    )
+    label_font = load_font(max(10, round(ball_radius * 0.6)), bold=True)
+    label_bbox = ball_draw.textbbox((0, 0), "12", font=label_font)
+    label_width = label_bbox[2] - label_bbox[0]
+    label_height = label_bbox[3] - label_bbox[1]
+    label_layer = Image.new(
+        "RGBA", (round(label_width) + 4, round(label_height) + 4), (0, 0, 0, 0)
+    )
+    ImageDraw.Draw(label_layer).text(
+        (2 - label_bbox[0], 2 - label_bbox[1]),
+        "12",
+        font=label_font,
+        fill=INK,
+    )
+    rotated_label = label_layer.rotate(angle, expand=True)
+    ball_layer.paste(
+        rotated_label,
+        (
+            round(ball_center - rotated_label.width / 2),
+            round(ball_center - rotated_label.height / 2),
+        ),
+        rotated_label,
+    )
+    ball_x = round(ball_center_x - ball_center)
+    ball_y = round(ball_center_y - ball_center)
+    sheet.image.paste(ball_layer, (ball_x, ball_y), ball_layer)
+
+
 def range_side(board: BoardState, index: int) -> int:
     if board.is_in_shooting_range(TeamSide.HOME, index):
         return 1
     if board.is_in_shooting_range(TeamSide.VISITING, index):
         return -1
     return 0
-
-
-def draw_range_edges(
-    sheet: Sheet,
-    geometry: FieldGeometry,
-    board: BoardState,
-) -> None:
-    """
-    Where each side's shooting range begins, dashed down the field --
-    the same line the bot's board draws, and never a zone boundary: on
-    every board size the edge falls inside midfield.
-    """
-    for index in range(1, geometry.board_size):
-        if range_side(board, index) == range_side(board, index - 1):
-            continue
-        x = geometry.space_bounds(index)[0]
-        draw_dashed_line(
-            sheet.draw,
-            x,
-            geometry.strip_top + sheet.u(40),
-            x,
-            geometry.strip_bottom - sheet.u(6),
-            fill=OFFENSE_COLOR,
-            width=max(1, round(sheet.u(3))),
-            dash_length=round(sheet.u(14)),
-            gap_length=round(sheet.u(10)),
-        )
 
 
 def shooting_range_bands(
