@@ -32,6 +32,7 @@ from d12ball.render import TEAM_COLORS
 from d12ball.game import (
     CoinFace,
     D12BallGame,
+    GameMode,
     SPECIES_TEAMS,
     Team,
     paired_team,
@@ -1255,6 +1256,59 @@ class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
             await cog.ensure_coin_emojis()
 
         self.assertEqual(bot.fetches, fetches_after_startup)
+
+
+class AdvancedModeBoardSizeTests(unittest.TestCase):
+    """
+    Picking Advanced defaults the board to 9 -- the extra maneuvers
+    need the room -- and the setup message keeps recommending 9 even
+    after a coach picks 6 or 7 back, since the recommendation is a
+    read of the mode alone. See "select_mode" in cogs/d12ball_views.py.
+    """
+
+    def build_interaction(self, user_id: int) -> SimpleNamespace:
+        return SimpleNamespace(
+            user=SimpleNamespace(id=user_id),
+            response=SimpleNamespace(edit_message=mock.AsyncMock()),
+        )
+
+    def test_picking_advanced_defaults_the_board_to_nine(self) -> None:
+        game = build_game()
+        cog = FakeCog(game, build_coin_emojis())
+        view = CoinFlipView(cog, game.game_id)
+        interaction = self.build_interaction(game.player_1_id)
+
+        with mock.patch("cogs.d12ball_views.save_games"):
+            asyncio.run(view.select_mode(interaction, GameMode.ADVANCED))
+
+        self.assertEqual(game.board_size, 9)
+        self.assertIn(
+            "recommended to play advanced mode on a board size of 9",
+            build_setup_message(game),
+        )
+
+    def test_switching_back_to_six_or_seven_keeps_the_recommendation(
+        self,
+    ) -> None:
+        game = build_game()
+        game.mode = GameMode.ADVANCED
+        game.board_size = 9
+        cog = FakeCog(game, build_coin_emojis())
+        view = CoinFlipView(cog, game.game_id)
+        interaction = self.build_interaction(game.player_1_id)
+
+        with mock.patch("cogs.d12ball_views.save_games"):
+            asyncio.run(view.select_board_size(interaction, 6))
+
+        self.assertEqual(game.board_size, 6)
+        self.assertIn(
+            "recommended to play advanced mode on a board size of 9",
+            build_setup_message(game),
+        )
+
+    def test_basic_mode_carries_no_recommendation(self) -> None:
+        game = build_game()
+        self.assertNotIn("recommended", build_setup_message(game))
 
 
 if __name__ == "__main__":

@@ -303,6 +303,14 @@ class GameConfigurationView(SafeView):
         # picking it here gets six cards a side instead of three and
         # the roster they already know.
         game.mode = selected_mode
+
+        # Advanced mode's extra maneuvers need the room a nine-space
+        # board gives them, so picking it defaults the board size to 9
+        # -- a coach may still pick 6 or 7 afterwards, and the setup
+        # message keeps recommending 9 either way (see
+        # build_setup_message).
+        if selected_mode == GameMode.ADVANCED:
+            game.board_size = 9
         save_games(self.cog.games)
 
         refreshed_view = type(self)(
