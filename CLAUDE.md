@@ -2387,7 +2387,10 @@ python3 scripts/render_player_cards.py --team orange --bleed
 
 `d12ball/boards.py` draws the three boards the tabletop game is played on --
 the **field board**, the **jumbotron board** and a coach's **team board** --
-print-ready at 300dpi, A3 landscape.
+print-ready at 300dpi. **Tabloid (11 x 17) is the default now**, not A3 --
+the field board portrait, the other two landscape; see `PAPERS` and
+`DEFAULT_PAPER` for why tabloid rather than A3 is the one a home or copy-shop
+printer actually stocks.
 
 ```bash
 python3 scripts/render_boards.py --out print/          # every field size
@@ -2454,16 +2457,24 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   upstream. `draw_die_slot` reads `team_die` alone and says why, and a test
   greps the module for `offense_die`/`die_values` because the data is still
   right there to pick up again by accident.
-- **A3 landscape, all three, and that is a constraint rather than a
-  preference.** Five of the team board's six cells have to hold a 3.5in card:
-  two rows of them plus a header and a footer is 11.3 inches, which is most of
-  an A3's shorter side and more than a tabloid's. So the head coach is a cell
-  of the grid rather than a band across the top, the formation table is a
-  footer strip rather than a panel, and **`card_slot_inches` is what says
-  whether a print can be laid cards on** -- the CLI prints it, and a smaller
-  sheet scales the whole board down rather than overflowing its areas.
-  `D12BallTeamBoardTests` asserts it, because a band added above the areas
-  takes them under a card silently: it renders fine and prints useless.
+- **The team board is landscape and holds two panels, not one.** Dropping the
+  three zone areas onto the field board (see "The zone-assignment rows" below)
+  left a single row -- the bench, the back bench and the head coach -- short
+  enough that a match's two coaches share one sheet, cut in half, rather than
+  each wanting a whole one: `render_team_board` draws the same panel twice,
+  stacked over the sheet's own short side. **Landscape, not portrait**, and
+  deliberately the opposite of the field board: stacking over the *short* side
+  (11in) leaves every column a real card's width of room over the long side
+  (17in), where stacking over the long side would leave the row only the short
+  side to divide three ways -- not enough for a fanned poker card, measured.
+  `card_slot_inches` is what says whether a panel holds a real card -- the CLI
+  prints it, and `TeamBoardGeometry` sizes the header and the footer in fixed
+  inches rather than as a share of the panel, which is what a header this much
+  shorter than the design it came from needed: a title sized to the *sheet's*
+  width came out taller than a header a third its old height, the day this
+  landed. `D12BallTeamBoardTests` asserts a panel's slot clears a real card at
+  A3 and at tabloid alike now -- both hold real cards, which is new: the three
+  zone areas were what cost tabloid the 0.7in it used to come up short by.
 - **A panel that has to fit divides what it is given.** The head coach cell
   sizes its three maneuver rows from the height left under the die rather than
   from a fixed measurement, because three rows that fit one sheet run off the
@@ -2485,12 +2496,13 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   9-space boards; `--board-size` narrows it to one. The sizes come from
   `rules.board_layouts`, so a fourth layout added upstream is printed without
   the script being touched.
-- **Zones keep their real names on the team board.** A coach's own goal is the
-  home goal for one of them and the visitors goal for the other, and one
-  design is printed for both, so the areas read HOME GOAL / MIDFIELD /
-  VISITORS GOAL exactly as the field and the coaching image do. Only the
-  formation strip is relative, and it says so. `--teams` colours a board per
-  team and changes nothing else.
+- **Zones keep their real names on the field board's own assignment rows**,
+  not the team board any more -- see "The zone-assignment rows". A coach's own
+  goal is the home goal for one of them and the visitors goal for the other,
+  and the field board is read by both, so the areas read HOME GOAL / MIDFIELD
+  / VISITORS GOAL exactly as the bot's coaching image does. The team board's
+  own formation strip is relative, and it says so. `--teams` colours a board
+  per team and changes nothing else.
 - **The formation strip lists the shapes and nothing else, and groups the ones
   only some boards play.** One team board is printed for every field size, so
   3-2-1 and 1-2-3 are on it under "9-SPACE BOARD ONLY" rather than left off --
@@ -2568,11 +2580,54 @@ into without widening the board itself.
   drawn in ink, not a team's colour** -- the field board is a template for the
   tabletop game with no match to read a team from, unlike the bot's own board,
   which always has one.
-  - **`end_zone_width` is a tight fit, not a generous one.** `FieldGeometry`'s
-    own test floors a space at 1.5in -- both sides of a meeple's base -- and
-    board 9's nine spaces divide whatever the strip is left with; the end
-    zone's width came down from an initial guess until that floor held again.
-    Don't grow it without checking `test_a_space_is_big_enough_to_stand_meeples_on`.
+  - **`end_zone_width` is a tight fit, not a generous one**, and tighter still
+    since the field board went portrait to make room for the zone-assignment
+    rows (below): the strip now divides an 11in width instead of a 17in one,
+    so every inch an end zone takes is an inch a space cannot have. Don't grow
+    it without checking `test_a_space_is_big_enough_to_stand_meeples_on`, whose
+    width floor is 1.0in now, not the 1.5in a landscape sheet could promise.
+
+### The zone-assignment rows
+
+A card row for each zone -- HOME GOAL, MIDFIELD, VISITORS GOAL -- above the
+strip for the visiting coach and below it for home, on the field board itself
+rather than on the team board, which used to carry them. `draw_zone_assignment_rows`
+and `draw_zone_assignment_cell` in `boards.py` draw them; `FieldGeometry`'s
+`visiting_zone_top`/`_bottom` and `home_zone_top`/`_bottom` are where.
+
+- **That is the whole reason the field board is portrait (11 x 17) rather than
+  landscape.** A zone row needs a real 3.5in card's worth of height, twice
+  over (once for each coach), which the sheet's 17in length holds without
+  crowding the strip; the strip's own spaces pay for it instead, coming out
+  under an inch wide on the 9-space board rather than the 1.5in two meeples
+  side by side would ask for on a landscape sheet. The author's own call,
+  made knowing that cost -- see `FieldGeometry`'s own docstring.
+- **The visiting row is rotated 180 degrees cell by cell, not the row
+  reordered.** The two coaches sit on opposite sides of the table, so a row
+  that reads upright to home reads upside down to visiting -- rotating each
+  cell the other 180 degrees turns it upright *for them* without touching
+  which column is which: HOME GOAL is still the leftmost cell in both rows,
+  directly under and over the strip's own HOME GOAL columns, so a coach
+  reading either row left to right reads the same zone order the strip does.
+  `draw_zone_assignment_cell` draws the whole cell upright on its own small
+  canvas and rotates the finished picture when it is the visiting row, rather
+  than working out where flipped text and flipped dashes land by hand.
+- **The dashed guides inside a row are a visual cue, not a slot count.** This
+  is a staging area a coach fans any number of cards across before assigning
+  them to numbered spaces, not a fixed set of areas the way the strip's own
+  spaces are -- `CARDS_PER_AREA` (three) is borrowed from the team board's own
+  areas for the guide only, and nothing here enforces it.
+- **The caption is dropped rather than shrunk past legibility.** "cards
+  assigned to this zone" fits next to MIDFIELD's own width; HOME GOAL and
+  VISITORS GOAL are narrower, and `draw_zone_assignment_cell` measures whether
+  it fits before drawing it rather than shrinking the font until it does --
+  a caption nobody can read is a worse failure than one left off.
+- **The header was rebuilt to stack rather than sit side by side**, in the
+  same change: `draw_field_header`'s title on the left and its note on the
+  right used to overlap in the middle on anything narrower than the old
+  landscape sheet, which the portrait sheet always is. Both are wrapped to
+  the sheet's own content width and stacked in one left-aligned column now,
+  which cannot overlap regardless of paper size or how long the wording runs.
 
 ### Fonts
 

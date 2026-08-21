@@ -1506,12 +1506,20 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         length = (dx * dx + dy * dy) ** 0.5
         ux, uy = dx / length, dy / length
         start = (point[0] + ux * CYCLE_NODE_RADIUS, point[1] + uy * CYCLE_NODE_RADIUS)
-        end = (
+        tip = (
             nxt[0] - ux * (CYCLE_NODE_RADIUS + 4),
             nxt[1] - uy * (CYCLE_NODE_RADIUS + 4),
         )
-        pen.line([start, end], fill=MUTED, width=6)
-        draw_arrowhead(pen, end, (ux, uy), 24, MUTED)
+        # The line stops where the arrowhead's own base is, not at its
+        # tip -- a stroked line's end cap is flat, so a line run all the
+        # way to the tip poked its own width out past the triangle's
+        # point, which is exactly zero wide there. Stopping at the base
+        # leaves the line's cap inside the triangle's much wider base
+        # instead, where the fill already covers it.
+        arrow_size = 24
+        line_end = (tip[0] - ux * arrow_size, tip[1] - uy * arrow_size)
+        pen.line([start, line_end], fill=MUTED, width=6)
+        draw_arrowhead(pen, tip, (ux, uy), arrow_size, MUTED)
 
     # **One size for all six nodes, and it is the tightest of them.**
     # Sized independently they read as six different alphabets: "Low
@@ -1615,7 +1623,7 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
     # straight down into where the caption block used to start.
     pen.text(
         (CARD_WIDTH / 2, CARD_HEIGHT - 76),
-        "each node is one rank: basic card over advanced",
+        "each node is one rank: basic maneuvers above advanced",
         font(19),
         MUTED,
         anchor="mm",

@@ -123,19 +123,19 @@ COACHING_BOARD_LEFT = 40
 COACHING_BOARD_RIGHT = COACHING_WIDTH - 40
 COACHING_BOARD_TOP = 64
 COACHING_BOARD_BOTTOM = COACHING_BOARD_TOP + 250
-# The same labelled shooting-range bracket the match image carries
-# under its own field -- see RANGE_BAND_TOP above and
-# draw_shooting_range_band. Narrower here, since the whole image is.
-COACHING_RANGE_TOP = COACHING_BOARD_BOTTOM + 6
-COACHING_RANGE_HEIGHT = 24
-COACHING_RANGE_BOTTOM = COACHING_RANGE_TOP + COACHING_RANGE_HEIGHT
 # The card rows below the board: each zone's assigned cards under that
 # zone, then the two benches. Cards are the only place exhaustion
 # counts and the Exhausted and Injured badges are drawn, and all three
 # decide what a coach does with this menu, so the flow would be asking
 # them to remember numbers off a board they cannot see otherwise.
+#
+# **No shooting-range bracket here, unlike the match image.** A
+# Coaching Choice happens with play stopped and shows only one side's
+# own half, so there is no ball and no attempt in progress for a range
+# to matter to -- the match image carries it because that is the board
+# a shot is actually taken from.
 COACHING_CARD_GAP = 12
-COACHING_ZONE_CARDS_TOP = COACHING_RANGE_BOTTOM + 10
+COACHING_ZONE_CARDS_TOP = COACHING_BOARD_BOTTOM + 18
 COACHING_BENCH_LABEL_TOP = COACHING_ZONE_CARDS_TOP + CARD_SIZE[1] + 22
 COACHING_BENCH_CARDS_TOP = COACHING_BENCH_LABEL_TOP + 40
 COACHING_HEIGHT = COACHING_BENCH_CARDS_TOP + CARD_SIZE[1] + 20
@@ -1309,25 +1309,30 @@ def draw_shooting_range_band(
     rule.
     """
     space_width = (right - left) / match.board.layout.board_size
-    labels = {1: "HOME RANGE", -1: "VISITORS RANGE", 0: "NEITHER'S RANGE"}
+    labels = {
+        1: "HOME GOAL - SHOOTING RANGE",
+        -1: "VISITORS GOAL - SHOOTING RANGE",
+    }
 
     for side, first, last in shooting_range_bands(match):
         band_left = round(left + first * space_width) + 4
         band_right = round(left + (last + 1) * space_width) - 4
         box = (band_left, top, band_right, bottom)
-        label = labels[side]
         if side == 0:
+            # No label -- a space in neither range says so by not
+            # being bracketed into either one, and "neither's range"
+            # was a name for an absence rather than a fact worth
+            # stating.
             draw_dashed_rect_outline(draw, box, fill="#5d6b78", width=2)
-            text_color = "#9aabbc"
-        else:
-            draw.rounded_rectangle(
-                box,
-                radius=6,
-                fill="#1a2836",
-                outline="#9aabbc",
-                width=2,
-            )
-            text_color = "#e7edf3"
+            continue
+        draw.rounded_rectangle(
+            box,
+            radius=6,
+            fill="#1a2836",
+            outline="#9aabbc",
+            width=2,
+        )
+        label = labels[side]
         font = fit_range_label_font(draw, label, band_right - band_left - 12)
         draw_centered_text(
             draw,
@@ -1335,7 +1340,7 @@ def draw_shooting_range_band(
             (top + bottom) / 2 - 8,
             label,
             font,
-            text_color,
+            "#e7edf3",
         )
 
 
@@ -3248,14 +3253,6 @@ def render_coaching_image(
                 label_bottom=COACHING_BOARD_BOTTOM - 14,
             )
 
-    draw_shooting_range_band(
-        draw,
-        match,
-        COACHING_BOARD_LEFT,
-        COACHING_BOARD_RIGHT,
-        COACHING_RANGE_TOP,
-        COACHING_RANGE_BOTTOM,
-    )
     draw_assignment_cards(
         canvas,
         draw,
