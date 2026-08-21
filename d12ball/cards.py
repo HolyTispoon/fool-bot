@@ -940,6 +940,49 @@ def matchup_rank_groups(
     )
 
 
+# The matchup row's own name size, and the fixed offsets around it --
+# shared between `matchup_content_height` (which measures) and
+# `draw_matchups` (which draws), so the two cannot disagree about how
+# tall a column's names come out.
+MATCHUP_NAME_SIZE = 22
+MATCHUP_NAME_TOP = 74
+MATCHUP_BOTTOM_PAD = 14
+
+
+def matchup_content_height(
+    pen: Pen,
+    catalog: ManeuverCatalog,
+    maneuver: ManeuverDefinition,
+    is_offense: bool,
+) -> float:
+    """
+    How tall the BEATS/TIES/LOSES TO row needs to be for this card's
+    own names, at `MATCHUP_NAME_SIZE` -- content-driven rather than a
+    fixed constant sized for whichever name is longest enough to wrap
+    to two lines. All twelve maneuver names fit one line apiece at
+    this size in a column this wide, so in practice every card asks
+    for the same, smallest height; a longer name added upstream would
+    ask for more rather than silently wrapping into a fixed band that
+    no longer fits it.
+    """
+    groups = matchup_rank_groups(catalog, maneuver, is_offense)
+    column_width = (CARD_WIDTH - MARGIN * 2) / 3
+    max_width = column_width - 14
+    name_font = font(MATCHUP_NAME_SIZE, bold=True)
+    max_lines = 0
+    for _, (basic, advanced) in groups:
+        lines = sum(
+            len(pen.wrapped(name, name_font, max_width))
+            for name in (basic.name, advanced.name)
+        )
+        max_lines = max(max_lines, lines)
+    return (
+        MATCHUP_NAME_TOP
+        + max_lines * line_height(pen, name_font)
+        + MATCHUP_BOTTOM_PAD
+    )
+
+
 def draw_matchups(
     pen: Pen,
     catalog: ManeuverCatalog,
@@ -985,8 +1028,8 @@ def draw_matchups(
             rank_color,
             anchor="mm",
         )
-        name_y = top + 74
-        name_font = font(19, bold=True)
+        name_y = top + MATCHUP_NAME_TOP
+        name_font = font(MATCHUP_NAME_SIZE, bold=True)
         for name, color in (
             (basic.name, INK),
             (advanced.name, DEFENSE_COLOR_ADVANCED if is_offense else OFFENSE_COLOR_ADVANCED),
@@ -1169,10 +1212,12 @@ def render_maneuver_card(
     _, ability_height = laid_out_abilities(pen, abilities)
 
     abilities_top = CARD_HEIGHT - FRAME - 18 - ability_height
-    # Taller than a single-tier row needs, now that each column carries
-    # a rank badge and both tiers' names rather than one name -- see
-    # matchup_rank_groups.
-    matchup_height = 188
+    # Content-driven, not a fixed constant sized for whichever name is
+    # long enough to wrap to two lines -- see matchup_content_height.
+    # That used to leave every card with a band of blank space under
+    # its own shorter names; the room it frees goes to the effect band
+    # below, the same as `laid_out_abilities`' own height does.
+    matchup_height = matchup_content_height(pen, catalog, maneuver, is_offense)
     matchup_top = abilities_top - matchup_height
 
     draw_matchups(
