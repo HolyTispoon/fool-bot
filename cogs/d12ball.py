@@ -249,15 +249,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # matches nothing shows as three disabled buttons rather than
         # as an error. See d12ball/tutorial.py.
         tutorial.validate_script(self.maneuver_catalog)
-        # One hexagon per tier: the two are the same six positions with
-        # different names on them, so an advanced game reads its own
-        # cards off its own picture.
-        self.maneuver_reference_image_bytes = {
-            tier: render_maneuver_reference_image(
-                self.maneuver_catalog, tier
-            ).read()
-            for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
-        }
+        # One hexagon, both tiers: each rank position carries its basic
+        # and advanced cards side by side, so a coach in a basic game
+        # and one in an advanced game read the same picture -- see
+        # render_maneuver_reference_image.
+        self.maneuver_reference_image_bytes = render_maneuver_reference_image(
+            self.maneuver_catalog
+        ).read()
         # A side's playable cards, which is what a coach is shown when
         # they open the pick. All of them are drawn here for the same
         # reason the reference image is: it is the one place a render
@@ -600,22 +598,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
 
 
-    def reference_tier(self, game: Optional[D12BallGame]) -> str:
-        """
-        Which hexagon to post: the advanced one for an advanced game,
-        the basic one everywhere else -- including outside a game's
-        channel, where there is nothing to ask.
-        """
-        if game is not None and game.mode == GameMode.ADVANCED:
-            return MANEUVER_TIER_ADVANCED
-        return MANEUVER_TIER_BASIC
-
-    def build_maneuver_reference_file(
-        self, tier: str = MANEUVER_TIER_BASIC,
-    ) -> discord.File:
+    def build_maneuver_reference_file(self) -> discord.File:
         return discord.File(
-            io.BytesIO(self.maneuver_reference_image_bytes[tier]),
-            filename=f"maneuver_reference_{tier}.png",
+            io.BytesIO(self.maneuver_reference_image_bytes),
+            filename="maneuver_reference.png",
         )
 
     def build_maneuver_hand_file(
@@ -8481,7 +8467,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     @app_commands.command(
         name="maneuver_reference",
         description=(
-            "Post the maneuver reference image showing all six maneuvers."
+            "Post the maneuver reference image showing all twelve maneuvers."
         ),
     )
     @app_commands.guild_only()
@@ -8490,11 +8476,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
     ) -> None:
         await interaction.response.send_message(
-            file=self.build_maneuver_reference_file(
-                self.reference_tier(
-                    self.game_for_channel(interaction.channel_id)
-                )
-            ),
+            file=self.build_maneuver_reference_file(),
         )
         await add_full_image_button_to_response(interaction)
 

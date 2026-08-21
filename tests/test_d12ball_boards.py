@@ -21,6 +21,7 @@ from d12ball.boards import (
     CARDS_PER_AREA,
     CLOCK_COLUMNS,
     CLOCK_MINUTES,
+    DEFAULT_PAPER,
     HALFTIME_MINUTE,
     MIN_TOKEN_INCHES,
     PRINT_DPI,
@@ -65,7 +66,7 @@ class D12BallFieldBoardTests(unittest.TestCase):
         for board_size in sorted(self.rules.board_layouts):
             with self.subTest(board_size=board_size):
                 board = render_field_board(self.rules, board_size)
-                self.assertEqual(board.size, sheet_pixels("a3", True))
+                self.assertEqual(board.size, sheet_pixels(DEFAULT_PAPER, False))
 
     def test_an_unknown_board_size_is_refused(self) -> None:
         with self.assertRaises(ValueError):
@@ -134,19 +135,48 @@ class D12BallFieldBoardTests(unittest.TestCase):
         enough for one meeple is the failure this board exists to
         avoid -- and giving them the room the clock and score used to
         take is why those moved to the jumbotron.
+
+        **The width floor came down from 1.5in to 1.0in** when the
+        sheet went portrait to make room for the zone-assignment rows
+        (see `FieldGeometry`) -- the author's own call, made knowing
+        the 9-space board's spaces come out close to that new floor
+        rather than comfortably above the old one. The height floor
+        did not move; the strip has far more of it to spare now than
+        it used to.
         """
         for board_size in sorted(self.rules.board_layouts):
-            sheet = Sheet(*sheet_pixels("a3", True))
+            sheet = Sheet(*sheet_pixels(DEFAULT_PAPER, False))
             geometry = FieldGeometry.for_sheet(
                 sheet, self.rules.board_layouts[board_size]
             )
             width, height = geometry.space_inches
             with self.subTest(board_size=board_size):
-                self.assertGreaterEqual(width, 1.5)
+                self.assertGreaterEqual(width, 1.0)
                 self.assertGreaterEqual(height, 4.0)
                 self.assertLessEqual(
-                    geometry.range_bottom, sheet.height
+                    geometry.range_bottom, geometry.home_zone_top
                 )
+
+    def test_the_zone_rows_hold_a_real_card_and_do_not_overlap(self) -> None:
+        """
+        Each zone-assignment row is a card row, full stop -- see
+        "The zone-assignment rows" in CLAUDE.md -- so it has to clear
+        `CARD_INCHES`' own height, and the two rows (visiting's above
+        the strip, home's below it) must never reach into the header,
+        the strip or each other.
+        """
+        sheet = Sheet(*sheet_pixels(DEFAULT_PAPER, False))
+        geometry = FieldGeometry.for_sheet(
+            sheet, self.rules.board_layouts[7]
+        )
+        row_height = geometry.visiting_zone_bottom - geometry.visiting_zone_top
+        self.assertGreaterEqual(row_height / PRINT_DPI, CARD_INCHES[1])
+        self.assertAlmostEqual(
+            geometry.home_zone_bottom - geometry.home_zone_top, row_height
+        )
+        self.assertLess(geometry.visiting_zone_bottom, geometry.header_top)
+        self.assertLess(geometry.range_bottom, geometry.home_zone_top)
+        self.assertLessEqual(geometry.home_zone_bottom, sheet.height)
 
 
 class D12BallTeamBoardTests(unittest.TestCase):
@@ -161,12 +191,36 @@ class D12BallTeamBoardTests(unittest.TestCase):
             self.rules, self.players, self.maneuvers, **kwargs
         )
 
+    def panel_geometry(self, paper: str) -> TeamBoardGeometry:
+        """
+        One coach's own panel, at the size `render_team_board` actually
+        cuts each area from -- half the sheet's height, since two
+        coaches' boards share the one sheet now. See `TeamBoardGeometry`.
+        """
+        width, height = sheet_pixels(paper, landscape=True)
+        return TeamBoardGeometry.for_sheet(Sheet(width, height // 2))
+
     def test_a_board_is_rendered_coloured_and_uncoloured(self) -> None:
         for team in (None,) + tuple(Team):
             with self.subTest(team=team):
                 self.assertEqual(
-                    self.render(team=team).size, sheet_pixels("a3", True)
+                    self.render(team=team).size,
+                    sheet_pixels(DEFAULT_PAPER, True),
                 )
+
+    def test_the_sheet_is_two_identical_panels(self) -> None:
+        """
+        One sheet, two coaches: with no team to tell them apart the top
+        half (visiting's) and the bottom half (home's) have to be the
+        same picture, or the two boards a match actually needs would
+        not be interchangeable the way a coach expects.
+        """
+        image = self.render()
+        width, height = image.size
+        half = height // 2
+        top = image.crop((0, 0, width, half))
+        bottom = image.crop((0, half, width, half * 2))
+        self.assertEqual(top.tobytes(), bottom.tobytes())
 
     def test_the_card_areas_hold_a_real_card_at_print_size(self) -> None:
         """
@@ -181,55 +235,57 @@ class D12BallTeamBoardTests(unittest.TestCase):
 
     def test_a_smaller_sheet_says_so_rather_than_overflowing(self) -> None:
         """
-        Every other size is a proof to read rather than a board to lay
-        cards on -- tabloid included, which is wider than A3 but 0.7in
-        shorter, and two rows of cards is what the shorter side has to
-        hold. The slots scale down with the sheet instead of the areas
-        overflowing it, and `card_slot_inches` is what the CLI reads to
-        say which of the two a print is.
+        A4 and letter are a proof to read rather than a board to lay
+        cards on. The slots scale down with the panel instead of the
+        areas overflowing it, and `card_slot_inches` is what the CLI
+        reads to say which of the two a print is.
+
+        **Tabloid holds a real card too now**, unlike before the two
+        zone rows moved off this board: with only the bench, the back
+        bench and the head coach's cell left, tabloid's own panel has
+        room to spare rather than falling 0.7in short the way a whole
+        unhalved sheet used to. See `test_the_card_areas_hold_a_real_card_at_print_size`.
         """
-        for paper in ("a4", "letter", "tabloid"):
+        for paper in ("a4", "letter"):
             with self.subTest(paper=paper):
                 self.assertLess(card_slot_inches(paper)[0], CARD_INCHES[0])
+        for paper in ("a4", "letter", "tabloid"):
+            with self.subTest(paper=paper):
                 self.assertEqual(
-                    self.render(paper=paper).size, sheet_pixels(paper, True)
+                    self.render(paper=paper).size,
+                    sheet_pixels(paper, True),
                 )
 
     def test_every_area_holds_three_cards_side_by_side(self) -> None:
         """
-        Three is what an area ever has to hold -- a zone holds three
-        under 2-3-1 and 1-3-2, and the benches three between them -- so
-        the fan has to fit the area it is drawn in.
+        Three is what a bench ever has to hold, between them -- so the
+        fan has to fit the area it is drawn in.
         """
-        sheet = Sheet(*sheet_pixels("a3", True))
-        geometry = TeamBoardGeometry.for_sheet(sheet)
+        geometry = self.panel_geometry("a3")
         fan = (
             geometry.slot[0] + geometry.slot_pitch * (CARDS_PER_AREA - 1)
         )
         for column in range(3):
-            for row in range(2):
-                left, top, right, bottom = geometry.area(column, row)
-                with self.subTest(column=column, row=row):
-                    self.assertLessEqual(fan, right - left)
-                    self.assertLessEqual(geometry.slot[1], bottom - top)
-                    self.assertLessEqual(right, sheet.width)
-                    self.assertLessEqual(bottom, sheet.height)
+            left, top, right, bottom = geometry.area(column)
+            with self.subTest(column=column):
+                self.assertLessEqual(fan, right - left)
+                self.assertLessEqual(geometry.slot[1], bottom - top)
+                self.assertLessEqual(right, geometry.right)
+                self.assertLessEqual(bottom, geometry.rows[0][1])
         # And the guides are a fan rather than a stack: each card
         # behind the front one still shows an edge to pick it up by.
         self.assertGreater(geometry.slot_pitch, geometry.slot[0] * 0.3)
 
-    def test_a_zone_has_an_area_and_so_does_each_bench(self) -> None:
+    def test_the_bench_and_the_head_coach_each_have_an_area(self) -> None:
         """
-        Six cells for the six places a card can be. The three zones
-        come from the Zone enum, so a fourth zone would need a cell of
-        its own rather than silently going undrawn.
+        Three cells for the three places a card or the coach's own
+        d12 can be -- the bench, the back bench and the head coach.
+        The three zone areas moved to the field board (see "The
+        zone-assignment rows" in CLAUDE.md), which is what let two of
+        these panels share a sheet in the first place.
         """
-        sheet = Sheet(*sheet_pixels("a3", True))
-        geometry = TeamBoardGeometry.for_sheet(sheet)
-        self.assertEqual(
-            len(geometry.columns) * len(geometry.rows),
-            len(Zone) + len(("bench", "back bench")) + 1,
-        )
+        geometry = self.panel_geometry("a3")
+        self.assertEqual(len(geometry.columns) * len(geometry.rows), 3)
 
     def test_no_die_value_is_printed_anywhere(self) -> None:
         """
@@ -282,7 +338,8 @@ class D12BallTeamBoardTests(unittest.TestCase):
         upstream lands there without anybody measuring, which the
         narrowed case stands in for.
         """
-        sheet = Sheet(*sheet_pixels("a3", True))
+        width, height = sheet_pixels("a3", landscape=True)
+        sheet = Sheet(width, height // 2)
         geometry = TeamBoardGeometry.for_sheet(sheet)
         for share in (1.0, 0.85):
             with self.subTest(share=share):
@@ -292,7 +349,7 @@ class D12BallTeamBoardTests(unittest.TestCase):
                         sheet,
                         self.rules,
                         geometry.left,
-                        geometry.rows[1][1],
+                        geometry.rows[0][1],
                         right,
                     ),
                     right,
@@ -314,7 +371,7 @@ class D12BallTeamBoardTests(unittest.TestCase):
 class D12BallJumbotronTests(unittest.TestCase):
     def test_the_board_is_rendered_at_print_size(self) -> None:
         self.assertEqual(
-            render_jumbotron_board().size, sheet_pixels("a3", True)
+            render_jumbotron_board().size, sheet_pixels(DEFAULT_PAPER, True)
         )
 
     def test_every_cell_can_hold_a_token(self) -> None:

@@ -26,12 +26,14 @@ not play, and an import reaches the boards by re-running
 selection d6: maneuvers are chosen with the cards, so no die value is
 printed anywhere here.
 
-**Zones keep their real names on the team board.** A coach's own goal
-is the home goal for one of them and the visitors goal for the other,
-and the same board is printed for both, so the areas are labelled
-HOME GOAL / MIDFIELD / VISITORS GOAL exactly as the field board and the
-bot's coaching image label them. See "Working on the board image" in
-CLAUDE.md for the same decision taken there.
+**Zones keep their real names on the field board**, which is where a
+card's zone is assigned now -- not the team board, which used to carry
+that too. A coach's own goal is the home goal for one of them and the
+visitors goal for the other, and the same field board is read by both,
+so the areas are labelled HOME GOAL / MIDFIELD / VISITORS GOAL exactly
+as the bot's coaching image labels them. See "Working on the board
+image" in CLAUDE.md for the same decision taken there, and "The zone-
+assignment rows" below for why they moved off the team board.
 """
 from dataclasses import dataclass
 from typing import Optional, Sequence
@@ -71,8 +73,10 @@ from d12ball.render import (
     ZONE_LABELS,
     draw_dashed_line,
     load_font,
+    load_goal_zone_font,
     polygon_points,
     space_code,
+    wrap_text,
 )
 
 
@@ -84,19 +88,23 @@ BLEED_INCHES = 0.125
 # Sheet sizes in inches, portrait. The field board is drawn landscape
 # and the team board portrait, which is what `sheet_pixels` swaps for.
 #
-# **A3 is the size these are designed at**, and the only one whose
-# team board takes a real card: two rows of 3.5in cards plus a header
-# and a footer is 11.3 inches, so tabloid -- wider, but 0.7in shorter
-# -- comes out a card area short however the bands are trimmed, and A4
-# is a proof to read rather than a board to lay cards on.
-# `card_slot_inches` is what tells a caller which they have.
+# **Tabloid (11 x 17in, the common US "ledger" print size) is the
+# default now**, over A3: it is the size a home or copy-shop printer
+# actually stocks in the US, where A3 is the size these boards were
+# first designed at and is still the only one whose team board takes a
+# real card (two rows of 3.5in cards plus a header and a footer is 11.3
+# inches, and tabloid's 11in short side comes out a card area short
+# however the bands are trimmed -- the author's call, made knowing that
+# trade). A4 and letter are proofs to read rather than boards to lay
+# cards on at any size. `card_slot_inches` is what tells a caller which
+# of the three it has.
 PAPERS: dict[str, tuple[float, float]] = {
     "a3": (11.69, 16.54),
     "a4": (8.27, 11.69),
     "tabloid": (11.0, 17.0),
     "letter": (8.5, 11.0),
 }
-DEFAULT_PAPER = "a3"
+DEFAULT_PAPER = "tabloid"
 
 # Poker size, the maneuver cards' own -- the player cards share their
 # proportions with it on the bot's board (CARD_SIZE is 110 x 154), so
@@ -357,18 +365,38 @@ def add_bleed(image: Image.Image, background: str = FACE_COLOR) -> Image.Image:
 @dataclass(frozen=True)
 class FieldGeometry:
     """
-    Where the field board's four bands sit, and how wide a space is.
+    Where the field board's bands sit, and how wide a space is.
 
-    The three bands around the strip are a fixed share of the sheet and
-    the strip takes what is left, so the spaces -- the only part a
-    meeple has to fit in -- get every pixel the rest does not need.
-    **The clock and the score are not among them**: they went to the
+    The bands around the strip are a fixed share of the sheet and the
+    strip takes what is left, so the spaces -- the only part a meeple
+    has to fit in -- get every pixel the rest does not need. **The
+    clock and the score are not among them**: they went to the
     [jumbotron board](#the-jumbotron-board), which is what leaves the
     strip nearly half the sheet again taller.
+
+    **`left`/`right` are the full content width and `strip_left`/
+    `strip_right` are narrower** -- the header, the direction arrows
+    and the shooting-range bracket all read the wide pair, the way the
+    bot's own jumbotron and team boards span its end zones and all;
+    the spaces themselves, and everything measured off them
+    (`space_bounds`, `span_bounds`, `space_width`), read the narrow
+    pair, which leaves the gap between the two wide enough for a goal
+    zone on each side -- see `draw_field_end_zones`.
+
+    **The sheet is portrait (11 x 17), not landscape, and the strip
+    still runs left to right across the narrower dimension.** That is
+    the author's own call, made knowing what it costs: a 9-space
+    board's spaces come out under an inch wide, well short of the
+    1.5in floor two meeples side by side would ask for elsewhere on
+    this file, but it is what leaves the 17in length for the two zone-
+    assignment rows above and below the strip -- see `zone_row_*`, and
+    "The zone-assignment rows" below.
     """
 
     left: float
     right: float
+    strip_left: float
+    strip_right: float
     header_top: float
     header_bottom: float
     direction_top: float
@@ -377,6 +405,10 @@ class FieldGeometry:
     strip_bottom: float
     range_top: float
     range_bottom: float
+    visiting_zone_top: float
+    visiting_zone_bottom: float
+    home_zone_top: float
+    home_zone_bottom: float
     space_width: float
     board_size: int
 
@@ -387,15 +419,45 @@ class FieldGeometry:
         right = sheet.width - margin
         top = margin
         bottom = sheet.height - margin
-        content = bottom - top
 
-        gap = content * 0.018
-        header = content * 0.085
+        # The end zone beyond each end of the strip, and the gap to its
+        # own outline -- the print counterpart of `GOAL_ZONE_WIDTH` and
+        # `GOAL_ZONE_GAP` in render.py, sized as a share of the sheet
+        # rather than a fixed pixel count so it scales with paper size
+        # the way every other measurement here does. Narrower than a
+        # landscape sheet would carry -- the portrait sheet gives the
+        # strip only its own 11in width to divide among spaces, and an
+        # end zone eats into that the same as a margin does.
+        end_zone_gap = sheet.u(6)
+        end_zone_width = sheet.u(30)
+        strip_left = left + end_zone_width + end_zone_gap
+        strip_right = right - end_zone_width - end_zone_gap
+
+        # A zone-assignment row is a card row, full stop -- it holds a
+        # real 2.5 x 3.5in card at its own printed size (`CARD_INCHES`),
+        # the same size a card is everywhere else in this codebase, plus
+        # a label band across its own top for the zone's name and the
+        # "cards assigned to this zone" caption.
+        zone_row_gap = sheet.u(14)
+        zone_label_height = sheet.u(56)
+        zone_row_height = CARD_INCHES[1] * PRINT_DPI + zone_label_height
+
+        visiting_zone_top = top
+        visiting_zone_bottom = visiting_zone_top + zone_row_height
+        home_zone_bottom = bottom
+        home_zone_top = home_zone_bottom - zone_row_height
+
+        content_top = visiting_zone_bottom + zone_row_gap
+        content_bottom = home_zone_top - zone_row_gap
+        content = content_bottom - content_top
+
+        gap = content * 0.02
+        header = content * 0.16
         direction = content * 0.05
-        ranges = content * 0.085
+        ranges = content * 0.075
         strip = content - header - direction - ranges - 3 * gap
 
-        header_bottom = top + header
+        header_bottom = content_top + header
         direction_top = header_bottom + gap
         direction_bottom = direction_top + direction
         strip_top = direction_bottom + gap
@@ -405,7 +467,9 @@ class FieldGeometry:
         return cls(
             left=left,
             right=right,
-            header_top=top,
+            strip_left=strip_left,
+            strip_right=strip_right,
+            header_top=content_top,
             header_bottom=header_bottom,
             direction_top=direction_top,
             direction_bottom=direction_bottom,
@@ -413,7 +477,11 @@ class FieldGeometry:
             strip_bottom=strip_bottom,
             range_top=range_top,
             range_bottom=range_top + ranges,
-            space_width=(right - left) / layout.board_size,
+            visiting_zone_top=visiting_zone_top,
+            visiting_zone_bottom=visiting_zone_bottom,
+            home_zone_top=home_zone_top,
+            home_zone_bottom=home_zone_bottom,
+            space_width=(strip_right - strip_left) / layout.board_size,
             board_size=layout.board_size,
         )
 
@@ -430,8 +498,8 @@ class FieldGeometry:
 
     def space_bounds(self, index: int) -> tuple[float, float]:
         return (
-            self.left + index * self.space_width,
-            self.left + (index + 1) * self.space_width,
+            self.strip_left + index * self.space_width,
+            self.strip_left + (index + 1) * self.space_width,
         )
 
     def span_bounds(self, first: int, last: int) -> tuple[float, float]:
@@ -447,7 +515,13 @@ def render_field_board(
     """
     The field: one row of spaces, split into the three zones, with the
     kickoff space marked and each side's shooting range bracketed under
-    it. Nothing else -- the clock and the score are their own board.
+    it, and a zone-assignment row for each coach above and below it --
+    see "The zone-assignment rows".
+
+    **Portrait, not landscape** -- the two zone rows need a real 3.5in
+    card's worth of height apiece, which the sheet's 17in length holds
+    without crowding the strip; see `FieldGeometry` for what that costs
+    the strip's own width instead.
     """
     if board_size not in rules.board_layouts:
         raise ValueError(
@@ -457,14 +531,16 @@ def render_field_board(
     layout = rules.board_layouts[board_size]
     board = BoardState.empty(layout)
 
-    width, height = sheet_pixels(paper, landscape=True)
+    width, height = sheet_pixels(paper, landscape=False)
     sheet = Sheet(width, height)
     geometry = FieldGeometry.for_sheet(sheet, layout)
 
     draw_field_header(sheet, geometry, layout)
     draw_attack_directions(sheet, geometry, board)
     draw_field_strip(sheet, geometry, layout)
+    draw_field_end_zones(sheet, geometry)
     draw_shooting_ranges(sheet, geometry, board)
+    draw_zone_assignment_rows(sheet, geometry, layout)
 
     return add_bleed(sheet.image) if bleed else sheet.image
 
@@ -474,37 +550,37 @@ def draw_field_header(
     geometry: FieldGeometry,
     layout: BoardLayout,
 ) -> None:
+    """
+    The title, stacked in one left-aligned column rather than a title
+    on the left and a note on the right -- side by side, the two used
+    to overlap in the middle on anything narrower than the old
+    landscape sheet, which the portrait sheet always is. Each note
+    line is wrapped to the sheet's own content width, so it cannot run
+    under the title regardless of paper size or wording length.
+    """
     top = geometry.header_top
-    bottom = geometry.header_bottom
+    left = geometry.left
+    width = geometry.right - geometry.left
+    sheet.text((left, top), "D12 BALL", sheet.font(40, bold=True), INK)
     sheet.text(
-        (geometry.left, top),
-        "D12 BALL",
-        sheet.font(40, bold=True),
-        INK,
-    )
-    sheet.text(
-        (geometry.left, top + sheet.u(46)),
+        (left, top + sheet.u(46)),
         f"FIELD BOARD  ·  {layout.board_size} SPACES  ·  BASIC MODE",
         sheet.font(16, bold=True),
         MUTED,
     )
-    sheet.text(
-        (geometry.right, bottom - sheet.u(38)),
+
+    note_font = sheet.font(15)
+    y = top + sheet.u(84)
+    for note in (
         f"Two periods on one running clock, 00-{HALFTIME_MINUTE} and "
         f"{HALFTIME_MINUTE + 1}-{CLOCK_MINUTES}. Home kicks off the "
         "first, the visitors the second.",
-        sheet.font(15),
-        MUTED,
-        anchor="ra",
-    )
-    sheet.text(
-        (geometry.right, bottom - sheet.u(17)),
         "The clock, the score and the token supplies are kept on the "
         "jumbotron board.",
-        sheet.font(15),
-        MUTED,
-        anchor="ra",
-    )
+    ):
+        for line in wrap_text(sheet.draw, note, note_font, width):
+            sheet.text((left, y), line, note_font, MUTED)
+            y += sheet.u(21)
 
 
 def draw_attack_directions(
@@ -623,7 +699,6 @@ def draw_field_strip(
         index += spaces
 
     draw_kickoff_marks(sheet, geometry, layout)
-    draw_range_edges(sheet, geometry, BoardState.empty(layout))
 
 
 def kickoff_marks(layout: BoardLayout) -> dict[int, list[TeamSide]]:
@@ -697,39 +772,275 @@ def draw_kickoff_marks(
         )
 
 
+def draw_field_end_zones(sheet: Sheet, geometry: FieldGeometry) -> None:
+    """
+    A goal zone of its own beyond each end of the strip, American-
+    football style, in the margin `FieldGeometry.for_sheet` set aside
+    for it -- the print counterpart of `draw_end_zone` in render.py.
+
+    The field board is a template rather than a match in progress, so
+    there is no team to colour a zone by the way the bot's board does;
+    "GOAL" is set in ink here, the same as every other label on the
+    print, rather than in a team's colour.
+    """
+    gap = sheet.u(8)
+    draw_field_end_zone(
+        sheet,
+        geometry.left, geometry.strip_left - gap,
+        geometry.strip_top, geometry.strip_bottom,
+        angle=90,
+    )
+    draw_field_end_zone(
+        sheet,
+        geometry.strip_right + gap, geometry.right,
+        geometry.strip_top, geometry.strip_bottom,
+        angle=270,
+    )
+
+
+def draw_field_end_zone(
+    sheet: Sheet,
+    left: float,
+    right: float,
+    top: float,
+    bottom: float,
+    angle: int,
+) -> None:
+    """
+    One end zone -- "GOAL" lettered along its length with a blank d12
+    standing in for the "O", rotated so the word reads sideways the way
+    a real end zone's does. `angle` is 90 or 270, the same pair
+    render.py's own end zone takes and for the same reason: the two
+    ends of a real field face opposite ways rather than both reading
+    the same direction.
+    """
+    assert angle in (90, 270)
+    sheet.rect(
+        (round(left), round(top), round(right), round(bottom)),
+        fill=PANEL_COLOR,
+        outline=INK,
+        width=sheet.u(2.5),
+    )
+
+    word = "GOAL"
+    stroke_width = max(1, round(sheet.u(1.2)))
+    letter_spacing = sheet.u(10)
+    zone_width = right - left
+    zone_length = bottom - top
+
+    # The largest size (in whole pixels, not `sheet.u()` -- this is
+    # fitted directly against the zone's own measured extent rather
+    # than eyeballed the way `sheet.font` is elsewhere) that fits the
+    # word along the zone's length once rotated, and each letter
+    # within its width.
+    size = round(zone_length)
+    while size > 24:
+        font = load_goal_zone_font(size)
+        bbox = sheet.draw.textbbox((0, 0), word, font=font)
+        cell_height = bbox[3] - bbox[1]
+        widths = [sheet.draw.textlength(ch, font=font) for ch in word]
+        total_width = sum(widths) + letter_spacing * (len(word) - 1)
+        if cell_height <= zone_width * 0.8 and total_width <= zone_length * 0.88:
+            break
+        size = round(size * 0.9)
+    else:
+        font = load_goal_zone_font(24)
+        bbox = sheet.draw.textbbox((0, 0), word, font=font)
+        cell_height = bbox[3] - bbox[1]
+        widths = [sheet.draw.textlength(ch, font=font) for ch in word]
+        total_width = sum(widths) + letter_spacing * (len(word) - 1)
+
+    pad = 6 + stroke_width
+    text_layer = Image.new(
+        "RGBA",
+        (round(total_width) + pad * 2, round(cell_height) + pad * 2),
+        (0, 0, 0, 0),
+    )
+    text_draw = ImageDraw.Draw(text_layer)
+
+    # The "O" is left undrawn and its slot remembered, so the d12 can
+    # be centred exactly there once the word is rotated -- the same
+    # trick render.py's own end zone uses, and for the same reason: it
+    # stands in for the letter rather than floating near the word.
+    o_slot: tuple[float, float] | None = None
+    x = float(pad)
+    for index, (ch, width) in enumerate(zip(word, widths)):
+        if ch == "O":
+            o_slot = (x, x + width)
+        else:
+            text_draw.text(
+                (x, pad - bbox[1]),
+                ch,
+                font=font,
+                fill=INK,
+                stroke_width=stroke_width,
+                stroke_fill=FACE_COLOR,
+            )
+        x += width
+        if index < len(word) - 1:
+            x += letter_spacing
+    assert o_slot is not None
+
+    rotated = text_layer.rotate(angle, expand=True)
+    paste_x = round(left + (zone_width - rotated.width) / 2)
+    paste_y = round(top + (zone_length - rotated.height) / 2)
+    sheet.image.paste(rotated, (paste_x, paste_y), rotated)
+
+    # Where the "O" would have sat, in sheet coordinates -- the same
+    # rotate(90)/rotate(270) mapping render.py's own end zone verified
+    # empirically against Pillow's actual output.
+    ball_center_x = paste_x + rotated.width / 2
+    if angle == 90:
+        ball_center_y = paste_y + text_layer.width - sum(o_slot) / 2
+    else:
+        ball_center_y = paste_y + sum(o_slot) / 2
+
+    ball_radius = round(max(cell_height, o_slot[1] - o_slot[0]) / 2)
+    ball_pad = max(2, round(sheet.u(2)))
+    ball_span = ball_radius * 2 + ball_pad * 2
+    ball_layer = Image.new("RGBA", (ball_span, ball_span), (0, 0, 0, 0))
+    ball_draw = ImageDraw.Draw(ball_layer)
+    ball_center = ball_span / 2
+    ball_draw.polygon(
+        polygon_points(ball_center, ball_center, ball_radius, 12),
+        fill=FACE_COLOR,
+        outline=INK,
+        width=max(1, round(sheet.u(1.5))),
+    )
+    label_font = load_font(max(10, round(ball_radius * 0.6)), bold=True)
+    label_bbox = ball_draw.textbbox((0, 0), "12", font=label_font)
+    label_width = label_bbox[2] - label_bbox[0]
+    label_height = label_bbox[3] - label_bbox[1]
+    label_layer = Image.new(
+        "RGBA", (round(label_width) + 4, round(label_height) + 4), (0, 0, 0, 0)
+    )
+    ImageDraw.Draw(label_layer).text(
+        (2 - label_bbox[0], 2 - label_bbox[1]),
+        "12",
+        font=label_font,
+        fill=INK,
+    )
+    rotated_label = label_layer.rotate(angle, expand=True)
+    ball_layer.paste(
+        rotated_label,
+        (
+            round(ball_center - rotated_label.width / 2),
+            round(ball_center - rotated_label.height / 2),
+        ),
+        rotated_label,
+    )
+    ball_x = round(ball_center_x - ball_center)
+    ball_y = round(ball_center_y - ball_center)
+    sheet.image.paste(ball_layer, (ball_x, ball_y), ball_layer)
+
+
+# The zone-assignment rows: a card row per zone, above the strip for
+# the visiting coach and below it for home, moved here from the team
+# board so both coaches stage their own zone's cards on the one board
+# between them rather than each reading their own separate sheet.
+#
+# **Visiting's row is rotated 180 degrees, cell by cell, not the row
+# reordered.** The two coaches sit on opposite sides of the table, so
+# home's row prints upright to home and would print upside down to
+# visiting -- rotating it the other 180 degrees the other way turns it
+# upright *for them*, without touching which column is which: HOME
+# GOAL is still the leftmost cell either way, directly under and over
+# the strip's own HOME GOAL columns, so a coach reading either row
+# left to right is reading the same zone order the strip prints.
+def draw_zone_assignment_rows(
+    sheet: Sheet,
+    geometry: FieldGeometry,
+    layout: BoardLayout,
+) -> None:
+    index = 0
+    for zone in Zone:
+        spaces = layout.zone_spaces[zone]
+        zone_left, zone_right = geometry.span_bounds(index, index + spaces - 1)
+        draw_zone_assignment_cell(
+            sheet, zone, zone_left, zone_right,
+            geometry.home_zone_top, geometry.home_zone_bottom,
+            flipped=False,
+        )
+        draw_zone_assignment_cell(
+            sheet, zone, zone_left, zone_right,
+            geometry.visiting_zone_top, geometry.visiting_zone_bottom,
+            flipped=True,
+        )
+        index += spaces
+
+
+def draw_zone_assignment_cell(
+    sheet: Sheet,
+    zone: Zone,
+    left: float,
+    right: float,
+    top: float,
+    bottom: float,
+    flipped: bool,
+) -> None:
+    """
+    One zone's card row, drawn upright on its own small canvas and
+    rotated as a whole when it is the visiting row -- simpler and less
+    error-prone than working out where flipped text and flipped dashes
+    land by hand, and it is exactly what a physical card laid in the
+    row would do if the whole row were spun around.
+    """
+    width = max(1, round(right - left))
+    height = max(1, round(bottom - top))
+    cell = Image.new("RGB", (width, height), FACE_COLOR)
+    draw = ImageDraw.Draw(cell)
+
+    label = ZONE_LABELS[zone]
+    label_font = sheet.fitted_font(label, width * 0.5, 21, bold=True)
+    draw.text((sheet.u(6), sheet.u(8)), label, font=label_font, fill=INK)
+
+    # The caption only fits next to a short zone name (MIDFIELD's own
+    # width, mostly) -- HOME GOAL and VISITORS GOAL are narrower, and a
+    # caption that overflows the cell reads worse than one left off.
+    caption = "cards assigned to this zone"
+    caption_font = sheet.font(12)
+    label_width = draw.textlength(label, font=label_font)
+    caption_x = sheet.u(6) + label_width + sheet.u(14)
+    caption_width = draw.textlength(caption, font=caption_font)
+    if caption_x + caption_width <= width - sheet.u(6):
+        draw.text(
+            (caption_x, sheet.u(15)), caption, font=caption_font, fill=MUTED,
+        )
+
+    label_height = sheet.u(56)
+    box = (0, label_height, width, height)
+    draw.rounded_rectangle(
+        box,
+        radius=round(sheet.u(6)),
+        fill=ZONE_TINTS[zone],
+        outline=INK,
+        width=max(1, round(sheet.u(2))),
+    )
+    # A fixed handful of evenly spaced dashed guides, not a strict slot
+    # count -- this is a staging area a coach fans any number of cards
+    # across, not a fixed set of numbered spaces the way the strip is.
+    # `CARDS_PER_AREA` is a visual cue borrowed from the team board's
+    # own areas rather than a limit enforced here.
+    slots = CARDS_PER_AREA
+    for slot in range(1, slots):
+        x = width * slot / slots
+        draw_dashed_line(
+            draw, x, label_height + sheet.u(6), x, height - sheet.u(6),
+            fill=PANEL_EDGE, width=max(1, round(sheet.u(1.4))),
+            dash_length=round(sheet.u(8)), gap_length=round(sheet.u(6)),
+        )
+
+    if flipped:
+        cell = cell.rotate(180)
+    sheet.image.paste(cell, (round(left), round(top)))
+
+
 def range_side(board: BoardState, index: int) -> int:
     if board.is_in_shooting_range(TeamSide.HOME, index):
         return 1
     if board.is_in_shooting_range(TeamSide.VISITING, index):
         return -1
     return 0
-
-
-def draw_range_edges(
-    sheet: Sheet,
-    geometry: FieldGeometry,
-    board: BoardState,
-) -> None:
-    """
-    Where each side's shooting range begins, dashed down the field --
-    the same line the bot's board draws, and never a zone boundary: on
-    every board size the edge falls inside midfield.
-    """
-    for index in range(1, geometry.board_size):
-        if range_side(board, index) == range_side(board, index - 1):
-            continue
-        x = geometry.space_bounds(index)[0]
-        draw_dashed_line(
-            sheet.draw,
-            x,
-            geometry.strip_top + sheet.u(40),
-            x,
-            geometry.strip_bottom - sheet.u(6),
-            fill=OFFENSE_COLOR,
-            width=max(1, round(sheet.u(3))),
-            dash_length=round(sheet.u(14)),
-            gap_length=round(sheet.u(10)),
-        )
 
 
 def shooting_range_bands(
@@ -765,9 +1076,8 @@ def draw_shooting_ranges(
     midfield -- so it is bracketed rather than coloured into the strip.
     """
     labels = {
-        -1: "VISITORS' SHOOTING RANGE",
-        1: "HOME'S SHOOTING RANGE",
-        0: "NEITHER SIDE MAY SHOOT",
+        -1: "VISITORS GOAL - SHOOTING RANGE",
+        1: "HOME GOAL - SHOOTING RANGE",
     }
     top = geometry.range_top
     bottom = geometry.range_bottom
@@ -777,36 +1087,46 @@ def draw_shooting_ranges(
         left += sheet.u(4)
         right -= sheet.u(4)
         if side == 0:
+            # No label -- a space in neither range says so by not being
+            # bracketed into either one, and "neither side may shoot"
+            # was naming an absence rather than a fact worth stating.
+            # "the kickoff space" is a different fact and stays, now
+            # centred since there is no label above it any more.
             sheet.dashed_rect(
                 (left, top, right, bottom),
                 outline=MUTED,
                 width=sheet.u(1.6),
                 dash=sheet.u(9),
             )
-        else:
-            sheet.rect(
-                (left, top, right, bottom),
-                radius=sheet.u(6),
-                fill=PANEL_COLOR,
-                outline=PANEL_EDGE,
-                width=sheet.u(1.6),
+            sheet.text(
+                ((left + right) / 2, (top + bottom) / 2),
+                "the kickoff space",
+                sheet.fitted_font("the kickoff space", (right - left) * 0.92, 15),
+                MUTED,
+                anchor="mm",
             )
+            continue
+        sheet.rect(
+            (left, top, right, bottom),
+            radius=sheet.u(6),
+            fill=PANEL_COLOR,
+            outline=PANEL_EDGE,
+            width=sheet.u(1.6),
+        )
         label = labels[side]
         sheet.text(
             ((left + right) / 2, (top + bottom) / 2 - sheet.u(11)),
             label,
             sheet.fitted_font(label, (right - left) * 0.92, 17, bold=True),
-            INK if side else MUTED,
+            INK,
             anchor="mm",
         )
-        # The neither band is one space wide and the two ranges are
-        # three or four, so its note is the short one -- fitted to a
-        # single space, the longer wording comes out unreadably small.
-        note = "shoot only from here" if side else "the kickoff space"
         sheet.text(
             ((left + right) / 2, (top + bottom) / 2 + sheet.u(13)),
-            note,
-            sheet.fitted_font(note, (right - left) * 0.92, 13),
+            "shoot only from here",
+            sheet.fitted_font(
+                "shoot only from here", (right - left) * 0.92, 13,
+            ),
             MUTED,
             anchor="mm",
         )
@@ -866,8 +1186,14 @@ class JumbotronGeometry:
         # Three panels to the two this board carried, so the header,
         # the footer and the gaps between them are all trimmed: what
         # they gave up is what keeps every cell over MIN_TOKEN_INCHES.
+        #
+        # Tabloid becoming the default (11in tall in landscape, against
+        # A3's 11.69) took the score and supply cells under that floor
+        # by a sliver -- the header shrank a further point to give both
+        # the room back; the clock has plenty to spare (its own cell is
+        # more than double the floor) so its share gives up the rest.
         gap = content * 0.025
-        header = content * 0.09
+        header = content * 0.08
         footer = content * 0.035
         panels = content - header - footer - 3 * gap
         # The clock takes most of it: four rows of cells to the score's
@@ -875,8 +1201,8 @@ class JumbotronGeometry:
         # supplies take least -- a well holds a heap of tokens rather
         # than one standing in a square, so it is sized by the two lines
         # of label over it and not by the token.
-        clock = panels * 0.57
-        supply = panels * 0.19
+        clock = panels * 0.53
+        supply = panels * 0.20
 
         header_bottom = top + header
         clock_top = header_bottom + gap
@@ -1373,19 +1699,19 @@ def load_token_art(name: str) -> Optional[Image.Image]:
 @dataclass(frozen=True)
 class TeamBoardGeometry:
     """
-    The team board's six cells: the three zones across the top, the two
-    benches under them, and the head coach in the sixth.
+    The team board's three cells: the bench, the back bench and the
+    head coach, in one row.
 
-    **The head coach is a cell rather than a band of its own**, which
-    is what makes the sheet work at all. Five of the six areas have to
-    hold a 3.5in card, so two rows of them plus a header is already
-    most of an A3's shorter side; a band across the top for the dice
-    would take the areas below a card and turn a board to lay cards on
-    into a picture of one. `card_slot_inches` is what says which of
-    those a print is.
+    **It used to be six -- the three zones across the top as well.**
+    Those moved to the field board (see "The zone-assignment rows" in
+    CLAUDE.md), which is what let two of these boards -- one for each
+    coach -- share a single sheet instead of each wanting one of its
+    own: dropping the zone row cut what a board needs to a single row
+    a card tall plus a header and a footer, which is a good deal short
+    of half of even the shorter side of an 11 x 17 sheet.
 
     `slot` is the card guide drawn inside an area, capped at a real
-    poker card so a bigger sheet gives a roomier area rather than an
+    poker card so a bigger panel gives a roomier area rather than an
     outsized guide.
     """
 
@@ -1401,30 +1727,29 @@ class TeamBoardGeometry:
 
     @classmethod
     def for_sheet(cls, sheet: Sheet) -> "TeamBoardGeometry":
-        margin = sheet.u(26)
+        # Fixed inches, not a share of `content` -- a panel's own
+        # height is now half a landscape sheet's rather than a whole
+        # one, and a header sized as a percentage of that shrinks with
+        # it for no reason: the title is the same few words at any
+        # panel height, and the row below it is the one thing here
+        # that actually has to hold a fixed real-world size (a poker
+        # card). Sizing the header and footer in inches is what lets
+        # the row take the rest, exactly the way the old percentages
+        # meant to but stopped doing once panels got much shorter.
+        margin = round(0.25 * PRINT_DPI)
+        header = round(0.38 * PRINT_DPI)
+        footer = round(0.38 * PRINT_DPI)
+        gap = round(0.1 * PRINT_DPI)
+
         left = margin
         right = sheet.width - margin
         top = margin
         bottom = sheet.height - margin
         content = bottom - top
-
-        gap = content * 0.016
-        header = content * 0.092
-        # The footer carries the formation table, which is a strip of
-        # numbers rather than a panel: the head coach cell holds the
-        # dice and the die faces and has nothing left to give.
-        footer = content * 0.075
-        rows_total = content - header - footer - 3 * gap
-        row_height = rows_total / 2
+        row_height = content - header - footer - 2 * gap
 
         header_bottom = top + header
-        rows = tuple(
-            (
-                header_bottom + gap + index * (row_height + gap),
-                header_bottom + gap + index * (row_height + gap) + row_height,
-            )
-            for index in range(2)
-        )
+        rows = ((header_bottom + gap, header_bottom + gap + row_height),)
         column_gap = sheet.u(20)
         column_width = (right - left - 2 * column_gap) / 3
         columns = tuple(
@@ -1435,8 +1760,8 @@ class TeamBoardGeometry:
             for index in range(3)
         )
 
-        label_height = sheet.u(24)
-        padding = sheet.u(10)
+        label_height = round(0.28 * PRINT_DPI)
+        padding = round(0.08 * PRINT_DPI)
         available_height = row_height - label_height - padding * 2
         available_width = column_width - padding * 2
         slot_height = min(
@@ -1464,7 +1789,7 @@ class TeamBoardGeometry:
             label_height=label_height,
         )
 
-    def area(self, column: int, row: int) -> tuple[float, float, float, float]:
+    def area(self, column: int, row: int = 0) -> tuple[float, float, float, float]:
         left, right = self.columns[column]
         top, bottom = self.rows[row]
         return left, top + self.label_height, right, bottom
@@ -1474,11 +1799,14 @@ def card_slot_inches(paper: str = DEFAULT_PAPER) -> tuple[float, float]:
     """
     How big a card the team board's areas are cut for, in inches. The
     CLI prints it, and it is what says whether a print can be laid
-    cards on or only read: at A3 and tabloid it is a poker card, and a
-    smaller sheet scales it down with everything else.
+    cards on or only read.
+
+    Measured against one panel -- half the sheet's own height, since
+    two coaches' boards share the one sheet -- not the whole sheet,
+    which is what `render_team_board` actually cuts each area from.
     """
     width, height = sheet_pixels(paper, landscape=True)
-    geometry = TeamBoardGeometry.for_sheet(Sheet(width, height))
+    geometry = TeamBoardGeometry.for_sheet(Sheet(width, height // 2))
     return (
         geometry.slot[0] / PRINT_DPI,
         geometry.slot[1] / PRINT_DPI,
@@ -1494,37 +1822,55 @@ def render_team_board(
     bleed: bool = False,
 ) -> Image.Image:
     """
-    One coach's board: the five areas a card can be in -- the three
-    zones across the top, the bench and the back bench under them --
-    and the head coach in the sixth cell, holding the coach's d12 and
-    the six maneuvers they choose between.
+    Two coaches' boards, one sheet: each panel is the bench, the back
+    bench and the head coach's cell -- the three zone areas moved to
+    the field board (see "The zone-assignment rows" in CLAUDE.md),
+    which is what leaves a panel short enough that two of them, one
+    for each side of a match, share a single 11 x 17 sheet cut in
+    half rather than each wanting a sheet of its own.
 
-    `team` only colours it. The areas and their names are the same for
-    every side, which is what lets one design be printed four times.
+    **Landscape, unlike the field board.** Stacking the two panels top
+    to bottom over the sheet's own *short* side (11in) leaves each one
+    a real card's width to spare in every column; over the *long* side
+    (17in, which is what a portrait sheet's width would give the row
+    to divide three ways) a fanned poker card comes out narrower than
+    the card itself.
+
+    `team` only colours it, the same on both panels -- a match's two
+    boards are printed and cut from the one sheet whichever side is
+    on it, so there is nothing here for two different teams to color
+    two different panels by.
     """
     width, height = sheet_pixels(paper, landscape=True)
     sheet = Sheet(width, height)
+    panel_height = height // 2
+    for index in range(2):
+        panel = render_team_board_panel(
+            rules, players, maneuvers, team, width, panel_height,
+        )
+        sheet.image.paste(panel, (0, index * panel_height))
+
+    return add_bleed(sheet.image) if bleed else sheet.image
+
+
+def render_team_board_panel(
+    rules: BasicRuleset,
+    players: PlayerCatalog,
+    maneuvers: ManeuverCatalog,
+    team: Optional[Team],
+    width: int,
+    height: int,
+) -> Image.Image:
+    """One coach's own panel -- see `render_team_board`."""
+    sheet = Sheet(width, height, background=FACE_COLOR)
     geometry = TeamBoardGeometry.for_sheet(sheet)
     accent = TEAM_COLORS[team] if team else INK
 
     draw_team_header(sheet, geometry, players, team, accent)
-
-    for column, zone in enumerate(Zone):
-        draw_card_area(
-            sheet,
-            geometry,
-            column=column,
-            row=0,
-            title=ZONE_LABELS[zone],
-            caption="cards assigned to this zone",
-            tint=ZONE_TINTS[zone],
-            accent=accent,
-        )
     draw_card_area(
         sheet,
         geometry,
         column=0,
-        row=1,
         title="BENCH",
         caption="players who have yet to play",
         tint=PANEL_COLOR,
@@ -1534,7 +1880,6 @@ def render_team_board(
         sheet,
         geometry,
         column=1,
-        row=1,
         title="BACK BENCH",
         caption="injured players, and anyone subbed out",
         tint=PANEL_COLOR,
@@ -1543,7 +1888,7 @@ def render_team_board(
     draw_head_coach_panel(sheet, geometry, rules, maneuvers, accent)
     draw_team_footer(sheet, geometry, rules)
 
-    return add_bleed(sheet.image) if bleed else sheet.image
+    return sheet.image
 
 
 def draw_team_header(
@@ -1559,16 +1904,17 @@ def draw_team_header(
         (geometry.left, bottom - sheet.u(4), geometry.right, bottom),
         fill=accent,
     )
+    # Sized in fixed points off `load_font` directly, not `sheet.font`
+    # -- that scales with the *sheet's* own width, which is still the
+    # full 17in a panel spans even though the header above the row
+    # shrank to a fixed 0.38in tall. A title sized to the sheet came
+    # out taller than the header holding it.
+    title_font = load_font(round(0.24 * PRINT_DPI), bold=True)
+    sheet.text((geometry.left, top), "TEAM BOARD", title_font, INK)
     sheet.text(
-        (geometry.left, top),
-        "TEAM BOARD",
-        sheet.font(30, bold=True),
-        INK,
-    )
-    sheet.text(
-        (geometry.left, top + sheet.u(38)),
+        (geometry.left, top + round(0.24 * PRINT_DPI)),
         roster_line(players),
-        sheet.font(13),
+        load_font(round(0.11 * PRINT_DPI)),
         MUTED,
     )
     # .replace before .upper(), not team_display_name (which title-
@@ -1577,9 +1923,9 @@ def draw_team_header(
     # caps, unlike everywhere team_display_name is used.
     name = team.value.replace("_", " ").upper() if team else "TEAM"
     sheet.text(
-        (geometry.right, top + sheet.u(2)),
+        (geometry.right, top),
         name,
-        sheet.font(28, bold=True),
+        load_font(round(0.22 * PRINT_DPI), bold=True),
         accent,
         anchor="ra",
     )
@@ -1614,7 +1960,7 @@ def draw_head_coach_panel(
     accent: str,
 ) -> None:
     """
-    The sixth cell: the coach's own d12, and the six maneuvers they
+    The third cell: the coach's own d12, and the six maneuvers they
     choose between.
 
     **No selection die, and no die faces anywhere on this board.** The
@@ -1628,11 +1974,10 @@ def draw_head_coach_panel(
         sheet,
         geometry,
         column=2,
-        row=1,
         title="HEAD COACH",
         caption="your die, and your maneuvers",
     )
-    area = geometry.area(2, 1)
+    area = geometry.area(2)
     sheet.rect(
         area,
         radius=sheet.u(10),
@@ -1912,7 +2257,6 @@ def draw_cell_label(
     sheet: Sheet,
     geometry: TeamBoardGeometry,
     column: int,
-    row: int,
     title: str,
     caption: str,
 ) -> None:
@@ -1923,7 +2267,7 @@ def draw_cell_label(
     subbed out" is a reminder they read once.
     """
     left, right = geometry.columns[column]
-    top = geometry.rows[row][0]
+    top = geometry.rows[0][0]
     title_face = sheet.fitted_font(title, (right - left) * 0.52, 19, bold=True)
     title_width = sheet.text_width(title, title_face)
     sheet.text((left + sheet.u(4), top), title, title_face, INK)
@@ -1944,7 +2288,6 @@ def draw_card_area(
     sheet: Sheet,
     geometry: TeamBoardGeometry,
     column: int,
-    row: int,
     title: str,
     caption: str,
     tint: str,
@@ -1952,13 +2295,12 @@ def draw_card_area(
 ) -> None:
     """
     One area a card can be in, with three card outlines fanned across
-    it. Three is what any of them ever has to hold: a zone holds three
-    under 2-3-1 and 1-3-2, and the two benches hold three between them.
+    it. Three is what either bench ever has to hold, between them.
     """
     left, right = geometry.columns[column]
-    draw_cell_label(sheet, geometry, column, row, title, caption)
+    draw_cell_label(sheet, geometry, column, title, caption)
 
-    area = geometry.area(column, row)
+    area = geometry.area(column)
     sheet.rect(
         area,
         radius=sheet.u(10),
@@ -1992,7 +2334,7 @@ def draw_team_footer(
     geometry: TeamBoardGeometry,
     rules: BasicRuleset,
 ) -> None:
-    top = geometry.rows[1][1] + sheet.u(16)
+    top = geometry.rows[0][1] + sheet.u(16)
     draw_formation_strip(sheet, rules, geometry.left, top, geometry.right)
     sheet.text(
         (geometry.left, top + sheet.u(28)),
@@ -2001,8 +2343,8 @@ def draw_team_footer(
         INK,
     )
     closing = (
-        "A card's zone is where its meeple must stand, and only a "
-        "Coaching Choice moves a card between these areas. A player is "
+        "A card's zone is assigned on the field board, not here, and "
+        "only a Coaching Choice moves it between zones. A player is "
         "Exhausted once their tokens exceed their defence."
     )
     sheet.text(

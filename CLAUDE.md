@@ -913,10 +913,17 @@ whole rule, over `BoardState.is_in_shooting_range`.
   says why), `choose_action` refuses a stale click, `DinkyAI` only ever shoots
   from the scoring space, and the 2-space High Pass's set-up asks
   `can_attempt_score`.
-- **The board image draws where range begins**, in `draw_shooting_range_edges`
-  -- one dash column on board 6, two on 7 and 9 bracketing the space in nobody's
-  range. The rule is positional and the board is where both coaches read
-  position.
+- **The board image draws where range begins**, in `draw_shooting_range_band`
+  -- a labelled bracket under the field, one for each side's range and (on
+  board 7 and 9) a third over the space in nobody's. It used to be a dashed
+  line drawn straight through the spaces, which marked the same edge but said
+  nothing about what it meant; the labelled bracket is the same marking
+  `boards.py`'s printed field board already carried (`draw_shooting_ranges`),
+  so the two now agree by construction rather than by two separate drawings
+  of the same rule. `shooting_range_bands` reads `is_in_shooting_range` a
+  space at a time, the same reading the print board's own version makes, so
+  neither can drift from the rule the bot enforces. The rule is positional and
+  the board is where both coaches read position.
 
 ## What a shot is up against
 
@@ -2107,7 +2114,9 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
   - **Four hands, not two**, keyed by side *and* by the tiers a coach may play
     -- the basic three, or all six in an advanced game. Which one a coach gets
     is `RulesEngine.maneuver_tiers`, the same question the buttons under it
-    ask. There is one reference hexagon per tier for the same reason.
+    ask. **The reference hexagon is not keyed this way** -- there is one image
+    for both tiers (see below), since a coach in a basic game and one in an
+    advanced game are reading the same defeat cycle either way.
   - **Seven cards do not fit one row.** Discord scales an inline image to the
     message's width, so a row of seven arrives at about 75px a card against
     131px for a row of four. `HAND_MAX_COLUMNS` is 4, and anything past it
@@ -2148,11 +2157,24 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through
-  `load_maneuver_catalog` and `ManeuverCatalog.relationships` -- **narrowed to
-  the card's own tier**, which loses nothing, since rank decides and each rank
-  carries one card per tier; the abilities come from `players.json`. So a card cannot claim a rule the bot does not
-  play, and an import is carried onto the cards by re-running this rather than
-  by editing them.
+  `load_maneuver_catalog` and `cards.matchup_rank_groups`; the abilities come
+  from `players.json`. So a card cannot claim a rule the bot does not play, and
+  an import is carried onto the cards by re-running this rather than by
+  editing them.
+  - **Each column names the rank it faces, not one maneuver.** Every column
+    used to narrow to the card's own tier -- naming only the basic opponent on
+    a basic card and only the advanced one on its counterpart -- on the
+    reasoning that rank decides and each rank carries one card per tier, so
+    the second name was the same relation read twice. That reads backwards on
+    an advanced card: naming only its own tier's opponent makes the twelve
+    maneuvers look like two cycles with no relation between them, which is
+    exactly wrong when a tie on the cards resolves as the basic pair (see
+    `tie_note` below). `matchup_rank_groups` names the rank instead --
+    `O2`/`D1`/etc, coloured the opposing side's colour -- with **both** tiers'
+    names under it, basic in ink and advanced in its own colour. This is true
+    of a basic card as well as an advanced one: what a basic card beats is
+    still a rank, and that rank still has an advanced card on it once
+    advanced mode is in play.
 - **Which roles a card lists is mostly matched, not tabulated.** A role is on
   the card when its ability sentence names that maneuver, which is why the
   Fullback is on both High Pass and Block Deflect, carrying its whole sentence
@@ -2214,7 +2236,12 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
     to the next caption on its row, and ability variants get a second row.
 - **The offense red and defense green are the maneuver reference image's**, so
   a coach reading a card and a coach reading the bot's hexagon are looking at
-  the same two colours.
+  the same two colours. **An advanced card is a distinct shade, not a tint of
+  the basic one** -- a darker red/green rather than a lighter or darker version
+  of the same hue, since a basic and its advanced counterpart sit side by side
+  in the reference image and back to back in the print run, and two cards that
+  read as the same colour under different lighting is exactly what a coach
+  must not confuse.
 - **A card is white, and the colour is its edge and its header.** It used to
   be a saturated frame edge to edge on a cream face, with a near-black back --
   which is a page of ink per sheet of nine and the first thing a home printer
@@ -2235,6 +2262,15 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
     advanced, split by a hairline. Rank alone decides who beats whom, so the
     hexagon is six nodes however many cards there are -- a second back was
     never available, and two cycles laid on top of each other is not a hexagon.
+  - **The rank itself (O1, D2, ...) sits outside the circle, along the spoke
+    from the ellipse's own centre through the node**, in the node's own
+    green/red. A node already carries two names; putting the rank inside it
+    as well would be a fifth line in a circle sized for four. Outside it, the
+    badge is what tells a coach the two tiers resolve by rank rather than as
+    twelve maneuvers with no relation between them -- the same reason
+    `render_maneuver_reference_image` carries one now (see below). The two
+    caption lines at the foot of the card were pushed lower to clear the D1
+    badge, whose spoke runs straight down into where they used to start.
   - **One size for all six nodes, and it is the tightest of them.** With one
     name to a node the tightest fit was a single long word and capping there
     shrank every other node for nothing; with both tiers on a node all six are
@@ -2351,7 +2387,10 @@ python3 scripts/render_player_cards.py --team orange --bleed
 
 `d12ball/boards.py` draws the three boards the tabletop game is played on --
 the **field board**, the **jumbotron board** and a coach's **team board** --
-print-ready at 300dpi, A3 landscape.
+print-ready at 300dpi. **Tabloid (11 x 17) is the default now**, not A3 --
+the field board portrait, the other two landscape; see `PAPERS` and
+`DEFAULT_PAPER` for why tabloid rather than A3 is the one a home or copy-shop
+printer actually stocks.
 
 ```bash
 python3 scripts/render_boards.py --out print/          # every field size
@@ -2418,16 +2457,24 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   upstream. `draw_die_slot` reads `team_die` alone and says why, and a test
   greps the module for `offense_die`/`die_values` because the data is still
   right there to pick up again by accident.
-- **A3 landscape, all three, and that is a constraint rather than a
-  preference.** Five of the team board's six cells have to hold a 3.5in card:
-  two rows of them plus a header and a footer is 11.3 inches, which is most of
-  an A3's shorter side and more than a tabloid's. So the head coach is a cell
-  of the grid rather than a band across the top, the formation table is a
-  footer strip rather than a panel, and **`card_slot_inches` is what says
-  whether a print can be laid cards on** -- the CLI prints it, and a smaller
-  sheet scales the whole board down rather than overflowing its areas.
-  `D12BallTeamBoardTests` asserts it, because a band added above the areas
-  takes them under a card silently: it renders fine and prints useless.
+- **The team board is landscape and holds two panels, not one.** Dropping the
+  three zone areas onto the field board (see "The zone-assignment rows" below)
+  left a single row -- the bench, the back bench and the head coach -- short
+  enough that a match's two coaches share one sheet, cut in half, rather than
+  each wanting a whole one: `render_team_board` draws the same panel twice,
+  stacked over the sheet's own short side. **Landscape, not portrait**, and
+  deliberately the opposite of the field board: stacking over the *short* side
+  (11in) leaves every column a real card's width of room over the long side
+  (17in), where stacking over the long side would leave the row only the short
+  side to divide three ways -- not enough for a fanned poker card, measured.
+  `card_slot_inches` is what says whether a panel holds a real card -- the CLI
+  prints it, and `TeamBoardGeometry` sizes the header and the footer in fixed
+  inches rather than as a share of the panel, which is what a header this much
+  shorter than the design it came from needed: a title sized to the *sheet's*
+  width came out taller than a header a third its old height, the day this
+  landed. `D12BallTeamBoardTests` asserts a panel's slot clears a real card at
+  A3 and at tabloid alike now -- both hold real cards, which is new: the three
+  zone areas were what cost tabloid the 0.7in it used to come up short by.
 - **A panel that has to fit divides what it is given.** The head coach cell
   sizes its three maneuver rows from the height left under the die rather than
   from a fixed measurement, because three rows that fit one sheet run off the
@@ -2449,12 +2496,13 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   9-space boards; `--board-size` narrows it to one. The sizes come from
   `rules.board_layouts`, so a fourth layout added upstream is printed without
   the script being touched.
-- **Zones keep their real names on the team board.** A coach's own goal is the
-  home goal for one of them and the visitors goal for the other, and one
-  design is printed for both, so the areas read HOME GOAL / MIDFIELD /
-  VISITORS GOAL exactly as the field and the coaching image do. Only the
-  formation strip is relative, and it says so. `--teams` colours a board per
-  team and changes nothing else.
+- **Zones keep their real names on the field board's own assignment rows**,
+  not the team board any more -- see "The zone-assignment rows". A coach's own
+  goal is the home goal for one of them and the visitors goal for the other,
+  and the field board is read by both, so the areas read HOME GOAL / MIDFIELD
+  / VISITORS GOAL exactly as the bot's coaching image does. The team board's
+  own formation strip is relative, and it says so. `--teams` colours a board
+  per team and changes nothing else.
 - **The formation strip lists the shapes and nothing else, and groups the ones
   only some boards play.** One team board is printed for every field size, so
   3-2-1 and 1-2-3 are on it under "9-SPACE BOARD ONLY" rather than left off --
@@ -2519,6 +2567,67 @@ into without widening the board itself.
   than beside it. `TEAM_BOARD_BENCH_MIN_X`/`TEAM_BOARD_BACK_BENCH_MIN_X` are
   what a short name already left in place, so nothing shifts for the common
   case.
+- **The printed field board carries its own end zones now**, `draw_field_end_zones`
+  in `boards.py` -- the print counterpart of `draw_end_zone`, not a second
+  drawing of the same pixels: it is a different rendering stack (`Sheet`
+  rather than a raw canvas) at a different resolution (300dpi rather than the
+  bot's fixed 2200px), so the geometry and the font-fit are worked out fresh
+  rather than shared. `FieldGeometry` narrows the strip itself to
+  `strip_left`/`strip_right`, reserving `end_zone_width` plus a gap on each
+  side for it; `left`/`right` stay the full content width for the header, the
+  direction arrows and the shooting-range bracket, which read the wide pair
+  same as the bot's own jumbotron and team boards span its end zones. **It is
+  drawn in ink, not a team's colour** -- the field board is a template for the
+  tabletop game with no match to read a team from, unlike the bot's own board,
+  which always has one.
+  - **`end_zone_width` is a tight fit, not a generous one**, and tighter still
+    since the field board went portrait to make room for the zone-assignment
+    rows (below): the strip now divides an 11in width instead of a 17in one,
+    so every inch an end zone takes is an inch a space cannot have. Don't grow
+    it without checking `test_a_space_is_big_enough_to_stand_meeples_on`, whose
+    width floor is 1.0in now, not the 1.5in a landscape sheet could promise.
+
+### The zone-assignment rows
+
+A card row for each zone -- HOME GOAL, MIDFIELD, VISITORS GOAL -- above the
+strip for the visiting coach and below it for home, on the field board itself
+rather than on the team board, which used to carry them. `draw_zone_assignment_rows`
+and `draw_zone_assignment_cell` in `boards.py` draw them; `FieldGeometry`'s
+`visiting_zone_top`/`_bottom` and `home_zone_top`/`_bottom` are where.
+
+- **That is the whole reason the field board is portrait (11 x 17) rather than
+  landscape.** A zone row needs a real 3.5in card's worth of height, twice
+  over (once for each coach), which the sheet's 17in length holds without
+  crowding the strip; the strip's own spaces pay for it instead, coming out
+  under an inch wide on the 9-space board rather than the 1.5in two meeples
+  side by side would ask for on a landscape sheet. The author's own call,
+  made knowing that cost -- see `FieldGeometry`'s own docstring.
+- **The visiting row is rotated 180 degrees cell by cell, not the row
+  reordered.** The two coaches sit on opposite sides of the table, so a row
+  that reads upright to home reads upside down to visiting -- rotating each
+  cell the other 180 degrees turns it upright *for them* without touching
+  which column is which: HOME GOAL is still the leftmost cell in both rows,
+  directly under and over the strip's own HOME GOAL columns, so a coach
+  reading either row left to right reads the same zone order the strip does.
+  `draw_zone_assignment_cell` draws the whole cell upright on its own small
+  canvas and rotates the finished picture when it is the visiting row, rather
+  than working out where flipped text and flipped dashes land by hand.
+- **The dashed guides inside a row are a visual cue, not a slot count.** This
+  is a staging area a coach fans any number of cards across before assigning
+  them to numbered spaces, not a fixed set of areas the way the strip's own
+  spaces are -- `CARDS_PER_AREA` (three) is borrowed from the team board's own
+  areas for the guide only, and nothing here enforces it.
+- **The caption is dropped rather than shrunk past legibility.** "cards
+  assigned to this zone" fits next to MIDFIELD's own width; HOME GOAL and
+  VISITORS GOAL are narrower, and `draw_zone_assignment_cell` measures whether
+  it fits before drawing it rather than shrinking the font until it does --
+  a caption nobody can read is a worse failure than one left off.
+- **The header was rebuilt to stack rather than sit side by side**, in the
+  same change: `draw_field_header`'s title on the left and its note on the
+  right used to overlap in the middle on anything narrower than the old
+  landscape sheet, which the portrait sheet always is. Both are wrapped to
+  the sheet's own content width and stacked in one left-aligned column now,
+  which cannot overlap regardless of paper size or how long the wording runs.
 
 ### Fonts
 

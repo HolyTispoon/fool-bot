@@ -1225,7 +1225,7 @@ class D12BallComponentTests(unittest.TestCase):
 
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
-            self.assertEqual(image.size, (3300, 1920))
+            self.assertEqual(image.size, (3300, 1953))
 
     def test_the_field_image_is_the_board_cut_out_of_the_match_image(
         self,
