@@ -1611,17 +1611,20 @@ def render_maneuver_card_back(
         # already carries two names, and O1/D2 is what says the two
         # cards on it resolve by rank rather than as six basic and six
         # advanced maneuvers with no relation to each other. Placed
-        # along the spoke from the ellipse's own centre through the
-        # node, so it sits wherever has room on that node's own side of
-        # the ring rather than colliding with a neighbour.
-        spoke_x, spoke_y = point[0] - center[0], point[1] - center[1]
-        spoke_length = (spoke_x * spoke_x + spoke_y * spoke_y) ** 0.5
-        ux, uy = spoke_x / spoke_length, spoke_y / spoke_length
+        # straight above or below the node -- whichever side faces away
+        # from the ring's own centre -- rather than out along the
+        # spoke: the spoke direction pushed the four off-axis nodes
+        # toward the card's corners, close enough that the label's own
+        # width ran past the edge. Vertical is the direction every node
+        # has room in, since the hexagon already clears the header above
+        # and the caption below.
+        vertical_sign = -1 if point[1] < center[1] else 1
         rank_label = f"{'O' if is_offense else 'D'}{maneuver.rank}"
         pen.text(
             (
-                point[0] + ux * (CYCLE_NODE_RADIUS + CYCLE_RANK_LABEL_GAP),
-                point[1] + uy * (CYCLE_NODE_RADIUS + CYCLE_RANK_LABEL_GAP),
+                point[0],
+                point[1]
+                + vertical_sign * (CYCLE_NODE_RADIUS + CYCLE_RANK_LABEL_GAP),
             ),
             rank_label,
             font(CYCLE_RANK_FONT_SIZE, bold=True),

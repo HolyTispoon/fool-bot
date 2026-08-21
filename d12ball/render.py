@@ -2785,7 +2785,8 @@ def render_maneuver_reference_image(
     does not exist. `MANEUVER_TIER_BASIC` draws one box a rank instead:
     a basic-mode coach has no advanced cards to read a matchup for, so
     showing them anyway would be describing a rule this game is not
-    playing by. The one box gets the room the pair would have shared.
+    playing by. The one box keeps the same shape it always had rather
+    than stretching to the width the pair would have shared.
     """
     both_tiers = tier == MANEUVER_TIER_ADVANCED
     canvas = Image.new(
@@ -2796,9 +2797,10 @@ def render_maneuver_reference_image(
     draw = ImageDraw.Draw(canvas)
     cx, cy = MANEUVER_DIAGRAM_CENTER
     node_radius = MANEUVER_DIAGRAM_NODE_RADIUS
-    box_unit_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
-    pair_width = box_unit_width * 2 + MANEUVER_DIAGRAM_TIER_GAP
-    box_width = box_unit_width if both_tiers else pair_width
+    box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
+    group_width = (
+        box_width * 2 + MANEUVER_DIAGRAM_TIER_GAP if both_tiers else box_width
+    )
     pair_height = box_height + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
 
     order = _maneuver_cycle_order(catalog, MANEUVER_TIER_BASIC)
@@ -2856,7 +2858,7 @@ def render_maneuver_reference_image(
         )
 
         pair_top = center_y - pair_height / 2
-        pair_left = center_x - pair_width / 2
+        pair_left = center_x - group_width / 2
         draw_centered_text(
             draw,
             center_x,
