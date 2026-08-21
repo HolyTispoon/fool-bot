@@ -2529,12 +2529,22 @@ MANEUVER_DIAGRAM_NODE_RADIUS = 760
 MANEUVER_DIAGRAM_ARC_RADIUS = 250
 # One rank's own pair of boxes -- basic on the left, advanced on the
 # right, the same rank the two are on rather than two unrelated cards
-# next to each other. `MANEUVER_DIAGRAM_BOX_SIZE` is a single box;
-# `_TIER_GAP` is the seam between the pair, `_RANK_LABEL_HEIGHT` the
-# room the rank badge takes above it.
-MANEUVER_DIAGRAM_BOX_SIZE = (296, 330)
+# next to each other. `MANEUVER_DIAGRAM_BOX_WIDTH` is a single box's
+# width; the height is content-driven per pair, not a shared constant
+# -- see `maneuver_box_content_height`. `_TIER_GAP` is the seam between
+# the pair, `_RANK_LABEL_HEIGHT` the room the rank badge takes above it.
+MANEUVER_DIAGRAM_BOX_WIDTH = 296
 MANEUVER_DIAGRAM_TIER_GAP = 14
 MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT = 56
+# One fixed size for the effect text on every box, not a per-box
+# search -- box height flexes to whatever a card's own effect needs
+# instead, which is what a shared size can lean on: Block Deflect's one
+# line and Double Team's paragraph both read at the same size, in
+# boxes of two different heights, rather than the shorter cards
+# shrinking their box's worth of blank space away for nothing and the
+# longer ones setting a size the rest have to share.
+FONT_MANEUVER_EFFECT = load_font(20)
+MANEUVER_EFFECT_LINE_HEIGHT = 26
 # d12ball/cards.py imports these four (as OFFENSE_COLOR/DEFENSE_COLOR
 # and their _ADVANCED counterparts) rather than restating the hexes,
 # the same reason TEAM_COLORS below is one dict instead of a hex per
@@ -2576,32 +2586,31 @@ def wrap_text(
     return lines
 
 
-def fit_maneuver_effect(
+def maneuver_box_content_height(
     draw: ImageDraw.ImageDraw,
-    text: str,
-    max_width: float,
-    max_height: float,
-    start_size: int = 18,
-    min_size: int = 11,
-) -> tuple[list[str], ImageFont.ImageFont, int]:
+    maneuver: ManeuverDefinition,
+) -> float:
     """
-    The largest body size (down to a floor) whose wrapped effect text
-    fits the room left under a reference box's name -- see
-    `render_maneuver_reference_image`. Twelve effect lengths share one
-    box size, from Block Deflect's one line to Double Team's paragraph,
-    so a fixed size either wastes the short cards' room or runs the
-    long ones past the box.
+    How tall one reference-image box needs to be for this maneuver, at
+    the shared name and effect sizes -- see `render_maneuver_reference_image`.
+    Box height is content-driven per rank rather than one constant all
+    twelve cards share, which is what lets Block Deflect's one line and
+    Double Team's paragraph both read at the same font size without
+    either wasting a box's worth of blank space or running past it.
     """
-    size = start_size
-    while size >= min_size:
-        font = load_font(size)
-        line_height = size + 6
-        lines = wrap_text(draw, text, font, max_width)
-        if len(lines) * line_height <= max_height:
-            return lines, font, line_height
-        size -= 1
-    font = load_font(min_size)
-    return wrap_text(draw, text, font, max_width), font, min_size + 6
+    box_width = MANEUVER_DIAGRAM_BOX_WIDTH
+    name_lines = wrap_text(draw, maneuver.name, FONT_MANEUVER_TITLE, box_width - 32)
+    effect_lines = wrap_text(
+        draw, maneuver.effect, FONT_MANEUVER_EFFECT, box_width - 32
+    )
+    return (
+        12  # top padding
+        + 22  # tier tag
+        + 32 * len(name_lines)
+        + 8  # gap before the effect
+        + MANEUVER_EFFECT_LINE_HEIGHT * len(effect_lines)
+        + 14  # bottom padding
+    )
 
 
 def draw_centered_text(
@@ -2761,9 +2770,8 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
     draw = ImageDraw.Draw(canvas)
     cx, cy = MANEUVER_DIAGRAM_CENTER
     node_radius = MANEUVER_DIAGRAM_NODE_RADIUS
-    box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
+    box_width = MANEUVER_DIAGRAM_BOX_WIDTH
     pair_width = box_width * 2 + MANEUVER_DIAGRAM_TIER_GAP
-    pair_height = box_height + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
 
     order = _maneuver_cycle_order(catalog, MANEUVER_TIER_BASIC)
     node_count = len(order)
@@ -2820,6 +2828,19 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
             MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR
         )
 
+        # A pair's own height is content-driven, not a fixed constant
+        # shared by all six ranks -- Double Team's paragraph and Block
+        # Deflect's one line no longer share a box sized for the
+        # longer of the two, which used to leave the short ranks with
+        # a band of empty box under their text. Both cards on a rank
+        # still share one height, the larger of the two, so the pair
+        # reads as one row rather than two boxes at different heights.
+        box_height = max(
+            maneuver_box_content_height(draw, basic),
+            maneuver_box_content_height(draw, advanced),
+        )
+        pair_height = box_height + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
+
         pair_top = center_y - pair_height / 2
         pair_left = center_x - pair_width / 2
         draw_centered_text(
@@ -2875,23 +2896,14 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
                 text_y += 32
             text_y += 8
 
-            # Double Team's effect is four times Block Deflect's, and a
-            # box half the old width has no room to fit either at a
-            # fixed size -- so the body text shrinks to what is left
-            # under the name rather than running past the box's own
-            # edge, the way the maneuver card itself searches a size
-            # for its effect band (see draw_strip in cards.py).
-            effect_lines, effect_font, line_height = fit_maneuver_effect(
-                draw,
-                maneuver.effect,
-                box_width - 32,
-                box_top + box_height - 12 - text_y,
+            effect_lines = wrap_text(
+                draw, maneuver.effect, FONT_MANEUVER_EFFECT, box_width - 32
             )
             for line in effect_lines:
                 draw_centered_text(
-                    draw, box_center_x, text_y, line, effect_font, text_color,
+                    draw, box_center_x, text_y, line, FONT_MANEUVER_EFFECT, text_color,
                 )
-                text_y += line_height
+                text_y += MANEUVER_EFFECT_LINE_HEIGHT
 
     legend_y = MANEUVER_DIAGRAM_HEIGHT - 96
     swatch_size = 30
