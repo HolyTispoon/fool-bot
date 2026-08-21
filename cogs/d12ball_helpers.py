@@ -39,6 +39,7 @@ from d12ball.game import (
     AIOpponent,
     CoinFace,
     D12BallGame,
+    GameMode,
     Team,
     team_display_name,
 )
@@ -635,6 +636,12 @@ def build_setup_message(
         f"Game Mode: {game.mode.value.title()}\n"
         f"Board size: {game.board_size}\n\n"
     )
+
+    if game.mode == GameMode.ADVANCED:
+        text += (
+            "It is recommended to play advanced mode on a board size "
+            "of 9.\n\n"
+        )
 
     if game.coin_flipped:
         text += (

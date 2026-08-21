@@ -289,6 +289,45 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
         )
 
 
+class DinkyAdvancedManeuverPickTests(AdvancedHarness, unittest.TestCase):
+    """
+    In advanced mode Dinky weighs all six cards on a side, not the
+    three advanced ones alone or the three basic ones alone --
+    `DinkyAI.choose_maneuver_action` rolls a rank on the d6 and then
+    coin-flips the tier, which lands on each of the six with equal
+    odds. See "Dinky rolls its rank as it always has and picks the
+    tier at random" in CLAUDE.md.
+    """
+
+    def test_dinky_reaches_every_card_of_an_advanced_hand(self) -> None:
+        cog, game, match = self.build("low_pass", "pressure")
+        strategy = cog.ai_strategies[AIOpponent.DINKY]
+
+        for side in ("offense", "defense"):
+            with self.subTest(side=side):
+                hand = cog.engine.maneuver_hand(game, match, side)
+                picked = {
+                    strategy.choose_maneuver_action(side, hand)
+                    for _ in range(300)
+                }
+
+                self.assertEqual(picked, {m.key for m in hand})
+
+    def test_a_basic_hand_never_reaches_an_advanced_card(self) -> None:
+        cog, game, match = self.build("low_pass", "pressure")
+        strategy = cog.ai_strategies[AIOpponent.DINKY]
+        basic_hand = cog.maneuver_catalog.for_tier(
+            "offense", MANEUVER_TIER_BASIC,
+        )
+
+        picked = {
+            strategy.choose_maneuver_action("offense", basic_hand)
+            for _ in range(150)
+        }
+
+        self.assertEqual(picked, {m.key for m in basic_hand})
+
+
 class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
     """
     **An advanced effect follows the cards, not the dice.** Asserted
