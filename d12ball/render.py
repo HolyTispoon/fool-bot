@@ -3,7 +3,7 @@ from dataclasses import dataclass, replace
 from io import BytesIO
 from math import cos, hypot, pi, radians, sin
 from pathlib import Path
-from typing import Optional
+from typing import NamedTuple, Optional
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -274,9 +274,6 @@ FONT_GOAL_ZONE = load_goal_zone_font(95)
 FONT_COACHING_ZONE = load_font(28, bold=True)
 FONT_TOKEN = load_font(19, bold=True)
 FONT_BADGE_COUNT = load_font(16, bold=True)
-FONT_MANEUVER_TITLE = load_font(26, bold=True)
-FONT_MANEUVER_BODY = load_font(18)
-FONT_MANEUVER_TIER_TAG = load_font(14, bold=True)
 FONT_MANEUVER_RANK = load_font(34, bold=True)
 FONT_MANEUVER_LEGEND = load_font(22)
 FONT_DICE_TOTAL = load_font(28, bold=True)
@@ -2523,7 +2520,7 @@ def render_score_attempt(
 
 
 MANEUVER_DIAGRAM_WIDTH = 2080
-MANEUVER_DIAGRAM_HEIGHT = 2150
+MANEUVER_DIAGRAM_HEIGHT = 2060
 MANEUVER_DIAGRAM_CENTER = (1040, 980)
 MANEUVER_DIAGRAM_NODE_RADIUS = 760
 MANEUVER_DIAGRAM_ARC_RADIUS = 250
@@ -2577,34 +2574,63 @@ def wrap_text(
     return lines
 
 
-def fit_maneuver_effect(
+class FittedManeuverBox(NamedTuple):
+    name_lines: list[str]
+    effect_lines: list[str]
+    effect_font: ImageFont.ImageFont
+    effect_line_height: int
+
+
+# The title is one fixed size on every box, not a size that tracks
+# whatever the effect text lands on -- a name is a name and all twelve
+# read at the same size regardless of how long that card's own effect
+# is. It is set once, a point above `MANEUVER_EFFECT_CEILING` (the
+# largest the search below is ever allowed to reach), which is what
+# guarantees the title is always the bigger of the two on every box
+# without the two having to be fit jointly.
+MANEUVER_EFFECT_CEILING = 32
+FONT_MANEUVER_TITLE = load_font(MANEUVER_EFFECT_CEILING + 1, bold=True)
+MANEUVER_TITLE_LINE_HEIGHT = MANEUVER_EFFECT_CEILING + 1 + 6
+
+
+def fit_maneuver_box_text(
     draw: ImageDraw.ImageDraw,
-    text: str,
+    name: str,
+    effect: str,
     max_width: float,
     max_height: float,
-    start_size: int = 40,
-    min_size: int = 11,
-) -> tuple[list[str], ImageFont.ImageFont, int]:
+    min_size: int = 10,
+) -> FittedManeuverBox:
     """
-    The largest body size (down to a floor) whose wrapped effect text
-    fits the room left under a reference box's name -- searched per
-    box, against one fixed box size all twelve share (see
-    `render_maneuver_reference_image`), so Block Deflect's one line
-    reads much larger than Double Team's paragraph rather than both
-    sharing a size picked for the longer of the two. The room this
-    fills is exactly the point: a short effect at a small shared size
-    left a band of empty box under it for nothing.
+    The name at the one fixed title size, and the largest effect size
+    (down to a floor, never above `MANEUVER_EFFECT_CEILING`) whose
+    wrapped effect text fits what the title leaves in a reference box
+    -- searched per box, against one fixed box size all twelve share
+    (see `render_maneuver_reference_image`), so Block Deflect's one
+    line reads much larger than Double Team's paragraph rather than
+    both sharing a size picked for the longer of the two.
     """
-    size = start_size
+    name_lines = wrap_text(draw, name, FONT_MANEUVER_TITLE, max_width)
+    effect_room = max_height - len(name_lines) * MANEUVER_TITLE_LINE_HEIGHT - 8
+
+    size = MANEUVER_EFFECT_CEILING
     while size >= min_size:
-        font = load_font(size)
-        line_height = size + 6
-        lines = wrap_text(draw, text, font, max_width)
-        if len(lines) * line_height <= max_height:
-            return lines, font, line_height
+        effect_font = load_font(size)
+        effect_line_height = size + 6
+        effect_lines = wrap_text(draw, effect, effect_font, max_width)
+        if len(effect_lines) * effect_line_height <= effect_room:
+            return FittedManeuverBox(
+                name_lines, effect_lines, effect_font, effect_line_height,
+            )
         size -= 1
-    font = load_font(min_size)
-    return wrap_text(draw, text, font, max_width), font, min_size + 6
+
+    effect_font = load_font(min_size)
+    return FittedManeuverBox(
+        name_lines,
+        wrap_text(draw, effect, effect_font, max_width),
+        effect_font,
+        min_size + 6,
+    )
 
 
 def draw_centered_text(
@@ -2835,10 +2861,9 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
         )
 
         box_top = pair_top + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
-        for offset, (maneuver, tag, fill, text_color) in enumerate((
+        for offset, (maneuver, fill, text_color) in enumerate((
             (
                 basic,
-                "BASIC",
                 MANEUVER_OFFENSE_COLOR
                 if is_offense
                 else MANEUVER_DEFENSE_COLOR,
@@ -2846,7 +2871,6 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
             ),
             (
                 advanced,
-                "ADVANCED",
                 MANEUVER_OFFENSE_COLOR_ADVANCED
                 if is_offense
                 else MANEUVER_DEFENSE_COLOR_ADVANCED,
@@ -2863,38 +2887,27 @@ def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
             )
             box_center_x = box_left + box_width / 2
 
+            # No BASIC/ADVANCED tag any more -- the legend at the foot
+            # of the image already carries that distinction (by
+            # colour), so repeating it in words on every box was
+            # spending a line for nothing. The title is one fixed size
+            # on every box; the effect text is fit per box under it --
+            # see fit_maneuver_box_text.
+            fitted = fit_maneuver_box_text(
+                draw, maneuver.name, maneuver.effect, box_width - 32, box_height - 24,
+            )
             text_y = box_top + 12
-            draw_centered_text(
-                draw, box_center_x, text_y, tag, FONT_MANEUVER_TIER_TAG, text_color,
-            )
-            text_y += 22
-            name_lines = wrap_text(
-                draw, maneuver.name, FONT_MANEUVER_TITLE, box_width - 32
-            )
-            for line in name_lines:
+            for line in fitted.name_lines:
                 draw_centered_text(
                     draw, box_center_x, text_y, line, FONT_MANEUVER_TITLE, text_color,
                 )
-                text_y += 32
+                text_y += MANEUVER_TITLE_LINE_HEIGHT
             text_y += 8
-
-            # Searched per box against the one fixed box size, not one
-            # shared size for all twelve -- that is what lets Block
-            # Deflect's one line read much larger than Double Team's
-            # paragraph instead of both settling for whatever the
-            # longer one needs, and fills the box instead of leaving a
-            # band empty under a short effect.
-            effect_lines, effect_font, effect_line_height = fit_maneuver_effect(
-                draw,
-                maneuver.effect,
-                box_width - 32,
-                box_top + box_height - 12 - text_y,
-            )
-            for line in effect_lines:
+            for line in fitted.effect_lines:
                 draw_centered_text(
-                    draw, box_center_x, text_y, line, effect_font, text_color,
+                    draw, box_center_x, text_y, line, fitted.effect_font, text_color,
                 )
-                text_y += effect_line_height
+                text_y += fitted.effect_line_height
 
     legend_y = MANEUVER_DIAGRAM_HEIGHT - 96
     swatch_size = 30
