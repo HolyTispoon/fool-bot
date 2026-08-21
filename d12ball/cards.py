@@ -940,6 +940,49 @@ def matchup_rank_groups(
     )
 
 
+# The matchup row's own name size, and the fixed offsets around it --
+# shared between `matchup_content_height` (which measures) and
+# `draw_matchups` (which draws), so the two cannot disagree about how
+# tall a column's names come out.
+MATCHUP_NAME_SIZE = 22
+MATCHUP_NAME_TOP = 74
+MATCHUP_BOTTOM_PAD = 14
+
+
+def matchup_content_height(
+    pen: Pen,
+    catalog: ManeuverCatalog,
+    maneuver: ManeuverDefinition,
+    is_offense: bool,
+) -> float:
+    """
+    How tall the BEATS/TIES/LOSES TO row needs to be for this card's
+    own names, at `MATCHUP_NAME_SIZE` -- content-driven rather than a
+    fixed constant sized for whichever name is longest enough to wrap
+    to two lines. All twelve maneuver names fit one line apiece at
+    this size in a column this wide, so in practice every card asks
+    for the same, smallest height; a longer name added upstream would
+    ask for more rather than silently wrapping into a fixed band that
+    no longer fits it.
+    """
+    groups = matchup_rank_groups(catalog, maneuver, is_offense)
+    column_width = (CARD_WIDTH - MARGIN * 2) / 3
+    max_width = column_width - 14
+    name_font = font(MATCHUP_NAME_SIZE, bold=True)
+    max_lines = 0
+    for _, (basic, advanced) in groups:
+        lines = sum(
+            len(pen.wrapped(name, name_font, max_width))
+            for name in (basic.name, advanced.name)
+        )
+        max_lines = max(max_lines, lines)
+    return (
+        MATCHUP_NAME_TOP
+        + max_lines * line_height(pen, name_font)
+        + MATCHUP_BOTTOM_PAD
+    )
+
+
 def draw_matchups(
     pen: Pen,
     catalog: ManeuverCatalog,
@@ -985,8 +1028,8 @@ def draw_matchups(
             rank_color,
             anchor="mm",
         )
-        name_y = top + 74
-        name_font = font(19, bold=True)
+        name_y = top + MATCHUP_NAME_TOP
+        name_font = font(MATCHUP_NAME_SIZE, bold=True)
         for name, color in (
             (basic.name, INK),
             (advanced.name, DEFENSE_COLOR_ADVANCED if is_offense else OFFENSE_COLOR_ADVANCED),
@@ -1169,10 +1212,12 @@ def render_maneuver_card(
     _, ability_height = laid_out_abilities(pen, abilities)
 
     abilities_top = CARD_HEIGHT - FRAME - 18 - ability_height
-    # Taller than a single-tier row needs, now that each column carries
-    # a rank badge and both tiers' names rather than one name -- see
-    # matchup_rank_groups.
-    matchup_height = 188
+    # Content-driven, not a fixed constant sized for whichever name is
+    # long enough to wrap to two lines -- see matchup_content_height.
+    # That used to leave every card with a band of blank space under
+    # its own shorter names; the room it frees goes to the effect band
+    # below, the same as `laid_out_abilities`' own height does.
+    matchup_height = matchup_content_height(pen, catalog, maneuver, is_offense)
     matchup_top = abilities_top - matchup_height
 
     draw_matchups(
@@ -1426,20 +1471,31 @@ def fit_node_block(
     )
 
 
-def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Image:
+def render_maneuver_card_back(
+    catalog: ManeuverCatalog,
+    bleed: bool,
+    tier: str = MANEUVER_TIER_ADVANCED,
+) -> Image.Image:
     """
-    One back for all **twelve**, because a coach holding both sets must
-    not show which side of the ball -- or which tier -- they are
-    reading. In advanced mode the offense holds six: the three basic
+    One back for all twelve in advanced mode, because a coach holding
+    both sets must not show which side of the ball -- or which tier --
+    they are reading: the offense there holds six, the three basic
     cards and the three advanced ones. It carries the defeat cycle,
     which is public information every coach is entitled to see at any
     time.
 
-    **The cycle is six nodes however many cards there are**, because
-    rank alone decides who beats whom (the author, 2026-08-18). Each
-    node is a rank and carries the two cards on it -- the basic name
-    over its advanced counterpart -- so the picture a coach reads a
-    matchup off is one hexagon rather than one per tier.
+    **`tier` picks which back a coach needs.** `MANEUVER_TIER_ADVANCED`
+    (the default) draws all twelve, for the reason above.
+    `MANEUVER_TIER_BASIC` draws six -- a basic-mode coach's own hand is
+    never anything but the three basic cards, so there is no tier to
+    hide and a node showing its one name reads larger than one showing
+    two stacked on a hairline.
+
+    **The cycle is six nodes however many cards are on it**, because
+    rank alone decides who beats whom (the author, 2026-08-18). In
+    advanced mode each node carries the two cards on its rank -- the
+    basic name over its advanced counterpart -- so the picture a coach
+    reads a matchup off is one hexagon rather than one per tier.
 
     The cycle is two relations, not one: a solid arrow to what a
     maneuver beats, and a dashed line to the one it ties with. The ties
@@ -1447,6 +1503,7 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
     one thing on the card a coach had to work out rather than look up,
     and a tie is the branch that costs a skill test and a token each.
     """
+    both_tiers = tier == MANEUVER_TIER_ADVANCED
     from d12ball.render import _maneuver_cycle_order
 
     pen = Pen((CARD_WIDTH, CARD_HEIGHT), BACK_COLOR)
@@ -1521,6 +1578,12 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         pen.line([start, line_end], fill=MUTED, width=6)
         draw_arrowhead(pen, tip, (ux, uy), arrow_size, MUTED)
 
+    def node_stack(maneuver: ManeuverDefinition) -> list[list[str]]:
+        basic_words = maneuver.name.split(" ")
+        if not both_tiers:
+            return [basic_words]
+        return [basic_words, catalog.counterpart(maneuver).name.split(" ")]
+
     # **One size for all six nodes, and it is the tightest of them.**
     # Sized independently they read as six different alphabets: "Low
     # Pass" over "Precise Pass" has short words and grows to fill the
@@ -1533,14 +1596,9 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
     # tiers on a node that is no longer true: all six are four lines of
     # much the same length, so the tightest is a real constraint rather
     # than one outlier, and matching it costs the roomiest node three
-    # points to make the cycle read as one picture.
-    stacks = [
-        [
-            maneuver.name.split(" "),
-            catalog.counterpart(maneuver).name.split(" "),
-        ]
-        for maneuver, _ in order
-    ]
+    # points to make the cycle read as one picture. A basic-only back
+    # is back to the single-name case, since there is no second stack.
+    stacks = [node_stack(maneuver) for maneuver, _ in order]
     cap_size = min(
         fit_node_block(pen, stack, CYCLE_NODE_RADIUS)[2] for stack in stacks
     )
@@ -1575,19 +1633,17 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
         # one-word name and a two-word one both sit in the middle of the
         # circle. Written as fixed offsets it was measured against the
         # two-line case and left the whole stack low in the circle.
-        basic_words = maneuver.name.split(" ")
-        advanced = catalog.counterpart(maneuver)
-        advanced_words = advanced.name.split(" ")
+        stack = node_stack(maneuver)
+        # None on a basic-only back: there is no second stack to split
+        # from, so no hairline is drawn either.
+        split = len(stack[0]) if both_tiers else None
         lines, heights, _ = fit_node_block(
-            pen,
-            [basic_words, advanced_words],
-            CYCLE_NODE_RADIUS,
-            max_size=cap_size,
+            pen, stack, CYCLE_NODE_RADIUS, max_size=cap_size,
         )
         boxes = [pen.ink_box(text, face) for text, face in lines]
-        split = len(basic_words)
         gaps = [
-            CYCLE_TIER_GAP if index == split - 1 else CYCLE_LINE_GAP
+            CYCLE_TIER_GAP if split is not None and index == split - 1
+            else CYCLE_LINE_GAP
             for index in range(len(lines) - 1)
         ]
         top = point[1] - (sum(heights) + sum(gaps)) / 2
@@ -1605,7 +1661,7 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
                 # The hairline between the two tiers, drawn in the gap
                 # it is the reason for -- without it the four lines read
                 # as one four-word name.
-                if index == split - 1:
+                if split is not None and index == split - 1:
                     rule_y = top + gaps[index] / 2
                     rule_half = CYCLE_NODE_RADIUS * 0.52
                     pen.line(
@@ -1623,7 +1679,9 @@ def render_maneuver_card_back(catalog: ManeuverCatalog, bleed: bool) -> Image.Im
     # straight down into where the caption block used to start.
     pen.text(
         (CARD_WIDTH / 2, CARD_HEIGHT - 76),
-        "each node is one rank: basic maneuvers above advanced",
+        "each node is one rank: basic maneuvers above advanced"
+        if both_tiers
+        else "each node is one rank",
         font(19),
         MUTED,
         anchor="mm",
@@ -1709,7 +1767,16 @@ def render_maneuver_hand(
             key=lambda item: (item.rank, item.tier != MANEUVER_TIER_BASIC),
         )
     ]
-    cards.append(render_maneuver_card_back(catalog, bleed=False))
+    # The shared back matches what this hand actually mixes: a basic
+    # game's hand is never anything but the three basic cards, so its
+    # back can show one name a node rather than the two-tier hairline
+    # design an advanced hand's ambiguity calls for.
+    back_tier = (
+        MANEUVER_TIER_ADVANCED
+        if MANEUVER_TIER_ADVANCED in tiers
+        else MANEUVER_TIER_BASIC
+    )
+    cards.append(render_maneuver_card_back(catalog, bleed=False, tier=back_tier))
 
     scale = HAND_CARD_WIDTH / CARD_WIDTH
     height = round(CARD_HEIGHT * scale)
