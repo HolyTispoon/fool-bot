@@ -2031,9 +2031,7 @@ class ManeuverActionSelectView(SafeView):
         for at any time, so nothing is hidden by it -- only the timing.
         """
         await interaction.response.send_message(
-            file=self.cog.build_maneuver_reference_file(
-                self.cog.reference_tier(self.cog.games.get(self.game_id))
-            ),
+            file=self.cog.build_maneuver_reference_file(),
             ephemeral=True,
         )
         # The hexagon's labels are small print at the size Discord shows

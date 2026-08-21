@@ -274,8 +274,10 @@ FONT_GOAL_ZONE = load_goal_zone_font(95)
 FONT_COACHING_ZONE = load_font(28, bold=True)
 FONT_TOKEN = load_font(19, bold=True)
 FONT_BADGE_COUNT = load_font(16, bold=True)
-FONT_MANEUVER_TITLE = load_font(30, bold=True)
-FONT_MANEUVER_BODY = load_font(22)
+FONT_MANEUVER_TITLE = load_font(26, bold=True)
+FONT_MANEUVER_BODY = load_font(18)
+FONT_MANEUVER_TIER_TAG = load_font(14, bold=True)
+FONT_MANEUVER_RANK = load_font(34, bold=True)
 FONT_MANEUVER_LEGEND = load_font(22)
 FONT_DICE_TOTAL = load_font(28, bold=True)
 FONT_DICE_VALUE = load_font(26, bold=True)
@@ -2515,19 +2517,36 @@ def render_score_attempt(
     )
 
 
-MANEUVER_DIAGRAM_WIDTH = 1360
-MANEUVER_DIAGRAM_HEIGHT = 1410
-MANEUVER_DIAGRAM_CENTER = (680, 680)
-MANEUVER_DIAGRAM_NODE_RADIUS = 450
-MANEUVER_DIAGRAM_ARC_RADIUS = 180
-MANEUVER_DIAGRAM_BOX_SIZE = (340, 300)
-# d12ball/cards.py imports these two (as OFFENSE_COLOR/DEFENSE_COLOR)
-# rather than restating the hexes, the same reason TEAM_COLORS below is
-# one dict instead of a hex per call site. Don't add a second
-# definition there.
+MANEUVER_DIAGRAM_WIDTH = 2080
+MANEUVER_DIAGRAM_HEIGHT = 2150
+MANEUVER_DIAGRAM_CENTER = (1040, 980)
+MANEUVER_DIAGRAM_NODE_RADIUS = 760
+MANEUVER_DIAGRAM_ARC_RADIUS = 250
+# One rank's own pair of boxes -- basic on the left, advanced on the
+# right, the same rank the two are on rather than two unrelated cards
+# next to each other. `MANEUVER_DIAGRAM_BOX_SIZE` is a single box;
+# `_TIER_GAP` is the seam between the pair, `_RANK_LABEL_HEIGHT` the
+# room the rank badge takes above it.
+MANEUVER_DIAGRAM_BOX_SIZE = (296, 330)
+MANEUVER_DIAGRAM_TIER_GAP = 14
+MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT = 56
+# d12ball/cards.py imports these four (as OFFENSE_COLOR/DEFENSE_COLOR
+# and their _ADVANCED counterparts) rather than restating the hexes,
+# the same reason TEAM_COLORS below is one dict instead of a hex per
+# call site. Don't add a second definition there.
+#
+# **Deliberately a different shade, not a tint of the same one.** A
+# basic and an advanced card on the same rank sit side by side on the
+# reference image and back to back on the printed card's own edge, so
+# they have to read as two cards at a glance -- a lighter or darker
+# version of the same hue reads as the same card under different
+# lighting instead.
 MANEUVER_OFFENSE_COLOR = "#E24B4A"
 MANEUVER_DEFENSE_COLOR = "#97C459"
+MANEUVER_OFFENSE_COLOR_ADVANCED = "#7A2038"
+MANEUVER_DEFENSE_COLOR_ADVANCED = "#2F5D3A"
 MANEUVER_CARD_TEXT_COLOR = "#14202b"
+MANEUVER_CARD_TEXT_COLOR_ADVANCED = "#f4efe4"
 
 
 def wrap_text(
@@ -2550,6 +2569,34 @@ def wrap_text(
     if current:
         lines.append(current)
     return lines
+
+
+def fit_maneuver_effect(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    max_width: float,
+    max_height: float,
+    start_size: int = 18,
+    min_size: int = 11,
+) -> tuple[list[str], ImageFont.ImageFont, int]:
+    """
+    The largest body size (down to a floor) whose wrapped effect text
+    fits the room left under a reference box's name -- see
+    `render_maneuver_reference_image`. Twelve effect lengths share one
+    box size, from Block Deflect's one line to Double Team's paragraph,
+    so a fixed size either wastes the short cards' room or runs the
+    long ones past the box.
+    """
+    size = start_size
+    while size >= min_size:
+        font = load_font(size)
+        line_height = size + 6
+        lines = wrap_text(draw, text, font, max_width)
+        if len(lines) * line_height <= max_height:
+            return lines, font, line_height
+        size -= 1
+    font = load_font(min_size)
+    return wrap_text(draw, text, font, max_width), font, min_size + 6
 
 
 def draw_centered_text(
@@ -2684,19 +2731,22 @@ def _maneuver_cycle_order(
     return order
 
 
-def render_maneuver_reference_image(
-    catalog: ManeuverCatalog,
-    tier: str = MANEUVER_TIER_BASIC,
-) -> BytesIO:
+def render_maneuver_reference_image(catalog: ManeuverCatalog) -> BytesIO:
     """
-    Render one tier's maneuvers arranged in their defeat cycle: arrows
+    Every maneuver arranged in the defeat cycle its rank sits on: arrows
     trace who beats whom, dashed diameters connect the tie pairs
-    (opposite nodes), and each card carries its die range and full
-    effect text.
+    (opposite nodes), and each of the six rank positions carries two
+    boxes side by side -- the basic card on the left, its advanced
+    counterpart on the right -- under one prominent rank badge (O1,
+    D2, ...).
 
-    An advanced-mode game gets the advanced hexagon; the two are the
-    same six positions with different names on them, because rank is
-    what decides.
+    **One hexagon for both tiers, not one per tier.** Rank alone
+    decides who beats whom (2026-08-18), so an advanced card sits
+    exactly where its basic counterpart does and the two cannot be
+    drawn as two unrelated cycles without implying a second rule that
+    does not exist. A coach in a basic game reads the same picture as
+    one in an advanced game; the six pairs on the right just are not
+    theirs to play yet.
     """
     canvas = Image.new(
         "RGBA",
@@ -2707,8 +2757,10 @@ def render_maneuver_reference_image(
     cx, cy = MANEUVER_DIAGRAM_CENTER
     node_radius = MANEUVER_DIAGRAM_NODE_RADIUS
     box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
+    pair_width = box_width * 2 + MANEUVER_DIAGRAM_TIER_GAP
+    pair_height = box_height + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
 
-    order = _maneuver_cycle_order(catalog, tier)
+    order = _maneuver_cycle_order(catalog, MANEUVER_TIER_BASIC)
     node_count = len(order)
     angles = [270 + 360 * index / node_count for index in range(node_count)]
     centers = [
@@ -2719,7 +2771,8 @@ def render_maneuver_reference_image(
         for angle in angles
     ]
 
-    # Tie diameters (opposite nodes), drawn first so cards sit on top.
+    # Tie diameters (opposite nodes), drawn first so the boxes sit on
+    # top.
     half = node_count // 2
     near = MANEUVER_DIAGRAM_ARC_RADIUS + 40
     for index in range(half):
@@ -2755,92 +2808,140 @@ def render_maneuver_reference_image(
             width=6,
         )
 
-    for (maneuver, is_offense), (center_x, center_y) in zip(
-        order, centers
-    ):
-        color = (
+    for (basic, is_offense), (center_x, center_y) in zip(order, centers):
+        advanced = catalog.counterpart(basic)
+        rank_letter = "O" if is_offense else "D"
+        rank_color = (
             MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR
         )
-        box_left = center_x - box_width / 2
-        box_top = center_y - box_height / 2
-        draw.rounded_rectangle(
-            (
-                box_left,
-                box_top,
-                box_left + box_width,
-                box_top + box_height,
-            ),
-            radius=16,
-            fill=color,
-            outline="#ffffff",
-            width=2,
-        )
 
-        text_y = box_top + 20
+        pair_top = center_y - pair_height / 2
+        pair_left = center_x - pair_width / 2
         draw_centered_text(
             draw,
             center_x,
-            text_y,
-            maneuver.name,
-            FONT_MANEUVER_TITLE,
-            MANEUVER_CARD_TEXT_COLOR,
+            pair_top,
+            f"{rank_letter}{basic.rank}",
+            FONT_MANEUVER_RANK,
+            rank_color,
         )
-        text_y += 42
-        for line in wrap_text(
-            draw, maneuver.effect, FONT_MANEUVER_BODY, box_width - 48
-        ):
-            draw_centered_text(
-                draw,
-                center_x,
-                text_y,
-                line,
-                FONT_MANEUVER_BODY,
-                MANEUVER_CARD_TEXT_COLOR,
-            )
-            text_y += 30
 
-    legend_y = MANEUVER_DIAGRAM_HEIGHT - 70
-    swatch_size = 32
-    draw.rounded_rectangle(
-        (120, legend_y, 120 + swatch_size, legend_y + swatch_size),
-        radius=6,
-        fill=MANEUVER_OFFENSE_COLOR,
+        box_top = pair_top + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
+        for offset, (maneuver, tag, fill, text_color) in enumerate((
+            (
+                basic,
+                "BASIC",
+                MANEUVER_OFFENSE_COLOR
+                if is_offense
+                else MANEUVER_DEFENSE_COLOR,
+                MANEUVER_CARD_TEXT_COLOR,
+            ),
+            (
+                advanced,
+                "ADVANCED",
+                MANEUVER_OFFENSE_COLOR_ADVANCED
+                if is_offense
+                else MANEUVER_DEFENSE_COLOR_ADVANCED,
+                MANEUVER_CARD_TEXT_COLOR_ADVANCED,
+            ),
+        )):
+            box_left = pair_left + offset * (box_width + MANEUVER_DIAGRAM_TIER_GAP)
+            draw.rounded_rectangle(
+                (box_left, box_top, box_left + box_width, box_top + box_height),
+                radius=14,
+                fill=fill,
+                outline="#ffffff",
+                width=2,
+            )
+            box_center_x = box_left + box_width / 2
+
+            text_y = box_top + 12
+            draw_centered_text(
+                draw, box_center_x, text_y, tag, FONT_MANEUVER_TIER_TAG, text_color,
+            )
+            text_y += 22
+            name_lines = wrap_text(
+                draw, maneuver.name, FONT_MANEUVER_TITLE, box_width - 32
+            )
+            for line in name_lines:
+                draw_centered_text(
+                    draw, box_center_x, text_y, line, FONT_MANEUVER_TITLE, text_color,
+                )
+                text_y += 32
+            text_y += 8
+
+            # Double Team's effect is four times Block Deflect's, and a
+            # box half the old width has no room to fit either at a
+            # fixed size -- so the body text shrinks to what is left
+            # under the name rather than running past the box's own
+            # edge, the way the maneuver card itself searches a size
+            # for its effect band (see draw_strip in cards.py).
+            effect_lines, effect_font, line_height = fit_maneuver_effect(
+                draw,
+                maneuver.effect,
+                box_width - 32,
+                box_top + box_height - 12 - text_y,
+            )
+            for line in effect_lines:
+                draw_centered_text(
+                    draw, box_center_x, text_y, line, effect_font, text_color,
+                )
+                text_y += line_height
+
+    legend_y = MANEUVER_DIAGRAM_HEIGHT - 96
+    swatch_size = 30
+    legend_x = 100
+
+    def legend_swatch(fill: str, label: str) -> None:
+        nonlocal legend_x
+        draw.rounded_rectangle(
+            (legend_x, legend_y, legend_x + swatch_size, legend_y + swatch_size),
+            radius=6,
+            fill=fill,
+        )
+        draw.text(
+            (legend_x + swatch_size + 12, legend_y + 3),
+            label,
+            font=FONT_MANEUVER_LEGEND,
+            fill="#ffffff",
+        )
+        legend_x += swatch_size + 12 + round(
+            draw.textlength(label, font=FONT_MANEUVER_LEGEND)
+        ) + 44
+
+    legend_swatch(MANEUVER_OFFENSE_COLOR, "Offense (basic)")
+    legend_swatch(MANEUVER_OFFENSE_COLOR_ADVANCED, "Offense (advanced)")
+    legend_swatch(MANEUVER_DEFENSE_COLOR, "Defense (basic)")
+    legend_swatch(MANEUVER_DEFENSE_COLOR_ADVANCED, "Defense (advanced)")
+
+    relation_y = MANEUVER_DIAGRAM_HEIGHT - 48
+    relation_x = 100
+    draw.line(
+        (relation_x, relation_y + 15, relation_x + 100, relation_y + 15),
+        fill="#808080", width=6,
     )
-    draw.text(
-        (168, legend_y + 4),
-        "Offense",
-        font=FONT_MANEUVER_LEGEND,
-        fill="#ffffff",
-    )
-    draw.rounded_rectangle(
-        (320, legend_y, 320 + swatch_size, legend_y + swatch_size),
-        radius=6,
-        fill=MANEUVER_DEFENSE_COLOR,
-    )
-    draw.text(
-        (368, legend_y + 4),
-        "Defense",
-        font=FONT_MANEUVER_LEGEND,
-        fill="#ffffff",
-    )
-    arrow_y = legend_y + swatch_size / 2
-    draw.line((560, arrow_y, 660, arrow_y), fill="#808080", width=6)
     draw.polygon(
-        [(660, arrow_y - 12), (660, arrow_y + 12), (682, arrow_y)],
+        [
+            (relation_x + 100, relation_y + 3),
+            (relation_x + 100, relation_y + 27),
+            (relation_x + 122, relation_y + 15),
+        ],
         fill="#808080",
     )
     draw.text(
-        (700, legend_y + 4),
+        (relation_x + 140, relation_y + 3),
         "Defeats",
         font=FONT_MANEUVER_LEGEND,
         fill="#ffffff",
     )
+    tie_x = relation_x + 320
     draw_dashed_line(
-        draw, 900, arrow_y, 1000, arrow_y, fill="#808080", width=5
+        draw, tie_x, relation_y + 15, tie_x + 100, relation_y + 15,
+        fill="#808080", width=5,
     )
     draw.text(
-        (1020, legend_y + 4),
-        "Ties (skill test)",
+        (tie_x + 120, relation_y + 3),
+        "Ties -- a skill test, or the rank's basic card if either side is injured",
         font=FONT_MANEUVER_LEGEND,
         fill="#ffffff",
     )
