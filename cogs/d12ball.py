@@ -3852,6 +3852,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 game,
                 match,
                 speed_choice_after=True,
+                speed_reset=False,
                 lead_in=content,
             )
         elif stolen:
@@ -5054,6 +5055,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         turnover_occurred: bool = True,
         new_play: bool = False,
         speed_choice_after: bool = False,
+        speed_reset: bool = True,
         lead_in: str = "",
     ) -> None:
         """
@@ -5062,6 +5064,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         multi-turn choice flow and reach finish_maneuver_resolution
         correctly once run-back itself (which only ever costs
         exhaustion, never time) is done.
+
+        `speed_reset` is announce_run_back's own note, and only ever
+        False for Dribble Burst's cost: every caller here has already
+        set `match.ball.speed` to whatever it should read by the time
+        this runs, so this is wording, not state -- it says whether
+        that was a reset to 1 (every other turnover) or the burst's
+        speed carrying over (see the comment on `advanced_cost`).
 
         `new_play` says the ball changed hands because play stopped and
         is restarting -- a goal, an own goal, a missed attempt, a ball
@@ -5175,7 +5184,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 )
                 return
 
-        await self.announce_run_back(interaction, game, match, lead_in)
+        await self.announce_run_back(
+            interaction, game, match, lead_in, speed_reset=speed_reset,
+        )
 
     async def announce_new_play_reset(
         self,
@@ -5235,6 +5246,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game: D12BallGame,
         match: MatchState,
         lead_in: str = "",
+        speed_reset: bool = True,
     ) -> None:
         """
         The run back proper, split out of begin_run_back because a new
@@ -5250,8 +5262,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         prefix = f"{lead_in}\n\n" if lead_in else ""
         # Speed manipulation (Steal) always happens after
         # run-back now, so a turnover's ball speed is still at its
-        # reset value of 1 here.
-        speed_note = "The ball speed goes down to **1**." if turnover_occurred else ""
+        # reset value of 1 here -- except Dribble Burst's cost, whose
+        # caller passes speed_reset=False because the ball kept the
+        # burst's own speed instead, and that is already said in the
+        # lead-in this note would otherwise contradict.
+        speed_note = (
+            "The ball speed goes down to **1**."
+            if turnover_occurred and speed_reset
+            else ""
+        )
         displaced = any(
             self.engine.run_back_movers(match, side)
             for side in (TeamSide.HOME, TeamSide.VISITING)

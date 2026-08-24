@@ -1143,6 +1143,11 @@ class DoubleTeamTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self.assertTrue(
             cog.begin_run_back.await_args.kwargs["speed_choice_after"],
         )
+        # The run-back announcement must not claim a reset to 1 that
+        # never happened -- see announce_run_back's speed_reset.
+        self.assertFalse(
+            cog.begin_run_back.await_args.kwargs["speed_reset"],
+        )
 
     async def test_a_basic_dribble_loses_the_ball_at_speed_one(self) -> None:
         """
