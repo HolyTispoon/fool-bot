@@ -1014,7 +1014,7 @@ class D12BallComponentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             match.choose_offense_maneuver("High Pass")
         with self.assertRaises(ValueError):
-            match.choose_defense_maneuver("Block Deflect")
+            match.choose_defense_maneuver("Deflect")
 
         restored = MatchState.from_dict(match.to_dict(), self.rules)
         self.assertEqual(restored.offense_maneuver, "low_pass")
@@ -2437,13 +2437,13 @@ class D12BallManeuverTests(unittest.TestCase):
 
     def test_matchup_triangle_resolves_as_expected(self) -> None:
         expected = {
-            ("low_pass", "block_deflect"): "tie",
+            ("low_pass", "deflect"): "tie",
             ("low_pass", "steal"): "defense",
             ("low_pass", "pressure"): "offense",
-            ("dribble_advance", "block_deflect"): "offense",
+            ("dribble_advance", "deflect"): "offense",
             ("dribble_advance", "steal"): "tie",
             ("dribble_advance", "pressure"): "defense",
-            ("high_pass", "block_deflect"): "defense",
+            ("high_pass", "deflect"): "defense",
             ("high_pass", "steal"): "offense",
             ("high_pass", "pressure"): "tie",
         }
@@ -2619,7 +2619,7 @@ class D12BallManeuverTests(unittest.TestCase):
         self.assertEqual(by_maneuver["low_pass"], {"MIDFIELDER", "WINGER"})
         self.assertEqual(by_maneuver["dribble_advance"], {"PLAYMAKER"})
         self.assertEqual(by_maneuver["high_pass"], {"FULLBACK", "STRIKER"})
-        self.assertEqual(by_maneuver["block_deflect"], {"FULLBACK"})
+        self.assertEqual(by_maneuver["deflect"], {"FULLBACK"})
         self.assertEqual(by_maneuver["steal"], {"BALL SPEED"})
         self.assertEqual(by_maneuver["pressure"], {"DEFENDER", "MIDFIELDER"})
 
@@ -2841,7 +2841,7 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch("cogs.d12ball.save_games"):
             detoured = await cog.check_for_loose_ball(
                 interaction, game, match, distance_moved=1,
-                lead_in="Block Deflect happened.",
+                lead_in="Deflect happened.",
             )
 
         self.assertTrue(detoured)
@@ -2850,7 +2850,7 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.ball.possession, TeamSide.HOME)
         cog.begin_run_back.assert_not_awaited()
         cog.begin_loose_ball.assert_awaited_once_with(
-            interaction, game, match, 1, lead_in="Block Deflect happened.",
+            interaction, game, match, 1, lead_in="Deflect happened.",
         )
 
 
@@ -3790,9 +3790,9 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         _, kwargs = cog.begin_loose_ball.await_args
         self.assertIn("Fullback ability", kwargs["lead_in"])
 
-    # -- Block Deflect's Fullback bonus ---------------------------------
+    # -- Deflect's Fullback bonus ---------------------------------
 
-    async def test_resolve_block_deflect_fullback_deflects_two_spaces(
+    async def test_resolve_deflect_fullback_deflects_two_spaces(
         self,
     ) -> None:
         cog = self.build_cog()
@@ -3807,14 +3807,14 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
         with mock.patch("cogs.d12ball.save_games"):
-            await cog.resolve_block_deflect(interaction, game, match)
+            await cog.resolve_deflect(interaction, game, match)
 
         # HOME attacks left-to-right, so "back" is toward lower flat
         # indices: flat 4 - 2 = flat 2, HOME_GOAL space 2.
         self.assertEqual(
             (match.ball.zone, match.ball.space_index), (Zone.HOME_GOAL, 2),
         )
-        # A Block Deflect knocks the ball out of possession, so it goes
+        # A Deflect knocks the ball out of possession, so it goes
         # straight to the contest rather than through the loose-ball
         # check on the end of an ordinary maneuver (2026-08-18).
         cog.finish_maneuver_resolution.assert_not_awaited()

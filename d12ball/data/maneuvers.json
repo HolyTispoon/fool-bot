@@ -1,5 +1,5 @@
 {
-  "data_version": 9,
+  "data_version": 10,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1487033386",
   "maneuvers": {
     "offense": [
@@ -51,7 +51,7 @@
           3,
           4
         ],
-        "effect": "Player and ball run to the goal, gaining 1 exhaustion per space. Adjust ball speed up to oSkill. If defeated, lose possession,ball speed does not reset and defender adjusts it up to dSkill.",
+        "effect": "Player and ball run to the goal, gaining 1 exhaustion per space. Adjust ball speed up to oSkill. If defeated, lose possession, ball speed does not reset and defender adjusts it up to dSkill.",
         "time": "1 space minute",
         "defeats_rank": 1
       },
@@ -84,8 +84,8 @@
     ],
     "defense": [
       {
-        "name": "Block Deflect",
-        "key": "block_deflect",
+        "name": "Deflect",
+        "key": "deflect",
         "rank": 1,
         "tier": "basic",
         "die_values": [

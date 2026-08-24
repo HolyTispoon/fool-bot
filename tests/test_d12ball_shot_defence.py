@@ -314,8 +314,8 @@ class ShotClockCostTests(unittest.IsolatedAsyncioTestCase):
     async def test_start_set_up_shot_defaults_to_the_flat_maneuver_cost(
         self,
     ) -> None:
-        # Block Deflect's overshoot set-up (begin_shooter_choice) and
-        # ShooterChoiceView never pass maneuver_cost -- Block Deflect
+        # Deflect's overshoot set-up (begin_shooter_choice) and
+        # ShooterChoiceView never pass maneuver_cost -- Deflect
         # is always 1, so the default has to be too.
         cog = build_cog()
         game, match = self.build_shot(cog, [])

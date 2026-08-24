@@ -786,6 +786,7 @@ def maneuver_key(name: str) -> str:
 # own tree against their own saves.
 LEGACY_MANEUVER_KEYS = {
     "steal_intercept": "steal",
+    "block_deflect": "deflect",
 }
 
 

@@ -269,7 +269,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = offense
         match.challenger_id = match.visiting.field_players[0]
         match.offense_maneuver = "low_pass"
-        match.defense_maneuver = "block_deflect"
+        match.defense_maneuver = "deflect"
         exhaust(match, offense)
         game.match_state = match.to_dict()
         return cog, game, match, offense

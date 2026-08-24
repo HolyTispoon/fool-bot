@@ -651,7 +651,7 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.loose_ball_defense_player, defender)
         self.assertIsNone(cog.engine.loose_ball_side_on_the_clock(match))
 
-    async def test_a_block_deflect_onto_a_teammate_is_still_loose(
+    async def test_a_deflect_onto_a_teammate_is_still_loose(
         self,
     ) -> None:
         """
@@ -673,7 +673,7 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         match.move_meeple(teammate, *landing)
 
         with mock.patch("cogs.d12ball.save_games"):
-            await cog.resolve_block_deflect(
+            await cog.resolve_deflect(
                 SimpleNamespace(), game, match,
             )
 

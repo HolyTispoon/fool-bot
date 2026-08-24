@@ -853,7 +853,7 @@ class RulesEngine:
 
         Distinct from `scoring_opportunity_candidates`, which this
         reads and which still means "everyone of that side on the
-        ball" -- Block Deflect's set-up asks it about the *defense*,
+        ball" -- Deflect's set-up asks it about the *defense*,
         where the passer exclusion would mean nothing.
         """
         return [

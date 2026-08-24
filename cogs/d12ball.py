@@ -1246,7 +1246,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         for a decisively-won maneuver, purely from match state -- used
         both to restore it on a bot restart and (implicitly, by the
         same logic) to post it the first time. Returns None for a
-        maneuver that needs no choice (Block Deflect, Pressure) or an
+        maneuver that needs no choice (Deflect, Pressure) or an
         unrecognized winner -- those resolve synchronously and should
         never actually leave this state persisted except in a narrow
         crash window, which falls back to PlayerActionView.
@@ -1718,7 +1718,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "low_pass": self.resolve_low_pass,
             "dribble_advance": self.resolve_dribble_advance,
             "high_pass": self.resolve_high_pass,
-            "block_deflect": self.resolve_block_deflect,
+            "deflect": self.resolve_deflect,
             "steal": self.resolve_steal,
             "pressure": self.resolve_pressure,
             "precise_pass": self.resolve_precise_pass,
@@ -2480,7 +2480,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         # Overshoot: the pass is clamped short of the distance asked
         # for, i.e. it ran out of field. Read before the ball moves,
-        # the same way Block Deflect reads its own -- and by the same
+        # the same way Deflect reads its own -- and by the same
         # test, so a pass that could not move the ball at all is an
         # overshoot like any other.
         overshot = match.high_pass_overshoots(offense_side, distance)
@@ -2872,7 +2872,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         a contestant who costs their side nothing. See "The loose ball"
         in docs/living-rules.md.
 
-        A Block Deflect does not come through here at all: it makes a
+        A Deflect does not come through here at all: it makes a
         loose ball whoever is standing on the landing space, so its own
         effect calls begin_loose_ball directly rather than answering a
         question whose answer would be "not loose".
@@ -3264,15 +3264,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         await self.begin_score_attempt(interaction, game, match)
 
-    # -- Block Deflect -------------------------------------------------
+    # -- Deflect -------------------------------------------------
 
-    async def resolve_block_deflect(
+    async def resolve_deflect(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
     ) -> None:
-        await self.apply_deflection(interaction, game, match, "block_deflect")
+        await self.apply_deflection(interaction, game, match, "deflect")
 
     async def resolve_clear(
         self,
@@ -3281,7 +3281,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         """
-        Clear is Block Deflect at three spaces: the ball goes back 3
+        Clear is Deflect at three spaces: the ball goes back 3
         and ball speed drops by 3 rather than 1. Everything else about
         it -- the overshoot set-up, the loose ball it leaves behind --
         is the same, which is why the two share one function.
@@ -3308,13 +3308,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         name = self.engine.maneuver_name(key)
 
         # Role ability -- Fullback: +1 space on a deflection, which
-        # takes a Block Deflect from 1 to 2 and a Clear from 3 to 4.
+        # takes a Deflect from 1 to 2 and a Clear from 3 to 4.
         fullback_bonus = defender.role == PlayerRole.FULLBACK
         base_distance = 3 if key == "clear" else 1
         deflect_distance = base_distance + (1 if fullback_bonus else 0)
 
         # **The speed drop is the card's, not the distance's.** A
-        # Fullback's Block Deflect has always moved the ball 2 and
+        # Fullback's Deflect has always moved the ball 2 and
         # dropped the speed by 1, so the two are separate numbers that
         # happen to match on an ordinary deflection -- and a Clear's
         # -3 stays -3 when the Fullback pushes it to 4 spaces. Written

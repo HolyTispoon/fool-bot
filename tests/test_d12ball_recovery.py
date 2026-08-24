@@ -269,7 +269,7 @@ class PendingTurnViewTests(unittest.TestCase):
         # A tie on the cards, so a skill test is owed and no effect is
         # pending yet.
         match.offense_maneuver = "low_pass"
-        match.defense_maneuver = "block_deflect"
+        match.defense_maneuver = "deflect"
 
         view, _ = cog.pending_turn_view("g1", match)
 
