@@ -77,7 +77,7 @@ A team is nine players, and in basic mode the two teams are identical. Every pla
 
 | Role | Offense | Defense | Ability |
 | --- | ---: | ---: | --- |
-| Fullback | 1 | 6 | **+1 space** on a pass or a deflection: a High Pass up to 4, a Block Deflect of 2, a Clear of 4, a Setup Pass that may also reach 4. |
+| Fullback | 1 | 6 | **+1 space** on a pass or a deflection: a High Pass up to 4, a Deflect of 2, a Clear of 4, a Setup Pass that may also reach 4. |
 | Defender | 2 | 5 | A won Pressure also steals the ball. |
 | Midfielder | 3 | 4 | Adds 3 to a skill test for a Low Pass or a Pressure. |
 | Playmaker | 4 | 3 | May advance 2 spaces with a Dribble Advance, and pays one exhaustion token fewer for a Dribble Burst. |
@@ -145,7 +145,7 @@ Any of the possessing team's players standing on the ball's space may handle it,
 
 These leave the ball with a particular player: a Dribble Advance, with the player who dribbled it; a completed Low Pass and a received 2-space High Pass, with the receiver; a Steal, with the interceptor; a won loose ball or High Pass contest, with the winner; and a Pressure, with the handler who was shoved back still holding it — including one who has just survived an own-goal roll, and with the Defender instead where their Pressure also stole it.
 
-These leave it with nobody in particular: a kickoff or any other restart, and a required [pickup](#picking-the-ball-up). A [Block Deflect](#block-deflect) leaves nobody in possession at all, so the ball is contested before anybody handles it.
+These leave it with nobody in particular: a kickoff or any other restart, and a required [pickup](#picking-the-ball-up). A [Deflect](#deflect) leaves nobody in possession at all, so the ball is contested before anybody handles it.
 
 It holds for one turn only. If that player is no longer on the ball by the time the turn comes round, their coach chooses in the ordinary way. The player holding the ball also [never runs back](#running-back-after-a-steal).
 
@@ -196,7 +196,7 @@ With no challenger, the maneuver the offense chooses succeeds outright: there is
 
 ### Choosing and revealing
 
-Both coaches secretly choose one of their maneuvers and reveal together. The offense chooses from Low Pass, Dribble Advance and High Pass; the defense from Block Deflect, Steal and Pressure.
+Both coaches secretly choose one of their maneuvers and reveal together. The offense chooses from Low Pass, Dribble Advance and High Pass; the defense from Deflect, Steal and Pressure.
 
 In a game played with [advanced maneuvers](#advanced-maneuvers) each coach chooses from six instead of three — but only when the maneuver is challenged. An unchallenged maneuver is always played with a basic card.
 
@@ -204,11 +204,11 @@ In a game played with [advanced maneuvers](#advanced-maneuvers) each coach choos
 
 The three ranks a side form a cycle. Equal ranks tie.
 
-| Offense | Block Deflect (D1) | Steal (D2) | Pressure (D3) |
+| Offense | Deflect (D1) | Steal (D2) | Pressure (D3) |
 | --- | --- | --- | --- |
 | Low Pass (O1) | Tie | Steal wins | Low Pass wins |
 | Dribble Advance (O2) | Dribble Advance wins | Tie | Pressure wins |
-| High Pass (O3) | Block Deflect wins | High Pass wins | Tie |
+| High Pass (O3) | Deflect wins | High Pass wins | Tie |
 
 An [injured](#playing-injured) participant changes this in both directions: a maneuver they would have won outright goes to a skill test they have to win, and a tie against one healthy opponent is their automatic loss with nothing rolled.
 
@@ -238,7 +238,7 @@ With no legal destination at all, the maneuver still resolves: the ball rolls 1 
 
 ### Dribble Advance
 
-**Rank O2. Costs 1 space minute. Beats Block Deflect, loses to Pressure.**
+**Rank O2. Costs 1 space minute. Beats Deflect, loses to Pressure.**
 
 The handler and the ball move 1 space forward together. The handler then changes the ball's speed by up to their offensive skill, in either direction, within the range 1 to 12.
 
@@ -248,7 +248,7 @@ The ball is left with the handler.
 
 ### High Pass
 
-**Rank O3. Costs 2 space minutes. Beats Steal, loses to Block Deflect.**
+**Rank O3. Costs 2 space minutes. Beats Steal, loses to Deflect.**
 
 The ball is thrown 2 or 3 spaces forward, and a Fullback may throw it 4. Only distances that land on a space the field actually has are offered, and a distance is dropped when a shorter one already reaches the space it would land on — the longer throw would be the same pass at a disadvantage.
 
@@ -264,7 +264,7 @@ A 2-space pass that lands short of shooting range is still received. The range r
 
 **A passer never receives their own pass.** Thrown from the last space the ball comes straight back down where it was, and a teammate sharing that space receives it and is offered the choice above. With no other teammate there the passer simply keeps the ball: nothing is set up and nothing is contested. The throw still costs its 2 minutes.
 
-### Block Deflect
+### Deflect
 
 **Rank D1. Costs 1 space minute. Beats High Pass, loses to Dribble Advance.**
 
@@ -272,7 +272,7 @@ The ball moves 1 space back — toward the goal the offense is defending. Ball s
 
 *Fullback:* deflects the ball 2 spaces instead of 1.
 
-A Block Deflect turns nothing over by itself, and settles nothing either: it knocks the ball out of anybody's possession, so it is [loose](#the-loose-ball) wherever it lands and whoever is standing there. A player of either side already on that space contests it for nothing; a side with nobody there may send somebody after it or let it go.
+A Deflect turns nothing over by itself, and settles nothing either: it knocks the ball out of anybody's possession, so it is [loose](#the-loose-ball) wherever it lands and whoever is standing there. A player of either side already on that space contests it for nothing; a side with nobody there may send somebody after it or let it go.
 
 The one exception is a deflection that runs out of field **and** finds a defending player standing on the landing space: rather than being contested, that player gets a [scoring opportunity](#scoring-opportunities). Possession flips for it and speed resets, and it is the shot that follows — goal or miss — that makes the new play.
 
@@ -303,7 +303,7 @@ A game may be played with a second set of six maneuvers. Each sits on the rank o
 | Precise Pass | O1 | Low Pass |
 | Dribble Burst | O2 | Dribble Advance |
 | Setup Pass | O3 | High Pass |
-| Clear | D1 | Block Deflect |
+| Clear | D1 | Deflect |
 | Intercept | D2 | Steal |
 | Double Team | D3 | Pressure |
 
@@ -339,7 +339,7 @@ Ball speed rises by **3**, to a maximum of 12. Everything else is a Low Pass's: 
 
 ### Dribble Burst
 
-**Rank O2. Costs 1 space minute. Beats Block Deflect and Clear, loses to Pressure and Double Team.**
+**Rank O2. Costs 1 space minute. Beats Deflect and Clear, loses to Pressure and Double Team.**
 
 The handler carries the ball to the **last space of the goal zone they attack**, and defenders are no obstacle. There is no distance to choose. The handler gains **1 exhaustion token per space travelled** — the only maneuver that charges by distance.
 
@@ -351,7 +351,7 @@ They then change the ball's speed by up to their offensive skill, in either dire
 
 ### Setup Pass
 
-**Rank O3. Costs 2 space minutes. Beats Steal and Intercept, loses to Block Deflect and Clear.**
+**Rank O3. Costs 2 space minutes. Beats Steal and Intercept, loses to Deflect and Clear.**
 
 Two steps, in this order. The passer first changes the ball's speed by up to their offensive skill, in either direction. They then pick the ball out to a teammate **0, 1 or 3 spaces** ahead, who takes a [scoring opportunity](#scoring-opportunities) with the speed they just set counting for it.
 
@@ -367,9 +367,9 @@ Two steps, in this order. The passer first changes the ball's speed by up to the
 
 **Rank D1. Costs 1 space minute. Beats High Pass and Setup Pass, loses to Dribble Advance and Dribble Burst.**
 
-A Block Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves, and the ball is [loose](#the-loose-ball) where it lands — including the deflection that runs out of field onto a defending player, which offers that player a [scoring opportunity](#scoring-opportunities) exactly as a Block Deflect's does.
+A Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves, and the ball is [loose](#the-loose-ball) where it lands — including the deflection that runs out of field onto a defending player, which offers that player a [scoring opportunity](#scoring-opportunities) exactly as a Deflect's does.
 
-*Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 — a Fullback's extra space is distance, not speed, exactly as it is on a Block Deflect.
+*Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 — a Fullback's extra space is distance, not speed, exactly as it is on a Deflect.
 
 *Beaten:* the defender who played it gains **2 exhaustion tokens**.
 
@@ -405,7 +405,7 @@ The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is ha
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Modifier | 0 | +1 | +2 | +3 | +4 | +5 | +6 |
 
-Only maneuvers change it. In basic mode there are four: Low Pass adds 1, Block Deflect takes 1 off, and Dribble Advance and Steal let the player change it by up to their own skill. Their [advanced counterparts](#advanced-maneuvers) do the same in larger amounts — Precise Pass adds 3, Clear takes 3 off, and Dribble Burst, Setup Pass and Intercept all let the player set it by up to their own skill.
+Only maneuvers change it. In basic mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble Advance and Steal let the player change it by up to their own skill. Their [advanced counterparts](#advanced-maneuvers) do the same in larger amounts — Precise Pass adds 3, Clear takes 3 off, and Dribble Burst, Setup Pass and Intercept all let the player set it by up to their own skill.
 
 **Every turnover resets it to 1**, with one exception: a Dribble Burst that is beaten hands the ball over at whatever speed the burst put into it.
 
@@ -422,7 +422,7 @@ A scoring opportunity is an ordinary [score attempt](#score-attempt) taken out o
 | A received 2-space High Pass | The receiver |
 | An overshot High Pass onto a teammate | The receiver |
 | A Winger's completed Low Pass | The receiver |
-| An overshot Block Deflect | The defending player on the landing space |
+| An overshot Deflect | The defending player on the landing space |
 
 The shooter gains 1 exhaustion token after the roll either way, and a Striker adds 3 to it.
 
@@ -446,7 +446,7 @@ Nothing brings a sent player home again. They stay where the contest left them u
 
 ### The loose ball
 
-The ball is **loose** whenever nobody is in possession of it. It has to be won before play carries on, and it is won the same way however it came free: a pass that lands where the passing team has nobody, a [Block Deflect](#block-deflect) wherever it lands, and a long [High Pass](#the-high-pass-contest), which is this contest with one difference.
+The ball is **loose** whenever nobody is in possession of it. It has to be won before play carries on, and it is won the same way however it came free: a pass that lands where the passing team has nobody, a [Deflect](#deflect) wherever it lands, and a long [High Pass](#the-high-pass-contest), which is this contest with one difference.
 
 Each side puts up at most one contestant.
 

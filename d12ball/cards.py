@@ -17,7 +17,7 @@ cards without anything here being edited.
 
 Which roles a card lists is mostly matched, not tabulated: a role is on
 the card when its ability sentence names that maneuver, so the Fullback
-appears on both High Pass and Block Deflect. Abilities are never cut
+appears on both High Pass and Deflect. Abilities are never cut
 down here; see "Every ability is imported twice" in CLAUDE.md. The two
 things that match cannot find are listed explicitly below, each with
 the reason -- see EXTRA_ROLES and EXTRA_NOTES.
@@ -531,7 +531,7 @@ STRIP_MOVES: dict[str, tuple[Move, ...]] = {
         Move(3, "contested", "offense", caption_at=3.5),
         Move(4, "fullback", "offense", dashed=True),
     ),
-    "block_deflect": (
+    "deflect": (
         Move(-1, "ball back", "defense"),
         Move(-2, "fullback", "defense", dashed=True),
     ),
@@ -610,7 +610,7 @@ STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
     "low_pass": ("H", {2: "R", -2: "R"}),
     "dribble_advance": ("H", {1: "H", 2: "H"}),
     "high_pass": ("H", {}),
-    "block_deflect": ("H", {}),
+    "deflect": ("H", {}),
     "steal": ("HC", {1: "C"}),
     "pressure": ("HC", {-1: "HC"}),
     "precise_pass": ("H", {4: "R", -4: "R"}),
@@ -628,7 +628,7 @@ STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
 # **The basic strip is the standard seven-space board with the ball on
 # the third space, which is the only position from which every basic
 # maneuver fits**: a High Pass of 4 lands on the last space and a
-# Fullback's Block Deflect of 2 on the first. The advanced cards do not
+# Fullback's Deflect of 2 on the first. The advanced cards do not
 # fit it -- a Fullback's Clear drives the ball back 4 and Dribble Burst
 # runs it to the far end -- so they are drawn on the **nine-space
 # board**, which is a real board and not a made-up strip, with the ball
@@ -848,7 +848,7 @@ def draw_strip(
         else:
             # Nothing lands here but the ball, so the space carries how
             # far it came instead -- the distance is the choice on a
-            # High Pass and the ability on a Block Deflect.
+            # High Pass and the ability on a Deflect.
             cx, cy = center(here + move.offset * forward)
             pen.text(
                 (cx, cy + 1),
@@ -1409,7 +1409,7 @@ def fit_node_label(
 
     Returns the size alongside the fitted lines, which is what lets a
     caller measure one name and cap the rest of the cycle at it -- see
-    `render_maneuver_card_back`'s use of "Block Deflect" as the ceiling.
+    `render_maneuver_card_back`'s use of "Deflect" as the ceiling.
     """
     return fit_node_block(pen, [words], radius, max_size)
 

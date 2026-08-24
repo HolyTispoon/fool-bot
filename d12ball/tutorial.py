@@ -90,7 +90,7 @@ from .components import MatchState, PlayerRole, TeamSide
 LOW_PASS = "low_pass"
 DRIBBLE_ADVANCE = "dribble_advance"
 HIGH_PASS = "high_pass"
-BLOCK_DEFLECT = "block_deflect"
+DEFLECT = "deflect"
 STEAL = "steal"
 PRESSURE = "pressure"
 
@@ -216,13 +216,13 @@ BEATS: tuple[TutorialBeat, ...] = (
             "can open it whenever you like.\n\n"
             "Dinky's playmaker is standing on the ball, so they are the "
             "one challenging you.\n\n"
-            "**Pick Dribble Advance.** It beats Block Deflect, which is "
+            "**Pick Dribble Advance.** It beats Deflect, which is "
             "what Dinky has played, and it is the card that carries the "
             "ball up the field."
         ),
         player_has_ball=True,
         player_maneuver=DRIBBLE_ADVANCE,
-        dinky_maneuver=BLOCK_DEFLECT,
+        dinky_maneuver=DEFLECT,
         # Two spaces is the Playmaker's own ability and this beat exists
         # partly to show it. The speed dial is pinned at no change
         # rather than taught here: the turnover in beat 2 resets the
@@ -235,7 +235,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         title="Roles, abilities, and a tie",
         lesson=(
             "## 2. Every role has an ability\n"
-            "Dribble Advance beat Block Deflect outright -- no dice, "
+            "Dribble Advance beat Deflect outright -- no dice, "
             "because the cycle had already settled it -- and your "
             "playmaker carried the ball **two** spaces, from M2 to "
             "**V1**.\n\n"
@@ -267,9 +267,9 @@ BEATS: tuple[TutorialBeat, ...] = (
             "it, and both of them pick up an **exhaustion token** for "
             "the effort. Tokens are the game's running cost; enough of "
             "them and a player risks going down injured.\n\n"
-            "**Pick Low Pass.** It is rank 1 and so is the Block "
+            "**Pick Low Pass.** It is rank 1 and so is the "
             "Deflect Dinky has played, so this one goes to the dice -- "
-            "and Dinky is going to win it. Watch what a won Block "
+            "and Dinky is going to win it. Watch what a won "
             "Deflect does: the ball is knocked back a space and comes "
             "**loose**, belonging to nobody, and each side sends "
             "somebody to fight over it. You will be asked who -- and "
@@ -278,7 +278,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         ),
         player_has_ball=True,
         player_maneuver=LOW_PASS,
-        dinky_maneuver=BLOCK_DEFLECT,
+        dinky_maneuver=DEFLECT,
         # The coach has to lose both of these, or the ball never comes
         # free and beats 3 and 4 -- the two lessons in defending -- have
         # nothing to defend against. See the module docstring.
@@ -291,7 +291,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         lesson=(
             "## 3. Your turn to defend\n"
             "That is the ball lost. Dinky won the skill test, their "
-            "Block Deflect knocked it back to **M3** and loose, and "
+            "Deflect knocked it back to **M3** and loose, and "
             "they won the scramble that followed. Whoever of yours was "
             "left standing outside their own zone has run back into it "
             "-- and paid a token a space to do it.\n\n"
@@ -305,7 +305,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         maneuver_note=(
             "### The other three cards\n"
             "Defending, your hand is the other half of the cycle:\n\n"
-            "- **Block Deflect** -- knocks the ball back a space and "
+            "- **Deflect** -- knocks the ball back a space and "
             "loose, for either side to fight over. You were on the "
             "wrong end of one last turn.\n"
             "- **Steal** -- takes the ball outright. A "

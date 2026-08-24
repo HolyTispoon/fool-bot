@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-19.
+**As of:** 2026-08-24.
 
 ## Where the rules come from
 
@@ -87,6 +87,23 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-24 -- author, "Block Deflect" is renamed to "Deflect"
+
+- **The basic D1 card is now "Deflect"** -- the sheet's `maneuvers` tab is updated, and
+  re-running `scripts/import_d12ball_maneuvers.py` (data_version 10) carries the new name into
+  `maneuvers.json`. Its key changes from `block_deflect` to `deflect`; nothing about its rank,
+  cost or effect changes, only the printed name.
+- **`LEGACY_MANEUVER_KEYS` in `d12ball/components.py` gained `block_deflect -> deflect`**, the
+  same way `steal_intercept -> steal` was carried after the 2026-08-18 rename, so a game saved
+  under the old key still loads.
+- Every place that named the card by string followed: the living rules, the dispatch table and
+  `resolve_block_deflect` (now `resolve_deflect`) in `cogs/d12ball.py`, the tutorial's rail
+  (`BLOCK_DEFLECT` is now `DEFLECT` in `d12ball/tutorial.py`), the card strip data in
+  `d12ball/cards.py`, and the test suite. The Fullback's ability sentence in `players.json` is
+  untouched -- the `basic_abilities` tab still reads "Block deflect: ball goes back 2 spaces",
+  which is a separate column upstream and matches the new name on the whole word "deflect"
+  regardless.
 
 ### 2026-08-19 -- author, the advanced maneuvers land, and the outright rule is about the cards
 

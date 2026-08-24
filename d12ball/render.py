@@ -2607,7 +2607,7 @@ def fit_maneuver_box_text(
     (down to a floor, never above `MANEUVER_EFFECT_CEILING`) whose
     wrapped effect text fits what the title leaves in a reference box
     -- searched per box, against one fixed box size all twelve share
-    (see `render_maneuver_reference_image`), so Block Deflect's one
+    (see `render_maneuver_reference_image`), so Deflect's one
     line reads much larger than Double Team's paragraph rather than
     both sharing a size picked for the longer of the two.
     """

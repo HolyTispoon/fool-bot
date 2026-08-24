@@ -165,7 +165,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         cog, game, match = self.build()
         match.offense_maneuver = "low_pass"
-        match.defense_maneuver = "block_deflect"  # Same rank -- a tie.
+        match.defense_maneuver = "deflect"  # Same rank -- a tie.
         match.injured.add(match.active_player_id)
 
         await self.resolve(cog, game, match)
@@ -173,13 +173,13 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         # The healthy side (defense) wins outright, no skill test.
         cog.begin_effect_resolution.assert_awaited_once()
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "block_deflect",
+            cog.begin_effect_resolution.await_args.args[3], "deflect",
         )
 
     async def test_an_auto_loss_charges_neither_side_a_token(self) -> None:
         cog, game, match = self.build()
         match.offense_maneuver = "low_pass"
-        match.defense_maneuver = "block_deflect"
+        match.defense_maneuver = "deflect"
         match.injured.add(match.active_player_id)
 
         await self.resolve(cog, game, match)
@@ -194,7 +194,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         cog, game, match = self.build()
         match.offense_maneuver = "low_pass"
-        match.defense_maneuver = "block_deflect"
+        match.defense_maneuver = "deflect"
         match.injured.add(match.active_player_id)
         match.injured.add(match.challenger_id)
 
@@ -252,7 +252,7 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = midfielder
         match.challenger_id = match.visiting.field_players[0]
         match.offense_maneuver = "low_pass"
-        match.defense_maneuver = "block_deflect"
+        match.defense_maneuver = "deflect"
         if injure_midfielder:
             match.injured.add(midfielder)
         game.match_state = match.to_dict()
@@ -531,7 +531,7 @@ class SettledWinnerRestoreTests(unittest.TestCase):
     def test_an_auto_loss_restores_the_winners_effect_choice(self) -> None:
         cog, game, match = self.build()
         match.offense_maneuver = "low_pass"
-        match.defense_maneuver = "block_deflect"
+        match.defense_maneuver = "deflect"
         match.injured.add(match.challenger_id)
 
         # The ranking says tie, which used to mean "a skill test is

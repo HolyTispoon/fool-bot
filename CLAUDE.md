@@ -608,7 +608,7 @@ weapon rather than only a saving.
   is a fourth number against a card offering 0/1/3, and a Playmaker's
   "may advance 2" is no bonus at all on a run to the end of the field.
   The author settled all three on 2026-08-19 -- **the Fullback's
-  ability is +1 distance** (High Pass 3->4, Block Deflect 1->2, Clear
+  ability is +1 distance** (High Pass 3->4, Deflect 1->2, Clear
   3->4, Setup Pass gains a 4), and **the Playmaker's is one exhaustion
   token off a Dribble Burst**, which is the only ability that reads
   differently on the two cards of a rank. The Midfielder's +3 and the
@@ -903,7 +903,7 @@ whole rule, over `BoardState.is_in_shooting_range`.
   2 that is refused a set-up has to resolve as an ordinary pass rather than fall
   through to a contest it has never had to win.
 - **An overshoot is the set-up the rule cannot bite**, whichever maneuver made
-  it. A Block Deflect's puts the ball on the space closest to the offense's own
+  it. A Deflect's puts the ball on the space closest to the offense's own
   goal and a High Pass's on the space closest to the goal they attack; both are
   as deep into the shooting team's range as the field goes. So neither puts a
   range check over its candidates -- a branch that can never be taken reads as
@@ -1027,7 +1027,7 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
   landing space has no shooter, falls through to the ordinary loose-ball paths,
   and would carry an inert flag for the rest of the turn if it were set earlier.
 - **It is persisted**, unlike the overshoot test itself, which is a local read of
-  `relative_flat_index` against the requested distance the way Block Deflect
+  `relative_flat_index` against the requested distance the way Deflect
   reads its own. Both things the flag governs outlive the effect that sets it: a
   score attempt is a view a restart re-attaches, and the contest is rolled a
   click later. `reset_maneuver` clears it with the rest of the turn.
@@ -1119,7 +1119,7 @@ for the same reason.
   auto-pick cannot disagree about who is standing there. It can only bite on a
   pass clamped to 0 spaces, which never reaches a contest -- stated anyway, for
   the reason `high_pass_receiver_candidates` states it.
-- **A Block Deflect calls `begin_loose_ball` directly** rather than going
+- **A Deflect calls `begin_loose_ball` directly** rather than going
   through `finish_maneuver_resolution`. It knocks the ball out of possession
   whoever is standing there, so `check_for_loose_ball`'s question -- does the
   possessing team have somebody on the ball -- has an answer that does not
@@ -1171,7 +1171,7 @@ ball's space -- see "Choosing the handler" in the living rules.
   the roll, or unopposed. That covers the long High Pass, which routes through
   the same machinery. The out-of-bounds branch is the exception: nobody
   contested it, so it stays clear and the pickup is an ordinary placement.
-  Block Deflect sets nothing either -- it makes a loose ball, and the contest
+  Deflect sets nothing either -- it makes a loose ball, and the contest
   names the carrier.
 - **The run-back exemption is the carry, read from the other end.**
   `begin_run_back` sets `pending_run_back_stays_player_id` from
@@ -1224,7 +1224,7 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
   fields. It is consumed inside `begin_run_back`, and by the time anything is
   saved the state already records which branch was taken: a window open, or a
   run back pending. A restart resumes from that, never from the flag.
-- **A Block Deflect that overshoots is neither.** It flips possession and goes
+- **A Deflect that overshoots is neither.** It flips possession and goes
   straight to the shot without calling `begin_run_back` at all; the goal or
   miss that follows is the new play.
 - **A new play posts its board and pins it**, via `post_new_play_board` inside
@@ -1520,8 +1520,8 @@ previous turn produced -- these are outcomes, not settings:
 
 | # | Coach plays | Dinky plays | Result |
 | --- | --- | --- | --- |
-| 1 | Dribble Advance | Block Deflect | Decisive win, the Playmaker's own 2 spaces: M2 → V1 |
-| 2 | Low Pass | Block Deflect | Rank 1 both: a tie, a skill test the coach loses, the ball knocked to M3 and loose, and Dinky wins the scramble |
+| 1 | Dribble Advance | Deflect | Decisive win, the Playmaker's own 2 spaces: M2 → V1 |
+| 2 | Low Pass | Deflect | Rank 1 both: a tie, a skill test the coach loses, the ball knocked to M3 and loose, and Dinky wins the scramble |
 | 3 | Pressure | Dribble Advance | The coach defends and wins: Dinky driven back to V1 |
 | 4 | Steal Intercept | Low Pass | Turnover, the ball back to M3, the run back, and the speed crank |
 | 5 | High Pass | Steal Intercept | 2 spaces onto the striker on V2 -- a scoring opportunity, a set-up shot, and a goal |
@@ -2188,7 +2188,7 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
     between them.
 - **Which roles a card lists is mostly matched, not tabulated.** A role is on
   the card when its ability sentence names that maneuver, which is why the
-  Fullback is on both High Pass and Block Deflect, carrying its whole sentence
+  Fullback is on both High Pass and Deflect, carrying its whole sentence
   to each. The sentence is never cut down here -- see "Every ability is
   imported twice". A new ability that mentions a maneuver reaches its card
   without anything in the script being touched.
@@ -2222,7 +2222,7 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
   carries the geometry and the effect text carries the wording. A basic card is
   drawn on the standard seven-space board with the ball on the third space,
   which is the only position from which every basic maneuver fits: a High Pass
-  of 4 lands on the last space and a Fullback's Block Deflect of 2 on the
+  of 4 lands on the last space and a Fullback's Deflect of 2 on the
   first. **An advanced card is drawn on the nine-space board** with the ball on
   the fourth, because Clear drives the ball back 3 and Dribble Burst runs it to
   the far end -- 3 back and 5 forward, which the seven-space strip has no room

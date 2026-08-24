@@ -632,7 +632,7 @@ class ClearTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         """
         The Fullback's ability is **+1 distance** (the author,
         2026-08-19), so it takes a Clear from 3 to 4 the same way it
-        takes a Block Deflect from 1 to 2. Its sentence states a number
+        takes a Deflect from 1 to 2. Its sentence states a number
         because it was written against one card; the rule behind the
         number is what carries.
         """
@@ -651,7 +651,7 @@ class ClearTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
     async def test_a_fullbacks_extra_space_is_not_extra_speed(self) -> None:
         """
         The speed drop is the card's, not the distance's. A Fullback's
-        Block Deflect has always moved the ball 2 and cost 1 speed, so
+        Deflect has always moved the ball 2 and cost 1 speed, so
         a Fullback's Clear moves 4 and still costs 3 -- the two numbers
         happen to match on an ordinary Clear, which is exactly how a
         distance-derived speed drop read correctly until now.
@@ -673,7 +673,7 @@ class ClearTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
     ) -> None:
         # The same +1, read on the card it was written against: 2
         # spaces, and still only 1 off the speed.
-        cog, game, match = self.build("dribble_advance", "block_deflect")
+        cog, game, match = self.build("dribble_advance", "deflect")
         fullback = fielded(match, PlayerRole.FULLBACK, TeamSide.VISITING)
         match.challenger_id = fullback
         match.move_meeple(fullback, match.ball.zone, match.ball.space_index)
@@ -682,7 +682,7 @@ class ClearTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball = mock.AsyncMock()
 
         with mock.patch("cogs.d12ball.save_games"):
-            await cog.resolve_block_deflect(
+            await cog.resolve_deflect(
                 build_interaction(), game, match,
             )
 
