@@ -801,9 +801,12 @@ class RestrictedToOccupantsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(cog.engine.loose_ball_side_on_the_clock(match))
         cog.resolve_loose_ball.assert_awaited_once()
         # The one message this posts says the ball was simply kept, not
-        # the ordinary "each side may send" wording.
+        # the ordinary "each side may send" wording -- and it is never
+        # called loose, since it never was: only an empty landing space
+        # is (the author, correcting this in review).
         content = cog.announce_board_update.await_args.args[2]
-        self.assertIn("keep it, uncontested", content)
+        self.assertIn("uncontested", content)
+        self.assertNotIn("Loose ball!", content)
 
     async def test_only_the_offense_present_keeps_it_uncontested(
         self,

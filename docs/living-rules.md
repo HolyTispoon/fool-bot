@@ -446,14 +446,12 @@ Nothing brings a sent player home again. They stay where the contest left them u
 
 ### The loose ball
 
-The ball is **loose** whenever nobody is in possession of it and the space it is lying on is empty. It has to be won before play carries on, and it is won the same way however it came free: a pass that lands where the passing team has nobody, and a long [High Pass](#the-high-pass-contest), which is this contest with one difference.
+The ball is **loose** whenever nobody is in possession of it. It has to be won before play carries on, and it is won the same way however it came free: a pass that lands where the passing team has nobody, and a long [High Pass](#the-high-pass-contest), which is this contest with one difference.
 
 Each side puts up at most one contestant.
 
 - **A player of theirs already standing on the ball's space contests automatically.** They are not sent anywhere and pay nothing. Where a side has several standing there, their coach picks between them.
 - **A side with nobody there may [send a player](#sending-a-player), or send nobody.** Where both sides have to choose, the side that last had the ball chooses first and the other side chooses after them.
-
-**[Deflect](#deflect), [Clear](#clear) and a beaten [Setup Pass](#setup-pass) are the one exception to that second rule.** They reach this contest only when the space they land the ball on is empty. Land on a space only one side already occupies and it is theirs outright, uncontested — the other side is never offered a send, because the whole point of those three is that the ball comes free wherever it happens to land, not that it opens a fight for it. Land on a space both sides occupy and it is the ordinary forced contest below, the same as any other loose ball whose landing space someone from each side already stands on.
 
 What follows is decided by how many of them there turn out to be.
 
@@ -464,6 +462,8 @@ What follows is decided by how many of them there turn out to be.
 Neither side adds the ball speed modifier: the ball is nobody's yet. A High Pass is the one exception, below.
 
 A loose ball won by the side that did not last have it is a steal.
+
+**[Deflect](#deflect), [Clear](#clear) and a beaten [Setup Pass](#setup-pass) are not this rule at all unless the space they land the ball on is empty.** They simply move the ball; it only *becomes* loose, in the sense above, where nobody is standing. Land it where only one side already is and the ball is theirs, plainly — there is no contest to have and no send to offer the other side. Land it where both sides already are and they contest it on the spot, the same shape as the "both sides put somebody up" case above — but that is a coincidence of the dice, not the ball having gone loose first.
 
 ### The High Pass contest
 

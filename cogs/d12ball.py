@@ -3041,9 +3041,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 )
                 match.decline_loose_ball(empty_side)
                 single_side_note = (
-                    "**Loose ball!** Only "
+                    "The ball never goes loose here -- only "
                     f"{format_team_side_label(match.setup_for_side(taking_side))} "
-                    "has anyone there -- they keep it, uncontested."
+                    "has anyone there, so it's simply theirs, uncontested."
                 )
 
         self.engine.auto_resolve_loose_ball_picks(game, match)
