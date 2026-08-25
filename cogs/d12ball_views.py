@@ -9,7 +9,7 @@ prompts and turning button/select clicks into calls on the cog.
 
 import asyncio
 import random
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Awaitable, Callable, Optional
 
 import aiohttp
 import discord
@@ -3623,6 +3623,57 @@ class SpeedDeltaChoiceView(SafeView):
             interaction, game, match, target_speed,
             turnover_occurred=turnover_occurred,
         )
+
+
+class TutorialContinueView(SafeView):
+    """
+    A single "Continue" button gating whatever comes next in a run of
+    tutorial narration -- see D12Ball.post_tutorial_note. Two or more
+    plain-text messages posted back to back with no click between them
+    are exactly what gets scrolled past in Discord, so a note that has
+    something following it is held here until the coach presses on,
+    rather than dumped alongside the rest of the burst.
+
+    Not restart-safe, the same tradeoff the rest of the tutorial makes
+    -- see the module docstring in d12ball/tutorial.py: what a restart
+    loses is a lesson's text, and a dead Continue button here is the
+    same kind of loss. It is never registered with `bot.add_view`, so
+    a restart while one is up leaves it unclickable; the game itself
+    is unaffected; the coach's own next real action still works.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        on_continue: Callable[[discord.Interaction], Awaitable[None]],
+    ):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self._on_continue = on_continue
+
+        button = discord.ui.Button(
+            label="Continue",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:tutorial_continue:{game_id}",
+        )
+        button.callback = self._continue
+        self.add_item(button)
+
+    async def _continue(self, interaction: discord.Interaction) -> None:
+        game, _ = self.load_match()
+        if game is None or not self.is_game_participant(
+            game, interaction.user.id,
+        ):
+            await interaction.response.send_message(
+                "Only a coach in this game can continue.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.edit_message(view=None)
+        await self._on_continue(interaction)
 
 
 class ShooterChoiceView(SafeView):

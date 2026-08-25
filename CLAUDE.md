@@ -1606,18 +1606,69 @@ A save written before them defaults them; nothing migrates.
   whole of turning the rails off, which is all `/d12ball skip_tutorial`
   does; `tutorial` stays True so the record and the channel name still
   say what the game was created as.
-- **`stage_tutorial_beat` runs at the top of `send_turn_prompt`**,
-  which is called once a turn -- so the advance is what counts the
-  beats. It **moves nothing**; it posts the lesson and nothing else.
+- **`stage_tutorial_beat` gates the top of `send_turn_prompt`**, which
+  is called once a turn -- so the advance is what counts the beats. It
+  **moves nothing**; it posts the lesson (or `HANDOVER`, once the
+  script has run out) behind a Continue button and holds the rest of
+  `send_turn_prompt` -- an AI turn or the ordinary action prompt --
+  until it is pressed; see "Reading the notes" below.
   `tutorial_staged` keeps the count honest: `/d12ball offensive_choice`
   and `/d12ball resume force:true` also send a turn prompt without a
   turn having been played.
 - **It is ahead of the AI branch** in `send_turn_prompt`, because beat
   3 is a turn the coach *defends* and its lesson has to be posted
-  before Dinky moves.
+  before Dinky moves -- Dinky's own move is part of what the Continue
+  click releases.
 - **Setup coaching is skipped**, and the script arms at the kickoff --
   so teams, the toss and home-or-visiting are played exactly as an
   ordinary game plays them.
+
+### Reading the notes: the Continue gate
+
+Two narration messages posted back to back with nothing for the coach
+to click between them is exactly what gets scrolled past in a busy
+Discord channel -- and the same is true when a note is immediately
+followed by an *interactive* prompt, since the newest message with
+live buttons is what draws the eye, not the note sitting above it.
+Since 2026-08-25 every tutorial note that has something following it
+is held behind a **Continue** button instead: `WELCOME` before beat
+1's lesson, every beat's `lesson` before whatever the turn does next,
+every beat's `maneuver_note` before the maneuver menu, beat 1's
+`speed_note` before the speed prompt, and `HANDOVER` before the first
+un-railed turn prompt.
+
+- **`D12Ball.post_tutorial_note`** is the whole of it: post the note
+  with a `TutorialContinueView`, and call `then` -- the continuation
+  that was going to run right after it -- only when that view's one
+  button is pressed. `then` receives the *click's* interaction, not
+  the one the note was posted with, since everything after the click
+  has to answer with that.
+- **`stage_tutorial_beat` takes `then` as an optional parameter**
+  rather than always gating, so the staging tests -- which call it
+  directly and check only which note came out -- see the old, ungated
+  behaviour when they leave it out. `send_turn_prompt` is the one real
+  caller that supplies it, wrapping everything it used to do inline
+  (the AI branch, the ball-handler selection, the ordinary prompt) in
+  a nested `continue_turn_prompt`.
+  `begin_maneuver_action_selection` and `offer_speed_choice` follow
+  the identical shape for their own notes: the prompt-building code
+  moves into a nested function, and `maneuver_note`/`speed_note`
+  decide whether it runs straight away or waits on a click.
+- **Not restart-safe, on purpose.** `TutorialContinueView` is never
+  registered with `bot.add_view`, so a restart while one is up leaves
+  it dead -- the same tradeoff the rest of the tutorial already makes
+  for a lesson's own text (see the module docstring in
+  `d12ball/tutorial.py`). The game itself is untouched; a coach whose
+  Continue button stopped answering falls back to `/d12ball resume`
+  for whatever it was gating, same as any other stuck prompt.
+- **`COACHING_NOTE` is deliberately left out of this.** Everything
+  after it in `begin_substitution_window` branches hard on who is
+  being offered the window and how (AI or human, declared or given),
+  and folding that whole tail into a `then` continuation was judged
+  not worth the risk for a note that fires once, late, outside the
+  five scripted beats, and already ends by telling the coach the
+  window is theirs to take or decline. If it turns out to want the
+  same treatment, the shape to copy is `offer_speed_choice`'s.
 
 ### The Coaching Choice, which the script cannot schedule
 
