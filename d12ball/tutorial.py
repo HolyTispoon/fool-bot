@@ -272,44 +272,55 @@ BEATS: tuple[TutorialBeat, ...] = (
             "**Pick Low Pass.** It is rank 1, just like the "
             "Deflect Dinky has played, so this one goes to the dice -- "
             "and Dinky is going to win it. Watch what a won "
-            "Deflect does: the ball is knocked back a space and comes "
-            "**loose**, belonging to nobody, and each side sends "
-            "somebody to fight over it. You will be asked who -- and "
-            "each name comes with the distance, because walking in "
-            "costs a token a space."
+            "Deflect does: it knocks the ball back a space, nothing "
+            "more. It only comes **loose** -- open to both sides -- "
+            "when it lands where nobody is standing. Dinky already has "
+            "a midfielder right there on M3, so the ball is simply "
+            "theirs: no roll, no contest, never loose."
         ),
         player_has_ball=True,
         player_maneuver=LOW_PASS,
         dinky_maneuver=DEFLECT,
-        # The coach has to lose both of these, or the ball never comes
-        # free and beats 3 and 4 -- the two lessons in defending -- have
-        # nothing to defend against. See the module docstring.
-        choices={"loose_ball_decline": "never"},
-        rolls={"skill_test": (2, 11), "loose_ball": (2, 11)},
+        # The coach has to lose this, or the ball never comes free and
+        # beats 3 and 4 -- the two lessons in defending -- have nothing
+        # to defend against. See the module docstring. There is no
+        # loose-ball roll to rig any more: Dinky's own midfielder is
+        # already standing on M3 where the beaten Deflect lands, so
+        # since 2026-08-24 they keep it outright and nothing is asked
+        # of either coach.
+        rolls={"skill_test": (2, 11)},
     ),
     TutorialBeat(
         step=3,
         title="Your turn to defend",
         lesson=(
             "## 3. Your turn to defend\n"
-            "Dang it. You lost possession. Dinky won the skill test, their "
-            "Deflect knocked it back to **M3** and loose, and "
-            "they won the scramble that followed. Any of your players that were "
-            "left standing outside their own zone has run back into it "
-            "-- and paid an ehuaustion token per space to do it.\n\n"
-            "Dinky is coming at your goal now. You have a player "
-            "standing on the ball already, so they challenge without "
-            "going anywhere and without paying anything.\n\n"
-            "You press nothing to start a turn you are defending -- "
-            "Dinky moves first, and then you are asked for a card. Sit "
-            "tight."
+            "Dang it. You lost possession. Dinky won the skill test, and "
+            "their Deflect knocked the ball back to **M3** -- right onto "
+            "one of their own midfielders, who was already standing "
+            "there. Nobody of yours was, so it went straight to them: "
+            "no roll, and never loose at all. Your playmaker, left "
+            "standing outside her own zone at V1, has run back into "
+            "midfield -- and paid an exhaustion token per space to do "
+            "it.\n\n"
+            "Dinky is coming at your goal now, and this time **nobody "
+            "of yours is anywhere near the ball**. Before anything "
+            "else, you'll be asked to send a challenger to it -- pick "
+            "either of the two offered, it costs the same either way. "
+            "Sending nobody would let Dinky's maneuver straight "
+            "through unchallenged, so that button is greyed out here.\n\n"
+            "Once your challenger is in position, Dinky moves, and "
+            "then you are asked for a card."
         ),
         maneuver_note=(
             "### The other three cards\n"
             "Defending, your hand is the other half of the cycle:\n\n"
-            "- **Deflect** -- knocks the ball back a space and "
-            "loose, for either side to fight over. You were on the "
-            "wrong end of one last turn.\n"
+            "- **Deflect** -- knocks the ball back a space, nothing "
+            "more. Land on an empty space and *that's* what makes it "
+            "loose, open to both sides; land where only one side "
+            "already is and it's simply theirs, no contest -- you were "
+            "on the wrong end of that last turn; land where both are "
+            "and they contest it.\n"
             "- **Steal** -- takes the ball outright. A "
             "turnover.\n"
             "- **Pressure** -- drives the handler and the ball back a "
@@ -323,6 +334,14 @@ BEATS: tuple[TutorialBeat, ...] = (
         player_has_ball=False,
         player_maneuver=PRESSURE,
         dinky_maneuver=DRIBBLE_ADVANCE,
+        # Beat 2 no longer leaves a defeated contestant standing on the
+        # ball for this challenge to fall to automatically -- see the
+        # 2026-08-24 entry in the rules log. The coach now has to send
+        # one of two equally-near players in; which of them goes is
+        # free (neither beat downstream cares), but declining and
+        # letting Pressure through unchallenged would leave nothing to
+        # defend against, so that alone is railed.
+        choices={"challenge_decline": "never"},
     ),
     TutorialBeat(
         step=4,
@@ -358,8 +377,9 @@ BEATS: tuple[TutorialBeat, ...] = (
         # the reset, so it is still on the ball when the striker takes
         # aim a beat later. CHOICE_MAX because the cap is the stealer's
         # own defensive skill, and who does the stealing is not
-        # something the script fixes.
-        choices={"speed": CHOICE_MAX, "loose_ball_decline": "never"},
+        # something the script fixes. (Steal beats Low Pass decisively
+        # -- there is no loose ball here to rail.)
+        choices={"speed": CHOICE_MAX},
     ),
     TutorialBeat(
         step=5,
@@ -536,10 +556,11 @@ def resolve_choice(
     rail.
 
     Keys name the view that asks: `dribble_advance`, `speed`,
-    `high_pass`, `setup_attempt`, `loose_ball_decline`. Every one of
-    them decides where the ball ends up or what it is worth, which is
-    why they are railed at all -- see the module docstring on what is
-    deliberately left free.
+    `high_pass`, `setup_attempt`, `loose_ball_decline`,
+    `challenge_decline`. Every one of them decides where the ball ends
+    up, what it is worth, or whether a maneuver gets contested at all,
+    which is why they are railed at all -- see the module docstring on
+    what is deliberately left free.
 
     **A rail matching nothing on offer is no rail**, rather than a
     prompt with every button dead. The script and the flow can only

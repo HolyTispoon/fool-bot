@@ -1661,6 +1661,15 @@ class ManeuverChallengeView(SafeView):
                 style=discord.ButtonStyle.secondary,
                 custom_id=f"d12ball:challenge_decline:{game_id}",
                 row=4,
+                # Railed during the tutorial's beat 3: the coach has
+                # nobody standing near the ball there, and letting
+                # Dinky's maneuver through unchallenged would leave
+                # nothing for the lesson's Pressure to defend against.
+                disabled=cog.tutorial_railed_option(
+                    cog.games.get(game_id),
+                    "challenge_decline",
+                    ("never",),
+                ) == "never",
             )
             decline.callback = self.decline
             self.add_item(decline)
@@ -2709,7 +2718,16 @@ class ScoreAttemptView(SafeView):
         if scored:
             match.restart_after_goal(new_possession_side)
         else:
+            # Unlike a goal's kickoff space, nothing guarantees an
+            # arrangement covers the space closest to the defending
+            # side's own goal -- so, since 2026-08-24, this restart
+            # owes the same pickup an out-of-bounds ball does rather
+            # than falling through to a two-sided loose ball. Set
+            # before the reset (below, via begin_run_back's new_play):
+            # begin_ball_recovery checks eligible_ball_handlers() first
+            # and asks nobody when the arrangement already covers it.
             match.restart_after_missed_score(new_possession_side)
+            match.pending_ball_recovery = True
 
         # Save a reconstructible run-back state before refreshing the
         # persistent board. begin_run_back repeats this assignment

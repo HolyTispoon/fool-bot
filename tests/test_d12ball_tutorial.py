@@ -529,12 +529,17 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
 
     # The two steps the script deliberately leaves open. Both are
     # choices with no wrong answer whose outcome no later beat reads:
-    # which space a displaced player returns to, and which of the
-    # coach's players is sent after beat 2's loose ball -- the ball
-    # goes Dinky's way on scripted dice whoever contests it. Anything
-    # else showing up with two live buttons means a rail has gone
-    # missing, which is what this list is for.
-    FREE_CHOICES = ("RunBack", "LooseBallChoiceView")
+    # which space a displaced player returns to, and which of two
+    # equally-near players the coach sends to challenge in beat 3.
+    # Anything else showing up with two live buttons means a rail has
+    # gone missing, which is what this list is for.
+    #
+    # Beat 2's loose ball is no longer in this list: since 2026-08-24 a
+    # side with nobody on the landing space is never offered a send at
+    # all when the other side already has someone there, so
+    # LooseBallChoiceView never appears in this script any more -- see
+    # test_beat_2s_loose_ball_is_never_offered_to_either_coach.
+    FREE_CHOICES = ("RunBack", "ManeuverChallengeView")
 
     async def test_every_railed_step_leaves_one_button(self) -> None:
         _, _, log = await self.play()
@@ -545,15 +550,34 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertEqual(unexpected, [])
 
-    async def test_the_loose_ball_may_not_be_waved_through(self) -> None:
-        # The one button removed from that prompt. Declining would not
-        # derail the story -- Dinky takes the ball either way -- but the
-        # lesson beside it says both sides send somebody.
+    async def test_beat_2s_loose_ball_is_never_offered_to_either_coach(
+        self,
+    ) -> None:
+        # Dinky's own midfielder is already standing where the beaten
+        # Deflect lands, and since 2026-08-24 a landing space only one
+        # side occupies is theirs outright -- the coach, who has nobody
+        # there, is never put on the clock and LooseBallChoiceView never
+        # gets built at all. (The tied maneuver's own SkillTestView, a
+        # separate prompt earlier in the same beat, is unaffected.)
         _, _, log = await self.play()
 
         offered = [
             labels for name, labels in log.multi_choice
             if name == "LooseBallChoiceView"
+        ]
+        self.assertEqual(offered, [])
+
+    async def test_beat_3s_challenge_may_not_be_waved_through(self) -> None:
+        # The one button removed from that prompt. Beat 2 no longer
+        # leaves a defeated contestant standing on the ball for beat 3's
+        # challenge to fall to automatically, so the coach has to send
+        # somebody -- and declining would leave Dinky's Dribble Advance
+        # nothing to defend against.
+        _, _, log = await self.play()
+
+        offered = [
+            labels for name, labels in log.multi_choice
+            if name == "ManeuverChallengeView"
         ]
         self.assertTrue(offered)
         for labels in offered:
