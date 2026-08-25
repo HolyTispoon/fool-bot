@@ -92,14 +92,14 @@ class GameMode(str, Enum):
 class Formation(str, Enum):
     """
     How many of a team's six fielded cards sit in each zone, read own
-    zone / midfield / opponent's zone. Every game kicks off in 2-2-2;
+    goal / midfield / opponent's goal. Every game kicks off in 2-2-2;
     the others are reached by rearranging in a substitution window.
     The shapes themselves (and the check that each fields six) live in
     `basic_rules.json`, so the two have to be changed together.
 
     **Not every shape is played on every board.** The first three are,
     and `basic_rules.json` says so by giving them no `board_sizes`;
-    3-2-1 and 1-2-3 put three cards in a zone, which only the
+    3-2-1 and 1-2-3 put three cards in a goal zone, which only the
     nine-space board has three spaces for, so those two are listed for
     board 9 alone. That is the author's call and not a consequence of
     the geometry -- 2-3-1 and 1-3-2 overfill a six-space board's

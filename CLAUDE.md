@@ -161,7 +161,7 @@ setup is now one, so a game need not kick off in the shape it was dealt.
 shape in `basic_rules.json` lists the boards it may be picked on, and leaving
 it out means every board. It is not "a shape that would stack is refused":
 2-3-1 and 1-3-2 overfill board 6's midfield and are played there anyway. 3-2-1
-and 1-2-3 need a zone three deep, and being board 9's alone is the
+and 1-2-3 need a goal zone three deep, and being board 9's alone is the
 author's call (2026-08-12 in the rules log). `BasicRuleset.formations_for_board`
 is the only reading of it -- `D12Ball.available_formations` for a match, which
 is what the Formation menu builds from and what `current_formation` names a
@@ -177,10 +177,10 @@ spaces deep and neither puts more than three cards in one. So the occupancy
 machinery below is exercised on board 6 and by `/coach`, not by the default
 board -- render a sample at `--board-size 6` to see a stack.
 
-**The deal spreads an outer zone's pair and packs midfield**, which is
+**The deal spreads a goal zone's pair and packs midfield**, which is
 `setup_space_order` and only ever visible on board 9 -- the one board whose
-zones are deeper than 2-2-2 fills them. An outer zone's two cards take its two
-end spaces and midfield clumps toward that side's own end, so home deals H1,
+zones are deeper than 2-2-2 fills them. A goal zone's two cards take its two
+end spaces and midfield clumps toward that side's own goal, so home deals H1,
 H3, M1, M2, V1, V3 (see "Setup" in the living rules, and the 2026-08-12 entry
 in the rules log). The clumped half is not an oversight: the kickoff space is
 in midfield and **every** arrangement has to cover its own side's (2026-08-16,
@@ -897,7 +897,7 @@ whole rule, over `BoardState.is_in_shooting_range`.
 
 - **Shooting range is not a zone**, and is deliberately not called a half
   either. It is measured from the middle of the board and cuts across midfield,
-  so it is the far part of midfield plus the zone a team attacks -- three
+  so it is the far part of midfield plus the goal zone a team attacks -- three
   spaces of seven on the standard board, which is why "half" was the wrong word
   for it. On an odd-sized board (7 and 9) the middle space is in *nobody's*
   range, which is why the geometry compares doubled indices against the last
@@ -2054,7 +2054,7 @@ and a strip a third of that height is shown at its own size or smaller.
 
 Two things set its width, and both are three cards wide. A zone's **assigned
 cards** are drawn under that zone, and midfield holds three under 2-3-1 and
-1-3-2 (an outer zone does under board 9's 3-2-1 and 1-2-3, which is the same
+1-3-2 (a goal zone does under board 9's 3-2-1 and 1-2-3, which is the same
 three); a space has to fit a **stack**, which is board 6's two-space midfield
 under those same shapes. `D12BallComponentTests` checks both, because the
 suite cannot see the image and an overflow here is silent.
@@ -2570,7 +2570,7 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
   the script being touched.
 - **Zones keep their real names on the field board's own assignment rows**,
   not the team board any more -- see "The zone-assignment rows". A coach's own
-  zone is the home one for one of them and the visitors one for the other,
+  goal is the home goal for one of them and the visitors goal for the other,
   and the field board is read by both, so the areas read HOME ZONE / MIDFIELD
   / VISITORS ZONE exactly as the bot's coaching image does -- HOME THIRD /
   VISITORS THIRD on the 9-space board, the only one where the three areas

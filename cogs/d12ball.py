@@ -2088,7 +2088,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Dribble Burst: the handler carries the ball **all the way to
-        the last space of the zone they attack**, defenders no
+        the last space of the goal zone they attack**, defenders no
         obstacle, at a token a space -- then manipulates ball speed up
         to their offensive skill, exactly as a Dribble Advance does.
 
@@ -2138,7 +2138,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         lead_in = (
             f"**Dribble Burst:** {handler_label} bursts "
-            f"{actual_distance} {space_word} to the last space of the zone "
+            f"{actual_distance} {space_word} to the last space of the goal "
             "they attack, past everyone in the way."
         )
         if playmaker_bonus:
@@ -2170,7 +2170,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         Double Team's cost, charged inside the pass that beat it: the
         defender who played it and the nearest teammate each move a
-        space forward, away from their own end.
+        space forward, away from their own goal.
 
         `partner_id` is passed rather than looked up, because by the
         time this runs the pass has already moved the ball and "the
@@ -2204,7 +2204,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return (
             "\n\n**Double Team** was beaten -- "
             + " and ".join(moved)
-            + " are each shoved a space forward, away from their own end."
+            + " are each shoved a space forward, away from their own goal."
         )
 
     def pay_clear_cost(self, match: MatchState, winner_key: str) -> str:
@@ -3631,7 +3631,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Intercept is the basic Steal with the sign flipped: the
-        interceptor carries the ball **forward**, toward the end they
+        interceptor carries the ball **forward**, toward the goal they
         now attack, rather than falling back toward their own. It is
         the only card in the game that moves the ball against the way
         the offense was going.
@@ -3648,8 +3648,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         new_possession_side = match.defending_side()
         challenger_id = match.challenger_id
         name = self.engine.maneuver_name(key)
-        # Toward the new possessor's own end for a Steal, toward the
-        # end they now attack for an Intercept -- so the two are one
+        # Toward the new possessor's own goal for a Steal, toward the
+        # goal they now attack for an Intercept -- so the two are one
         # function and a sign.
         direction = 1 if key == "intercept" else -1
 
@@ -3698,10 +3698,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         new_possession = match.setup_for_side(match.ball.possession)
         travel = (
             f"then carries it {actual_distance} {space_word} forward, "
-            "toward the end they now attack"
+            "toward the goal they now attack"
             if key == "intercept"
             else f"then falls back {actual_distance} {space_word} toward "
-            "their own end with the ball"
+            "their own goal with the ball"
         )
         content = (
             f"**{name}:**\n"
@@ -3713,7 +3713,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         if key == "intercept" and overshot:
             # **The interceptor was already on the last space toward
-            # the end they now attack, so there is nowhere to carry
+            # the goal they now attack, so there is nowhere to carry
             # it: it is a scoring opportunity instead** (the author,
             # 2026-08-19).
             #
@@ -3888,7 +3888,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.match_state = match.to_dict()
             save_games(self.games)
             await interaction.followup.send(
-                f"{content}\n\nThat overshoots toward their own end!",
+                f"{content}\n\nThat overshoots toward their own goal!",
             )
             await self.refresh_match_image(interaction, game)
             # An own goal takes priority over the Defender's steal
@@ -7690,7 +7690,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         Player 1 is always the human in a tutorial -- it is refused any
         other shape (see `create_game`) -- so this is whichever side the
         coin toss put them on. Nothing forces that toss, which is why
-        every beat's position is written from a side's own zone forward
+        every beat's position is written from a side's own goal forward
         and mirrored on the way in. See `d12ball/tutorial.py`.
         """
         return (

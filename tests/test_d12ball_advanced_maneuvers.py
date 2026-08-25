@@ -700,8 +700,8 @@ class InterceptTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
     async def test_it_carries_the_ball_forward_not_back(self) -> None:
         """
         The sign is the whole card. A basic Steal falls back toward the
-        new possessor's own end, which is the way the offense was
-        going; Intercept carries it the other way, toward the end the
+        new possessor's own goal, which is the way the offense was
+        going; Intercept carries it the other way, toward the goal the
         interceptor now attacks. Read off `relative_flat_index` rather
         than a literal, since that is what the effect itself uses.
         """
@@ -742,7 +742,7 @@ class InterceptTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
     ) -> None:
         """
         The author, 2026-08-19. The interceptor is already on the last
-        space toward the end they now attack, so there is nowhere to
+        space toward the goal they now attack, so there is nowhere to
         carry it -- they shoot instead.
         """
         cog, game, match = self.build("low_pass", "intercept")

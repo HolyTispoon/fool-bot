@@ -28,8 +28,8 @@ printed anywhere here.
 
 **Zones keep their real names on the field board**, which is where a
 card's zone is assigned now -- not the team board, which used to carry
-that too. A coach's own zone is the home one for one of them and the
-visitors one for the other, and the same field board is read by both,
+that too. A coach's own goal is the home goal for one of them and the
+visitors goal for the other, and the same field board is read by both,
 so the areas are labelled HOME ZONE / MIDFIELD / VISITORS ZONE exactly
 as the bot's coaching image labels them -- HOME THIRD / VISITORS THIRD
 on the 9-space board, the only one where the three areas (H/M/V) are
@@ -593,7 +593,7 @@ def draw_attack_directions(
 ) -> None:
     """
     Which way each side is playing, over the half of the field it is
-    playing into. Home attacks the visitors' end, so its arrow runs to
+    playing into. Home attacks the visitors goal, so its arrow runs to
     the right and sits on the right of the board; the visitors' is the
     mirror of it.
     """
@@ -711,7 +711,7 @@ def kickoff_marks(layout: BoardLayout) -> dict[int, list[TeamSide]]:
 
     On boards 7 and 9 both sides kick off from the true middle space
     and the two sides land on one mark; board 6's midfield has no
-    middle, so each side kicks off from the space nearer its own end
+    middle, so each side kicks off from the space nearer its own goal
     and the marks are separate -- which is why this is a map and not a
     space. `kickoff_space_index` is the rule; this only places it on
     the whole board.
@@ -2192,7 +2192,7 @@ def formation_strip_segments(
             ).append(formation.value)
 
     segments: list[tuple[str, bool, float]] = [
-        ("FORMATIONS — READ FROM YOUR OWN ZONE", True, 22)
+        ("FORMATIONS — READ FROM YOUR OWN GOAL", True, 22)
     ]
     segments.extend((name, False, 24) for name in universal)
     for label, names in restricted.items():
@@ -2213,7 +2213,7 @@ def draw_formation_strip(
     to put a table in, and three numbers a shape reads perfectly well
     in a line. Returns the x it drew out to, which is what says it fit.
 
-    A formation is read from a coach's own zone forward, which is the
+    A formation is read from a coach's own goal forward, which is the
     one thing on this board that is not absolute, and is why the label
     says so.
 

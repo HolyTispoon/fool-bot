@@ -2509,7 +2509,7 @@ def render_score_attempt(
     location: str,
 ) -> BytesIO:
     """
-    The shooter, and everyone between them and the end as one group.
+    The shooter, and everyone between them and the goal as one group.
 
     The defenders carry a `contribution` apiece, so the group is drawn
     with a badge on each portrait and a band label over each run of

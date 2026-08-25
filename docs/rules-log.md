@@ -106,12 +106,13 @@ H1 and beyond the board's last V space) is a separate thing further out. The aut
   player never sees, and changing them would need the same kind of legacy-save migration the
   team/species reshuffle needed, for zero player-facing benefit. Only the text built from the
   enum is board-size-aware now.
-- **Generic prose elsewhere in the living rules that used "goal" as loose direction** --
-  "toward the goal they're attacking", "nearer its own goal" -- is reworded to "end" throughout,
-  since that language was never naming a board area in the first place and doesn't need to
-  branch on board size. **The `own goal` mechanic itself (the section, the roll, the exhaustion
-  token, the Quick Reference row) is untouched** -- it is a real, distinct scoring event and was
-  never the source of the confusion.
+- **This is narrower than it first looks, and a first pass overreached it.** "Toward the goal
+  they're attacking", "away from their own goal", "read from your own goal forward" are not the
+  confusion being fixed -- there is still a real goal at each end of the field, and a team really
+  does attack toward it, so that language is untouched everywhere it survives. Only the *area's
+  own name* -- the thing that used to share a word with the goal it sits in front of -- moves to
+  Zone or Third. The `own goal` mechanic (the section, the roll, the exhaustion token, the Quick
+  Reference row) was never the source of the confusion either, and stays exactly as it was.
 - `zone_display_name` in `d12ball/formatting.py` is the one place the label is built, taking a
   board size; every caller that used to read `Zone.HOME_GOAL`'s value directly for display
   (the coaching image, the printed field board's zone-assignment rows, the shooting-range

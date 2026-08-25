@@ -450,7 +450,7 @@ class RulesEngine:
         match: MatchState,
     ) -> list[ShotDefender]:
         """
-        Every defending player between the ball and the end it is
+        Every defending player between the ball and the goal it is
         being shot at, with the defensive skill they have and the part
         of it the shot is up against -- all of it on the ball's own
         space, half of it further along. `ShotDefender.value` is the
@@ -1128,7 +1128,7 @@ class RulesEngine:
         """
         Where a side's six stand after switching to `formation`: the
         whole line-up, cards and spaces together, dealt by defensive
-        skill from the coach's own zone forward -- see "Changing
+        skill from the coach's own goal forward -- see "Changing
         formation" in docs/living-rules.md.
 
         This is the whole of what a formation change asks of a coach.

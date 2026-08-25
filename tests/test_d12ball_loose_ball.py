@@ -152,7 +152,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
 
     def send_the_ball_to_the_far_end(self, match: MatchState) -> None:
         """
-        The ball on the last space of the visitors' zone, with
+        The ball on the last space of the visitors' goal zone, with
         nobody on it: nothing at all lies beyond the ball, so each side
         is down to whoever is nearest behind it.
         """
@@ -236,7 +236,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
     def test_a_candidate_may_come_from_another_zone(self) -> None:
         # The whole of the change: with the ball in midfield and the
         # midfielders moved out of the way, the pool reaches into the
-        # outer zones rather than coming back empty.
+        # goal zones rather than coming back empty.
         cog = build_cog()
         match = self.build_match()
         side = match.ball.possession
@@ -434,7 +434,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog = build_cog()
         game = build_game(ai=True)
         match = self.build_match()
-        # Deep in the home zone, where the visitors' nearest
+        # Deep in the home goal zone, where the visitors' nearest
         # either way are different distances off -- the middle of the
         # board has them symmetrical, and a tie would prove nothing.
         match.set_ball_space(Zone.HOME_GOAL, 1)

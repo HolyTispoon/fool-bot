@@ -1101,7 +1101,7 @@ def kickoff_space_index(midfield_spaces: int, kicking_side: TeamSide) -> int:
     The midfield space a kickoff (or any other restart) places the ball
     on: the middle of the board when the midfield has an odd number of
     spaces, otherwise whichever of the two middle spaces sits closer to
-    the kicking team's own end. Home attacks from low indices to high,
+    the kicking team's own goal. Home attacks from low indices to high,
     so a kicking home team is biased low and a kicking visiting team is
     biased high; the two formulas agree on the true middle when the
     zone is odd-sized (i.e. board sizes 7 and 9), which is what makes
@@ -1123,11 +1123,11 @@ def setup_space_order(
     Which space each of a zone's cards starts on, in the order the
     coach assigned them.
 
-    **An outer zone spreads its cards over its whole depth**: the first
+    **A goal zone spreads its cards over its whole depth**: the first
     stands on that side's own end of the zone, the last on the far
     end, and any in between are spaced evenly. A zone no deeper than
     it is full comes out exactly as packing it would -- which is every
-    outer zone on boards 6 and 7 -- so this is only ever visible on
+    goal zone on boards 6 and 7 -- so this is only ever visible on
     board 9, where the three-space zones would otherwise bunch each
     pair against one edge and leave the third space empty. There it
     puts the home Defender on H3 and the home Striker on V3.
@@ -1575,7 +1575,7 @@ class MatchState:
     def is_ball_at_scoring_space(self) -> bool:
         """
         True when the ball sits on the space of its zone that is closest
-        to the end belonging to the team that does not have possession.
+        to the goal belonging to the team that does not have possession.
         """
         opponent_goal_zone = (
             Zone.VISITORS_GOAL
@@ -1769,7 +1769,7 @@ class MatchState:
 
     def own_goal_restart_space(self, side: TeamSide) -> tuple[Zone, int]:
         """
-        The space closest to `side`'s own end -- where a missed score
+        The space closest to `side`'s own goal -- where a missed score
         attempt restarts play for the team that just defended it.
         """
         side = TeamSide(side)
@@ -1808,7 +1808,7 @@ class MatchState:
     def defenders_between_ball_and_goal(self) -> list[tuple[str, bool]]:
         """
         Fielded players of the defending team standing anywhere between
-        the ball and the end it is being shot at, including any that
+        the ball and the goal it is being shot at, including any that
         share the ball's own space. Ordered outwards from the ball, so
         the list reads the way the shot travels.
 
@@ -2330,12 +2330,12 @@ class MatchState:
         self, player_id: str, side: TeamSide,
     ) -> int:
         """
-        How far `player_id` is from the last space of the zone
+        How far `player_id` is from the last space of the goal zone
         `side` attacks -- what a Dribble Burst runs, and what it is
         charged a token a space for.
 
         Measured off the board rather than off the zone, because "the
-        last space of the end they attack" is the far end of the
+        last space of the goal they attack" is the far end of the
         field: `relative_flat_index` clamps there, so asking for the
         whole board is asking for exactly that space.
         """
@@ -2506,7 +2506,7 @@ class MatchState:
 
         A zone destination fields the card and places its meeple on a
         space of that zone the team has not covered, or, if it covers
-        them all, on the space closest to the team's own end. A
+        them all, on the space closest to the team's own goal. A
         "bench"/"back_bench" destination benches the card and clears
         its meeple.
         """

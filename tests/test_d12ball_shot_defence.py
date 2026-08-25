@@ -2,7 +2,7 @@
 What a score attempt is up against.
 
 A defender sharing the ball's space is worth their whole defensive
-skill; anyone else between the ball and the end is worth half of it,
+skill; anyone else between the ball and the goal is worth half of it,
 rounded up, per player rather than over the group's total. See "Score
 attempt" in docs/living-rules.md and ShotDefender in
 d12ball/components.py.

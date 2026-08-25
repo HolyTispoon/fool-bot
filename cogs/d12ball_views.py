@@ -4227,7 +4227,7 @@ class CoachingHubView(CoachingView):
             match,
             CoachingFormationView(self.cog, self.game_id),
             note=(
-                "Which formation? The numbers read from your own zone "
+                "Which formation? The numbers read from your own goal "
                 "forward. Changing shape re-deals your six by defensive "
                 "skill, best defenders furthest back -- move anyone you "
                 "want elsewhere afterwards."
