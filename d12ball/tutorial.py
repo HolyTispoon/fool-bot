@@ -232,9 +232,9 @@ BEATS: tuple[TutorialBeat, ...] = (
             "You get a choice here too: the ball's own speed, up to "
             "your player's skill. It cuts both ways -- a faster ball "
             "adds to *your* next score attempt, but it adds just as "
-            "much to a defense stealing it off you with Steal or "
-            "Intercept. We will come back to it properly in a few "
-            "turns, when it actually matters. This turn it does not: "
+            "much to a defense stealing it off you with Steal. We "
+            "will come back to it properly in a few turns, when it "
+            "actually matters. This turn it does not: "
             "the turnover in beat 2 resets it to 1 regardless, so "
             "**pick whatever you like.**"
         ),
