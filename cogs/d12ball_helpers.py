@@ -365,7 +365,9 @@ def ball_location_line(match: MatchState) -> str:
     distance, and "M2" alone means nothing to anyone who is not
     already looking at the board.
     """
-    zone = destination_display_name(match.ball.zone.value)
+    zone = destination_display_name(
+        match.ball.zone.value, match.board.layout.board_size
+    )
     return f"The ball is at **{ball_space_label(match)}** ({zone})."
 
 

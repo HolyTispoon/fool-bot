@@ -450,7 +450,7 @@ class RulesEngine:
         match: MatchState,
     ) -> list[ShotDefender]:
         """
-        Every defending player between the ball and the goal it is
+        Every defending player between the ball and the end it is
         being shot at, with the defensive skill they have and the part
         of it the shot is up against -- all of it on the ball's own
         space, half of it further along. `ShotDefender.value` is the
@@ -1128,7 +1128,7 @@ class RulesEngine:
         """
         Where a side's six stand after switching to `formation`: the
         whole line-up, cards and spaces together, dealt by defensive
-        skill from the coach's own goal forward -- see "Changing
+        skill from the coach's own zone forward -- see "Changing
         formation" in docs/living-rules.md.
 
         This is the whole of what a formation change asks of a coach.
@@ -1547,6 +1547,7 @@ class RulesEngine:
         match.deploy_side(side, placement)
 
         setup = match.setup_for_side(side)
+        board_size = match.board.layout.board_size
         lines = [
             f"**{format_team_side_label(setup)} switch to "
             f"{formation.value}.** Best defenders furthest back; "
@@ -1561,7 +1562,7 @@ class RulesEngine:
                 if placed_zone == zone
             )
             lines.append(
-                f"{destination_display_name(zone.value)}: {names}"
+                f"{destination_display_name(zone.value, board_size)}: {names}"
             )
         return "\n".join(lines)
 
@@ -1827,9 +1828,10 @@ class RulesEngine:
             for occupants in placed.values()
             for _, _, player_id in occupants
         }
+        board_size = match.board.layout.board_size
         groups: list[tuple[str, list[tuple[str, Optional[str]]]]] = [
             (
-                destination_display_name(zone.value),
+                destination_display_name(zone.value, board_size),
                 [
                     (player_id, space_label(zone, space_index))
                     for space_index, _, player_id in sorted(placed[zone])
@@ -1843,7 +1845,7 @@ class RulesEngine:
         ):
             groups.append(
                 (
-                    destination_display_name(bench),
+                    destination_display_name(bench, board_size),
                     [
                         (player_id, None)
                         for player_id in benched

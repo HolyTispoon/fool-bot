@@ -88,6 +88,36 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-08-24 (earlier the same day) -- author, "Home Goal"/"Visitors Goal" become "Zone" or "Third"
+
+*Players reported that "Home Goal" and "Visitors Goal" read as the actual net, when what they
+name is a team's own third of the field -- the real goal (the scoreable end zone, drawn beyond
+H1 and beyond the board's last V space) is a separate thing further out. The author's fix:
+"Should be Home Zone/Visitors Zone on the 6 and 7 boards, and Home Third/Visitors Third on the
+9 space board."*
+
+- **The two outer areas are now named Home/Visitors Zone on the 6- and 7-space boards, and
+  Home/Visitors Third on the 9-space board** -- the only board where all three areas
+  (H/M/V) are the same size, which is what earns it the more literal word. Midfield's name
+  does not change on any board. See "The field" in the living rules.
+- **This is a display-label change, not a rename of the `Zone` enum.** `Zone.HOME_GOAL` and
+  `Zone.VISITORS_GOAL` in `d12ball/components.py` keep their Python names and their persisted
+  string values (`"home_goal"`, `"visitors_goal"`) -- those are internal/save-file plumbing a
+  player never sees, and changing them would need the same kind of legacy-save migration the
+  team/species reshuffle needed, for zero player-facing benefit. Only the text built from the
+  enum is board-size-aware now.
+- **Generic prose elsewhere in the living rules that used "goal" as loose direction** --
+  "toward the goal they're attacking", "nearer its own goal" -- is reworded to "end" throughout,
+  since that language was never naming a board area in the first place and doesn't need to
+  branch on board size. **The `own goal` mechanic itself (the section, the roll, the exhaustion
+  token, the Quick Reference row) is untouched** -- it is a real, distinct scoring event and was
+  never the source of the confusion.
+- `zone_display_name` in `d12ball/formatting.py` is the one place the label is built, taking a
+  board size; every caller that used to read `Zone.HOME_GOAL`'s value directly for display
+  (the coaching image, the printed field board's zone-assignment rows, the shooting-range
+  band captions, substitution/assignment text) goes through it now, so the printed word cannot
+  drift from the rule by board size.
+
 ### 2026-08-24 -- author, "Block Deflect" is renamed to "Deflect"
 
 - **The basic D1 card is now "Deflect"** -- the sheet's `maneuvers` tab is updated, and

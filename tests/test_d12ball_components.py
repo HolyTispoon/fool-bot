@@ -292,8 +292,8 @@ class D12BallComponentTests(unittest.TestCase):
         )
 
         # The same three areas, dealt from the other end of the field:
-        # a visiting coach's own goal is the visitors goal zone, and
-        # the one they attack is the home goal.
+        # a visiting coach's own zone is the visitors zone, and
+        # the one they attack is the home zone.
         self.assertEqual(
             roles(setup.zones[Zone.VISITORS_GOAL]),
             self.rules.standard_setup["own_goal"],
@@ -357,9 +357,9 @@ class D12BallComponentTests(unittest.TestCase):
                 )
             )
         )
-        # Where the deal puts each of them: a goal zone's pair takes
+        # Where the deal puts each of them: an outer zone's pair takes
         # its two end spaces and midfield packs toward that side's own
-        # goal (setup_space_order). Named by role, since which card
+        # end (setup_space_order). Named by role, since which card
         # fills a role is the author's to revise.
         expected = {
             (TeamSide.HOME, PlayerRole.FULLBACK): (Zone.HOME_GOAL, 0),
@@ -1274,7 +1274,7 @@ class D12BallComponentTests(unittest.TestCase):
         # The coaching image draws each zone's assigned cards under
         # that zone, centred on it. Three in a zone is the most any
         # basic shape allows: midfield holds three under 2-3-1 and
-        # 1-3-2 on every board, and a goal zone does under board 9's
+        # 1-3-2 on every board, and an outer zone does under board 9's
         # own 3-2-1 and 1-2-3. So every shape the board plays is asked,
         # of every zone it fills with three.
         row = 3 * CARD_SIZE[0] + 2 * COACHING_CARD_GAP
@@ -2210,7 +2210,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         match = self.build_match(7)
         home_midfielder = match.home.zones[Zone.MIDFIELD][0]
 
-        # Walk them out to the visitors' goal zone.
+        # Walk them out to the visitors' zone.
         match.move_meeple(home_midfielder, Zone.VISITORS_GOAL, 0)
         self.assertIn(home_midfielder, match.displaced_players(TeamSide.HOME))
 
@@ -2910,7 +2910,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         line. A set-up names the landing space's first offense
         occupant, so a test that puts a particular shooter there has
         to empty it of the deal's own first, and board 9's spread
-        puts a home card on both ends of the visitors' goal zone.
+        puts a home card on both ends of the visitors' zone.
         """
         for player_id in list(match.board.spaces[zone][space_index]):
             if player_id in match.home.field_players:
@@ -3561,7 +3561,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         """
         2026-08-10: a distance of 3 offers no set-up on its own, but an
         overshoot offers one whatever distance was asked for, on the
-        space closest to the goal -- which is where the clamp puts the
+        space closest to the end -- which is where the clamp puts the
         ball. The ball speed modifier is turned around for it.
         """
         cog = self.build_cog()

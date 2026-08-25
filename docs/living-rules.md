@@ -35,21 +35,21 @@ The higher score at full time wins. A level score goes to the [extreme shootout]
 
 ### The field
 
-The field is a row of spaces divided into three zones, left to right: the home goal, midfield, and the visitors goal. A game is played on a board of 6, 7 or 9 spaces.
+The field is a row of spaces divided into three zones, left to right: a team's own zone, midfield, and the zone it attacks. A game is played on a board of 6, 7 or 9 spaces. The two outer zones are named for whichever side they belong to — **Home** and **Visitors** — and called a **Zone** on the 6- and 7-space boards, or a **Third** on the 9-space board, the only one where all three areas are equal.
 
-| Board | Home goal | Midfield | Visitors goal |
+| Board | Home | Midfield | Visitors |
 | --- | ---: | ---: | ---: |
-| 6 | 2 | 2 | 2 |
-| 7 (default) | 2 | 3 | 2 |
-| 9 | 3 | 3 | 3 |
+| 6 (Zone) | 2 | 2 | 2 |
+| 7 (default, Zone) | 2 | 3 | 2 |
+| 9 (Third) | 3 | 3 | 3 |
 
-The home team attacks the visitors goal and the visiting team attacks the home goal. **Forward** means toward the goal a team is attacking and **back** means toward the goal it is defending, so the two words point opposite ways for the two sides. Every rule below is written from the point of view of the team it applies to.
+The home team attacks the Visitors Zone (or Third) and the visiting team attacks the Home Zone (or Third). **Forward** means toward the end a team is attacking and **back** means toward the end it is defending, so the two words point opposite ways for the two sides. Every rule below is written from the point of view of the team it applies to.
 
 A space belongs to nobody. Any number of meeples from either team may stand on one, and distances are counted in spaces straight across the zone boundaries.
 
 ### Shooting range
 
-A team may only shoot from within its **shooting range**, which is the far part of the field measured from the middle of the board. It is not a zone: it takes in the goal zone a team attacks and cuts partway across midfield.
+A team may only shoot from within its **shooting range**, which is the far part of the field measured from the middle of the board. It is not a zone: it takes in the zone a team attacks and cuts partway across midfield.
 
 | Board | The visitors may shoot from | Neither | Home may shoot from |
 | --- | --- | --- | --- |
@@ -61,7 +61,7 @@ A board with an odd number of spaces has a true middle space, and that space is 
 
 ### The kickoff space
 
-On boards 7 and 9 the kickoff space is the middle space of midfield, and both teams kick off from it. Board 6's midfield is two spaces wide and has no middle, so each side kicks off from whichever of the two is nearer its own goal, and the two sides have different kickoff spaces.
+On boards 7 and 9 the kickoff space is the middle space of midfield, and both teams kick off from it. Board 6's midfield is two spaces wide and has no middle, so each side kicks off from whichever of the two is nearer its own end, and the two sides have different kickoff spaces.
 
 Every arrangement a coach settles has to cover their own kickoff space — see [finishing a Coaching Choice](#finishing-a-coaching-choice).
 
@@ -112,9 +112,9 @@ Choose a 6-, 7- or 9-space board. One coach flips the coin: a fortune face wins 
 
 ### The standard deal
 
-Both sides are dealt into **2-2-2** by role: the Fullback and one Defender in their own goal, the Midfielder and one Playmaker in midfield, the Winger and one Striker in the goal they attack. The remaining Defender, Playmaker and Striker start on the bench.
+Both sides are dealt into **2-2-2** by role: the Fullback and one Defender in their own zone, the Midfielder and one Playmaker in midfield, the Winger and one Striker in the zone they attack. The remaining Defender, Playmaker and Striker start on the bench.
 
-A goal zone's two cards take the two ends of the zone, and midfield packs from that side's own end outward. On boards 6 and 7 that comes out the same as filling each zone in order. It is only visible on board 9, whose zones are three spaces deep: home deals to H1, H3, M1, M2, V1 and V3, and the visitors deal the mirror of it.
+A zone's two cards take the two ends of it, and midfield packs from that side's own end outward. On boards 6 and 7 that comes out the same as filling each zone in order. It is only visible on board 9, whose zones are three spaces deep: home deals to H1, H3, M1, M2, V1 and V3, and the visitors deal the mirror of it.
 
 Midfield packs rather than spreads because the kickoff space is in it. Every arrangement has to cover its own side's kickoff space, and packing from a side's own end reaches that space on every board.
 
@@ -173,11 +173,11 @@ An ordinary shot costs its shooter nothing. A shot taken off a set-up gains its 
 
 A score attempt costs 1 space minute, and a set-up's shot costs that on top of the maneuver that created it.
 
-Goal or miss, the ball is dead and the game restarts as a [new play](#resetting-after-a-new-play), with speed back to 1. A goal restarts from the conceding side's own kickoff space with them in possession — every arrangement is required to cover that space, so nothing further is owed. A miss gives the ball to the side that just defended it, on the space closest to their own goal, which carries no such guarantee: if nobody of theirs is standing there once the reset settles, they [pick it up](#picking-the-ball-up) exactly as after an out-of-bounds ball.
+Goal or miss, the ball is dead and the game restarts as a [new play](#resetting-after-a-new-play), with speed back to 1. A goal restarts from the conceding side's own kickoff space with them in possession — every arrangement is required to cover that space, so nothing further is owed. A miss gives the ball to the side that just defended it, on the space closest to their own end, which carries no such guarantee: if nobody of theirs is standing there once the reset settles, they [pick it up](#picking-the-ball-up) exactly as after an out-of-bounds ball.
 
 ### What the defense adds
 
-A defending player standing on the ball's own space adds their **whole** defensive skill. A defending player standing anywhere between the ball and the goal being shot at adds **half** of it, rounded up. A defender behind the ball adds nothing at all.
+A defending player standing on the ball's own space adds their **whole** defensive skill. A defending player standing anywhere between the ball and the end being shot at adds **half** of it, rounded up. A defender behind the ball adds nothing at all.
 
 The halving is per player rather than over the group: two defenders of 5 in the way add 3 + 3 = 6, where halving their combined 10 would give 5.
 
@@ -268,7 +268,7 @@ A 2-space pass that lands short of shooting range is still received. The range r
 
 **Rank D1. Costs 1 space minute. Beats High Pass, loses to Dribble Advance.**
 
-The ball moves 1 space back — toward the goal the offense is defending. Ball speed drops by 1, never below 1. Neither player moves.
+The ball moves 1 space back — toward the end the offense is defending. Ball speed drops by 1, never below 1. Neither player moves.
 
 *Fullback:* deflects the ball 2 spaces instead of 1.
 
@@ -280,7 +280,7 @@ The one exception is a deflection that runs out of field **and** finds a defendi
 
 **Rank D2. Costs 1 space minute. Beats Low Pass, loses to High Pass.**
 
-Possession flips and ball speed resets to 1. The challenger and the ball then move 1 space back for their side, toward the goal the new possessing team is defending. Once everyone has run back, the interceptor changes the ball's speed by up to their defensive skill, in either direction.
+Possession flips and ball speed resets to 1. The challenger and the ball then move 1 space back for their side, toward the end the new possessing team is defending. Once everyone has run back, the interceptor changes the ball's speed by up to their defensive skill, in either direction.
 
 The ball is left with the interceptor, who therefore does not run back.
 
@@ -288,9 +288,9 @@ The ball is left with the interceptor, who therefore does not run back.
 
 **Rank D3. Costs 1 space minute. Beats Dribble Advance, loses to Low Pass.**
 
-The handler and the ball go 1 space back, toward the goal the offense is defending, and the challenger moves 1 space forward onto the same space. Possession does not change, and the ball is left with the handler.
+The handler and the ball go 1 space back, toward the end the offense is defending, and the challenger moves 1 space forward onto the same space. Possession does not change, and the ball is left with the handler.
 
-Where the handler is already standing on the space closest to their own goal there is nowhere to push them, and the pressure risks an [own goal](#own-goal) instead.
+Where the handler is already standing on the space closest to their own end there is nowhere to push them, and the pressure risks an [own goal](#own-goal) instead.
 
 *Defender:* a won Pressure also steals the ball — unless the push overshot into an own-goal roll, which takes priority whichever way it goes.
 
@@ -341,7 +341,7 @@ Ball speed rises by **3**, to a maximum of 12. Everything else is a Low Pass's: 
 
 **Rank O2. Costs 1 space minute. Beats Deflect and Clear, loses to Pressure and Double Team.**
 
-The handler carries the ball to the **last space of the goal zone they attack**, and defenders are no obstacle. There is no distance to choose. The handler gains **1 exhaustion token per space travelled** — the only maneuver that charges by distance.
+The handler carries the ball to the **last space of the zone they attack**, and defenders are no obstacle. There is no distance to choose. The handler gains **1 exhaustion token per space travelled** — the only maneuver that charges by distance.
 
 *Playmaker:* pays one token fewer for the run.
 
@@ -367,7 +367,7 @@ Two steps, in this order. The passer first changes the ball's speed by up to the
 
 **Rank D1. Costs 1 space minute. Beats High Pass and Setup Pass, loses to Dribble Advance and Dribble Burst.**
 
-A Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves, and it lands exactly where a Deflect's does — [loose](#the-loose-ball) if the space is empty, uncontested if only one side is there, a forced contest if both are — including the deflection that runs out of field onto a defending player, which offers that player a [scoring opportunity](#scoring-opportunities) exactly as a Deflect's does.
+A Deflect at three spaces. The ball moves **3 spaces back**, toward the end the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves, and it lands exactly where a Deflect's does — [loose](#the-loose-ball) if the space is empty, uncontested if only one side is there, a forced contest if both are — including the deflection that runs out of field onto a defending player, which offers that player a [scoring opportunity](#scoring-opportunities) exactly as a Deflect's does.
 
 *Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 — a Fullback's extra space is distance, not speed, exactly as it is on a Deflect.
 
@@ -377,7 +377,7 @@ A Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the
 
 **Rank D2. Costs 1 space minute. Beats Low Pass and Precise Pass, loses to High Pass and Setup Pass.**
 
-A Steal with the sign flipped. Possession flips and ball speed resets to 1, and the challenger and the ball then move 1 space **forward** — toward the goal the new possessing team attacks, rather than back toward the one they defend. It is the only card that moves the ball against the way the offense was going.
+A Steal with the sign flipped. Possession flips and ball speed resets to 1, and the challenger and the ball then move 1 space **forward** — toward the end the new possessing team attacks, rather than back toward the one they defend. It is the only card that moves the ball against the way the offense was going.
 
 Once everyone has run back, the interceptor changes the ball's speed by up to their defensive skill. The ball is left with the interceptor, who therefore does not run back.
 
@@ -391,11 +391,11 @@ Where the interceptor is already on the last space that way there is nowhere to 
 
 A Pressure at two spaces, with help. The handler and the ball go **2 spaces back**, and the challenger **and the defending player nearest the space the play started from** both move onto the handler's space — free of exhaustion, however far they came.
 
-Possession does not change and the ball is left with the handler. Where the handler is already on the space closest to their own goal there is nowhere to push them, and it risks an [own goal](#own-goal) as a Pressure does. A Defender's steal applies as it does on a won Pressure.
+Possession does not change and the ball is left with the handler. Where the handler is already on the space closest to their own end there is nowhere to push them, and it risks an [own goal](#own-goal) as a Pressure does. A Defender's steal applies as it does on a won Pressure.
 
 **On the defending side's next maneuver both of those players challenge**, and the skill test adds **both** of their defensive skills. It lasts until a [new play](#resetting-after-a-new-play), which is the only thing that ends it.
 
-*Beaten:* the challenger and that same nearest teammate each move 1 space forward, away from their own goal. Neither pays a token for it.
+*Beaten:* the challenger and that same nearest teammate each move 1 space forward, away from their own end. Neither pays a token for it.
 
 ## Ball speed
 
@@ -489,7 +489,7 @@ A pickup is a placement rather than a contest: nobody rolls for it, nobody may c
 
 ## Own goal
 
-Only a Pressure that runs out of field risks an own goal: the handler is already on the space closest to their own goal, and there is nowhere left to push them back to.
+Only a Pressure that runs out of field risks an own goal: the handler is already on the space closest to their own end, and there is nowhere left to push them back to.
 
 The handler rolls **two d12, keeps the higher, and adds their offensive skill**. On a total of 7 or more the own goal is avoided. The roll costs that player 1 exhaustion token whichever way it goes. It is not a skill test, so it owes no injury check.
 
@@ -590,7 +590,7 @@ The only side with nobody to bring on is one whose bench is empty and whose thre
 
 ### Changing formation
 
-| Formation | Own goal | Midfield | The goal they attack | Boards |
+| Formation | Own | Midfield | Attacks | Boards |
 | --- | ---: | ---: | ---: | --- |
 | 2-2-2 | 2 | 2 | 2 | 6, 7, 9 |
 | 2-3-1 | 2 | 3 | 1 | 6, 7, 9 |
@@ -598,9 +598,9 @@ The only side with nobody to bring on is one whose bench is empty and whose thre
 | 3-2-1 | 3 | 2 | 1 | 9 |
 | 1-2-3 | 1 | 2 | 3 | 9 |
 
-A formation is read from a coach's own goal forward. 3-2-1 and 1-2-3 are played on the nine-space board alone; the other three are played on every board, stacking where a zone is too shallow to hold them.
+A formation is read from a coach's own zone forward. 3-2-1 and 1-2-3 are played on the nine-space board alone; the other three are played on every board, stacking where a zone is too shallow to hold them.
 
-A formation change re-deals the whole side. The six on the field are ordered by defensive skill, highest first, and dealt from the coach's own end outward: one to each space of a zone, and then any surplus onto that zone's stack space. The stack space is the middle space of a three-space zone, or the space nearer the middle of the board in a two-space one — except board 6's midfield, whose two spaces straddle the middle, where the surplus goes on the space nearer that coach's own goal.
+A formation change re-deals the whole side. The six on the field are ordered by defensive skill, highest first, and dealt from the coach's own end outward: one to each space of a zone, and then any surplus onto that zone's stack space. The stack space is the middle space of a three-space zone, or the space nearer the middle of the board in a two-space one — except board 6's midfield, whose two spaces straddle the middle, where the surplus goes on the space nearer that coach's own end.
 
 A coach who wants a particular player on a particular space moves them there afterwards with space positioning.
 

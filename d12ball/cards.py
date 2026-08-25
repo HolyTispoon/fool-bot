@@ -461,8 +461,8 @@ class Move(NamedTuple):
     picture, never "forward" or "back" from anybody's point of view.
     Those two words mean opposite things to the two sides and are what
     got Pressure and Steal Intercept drawn mirrored: a challenger's
-    forward is toward the goal *they* attack, and a steal's back is
-    toward the new possessor's own goal, which is the goal the offense
+    forward is toward the end *they* attack, and a steal's back is
+    toward the new possessor's own end, which is the end the offense
     was attacking. Both are verified against `move_player_relative`.
 
     `start` is the x it leaves from within the ball's space, so an arc

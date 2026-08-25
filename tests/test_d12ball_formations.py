@@ -163,8 +163,8 @@ class FormationShapeTests(unittest.TestCase):
             formation=Formation.ONE_THREE_TWO,
         )
 
-        # The visiting side defends the visitors goal, so 1-3-2's two
-        # attackers stand in the *home* goal zone.
+        # The visiting side defends the visitors zone, so 1-3-2's two
+        # attackers stand in the *home* zone.
         self.assertEqual(len(setup.zones[Zone.VISITORS_GOAL]), 1)
         self.assertEqual(len(setup.zones[Zone.MIDFIELD]), 3)
         self.assertEqual(len(setup.zones[Zone.HOME_GOAL]), 2)
@@ -205,7 +205,7 @@ class FormationShapeTests(unittest.TestCase):
         )
 
     def test_a_goal_zone_deeper_than_its_pair_spreads_them(self) -> None:
-        # Board 9's three-space goal zones: one card on each end rather
+        # Board 9's three-space outer zones: one card on each end rather
         # than both against the coach's own edge. The two sides are
         # mirror images, and midfield packs instead so that whoever
         # kicks off is standing on the kickoff space.
@@ -223,7 +223,7 @@ class FormationShapeTests(unittest.TestCase):
             setup_space_order(TeamSide.HOME, Zone.MIDFIELD, 3, 2), [0, 1],
         )
         # A zone no deeper than it is full is packed either way, which
-        # is every goal zone on boards 6 and 7.
+        # is every outer zone on boards 6 and 7.
         self.assertEqual(
             setup_space_order(TeamSide.HOME, Zone.HOME_GOAL, 2, 2), [0, 1],
         )
@@ -238,8 +238,8 @@ class FormationShapeTests(unittest.TestCase):
     ) -> None:
         """
         The author's board-9 deal, stated as the six spaces it comes
-        out on: the goal zones spread their pair to the ends, and
-        midfield clumps toward that side's own goal instead. The
+        out on: the outer zones spread their pair to the ends, and
+        midfield clumps toward that side's own end instead. The
         second half is what keeps a home card on the kickoff space.
         """
         match = MatchState.standard(
@@ -372,7 +372,7 @@ class BoardScopedFormationTests(unittest.TestCase):
             )
 
     def test_board_9_deals_the_new_shapes_one_card_a_space(self) -> None:
-        # Both put three in a goal zone, which is exactly board 9's
+        # Both put three in an outer zone, which is exactly board 9's
         # depth, so neither stacks -- and midfield's two still cover
         # the kickoff space, which is what holds a coach in the window.
         match = MatchState.standard(
@@ -394,8 +394,8 @@ class BoardScopedFormationTests(unittest.TestCase):
         self.assertEqual(spaces(TeamSide.HOME, Zone.HOME_GOAL),
                          ["H1", "H2", "H3"])
         self.assertEqual(spaces(TeamSide.HOME, Zone.VISITORS_GOAL), ["V1"])
-        # 1-2-3 is read from the visitors' own goal, so their three
-        # attackers stand in the home goal zone.
+        # 1-2-3 is read from the visitors' own end, so their three
+        # attackers stand in the home zone.
         self.assertEqual(spaces(TeamSide.VISITING, Zone.HOME_GOAL),
                          ["H1", "H2", "H3"])
         self.assertEqual(spaces(TeamSide.VISITING, Zone.VISITORS_GOAL),
@@ -818,7 +818,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
             )
         ]
         self.assertEqual([len(group) for group in by_zone], [1, 3, 2])
-        # Home defends the home goal, so their own end comes first and
+        # Home defends the home zone, so their own end comes first and
         # every zone's worst defender still beats the next zone's best.
         flattened = [value for group in by_zone for value in group]
         self.assertEqual(flattened, sorted(flattened, reverse=True))

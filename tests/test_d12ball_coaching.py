@@ -315,7 +315,7 @@ class CoachingModelTests(unittest.TestCase):
         match = self.build_match()
         player_id = match.home.zones[Zone.HOME_GOAL][0]
 
-        # Home goal has two spaces on board 7, so index 2 is not one.
+        # Home zone has two spaces on board 7, so index 2 is not one.
         with self.assertRaises(ValueError):
             match.position_meeple(TeamSide.HOME, player_id, 2)
 

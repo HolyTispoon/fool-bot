@@ -177,11 +177,21 @@ ZONE_COLORS = {
     Zone.MIDFIELD: "#46554e",
     Zone.VISITORS_GOAL: "#5b4d46",
 }
-ZONE_LABELS = {
-    Zone.HOME_GOAL: "HOME GOAL",
-    Zone.MIDFIELD: "MIDFIELD",
-    Zone.VISITORS_GOAL: "VISITORS GOAL",
-}
+def zone_labels(board_size: int) -> dict[Zone, str]:
+    """
+    "HOME ZONE" / "MIDFIELD" / "VISITORS ZONE" on the 6- and 7-space
+    boards; "HOME THIRD" / "MIDFIELD" / "VISITORS THIRD" on the 9-space
+    board, the only one where the three areas (H/M/V) are all equal --
+    see "The field" in the living rules and the 2026-08-24 entry in the
+    rules log. Not the same thing as FONT_GOAL_ZONE below, which labels
+    the actual goal beyond the edge of the board, not one of these three.
+    """
+    outer = "THIRD" if board_size == 9 else "ZONE"
+    return {
+        Zone.HOME_GOAL: f"HOME {outer}",
+        Zone.MIDFIELD: "MIDFIELD",
+        Zone.VISITORS_GOAL: f"VISITORS {outer}",
+    }
 # The H1/M1/V1 space codes written in the corner of every space. Kept
 # in step with ZONE_LETTERS in cogs/d12ball_helpers.py, which is where
 # the same codes are built for button labels and prompts.
@@ -270,7 +280,7 @@ FONT_MEEPLE = load_font(27, bold=True)
 # The goal zone's own "GOAL" watermark -- see the constants above.
 FONT_GOAL_ZONE = load_goal_zone_font(95)
 # The coaching image draws the same three zone headings across 1280px
-# rather than 2200, and "VISITORS GOAL" at FONT_HEADING overruns a
+# rather than 2200, and "VISITORS ZONE" at FONT_HEADING overruns a
 # two-space zone there. Its own smaller size fits every board.
 FONT_COACHING_ZONE = load_font(28, bold=True)
 FONT_TOKEN = load_font(19, bold=True)
@@ -939,6 +949,7 @@ def draw_board(
         width=4,
     )
 
+    labels = zone_labels(match.board.layout.board_size)
     for zone in Zone:
         left, right = bounds[zone]
         draw.rectangle(
@@ -947,13 +958,13 @@ def draw_board(
             outline="#d7dde5",
             width=3,
         )
-        label_width = draw.textlength(ZONE_LABELS[zone], font=FONT_HEADING)
+        label_width = draw.textlength(labels[zone], font=FONT_HEADING)
         draw.text(
             (
                 left + (right - left - label_width) / 2,
                 BOARD_TOP + 14,
             ),
-            ZONE_LABELS[zone],
+            labels[zone],
             font=FONT_HEADING,
             fill="#ffffff",
         )
@@ -1307,9 +1318,10 @@ def draw_shooting_range_band(
     rule.
     """
     space_width = (right - left) / match.board.layout.board_size
+    outer = zone_labels(match.board.layout.board_size)
     labels = {
-        1: "HOME GOAL - SHOOTING RANGE",
-        -1: "VISITORS GOAL - SHOOTING RANGE",
+        1: f"{outer[Zone.HOME_GOAL]} - SHOOTING RANGE",
+        -1: f"{outer[Zone.VISITORS_GOAL]} - SHOOTING RANGE",
     }
 
     for side, first, last in shooting_range_bands(match):
@@ -2497,7 +2509,7 @@ def render_score_attempt(
     location: str,
 ) -> BytesIO:
     """
-    The shooter, and everyone between them and the goal as one group.
+    The shooter, and everyone between them and the end as one group.
 
     The defenders carry a `contribution` apiece, so the group is drawn
     with a badge on each portrait and a band label over each run of
@@ -3224,6 +3236,7 @@ def render_coaching_image(
         width=4,
     )
 
+    labels = zone_labels(match.board.layout.board_size)
     for zone in Zone:
         left, right = bounds[zone]
         draw.rectangle(
@@ -3233,14 +3246,14 @@ def render_coaching_image(
             width=3,
         )
         label_width = draw.textlength(
-            ZONE_LABELS[zone], font=FONT_COACHING_ZONE,
+            labels[zone], font=FONT_COACHING_ZONE,
         )
         draw.text(
             (
                 left + (right - left - label_width) / 2,
                 COACHING_BOARD_TOP + 10,
             ),
-            ZONE_LABELS[zone],
+            labels[zone],
             font=FONT_COACHING_ZONE,
             fill="#ffffff",
         )

@@ -58,7 +58,6 @@ from d12ball.cards import render_maneuver_hand
 from d12ball import tutorial
 from d12ball.render import (
     TEAM_COLORS,
-    ZONE_LABELS,
     render_coaching_image,
     render_field_image,
     render_injury_test_die,
@@ -67,6 +66,7 @@ from d12ball.render import (
     render_match_image,
     render_own_goal_dice,
     render_score_attempt,
+    zone_labels,
 )
 from d12ball.rules_doc import (
     LIVING_RULES_PATH,
@@ -2088,7 +2088,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Dribble Burst: the handler carries the ball **all the way to
-        the last space of the goal zone they attack**, defenders no
+        the last space of the zone they attack**, defenders no
         obstacle, at a token a space -- then manipulates ball speed up
         to their offensive skill, exactly as a Dribble Advance does.
 
@@ -2138,7 +2138,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         lead_in = (
             f"**Dribble Burst:** {handler_label} bursts "
-            f"{actual_distance} {space_word} to the last space of the goal "
+            f"{actual_distance} {space_word} to the last space of the zone "
             "they attack, past everyone in the way."
         )
         if playmaker_bonus:
@@ -2170,7 +2170,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         Double Team's cost, charged inside the pass that beat it: the
         defender who played it and the nearest teammate each move a
-        space forward, away from their own goal.
+        space forward, away from their own end.
 
         `partner_id` is passed rather than looked up, because by the
         time this runs the pass has already moved the ball and "the
@@ -2204,7 +2204,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return (
             "\n\n**Double Team** was beaten -- "
             + " and ".join(moved)
-            + " are each shoved a space forward, away from their own goal."
+            + " are each shoved a space forward, away from their own end."
         )
 
     def pay_clear_cost(self, match: MatchState, winner_key: str) -> str:
@@ -3631,7 +3631,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Intercept is the basic Steal with the sign flipped: the
-        interceptor carries the ball **forward**, toward the goal they
+        interceptor carries the ball **forward**, toward the end they
         now attack, rather than falling back toward their own. It is
         the only card in the game that moves the ball against the way
         the offense was going.
@@ -3648,8 +3648,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         new_possession_side = match.defending_side()
         challenger_id = match.challenger_id
         name = self.engine.maneuver_name(key)
-        # Toward the new possessor's own goal for a Steal, toward the
-        # goal they now attack for an Intercept -- so the two are one
+        # Toward the new possessor's own end for a Steal, toward the
+        # end they now attack for an Intercept -- so the two are one
         # function and a sign.
         direction = 1 if key == "intercept" else -1
 
@@ -3698,10 +3698,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         new_possession = match.setup_for_side(match.ball.possession)
         travel = (
             f"then carries it {actual_distance} {space_word} forward, "
-            "toward the goal they now attack"
+            "toward the end they now attack"
             if key == "intercept"
             else f"then falls back {actual_distance} {space_word} toward "
-            "their own goal with the ball"
+            "their own end with the ball"
         )
         content = (
             f"**{name}:**\n"
@@ -3713,7 +3713,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         if key == "intercept" and overshot:
             # **The interceptor was already on the last space toward
-            # the goal they now attack, so there is nowhere to carry
+            # the end they now attack, so there is nowhere to carry
             # it: it is a scoring opportunity instead** (the author,
             # 2026-08-19).
             #
@@ -3888,7 +3888,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.match_state = match.to_dict()
             save_games(self.games)
             await interaction.followup.send(
-                f"{content}\n\nThat overshoots toward their own goal!",
+                f"{content}\n\nThat overshoots toward their own end!",
             )
             await self.refresh_match_image(interaction, game)
             # An own goal takes priority over the Defender's steal
@@ -4408,6 +4408,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.exchange_field_players(side, player_id, other_player_id)
 
         setup = match.setup_for_side(side)
+        board_size = match.board.layout.board_size
         first = self.engine.get_player_definition(player_id)
         second = self.engine.get_player_definition(other_player_id)
         return (
@@ -4415,9 +4416,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{format_role_bracket(second, self.team_emojis, match.team_for_player(second.player_id))} change "
             "places: "
             f"{format_role_bracket(first, self.team_emojis, match.team_for_player(first.player_id))} to "
-            f"{destination_display_name(setup.assigned_zone(player_id).value)}"
+            f"{destination_display_name(setup.assigned_zone(player_id).value, board_size)}"
             f", {format_role_bracket(second, self.team_emojis, match.team_for_player(second.player_id))} to "
-            f"{destination_display_name(setup.assigned_zone(other_player_id).value)}"
+            f"{destination_display_name(setup.assigned_zone(other_player_id).value, board_size)}"
             ". No exhaustion cost."
         )
 
@@ -7024,7 +7025,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 ),
                 location=(
                     f"{space_label(match.ball.zone, match.ball.space_index)}"
-                    f" — {ZONE_LABELS[match.ball.zone].title()}"
+                    f" — {zone_labels(match.board.layout.board_size)[match.ball.zone].title()}"
                 ),
             ),
             filename="maneuver_challenge.png",
@@ -7689,7 +7690,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         Player 1 is always the human in a tutorial -- it is refused any
         other shape (see `create_game`) -- so this is whichever side the
         coin toss put them on. Nothing forces that toss, which is why
-        every beat's position is written from a side's own goal forward
+        every beat's position is written from a side's own zone forward
         and mirrored on the way in. See `d12ball/tutorial.py`.
         """
         return (
@@ -9279,7 +9280,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             interaction,
             game,
             f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} moved to "
-            f"{destination_display_name(destination)}.",
+            f"{destination_display_name(destination, match.board.layout.board_size)}.",
         )
 
     @coach.autocomplete("player_card")
@@ -9320,8 +9321,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         current: str,
     ) -> list[app_commands.Choice[str]]:
+        _, match = self.match_for_channel(interaction.channel_id)
+        board_size = match.board.layout.board_size if match else 7
         options = [
-            (value, destination_display_name(value))
+            (value, destination_display_name(value, board_size))
             for value in (
                 Zone.HOME_GOAL.value,
                 Zone.MIDFIELD.value,
@@ -9407,7 +9410,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             interaction,
             game,
             f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} moved to "
-            f"{destination_display_name(dest_target)}.",
+            f"{destination_display_name(dest_target, match.board.layout.board_size)}.",
         )
 
     @ref.autocomplete("player_card")
@@ -9442,11 +9445,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         _, match = self.match_for_channel(interaction.channel_id)
         if match is None:
             return []
+        board_size = match.board.layout.board_size
         options = [
             (
                 f"{setup.side.value}:{target}",
                 f"{format_team_side_label(setup)} - "
-                f"{destination_display_name(target)}",
+                f"{destination_display_name(target, board_size)}",
             )
             for setup in (match.home, match.visiting)
             for target in (

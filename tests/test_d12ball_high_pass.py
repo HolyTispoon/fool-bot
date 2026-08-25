@@ -661,7 +661,7 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
 
     def build_last_space_pass(self, *, teammate: bool):
         """
-        The ball on the space closest to the goal the offense attacks,
+        The ball on the space closest to the end the offense attacks,
         with the passer standing on it -- and a teammate beside them or
         not. The passer goes down first, so the landing space's
         occupant list starts with the one player who may not receive.

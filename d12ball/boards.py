@@ -28,12 +28,15 @@ printed anywhere here.
 
 **Zones keep their real names on the field board**, which is where a
 card's zone is assigned now -- not the team board, which used to carry
-that too. A coach's own goal is the home goal for one of them and the
-visitors goal for the other, and the same field board is read by both,
-so the areas are labelled HOME GOAL / MIDFIELD / VISITORS GOAL exactly
-as the bot's coaching image labels them. See "Working on the board
-image" in CLAUDE.md for the same decision taken there, and "The zone-
-assignment rows" below for why they moved off the team board.
+that too. A coach's own zone is the home one for one of them and the
+visitors one for the other, and the same field board is read by both,
+so the areas are labelled HOME ZONE / MIDFIELD / VISITORS ZONE exactly
+as the bot's coaching image labels them -- HOME THIRD / VISITORS THIRD
+on the 9-space board, the only one where the three areas (H/M/V) are
+all equal (see "The field" in the living rules, and the 2026-08-24
+entry in the rules log). See "Working on the board image" in CLAUDE.md
+for the same decision taken there, and "The zone-assignment rows" below
+for why they moved off the team board.
 """
 from dataclasses import dataclass
 from typing import Optional, Sequence
@@ -70,13 +73,13 @@ from d12ball.render import (
     EXHAUST_ICON_PATH,
     INJURED_ICON_PATH,
     TEAM_COLORS,
-    ZONE_LABELS,
     draw_dashed_line,
     load_font,
     load_goal_zone_font,
     polygon_points,
     space_code,
     wrap_text,
+    zone_labels,
 )
 
 
@@ -590,7 +593,7 @@ def draw_attack_directions(
 ) -> None:
     """
     Which way each side is playing, over the half of the field it is
-    playing into. Home attacks the visitors goal, so its arrow runs to
+    playing into. Home attacks the visitors' end, so its arrow runs to
     the right and sits on the right of the board; the visitors' is the
     mirror of it.
     """
@@ -656,6 +659,7 @@ def draw_field_strip(
     # spaces, for the same reason.
     band_bottom = top + sheet.u(34)
     code_face = sheet.font(15, bold=True)
+    labels = zone_labels(layout.board_size)
 
     index = 0
     for zone in Zone:
@@ -688,7 +692,7 @@ def draw_field_strip(
             outline=INK,
             width=sheet.u(2),
         )
-        label = ZONE_LABELS[zone]
+        label = labels[zone]
         sheet.text(
             ((zone_left + zone_right) / 2, (top + band_bottom) / 2),
             label,
@@ -707,7 +711,7 @@ def kickoff_marks(layout: BoardLayout) -> dict[int, list[TeamSide]]:
 
     On boards 7 and 9 both sides kick off from the true middle space
     and the two sides land on one mark; board 6's midfield has no
-    middle, so each side kicks off from the space nearer its own goal
+    middle, so each side kicks off from the space nearer its own end
     and the marks are separate -- which is why this is a map and not a
     space. `kickoff_space_index` is the rule; this only places it on
     the whole board.
@@ -944,9 +948,10 @@ def draw_field_end_zone(
 # home's row prints upright to home and would print upside down to
 # visiting -- rotating it the other 180 degrees the other way turns it
 # upright *for them*, without touching which column is which: HOME
-# GOAL is still the leftmost cell either way, directly under and over
-# the strip's own HOME GOAL columns, so a coach reading either row
-# left to right is reading the same zone order the strip prints.
+# ZONE (HOME THIRD on the 9-space board) is still the leftmost cell
+# either way, directly under and over the strip's own Home column, so
+# a coach reading either row left to right is reading the same zone
+# order the strip prints.
 def draw_zone_assignment_rows(
     sheet: Sheet,
     geometry: FieldGeometry,
@@ -959,12 +964,12 @@ def draw_zone_assignment_rows(
         draw_zone_assignment_cell(
             sheet, zone, zone_left, zone_right,
             geometry.home_zone_top, geometry.home_zone_bottom,
-            flipped=False,
+            flipped=False, board_size=layout.board_size,
         )
         draw_zone_assignment_cell(
             sheet, zone, zone_left, zone_right,
             geometry.visiting_zone_top, geometry.visiting_zone_bottom,
-            flipped=True,
+            flipped=True, board_size=layout.board_size,
         )
         index += spaces
 
@@ -977,6 +982,7 @@ def draw_zone_assignment_cell(
     top: float,
     bottom: float,
     flipped: bool,
+    board_size: int,
 ) -> None:
     """
     One zone's card row, drawn upright on its own small canvas and
@@ -990,13 +996,14 @@ def draw_zone_assignment_cell(
     cell = Image.new("RGB", (width, height), FACE_COLOR)
     draw = ImageDraw.Draw(cell)
 
-    label = ZONE_LABELS[zone]
+    label = zone_labels(board_size)[zone]
     label_font = sheet.fitted_font(label, width * 0.5, 21, bold=True)
     draw.text((sheet.u(6), sheet.u(8)), label, font=label_font, fill=INK)
 
     # The caption only fits next to a short zone name (MIDFIELD's own
-    # width, mostly) -- HOME GOAL and VISITORS GOAL are narrower, and a
-    # caption that overflows the cell reads worse than one left off.
+    # width, mostly) -- HOME ZONE/THIRD and VISITORS ZONE/THIRD are
+    # narrower, and a caption that overflows the cell reads worse than
+    # one left off.
     caption = "cards assigned to this zone"
     caption_font = sheet.font(12)
     label_width = draw.textlength(label, font=label_font)
@@ -1075,9 +1082,10 @@ def draw_shooting_ranges(
     it is measured from the middle of the board and cuts across
     midfield -- so it is bracketed rather than coloured into the strip.
     """
+    outer = zone_labels(board.layout.board_size)
     labels = {
-        -1: "VISITORS GOAL - SHOOTING RANGE",
-        1: "HOME GOAL - SHOOTING RANGE",
+        -1: f"{outer[Zone.VISITORS_GOAL]} - SHOOTING RANGE",
+        1: f"{outer[Zone.HOME_GOAL]} - SHOOTING RANGE",
     }
     top = geometry.range_top
     bottom = geometry.range_bottom
@@ -2184,7 +2192,7 @@ def formation_strip_segments(
             ).append(formation.value)
 
     segments: list[tuple[str, bool, float]] = [
-        ("FORMATIONS — READ FROM YOUR OWN GOAL", True, 22)
+        ("FORMATIONS — READ FROM YOUR OWN ZONE", True, 22)
     ]
     segments.extend((name, False, 24) for name in universal)
     for label, names in restricted.items():
@@ -2205,7 +2213,7 @@ def draw_formation_strip(
     to put a table in, and three numbers a shape reads perfectly well
     in a line. Returns the x it drew out to, which is what says it fit.
 
-    A formation is read from a coach's own goal forward, which is the
+    A formation is read from a coach's own zone forward, which is the
     one thing on this board that is not absolute, and is why the label
     says so.
 

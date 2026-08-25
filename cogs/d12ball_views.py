@@ -4057,7 +4057,7 @@ class CoachingView(SafeView):
         """
         setup = match.setup_for_side(self.side(match))
         zone = setup.assigned_zone(player_id)
-        where = destination_display_name(zone.value)
+        where = destination_display_name(zone.value, match.board.layout.board_size)
         if with_space:
             position = match.board.meeple_position(player_id)
             where = space_label(*position) if position else where
@@ -4227,7 +4227,7 @@ class CoachingHubView(CoachingView):
             match,
             CoachingFormationView(self.cog, self.game_id),
             note=(
-                "Which formation? The numbers read from your own goal "
+                "Which formation? The numbers read from your own zone "
                 "forward. Changing shape re-deals your six by defensive "
                 "skill, best defenders furthest back -- move anyone you "
                 "want elsewhere afterwards."

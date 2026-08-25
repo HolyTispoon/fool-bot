@@ -5,7 +5,7 @@ The rule is one predicate -- MatchState.can_attempt_score -- and these
 cover the geometry it rests on and the three places it is enforced: the
 turn's own shoot button, a High Pass of 2, and a Winger's Low Pass.
 Range is measured from the middle of the *board*, so it is the far part
-of midfield plus the goal zone a team attacks, and an odd-sized board's
+of midfield plus the zone a team attacks, and an odd-sized board's
 middle space is in nobody's range.
 
 See "Score attempt" and "Shooting range" in docs/living-rules.md.
@@ -133,7 +133,7 @@ class ShootingRangeGeometryTests(unittest.TestCase):
     def test_range_is_more_than_the_zone_a_team_attacks(self) -> None:
         # The edge is the middle of the board, not a zone boundary: the
         # near part of midfield is out of range and its far part is in,
-        # so range is never just the goal zone.
+        # so range is never just the zone a team attacks.
         match = self.build_match(7)
         for space_index, home_may_shoot in ((0, False), (1, False), (2, True)):
             with self.subTest(space=space_index):
