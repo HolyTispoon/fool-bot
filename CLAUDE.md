@@ -1537,6 +1537,18 @@ expects.
     removed the automatic challenger it used to leave standing on the
     ball for beat 3's Pressure, which is why beat 3 now rails a
     maneuver-challenge send instead.
+  - **Beat 1's ball speed choice joined it on 2026-08-24.** It used to
+    be pinned at no change with no word said about it, which taught
+    nothing and read as an arbitrary restriction -- a coach's first
+    look at the mechanic was a menu where every button but one was
+    grey. `TutorialBeat.speed_note` is what a beat says about the
+    choice it is about to leave free, posted with the same timing as
+    `maneuver_note` -- right in front of the menu it explains, not
+    with the lesson two messages up -- and only beat 1 has one to say,
+    since beat 4 rails its own speed choice and explains why inline.
+    The choice costs nothing to leave open: the turnover in beat 2
+    resets ball speed regardless, so nothing picked here reaches a
+    later beat.
 - **Some dice are scripted** (`TutorialBeat.rolls`, read through
   `D12Ball.tutorial_dice`). Beat 2 is a tie the coach has to **lose**,
   or the ball never comes free and beats 3 and 4 have nothing to defend

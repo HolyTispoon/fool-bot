@@ -539,7 +539,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
     # all when the other side already has someone there, so
     # LooseBallChoiceView never appears in this script any more -- see
     # test_beat_2s_loose_ball_is_never_offered_to_either_coach.
-    FREE_CHOICES = ("RunBack", "ManeuverChallengeView")
+    FREE_CHOICES = ("RunBack", "ManeuverChallengeView", "SpeedDeltaChoiceView")
 
     async def test_every_railed_step_leaves_one_button(self) -> None:
         _, _, log = await self.play()

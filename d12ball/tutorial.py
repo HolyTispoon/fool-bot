@@ -129,6 +129,10 @@ class TutorialBeat:
     # The turn actions the coach may press. Everything else is built
     # disabled -- see `allowed_actions`.
     actions: tuple[str, ...] = ("maneuver",)
+    # Posted before a ball-speed choice, when that beat has something
+    # to say about it. Empty for every beat but the first, which is
+    # the only one that introduces the mechanic at all -- see beat 1.
+    speed_note: str = ""
     # Every other choice this beat pins down, keyed by the view that
     # asks it -- see `railed_choice`. Values compare as strings, which
     # is what a custom_id carries.
@@ -223,12 +227,23 @@ BEATS: tuple[TutorialBeat, ...] = (
         player_has_ball=True,
         player_maneuver=DRIBBLE_ADVANCE,
         dinky_maneuver=DEFLECT,
+        speed_note=(
+            "### Ball speed\n"
+            "You get a choice here too: the ball's own speed, up to "
+            "your player's skill. It cuts both ways -- a faster ball "
+            "adds to *your* next score attempt, but it adds just as "
+            "much to a defense stealing it off you with Steal or "
+            "Intercept. We will come back to it properly in a few "
+            "turns, when it actually matters. This turn it does not: "
+            "the turnover in beat 2 resets it to 1 regardless, so "
+            "**pick whatever you like.**"
+        ),
         # Two spaces is the Playmaker's own ability and this beat exists
-        # partly to show it. The speed dial is pinned at no change
-        # rather than taught here: the turnover in beat 2 resets the
-        # ball's speed, so anything set now is thrown away, and beat 4
-        # is where a change actually reaches the shot.
-        choices={"dribble_advance": "2", "speed": "1"},
+        # partly to show it. The speed choice itself is left free --
+        # the turnover in beat 2 resets the ball's speed, so anything
+        # set now is thrown away, and beat 4 is where a change actually
+        # reaches the shot.
+        choices={"dribble_advance": "2"},
     ),
     TutorialBeat(
         step=2,

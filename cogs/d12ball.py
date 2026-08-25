@@ -4017,6 +4017,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
+        # The note goes with the choice itself, the same way a
+        # maneuver's own note goes in front of its menu rather than
+        # with the lesson two messages up -- see the maneuver_note
+        # call site.
+        tutorial_beat = self.tutorial_beat(game)
+        if tutorial_beat is not None and tutorial_beat.speed_note:
+            await interaction.followup.send(tutorial_beat.speed_note)
+
         mention = f"<@{controller_id}>" if controller_id else "Someone"
         prefix = f"{lead_in}\n\n" if lead_in else ""
         prompt_message = await interaction.followup.send(
