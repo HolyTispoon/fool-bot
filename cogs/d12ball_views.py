@@ -2762,7 +2762,19 @@ class ScoreAttemptView(SafeView):
                         filename=f"{shooter.player_id}_goal.png",
                     ),
                 )
-        await self.cog.refresh_match_image(interaction, game)
+        # No board refresh here: every path out of begin_run_back
+        # below puts one up within the same click, over a position
+        # this one would draw a moment before. A new play goes to
+        # announce_new_play_reset, which restores both arrangements
+        # and posts the settled board through post_new_play_board;
+        # last possession goes to end_period, which refreshes in both
+        # of its own branches. So this drew a board nobody reads --
+        # the restarted ball without the reset behind it -- and, worse,
+        # it took the game's write window, pushing the board that *is*
+        # worth reading out of the render post_new_play_board already
+        # has in hand and into a trailing pass. See "Discord's rate
+        # limits" in CLAUDE.md.
+        #
         # Goal or miss, the ball is dead and being restarted, so this
         # is a new play and both restarts open a substitution window.
         await self.cog.begin_run_back(
