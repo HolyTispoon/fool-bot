@@ -668,6 +668,11 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
         """
         cog = build_cog()
         cog.offer_scoring_attempt_choice = mock.AsyncMock()
+        # Only this fixture reaches apply_high_pass_out's begin_run_back
+        # call (the passer-alone, no-teammate case) -- every other test
+        # in this file needs it real, so it is not in the shared
+        # build_cog().
+        cog.begin_run_back = mock.AsyncMock()
         game = build_game()
         match = MatchState.standard(
             catalog=self.catalog,
@@ -726,9 +731,13 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(match.pending_high_pass_overshoot)
         self.assertEqual(match.ball_carrier_id, mate)
 
-    async def test_the_passer_alone_keeps_a_ball_that_never_left_them(
+    async def test_the_passer_alone_sees_the_ball_go_out(
         self,
     ) -> None:
+        # 2026-08-24: a throw with nowhere left to put it and nobody to
+        # put it to is no longer a free ride for the passer -- it goes
+        # out exactly as a Setup Pass with no legal destination does.
+        # See apply_high_pass_out.
         cog, game, match, passer, _ = self.build_last_space_pass(
             teammate=False,
         )
@@ -737,15 +746,22 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
 
         await self.apply(cog, game, match)
 
-        # Nothing set up, nothing contested, and not a loose ball --
-        # the offense is standing on it.
         cog.offer_scoring_attempt_choice.assert_not_awaited()
-        cog.finish_maneuver_resolution.assert_awaited_once()
+        cog.finish_maneuver_resolution.assert_not_awaited()
+        cog.begin_run_back.assert_awaited_once()
+        kwargs = cog.begin_run_back.await_args.kwargs
+        self.assertTrue(kwargs["new_play"])
         self.assertFalse(match.pending_high_pass_overshoot)
-        self.assertEqual(match.ball.possession, possession_before)
+        # Possession has already flipped and the ball reset to speed 1
+        # by the time begin_run_back is called -- apply_setup_pass_out
+        # does the same, before its own begin_run_back call.
+        self.assertNotEqual(match.ball.possession, possession_before)
         self.assertEqual((match.ball.zone, match.ball.space_index),
                          space_before)
-        self.assertIn(passer, match.eligible_ball_handlers())
+        self.assertEqual(match.ball.speed, 1)
+        self.assertIsNone(match.ball_carrier_id)
+        self.assertTrue(match.pending_ball_recovery)
+        self.assertNotIn(passer, match.eligible_ball_handlers())
 
     async def test_the_result_does_not_report_a_move_of_zero_spaces(
         self,
@@ -754,7 +770,7 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
 
         await self.apply(cog, game, match)
 
-        lead_in = cog.finish_maneuver_resolution.await_args.kwargs["lead_in"]
+        lead_in = cog.begin_run_back.await_args.kwargs["lead_in"]
         self.assertNotIn("0 spaces", lead_in)
         self.assertIn("last space", lead_in)
 
@@ -768,7 +784,7 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
 
         await self.apply(cog, game, match)
 
-        kwargs = cog.finish_maneuver_resolution.await_args.kwargs
+        kwargs = cog.begin_run_back.await_args.kwargs
         self.assertEqual(kwargs["distance_moved"], 2)
 
     async def test_the_minute_follows_the_set_up_the_throw_offers(

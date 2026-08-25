@@ -2585,10 +2585,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # No scoring-opportunity option (or the requested distance
         # wasn't a 2). If the pass reached nobody, this isn't the High
         # Pass "receiver must win a skill test" contest at all -- it's
-        # a plain loose ball (or an uncontested turnover), exactly like
-        # any other maneuver that overshoots into empty or enemy
-        # territory. Or, if the passer is the one standing there, a
-        # ball that never left them and is not loose either.
+        # a plain loose ball, exactly like any other maneuver that
+        # overshoots into empty territory.
 
         # A 2-space pass that found its receiver but not shooting range
         # is just a pass: it was received cleanly, and the only thing
@@ -2610,6 +2608,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         if not receiver_candidates:
+            # **A passer never receives their own pass, and since
+            # 2026-08-24 that is no longer a free ride.** The exclusion
+            # above can only bite when the field clamped the throw to 0
+            # spaces -- a High Pass moves the ball, not the handler, so
+            # that is the only way the passer is still standing where
+            # it lands. With nobody else there either, this is a throw
+            # with nowhere to go: there was no field left to put it on
+            # and no teammate to put it to, so it goes out exactly as a
+            # Setup Pass with no legal destination does, rather than
+            # quietly staying with the passer. `actual_distance` (not
+            # `distance`) is the test, because that's what tells the
+            # ball genuinely didn't move from a real empty destination
+            # elsewhere on the field -- which stays an ordinary loose
+            # ball below.
+            if actual_distance == 0:
+                await self.apply_high_pass_out(
+                    interaction, game, match,
+                    distance_moved=distance_moved, lead_in=content,
+                )
+                return
             await self.refresh_match_image(interaction, game)
             await self.finish_maneuver_resolution(
                 interaction, game, match, distance_moved=distance_moved,
@@ -2651,6 +2669,48 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.refresh_match_image(interaction, game)
         await self.begin_high_pass_contest(
             interaction, game, match, distance_moved, lead_in=content,
+        )
+
+    async def apply_high_pass_out(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        distance_moved: int,
+        lead_in: str,
+    ) -> None:
+        """
+        A High Pass thrown with nowhere left to put it: the handler is
+        already on the space closest to the opponents' goal, and
+        nobody shares it with them. That is the one position a High
+        Pass can be thrown from without moving the ball at all, so
+        there is no field left to overshoot onto and no teammate to
+        land beside -- the same dead end Setup Pass reaches whenever
+        none of its own distances find anybody (`apply_setup_pass_out`,
+        which this mirrors). The other team gains possession, a new
+        play, and the gaining side sends the nearest player to fetch
+        it -- the out-of-bounds outcome the game already has, rather
+        than the passer quietly keeping a ball that never left them.
+        """
+        match.ball.possession = match.defending_side()
+        match.ball.speed = 1
+        match.clear_ball_carrier()
+        match.pending_ball_recovery = True
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        gaining = match.setup_for_side(match.ball.possession)
+        await self.begin_run_back(
+            interaction,
+            game,
+            match,
+            new_play=True,
+            distance_moved=distance_moved,
+            lead_in=(
+                f"{lead_in} There is nowhere left to throw it and nobody "
+                "to receive it there -- the ball goes out of play. "
+                f"{format_team_side_label(gaining)} gain possession."
+            ),
         )
 
     async def offer_overshoot_set_up(
@@ -2923,6 +2983,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         lead_in: str = "",
         headline: Optional[str] = None,
         is_high_pass: bool = False,
+        restrict_to_occupants: bool = False,
     ) -> None:
         """
         `distance_moved` (the pass's own clamped travel) is stashed on
@@ -2945,6 +3006,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         passing players in. It used to be the High Pass's alone; it is
         now every loose ball's, so the High Pass had nothing left to
         pass.
+
+        `restrict_to_occupants` is Deflect/Clear's own rule (and Setup
+        Pass's cost, which lands the ball the same way): a side with
+        nobody on the landing space may no longer send a player in to
+        contest it against a side that already has one there -- only a
+        landing space nobody occupies is a real loose ball. When it's
+        set and exactly one side has somebody there, that side's
+        opponent is pre-declined before either side is ever put on the
+        clock, so they are never prompted and never get the chance. An
+        empty space or a space both sides already share is unaffected
+        -- those are exactly the ordinary "each side may send" and
+        "forced contest" cases already.
         """
         match.begin_loose_ball(distance_moved, is_high_pass=is_high_pass)
         # The ball is free and about to be contested, so nobody is
@@ -2953,12 +3026,32 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # anything. Whoever comes out of the contest with it is chosen
         # off the ball's space in the ordinary way.
         match.clear_ball_carrier()
+
+        single_side_note: Optional[str] = None
+        if restrict_to_occupants:
+            offense_side = match.ball.possession
+            defense_side = match.defending_side()
+            offense_occupied = bool(match.loose_ball_occupants(offense_side))
+            defense_occupied = bool(match.loose_ball_occupants(defense_side))
+            if offense_occupied != defense_occupied:
+                empty_side, taking_side = (
+                    (defense_side, offense_side)
+                    if offense_occupied
+                    else (offense_side, defense_side)
+                )
+                match.decline_loose_ball(empty_side)
+                single_side_note = (
+                    "**Loose ball!** Only "
+                    f"{format_team_side_label(match.setup_for_side(taking_side))} "
+                    "has anyone there -- they keep it, uncontested."
+                )
+
         self.engine.auto_resolve_loose_ball_picks(game, match)
         game.match_state = match.to_dict()
         save_games(self.games)
 
         if headline is None:
-            headline = self.engine.build_loose_ball_headline(match)
+            headline = single_side_note or self.engine.build_loose_ball_headline(match)
         prefix = f"{lead_in}\n\n" if lead_in else ""
         if is_high_pass:
             # A High Pass is not a loose ball: the ball is on a player
@@ -3401,13 +3494,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             return
 
         # A deflection knocks the ball out of anybody's possession, so
-        # it is loose wherever it lands and whoever is standing there
-        # -- the author, 2026-08-18. It does not go through
-        # finish_maneuver_resolution's loose-ball check for that
-        # reason: that check asks whether the possessing team has
-        # somebody on the ball, and here the answer does not matter.
-        # Whoever is standing there contests for their side instead, at
-        # no cost.
+        # it does not go through finish_maneuver_resolution's ordinary
+        # loose-ball check: that check asks whether the possessing team
+        # has somebody on the ball, and here the answer does not
+        # matter -- either side's occupant is equally dispossessed.
+        #
+        # **Since 2026-08-24, occupancy still decides how it's won.**
+        # An empty landing space is a real loose ball (each side may
+        # send someone); a space only one side already occupies is
+        # theirs outright, with no send offered to the other side; a
+        # space both occupy is a forced contest. `restrict_to_occupants`
+        # is that rule -- see begin_loose_ball.
         #
         # No refresh_match_image first: begin_loose_ball posts the
         # board with the announcement, and refreshing here would write
@@ -3419,6 +3516,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # grow with the Fullback's extra distance, or Clear's).
         await self.begin_loose_ball(
             interaction, game, match, 1, lead_in=content,
+            restrict_to_occupants=True,
         )
 
     async def offer_setup_pass_push_back(
@@ -3458,6 +3556,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if not distances:
             await self.begin_loose_ball(
                 interaction, game, match, 1, lead_in=lead_in,
+                restrict_to_occupants=True,
             )
             return
 
@@ -3511,6 +3610,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{prefix}**Setup Pass** was beaten: the ball is driven a "
                 f"further {actual_distance} {space_word} back."
             ),
+            restrict_to_occupants=True,
         )
 
     # -- Steal ----------------------------------------------------------
@@ -4154,6 +4254,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # begin_run_back below -- and nothing else on this path
             # would, since Pressure's overshoot branch never touches it.
             match.ball.speed = 1
+            # The ball stays exactly where the overshot Pressure left
+            # it, with no coverage guarantee at all -- not even the
+            # standard deal's, since that position is wherever the play
+            # happened to reach. So, since 2026-08-24, this owes the
+            # same pickup an out-of-bounds ball does rather than a
+            # two-sided loose ball: begin_ball_recovery checks
+            # eligible_ball_handlers() first and asks nobody when the
+            # reset already covers it.
+            match.pending_ball_recovery = True
             verdict = f"## Own goal avoided!\n\n{exhaustion_text}"
         else:
             conceding_side = match.ball.possession

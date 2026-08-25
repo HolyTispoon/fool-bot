@@ -707,5 +707,151 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("standing on it", occupied)
 
 
+class RestrictedToOccupantsTests(unittest.IsolatedAsyncioTestCase):
+    """
+    `begin_loose_ball(restrict_to_occupants=True)` -- Deflect/Clear's
+    own rule, and Setup Pass's cost, since 2026-08-24: a side with
+    nobody on the landing space may no longer send a player in to
+    contest it against a side that already has one there. Only a
+    landing space nobody occupies is a real loose ball; a space both
+    occupy is still the ordinary forced contest.
+
+    See "The loose ball" in docs/living-rules.md and the tail of
+    apply_deflection in cogs/d12ball.py.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+    def clear_the_ball(self, match: MatchState) -> None:
+        for occupant in list(
+            match.board.spaces[match.ball.zone][match.ball.space_index]
+        ):
+            match.board.remove_meeple(occupant)
+
+    def stand_on_the_ball(
+        self, match: MatchState, side: TeamSide, count: int = 1,
+    ) -> list[str]:
+        chosen = match.setup_for_side(side).field_players[:count]
+        for player_id in chosen:
+            match.board.remove_meeple(player_id)
+            match.board.place_meeple(
+                player_id, match.ball.zone, match.ball.space_index,
+            )
+        return chosen
+
+    async def begin(self, cog, game, match):
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.begin_loose_ball(
+                build_interaction(), game, match, 1,
+                restrict_to_occupants=True,
+            )
+
+    async def test_an_empty_landing_space_is_an_ordinary_loose_ball(
+        self,
+    ) -> None:
+        cog = build_cog()
+        cog.resolve_loose_ball = mock.AsyncMock()
+        game = build_game()
+        match = self.build_match()
+        self.clear_the_ball(match)
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+
+        await self.begin(cog, game, match)
+
+        self.assertFalse(match.loose_ball_offense_declined)
+        self.assertFalse(match.loose_ball_defense_declined)
+        self.assertEqual(
+            cog.engine.loose_ball_side_on_the_clock(match), "offense",
+        )
+        cog.resolve_loose_ball.assert_not_awaited()
+
+    async def test_only_the_defense_present_keeps_it_uncontested(
+        self,
+    ) -> None:
+        cog = build_cog()
+        cog.resolve_loose_ball = mock.AsyncMock()
+        game = build_game()
+        match = self.build_match()
+        self.clear_the_ball(match)
+        defense = match.defending_side()
+        (defender,) = self.stand_on_the_ball(match, defense)
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+
+        await self.begin(cog, game, match)
+
+        # The offense has nobody there, and is pre-declined rather than
+        # put on the clock -- never offered a send.
+        self.assertTrue(match.loose_ball_offense_declined)
+        self.assertFalse(match.loose_ball_defense_declined)
+        self.assertEqual(match.loose_ball_defense_player, defender)
+        self.assertIsNone(cog.engine.loose_ball_side_on_the_clock(match))
+        cog.resolve_loose_ball.assert_awaited_once()
+        # The one message this posts says the ball was simply kept, not
+        # the ordinary "each side may send" wording.
+        content = cog.announce_board_update.await_args.args[2]
+        self.assertIn("keep it, uncontested", content)
+
+    async def test_only_the_offense_present_keeps_it_uncontested(
+        self,
+    ) -> None:
+        # The same rule from the other side: it is about occupancy, not
+        # about who last had the ball.
+        cog = build_cog()
+        cog.resolve_loose_ball = mock.AsyncMock()
+        game = build_game()
+        match = self.build_match()
+        self.clear_the_ball(match)
+        offense = match.ball.possession
+        (attacker,) = self.stand_on_the_ball(match, offense)
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+
+        await self.begin(cog, game, match)
+
+        self.assertFalse(match.loose_ball_offense_declined)
+        self.assertTrue(match.loose_ball_defense_declined)
+        self.assertEqual(match.loose_ball_offense_player, attacker)
+        self.assertIsNone(cog.engine.loose_ball_side_on_the_clock(match))
+        cog.resolve_loose_ball.assert_awaited_once()
+
+    async def test_both_sides_present_is_still_a_forced_contest(
+        self,
+    ) -> None:
+        # Neither an occupant may withhold themselves, restricted or
+        # not -- this branch is unaffected by the new rule.
+        cog = build_cog()
+        cog.resolve_loose_ball = mock.AsyncMock()
+        game = build_game()
+        match = self.build_match()
+        self.clear_the_ball(match)
+        offense, defense = match.ball.possession, match.defending_side()
+        (attacker,) = self.stand_on_the_ball(match, offense)
+        (defender,) = self.stand_on_the_ball(match, defense)
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+
+        await self.begin(cog, game, match)
+
+        self.assertFalse(match.loose_ball_offense_declined)
+        self.assertFalse(match.loose_ball_defense_declined)
+        self.assertEqual(match.loose_ball_offense_player, attacker)
+        self.assertEqual(match.loose_ball_defense_player, defender)
+        cog.resolve_loose_ball.assert_awaited_once()
+
+
 if __name__ == "__main__":
     unittest.main()

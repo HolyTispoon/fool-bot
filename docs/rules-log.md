@@ -105,6 +105,55 @@ the author directly.
   which is a separate column upstream and matches the new name on the whole word "deflect"
   regardless.
 
+### 2026-08-24 (later the same day) -- author, occupancy gates Deflect/Clear, a High Pass with nowhere to go matches Setup Pass, and an uncovered restart is a pickup
+
+*Three rulings, given together while reviewing every place the ball can go loose. On Deflect
+and Clear: "I'd like to change the rule so that loose ball only occurs when there are no
+players in the space with the ball. So for Deflect/Clear - if there's a player from only one
+team, they get the ball. If there's no players in the space, it's a loose ball and each coach
+can send a player. If there are players from both team, they have to contest for the ball like
+after a high pass. The same would be true for setup pass's cost (in case it is defeated)." On
+High Pass: "I said setup pass cannot overshoot because user should never be offered space
+beyond the last one in both high pass and setup pass. If a player tries to high pass or setup
+pass from the space that's closet to the opponents' goal AND there is no teammate with them
+there, it's like out of bounds - the other team gets the ball." On a missed shot and an avoided
+own goal: "both of these start from the space closest to the goal of the team that has avoided
+a goal. If there is no player there, the coach is asked to send one of the two closest
+teammates (if more than 2 players are equally close, they are all suggested)."*
+
+- **A Deflect (or Clear) no longer treats an occupied landing space and an empty one alike.**
+  Since 2026-08-18 it always went to the ordinary loose-ball contest, which still let a side
+  with *nobody* on the landing space choose to send a player in against a side that already had
+  one there. That one piece is gone for these two cards (and for Setup Pass's cost, which lands
+  the ball the same way): nobody there is still the ordinary loose ball, each side may send;
+  only one side there and it is theirs outright, uncontested, with no send offered to the other
+  side; both sides there is still the forced contest a High Pass contest already has. See "The
+  loose ball" and "Deflect" in the living rules. `D12Ball.begin_loose_ball` grew a
+  `restrict_to_occupants` flag for exactly this, read by `apply_deflection` and both of Setup
+  Pass's push-back cost's call sites, and nowhere else -- every other way the ball goes loose
+  (a pass reaching nobody, a long High Pass) keeps the send-or-decline choice it already had.
+- **A High Pass thrown from the space closest to the opponents' goal with nobody sharing it now
+  goes out, matching Setup Pass rather than quietly staying with the passer.** The two already
+  agreed that a coach is never offered a distance the field cannot hold; they disagreed about
+  what happens when even the shortest throw has nowhere to land and nobody to reach -- Setup
+  Pass already sent the ball out (`apply_setup_pass_out`), High Pass let the passer keep it as a
+  no-op. `apply_high_pass_out` is the new, matching branch, reached only when the throw could
+  not move the ball at all (`actual_distance == 0`) and nobody else shares the passer's own
+  space -- an ordinary loose ball landing on a genuinely empty space elsewhere on the field is
+  unaffected. Setup Pass's own code needed no change; it was already right.
+- **A missed shot and an avoided own goal now owe the same one-sided pickup an out-of-bounds
+  ball does, when the restart leaves nobody covering it.** A goal restarts on the kickoff space,
+  which every arrangement is required to cover, so nothing further is ever owed there. A missed
+  shot's restart space and an avoided own goal's (wherever the Pressure left it) carry no such
+  guarantee, and previously fell through to the generic loose-ball check at the tail of a
+  turnover -- which would have let the *other* side contest a position they never earned.
+  Both now set `pending_ball_recovery` the moment the restart is decided, the same way
+  `apply_setup_pass_out` already did, so `begin_ball_recovery` asks the restarting side to send
+  the nearer of their two closest players (all ties offered) once the reset has settled --
+  asking nobody at all when it already covers the space, which the standard deal and every
+  formation usually do. See "Score attempt", "Own goal" and "Picking the ball up" in the living
+  rules.
+
 ### 2026-08-19 -- author, the advanced maneuvers land, and the outright rule is about the cards
 
 *Two answers, and a rename. On the injury downgrade: "a skill test from a downgraded injured

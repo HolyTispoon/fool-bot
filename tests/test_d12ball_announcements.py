@@ -435,12 +435,33 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_run_back.assert_awaited_once()
         self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])
 
+    async def test_a_conceded_own_goal_owes_no_pickup(self) -> None:
+        # A conceded own goal restarts from the kickoff space, exactly
+        # as any other goal -- the existing, unaffected
+        # pending_kickoff_fill path, not this one.
+        cog, _ = await self.roll_own_goal(1)
+
+        match = cog.engine.load_match_state(cog.games["g1"])
+        self.assertFalse(match.pending_ball_recovery)
+
     async def test_an_avoided_own_goal_is_a_new_play(self) -> None:
         cog, _ = await self.roll_own_goal(12)
 
         cog.begin_run_back.assert_awaited_once()
         self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])
         self.assertTrue(cog.begin_run_back.await_args.kwargs["turnover_occurred"])
+
+    async def test_an_avoided_own_goal_owes_a_pickup(self) -> None:
+        # The ball stays exactly where the overshot Pressure left it,
+        # with no coverage guarantee at all -- unlike a goal's kickoff
+        # space. Since 2026-08-24 that is the same one-sided pickup an
+        # out-of-bounds ball owes (begin_ball_recovery, which itself
+        # asks nobody once the reset already covers it) rather than a
+        # two-sided loose ball.
+        cog, interaction = await self.roll_own_goal(12)
+
+        match = cog.engine.load_match_state(cog.games["g1"])
+        self.assertTrue(match.pending_ball_recovery)
 
     async def test_a_goal_is_a_new_play(self) -> None:
         cog = build_cog()
@@ -456,6 +477,31 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         game, _ = self.build_score_attempt(cog)
 
         await self.roll_score_attempt(cog, game, [1, 12])
+
+    async def test_a_missed_attempt_owes_a_pickup(self) -> None:
+        # Unlike a goal's kickoff space, nothing guarantees the space
+        # closest to the defending side's own goal is covered by an
+        # arrangement -- so, since 2026-08-24, a miss owes the same
+        # one-sided pickup an out-of-bounds ball does.
+        cog = build_cog()
+        game, _ = self.build_score_attempt(cog)
+
+        await self.roll_score_attempt(cog, game, [1, 12])
+
+        match = cog.engine.load_match_state(game)
+        self.assertTrue(match.pending_ball_recovery)
+
+    async def test_a_goal_owes_no_pickup(self) -> None:
+        # A goal restarts from the kickoff space instead, which every
+        # arrangement is required to cover -- that is the existing,
+        # unaffected pending_kickoff_fill path.
+        cog = build_cog()
+        game, _ = self.build_score_attempt(cog)
+
+        await self.roll_score_attempt(cog, game, [12, 1])
+
+        match = cog.engine.load_match_state(game)
+        self.assertFalse(match.pending_ball_recovery)
 
         cog.begin_run_back.assert_awaited_once()
         self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])

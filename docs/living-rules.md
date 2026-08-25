@@ -145,7 +145,7 @@ Any of the possessing team's players standing on the ball's space may handle it,
 
 These leave the ball with a particular player: a Dribble Advance, with the player who dribbled it; a completed Low Pass and a received 2-space High Pass, with the receiver; a Steal, with the interceptor; a won loose ball or High Pass contest, with the winner; and a Pressure, with the handler who was shoved back still holding it — including one who has just survived an own-goal roll, and with the Defender instead where their Pressure also stole it.
 
-These leave it with nobody in particular: a kickoff or any other restart, and a required [pickup](#picking-the-ball-up). A [Deflect](#deflect) leaves nobody in possession at all, so the ball is contested before anybody handles it.
+These leave it with nobody in particular: a kickoff or any other restart, and a required [pickup](#picking-the-ball-up). A [Deflect](#deflect) leaves nobody in possession at all, so who gets it is settled — by a contest, or automatically if only one side is there — before anybody handles it.
 
 It holds for one turn only. If that player is no longer on the ball by the time the turn comes round, their coach chooses in the ordinary way. The player holding the ball also [never runs back](#running-back-after-a-steal).
 
@@ -173,7 +173,7 @@ An ordinary shot costs its shooter nothing. A shot taken off a set-up gains its 
 
 A score attempt costs 1 space minute, and a set-up's shot costs that on top of the maneuver that created it.
 
-Goal or miss, the ball is dead and the game restarts as a [new play](#resetting-after-a-new-play), with speed back to 1. A goal restarts from the conceding side's own kickoff space with them in possession. A miss gives the ball to the side that just defended it, on the space closest to their own goal.
+Goal or miss, the ball is dead and the game restarts as a [new play](#resetting-after-a-new-play), with speed back to 1. A goal restarts from the conceding side's own kickoff space with them in possession — every arrangement is required to cover that space, so nothing further is owed. A miss gives the ball to the side that just defended it, on the space closest to their own goal, which carries no such guarantee: if nobody of theirs is standing there once the reset settles, they [pick it up](#picking-the-ball-up) exactly as after an out-of-bounds ball.
 
 ### What the defense adds
 
@@ -262,7 +262,7 @@ A 2-space pass that lands short of shooting range is still received. The range r
 
 **An overshoot** is a throw that runs out of field. With the ball 0 or 1 spaces from the end, every distance lands on the same last space, so nothing is offered and the throw overshoots before anyone chooses. An overshoot onto a teammate offers that receiver the scoring opportunity **or** the High Pass contest: they are two halves of one choice, declining the shot means taking the contest, and the ball speed modifier counts **against** them either way — the ball came in too fast to settle.
 
-**A passer never receives their own pass.** Thrown from the last space the ball comes straight back down where it was, and a teammate sharing that space receives it and is offered the choice above. With no other teammate there the passer simply keeps the ball: nothing is set up and nothing is contested. The throw still costs its 2 minutes.
+**A passer never receives their own pass.** Thrown from the last space the ball comes straight back down where it was, and a teammate sharing that space receives it and is offered the choice above. With no other teammate there, there is nowhere left to throw it and nobody to throw it to: the ball goes [out of play](#out-of-bounds), the other team gains possession, and the gaining side sends somebody to pick it up — exactly as a [Setup Pass](#setup-pass) with no legal destination does. The throw still costs its 2 minutes.
 
 ### Deflect
 
@@ -272,7 +272,7 @@ The ball moves 1 space back — toward the goal the offense is defending. Ball s
 
 *Fullback:* deflects the ball 2 spaces instead of 1.
 
-A Deflect turns nothing over by itself, and settles nothing either: it knocks the ball out of anybody's possession, so it is [loose](#the-loose-ball) wherever it lands and whoever is standing there. A player of either side already on that space contests it for nothing; a side with nobody there may send somebody after it or let it go.
+A Deflect turns nothing over by itself, and settles nothing either: it knocks the ball out of anybody's possession, so what happens next depends on who, if anyone, is standing where it lands. Nobody there, and it is [loose](#the-loose-ball) in the ordinary way — either side may send somebody after it. Only one side there, and it is theirs outright, uncontested — the other side is not offered a send. Both sides there, and it is a forced contest, exactly the [High Pass contest](#the-high-pass-contest)'s shape: each side's occupant puts up for nothing, and neither may withhold them.
 
 The one exception is a deflection that runs out of field **and** finds a defending player standing on the landing space: rather than being contested, that player gets a [scoring opportunity](#scoring-opportunities). Possession flips for it and speed resets, and it is the shot that follows — goal or miss — that makes the new play.
 
@@ -361,13 +361,13 @@ Two steps, in this order. The passer first changes the ball's speed by up to the
 
 **A Setup Pass cannot overshoot.** With no teammate at any of the three the pass runs [out of play](#out-of-bounds): the other team gains possession, both sides reset, and the gaining side sends somebody to pick the ball up.
 
-*Beaten:* the coach who beat it drives the ball a further 1, 2 or 3 spaces back, their choice, and it is [loose](#the-loose-ball) where it stops.
+*Beaten:* the coach who beat it drives the ball a further 1, 2 or 3 spaces back, their choice, and it lands exactly as a [Deflect](#deflect)'s does — loose if the space it stops on is empty, uncontested if only one side is there, a forced contest if both are.
 
 ### Clear
 
 **Rank D1. Costs 1 space minute. Beats High Pass and Setup Pass, loses to Dribble Advance and Dribble Burst.**
 
-A Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves, and the ball is [loose](#the-loose-ball) where it lands — including the deflection that runs out of field onto a defending player, which offers that player a [scoring opportunity](#scoring-opportunities) exactly as a Deflect's does.
+A Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves, and it lands exactly where a Deflect's does — [loose](#the-loose-ball) if the space is empty, uncontested if only one side is there, a forced contest if both are — including the deflection that runs out of field onto a defending player, which offers that player a [scoring opportunity](#scoring-opportunities) exactly as a Deflect's does.
 
 *Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 — a Fullback's extra space is distance, not speed, exactly as it is on a Deflect.
 
@@ -432,7 +432,7 @@ Taking the shot costs its own space minute on top of the maneuver that set it up
 
 ## Sending a player
 
-Three rules ask a coach to send a player to the ball's space: the [maneuver challenge](#determining-the-two-players), the [loose ball](#the-loose-ball) — the [High Pass contest](#the-high-pass-contest) included — and the [pickup](#picking-the-ball-up) after an out-of-bounds or ceded ball. All three ask it in the same way, and a player's zone has nothing to do with it.
+Three rules ask a coach to send a player to the ball's space: the [maneuver challenge](#determining-the-two-players), the [loose ball](#the-loose-ball) — the [High Pass contest](#the-high-pass-contest) included — and the [pickup](#picking-the-ball-up) after an out-of-bounds ball, a ceded ball, a missed shot or an avoided own goal. All three ask it in the same way, and a player's zone has nothing to do with it.
 
 A coach may send either of their two nearest players to the space: the nearest one in front of it and the nearest one behind it, counted in spaces along the field. Where two or more are tied for nearest on one side, the coach chooses between them.
 
@@ -446,12 +446,14 @@ Nothing brings a sent player home again. They stay where the contest left them u
 
 ### The loose ball
 
-The ball is **loose** whenever nobody is in possession of it. It has to be won before play carries on, and it is won the same way however it came free: a pass that lands where the passing team has nobody, a [Deflect](#deflect) wherever it lands, and a long [High Pass](#the-high-pass-contest), which is this contest with one difference.
+The ball is **loose** whenever nobody is in possession of it and the space it is lying on is empty. It has to be won before play carries on, and it is won the same way however it came free: a pass that lands where the passing team has nobody, and a long [High Pass](#the-high-pass-contest), which is this contest with one difference.
 
 Each side puts up at most one contestant.
 
 - **A player of theirs already standing on the ball's space contests automatically.** They are not sent anywhere and pay nothing. Where a side has several standing there, their coach picks between them.
 - **A side with nobody there may [send a player](#sending-a-player), or send nobody.** Where both sides have to choose, the side that last had the ball chooses first and the other side chooses after them.
+
+**[Deflect](#deflect), [Clear](#clear) and a beaten [Setup Pass](#setup-pass) are the one exception to that second rule.** They reach this contest only when the space they land the ball on is empty. Land on a space only one side already occupies and it is theirs outright, uncontested — the other side is never offered a send, because the whole point of those three is that the ball comes free wherever it happens to land, not that it opens a fight for it. Land on a space both sides occupy and it is the ordinary forced contest below, the same as any other loose ball whose landing space someone from each side already stands on.
 
 What follows is decided by how many of them there turn out to be.
 
@@ -481,7 +483,7 @@ It is a [new play](#resetting-after-a-new-play) rather than a steal — nobody t
 
 ### Picking the ball up
 
-An out-of-bounds ball and a [ceded](#ceding-the-ball) ball are both handed to a side that may well have nobody standing on them. Once everything else has settled, that side [sends a player](#sending-a-player) to the ball's space at the usual token a space — unless one of theirs is already standing there, which settles it for nothing.
+An out-of-bounds ball, a [ceded](#ceding-the-ball) ball, a [missed shot](#score-attempt) and an [avoided own goal](#own-goal) can all leave the ball on a space nobody of the gaining or keeping side is standing on. Once everything else has settled, that side [sends a player](#sending-a-player) to the ball's space at the usual token a space — unless one of theirs is already standing there, which settles it for nothing.
 
 A pickup is a placement rather than a contest: nobody rolls for it, nobody may contest it, and the ball is left with nobody in particular afterwards.
 
@@ -493,7 +495,7 @@ The handler rolls **two d12, keeps the higher, and adds their offensive skill**.
 
 Either result is a [new play](#resetting-after-a-new-play).
 
-- **Avoided.** The ball stays where the Pressure left it and the same side keeps it. This is the one new play that does not change possession — but it resets both sides, and it ends last possession, exactly like any other.
+- **Avoided.** The ball stays where the Pressure left it and the same side keeps it. This is the one new play that does not change possession — but it resets both sides, and it ends last possession, exactly like any other. That reset carries no guarantee the ball's own space is covered — unlike a kickoff space, it is wherever the play happened to reach — so if nobody of that side ends up standing there, they [pick it up](#picking-the-ball-up) exactly as after an out-of-bounds ball.
 - **Conceded.** The goal counts for the other team and is recorded against the player who put it in. The conceding side restarts from their own kickoff space at speed 1.
 
 ## Turnovers

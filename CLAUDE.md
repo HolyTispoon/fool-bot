@@ -375,9 +375,10 @@ Three rules ask a coach to send somebody to the ball's space, and since
 space, from any zone**. `MatchState.contest_candidates` is the whole of it --
 see "Sending a player" in the living rules -- and the three are the maneuver
 challenge (`eligible_challengers`), the loose ball (`loose_ball_candidates`),
-and the pickup after an out-of-bounds or ceded ball (`begin_ball_recovery`,
-`recover_out_of_bounds_ball`). It was four until 2026-08-18: the long High
-Pass contest **is** the loose ball now rather than borrowing it -- see
+and the pickup after an out-of-bounds ball, a ceded ball, a missed shot or an
+avoided own goal (`begin_ball_recovery`, `recover_out_of_bounds_ball`). It was
+four until 2026-08-18: the long High Pass contest **is** the loose ball now
+rather than borrowing it -- see
 [Loose balls and the board](#loose-balls-and-the-board).
 
 - **Distance is the measure, and it always was -- the zone was a second gate
@@ -417,6 +418,18 @@ Pass contest **is** the loose ball now rather than borrowing it -- see
   four rather than the best. `choose_loose_ball_player` took the higher skill
   until this landed and now takes distance first; it needs the match to know
   one, which is why it grew a parameter.
+- **A missed shot and an avoided own goal joined the pickup on 2026-08-24.**
+  Both restart the ball on a space with no coverage guarantee -- unlike a
+  goal, whose kickoff space every arrangement is required to cover -- so
+  before this they fell through to `finish_maneuver_resolution`'s generic
+  loose-ball check at the tail of the reset, which would have let the *other*
+  side contest a position they never earned. `ScoreAttemptView.roll`'s missed
+  branch and `run_own_goal_roll`'s avoided branch now both set
+  `pending_ball_recovery = True` the moment the restart is decided -- the
+  same pattern `apply_setup_pass_out` already used for an out-of-bounds
+  Setup Pass -- so `begin_ball_recovery` asks the restarting side once the
+  reset has settled, and asks nobody at all when the reset already covers the
+  space, which the standard deal and every formation usually do.
 
 ## The maneuver with nobody to challenge it
 
@@ -973,12 +986,18 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
   every High Pass rather than about that one case is deliberate -- see the
   2026-08-12 entry in the rules log.
   - **That is the one overshoot that can set nothing up while the offense is
-    still on the ball.** It is neither loose (the passer is standing there) nor
-    a contest (there is no receiver to fight for what they never let go of), so
-    it falls all the way through `apply_high_pass` to
-    `finish_maneuver_resolution` and the passer keeps the ball. It is also why
-    that function words a 0-space result rather than reporting "the ball moves 0
-    spaces forward", which no coach saw until this rule.
+    still on the ball, and since 2026-08-24 it is not a free ride either.** It
+    is neither loose (the passer is standing there) nor a contest (there is no
+    receiver to fight for what they never let go of) -- but with nowhere left
+    to throw it and nobody to throw it to, `apply_high_pass_out` sends it out
+    exactly as `apply_setup_pass_out` already did, rather than letting
+    `finish_maneuver_resolution` hand it straight back to the passer. The
+    branch is read off `actual_distance == 0`, not `receiver_candidates`
+    alone -- an ordinary loose ball landing on a genuinely empty space
+    elsewhere on the field still goes through `finish_maneuver_resolution` as
+    before. It is also why that function words a 0-space result rather than
+    reporting "the ball moves 0 spaces forward", which no coach saw until this
+    rule.
   - **It still costs High Pass's own 2 minutes**, which is why `apply_high_pass`
     carries a `distance_moved` apart from the `actual_distance` the result
     reports. Every maneuver's clock cost is flat and distance-independent
@@ -1125,6 +1144,22 @@ for the same reason.
   possessing team have somebody on the ball -- has an answer that does not
   matter. It also stops refreshing the board first, since `begin_loose_ball`
   posts one.
+- **`restrict_to_occupants` is Deflect/Clear's own further narrowing, since
+  2026-08-24** (and Setup Pass's cost, which lands the ball the same way): a
+  side with nobody on the landing space may no longer send a player in against
+  a side that already has one there -- only a landing space nobody occupies is
+  still the ordinary "each side may send" loose ball. `D12Ball.begin_loose_ball`
+  reads both sides' `loose_ball_occupants` and, when exactly one is empty,
+  calls `match.decline_loose_ball` on it *before* `auto_resolve_loose_ball_picks`
+  runs -- so that side is never put on the clock and `LooseBallChoiceView` is
+  never built for them, and the occupying side resolves through the existing
+  "sole occupant auto-contests, several -- coach picks" / "one side only,
+  takes without a test" machinery with nobody left to contest against. Passed
+  by `apply_deflection`'s tail call and both of Setup Pass's push-back cost's
+  `begin_loose_ball` calls (`offer_setup_pass_push_back`'s no-legal-distance
+  fallback and `apply_setup_pass_push_back`'s own), and nowhere else -- the
+  flag does nothing when both sides are empty or both occupy, which is exactly
+  the point: those two cases were already right.
 - **`check_for_loose_ball` has one detour now, not two.** Its guard still
   earns its keep: the maneuvers that leave the ball with a named player are not
   loose, and that is what it asks.
@@ -1464,8 +1499,9 @@ expects.
 
 - **The rails cover every choice that moves the ball or prices the
   shot**: the turn action, the card, the dribble distance, the ball
-  speed, the pass distance, the set-up shot, and whether a loose ball
-  may be waved through. `TutorialBeat.choices` is the table and
+  speed, the pass distance, the set-up shot, whether a loose ball
+  may be waved through, and whether a maneuver challenge may be.
+  `TutorialBeat.choices` is the table and
   `D12Ball.tutorial_railed_option` is the one question the views ask,
   so a view adds a rail with one call rather than a branch.
   - **A rail names a value, except when it cannot.** The ball speed a
@@ -1486,17 +1522,28 @@ expects.
   beat's prompt is still in the channel, and the maneuver menus are
   restored message-agnostically after a restart.
 - **What is left free is left free on purpose** -- a run-back space,
-  and which of the coach's players is sent after beat 2's loose ball.
-  Both are legal moves with no wrong answer whose outcome no later beat
-  reads. `TutorialPlaythroughTests.FREE_CHOICES` is that list, and the
-  suite fails on anything else showing two live buttons, so a rail
-  going missing shows up as a failure rather than as a story that
-  drifts.
+  and which of two equally-near players the coach sends to challenge in
+  beat 3. Both are legal moves with no wrong answer whose outcome no
+  later beat reads. `TutorialPlaythroughTests.FREE_CHOICES` is that
+  list, and the suite fails on anything else showing two live buttons,
+  so a rail going missing shows up as a failure rather than as a story
+  that drifts.
+  - **Beat 2's loose ball dropped out of that list on 2026-08-24.**
+    Dinky's own midfielder is already standing on M3 where the beaten
+    Deflect lands, so under `restrict_to_occupants` (see
+    [Who contests a loose ball](#who-contests-a-loose-ball)) the coach,
+    who has nobody there, is never put on the clock at all --
+    `LooseBallChoiceView` no longer appears in this script. That also
+    removed the automatic challenger it used to leave standing on the
+    ball for beat 3's Pressure, which is why beat 3 now rails a
+    maneuver-challenge send instead.
 - **Some dice are scripted** (`TutorialBeat.rolls`, read through
   `D12Ball.tutorial_dice`). Beat 2 is a tie the coach has to **lose**,
   or the ball never comes free and beats 3 and 4 have nothing to defend
-  against; the loose ball behind it goes Dinky's way for the same
-  reason. Injury checks pass for the whole opening (`BLANKET_ROLLS`) --
+  against. There is no loose-ball roll to rig behind it any more --
+  Dinky's own midfielder already stands where the beaten Deflect lands,
+  so they simply keep it, uncontested. Injury checks pass for the whole
+  opening (`BLANKET_ROLLS`) --
   a card going down injured is a mechanic the script never introduces,
   lands on whichever player the dice pick, and would leave every beat
   after it planning around a board it did not expect. The check still
@@ -1521,8 +1568,8 @@ previous turn produced -- these are outcomes, not settings:
 | # | Coach plays | Dinky plays | Result |
 | --- | --- | --- | --- |
 | 1 | Dribble Advance | Deflect | Decisive win, the Playmaker's own 2 spaces: M2 → V1 |
-| 2 | Low Pass | Deflect | Rank 1 both: a tie, a skill test the coach loses, the ball knocked to M3 and loose, and Dinky wins the scramble |
-| 3 | Pressure | Dribble Advance | The coach defends and wins: Dinky driven back to V1 |
+| 2 | Low Pass | Deflect | Rank 1 both: a tie, a skill test the coach loses, the ball knocked to M3 -- right onto Dinky's own midfielder, who keeps it uncontested |
+| 3 | Pressure | Dribble Advance | The coach sends a challenger to M3, then defends and wins: Dinky driven back to V1 |
 | 4 | Steal Intercept | Low Pass | Turnover, the ball back to M3, the run back, and the speed crank |
 | 5 | High Pass | Steal Intercept | 2 spaces onto the striker on V2 -- a scoring opportunity, a set-up shot, and a goal |
 
