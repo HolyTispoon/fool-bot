@@ -4,7 +4,7 @@ import io
 import random
 import time
 import uuid
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 import aiohttp
 import discord
@@ -158,6 +158,7 @@ from cogs.d12ball_views import (
     ShootoutTestView,
     SkillTestView,
     SpeedDeltaChoiceView,
+    TutorialContinueView,
     CoachingHubView,
     CoachingOfferView,
     TeamSelectionView,
@@ -817,28 +818,38 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "the button to make your pick."
             )
         )
+
+        async def show_prompt(inner_interaction: discord.Interaction) -> None:
+            prompt_view = ManeuverActionPromptView(self, game.game_id)
+            prompt_message = await inner_interaction.followup.send(
+                f"{' and '.join(waiting_on)}, {instruction}",
+                view=prompt_view,
+                wait=True,
+                allowed_mentions=discord.AllowedMentions(
+                    users=True,
+                    roles=False,
+                    everyone=False,
+                ),
+            )
+            game.turn_message_id = prompt_message.id
+            save_games(self.games)
+
         # The cards are what this beat is about, so its note goes in
         # front of the menu rather than with the lesson two messages
         # up: by the time a coach opens their hand they have watched a
         # challenger walk in and are looking at three buttons, which is
-        # the moment the explanation is worth reading.
+        # the moment the explanation is worth reading. It is held
+        # behind Continue rather than posted right alongside the menu
+        # -- see post_tutorial_note -- since nothing forces a coach to
+        # read it before the menu's own buttons draw their eye.
         tutorial_beat = self.tutorial_beat(game)
         if tutorial_beat is not None:
-            await interaction.followup.send(tutorial_beat.maneuver_note)
+            await self.post_tutorial_note(
+                interaction, game, tutorial_beat.maneuver_note, show_prompt,
+            )
+            return
 
-        prompt_view = ManeuverActionPromptView(self, game.game_id)
-        prompt_message = await interaction.followup.send(
-            f"{' and '.join(waiting_on)}, {instruction}",
-            view=prompt_view,
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True,
-                roles=False,
-                everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
+        await show_prompt(interaction)
 
 
     async def resolve_maneuver(
@@ -4019,19 +4030,37 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         mention = f"<@{controller_id}>" if controller_id else "Someone"
         prefix = f"{lead_in}\n\n" if lead_in else ""
-        prompt_message = await interaction.followup.send(
-            f"{prefix}{mention}, manipulate the ball's speed (up to "
-            f"{skill_value}):",
-            view=SpeedDeltaChoiceView(
-                self, game.game_id, player_id, skill_type,
-            ),
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
+
+        async def show_prompt(inner_interaction: discord.Interaction) -> None:
+            prompt_message = await inner_interaction.followup.send(
+                f"{prefix}{mention}, manipulate the ball's speed (up to "
+                f"{skill_value}):",
+                view=SpeedDeltaChoiceView(
+                    self, game.game_id, player_id, skill_type,
+                ),
+                wait=True,
+                allowed_mentions=discord.AllowedMentions(
+                    users=True, roles=False, everyone=False,
+                ),
+            )
+            game.turn_message_id = prompt_message.id
+            save_games(self.games)
+
+        # The note goes with the choice itself, the same way a
+        # maneuver's own note goes in front of its menu rather than
+        # with the lesson two messages up -- see the maneuver_note
+        # call site. It is held behind Continue rather than posted
+        # alongside the maneuver's own reveal message just above it,
+        # which the coach has had no click to acknowledge -- see
+        # post_tutorial_note.
+        tutorial_beat = self.tutorial_beat(game)
+        if tutorial_beat is not None and tutorial_beat.speed_note:
+            await self.post_tutorial_note(
+                interaction, game, tutorial_beat.speed_note, show_prompt,
+            )
+            return
+
+        await show_prompt(interaction)
 
     async def apply_speed_choice(
         self,
@@ -6282,16 +6311,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # played exactly as an ordinary game plays it. The welcome goes
         # under the board it describes; the first beat is staged by the
         # send_turn_prompt below.
+        async def begin_play(inner_interaction: discord.Interaction) -> None:
+            try:
+                await self.send_turn_prompt(inner_interaction, game)
+            except ValueError as error:
+                await inner_interaction.followup.send(
+                    str(error), ephemeral=True,
+                )
+
         if game.tutorial:
             game.tutorial_step = tutorial.FIRST_STEP
             game.tutorial_staged = False
             save_games(self.games)
-            await interaction.followup.send(tutorial.WELCOME)
+            # The welcome and beat 1's own lesson are two narration
+            # messages with nothing for the coach to click between
+            # them, so the first is held behind Continue rather than
+            # posted alongside it -- see post_tutorial_note.
+            await self.post_tutorial_note(
+                interaction, game, tutorial.WELCOME, begin_play,
+            )
+            return
 
-        try:
-            await self.send_turn_prompt(interaction, game)
-        except ValueError as error:
-            await interaction.followup.send(str(error), ephemeral=True)
+        await begin_play(interaction)
 
     async def advance_halftime_stage(
         self,
@@ -7756,10 +7797,33 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.tutorial_beat(game), kind, count,
         )
 
+    async def post_tutorial_note(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        text: str,
+        then: Callable[[discord.Interaction], Awaitable[None]],
+    ) -> None:
+        """
+        Post one piece of tutorial narration and hold whatever `then`
+        would send next behind a Continue button.
+
+        Two narration messages posted back to back with nothing for
+        the coach to click in between is exactly what gets scrolled
+        past in a busy channel -- see TutorialContinueView. `then`
+        receives the interaction the button click produced, not this
+        one, since everything after the click has to answer with that.
+        """
+        await interaction.followup.send(
+            text,
+            view=TutorialContinueView(self, game.game_id, then),
+        )
+
     async def stage_tutorial_beat(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
+        then: Optional[Callable[[discord.Interaction], Awaitable[None]]] = None,
     ) -> None:
         """
         Advance the script to the turn about to be played and post its
@@ -7780,6 +7844,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         force:true`) also send a turn prompt without a turn having been
         played, and re-entering a beat must not silently skip the next
         one.
+
+        `then`, when given, is what `send_turn_prompt` would show
+        next -- held behind a Continue button rather than posted
+        alongside this beat's note, the same reasoning as every other
+        `post_tutorial_note` call site. Left out, the note is posted
+        plainly with nothing gating it: the staging tests ask only
+        whether the right note went out, never what follows it.
         """
         if not game.in_tutorial:
             return
@@ -7797,67 +7868,87 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.tutorial_step = None
             game.tutorial_staged = False
             save_games(self.games)
-            await interaction.followup.send(tutorial.HANDOVER)
+            if then is not None:
+                await self.post_tutorial_note(
+                    interaction, game, tutorial.HANDOVER, then,
+                )
+            else:
+                await interaction.followup.send(tutorial.HANDOVER)
             return
 
         game.tutorial_staged = True
         save_games(self.games)
-        await interaction.followup.send(beat.lesson)
+        if then is not None:
+            await self.post_tutorial_note(interaction, game, beat.lesson, then)
+        else:
+            await interaction.followup.send(beat.lesson)
 
     async def send_turn_prompt(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
     ) -> None:
-        # Ahead of everything, including the AI branch below: a beat
-        # the coach is *defending* is still a beat, and its position
-        # has to be down before Dinky takes a turn on it.
-        if game.in_tutorial:
-            await self.stage_tutorial_beat(interaction, game)
+        async def continue_turn_prompt(
+            inner_interaction: discord.Interaction,
+        ) -> None:
+            refresh_player_names(game, inner_interaction.guild)
+            match = self.engine.load_match_state(game)
+            # The carrier, when the last resolution left the ball with
+            # somebody; everyone on the ball's space otherwise. Either
+            # way a single candidate is selected below without asking,
+            # so the rule costs a coach a click rather than adding one.
+            eligible_handlers = match.turn_handler_candidates()
+            if not eligible_handlers:
+                raise ValueError(
+                    "The team in possession has no player in the ball's "
+                    "space."
+                )
+            carrying = match.ball_carrier_id in eligible_handlers
 
-        refresh_player_names(game, interaction.guild)
-        match = self.engine.load_match_state(game)
-        # The carrier, when the last resolution left the ball with
-        # somebody; everyone on the ball's space otherwise. Either way
-        # a single candidate is selected below without asking, so the
-        # rule costs a coach a click rather than adding one.
-        eligible_handlers = match.turn_handler_candidates()
-        if not eligible_handlers:
-            raise ValueError(
-                "The team in possession has no player in the ball's space."
+            offense_number = self.engine.possession_player_number(game, match)
+            if game.is_solo_game and offense_number == 2:
+                await self.play_ai_turn(inner_interaction, game, match)
+                return
+
+            if len(eligible_handlers) == 1:
+                match.select_ball_handler(eligible_handlers[0])
+                game.match_state = match.to_dict()
+                view: discord.ui.View = PlayerActionView(
+                    self,
+                    game.game_id,
+                )
+            else:
+                view = BallHandlerSelectionView(
+                    self,
+                    game.game_id,
+                )
+
+            turn_message = await inner_interaction.followup.send(
+                self.engine.build_turn_prompt(game, match, carrying=carrying),
+                view=view,
+                wait=True,
+                allowed_mentions=discord.AllowedMentions(
+                    users=True,
+                    roles=False,
+                    everyone=False,
+                ),
             )
-        carrying = match.ball_carrier_id in eligible_handlers
+            game.turn_message_id = turn_message.id
+            save_games(self.games)
 
-        offense_number = self.engine.possession_player_number(game, match)
-        if game.is_solo_game and offense_number == 2:
-            await self.play_ai_turn(interaction, game, match)
+        # Ahead of everything, including the AI branch above: a beat
+        # the coach is *defending* is still a beat, and its position
+        # has to be down before Dinky takes a turn on it. The note is
+        # gated behind Continue, so what follows it -- an AI turn or
+        # the ordinary action prompt -- waits on the coach's click
+        # rather than landing in the same breath as the note itself.
+        if game.in_tutorial:
+            await self.stage_tutorial_beat(
+                interaction, game, then=continue_turn_prompt,
+            )
             return
 
-        if len(eligible_handlers) == 1:
-            match.select_ball_handler(eligible_handlers[0])
-            game.match_state = match.to_dict()
-            view: discord.ui.View = PlayerActionView(
-                self,
-                game.game_id,
-            )
-        else:
-            view = BallHandlerSelectionView(
-                self,
-                game.game_id,
-            )
-
-        turn_message = await interaction.followup.send(
-            self.engine.build_turn_prompt(game, match, carrying=carrying),
-            view=view,
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True,
-                roles=False,
-                everyone=False,
-            ),
-        )
-        game.turn_message_id = turn_message.id
-        save_games(self.games)
+        await continue_turn_prompt(interaction)
 
     async def render_match_png(self, game: D12BallGame) -> bytes:
         """
