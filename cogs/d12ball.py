@@ -4,7 +4,7 @@ import io
 import random
 import time
 import uuid
-from typing import Awaitable, Callable, Optional
+from typing import Awaitable, Callable, Optional, Sequence
 
 import aiohttp
 import discord
@@ -54,7 +54,7 @@ from d12ball.game import (
     Team,
     team_display_name,
 )
-from d12ball.cards import render_maneuver_hand
+from d12ball.cards import render_maneuver_hands
 from d12ball import tutorial
 from d12ball.render import (
     TEAM_COLORS,
@@ -139,7 +139,6 @@ from cogs.d12ball_views import (
     LooseBallSkillTestView,
     LowPassChoiceView,
     ManeuverActionPromptView,
-    ManeuverActionSelectView,
     ManeuverChallengeView,
     OwnGoalRollView,
     PlayerActionView,
@@ -260,22 +259,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             ).read()
             for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
         }
-        # A side's playable cards, which is what a coach is shown when
-        # they open the pick. All of them are drawn here for the same
-        # reason the reference image is: it is the one place a render
-        # can block the loop harmlessly, and the alternative is drawing
-        # up to seven cards on every click of a button pressed several
-        # times a turn. They cannot go stale -- nothing about a maneuver
-        # card depends on the match.
+        # The cards the maneuver prompt carries. All of them are drawn
+        # here for the same reason the reference image is: it is the one
+        # place a render can block the loop harmlessly, and the
+        # alternative is drawing up to thirteen cards on every maneuver.
+        # They cannot go stale -- nothing about a maneuver card depends
+        # on the match.
         #
-        # **Three hands a side, not one**, keyed by the tiers a coach
-        # may play: basic, and (in an advanced game) both. See
-        # `RulesEngine.maneuver_tiers` for who gets which.
+        # **Keyed by the sides on the prompt and the tiers they may
+        # play.** The prompt is public and carries a hand for every side
+        # that still has a human pick to make, so the sides are the two
+        # of them, or one alone when the maneuver is unchallenged or the
+        # other side is Dinky's -- see `RulesEngine.maneuver_pick_sides`
+        # and `maneuver_tiers`.
         self.maneuver_hand_image_bytes = {
-            (side, tiers): render_maneuver_hand(
-                self.maneuver_catalog, self.player_catalog, side, tiers
+            (sides, tiers): render_maneuver_hands(
+                self.maneuver_catalog, self.player_catalog, sides, tiers
             ).read()
-            for side in ("offense", "defense")
+            for sides in (
+                ("offense",),
+                ("defense",),
+                ("offense", "defense"),
+            )
             for tiers in (
                 (MANEUVER_TIER_BASIC,),
                 (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
@@ -397,16 +402,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     # Same problem as the maneuver menu, same answer --
                     # see restore_shootout_menus.
                     restored_views += self.restore_shootout_menus(game, match)
-
-                if isinstance(turn_view, ManeuverActionPromptView):
-                    # The maneuver menu a coach may have open right
-                    # now, which is ephemeral and so has no message to
-                    # re-attach to. Only reachable from here: a
-                    # maneuver under way always has its prompt on
-                    # turn_message_id, since that is only cleared once
-                    # both sides have picked and the menus are gone
-                    # with it.
-                    restored_views += self.restore_maneuver_menus(game, match)
 
         LOGGER.info(
             "Loaded %d saved D12 Ball games and restored %d button "
@@ -622,18 +617,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
     def build_maneuver_hand_file(
         self,
-        side: str,
+        sides: Sequence[str],
         tiers: tuple[str, ...] = (MANEUVER_TIER_BASIC,),
     ) -> discord.File:
         """
-        The cards a coach may play, wrapped fresh each time: uploading a
-        `discord.File` consumes the stream inside it, so the bytes are
-        what is kept and the file is built per send -- the same reason
-        `render_match_png` returns bytes rather than a File.
+        The cards on offer this maneuver, wrapped fresh each time:
+        uploading a `discord.File` consumes the stream inside it, so the
+        bytes are what is kept and the file is built per send -- the
+        same reason `render_match_png` returns bytes rather than a File.
         """
+        sides = tuple(sides)
         return discord.File(
-            io.BytesIO(self.maneuver_hand_image_bytes[(side, tuple(tiers))]),
-            filename=f"maneuver_hand_{side}.png",
+            io.BytesIO(self.maneuver_hand_image_bytes[(sides, tuple(tiers))]),
+            filename=f"maneuver_hand_{'_'.join(sides)}.png",
         )
 
 
@@ -741,15 +737,20 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> None:
         """
         Kick off the simultaneous maneuver-action choice once a
-        challenger has been chosen: the AI opponent rolls immediately,
-        and any human side gets a prompt to open their private
-        maneuver menu.
+        challenger has been chosen: the AI opponent picks immediately,
+        and every human side gets its own row of buttons on **one
+        public prompt** -- see `ManeuverActionPromptView` for why the
+        cards can be public while the pick stays secret.
+
+        Dinky picking first is what makes a solo game's prompt one hand
+        and one row: `RulesEngine.maneuver_pick_sides` is read after the
+        writes above, so it already knows the AI has answered.
 
         An uncontested maneuver comes through here too, and waits on
         the offense alone -- there is no defender to pick a defensive
         maneuver, and nothing secret about a pick with nobody to
         conceal it from, but the prompt is the same one so the coach
-        reads the same menu they always do.
+        reads the same cards they always do.
         """
         if game.is_solo_game:
             ai_strategy = self.engine.get_ai_strategy(game)
@@ -792,37 +793,48 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             await self.resolve_maneuver(interaction, game, match)
             return
 
-        waiting_on = []
-        if match.offense_maneuver is None:
-            waiting_on.append(
-                format_player_with_team(
-                    game,
-                    self.engine.possession_player_number(game, match),
-                    mention=True,
-                )
+        # Who is mentioned and whose buttons get built are the same
+        # question, asked once: a coach named in the line above the
+        # prompt and given no row to press would be a bug nobody would
+        # catch until a game stalled.
+        sides = self.engine.maneuver_pick_sides(game, match)
+        waiting_on = [
+            format_player_with_team(
+                game,
+                self.engine.possession_player_number(game, match)
+                if side == "offense"
+                else self.engine.defending_player_number(game, match),
+                mention=True,
             )
-        if not match.maneuver_uncontested and match.defense_maneuver is None:
-            waiting_on.append(
-                format_player_with_team(
-                    game,
-                    self.engine.defending_player_number(game, match),
-                    mention=True,
-                )
-            )
+            for side in sides
+        ]
 
+        # The buttons are on the message, so there is nothing to tell a
+        # coach to open. What the wording has to do instead is say which
+        # row is theirs, since a contested prompt carries both.
         instruction = (
-            "choose a maneuver. Use the button to make your pick."
-            if match.maneuver_uncontested
+            "choose a maneuver from the red row -- only you can see "
+            "what you picked."
+            if len(sides) == 1
             else (
-                "both sides will now choose a maneuver privately. Use "
-                "the button to make your pick."
+                "both sides pick privately from the same message: red "
+                "for the offense, green for the defense. Only you can "
+                "see what you picked."
             )
         )
 
         async def show_prompt(inner_interaction: discord.Interaction) -> None:
             prompt_view = ManeuverActionPromptView(self, game.game_id)
+            # The cards ride on the prompt itself. One image, not one
+            # per side: Discord lays two attachments out side by side,
+            # which would halve the width of both hands. See
+            # render_maneuver_hands for why showing both gives nothing
+            # away.
             prompt_message = await inner_interaction.followup.send(
                 f"{' and '.join(waiting_on)}, {instruction}",
+                file=self.build_maneuver_hand_file(
+                    sides, self.engine.maneuver_tiers(game, match),
+                ),
                 view=prompt_view,
                 wait=True,
                 allowed_mentions=discord.AllowedMentions(
@@ -834,14 +846,23 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game.turn_message_id = prompt_message.id
             save_games(self.games)
 
+            # The abilities are small print at the size Discord shows an
+            # image inline, so the link is worth the extra round trip.
+            # It is the webhook route, not the channel's edit bucket --
+            # see "Discord's rate limits". Adding it re-sends the view,
+            # or the edit would drop the buttons the prompt exists for.
+            await add_full_image_button(prompt_message, view=prompt_view)
+            await self.post_field_image(inner_interaction, game)
+
         # The cards are what this beat is about, so its note goes in
-        # front of the menu rather than with the lesson two messages
-        # up: by the time a coach opens their hand they have watched a
-        # challenger walk in and are looking at three buttons, which is
-        # the moment the explanation is worth reading. It is held
-        # behind Continue rather than posted right alongside the menu
-        # -- see post_tutorial_note -- since nothing forces a coach to
-        # read it before the menu's own buttons draw their eye.
+        # front of the prompt rather than with the lesson two messages
+        # up: by the time the hands are in front of a coach they have
+        # watched a challenger walk in and are looking at three
+        # buttons, which is the moment the explanation is worth
+        # reading. It is held behind Continue rather than posted right
+        # alongside the prompt -- see post_tutorial_note -- since
+        # nothing forces a coach to read it before live buttons draw
+        # their eye.
         tutorial_beat = self.tutorial_beat(game)
         if tutorial_beat is not None:
             await self.post_tutorial_note(
@@ -1318,64 +1339,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
         return None
 
-    def restore_maneuver_menus(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-    ) -> int:
-        """
-        Bring an open maneuver menu back to life after a restart, and
-        say how many were registered.
-
-        **The maneuver pick is the one ephemeral view in the game**,
-        and it has to be: a coach must not see the other side's choice
-        before the reveal, and ephemeral is the only thing Discord
-        offers that hides it. It is also therefore the one view that
-        cannot be re-attached the ordinary way -- the bot never holds a
-        durable handle to an ephemeral message, so there is no id to
-        give `add_view`.
-
-        `add_view` **without** a message_id is the way round it.
-        discord.py looks a component interaction up by
-        `(message_id, custom_id)` and then falls back to
-        `(None, custom_id)`, so a view registered this way is
-        dispatched for any message carrying its custom_ids -- the
-        coach's already-open ephemeral menu included. Verified against
-        `ViewStore.dispatch_view`; the fallback is deliberate and
-        documented there.
-
-        Two things make it safe rather than a scattergun:
-
-        - **The custom_ids already carry the game and the side**
-          (`d12ball:maneuver_pick:<game>:<side>:<maneuver>`), so
-          nothing can be dispatched into the wrong game.
-        - **A message_id match wins over the fallback**, so the next
-          menu this game opens is dispatched to its own view as usual.
-          This one only ever catches clicks nothing else claims.
-
-        The registration outlives the maneuver -- there is no message
-        to hang its removal on either -- but a stale click costs
-        nothing: `pick` re-reads the match and answers "a maneuver has
-        already been chosen for that side."
-        """
-        sides = []
-        if match.offense_maneuver is None:
-            sides.append("offense")
-        if match.defense_maneuver is None and not match.maneuver_uncontested:
-            sides.append("defense")
-
-        for side in sides:
-            # timeout=None because add_view refuses anything else: a
-            # view it cannot see the message for has nothing to time
-            # out against.
-            self.bot.add_view(
-                ManeuverActionSelectView(
-                    self, game.game_id, side, timeout=None,
-                ),
-            )
-
-        return len(sides)
-
     def restore_shootout_menus(
         self,
         game: D12BallGame,
@@ -1383,8 +1346,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
     ) -> int:
         """
         Bring an open shootout menu back to life after a restart, the
-        way `restore_maneuver_menus` does for the maneuver pick, and
-        for the same reason: a coach's shooting order and their
+        way the maneuver pick used to be restored before its menu
+        went public, and for the same reason: a coach's shooting
+        order and their
         sudden-death shooter are secret, so both menus are ephemeral
         and neither has a message id to re-attach to. `add_view`
         without one registers against `(None, custom_id)`, which is
@@ -8006,12 +7970,53 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             game, await self.render_match_png(game),
         )
 
+    async def post_field_image(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        """
+        The field under the maneuver prompt: what each maneuver would do
+        depends on where everybody is standing, and the persistent board
+        has usually scrolled up the channel by the time a turn resolves.
+
+        **A message of its own, not a second attachment on the prompt.**
+        Discord lays two images on one message out side by side, which
+        would show a field the width of the whole board at half the
+        width of a phone. It also keeps the prompt's own full-image link
+        pointing at the cards -- `build_full_image_button` reads the
+        first attachment, and "View full image" under a hand means the
+        hand.
+
+        It is public now rather than a private send to each coach, which
+        is one upload where there used to be one apiece. Both are the
+        webhook route, so neither competes with the board for the
+        channel's edit bucket -- see "Discord's rate limits".
+
+        A failure here loses the field and nothing else: the prompt is
+        already up and clickable, which is worth more than the picture
+        under it.
+        """
+        try:
+            message = await interaction.followup.send(
+                file=await self.build_field_file(game),
+                wait=True,
+            )
+        except (discord.HTTPException, aiohttp.ClientError):
+            return
+
+        # A field is the whole width of the board in a strip a fifth as
+        # tall, so inline it is smaller than anything else the bot
+        # sends -- the names on the meeples need the full-size upload
+        # more than the cards do.
+        await add_full_image_button(message)
+
     async def build_field_file(self, game: D12BallGame) -> discord.File:
         """
         The field on its own -- where everybody is standing and where
         the ball is, with nothing else on it -- which is what a coach
         gets under their maneuver cards. See
-        `ManeuverActionPromptView.open_action_menu`.
+        `D12Ball.begin_maneuver_action_selection`.
 
         Unlike the maneuver hand, this cannot be drawn once at startup:
         it is the position, so it is different on every pick. Bytes are

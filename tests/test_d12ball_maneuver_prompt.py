@@ -16,9 +16,8 @@ import discord
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
     ManeuverActionPromptView,
-    ManeuverActionSelectView,
 )
-from d12ball.cards import render_maneuver_hand
+from d12ball.cards import render_maneuver_hands
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MatchState,
@@ -297,8 +296,8 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
 
 class ManeuverPickHarness:
     """
-    Opening a coach's pick, for the two things it puts in front of
-    them: their three cards, and the field they would play them on.
+    Putting the maneuver pick up, for the two things it puts in front
+    of both coaches: the hands, and the field they would be played on.
     """
 
     @classmethod
@@ -306,20 +305,20 @@ class ManeuverPickHarness:
         cls.catalog = load_player_catalog()
         cls.rules = load_basic_ruleset()
         # Drawn once for the whole class, as the cog draws it once for
-        # the whole process -- six cards a test is most of a second.
+        # the whole process -- the cards are most of a second apiece.
         catalog = load_maneuver_catalog()
-        # Keyed the way the cog keys them -- by side *and* by the tiers
-        # a coach may play. A basic game is the only one this harness
-        # builds, so the advanced entry is the same bytes rather than a
-        # second render: nothing here reads it, and drawing seven more
-        # cards a class is most of a second for nothing.
-        basic = {
-            side: render_maneuver_hand(catalog, cls.catalog, side).read()
-            for side in ("offense", "defense")
+        # Keyed the way the cog keys them -- by the sides on the prompt
+        # *and* by the tiers they may play. A basic game is the only one
+        # this harness builds, so the advanced entry is the same bytes
+        # rather than a second render: nothing here reads it, and
+        # drawing thirteen more cards a class is seconds for nothing.
+        drawn = {
+            sides: render_maneuver_hands(catalog, cls.catalog, sides).read()
+            for sides in (("offense",), ("defense",), ("offense", "defense"))
         }
         cls.hands = {
-            (side, tiers): basic[side]
-            for side in ("offense", "defense")
+            (sides, tiers): image
+            for sides, image in drawn.items()
             for tiers in (("basic",), ("basic", "advanced"))
         }
 
@@ -328,11 +327,10 @@ class ManeuverPickHarness:
         cog.maneuver_hand_image_bytes = dict(self.hands)
         return cog
 
-    async def open_menu(self, cog: D12Ball, offense: bool):
+    async def put_up_prompt(self, cog: D12Ball, uncontested: bool = False):
         """
-        Open the pick and hand back the interaction, so a test can read
-        both what went on the response (the cards) and what followed it
-        (the field).
+        Run the real prompt send and hand back the interaction, so a
+        test can read the prompt itself and the field message under it.
         """
         game = build_game()
         game.match_state = {}
@@ -346,34 +344,32 @@ class ManeuverPickHarness:
             visiting_team=Team.PURPLE,
         )
         match.active_player_id = match.home.field_players[0]
-        match.challenger_id = match.visiting.field_players[0]
+        if uncontested:
+            match.maneuver_uncontested = True
+        else:
+            match.challenger_id = match.visiting.field_players[0]
+        game.match_state = match.to_dict()
 
         cog.engine.load_match_state = mock.Mock(return_value=match)
-        cog.engine.user_controls_possession = mock.Mock(return_value=offense)
-        cog.engine.user_controls_defense = mock.Mock(return_value=not offense)
 
+        sent = SimpleNamespace(id=999, attachments=[])
         interaction = SimpleNamespace(
             user=SimpleNamespace(id=111),
+            guild=None,
             response=SimpleNamespace(send_message=mock.AsyncMock()),
-            followup=SimpleNamespace(
-                send=mock.AsyncMock(return_value=mock.Mock()),
-            ),
+            followup=SimpleNamespace(send=mock.AsyncMock(return_value=sent)),
         )
-        view = ManeuverActionPromptView(cog, game.game_id)
-        with mock.patch(
-            "cogs.d12ball_views.add_full_image_button_to_response",
-            new=mock.AsyncMock(),
-        ), mock.patch(
-            "cogs.d12ball_views.add_full_image_button",
-            new=mock.AsyncMock(),
+        with mock.patch("cogs.d12ball.save_games"), mock.patch(
+            "cogs.d12ball.add_full_image_button", new=mock.AsyncMock(),
         ):
-            await view.open_action_menu(interaction)
-        return interaction
+            await cog.begin_maneuver_action_selection(
+                interaction, game, match,
+            )
+        return interaction, game, match
 
-    async def open_menu_cards(self, cog: D12Ball, offense: bool):
-        """Just the kwargs the cards were sent with."""
-        interaction = await self.open_menu(cog, offense)
-        return interaction.response.send_message.await_args.kwargs
+    def prompt_kwargs(self, interaction):
+        """The kwargs the prompt itself went out with."""
+        return interaction.followup.send.await_args_list[0].kwargs
 
 
 class ManeuverPickShowsTheCardsTests(
@@ -381,91 +377,149 @@ class ManeuverPickShowsTheCardsTests(
     unittest.IsolatedAsyncioTestCase,
 ):
     """
-    Opening the pick puts a side's three cards in front of the coach.
-    It used to be a paragraph per maneuver, which said the same things
-    and made a coach read three sentences to compare three options.
+    The prompt puts both hands and both rows of buttons on one public
+    message. It used to be a public button that opened an ephemeral
+    menu of the clicking coach's own cards -- which cost a click and a
+    round trip to hide nothing, since the cards are public information
+    and what stays secret is the pick.
     """
 
-    async def test_the_offense_is_shown_its_own_three_cards(self) -> None:
-        sent = await self.open_menu_cards(
-            self.build_ready_cog(), offense=True,
+    async def test_the_prompt_carries_both_hands(self) -> None:
+        interaction, _, _ = await self.put_up_prompt(self.build_ready_cog())
+
+        sent = self.prompt_kwargs(interaction)
+        self.assertEqual(
+            sent["file"].filename, "maneuver_hand_offense_defense.png",
         )
 
+    async def test_an_uncontested_maneuver_carries_the_offense_alone(
+        self,
+    ) -> None:
+        interaction, _, _ = await self.put_up_prompt(
+            self.build_ready_cog(), uncontested=True,
+        )
+
+        sent = self.prompt_kwargs(interaction)
         self.assertEqual(sent["file"].filename, "maneuver_hand_offense.png")
-        self.assertTrue(sent["ephemeral"])
 
-    async def test_the_defense_is_shown_its_own_three_cards(self) -> None:
-        sent = await self.open_menu_cards(
-            self.build_ready_cog(), offense=False,
+    async def test_the_prompt_is_public(self) -> None:
+        # The whole point: neither coach has to hold an interaction for
+        # this message to reach them, which is what the extra click was
+        # buying.
+        interaction, _, _ = await self.put_up_prompt(self.build_ready_cog())
+
+        self.assertNotIn("ephemeral", self.prompt_kwargs(interaction))
+
+    async def test_the_prompt_message_is_what_a_restart_re_arms(
+        self,
+    ) -> None:
+        interaction, game, _ = await self.put_up_prompt(
+            self.build_ready_cog(),
         )
 
-        self.assertEqual(sent["file"].filename, "maneuver_hand_defense.png")
+        self.assertTrue(self.prompt_kwargs(interaction)["wait"])
+        self.assertEqual(game.turn_message_id, 999)
 
-    async def test_the_effect_prose_is_gone_from_the_message(self) -> None:
-        # The cards carry it, and repeating it under them is what this
-        # replaced rather than something to keep alongside.
-        sent = await self.open_menu_cards(
-            self.build_ready_cog(), offense=True,
-        )
-
-        self.assertEqual(sent["content"], "Pick your maneuver:")
-
-    def test_the_menu_offers_the_maneuvers_then_the_reference(self) -> None:
-        # The side's three, in rank order, and the "Maneuver Reference"
-        # button last. The card back carries the same defeat cycle, but
-        # as one card among four at a third of print size -- the hexagon
-        # is what a coach reads a matchup off, so it is a click away
-        # rather than gone. Order matters: the reference falling to the
-        # end is what keeps the three picks where a coach looks for them.
+    def test_the_prompt_offers_both_sides_then_the_reference(self) -> None:
+        # Both sides' maneuvers in rank order, offense first, and the
+        # "Maneuver Reference" button last. The card back carries the
+        # same defeat cycle, but as one card among several at a third of
+        # print size -- the hexagon is what a coach reads a matchup off,
+        # so it is a click away rather than gone.
         cog = self.build_ready_cog()
-        for side in ("offense", "defense"):
-            with self.subTest(side=side):
-                view = ManeuverActionSelectView(cog, "g1", side)
-                self.assertEqual(
-                    [item.label for item in view.children],
-                    [
-                        maneuver.name
-                        for maneuver in cog.maneuver_catalog.for_tier(
-                            side, MANEUVER_TIER_BASIC,
-                        )
-                    ]
-                    + ["Maneuver Reference"],
+        game = build_game()
+        cog.games[game.game_id] = game
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.challenger_id = match.visiting.field_players[0]
+        game.match_state = match.to_dict()
+        cog.engine.load_match_state = mock.Mock(return_value=match)
+
+        view = ManeuverActionPromptView(cog, game.game_id)
+
+        self.assertEqual(
+            [item.label for item in view.children],
+            [
+                maneuver.name
+                for side in ("offense", "defense")
+                for maneuver in cog.maneuver_catalog.for_tier(
+                    side, MANEUVER_TIER_BASIC,
                 )
-
-    def test_the_reference_button_is_addressed_per_game_and_side(self) -> None:
-        # restore_maneuver_menus re-registers a menu without a message
-        # id, and discord.py falls back to matching on custom_id alone,
-        # so this button carries the game and the side exactly as the
-        # picks do -- see "Recovering a stuck game" in CLAUDE.md.
-        cog = self.build_ready_cog()
-        ids = {
-            side: [
-                item.custom_id
-                for item in ManeuverActionSelectView(cog, "g1", side).children
-                if item.label == "Maneuver Reference"
             ]
-            for side in ("offense", "defense")
-        }
+            + ["Maneuver Reference"],
+        )
+
+    def test_each_side_gets_its_own_row_and_its_own_colour(self) -> None:
+        # A coach picks their row out of a prompt holding both without
+        # reading the labels: offense red, defense green, exactly as the
+        # cards and the reference hexagon draw them.
+        cog = self.build_ready_cog()
+        game = build_game()
+        cog.games[game.game_id] = game
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.challenger_id = match.visiting.field_players[0]
+        game.match_state = match.to_dict()
+        cog.engine.load_match_state = mock.Mock(return_value=match)
+
+        view = ManeuverActionPromptView(cog, game.game_id)
+        by_side = {}
+        for item in view.children:
+            if not (item.custom_id or "").startswith(
+                "d12ball:maneuver_pick:"
+            ):
+                continue
+            by_side.setdefault(
+                item.custom_id.split(":")[3], set()
+            ).add((item.row, item.style))
 
         self.assertEqual(
-            ids["offense"], ["d12ball:maneuver_reference:g1:offense"],
+            by_side["offense"], {(0, discord.ButtonStyle.danger)},
         )
         self.assertEqual(
-            ids["defense"], ["d12ball:maneuver_reference:g1:defense"],
+            by_side["defense"], {(1, discord.ButtonStyle.success)},
         )
+
+    def test_the_reference_button_is_addressed_per_game(self) -> None:
+        # One button for a prompt holding both sides -- the hexagon is
+        # the same picture for either coach, so it carries the game and
+        # no side.
+        cog = self.build_ready_cog()
+        game = build_game()
+        cog.games[game.game_id] = game
+
+        ids = [
+            item.custom_id
+            for item in ManeuverActionPromptView(cog, game.game_id).children
+            if item.label == "Maneuver Reference"
+        ]
+
+        self.assertEqual(ids, ["d12ball:maneuver_reference:g1"])
 
     async def test_the_hand_is_drawn_once_and_re_wrapped_per_send(
         self,
     ) -> None:
         # Uploading a discord.File consumes the stream inside it, so a
-        # second open must not be handed the emptied one.
+        # second prompt must not be handed the emptied one.
         cog = self.build_ready_cog()
-        first = await self.open_menu_cards(cog, offense=True)
-        second = await self.open_menu_cards(cog, offense=True)
+        first, _, _ = await self.put_up_prompt(cog)
+        second, _, _ = await self.put_up_prompt(cog)
 
-        self.assertIsNot(first["file"], second["file"])
+        first_file = self.prompt_kwargs(first)["file"]
+        second_file = self.prompt_kwargs(second)["file"]
+        self.assertIsNot(first_file, second_file)
         self.assertEqual(
-            first["file"].fp.getvalue(), second["file"].fp.getvalue()
+            first_file.fp.getvalue(), second_file.fp.getvalue(),
         )
 
 
@@ -474,51 +528,54 @@ class ManeuverPickShowsTheFieldTests(
     unittest.IsolatedAsyncioTestCase,
 ):
     """
-    And under the cards, where everybody is standing. What a maneuver
-    would do depends on the position, and a coach picking one is
-    looking at an ephemeral message instead of the board.
+    And under the hands, where everybody is standing. What a maneuver
+    would do depends on the position, and the persistent board has
+    usually scrolled up the channel by the time a turn resolves.
     """
 
-    async def test_the_field_follows_the_cards(self) -> None:
-        interaction = await self.open_menu(
-            self.build_ready_cog(), offense=True,
-        )
+    async def test_the_field_follows_the_prompt(self) -> None:
+        interaction, _, _ = await self.put_up_prompt(self.build_ready_cog())
 
-        sent = interaction.followup.send.await_args.kwargs
+        sent = interaction.followup.send.await_args_list[-1].kwargs
         self.assertEqual(sent["file"].filename, "d12ball-field.png")
-        self.assertTrue(sent["ephemeral"])
         # The message has to come back, or there is nothing to hang the
         # full-image link on -- the field is the smallest thing the bot
         # sends inline.
         self.assertTrue(sent["wait"])
 
-    async def test_the_field_is_a_message_of_its_own(self) -> None:
-        # Not a second attachment on the cards. Discord lays two images
-        # on one message out side by side, which halves the width of a
-        # field that is already the widest thing here -- and the cards'
-        # own full-image link reads the first attachment, so a coach
-        # clicking it under three cards gets the cards.
-        interaction = await self.open_menu(
-            self.build_ready_cog(), offense=True,
-        )
+    async def test_the_field_is_public_like_the_prompt(self) -> None:
+        # One upload for both coaches, where it used to be one apiece.
+        interaction, _, _ = await self.put_up_prompt(self.build_ready_cog())
 
-        cards = interaction.response.send_message.await_args.kwargs
-        self.assertNotIn("files", cards)
-        self.assertEqual(cards["file"].filename, "maneuver_hand_offense.png")
-        interaction.followup.send.assert_awaited_once()
+        sent = interaction.followup.send.await_args_list[-1].kwargs
+        self.assertNotIn("ephemeral", sent)
+
+    async def test_the_field_is_a_message_of_its_own(self) -> None:
+        # Not a second attachment on the prompt. Discord lays two images
+        # on one message out side by side, which halves the width of a
+        # field that is already the widest thing here -- and the
+        # prompt's own full-image link reads the first attachment, so a
+        # coach clicking it under the hands gets the hands.
+        interaction, _, _ = await self.put_up_prompt(self.build_ready_cog())
+
+        prompt = self.prompt_kwargs(interaction)
+        self.assertNotIn("files", prompt)
+        self.assertEqual(
+            prompt["file"].filename, "maneuver_hand_offense_defense.png",
+        )
+        self.assertEqual(interaction.followup.send.await_count, 2)
 
     async def test_the_field_is_the_board_as_it_stands(self) -> None:
-        # It is rendered per pick, unlike the cards: it is the position,
-        # so it is different every time and cannot be drawn at startup.
-        interaction = await self.open_menu(
-            self.build_ready_cog(), offense=True,
-        )
+        # It is rendered per maneuver, unlike the cards: it is the
+        # position, so it is different every time and cannot be drawn at
+        # startup.
+        interaction, _, _ = await self.put_up_prompt(self.build_ready_cog())
 
-        image = interaction.followup.send.await_args.kwargs["file"].fp
+        image = interaction.followup.send.await_args_list[-1].kwargs["file"].fp
         self.assertTrue(image.getvalue().startswith(b"\x89PNG"))
 
-    async def test_a_failed_field_send_does_not_lose_the_pick(self) -> None:
-        # The pick is already up and clickable by then, which is worth
+    async def test_a_failed_field_send_does_not_lose_the_prompt(self) -> None:
+        # The prompt is already up and clickable by then, which is worth
         # more than the picture under it.
         cog = self.build_ready_cog()
         game = build_game()
@@ -530,15 +587,13 @@ class ManeuverPickShowsTheFieldTests(
             ),
         )
 
-        view = ManeuverActionPromptView(cog, game.game_id)
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock()),
         )
         with mock.patch(
-            "cogs.d12ball_views.add_full_image_button",
-            new=mock.AsyncMock(),
+            "cogs.d12ball.add_full_image_button", new=mock.AsyncMock(),
         ):
-            await view.send_field_image(interaction)
+            await cog.post_field_image(interaction, game)
 
         interaction.followup.send.assert_not_awaited()
 

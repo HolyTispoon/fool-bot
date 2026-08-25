@@ -9,6 +9,7 @@ prompts and turning button/select clicks into calls on the cog.
 
 import asyncio
 import random
+from math import ceil
 from typing import TYPE_CHECKING, Awaitable, Callable, Optional
 
 import aiohttp
@@ -1795,257 +1796,192 @@ class ManeuverChallengeView(SafeView):
         )
 
 
+# Discord's own component limits: five rows to a message, five buttons
+# to a row.
+MAX_BUTTON_ROWS = 5
+MAX_BUTTONS_PER_ROW = 5
+
+
+def even_button_rows(
+    buttons: list[discord.ui.Button],
+) -> list[list[discord.ui.Button]]:
+    """
+    Split one side's maneuver buttons into as few rows as Discord
+    allows, and then **evenly** across them.
+
+    Six advanced cards do not fit a row, and chunking at the limit
+    would lay them out five and one -- which reads as a row plus an
+    afterthought rather than as one hand. Two rows of three is the same
+    number of rows and says what it is.
+    """
+    if not buttons:
+        return []
+    rows = ceil(len(buttons) / MAX_BUTTONS_PER_ROW)
+    per_row = ceil(len(buttons) / rows)
+    return [
+        buttons[start:start + per_row]
+        for start in range(0, len(buttons), per_row)
+    ]
+
+
 class ManeuverActionPromptView(SafeView):
-    def __init__(
-        self,
-        cog: "D12Ball",
-        game_id: str,
-    ):
-        super().__init__(timeout=None)
-
-        self.cog = cog
-        self.game_id = game_id
-
-        button = discord.ui.Button(
-            label="Choose Your Maneuver",
-            style=discord.ButtonStyle.primary,
-            custom_id=f"d12ball:maneuver_prompt:{game_id}",
-        )
-        button.callback = self.open_action_menu
-        self.add_item(button)
-
-    async def open_action_menu(
-        self,
-        interaction: discord.Interaction,
-    ) -> None:
-        """
-        One shared button for both sides: which ephemeral menu opens
-        depends only on who clicked, so nobody has to pick "which
-        button is mine" first.
-        """
-        game, match = await self.require_match(interaction)
-        if game is None:
-            return
-
-        is_offense_player = self.cog.engine.user_controls_possession(
-            interaction.user.id,
-            game,
-            match,
-        )
-        is_defense_player = self.cog.engine.user_controls_defense(
-            interaction.user.id,
-            game,
-            match,
-        )
-
-        if match.offense_maneuver is None and is_offense_player:
-            side = "offense"
-        elif (
-            match.defense_maneuver is None
-            and is_defense_player
-            and not match.maneuver_uncontested
-        ):
-            side = "defense"
-        elif is_defense_player and match.maneuver_uncontested:
-            # Which way this side ended up unchallenged is read off the
-            # candidates, the same way announce_uncontested_maneuver
-            # reads it -- anybody still eligible means they were
-            # offered the challenge and sent nobody.
-            await interaction.response.send_message(
-                (
-                    "You sent nobody in to challenge"
-                    if match.eligible_challengers()
-                    else "You have nobody left to challenge with"
-                )
-                + ", so there is no defensive maneuver to pick.",
-                ephemeral=True,
-            )
-            return
-        elif is_offense_player or is_defense_player:
-            await interaction.response.send_message(
-                "You have already chosen your maneuver.",
-                ephemeral=True,
-            )
-            return
-        else:
-            await interaction.response.send_message(
-                "Only a player in this game can choose a maneuver.",
-                ephemeral=True,
-            )
-            return
-
-        # The three cards themselves rather than a paragraph about
-        # them. Everything the paragraph carried is on a card and in
-        # the same place on each one, so a coach compares three cards
-        # instead of reading three sentences -- and it is the same
-        # picture as the printed card, so the two ways of playing teach
-        # each other.
-        view = ManeuverActionSelectView(self.cog, self.game_id, side)
-        await interaction.response.send_message(
-            content="Pick your maneuver:",
-            file=self.cog.build_maneuver_hand_file(
-                side, self.cog.engine.maneuver_tiers(game, match),
-            ),
-            view=view,
-            ephemeral=True,
-        )
-        # The abilities are small print at the size Discord shows an
-        # image inline, so the link is worth the extra round trip. It
-        # is the webhook route, not the channel's edit bucket -- see
-        # "Discord's rate limits".
-        await add_full_image_button_to_response(interaction, view)
-        await self.send_field_image(interaction)
-
-    async def send_field_image(
-        self,
-        interaction: discord.Interaction,
-    ) -> None:
-        """
-        The field under the cards: what each maneuver would do depends
-        on where everybody is standing, and a coach picking one is
-        looking at an ephemeral message rather than at the board.
-
-        **A message of its own, not a second attachment on the cards.**
-        Discord lays two images on one message out side by side, which
-        would show a field the width of the whole board at half the
-        width of a phone. It also keeps the cards' own full-image link
-        pointing at the cards: `build_full_image_button` reads the
-        first attachment, and a coach clicking "View full image" under
-        their hand means the hand.
-
-        Both sends are the webhook route rather than the channel's edit
-        bucket, so neither competes with the board -- see "Discord's
-        rate limits" in CLAUDE.md.
-
-        A failure here loses the field and nothing else: the pick is
-        already up and clickable, which is worth more than the picture
-        under it.
-        """
-        game = self.cog.games.get(self.game_id)
-        if game is None or game.match_state is None:
-            return
-
-        try:
-            message = await interaction.followup.send(
-                file=await self.cog.build_field_file(game),
-                ephemeral=True,
-                wait=True,
-            )
-        except (discord.HTTPException, aiohttp.ClientError):
-            return
-
-        # A field is the whole width of the board in a strip a fifth as
-        # tall, so inline it is smaller than anything else the bot
-        # sends -- the names on the meeples need the full-size upload
-        # more than the cards do.
-        await add_full_image_button(message)
-
-
-class ManeuverActionSelectView(SafeView):
     """
-    The six maneuver buttons, on the **one ephemeral message in the
-    game** -- a coach must not see the other side's pick before the
-    reveal, and ephemeral is the only thing Discord offers that hides
-    it.
+    The maneuver pick, on **one public message carrying both sides'
+    buttons**.
 
-    That makes this the one view a restart cannot re-attach to its
-    message: the bot never holds a durable handle to an ephemeral
-    message, so there is no id to give `add_view`. It is restored
-    message-agnostically instead -- see
-    `D12Ball.restore_maneuver_menus`, which is why `timeout` is an
-    argument rather than a constant.
+    It used to be two steps: a public prompt with a single "Choose Your
+    Maneuver" button that opened an ephemeral menu of the clicking
+    coach's own cards. The ephemeral menu was never about privacy of
+    the *cards* -- the twelve of them and the defeat cycle are public
+    information either coach may ask for at any time. What has to stay
+    hidden is the **pick**, and that is hidden by the reply to the
+    click being ephemeral, not by the menu being private. Discord tells
+    nobody else who pressed what, so a coach reading this message
+    cannot tell whether the other side has clicked, and the message is
+    never edited to say (see `D12Ball.close_maneuver_prompt`).
 
-    **The six maneuvers and a Maneuver Reference button.** The button
-    posts the defeat cycle as a second ephemeral message, and it is here
-    despite the cycle already riding on the card back that comes with
-    the hand (`render_maneuver_hand`): the back is one card among four
-    at a third of print size, and the hexagon is the picture a coach
-    actually reads a matchup off. It costs a click and an upload only
-    when somebody wants it. `/d12ball maneuver_reference` still posts
-    the same image to the channel for anyone who wants it in front of
-    both sides.
+    So the extra click bought nothing but the round trip. It existed
+    because an ephemeral message must answer *that coach's own*
+    interaction, and only one of the two coaches is ever holding a live
+    interaction when a maneuver begins -- whoever picked Maneuver, or
+    picked the challenger. Putting the buttons on the message removes
+    the need for either coach to hold one.
+
+    Two things follow, and both are improvements:
+
+    - **A restart re-attaches this like any other view.** It is on a
+      real message recorded in `turn_message_id`, so `on_ready` handles
+      it through `pending_turn_view` and the message-agnostic
+      `add_view` registration the ephemeral menu needed is gone. (The
+      shootout's two menus are still ephemeral and still need it -- see
+      `D12Ball.restore_shootout_menus`.)
+    - **The uploads halve.** One public hand image and one public field
+      strip, against a hand and a field to each of two coaches.
+
+    **Every side on the prompt keeps its buttons for the whole
+    maneuver**, picked or not. The message is deliberately never
+    edited, so the buttons a restored view dispatches have to match the
+    buttons sitting on the message; taking a picked side's row away
+    would leave those clicks answered by nothing. `pick` refuses the
+    second click instead. Which sides are on it at all is
+    `RulesEngine.maneuver_pick_sides`.
     """
 
     def __init__(
         self,
         cog: "D12Ball",
         game_id: str,
-        side: str,
-        timeout: Optional[float] = 180,
+        timeout: Optional[float] = None,
     ):
         super().__init__(timeout=timeout)
 
         self.cog = cog
         self.game_id = game_id
-        self.side = side
 
-        # **The hand is the engine's answer, not the whole catalog.** A
-        # basic game is three cards and an advanced one is six, and an
-        # unchallenged maneuver is basic whatever the mode -- see
-        # `RulesEngine.maneuver_tiers`. Asking there is what keeps these
-        # buttons, the hand image above them and `pick`'s own check from
-        # disagreeing about what a coach may play.
         game, match = self.load_match()
-        maneuvers = (
-            cog.engine.maneuver_hand(game, match, side)
+        sides = (
+            cog.engine.maneuver_pick_sides(game, match)
             if game is not None and match is not None
-            else cog.maneuver_catalog.for_tier(side, MANEUVER_TIER_BASIC)
+            else ("offense",)
         )
+        self.sides = sides
 
-        # A tutorial beat rails the coach onto one card, and the others
-        # are built **disabled** rather than left out -- the whole
-        # point of the lesson is reading what the hand holds. Dinky's
-        # half of the menu is never built at all, so this only ever
-        # narrows a human's. See d12ball/tutorial.py.
-        allowed = (
-            tutorial.allowed_maneuvers(cog.tutorial_beat(game), side)
-            if game is not None
-            else None
-        )
+        rows: list[list[discord.ui.Button]] = []
 
-        for maneuver in maneuvers:
-            button = discord.ui.Button(
-                label=maneuver.name,
-                style=discord.ButtonStyle.primary,
-                custom_id=(
-                    f"d12ball:maneuver_pick:{game_id}:{side}:"
-                    f"{maneuver.key}"
-                ),
-                disabled=(
-                    allowed is not None and maneuver.key not in allowed
-                ),
+        for side in sides:
+            # **The hand is the engine's answer, not the whole
+            # catalog.** A basic game is three cards and an advanced one
+            # is six, and an unchallenged maneuver is basic whatever the
+            # mode -- see `RulesEngine.maneuver_tiers`. Asking there is
+            # what keeps these buttons, the hand image above them and
+            # `pick`'s own check from disagreeing about what a coach may
+            # play.
+            maneuvers = (
+                cog.engine.maneuver_hand(game, match, side)
+                if game is not None and match is not None
+                else cog.maneuver_catalog.for_tier(side, MANEUVER_TIER_BASIC)
             )
 
-            async def callback(
-                interaction: discord.Interaction,
-                chosen_key: str = maneuver.key,
-            ) -> None:
-                await self.pick(interaction, chosen_key)
+            # A tutorial beat rails the coach onto one card, and the
+            # others are built **disabled** rather than left out -- the
+            # whole point of the lesson is reading what the hand holds.
+            # Dinky's side is never on this prompt at all, so this only
+            # ever narrows a human's. See d12ball/tutorial.py.
+            allowed = (
+                tutorial.allowed_maneuvers(cog.tutorial_beat(game), side)
+                if game is not None
+                else None
+            )
 
-            button.callback = callback
-            self.add_item(button)
+            buttons = []
+            for maneuver in maneuvers:
+                button = discord.ui.Button(
+                    label=maneuver.name,
+                    # The cards' own two colours, so a coach picks their
+                    # row out of a prompt holding both without reading
+                    # the labels: offense red, defense green, exactly as
+                    # `d12ball/cards.py` and the reference hexagon draw
+                    # them.
+                    style=(
+                        discord.ButtonStyle.danger
+                        if side == "offense"
+                        else discord.ButtonStyle.success
+                    ),
+                    custom_id=(
+                        f"d12ball:maneuver_pick:{game_id}:{side}:"
+                        f"{maneuver.key}"
+                    ),
+                    disabled=(
+                        allowed is not None and maneuver.key not in allowed
+                    ),
+                )
 
-        # Last, so the six maneuvers keep the order a coach reads them
-        # in and the reference falls to the end of the row. Its
-        # custom_id carries the game and the side like the picks do, so
-        # a menu restored message-agnostically after a restart
-        # (`restore_maneuver_menus`) dispatches this button too.
+                async def callback(
+                    interaction: discord.Interaction,
+                    chosen_side: str = side,
+                    chosen_key: str = maneuver.key,
+                ) -> None:
+                    await self.pick(interaction, chosen_side, chosen_key)
+
+                button.callback = callback
+                buttons.append(button)
+
+            rows.extend(even_button_rows(buttons))
+
+        # Its own row where there is one, so a grey button does not read
+        # as the tail of a coloured row. Its custom_id carries the game
+        # like the picks do but no side: the hexagon is the same picture
+        # for both coaches.
         reference = discord.ui.Button(
             label="Maneuver Reference",
             style=discord.ButtonStyle.secondary,
-            custom_id=f"d12ball:maneuver_reference:{game_id}:{side}",
+            custom_id=f"d12ball:maneuver_reference:{game_id}",
         )
         reference.callback = self.show_reference
-        self.add_item(reference)
+        if len(rows) < MAX_BUTTON_ROWS:
+            rows.append([reference])
+        else:
+            # Only reachable if a side ever grows past what four rows
+            # hold. Falling back to the first row with space keeps the
+            # reference reachable rather than raising on view build.
+            next(row for row in rows if len(row) < MAX_BUTTONS_PER_ROW).append(
+                reference
+            )
+
+        for index, row in enumerate(rows):
+            for button in row:
+                button.row = index
+                self.add_item(button)
 
     async def show_reference(self, interaction: discord.Interaction) -> None:
         """
         The defeat cycle, ephemeral to the coach who asked.
 
-        Ephemeral because the pick it sits on is: answering in the
-        channel would tell the other side that this coach is still
-        choosing. The image is public information either coach may ask
-        for at any time, so nothing is hidden by it -- only the timing.
+        Ephemeral for the pick's own reason rather than its own:
+        answering in the channel would tell the other side that this
+        coach is still choosing. The image is public information either
+        coach may ask for at any time, so nothing is hidden by it --
+        only the timing.
         """
         await interaction.response.send_message(
             file=self.cog.build_maneuver_reference_file(
@@ -2062,14 +1998,20 @@ class ManeuverActionSelectView(SafeView):
     async def pick(
         self,
         interaction: discord.Interaction,
+        side: str,
         maneuver_key: str,
     ) -> None:
+        """
+        One coach's pick, answered **ephemerally** -- which is the whole
+        of what keeps it secret now that the buttons are public. The
+        prompt itself is untouched, so the other coach sees no change of
+        any kind.
+        """
         game, match = await self.require_match(interaction)
         if game is None:
             return
 
-
-        if self.side == "offense":
+        if side == "offense":
             authorized = self.cog.engine.user_controls_possession(
                 interaction.user.id,
                 game,
@@ -2084,13 +2026,9 @@ class ManeuverActionSelectView(SafeView):
             )
             already_chosen = match.defense_maneuver is not None
 
-        if already_chosen:
-            await interaction.response.edit_message(
-                content="A maneuver has already been chosen for that side.",
-                view=None,
-            )
-            return
-
+        # Authorization first: the other coach's row is sitting right
+        # there on the same message, and "that side has already picked"
+        # would tell them it had been clicked.
         if not authorized:
             await interaction.response.send_message(
                 "Only the player on that side can choose this maneuver.",
@@ -2098,46 +2036,43 @@ class ManeuverActionSelectView(SafeView):
             )
             return
 
-        # These menus are restored message-agnostically after a restart
-        # (`D12Ball.restore_maneuver_menus`), so a coach can still be
-        # holding one an earlier beat opened. The rail is re-read here
-        # for that reason, exactly as the distances are in
-        # HighPassChoiceView.choose.
+        if already_chosen:
+            await interaction.response.send_message(
+                "You have already chosen your maneuver.",
+                ephemeral=True,
+            )
+            return
+
+        # An older prompt can still be sitting in the channel, so the
+        # rail is re-read here rather than trusted from the build --
+        # exactly as the distances are in HighPassChoiceView.choose.
         allowed = tutorial.allowed_maneuvers(
-            self.cog.tutorial_beat(game), self.side,
+            self.cog.tutorial_beat(game), side,
         )
         if allowed is not None and maneuver_key not in allowed:
-            await interaction.response.edit_message(
-                content=(
-                    "This step of the tutorial wants "
-                    f"**{self.cog.engine.maneuver_name(allowed[0])}**. Open "
-                    "your hand again from the prompt at the bottom of the "
-                    "channel."
-                ),
-                view=None,
+            await interaction.response.send_message(
+                "This step of the tutorial wants "
+                f"**{self.cog.engine.maneuver_name(allowed[0])}**. Use the "
+                "prompt at the bottom of the channel.",
+                ephemeral=True,
             )
             return
 
-        # An older menu can still be open -- these views are restored
-        # message-agnostically -- and an advanced card clicked out of a
-        # basic hand would be a maneuver the game does not play. Same
-        # re-check as the rail above, for the same reason.
+        # Same reason as the rail above: an advanced card clicked off an
+        # older prompt would be a maneuver this turn does not play.
         playable = {
             maneuver.key
-            for maneuver in self.cog.engine.maneuver_hand(game, match, self.side)
+            for maneuver in self.cog.engine.maneuver_hand(game, match, side)
         }
         if maneuver_key not in playable:
-            await interaction.response.edit_message(
-                content=(
-                    "That maneuver isn't in your hand for this turn. Open "
-                    "your hand again from the prompt at the bottom of the "
-                    "channel."
-                ),
-                view=None,
+            await interaction.response.send_message(
+                "That maneuver isn't in your hand for this turn. Use the "
+                "prompt at the bottom of the channel.",
+                ephemeral=True,
             )
             return
 
-        if self.side == "offense":
+        if side == "offense":
             match.choose_offense_maneuver(maneuver_key)
         else:
             match.choose_defense_maneuver(maneuver_key)
@@ -2145,12 +2080,10 @@ class ManeuverActionSelectView(SafeView):
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
-        await interaction.response.edit_message(
-            content=(
-                "You chose "
-                f"**{self.cog.engine.maneuver_name(maneuver_key)}**."
-            ),
-            view=None,
+        await interaction.response.send_message(
+            "You chose "
+            f"**{self.cog.engine.maneuver_name(maneuver_key)}**.",
+            ephemeral=True,
         )
 
         # "Someone has picked, you can't see what" is only worth a
@@ -2160,7 +2093,7 @@ class ManeuverActionSelectView(SafeView):
         if not match.maneuver_uncontested:
             side_number = (
                 self.cog.engine.possession_player_number(game, match)
-                if self.side == "offense"
+                if side == "offense"
                 else self.cog.engine.defending_player_number(game, match)
             )
             side_display = format_player_with_team(game, side_number)

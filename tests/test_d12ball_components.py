@@ -18,7 +18,7 @@ from d12ball.cards import (
     print_sheet,
     render_maneuver_card,
     render_maneuver_card_back,
-    render_maneuver_hand,
+    render_maneuver_hands,
     role_abilities,
     tie_pairs,
 )
@@ -2515,8 +2515,8 @@ class D12BallManeuverTests(unittest.TestCase):
         for side in ("offense", "defense"):
             for tiers, cards, expected in cases:
                 with self.subTest(side=side, tiers=tiers):
-                    hand = render_maneuver_hand(
-                        self.catalog, players, side, tiers,
+                    hand = render_maneuver_hands(
+                        self.catalog, players, (side,), tiers,
                     )
                     with Image.open(hand) as image:
                         self.assertEqual(image.format, "PNG")

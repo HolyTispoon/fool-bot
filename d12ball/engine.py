@@ -174,6 +174,50 @@ class RulesEngine:
             return (MANEUVER_TIER_BASIC,)
         return (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
 
+    def maneuver_pick_sides(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> tuple[str, ...]:
+        """
+        Which sides the maneuver prompt has to offer buttons for --
+        every side of this maneuver a **person** still picks for.
+
+        Two things take a side off it, and both are settled before the
+        prompt is ever built:
+
+        - **An unchallenged maneuver has no defense to pick for.** There
+          is no challenger and there never will be one, so the offense
+          is the whole prompt.
+        - **Dinky's side is picked before the prompt exists.**
+          `D12Ball.begin_maneuver_action_selection` writes the AI's
+          maneuver straight into the match and only then builds the
+          prompt, so a solo game's prompt is one hand and one row of
+          buttons.
+
+        **It is read off persisted state alone**, which is what lets a
+        restart rebuild the identical view: the prompt is never edited
+        once it is up (see `D12Ball.close_maneuver_prompt`), so the
+        buttons on the message and the buttons the restored view
+        dispatches have to agree, and a side that has *already picked*
+        must therefore keep its buttons. `ManeuverActionPromptView.pick`
+        refuses the second click rather than the button being taken
+        away.
+        """
+        sides = ["offense"]
+        if not match.maneuver_uncontested:
+            sides.append("defense")
+
+        if game.is_solo_game:
+            ai_side = (
+                "offense"
+                if self.possession_player_number(game, match) == 2
+                else "defense"
+            )
+            sides = [side for side in sides if side != ai_side]
+
+        return tuple(sides)
+
     def maneuver_hand(
         self,
         game: D12BallGame,

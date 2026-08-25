@@ -26,7 +26,7 @@ from d12ball.cards import (  # noqa: E402
     print_sheet,
     render_maneuver_card,
     render_maneuver_card_back,
-    render_maneuver_hand,
+    render_maneuver_hands,
 )
 from d12ball.components import (  # noqa: E402
     MANEUVER_TIER_ADVANCED,
@@ -107,11 +107,13 @@ def main() -> None:
         print(f"wrote {sheet_path}")
 
     if args.hands:
-        # Every hand the bot can send: the basic three a coach holds in
-        # a basic game or an unchallenged maneuver, and all six in an
-        # advanced one. See `RulesEngine.maneuver_tiers` for who gets
-        # which.
-        for side in ("offense", "defense"):
+        # Every image the maneuver prompt can carry, which is the six
+        # the bot draws at startup: the sides a person still picks for
+        # (`RulesEngine.maneuver_pick_sides`) against the tiers they may
+        # play (`RulesEngine.maneuver_tiers`). Both sides is the
+        # ordinary contested prompt; one alone is an unchallenged
+        # maneuver or a solo game against Dinky.
+        for sides in (("offense",), ("defense",), ("offense", "defense")):
             for label, tiers in (
                 ("basic", (MANEUVER_TIER_BASIC,)),
                 (
@@ -119,10 +121,10 @@ def main() -> None:
                     (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
                 ),
             ):
-                hand_path = args.out / f"hand-{side}-{label}.png"
+                hand_path = args.out / f"hand-{'-'.join(sides)}-{label}.png"
                 hand_path.write_bytes(
-                    render_maneuver_hand(
-                        catalog, players, side, tiers,
+                    render_maneuver_hands(
+                        catalog, players, sides, tiers,
                     ).getvalue()
                 )
                 print(f"wrote {hand_path}")
