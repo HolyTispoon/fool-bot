@@ -1833,8 +1833,7 @@ def render_maneuver_hands(
     tiers: Sequence[str] = (MANEUVER_TIER_BASIC,),
 ) -> BytesIO:
     """
-    Both sides' hands on one image, offense over defense, with the
-    shared back last.
+    Every hand in play on one image, offense over defense.
 
     **This is what the public maneuver prompt carries**, and it is one
     image rather than two because Discord lays two attachments on a
@@ -1857,6 +1856,16 @@ def render_maneuver_hands(
     back anyway, for a reason of its own -- see "The maneuver cards"
     in CLAUDE.md.)
 
+    **Except on a basic contested prompt, which drops it** (the
+    author). Both basic hands together *are* the whole game -- all six
+    cards, each carrying its own beats/ties/loses row -- so the hexagon
+    is the same six relations drawn a second time, for the width of a
+    card. Every other case still earns it: one hand shows half the
+    cycle, and an advanced prompt's back is the two-tier hexagon, which
+    is what says the twelve cards resolve as six ranks rather than as
+    two unrelated cycles. Dropping it also leaves basic's two hands as
+    two clean rows of three instead of a ragged four and three.
+
     One side alone is what an unchallenged maneuver and a solo game
     against Dinky get, and it is the layout this drew before the prompt
     went public: three cards and the back, one row of four.
@@ -1864,12 +1873,12 @@ def render_maneuver_hands(
     blocks = [
         hand_card_images(catalog, players, side, tiers) for side in sides
     ]
-    # The back rides on the last side's block rather than starting a
-    # row of its own: alone it is a row one card wide, which pushes the
-    # whole image to three columns and a phone shows it as a tall
-    # ribbon. Basic comes out two rows of four -- the shape a single
-    # hand has always had.
-    blocks[-1] = blocks[-1] + [hand_back_image(catalog, tiers)]
+    if len(sides) < 2 or MANEUVER_TIER_ADVANCED in tiers:
+        # The back rides on the last side's block rather than starting
+        # a row of its own: alone it is a row one card wide, which
+        # pushes the whole image to three columns and a phone shows it
+        # as a tall ribbon.
+        blocks[-1] = blocks[-1] + [hand_back_image(catalog, tiers)]
     return lay_out_hand(blocks)
 
 

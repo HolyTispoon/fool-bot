@@ -2304,9 +2304,19 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   - **Both hands on one image, not one per side.** Discord lays two attachments
     on a message out side by side, which would halve the width of both. Nothing
     is given away: the twelve cards and the defeat cycle are public information
-    either coach may ask for at any time. The back rides on the last side's
-    block rather than starting a row of its own, or a basic prompt would be
-    three columns wide and arrive as a tall ribbon.
+    either coach may ask for at any time. Where the back is drawn it rides on
+    the last side's block rather than starting a row of its own, or it would be
+    a row one card wide and the image would arrive as a tall ribbon.
+  - **A basic contested prompt drops the back** (the author). Both basic hands
+    together *are* the whole game -- all six cards, each carrying its own
+    beats/ties/loses row -- so the hexagon is the same six relations drawn a
+    second time, for the width of a card. Every other case still earns it: one
+    hand (an unchallenged maneuver, or a solo game against Dinky) shows half the
+    cycle, and an advanced prompt's back is the two-tier hexagon, which is what
+    says the twelve cards resolve as six ranks rather than as two unrelated
+    cycles. It also leaves basic's two hands as two clean rows of three instead
+    of a ragged four and three. The "Maneuver Reference" button is still there
+    for anyone who wants the hexagon, which is why dropping it costs nothing.
   - **Seven cards do not fit one row.** Discord scales an inline image to the
     message's width, so a row of seven arrives at about 75px a card against
     131px for a row of four. `HAND_MAX_COLUMNS` is 4, and anything past it
