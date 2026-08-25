@@ -2634,8 +2634,12 @@ python3 scripts/render_boards.py --board-size 9        # just the one field
 - **Zones keep their real names on the field board's own assignment rows**,
   not the team board any more -- see "The zone-assignment rows". A coach's own
   goal is the home goal for one of them and the visitors goal for the other,
-  and the field board is read by both, so the areas read HOME GOAL / MIDFIELD
-  / VISITORS GOAL exactly as the bot's coaching image does. The team board's
+  and the field board is read by both, so the areas read HOME ZONE / MIDFIELD
+  / VISITORS ZONE exactly as the bot's coaching image does -- HOME THIRD /
+  VISITORS THIRD on the 9-space board, the only one where the three areas
+  (H/M/V) are all equal (see "The field" in the living rules, and the
+  2026-08-24 entry in the rules log; not to be confused with `FONT_GOAL_ZONE`,
+  which labels the actual goal beyond the edge of the board). The team board's
   own formation strip is relative, and it says so. `--teams` colours a board
   per team and changes nothing else.
 - **The formation strip lists the shapes and nothing else, and groups the ones
@@ -2724,8 +2728,9 @@ into without widening the board itself.
 
 ### The zone-assignment rows
 
-A card row for each zone -- HOME GOAL, MIDFIELD, VISITORS GOAL -- above the
-strip for the visiting coach and below it for home, on the field board itself
+A card row for each zone -- HOME ZONE, MIDFIELD, VISITORS ZONE (HOME THIRD /
+VISITORS THIRD on the 9-space board) -- above the strip for the visiting
+coach and below it for home, on the field board itself
 rather than on the team board, which used to carry them. `draw_zone_assignment_rows`
 and `draw_zone_assignment_cell` in `boards.py` draw them; `FieldGeometry`'s
 `visiting_zone_top`/`_bottom` and `home_zone_top`/`_bottom` are where.
@@ -2741,8 +2746,8 @@ and `draw_zone_assignment_cell` in `boards.py` draw them; `FieldGeometry`'s
   reordered.** The two coaches sit on opposite sides of the table, so a row
   that reads upright to home reads upside down to visiting -- rotating each
   cell the other 180 degrees turns it upright *for them* without touching
-  which column is which: HOME GOAL is still the leftmost cell in both rows,
-  directly under and over the strip's own HOME GOAL columns, so a coach
+  which column is which: HOME ZONE (or THIRD) is still the leftmost cell in
+  both rows, directly under and over the strip's own Home column, so a coach
   reading either row left to right reads the same zone order the strip does.
   `draw_zone_assignment_cell` draws the whole cell upright on its own small
   canvas and rotates the finished picture when it is the visiting row, rather
@@ -2753,8 +2758,8 @@ and `draw_zone_assignment_cell` in `boards.py` draw them; `FieldGeometry`'s
   spaces are -- `CARDS_PER_AREA` (three) is borrowed from the team board's own
   areas for the guide only, and nothing here enforces it.
 - **The caption is dropped rather than shrunk past legibility.** "cards
-  assigned to this zone" fits next to MIDFIELD's own width; HOME GOAL and
-  VISITORS GOAL are narrower, and `draw_zone_assignment_cell` measures whether
+  assigned to this zone" fits next to MIDFIELD's own width; HOME ZONE/THIRD
+  and VISITORS ZONE/THIRD are narrower, and `draw_zone_assignment_cell` measures whether
   it fits before drawing it rather than shrinking the font until it does --
   a caption nobody can read is a worse failure than one left off.
 - **The header was rebuilt to stack rather than sit side by side**, in the

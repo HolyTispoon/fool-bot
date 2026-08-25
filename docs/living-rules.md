@@ -35,7 +35,7 @@ The higher score at full time wins. A level score goes to the [extreme shootout]
 
 ### The field
 
-The field is a row of spaces divided into three zones, left to right: the home goal, midfield, and the visitors goal. A game is played on a board of 6, 7 or 9 spaces.
+The field is a row of spaces divided into three zones, left to right: the home goal, midfield, and the visitors goal. A game is played on a board of 6, 7 or 9 spaces. On the board itself, the two outer zones are labelled **Home Zone** and **Visitors Zone** — **Home Third** and **Visitors Third** on the 9-space board, the only one where all three zones are equal.
 
 | Board | Home goal | Midfield | Visitors goal |
 | --- | ---: | ---: | ---: |

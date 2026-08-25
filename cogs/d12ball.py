@@ -58,7 +58,6 @@ from d12ball.cards import render_maneuver_hand
 from d12ball import tutorial
 from d12ball.render import (
     TEAM_COLORS,
-    ZONE_LABELS,
     render_coaching_image,
     render_field_image,
     render_injury_test_die,
@@ -67,6 +66,7 @@ from d12ball.render import (
     render_match_image,
     render_own_goal_dice,
     render_score_attempt,
+    zone_labels,
 )
 from d12ball.rules_doc import (
     LIVING_RULES_PATH,
@@ -4437,6 +4437,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.exchange_field_players(side, player_id, other_player_id)
 
         setup = match.setup_for_side(side)
+        board_size = match.board.layout.board_size
         first = self.engine.get_player_definition(player_id)
         second = self.engine.get_player_definition(other_player_id)
         return (
@@ -4444,9 +4445,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{format_role_bracket(second, self.team_emojis, match.team_for_player(second.player_id))} change "
             "places: "
             f"{format_role_bracket(first, self.team_emojis, match.team_for_player(first.player_id))} to "
-            f"{destination_display_name(setup.assigned_zone(player_id).value)}"
+            f"{destination_display_name(setup.assigned_zone(player_id).value, board_size)}"
             f", {format_role_bracket(second, self.team_emojis, match.team_for_player(second.player_id))} to "
-            f"{destination_display_name(setup.assigned_zone(other_player_id).value)}"
+            f"{destination_display_name(setup.assigned_zone(other_player_id).value, board_size)}"
             ". No exhaustion cost."
         )
 
@@ -7065,7 +7066,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 ),
                 location=(
                     f"{space_label(match.ball.zone, match.ball.space_index)}"
-                    f" — {ZONE_LABELS[match.ball.zone].title()}"
+                    f" — {zone_labels(match.board.layout.board_size)[match.ball.zone].title()}"
                 ),
             ),
             filename="maneuver_challenge.png",
@@ -9370,7 +9371,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             interaction,
             game,
             f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} moved to "
-            f"{destination_display_name(destination)}.",
+            f"{destination_display_name(destination, match.board.layout.board_size)}.",
         )
 
     @coach.autocomplete("player_card")
@@ -9411,8 +9412,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         current: str,
     ) -> list[app_commands.Choice[str]]:
+        _, match = self.match_for_channel(interaction.channel_id)
+        board_size = match.board.layout.board_size if match else 7
         options = [
-            (value, destination_display_name(value))
+            (value, destination_display_name(value, board_size))
             for value in (
                 Zone.HOME_GOAL.value,
                 Zone.MIDFIELD.value,
@@ -9498,7 +9501,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             interaction,
             game,
             f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} moved to "
-            f"{destination_display_name(dest_target)}.",
+            f"{destination_display_name(dest_target, match.board.layout.board_size)}.",
         )
 
     @ref.autocomplete("player_card")
@@ -9533,11 +9536,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         _, match = self.match_for_channel(interaction.channel_id)
         if match is None:
             return []
+        board_size = match.board.layout.board_size
         options = [
             (
                 f"{setup.side.value}:{target}",
                 f"{format_team_side_label(setup)} - "
-                f"{destination_display_name(target)}",
+                f"{destination_display_name(target, board_size)}",
             )
             for setup in (match.home, match.visiting)
             for target in (

@@ -89,7 +89,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
 
         self.assertEqual(
             headings,
-            ["Home Goal", "Midfield", "Visitors Goal", "Bench", "Back Bench"],
+            ["Home Zone", "Midfield", "Visitors Zone", "Bench", "Back Bench"],
         )
 
     def test_every_roster_player_is_listed_exactly_once(self) -> None:
@@ -127,12 +127,12 @@ class TeamRosterGroupingTests(unittest.TestCase):
 
         places = dict(cog.engine.roster_places(match, match.home))
         self.assertEqual(
-            places["Home Goal"],
+            places["Home Zone"],
             [(second, "H1"), (first, "H2")],
         )
 
     def test_a_displaced_player_is_listed_where_they_stand(self) -> None:
-        # Their card still says Home Goal; the meeple is in midfield
+        # Their card still says Home Zone; the meeple is in midfield
         # until they run back, and that is where they are.
         cog = build_cog()
         match = self.build_match()
@@ -142,7 +142,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
 
         places = dict(cog.engine.roster_places(match, match.home))
         self.assertNotIn(
-            player_id, [listed for listed, _ in places["Home Goal"]],
+            player_id, [listed for listed, _ in places["Home Zone"]],
         )
         self.assertIn((player_id, "M1"), places["Midfield"])
 
@@ -154,7 +154,7 @@ class TeamRosterGroupingTests(unittest.TestCase):
         text = cog.build_team_roster_section(match, match.home)
 
         self.assertIn("__Back Bench__\n*nobody*", text)
-        for heading in ("Home Goal", "Midfield", "Visitors Goal", "Bench"):
+        for heading in ("Home Zone", "Midfield", "Visitors Zone", "Bench"):
             self.assertIn(f"__{heading}__", text)
 
     def test_a_roster_section_fits_in_one_discord_message(self) -> None:

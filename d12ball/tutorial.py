@@ -184,10 +184,10 @@ BEATS: tuple[TutorialBeat, ...] = (
         lesson=(
             "## 1. Your first turn\n"
             "Both sides are dealt the standard **2-2-2** -- two cards in "
-            "your own goal zone, two in midfield, two in the zone you "
+            "your own zone, two in midfield, two in the zone you "
             "are attacking -- and the ball is yours, on **M2**.\n\n"
             "The field is **seven spaces** across in three zones: your "
-            "own goal (H1-H2), midfield (M1-M3), and the goal you are "
+            "own Zone (H1-H2), midfield (M1-M3), and the Zone you are "
             "attacking (V1-V2). Your six cards are on the board as "
             "meeples and three more wait on your bench. The two numbers "
             "on a card are that player's **offensive** and **defensive "

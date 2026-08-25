@@ -4108,7 +4108,7 @@ class CoachingView(SafeView):
         """
         setup = match.setup_for_side(self.side(match))
         zone = setup.assigned_zone(player_id)
-        where = destination_display_name(zone.value)
+        where = destination_display_name(zone.value, match.board.layout.board_size)
         if with_space:
             position = match.board.meeple_position(player_id)
             where = space_label(*position) if position else where

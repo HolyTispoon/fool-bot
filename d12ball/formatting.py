@@ -39,6 +39,16 @@ ZONE_LETTERS = {
 
 BENCH_DESTINATIONS = ("bench", "back_bench")
 
+# The 9-space board is the only one whose three areas (H/M/V) are equal, which
+# is what earns its outer two the more literal "Third" -- see "The field" in
+# the living rules and the 2026-08-24 entry in the rules log. Midfield's name
+# never changes, so it carries no entry here.
+OUTER_ZONE_WORD_BY_BOARD_SIZE = {
+    6: "Zone",
+    7: "Zone",
+    9: "Third",
+}
+
 AI_OPPONENT_NAMES = {
     AIOpponent.DINKY: "Dinky AI",
     AIOpponent.DECENT: "Decent AI",
@@ -67,10 +77,22 @@ def format_ai_name(ai_opponent: Optional[AIOpponent]) -> str:
     return AI_OPPONENT_NAMES[ai_opponent or AIOpponent.DINKY]
 
 
-def destination_display_name(destination: str) -> str:
+def zone_display_name(zone: Zone, board_size: int) -> str:
+    """
+    "Home Zone", "Midfield", "Visitors Third" -- whichever a board's own
+    size calls the outer two areas. See the module-level comment on
+    OUTER_ZONE_WORD_BY_BOARD_SIZE for why the 9-space board differs.
+    """
+    if zone is Zone.MIDFIELD:
+        return "Midfield"
+    side = "Home" if zone is Zone.HOME_GOAL else "Visitors"
+    return f"{side} {OUTER_ZONE_WORD_BY_BOARD_SIZE[board_size]}"
+
+
+def destination_display_name(destination: str, board_size: int) -> str:
     if destination in BENCH_DESTINATIONS:
         return destination.replace("_", " ").title()
-    return Zone(destination).value.replace("_", " ").title()
+    return zone_display_name(Zone(destination), board_size)
 
 
 def format_team_side_label(setup) -> str:
