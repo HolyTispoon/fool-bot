@@ -483,7 +483,10 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
                 cog, game.game_id,
             ).children],
             [
-                "2 spaces (no teammate)",
+                # The space is named even where nobody is standing
+                # on it: a pass landing there is loose, so which
+                # space it is is half the coach's answer.
+                "2 spaces (M3, no teammate)",
                 f"3 spaces (V1-{winger} [WG])",
                 f"4 spaces (Fullback ability) (V2-{striker} [SK])",
             ],

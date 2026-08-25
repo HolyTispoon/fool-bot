@@ -2973,11 +2973,15 @@ class SetupPassChoiceView(SafeView):
     `pending_effect_continuation` says the speed half of the card is
     already done, which is what `build_effect_choice_view` reads.
 
-    **A distance reaching nobody is not offered**, the same rule
-    `HighPassChoiceView` follows: the card is a set-up, so a landing
-    space with none of the passing side on it is not a shorter version
-    of the pass. When none of the three reaches anybody the view is not
-    shown -- the pass goes out (see `D12Ball.apply_setup_pass_out`).
+    **Every distance that fits on the field is offered**, whether or
+    not a teammate is standing there (the author, 2026-08-25) -- the
+    button says which, and picking one out into empty space leaves the
+    ball lying there rather than being refused. `0` is the one
+    exception: it means a teammate sharing the passer's own space, so
+    it is on the menu only while somebody else is standing there. With
+    nothing at all on the menu -- the passer on the last space of the
+    field with nobody beside them -- the view is not shown and the pass
+    goes out (see `D12Ball.apply_setup_pass_out`).
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -2995,12 +2999,12 @@ class SetupPassChoiceView(SafeView):
                 if distance == 0
                 else cog.engine.high_pass_destination_note(match, distance)
             )
+            # 1 is a distance this card offers and the High Pass does
+            # not, so this is the one pass menu that can read "1
+            # spaces" if nothing here says otherwise.
+            space_word = "space" if distance == 1 else "spaces"
             button = discord.ui.Button(
-                label=(
-                    f"{distance} spaces ({note})"
-                    if distance
-                    else f"0 spaces ({note})"
-                ),
+                label=f"{distance} {space_word} ({note})",
                 style=discord.ButtonStyle.primary,
                 custom_id=f"d12ball:setup_pass:{game_id}:{distance}",
             )
@@ -3037,7 +3041,9 @@ class SetupPassChoiceView(SafeView):
         if distance not in self.cog.engine.setup_pass_distances(match):
             await interaction.response.edit_message(
                 content=(
-                    "There is no teammate at that distance any more. Use "
+                    "That distance is not on offer any more -- 0 spaces "
+                    "needs a teammate in your own space, and every other "
+                    "distance has to fit on the field. Use "
                     "`/d12ball resume` to put the choice back up."
                 ),
                 view=None,

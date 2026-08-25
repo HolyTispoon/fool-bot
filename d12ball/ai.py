@@ -112,6 +112,11 @@ class AIStrategy(ABC):
         where every distance overshoots has no choice in it at all,
         and D12Ball.resolve_high_pass takes that branch before asking
         anyone. See MatchState.high_pass_distances.
+
+        **Setup Pass asks this too**, with its own 0/1/3 (and 4)
+        list. It is the same question -- how far to pick the ball out,
+        knowing a landing space with nobody on it gives the ball away
+        -- so it gets the same answer rather than a policy of its own.
         """
         ...
 
@@ -352,6 +357,13 @@ class DinkyAI(AIStrategy):
         2-space scoring-opportunity option for its own sake. The list
         is already free of distances that overshoot, so the longest is
         a real pass rather than a clamped one.
+
+        **Setup Pass is answered from here as well** (2026-08-25),
+        since a Setup Pass that lands on nobody now leaves the ball
+        lying there for the other side exactly as a High Pass does.
+        Its 0 counts as reaching somebody only when a teammate shares
+        the passer's space, which is what high_pass_receivers_at
+        already says.
         """
         reaching = [
             distance

@@ -671,11 +671,32 @@ weapon rather than only a saving.
   caller reads it before the pass moves the ball and passes it in,
   which is why `pay_double_team_cost` takes a partner rather than
   looking one up.
-- **A Setup Pass that finds nobody is a fourth `new_play=True` call
-  site.** The card cannot overshoot: with no teammate at 0, 1 or 3 the
-  ball goes out of play, which is the existing out-of-bounds outcome.
-  The other three are the score attempt, a conceded own goal and the
-  out-of-bounds loose ball.
+- **A Setup Pass is gated on the field, not on the roster** (the
+  author, 2026-08-25). `RulesEngine.setup_pass_distances` offers 1 and
+  3 -- and a Fullback's 4 -- whenever the space they land on is on the
+  board, and **0 alone still needs a teammate**, since it means one
+  sharing the passer's own space and a passer never receives their own
+  pass. It used to offer only distances that reached somebody, which
+  read the card as a set-up that either happens or does not and left a
+  passer with nobody ahead of them unable to play it at all.
+  - **A pass landing on nobody settles where it lands**, exactly as a
+    Deflect's does: `apply_setup_pass` hands it to `begin_loose_ball`
+    with `restrict_to_occupants=True`, so the pass's own landing joins
+    Deflect, Clear and this card's push-back cost as a caller of that
+    flag -- see [Who contests a loose ball](#who-contests-a-loose-ball).
+    It pays `SETUP_PASS_CLOCK_COST` there, the card's flat 2 minutes,
+    however far the ball actually travelled.
+  - **That leaves one position a Setup Pass goes out from, and it is
+    still a fourth `new_play=True` call site.** The card cannot
+    overshoot, so `apply_setup_pass_out` is reached only where nothing
+    is on the menu at all: the passer on the very last space of the
+    field -- the one place even 1 space runs off the end -- with no
+    teammate beside them. The other three call sites are the score
+    attempt, a conceded own goal and the out-of-bounds loose ball.
+  - **Dinky answers the distance through `choose_high_pass_distance`**,
+    which is the same question now that a bad pass costs the ball: the
+    longest that reaches a teammate, otherwise the longest available.
+    A second policy would only be the same one written twice.
 - **A role ability is inherited by rank, and what carries is the rule
   rather than the number.** Each sentence in `players.json` was written
   against one card and states a number, so read literally three of them
@@ -1222,11 +1243,13 @@ for the same reason.
   never built for them, and the occupying side resolves through the existing
   "sole occupant auto-contests, several -- coach picks" / "one side only,
   takes without a test" machinery with nobody left to contest against. Passed
-  by `apply_deflection`'s tail call and both of Setup Pass's push-back cost's
+  by `apply_deflection`'s tail call, both of Setup Pass's push-back cost's
   `begin_loose_ball` calls (`offer_setup_pass_push_back`'s no-legal-distance
-  fallback and `apply_setup_pass_push_back`'s own), and nowhere else -- the
-  flag does nothing when both sides are empty or both occupy, which is exactly
-  the point: those two cases were already right.
+  fallback and `apply_setup_pass_push_back`'s own), and -- since 2026-08-25 --
+  the Setup Pass's *own* landing in `apply_setup_pass`, when the pass reaches
+  a space the passing side has nobody on. Nowhere else: the flag does nothing
+  when both sides are empty or both occupy, which is exactly the point -- those
+  two cases were already right.
 - **`check_for_loose_ball` has one detour now, not two.** Its guard still
   earns its keep: the maneuvers that leave the ball with a named player are not
   loose, and that is what it asks.

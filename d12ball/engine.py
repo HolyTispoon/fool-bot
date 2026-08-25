@@ -660,14 +660,29 @@ class RulesEngine:
     def setup_pass_distances(self, match: MatchState) -> list[int]:
         """
         Which of Setup Pass's distances -- 0, 1 and 3, plus 4 for a
-        Fullback -- actually reach a teammate to set up.
+        Fullback -- the passer may pick out.
 
-        A distance reaching nobody is left off, for the reason
-        `high_pass_distances` leaves off a throw that would clamp: the
-        card is a *set-up*, so a landing space with none of the passing
-        side on it is not a shorter version of the pass, it is no pass
-        at all. When none of them reaches anybody the pass goes out --
-        see `D12Ball.apply_setup_pass_out`.
+        **A distance is offered because it fits on the field, not
+        because somebody is standing there** (the author, 2026-08-25).
+        A pass landing on a space the passing side has nobody on is
+        not a pass that never happened: the ball is picked out into
+        that space and settles there exactly as a Deflect's does --
+        loose if it is empty, the other side's outright if only they
+        are there. Refusing those distances used to make the card
+        unplayable from most of the field and turned a bad choice into
+        no choice at all.
+
+        **0 is the exception, and it is the only one.** It means "a
+        teammate sharing the passer's own space", and a passer never
+        receives their own pass (2026-08-12) -- so with nobody else
+        standing there it is not a short pass into an empty space, it
+        is the ball not being passed at all.
+
+        With nothing left on the list the pass goes out; see
+        `D12Ball.apply_setup_pass_out`. That needs the passer on the
+        very last space of the field -- the only position from which
+        even 1 runs off the end -- with no teammate beside them, which
+        is the whole of when a Setup Pass can go out of play.
 
         **The Fullback's ability is +1 distance, and that is what it
         inherits** (the author, 2026-08-19). Its sentence reads "High
@@ -681,33 +696,30 @@ class RulesEngine:
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
-        offense_players = set(match.setup_for_side(offense_side).field_players)
 
         handler = self.get_player_definition(match.active_player_id)
         distances = list(SETUP_PASS_DISTANCES)
         if handler.role == PlayerRole.FULLBACK:
             distances.append(SETUP_PASS_FULLBACK_DISTANCE)
 
-        reachable = []
+        legal = []
         for distance in distances:
+            if distance == 0:
+                # `high_pass_receivers_at` is the passing side on that
+                # space less the passer, which is exactly what 0 asks.
+                if match.high_pass_receivers_at(offense_side, 0):
+                    legal.append(0)
+                continue
             target_flat = match.relative_flat_index(
                 origin_flat, offense_side, distance,
             )
+            # Off the end of the field: a clamped throw is a shorter
+            # pass wearing a longer one's label, which is the reason
+            # `high_pass_distances` drops one too.
             if abs(target_flat - origin_flat) != distance:
                 continue
-            zone, space_index = match.board.position_at_flat_index(target_flat)
-            occupants = [
-                player_id
-                for player_id in match.board.spaces[zone][space_index]
-                if player_id in offense_players
-                # A passer never receives their own pass (2026-08-12),
-                # which is the whole of what makes 0 mean "a teammate
-                # sharing the passer's space".
-                and player_id != match.active_player_id
-            ]
-            if occupants:
-                reachable.append(distance)
-        return reachable
+            legal.append(distance)
+        return legal
 
     def double_team_partner(self, match: MatchState) -> Optional[str]:
         """
@@ -1504,12 +1516,19 @@ class RulesEngine:
         self, match: MatchState, distance: int,
     ) -> str:
         """
-        What a High Pass of `distance` would find waiting, for
-        HighPassChoiceView's buttons -- the space it lands on plus the
-        first teammate standing there, or that there is none. A coach
-        choosing a distance is choosing a destination, and "3 spaces"
-        alone does not say whether anybody of theirs is there to catch
-        it.
+        What a pass of `distance` would find waiting, for the
+        HighPassChoiceView and SetupPassChoiceView buttons -- the space
+        it lands on plus the first teammate standing there, or that
+        there is none. A coach choosing a distance is choosing a
+        destination, and "3 spaces" alone does not say whether anybody
+        of theirs is there to catch it.
+
+        **The space is named either way.** A pass nobody is standing
+        under still lands somewhere, and where it lands is what decides
+        whether it comes back -- a Setup Pass into an empty space is
+        loose and one into a space only the defense holds is simply
+        theirs, so "no teammate" on its own withholds the half of the
+        answer the coach is weighing.
         """
         offense_side = match.ball.possession
         origin_flat = match.board.flat_index(
@@ -1529,7 +1548,7 @@ class RulesEngine:
             and player_id != match.active_player_id
         ]
         if not occupants:
-            return "no teammate"
+            return f"{space_label(zone, space_index)}, no teammate"
         teammate = self.get_player_definition(occupants[0])
         role_initial = ROLE_INITIALS[teammate.role.value]
         return (

@@ -2304,31 +2304,45 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         """
-        The second half of Setup Pass: 0, 1 or 3 spaces, and the
-        teammate it reaches takes a scoring opportunity.
+        The second half of Setup Pass: 0, 1 or 3 spaces, and a teammate
+        standing where it lands takes a scoring opportunity.
 
-        **0 is a teammate sharing the passer's own space**, which
-        `high_pass_receiver_candidates` already computes -- it is
-        `scoring_opportunity_candidates` less the passer, and the 2026-08-12
-        rule that a passer never receives their own pass is what makes
-        that the right list. A distance reaching nobody is not offered,
-        for the reason `high_pass_distances` does not offer a clamped
-        throw: it is a pass with no receiver, and the card is a set-up.
+        **Every distance that fits on the field is offered**, whether
+        or not anybody of the passing side is standing there -- see
+        `RulesEngine.setup_pass_distances`. A pass that lands on nobody
+        is a real outcome (the ball settles there like a Deflect's, so
+        it is loose or the other side's), not a pass the menu should
+        refuse.
+
+        **0 is the exception**: it means a teammate sharing the
+        passer's own space, since a passer never receives their own
+        pass (2026-08-12), so it is on the menu only while somebody
+        else is standing there.
         """
         distances = self.engine.setup_pass_distances(match)
 
         if not distances:
-            # **Setup Pass cannot overshoot**: from a space with no
-            # teammate to reach, the pass goes out and the other team
-            # gains possession. That is the existing out-of-bounds
-            # outcome -- a new play, both sides reset, the gaining side
-            # sends somebody to pick it up.
+            # **Setup Pass cannot overshoot**, so the one way it goes
+            # out is having nowhere to throw it at all: the passer on
+            # the last space of the field, with no teammate beside
+            # them. That is the existing out-of-bounds outcome -- a new
+            # play, both sides reset, the gaining side sends somebody
+            # to pick it up.
             await self.apply_setup_pass_out(interaction, game, match)
             return
 
         if self.engine.side_controlled_by_ai(game, match, "offense"):
+            # The same question a High Pass asks, so the same answer:
+            # the longest distance that actually reaches a teammate,
+            # and otherwise the longest available. Maximizing outright
+            # would have Dinky pick the ball out into empty space and
+            # give it away, which is exactly why that policy was
+            # written for the High Pass (2026-08-18).
+            distance = self.engine.get_ai_strategy(game).choose_high_pass_distance(
+                match, distances,
+            )
             await self.apply_setup_pass(
-                interaction, game, match, max(distances),
+                interaction, game, match, distance,
             )
             return
 
@@ -2367,10 +2381,43 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match, offense_side,
         )
         if not receivers:
-            # The board moved under a stale click -- the pass has
-            # nobody to reach, which is the same "goes out" outcome the
-            # menu would have refused to offer.
-            await self.apply_setup_pass_out(interaction, game, match)
+            if actual_distance == 0:
+                # Only reachable from a stale click: 0 is offered only
+                # while a teammate shares the passer's space, and every
+                # other distance is offered only where it fits on the
+                # field, so nothing legal clamps to a standing still.
+                # A ball that never left the passer is the High Pass's
+                # own 0-space case -- nowhere to throw it and nobody to
+                # throw it to -- so it goes out rather than settling
+                # under the passer's own feet.
+                await self.apply_setup_pass_out(interaction, game, match)
+                return
+
+            # **A pass that lands on nobody is still a pass**
+            # (2026-08-25). The card is a set-up, but missing the
+            # set-up does not un-throw the ball: it settles exactly
+            # where a Deflect's does, so `restrict_to_occupants` is
+            # what decides it -- loose on an empty space, the other
+            # side's outright where only they are standing. Refusing
+            # the distance instead is what used to make this the only
+            # pass in the game that could not be thrown badly.
+            #
+            # No refresh_match_image first: begin_loose_ball posts the
+            # board with its announcement, and refreshing here would
+            # write the same board twice (see "Discord's rate limits").
+            space_word = "space" if actual_distance == 1 else "spaces"
+            await self.begin_loose_ball(
+                interaction,
+                game,
+                match,
+                SETUP_PASS_CLOCK_COST,
+                lead_in=(
+                    "**Setup Pass:** the ball is picked out "
+                    f"{actual_distance} {space_word} forward, with nobody "
+                    "there to set up."
+                ),
+                restrict_to_occupants=True,
+            )
             return
 
         receiver_id = receivers[0]
@@ -2406,11 +2453,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         """
-        **Setup Pass cannot overshoot.** With no teammate at 0, 1 or 3
-        the pass runs out of play and the other team gains possession:
-        a new play, both sides reset, and the gaining side sends the
-        nearest player to fetch the ball -- the out-of-bounds outcome
-        the game already has.
+        **Setup Pass cannot overshoot**, so the only way it runs out of
+        play is having nowhere to throw it at all: the passer on the
+        very last space of the field -- the one position from which
+        even 1 space runs off the end -- with no teammate beside them
+        to take it at 0. Then the other team gains possession: a new
+        play, both sides reset, and the gaining side sends the nearest
+        player to fetch the ball -- the out-of-bounds outcome the game
+        already has.
+
+        Any other landing space is a pass that happened; see
+        `apply_setup_pass`, which leaves the ball lying there.
 
         That makes this a **fourth** `new_play=True` call site, where
         the other three are the score attempt, a conceded own goal and
