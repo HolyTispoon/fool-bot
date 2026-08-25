@@ -28,7 +28,7 @@ from unittest import mock
 
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
-    ManeuverActionSelectView,
+    ManeuverActionPromptView,
     SetupPassChoiceView,
 )
 from d12ball.ai import build_ai_strategies
@@ -79,8 +79,8 @@ def build_cog() -> D12Ball:
     # The hand images are drawn once at startup, which `object.__new__`
     # skips; only the key matters here, not the bytes.
     cog.maneuver_hand_image_bytes = {
-        (side, tiers): b""
-        for side in ("offense", "defense")
+        (sides, tiers): b""
+        for sides in (("offense",), ("defense",), ("offense", "defense"))
         for tiers in (
             (MANEUVER_TIER_BASIC,),
             (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
@@ -273,11 +273,13 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
         cog, game, match = self.build("low_pass", "pressure")
         cog.engine.load_match_state = mock.Mock(return_value=match)
 
-        view = ManeuverActionSelectView(cog, game.game_id, "defense")
+        view = ManeuverActionPromptView(cog, game.game_id)
         keys = [
             item.custom_id.rsplit(":", 1)[1]
             for item in view.children
-            if item.custom_id.startswith("d12ball:maneuver_pick:")
+            if item.custom_id.startswith(
+                f"d12ball:maneuver_pick:{game.game_id}:defense:"
+            )
         ]
 
         self.assertEqual(

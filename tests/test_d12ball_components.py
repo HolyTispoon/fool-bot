@@ -18,7 +18,7 @@ from d12ball.cards import (
     print_sheet,
     render_maneuver_card,
     render_maneuver_card_back,
-    render_maneuver_hand,
+    render_maneuver_hands,
     role_abilities,
     tie_pairs,
 )
@@ -2515,12 +2515,50 @@ class D12BallManeuverTests(unittest.TestCase):
         for side in ("offense", "defense"):
             for tiers, cards, expected in cases:
                 with self.subTest(side=side, tiers=tiers):
-                    hand = render_maneuver_hand(
-                        self.catalog, players, side, tiers,
+                    hand = render_maneuver_hands(
+                        self.catalog, players, (side,), tiers,
                     )
                     with Image.open(hand) as image:
                         self.assertEqual(image.format, "PNG")
                         self.assertEqual(image.width, expected)
+
+    def test_a_basic_contested_prompt_drops_the_back(self) -> None:
+        """
+        Both basic hands together are the whole game -- all six cards,
+        each carrying its own beats/ties/loses row -- so the back's
+        hexagon is those same six relations drawn a second time, for
+        the width of a card (the author). Every other case keeps it:
+        one hand shows half the cycle, and an advanced back is the
+        two-tier hexagon that says the twelve cards resolve as six
+        ranks.
+
+        Checked as a width again rather than a card count, for the
+        reason above: three across is the readable shape, and a back
+        creeping back in would make it four and three.
+        """
+        players = load_player_catalog()
+
+        def width(columns: int) -> int:
+            return (
+                HAND_MARGIN * 2
+                + HAND_CARD_WIDTH * columns
+                + HAND_GAP * (columns - 1)
+            )
+
+        both = ("offense", "defense")
+        cases = (
+            # sides, tiers, columns -- the widest row of the image
+            (both, (MANEUVER_TIER_BASIC,), 3),
+            (both, (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED), 4),
+            (("offense",), (MANEUVER_TIER_BASIC,), 4),
+        )
+        for sides, tiers, columns in cases:
+            with self.subTest(sides=sides, tiers=tiers):
+                hand = render_maneuver_hands(
+                    self.catalog, players, sides, tiers,
+                )
+                with Image.open(hand) as image:
+                    self.assertEqual(image.width, width(columns))
 
     def test_the_back_joins_every_pair_that_ties(self) -> None:
         """

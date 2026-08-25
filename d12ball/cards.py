@@ -4,8 +4,8 @@ The six maneuvers as cards.
 Two things are drawn from one layout. `render_maneuver_card` is the
 print-ready face for the physical game -- 2.5 x 3.5 inches at 300dpi,
 optionally with the bleed a printer trims into -- and
-`render_maneuver_hand` puts a side's three side by side, which is what
-the bot shows a coach who has just clicked "Choose Your Maneuver".
+`render_maneuver_hands` puts every hand in play side by side, which is
+what rides on the bot's public maneuver prompt.
 They share the layout on purpose: a coach who has played at the table
 and a coach playing by Discord should be reading the same card.
 
@@ -1717,30 +1717,17 @@ HAND_MARGIN = 22
 HAND_MAX_COLUMNS = 4
 
 
-def render_maneuver_hand(
+def hand_card_images(
     catalog: ManeuverCatalog,
     players: PlayerCatalog,
     side: str,
-    tiers: Sequence[str] = (MANEUVER_TIER_BASIC,),
-) -> BytesIO:
+    tiers: Sequence[str],
+) -> list[Image.Image]:
     """
-    One side's maneuvers, in rank order, with the shared card back
-    beside them -- the hand a coach is choosing from, and what beats
-    what.
-
-    It is the same layout as the printed card rather than a second
-    design, so a coach who has played at the table recognises what the
-    bot is showing them. The bot builds every hand once at startup; see
-    `D12Ball.__init__`.
-
-    **The back is the last card, and it replaced a button.** The pick
-    menu carried a "Maneuver Reference" button that posted the defeat
-    cycle as a second ephemeral message: a click, a round trip and an
-    upload to see the one thing a coach needs *while* they are choosing.
-    The back carries that same cycle, it is public information either
-    coach may look at whenever they like, and at the table it is face
-    up on the deck in front of them -- so it belongs in the hand rather
-    than behind a button.
+    One side's playable cards, in rank order and basic before advanced
+    -- the hand itself, without the shared back that is drawn beside
+    it. Split out because `render_maneuver_hands` lays two sides out
+    on one image and needs each side's cards as a block of its own.
 
     **`tiers` is what a coach may actually play, not a display
     option.** A basic game is the three basic cards; an advanced game
@@ -1748,20 +1735,13 @@ def render_maneuver_hand(
     the three basic ones again -- an advanced maneuver can only be
     played when a maneuver is challenged (the author). So the caller
     passes the hand, and this draws it.
-
-    **Seven cards do not fit one row.** Discord scales an inline image
-    to the message's width, so a row of seven arrives about 75px a card
-    against 131px for a row of four -- small print at the size the
-    abilities band already needs a full-image link for. Anything past
-    four cards is laid out in two rows instead, which keeps every card
-    the width it has always been.
     """
     maneuvers = [
         maneuver
         for maneuver in catalog.side(side)
         if maneuver.tier in tiers
     ]
-    cards = [
+    return [
         render_maneuver_card(
             catalog, players, maneuver, side == "offense", bleed=False
         )
@@ -1770,50 +1750,136 @@ def render_maneuver_hand(
             key=lambda item: (item.rank, item.tier != MANEUVER_TIER_BASIC),
         )
     ]
-    # The shared back matches what this hand actually mixes: a basic
-    # game's hand is never anything but the three basic cards, so its
-    # back can show one name a node rather than the two-tier hairline
-    # design an advanced hand's ambiguity calls for.
-    back_tier = (
-        MANEUVER_TIER_ADVANCED
-        if MANEUVER_TIER_ADVANCED in tiers
-        else MANEUVER_TIER_BASIC
-    )
-    cards.append(render_maneuver_card_back(catalog, bleed=False, tier=back_tier))
 
+
+def hand_back_image(
+    catalog: ManeuverCatalog,
+    tiers: Sequence[str],
+) -> Image.Image:
+    """
+    The shared back that closes out a hand, matching what the hand
+    actually mixes: a basic game's hand is never anything but the three
+    basic cards, so its back can show one name a node rather than the
+    two-tier hairline design an advanced hand's ambiguity calls for.
+    """
+    return render_maneuver_card_back(
+        catalog,
+        bleed=False,
+        tier=(
+            MANEUVER_TIER_ADVANCED
+            if MANEUVER_TIER_ADVANCED in tiers
+            else MANEUVER_TIER_BASIC
+        ),
+    )
+
+
+def lay_out_hand(blocks: Sequence[Sequence[Image.Image]]) -> BytesIO:
+    """
+    Paste one or more blocks of cards onto a single canvas, each block
+    starting on a row of its own and wrapping at `HAND_MAX_COLUMNS`.
+
+    A block is a side's hand (or the lone card back), and starting each
+    on a fresh row is what keeps the two sides legible as two hands
+    rather than as one run of cards -- the coach has to find their own
+    three at a glance. Every card is the same width whatever the block
+    count, so a row never gets narrower because there is more on the
+    image.
+    """
     scale = HAND_CARD_WIDTH / CARD_WIDTH
     height = round(CARD_HEIGHT * scale)
-    sized = [
-        card.resize((HAND_CARD_WIDTH, height), Image.Resampling.LANCZOS)
-        for card in cards
-    ]
 
-    columns = min(len(sized), HAND_MAX_COLUMNS)
-    rows = ceil(len(sized) / columns)
+    rows: list[list[Image.Image]] = []
+    for block in blocks:
+        sized = [
+            card.resize((HAND_CARD_WIDTH, height), Image.Resampling.LANCZOS)
+            for card in block
+        ]
+        for start in range(0, len(sized), HAND_MAX_COLUMNS):
+            rows.append(sized[start:start + HAND_MAX_COLUMNS])
+
+    columns = max(len(row) for row in rows)
     canvas = Image.new(
         "RGB",
         (
             HAND_MARGIN * 2
             + HAND_CARD_WIDTH * columns
             + HAND_GAP * (columns - 1),
-            HAND_MARGIN * 2 + height * rows + HAND_GAP * (rows - 1),
+            HAND_MARGIN * 2
+            + height * len(rows)
+            + HAND_GAP * (len(rows) - 1),
         ),
         FACE_COLOR,
     )
-    for index, card in enumerate(sized):
-        column, row = index % columns, index // columns
-        canvas.paste(
-            card,
-            (
-                HAND_MARGIN + column * (HAND_CARD_WIDTH + HAND_GAP),
-                HAND_MARGIN + row * (height + HAND_GAP),
-            ),
-        )
+    for row_index, row in enumerate(rows):
+        for column, card in enumerate(row):
+            canvas.paste(
+                card,
+                (
+                    HAND_MARGIN + column * (HAND_CARD_WIDTH + HAND_GAP),
+                    HAND_MARGIN + row_index * (height + HAND_GAP),
+                ),
+            )
 
     buffer = BytesIO()
     canvas.save(buffer, format="PNG")
     buffer.seek(0)
     return buffer
+
+
+def render_maneuver_hands(
+    catalog: ManeuverCatalog,
+    players: PlayerCatalog,
+    sides: Sequence[str],
+    tiers: Sequence[str] = (MANEUVER_TIER_BASIC,),
+) -> BytesIO:
+    """
+    Every hand in play on one image, offense over defense.
+
+    **This is what the public maneuver prompt carries**, and it is one
+    image rather than two because Discord lays two attachments on a
+    message out side by side -- which would show each hand at half the
+    width of a phone. Nothing is given away by showing both: the twelve
+    cards and the defeat cycle are public information either coach may
+    ask for at any time (`/d12ball maneuver_reference` posts the
+    hexagon to the whole channel), and what stays secret is the *pick*,
+    which is hidden by the ephemeral reply to the click rather than by
+    the menu being private. See "The maneuver cards" in CLAUDE.md.
+
+    **The back is the last card, and it replaced a button.** The pick
+    menu carried a "Maneuver Reference" button that posted the defeat
+    cycle as a second ephemeral message: a click, a round trip and an
+    upload to see the one thing a coach needs *while* they are
+    choosing. The back carries that same cycle, it is public
+    information either coach may look at whenever they like, and at
+    the table it is face up on the deck in front of them -- so it
+    belongs in the hand rather than behind a button. (The button came
+    back anyway, for a reason of its own -- see "The maneuver cards"
+    in CLAUDE.md.)
+
+    **Except on a basic contested prompt, which drops it** (the
+    author). Both basic hands together *are* the whole game -- all six
+    cards, each carrying its own beats/ties/loses row -- so the hexagon
+    is the same six relations drawn a second time, for the width of a
+    card. Every other case still earns it: one hand shows half the
+    cycle, and an advanced prompt's back is the two-tier hexagon, which
+    is what says the twelve cards resolve as six ranks rather than as
+    two unrelated cycles. Dropping it also leaves basic's two hands as
+    two clean rows of three instead of a ragged four and three.
+
+    One side alone is what an unchallenged maneuver and a solo game
+    against Dinky get, and it is the layout this drew before the prompt
+    went public: three cards and the back, one row of four.
+    """
+    blocks = [
+        hand_card_images(catalog, players, side, tiers) for side in sides
+    ]
+    if len(sides) < 2 or MANEUVER_TIER_ADVANCED in tiers:
+        # The back rides on the last side's block rather than starting
+        # a row of its own: alone it is a row one card wide, which
+        # pushes the whole image to three columns and a phone shows it
+        # as a tall ribbon.
+        blocks[-1] = blocks[-1] + [hand_back_image(catalog, tiers)]
+    return lay_out_hand(blocks)
 
 
 # A cell is a card plus this much white on every side, so cards are

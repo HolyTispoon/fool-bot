@@ -33,7 +33,7 @@ from cogs import d12ball_views as views_mod
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
     HomeAwaySelectionView,
-    ManeuverActionSelectView,
+    ManeuverActionPromptView,
     PlayerActionView,
 )
 from d12ball import tutorial
@@ -653,6 +653,11 @@ class TutorialRailTests(unittest.TestCase):
         match = build_match()
         if beat.player_has_ball:
             match.select_ball_handler(match.eligible_ball_handlers()[0])
+        else:
+            # A defending beat is Dinky on the ball, and the prompt
+            # reads possession to work out whose row to build -- see
+            # RulesEngine.maneuver_pick_sides.
+            match.ball.possession = TeamSide.VISITING
         game.match_state = match.to_dict()
         cog.games["g1"] = game
         return cog, game, beat
@@ -687,7 +692,7 @@ class TutorialRailTests(unittest.TestCase):
     def test_the_other_two_cards_are_shown_and_disabled(self) -> None:
         cog, game, beat = self.build(0)
 
-        view = ManeuverActionSelectView(cog, "g1", "offense")
+        view = ManeuverActionPromptView(cog, "g1")
         cards = self.cards(view)
 
         self.assertEqual(len(cards), 3, "the basic three")
@@ -704,7 +709,10 @@ class TutorialRailTests(unittest.TestCase):
     def test_a_defending_beat_rails_the_defense_menu(self) -> None:
         cog, game, beat = self.build(2)
 
-        cards = self.cards(ManeuverActionSelectView(cog, "g1", "defense"))
+        # Dinky is on offense in a defending beat, so the prompt is
+        # the coach's own row and nothing else -- see
+        # RulesEngine.maneuver_pick_sides.
+        cards = self.cards(ManeuverActionPromptView(cog, "g1"))
 
         self.assertFalse(cards[beat.player_maneuver])
 
@@ -728,7 +736,7 @@ class TutorialRailTests(unittest.TestCase):
         cog, game, _ = self.build(0)
         game.tutorial_step = None
 
-        labels = self.labels(ManeuverActionSelectView(cog, "g1", "offense"))
+        labels = self.labels(ManeuverActionPromptView(cog, "g1"))
 
         self.assertFalse(any(labels.values()))
         self.assertIsNone(

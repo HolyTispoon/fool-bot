@@ -969,6 +969,123 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(posted, ShootoutPickPromptView)
 
 
+class ShootoutMenuRestoreTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The shooting order and the sudden-death shooter are the game's only
+    ephemeral views now that the maneuver pick has gone public -- a
+    coach must not see the other side's order before it is shot, and
+    ephemeral is the only thing Discord offers that hides it. So they
+    are also the only views a restart cannot re-attach to their message:
+    the bot never holds a durable handle to an ephemeral message.
+
+    `add_view` without a message id is the way round it, and discord.py
+    dispatching such a view by custom_id alone is the load-bearing
+    claim -- exercised against a real ViewStore rather than asserted
+    about, because the whole restore rests on that fallback surviving a
+    library upgrade.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build(self):
+        cog = build_cog()
+        cog.bot = SimpleNamespace(add_view=mock.Mock())
+        game = build_game()
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.begin_shootout()
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        return cog, game, match
+
+    def test_both_sides_are_restored_while_both_owe_an_order(self) -> None:
+        cog, game, match = self.build()
+
+        self.assertEqual(cog.restore_shootout_menus(game, match), 2)
+
+    def test_a_side_that_has_set_its_order_is_not_restored(self) -> None:
+        cog, game, match = self.build()
+        match.set_shootout_order(
+            TeamSide.HOME, match.shootout_squad(TeamSide.HOME),
+        )
+
+        self.assertEqual(cog.restore_shootout_menus(game, match), 1)
+        self.assertEqual(
+            cog.bot.add_view.call_args.args[0].side, TeamSide.VISITING,
+        )
+
+    def test_the_restored_menu_is_registered_with_no_message_id(
+        self,
+    ) -> None:
+        """
+        The whole trick: there is no id to give, because the bot never
+        holds a durable handle to an ephemeral message.
+        """
+        cog, game, match = self.build()
+
+        cog.restore_shootout_menus(game, match)
+
+        for call in cog.bot.add_view.call_args_list:
+            self.assertNotIn("message_id", call.kwargs)
+            self.assertTrue(call.args[0].is_persistent())
+
+    async def test_discord_dispatches_it_by_custom_id_alone(self) -> None:
+        """
+        `add_view` with no message_id lands under a None key, and
+        `dispatch_view` falls back to that key when the message it was
+        clicked on is unknown -- which every ephemeral message is. Run
+        through discord.py's own store, because the whole restore rests
+        on that fallback surviving an upgrade.
+        """
+        import asyncio
+
+        import discord
+        from discord.ui.view import ViewStore
+
+        cog, game, match = self.build()
+        store = ViewStore(SimpleNamespace(loop=asyncio.get_running_loop()))
+        cog.bot = SimpleNamespace(
+            add_view=lambda view, message_id=None: store.add_view(
+                view, message_id,
+            ),
+        )
+
+        cog.restore_shootout_menus(game, match)
+        custom_id = next(
+            item.custom_id
+            for item in ShootoutOrderSelectView(
+                cog, game.game_id, TeamSide.HOME,
+            ).children
+        )
+
+        # Stopping at _dispatch_item rather than letting the callback
+        # run: what is under test is the lookup, and everything past
+        # this point is discord.py driving a real interaction.
+        dispatched: list = []
+        with mock.patch.object(
+            ShootoutOrderSelectView,
+            "_dispatch_item",
+            lambda self, item, interaction: dispatched.append(item),
+        ):
+            store.dispatch_view(
+                discord.ComponentType.button.value,
+                custom_id,
+                # An id no view was registered under: an ephemeral
+                # message the bot has never seen before.
+                SimpleNamespace(message=SimpleNamespace(id=123456789)),
+            )
+
+        self.assertEqual(len(dispatched), 1, "the None-keyed fallback is gone")
+
+
 class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
     """The two ephemeral menus, and what a stale click does."""
 

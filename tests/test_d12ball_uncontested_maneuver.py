@@ -29,7 +29,6 @@ from unittest import mock
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
     ManeuverActionPromptView,
-    ManeuverActionSelectView,
     ManeuverChallengeView,
     PlayerActionView,
 )
@@ -65,6 +64,13 @@ def build_cog() -> D12Ball:
     cog.refresh_match_image = mock.AsyncMock()
     cog.drop_turn_prompt = mock.AsyncMock()
     cog.begin_effect_resolution = mock.AsyncMock()
+    cog.post_field_image = mock.AsyncMock()
+    # The hand images are drawn once at startup, which `object.__new__`
+    # skips; only the key matters here, not the bytes.
+    cog.maneuver_hand_image_bytes = {
+        (sides, ("basic",)): b""
+        for sides in (("offense",), ("defense",), ("offense", "defense"))
+    }
     return cog
 
 
@@ -104,7 +110,9 @@ def clear_the_ball_s_space(match: MatchState, player_ids: list[str]) -> None:
 
 
 def build_interaction(user_id: int = 111) -> SimpleNamespace:
-    sent = SimpleNamespace(id=999)
+    # attachments so the prompt's full-image link can be built off
+    # it -- empty, since nothing here reads the link.
+    sent = SimpleNamespace(id=999, attachments=[])
     prompt_message = SimpleNamespace(
         edit=mock.AsyncMock(), delete=mock.AsyncMock(),
     )
@@ -206,9 +214,9 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
 
         with mock.patch("cogs.d12ball_views.save_games"), \
                 mock.patch("cogs.d12ball.save_games"):
-            await ManeuverActionSelectView(
-                cog, game.game_id, "offense",
-            ).pick(build_interaction(), "dribble_advance")
+            await ManeuverActionPromptView(cog, game.game_id).pick(
+                build_interaction(), "offense", "dribble_advance",
+            )
 
         self.assertEqual(
             cog.begin_effect_resolution.await_args.args[-1],
@@ -223,9 +231,9 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
 
         with mock.patch("cogs.d12ball_views.save_games"), \
                 mock.patch("cogs.d12ball.save_games"):
-            await ManeuverActionSelectView(
-                cog, game.game_id, "offense",
-            ).pick(build_interaction(), "low_pass")
+            await ManeuverActionPromptView(cog, game.game_id).pick(
+                build_interaction(), "offense", "low_pass",
+            )
 
         # Low Pass ties Deflect, which is what the defense would
         # have had to pick for a tie -- there is no defense, so the
@@ -234,19 +242,23 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
         match = cog.engine.load_match_state(game)
         self.assertIsNone(match.defense_maneuver)
 
-    async def test_the_defense_is_told_there_is_nothing_to_pick(
-        self,
-    ) -> None:
+    async def test_the_defense_is_offered_no_buttons_at_all(self) -> None:
+        # The old flow put one shared button up and answered a defender
+        # who pressed it with "there is no defensive maneuver to pick".
+        # The buttons are on the message now, so the defense simply has
+        # none -- see RulesEngine.maneuver_pick_sides.
         cog, game, _ = self.build()
         await self.go_unchallenged(cog, game)
 
-        interaction = build_interaction(user_id=222)
-        await ManeuverActionPromptView(
-            cog, game.game_id,
-        ).open_action_menu(interaction)
+        view = ManeuverActionPromptView(cog, game.game_id)
 
-        message = interaction.response.send_message.await_args.args[0]
-        self.assertIn("sent nobody in to challenge", message)
+        self.assertEqual(view.sides, ("offense",))
+        self.assertFalse([
+            item for item in view.children
+            if (item.custom_id or "").startswith(
+                f"d12ball:maneuver_pick:{game.game_id}:defense:"
+            )
+        ])
 
     async def test_an_ai_offense_s_unchallenged_maneuver_resolves(
         self,

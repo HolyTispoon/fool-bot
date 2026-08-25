@@ -495,6 +495,69 @@ nothing downstream has to know which happened.
   test. A decline moves nobody and charges nobody, so it is also the one of
   the three that asks for no board refresh.
 
+## The maneuver prompt
+
+Both sides pick their maneuver off **one public message carrying both rows of
+buttons**, and the click is answered ephemerally.
+`ManeuverActionPromptView` is the whole of it.
+
+It used to be two steps: a public prompt with a single "Choose Your Maneuver"
+button that opened an ephemeral menu of the clicking coach's own cards. That
+extra click existed because **an ephemeral message must answer that coach's own
+interaction**, and only one of the two coaches is ever holding a live one when a
+maneuver begins -- whoever picked Maneuver, or whoever picked the challenger.
+The other had nothing for the bot to reply to.
+
+**The cards were never the secret.** The twelve of them and the defeat cycle are
+public information either coach may ask for at any time --
+`/d12ball maneuver_reference` posts the hexagon to the whole channel. What has
+to stay hidden is the **pick**, and that is hidden by the reply being ephemeral
+rather than by the menu being private: Discord tells nobody else who pressed
+what, and the prompt is never edited to say (see `close_maneuver_prompt`). So a
+coach reading this message cannot tell whether the other side has clicked. The
+extra click bought a round trip and nothing else.
+
+- **`RulesEngine.maneuver_pick_sides` is the only answer to whose buttons get
+  built**, and it is every side of this maneuver a *person* still picks for.
+  Two things take a side off it, and both are settled before the prompt exists:
+  an unchallenged maneuver has no defense to pick for, and **Dinky's pick is
+  written into the match before the prompt is built** -- so a solo game's
+  prompt is one hand and one row. It is read off persisted state alone, which
+  is what lets a restart rebuild the identical view.
+  - **It answers the mention line as well as the buttons.**
+    `begin_maneuver_action_selection` builds `waiting_on` out of the same list:
+    a coach named above the prompt and given no row to press would stall a game
+    and nothing would catch it.
+- **A side that has already picked keeps its buttons.** The message is
+  deliberately never edited -- that is [the tightest rate-limit bucket in the
+  game](#discords-rate-limits) -- so the buttons a restored view dispatches have
+  to match the buttons sitting on the message. Taking a picked side's row away
+  would leave those clicks answered by nothing. `pick` refuses the second click
+  instead.
+  - **Not greying them either**, for the same reason and one more: an edit that
+    disabled a row would tell the other coach that side had answered. The "X
+    has picked their maneuver" message says that already, deliberately and in
+    its own message.
+- **Authorization is checked before "already picked".** The other coach's row
+  is sitting on the same message, so answering a click on it with "that side has
+  already chosen" would say whether they had.
+- **Each side gets its own rows and its own colour** -- offense red, defense
+  green, the cards' and the reference hexagon's own two colours, so a coach
+  finds their row without reading the labels. `even_button_rows` splits a hand
+  into as few rows as Discord allows and then evenly across them: six advanced
+  cards chunked at the five-per-row limit would read five and one. An advanced
+  contested prompt is exactly five rows -- two a side plus the reference -- which
+  is Discord's ceiling and worth knowing before adding a seventh card.
+- **The restart story got simpler, not more complicated.** The prompt is on a
+  real message recorded in `turn_message_id`, so `on_ready` re-attaches it
+  through `pending_turn_view` like any other view. The message-agnostic
+  `add_view` registration the ephemeral menu needed (`restore_maneuver_menus`)
+  is gone; [the shootout's two menus](#the-extreme-shootout) still need it and
+  still have it.
+- **The uploads halve.** One public hand image and one public field strip,
+  against a hand and a field to each of two coaches. See
+  [The maneuver cards](#the-maneuver-cards).
+
 ## A maneuver's identity is not its printed name
 
 `match.offense_maneuver` and `defense_maneuver` hold a **key** --
@@ -852,11 +915,15 @@ dies out on its own.
   `continue_shootout` may not call it again: round 1 derives its shooter, so a
   second call would quietly retire the next pair as well.
 - **A part-built order lives on the match, not on the view.** Both menus are
-  ephemeral for the same reason the maneuver pick is -- neither coach may see the
-  other's -- so a restart cannot re-attach to them and
-  `restore_shootout_menus` re-registers them message-agnostically, exactly as
-  `restore_maneuver_menus` does. A view rebuilt that way starts empty, so a coach
-  who had ordered five would come back to none if the order lived there.
+  ephemeral -- neither coach may see the other's -- so a restart cannot
+  re-attach to them and `restore_shootout_menus` re-registers them
+  message-agnostically. A view rebuilt that way starts empty, so a coach who had
+  ordered five would come back to none if the order lived there. **These are the
+  last two views that need that**: the maneuver pick used to be a third and went
+  public on 2026-08-25 (see [The maneuver prompt](#the-maneuver-prompt)), so an
+  order that could be shown publicly would take the trick out of the codebase
+  altogether. It cannot -- an order is a real secret, where a hand of cards
+  never was.
 - **`shootout_winner` is the whole of "is it over?"**, both rounds in one
   predicate: in round 1 a lead bigger than the tests still to come (which it
   counts by asking who is left, hence the retirement above), and in sudden death
@@ -1884,14 +1951,17 @@ same budget. So:
     of 429s **the board message is the only thing that does it** -- every
     request in that bucket, all game, is a write to one message.
   - **Nothing else may be edited through the channel without a reason.**
-    `close_maneuver_prompt` used to re-edit the "Choose Your Maneuver" prompt
-    on each pick with a freshly built `ManeuverActionPromptView`. Nothing about
-    that message changes when a side picks -- it names who it is waiting on,
-    both sides share the one button, and the view is built from the game id
-    alone -- so it was a request out of this bucket, once a maneuver,
-    immediately before the resolution's own board refresh, for nothing. It now
-    only deletes, once both sides have picked, and a delete is a route of its
-    own. Who has picked is announced in its own message.
+    `close_maneuver_prompt` used to re-edit the maneuver prompt on each pick
+    with a freshly built `ManeuverActionPromptView`. Nothing about that message
+    changes when a side picks -- it names who it is waiting on, and the view is
+    built from the game id alone -- so it was a request out of this bucket,
+    once a maneuver, immediately before the resolution's own board refresh, for
+    nothing. It now only deletes, once both sides have picked, and a delete is
+    a route of its own. Who has picked is announced in its own message.
+    **That is now a rule about the prompt and not only an economy**: the
+    buttons are public (see [The maneuver prompt](#the-maneuver-prompt)), so an
+    edit greying a picked side's row would tell the other coach they had
+    answered.
   - **A board refresh spends one of the five**, two when it is the settling
     one, so `refresh_match_image` is rate-gated per game: the first goes out at
     once and any that arrive within `BOARD_REFRESH_INTERVAL` collapse into
@@ -2184,15 +2254,15 @@ altogether now.
 
 **One layout serves two things, on purpose.** `render_maneuver_card` is the
 print-ready face for the tabletop game -- 2.5 x 3.5in at 300dpi, plus one
-shared back -- and `render_maneuver_hand` puts a side's three side by side,
-which is what the bot shows a coach who has clicked "Choose Your Maneuver".
-A coach who has played at the table and a coach playing by Discord should be
-reading the same card, so neither gets a design of its own.
+shared back -- and `render_maneuver_hands` puts every hand in play side by
+side, which is what rides on the maneuver prompt. A coach who has played at the
+table and a coach playing by Discord should be reading the same card, so neither
+gets a design of its own.
 
 ```bash
 python3 scripts/render_maneuver_cards.py --out cards/ --sheet  # print-sheet.png
 python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
-python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot sends
+python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot sends
 ```
 
 - **The hand replaced a paragraph per maneuver.** `build_maneuver_choice_text`
@@ -2204,52 +2274,71 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
   Reference" button is back beside them.** The back carries the defeat cycle,
   it is public information either coach may look at whenever they like, and at
   the table it is face up on the deck in front of them -- so
-  `render_maneuver_hand` draws it as the fourth card. That was taken as reason
+  `render_maneuver_hands` draws it as the last card. That was taken as reason
   enough to drop the button, and it was not: the back is one card among four at
   a third of print size, where the hexagon is the picture a coach actually
-  reads a matchup off. `ManeuverActionSelectView.show_reference` posts it
+  reads a matchup off. `ManeuverActionPromptView.show_reference` posts it
   ephemerally, so the cost is a click and an upload only when somebody wants
   one. Both it and `/d12ball maneuver_reference`, which posts the same image to
   the channel, go through `build_maneuver_reference_file`.
   - **Ephemeral for the pick's reason, not its own.** The hexagon hides
     nothing -- answering in the channel would just tell the other side that
     this coach is still choosing.
+  - **One button for a prompt holding both sides.** Its custom_id carries the
+    game and no side, since the hexagon is the same picture for either coach.
 - **Every hand is drawn once in `D12Ball.__init__`**, like the maneuver
   reference image and for the same two reasons: startup is the one place a
   render can block the loop harmlessly, and the alternative is drawing up to
-  seven cards on every click of a button pressed several times a turn. Nothing
-  about a card depends on the match, so they cannot go stale.
-  `build_maneuver_hand_file` re-wraps the bytes per send, because uploading a
-  `discord.File` consumes the stream inside it.
-  - **Four hands, not two**, keyed by side *and* by the tiers a coach may play
-    -- the basic three, or all six in an advanced game. Which one a coach gets
-    is `RulesEngine.maneuver_tiers`, the same question the buttons under it
-    ask. **The reference hexagon is keyed the same way** (see below): a hand's
-    own `tiers` says which back it needs, `MANEUVER_TIER_ADVANCED` in it or
-    not, so a basic hand and its back agree without a second question being
-    asked.
+  thirteen cards on every maneuver. Nothing about a card depends on the match,
+  so they cannot go stale. `build_maneuver_hand_file` re-wraps the bytes per
+  send, because uploading a `discord.File` consumes the stream inside it.
+  - **Six images, not four**, keyed by the sides on the prompt *and* by the
+    tiers they may play -- offense alone, defense alone, or both, against the
+    basic three or all six of an advanced game. Which sides is
+    `RulesEngine.maneuver_pick_sides` and which tiers is
+    `RulesEngine.maneuver_tiers`, the same two questions the buttons under the
+    image ask. **The reference hexagon is keyed by tier the same way** (see
+    below): a hand's own `tiers` says which back it needs,
+    `MANEUVER_TIER_ADVANCED` in it or not, so a hand and its back agree without
+    a second question being asked.
+  - **Both hands on one image, not one per side.** Discord lays two attachments
+    on a message out side by side, which would halve the width of both. Nothing
+    is given away: the twelve cards and the defeat cycle are public information
+    either coach may ask for at any time. Where the back is drawn it rides on
+    the last side's block rather than starting a row of its own, or it would be
+    a row one card wide and the image would arrive as a tall ribbon.
+  - **A basic contested prompt drops the back** (the author). Both basic hands
+    together *are* the whole game -- all six cards, each carrying its own
+    beats/ties/loses row -- so the hexagon is the same six relations drawn a
+    second time, for the width of a card. Every other case still earns it: one
+    hand (an unchallenged maneuver, or a solo game against Dinky) shows half the
+    cycle, and an advanced prompt's back is the two-tier hexagon, which is what
+    says the twelve cards resolve as six ranks rather than as two unrelated
+    cycles. It also leaves basic's two hands as two clean rows of three instead
+    of a ragged four and three. The "Maneuver Reference" button is still there
+    for anyone who wants the hexagon, which is why dropping it costs nothing.
   - **Seven cards do not fit one row.** Discord scales an inline image to the
     message's width, so a row of seven arrives at about 75px a card against
     131px for a row of four. `HAND_MAX_COLUMNS` is 4, and anything past it
     wraps -- which keeps every card the width a coach already reads.
 - **The hand is drawn at a third of the print card's width.** Discord scales an
   inline image down whatever it is sent, so the extra pixels would only be
-  payload -- and this send is ephemeral, once per coach per maneuver. The
+  payload -- and this send is once per maneuver, not once per coach. The
   abilities are small print at that size, which is what the full-image link on
   the message is for. That link is the webhook route, not the channel's edit
   bucket; see "Discord's rate limits".
-- **The field goes under the hand**, drawn by `render_field_image` and sent by
-  `ManeuverActionPromptView.send_field_image`. What a maneuver would do depends
-  on where everybody is standing, and a coach picking one is looking at an
-  ephemeral message rather than at the board.
-  - **A message of its own, not a second attachment on the cards.** Discord
+- **The field goes under the hands**, drawn by `render_field_image` and sent by
+  `D12Ball.post_field_image`. What a maneuver would do depends on where
+  everybody is standing, and the persistent board has usually scrolled up the
+  channel by the time a turn resolves.
+  - **A message of its own, not a second attachment on the prompt.** Discord
     lays two images on one message out side by side, which would show a field
     the width of the whole board at half the width of a phone. It also keeps
-    the cards' link pointing at the cards -- `build_full_image_button` reads
+    the prompt's link pointing at the cards -- `build_full_image_button` reads
     the *first* attachment, and "View full image" under a hand means the hand.
     Both sends are the webhook route, so neither competes with the board for
     the channel's edit bucket.
-  - **It is rendered per pick, unlike the hand**, because it is the position
+  - **It is rendered per maneuver, unlike the hand**, because it is the position
     and so is different every time. It carries a full-image link of its own for
     a stronger version of the hand's reason: a field is the whole width of the
     board in a strip a fifth as tall, which is the smallest thing the bot sends
@@ -2382,7 +2471,7 @@ python3 scripts/render_maneuver_cards.py --hands   # all four hands the bot send
   holds six. `MANEUVER_TIER_BASIC` draws six nodes with one name apiece
   instead: a basic-mode coach's hand is never anything but the three basic
   cards, so there is no tier to hide, and a name with no counterpart stacked
-  under it reads larger in the same circle. `render_maneuver_hand` picks
+  under it reads larger in the same circle. `render_maneuver_hands` picks
   between them off its own `tiers` argument -- `MANEUVER_TIER_ADVANCED` in it
   or not -- so a hand and the back riding along with it can't disagree about
   which a coach is holding.
@@ -3093,31 +3182,33 @@ that out is both discouraging and, often enough, wrong. The traceback is in
 `#logs` and on the host's console and nowhere a coach can see, so the last
 step is the only way a bug resume cannot fix ever gets reported.
 
-**The ephemeral views in the game are the three secret picks**, and they are
-ephemeral for one reason: a coach must not see the other side's choice before
-the reveal, and it is the only thing Discord offers that hides it.
-`ManeuverActionSelectView` is the maneuver pick; `ShootoutOrderSelectView` and
-`ShootoutPickSelectView` are the shootout's shooting order and its sudden-death
-shooter. Everywhere else `ephemeral=True` carries an error reply with no buttons
-on it. Those three are also the only views a restart cannot re-attach to their
-message: the bot never holds a durable handle to an ephemeral message, so there
-is no id to give `add_view`.
+**The ephemeral views in the game are the shootout's two secret picks**, and
+they are ephemeral for one reason: a coach must not see the other side's choice
+before the reveal, and it is the only thing Discord offers that hides it.
+`ShootoutOrderSelectView` is the shooting order and `ShootoutPickSelectView` the
+sudden-death shooter. Everywhere else `ephemeral=True` carries a reply with no
+buttons on it — an error, or a coach's own maneuver pick coming back to them.
+Those two are also the only views a restart cannot re-attach to their message:
+the bot never holds a durable handle to an ephemeral message, so there is no id
+to give `add_view`.
 
-`restore_maneuver_menus` is the way round it, and `restore_shootout_menus` does
-the identical thing for the other two. `add_view` **without** a
-message_id lands the view under a `None` key, and discord.py's
-`ViewStore.dispatch_view` looks a click up by `(message_id, custom_id)` and then
-falls back to `(None, custom_id)` — so the menu a coach already has open starts
-answering again after a restart. It is safe because the custom_ids already carry
-the game and the side (`d12ball:maneuver_pick:<game>:<side>:<maneuver>`), and
-because a message_id match wins over the fallback, so the next menu the game
-opens is dispatched to its own view as usual. The registration outlives the
-maneuver, which costs nothing: `pick` re-reads the match and answers "a maneuver
-has already been chosen for that side." The fallback is asserted against
-discord.py's own store in `tests/test_d12ball_recovery.py`, because the whole
-thing rests on it surviving a library upgrade. Failing all that, the public
-"Choose Your Maneuver" button *is* restored normally, and clicking it opens a
-fresh menu.
+**The maneuver pick used to be a third, and is not any more** — see
+[The maneuver prompt](#the-maneuver-prompt). Its cards were never the secret;
+the *pick* was, and an ephemeral reply to a public button hides that just as
+well.
+
+`restore_shootout_menus` is the way round it for the two that are left.
+`add_view` **without** a message_id lands the view under a `None` key, and
+discord.py's `ViewStore.dispatch_view` looks a click up by
+`(message_id, custom_id)` and then falls back to `(None, custom_id)` — so the
+menu a coach already has open starts answering again after a restart. It is safe
+because the custom_ids already carry the game and the side, and because a
+message_id match wins over the fallback, so the next menu the game opens is
+dispatched to its own view as usual. The registration outlives the shootout,
+which costs nothing: a stale click is answered rather than acted on. The
+fallback is asserted against discord.py's own store in
+`ShootoutMenuRestoreTests` (`tests/test_d12ball_shootout.py`), because the whole
+thing rests on it surviving a library upgrade.
 
 Three more ways a restart strands a game, none of them about ephemerality:
 
