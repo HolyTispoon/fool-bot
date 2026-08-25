@@ -15,3 +15,4 @@ data/bot_state.tmp
 data/foolbot-main.pid
 data/foolbot-main.stdout.log
 data/foolbot-main.stderr.log
+*.log
