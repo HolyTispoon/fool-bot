@@ -353,13 +353,15 @@ They then change the ball's speed by up to their offensive skill, in either dire
 
 **Rank O3. Costs 2 space minutes. Beats Steal and Intercept, loses to Deflect and Clear.**
 
-Two steps, in this order. The passer first changes the ball's speed by up to their offensive skill, in either direction. They then pick the ball out to a teammate **0, 1 or 3 spaces** ahead, who takes a [scoring opportunity](#scoring-opportunities) with the speed they just set counting for it.
+Two steps, in this order. The passer first changes the ball's speed by up to their offensive skill, in either direction. They then pick the ball out **0, 1 or 3 spaces** ahead. A teammate standing where it lands receives it and takes a [scoring opportunity](#scoring-opportunities), with the speed they just set counting for it.
 
-`0` means a teammate sharing the passer's own space — a passer never receives their own pass. Only distances that actually reach a teammate are offered.
+**Every distance that fits on the field may be picked**, whether or not anybody of the passing side is standing there. `0` is the one exception: it means a teammate sharing the passer's own space — a passer never receives their own pass — so it may only be picked while somebody else is standing there.
 
 *Fullback:* may also set up at 4 spaces.
 
-**A Setup Pass cannot overshoot.** With no teammate at any of the three the pass runs [out of play](#out-of-bounds): the other team gains possession, both sides reset, and the gaining side sends somebody to pick the ball up.
+**A pass that lands on nobody is still a pass.** With no teammate where it lands there is no set-up, but the ball has been thrown all the same and it settles where it stops, exactly as a [Deflect](#deflect)'s does: [loose](#the-loose-ball) if the space is empty, and the other side's outright and uncontested if they are standing there. (A space both sides are standing on is a teammate standing on it, so it is the set-up above rather than a contest.)
+
+**A Setup Pass cannot overshoot**, so the only way it runs [out of play](#out-of-bounds) is having nowhere to pick it out to at all: the passer standing on the very last space of the field, where even 1 space runs off the end, with no teammate beside them to take it at `0`. Then the other team gains possession, both sides reset, and the gaining side sends somebody to pick the ball up.
 
 *Beaten:* the coach who beat it drives the ball a further 1, 2 or 3 spaces back, their choice, and it lands exactly as a [Deflect](#deflect)'s does — loose if the space it stops on is empty, uncontested if only one side is there, a forced contest if both are.
 

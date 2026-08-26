@@ -815,26 +815,68 @@ class InterceptTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
 
 
 class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
-    def test_it_offers_only_distances_that_reach_a_teammate(self) -> None:
+    def test_it_offers_every_distance_that_fits_on_the_field(self) -> None:
+        """
+        The author, 2026-08-25: a distance is offered because it fits,
+        not because somebody is standing there. `0` is the exception --
+        see the test below.
+        """
         cog, game, match = self.build("setup_pass", "steal", board_size=9)
 
         offered = cog.engine.setup_pass_distances(match)
 
-        offense_players = set(match.home.field_players)
-        for distance in (0, 1, 3):
+        for distance in (1, 3):
             origin = self.flat(match)
             target = match.relative_flat_index(
                 origin, match.ball.possession, distance,
             )
-            reaches = abs(target - origin) == distance
-            zone, space_index = match.board.position_at_flat_index(target)
-            occupied = reaches and any(
-                player_id in offense_players
-                and player_id != match.active_player_id
-                for player_id in match.board.spaces[zone][space_index]
-            )
             with self.subTest(distance=distance):
-                self.assertEqual(distance in offered, occupied)
+                self.assertEqual(
+                    distance in offered, abs(target - origin) == distance,
+                )
+
+    def test_a_distance_reaching_nobody_is_still_offered(self) -> None:
+        """
+        The whole of the change: picking the ball out into empty space
+        is a bad choice a coach may make, not a choice the menu takes
+        away. Before this, a passer with nobody 1 or 3 ahead of them
+        had no Setup Pass at all.
+        """
+        cog, game, match = self.build("setup_pass", "steal", board_size=9)
+        for player_id in list(match.home.field_players):
+            if player_id != match.active_player_id:
+                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+
+        self.assertEqual(cog.engine.setup_pass_distances(match), [1, 3])
+
+    async def test_a_pass_onto_nobody_leaves_the_ball_where_it_lands(
+        self,
+    ) -> None:
+        """
+        It settles exactly as a Deflect's does, which is what
+        `restrict_to_occupants` says: loose on an empty space, the
+        other side's outright where only they are standing.
+        """
+        cog, game, match = self.build("setup_pass", "steal", board_size=9)
+        for player_id in list(match.home.field_players):
+            if player_id != match.active_player_id:
+                match.move_meeple(player_id, Zone.HOME_GOAL, 0)
+        start = self.flat(match)
+        cog.begin_loose_ball = mock.AsyncMock()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.apply_setup_pass(build_interaction(), game, match, 3)
+
+        self.assertEqual(self.flat(match), start + 3)
+        cog.begin_loose_ball.assert_awaited_once()
+        self.assertTrue(
+            cog.begin_loose_ball.await_args.kwargs["restrict_to_occupants"],
+        )
+        # The ball is thrown, so it is still the offense's until the
+        # landing decides otherwise -- and the pass costs its own 2
+        # minutes however far it travelled.
+        self.assertEqual(match.ball.possession, TeamSide.HOME)
+        self.assertEqual(cog.begin_loose_ball.await_args.args[3], 2)
 
     def test_a_fullback_may_also_set_up_at_four(self) -> None:
         """
@@ -986,9 +1028,11 @@ class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
 
     async def test_it_cannot_overshoot_and_goes_out_instead(self) -> None:
         """
-        **Setup Pass cannot overshoot**: with no teammate at 0, 1 or 3
-        the pass runs out of play and the other team gains possession.
-        That is the existing out-of-bounds outcome, and a fourth
+        The one position a Setup Pass goes out from, since 2026-08-25:
+        the passer on the very last space of the field -- where even 1
+        runs off the end -- with no teammate beside them to take it at
+        0. Then it runs out of play, the other team gains possession,
+        and that is the existing out-of-bounds outcome and a fourth
         `new_play=True` call site.
         """
         cog, game, match = self.build("setup_pass", "steal")

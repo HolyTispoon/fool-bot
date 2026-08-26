@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-24.
+**As of:** 2026-08-25.
 
 ## Where the rules come from
 
@@ -87,6 +87,45 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-25 -- author, a Setup Pass may be picked out to any space that fits, not only onto a teammate
+
+*"When a player kicks a setup pass they should be offered to pass the ball 1, 3 spots away so
+long as that is not off the board, not just targets that have a teammate. If there is no
+teammate in the area that they're passing to, the ball goes to the opposing team or is loose.
+The only case where a setup pass goes out of bounds is when the player doing the passing is in
+the zone closest to the opponent's goal and there is no teammate in their space. Doing a setup
+pass for 0 is special -- that you can only do if there's a teammate in the space."*
+
+- **The menu is gated on the field, not on the roster.** 1 and 3 (and a Fullback's 4) are
+  offered whenever the space they land on is on the board. It used to be "only distances that
+  actually reach a teammate", which read the card as a set-up that either happens or does not
+  and left a passer with nobody ahead of them holding a maneuver they could not play at all --
+  from most of the field, the whole card collapsed into the out-of-bounds branch.
+- **A pass that lands on nobody is a real outcome**, and it is the one the ball already has
+  everywhere else: it settles where it lands, exactly as a Deflect's does -- loose on an empty
+  space, and the other side's outright where they are standing. That is `restrict_to_occupants`
+  again (the 2026-08-24 entry below), so the pass's own landing joins Deflect, Clear and Setup
+  Pass's push-back cost as a caller of it. The flag's third case, a forced contest where both
+  sides are there, cannot be reached from here: a space the passing side is standing on is the
+  set-up.
+- **`0` keeps its old gate, and is now the only distance that has one.** It means a teammate
+  sharing the passer's own space, and a passer never receives their own pass (2026-08-12), so
+  with nobody else standing there it is not a short pass into an empty space -- it is the ball
+  not being passed.
+- **Out of play narrows to one position.** A Setup Pass still cannot overshoot, so it goes out
+  only where nothing at all is on the menu: the passer on the very last space of the field --
+  the one place even 1 space runs off the end -- with no teammate beside them. `1 or 3 reach
+  nobody` is no longer a reason. The out-of-bounds outcome itself is unchanged, and it is still
+  the fourth `new_play=True` call site.
+- `RulesEngine.setup_pass_distances` is the whole of the menu change; `D12Ball.apply_setup_pass`
+  now hands a receiverless landing to `begin_loose_ball` instead of to `apply_setup_pass_out`.
+  Dinky answers the distance through `choose_high_pass_distance` -- the longest that reaches a
+  teammate, otherwise the longest available -- since with a bad pass now costing the ball, that
+  policy (written for the High Pass on 2026-08-18) is the same answer to the same question.
+  `RulesEngine.high_pass_destination_note` names the landing space even when nobody is standing
+  there, which both pass menus read: where a pass lands is half of what the coach is weighing
+  once landing on nobody is a choice they are allowed to make.
 
 ### 2026-08-24 (earlier the same day) -- author, "Home Goal"/"Visitors Goal" become "Zone" or "Third"
 
