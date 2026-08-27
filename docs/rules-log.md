@@ -129,10 +129,11 @@ Where this lands in the code:
   `scripts/import_d12ball_maneuvers.py --data-version 11` rather than a hand-edit: both new
   effect sentences are upstream's own words. That re-run also carried one unrelated change,
   because the file is rewritten whole -- **Setup Pass's effect loses "as a loose ball"**, three
-  words the author's own 2026-08-21 re-copy added and the sheet does not have. The rule is
-  unchanged (see the 2026-08-24 entry); it is only the printed card that is now terser, and it
-  is listed under [Where upstream is behind](#where-upstream-is-behind) so the next pull knows
-  it is old news.
+  words the author's own 2026-08-21 re-copy added and the sheet does not have. **The sheet is
+  right and the three words were the mistake** (the author, 2026-08-26): a ball is loose only
+  where it lands on an empty space, and a push-back that lands on somebody is not one. So this
+  is not a divergence to record -- it is the card catching up. What the living rules and the
+  bot's own wording say about a loose ball is a wider correction and lands in its own change.
 - `SKILLED_PASS_REACH` and `DRIBBLE_BURST_MAX_DISTANCE` are the two numbers, in
   `d12ball/components.py` next to `SETUP_PASS_DISTANCES`.
   `RulesEngine.skilled_pass_candidates` (was `precise_pass_candidates`) reads the first;
@@ -1719,7 +1720,6 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Two 15-minute periods, each clocked 0 to 15 | One running clock: 00-15 in the first half, 16-30 in the second, and it keeps counting past a period's last minute for as long as last possession runs |
 | The maneuvers sheet has a "Die value" column, and the component data two head-coach d6s | Maneuvers are chosen from the cards; the selection dice are not part of the rules at all (2026-08-17). The column and `head_coach_dice` are still imported, so a fresh pull rewrites them |
 | Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
-| Setup Pass's effect: "opponent picks 1-2-3 spaces back" | The push-back lands as a **loose ball**, contested under the occupancy rule. The card said so between 2026-08-21 and 2026-08-26, from a hand-edit the 2026-08-26 re-import wiped |
 
 ---
 
