@@ -88,7 +88,7 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-08-26 -- author, a ball is loose only on an empty space, and a High Pass is the one exemption
+### 2026-08-26 (later the same day) -- author, a ball is loose only on an empty space, and a High Pass is the one exemption
 
 *"A loose ball happens **only** when there are no players in the space where the ball landed (e.g.
 after a high pass, setup pass, block deflect, clear). After Deflect won the bot says: 'Loose ball!
@@ -192,7 +192,7 @@ Where this lands in the code:
   right and the three words were the mistake** (the author, 2026-08-26): a ball is loose only
   where it lands on an empty space, and a push-back that lands on somebody is not one. So this
   is not a divergence to record -- it is the card catching up. What the living rules and the
-  bot's own wording say about a loose ball is a wider correction and lands in its own change.
+  bot's own wording say about a loose ball is a wider correction; see the entry above.
 - `SKILLED_PASS_REACH` and `DRIBBLE_BURST_MAX_DISTANCE` are the two numbers, in
   `d12ball/components.py` next to `SETUP_PASS_DISTANCES`.
   `RulesEngine.skilled_pass_candidates` (was `precise_pass_candidates`) reads the first;
