@@ -5571,6 +5571,212 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
 
 
+    def run_back_ai_placement(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        candidates: list[str],
+    ) -> str:
+        """
+        Place one of an AI side's run-backs and describe it, without
+        posting anything: the line comes back for the cascade in
+        continue_run_back to batch with every other automatic
+        placement. See "Discord's rate limits" in CLAUDE.md.
+        """
+        # One candidate is a settled player and only the space is
+        # open; several is a stack Dinky picks out of, the same call a
+        # coach is given in send_run_back_prompt.
+        player_id = (
+            candidates[0]
+            if len(candidates) == 1
+            else self.engine.get_ai_strategy(game).choose_run_back_player(
+                match, candidates,
+            )
+        )
+        zone = match.setup_for_side(side).assigned_zone(player_id)
+        player = self.engine.get_player_definition(player_id)
+        space_index = self.engine.get_ai_strategy(game).choose_run_back_space(
+            match.placement_spaces_in_zone(side, zone, player_id)
+        )
+        distance = match.run_back_player(player_id, zone, space_index)
+        exhaustion_text = self.apply_exhaustion(match, player_id, distance)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        return (
+            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
+            f"runs back to {space_label(zone, space_index)}."
+            f"\n{exhaustion_text}"
+        )
+
+    def run_back_kickoff_fill(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Settle a pending kickoff fill, and say whether the cascade goes
+        round again -- with the line describing the drop back, when
+        somebody actually moved.
+
+        A goal (or own goal) restarts play with nobody necessarily
+        standing on the kickoff space -- the conceding side's two
+        midfield players could easily both be elsewhere in the zone
+        from open play. Whoever's closest drops back to start the
+        kickoff, at the usual run-back cost, once every other run-back
+        is settled.
+
+        Asked here rather than back in restart_after_goal because
+        everyone has moved since: the new play's reset, and any
+        placement its substitution window made. Somebody standing on
+        the space already settles it for nothing.
+        """
+        if match.eligible_ball_handlers():
+            match.pending_kickoff_fill = False
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            return True, None
+
+        candidates = match.kickoff_fill_candidates()
+        if candidates:
+            player_id = candidates[0]
+            player = self.engine.get_player_definition(player_id)
+            distance = match.fill_kickoff(player_id)
+            exhaustion_text = self.apply_exhaustion(
+                match, player_id, distance,
+            )
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            return True, (
+                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
+                "drops back to "
+                f"{space_label(match.ball.zone, match.ball.space_index)} "
+                f"to start the kickoff.\n{exhaustion_text}"
+            )
+
+        # Nobody fielded in midfield at all (both benched or injured)
+        # -- nothing to place. Clear the flag and let the loose-ball
+        # check downstream handle the empty kickoff. The save is the
+        # caller's, which is about to write the settled run back out
+        # anyway.
+        match.pending_kickoff_fill = False
+        return False, None
+
+    async def send_run_back_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        candidates: list[str],
+        png: bytes,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Put a coach's run-back choice up, on the board `png` the
+        cascade has already settled -- because both questions a run
+        back asks (which of these players goes, and which space they
+        go to) are questions about where everybody is standing, and the
+        persistent message has scrolled away up the channel by the time
+        a turn has resolved. It goes with the prompt: the click edits
+        both away together, so the board a coach is reading is never
+        one of a position that has moved on.
+        """
+        controller_id = self.engine.side_controller_id(game, side)
+        mention = f"<@{controller_id}>" if controller_id else "Someone"
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+
+        # A stack asks who before it asks where, and the two share one
+        # message: the second question is an edit of the first, which
+        # keeps the board that was uploaded for it rather than paying
+        # for a second one. See RunBackPlayerChoiceView.
+        if len(candidates) == 1:
+            prompt_view = RunBackChoiceView(self, game.game_id, candidates[0])
+            body = self.run_back_space_prompt(
+                match, side, candidates[0], mention,
+            )
+        else:
+            prompt_view = RunBackPlayerChoiceView(self, game.game_id, candidates)
+            body = self.run_back_player_prompt(
+                match, side, candidates, mention,
+            )
+
+        prompt_message = await interaction.followup.send(
+            f"{prefix}{body}",
+            file=self.match_file_from_png(game, png),
+            view=prompt_view,
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        # The view has to be handed over with the link, or the edit
+        # that adds it drops the buttons this prompt is for -- see
+        # add_full_image_button. Both go when the choice is made.
+        await add_full_image_button(prompt_message, prompt_view)
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
+
+    async def finish_run_back(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Nobody is displaced on either side: clear the run back and hand
+        the turn on to whatever it was still holding up.
+        """
+        match.pending_run_back = False
+        distance_moved = match.pending_run_back_distance
+        turnover_occurred = match.pending_run_back_turnover
+        speed_choice_after = match.pending_run_back_speed_choice
+        stays_player_id = match.pending_run_back_stays_player_id
+        match.pending_run_back_speed_choice = False
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        if match.pending_ball_recovery:
+            # An out-of-bounds ball is still lying there with nobody
+            # on it. Now that everyone is back in position, the side
+            # that won it sends the nearest player either side of it,
+            # at the usual per-space cost.
+            await self.begin_ball_recovery(
+                interaction, game, match, lead_in=lead_in,
+            )
+            return
+
+        if speed_choice_after:
+            # Steal: the defender who stole the ball still
+            # gets to manipulate its speed, now that everyone is back
+            # in position.
+            await self.offer_speed_choice(
+                interaction,
+                game,
+                match,
+                player_id=stays_player_id,
+                skill_type="defense",
+                turnover_occurred=turnover_occurred,
+                distance_moved=distance_moved,
+                lead_in=lead_in,
+            )
+            return
+
+        # Run-back itself only ever costs exhaustion, not time -- the
+        # time cost is whatever the triggering maneuver's own ball
+        # movement was, stashed by begin_run_back.
+        await self.finish_maneuver_resolution(
+            interaction,
+            game,
+            match,
+            distance_moved=distance_moved,
+            turnover_occurred=turnover_occurred,
+            lead_in=lead_in,
+        )
+
     async def continue_run_back(
         self,
         interaction: discord.Interaction,
@@ -5657,50 +5863,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 side, candidates = step
 
                 if self.engine.side_is_ai(game, side):
-                    # One candidate is a settled player and only the
-                    # space is open; several is a stack Dinky picks out
-                    # of, the same call a coach is given below.
-                    player_id = (
-                        candidates[0]
-                        if len(candidates) == 1
-                        else self.engine.get_ai_strategy(
-                            game
-                        ).choose_run_back_player(match, candidates)
-                    )
-                    zone = match.setup_for_side(side).assigned_zone(player_id)
-                    player = self.engine.get_player_definition(player_id)
-                    space_index = self.engine.get_ai_strategy(
-                        game
-                    ).choose_run_back_space(
-                        match.placement_spaces_in_zone(side, zone, player_id)
-                    )
-                    distance = match.run_back_player(
-                        player_id, zone, space_index,
-                    )
-                    exhaustion_text = self.apply_exhaustion(
-                        match, player_id, distance,
-                    )
-                    game.match_state = match.to_dict()
-                    save_games(self.games)
-
                     notes.append(
-                        f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
-                        f"runs back to {space_label(zone, space_index)}."
-                        f"\n{exhaustion_text}"
+                        self.run_back_ai_placement(
+                            game, match, side, candidates,
+                        )
                     )
                     continue
 
                 # A coach's choice ends the cascade here: say what has
-                # happened so far, show the board it left, and ask --
-                # with the board on the prompt itself, because both
-                # questions a run back asks (which of these players
-                # goes, and which space they go to) are questions about
-                # where everybody is standing, and the persistent
-                # message has scrolled away up the channel by the time
-                # a turn has resolved. It goes with the prompt: the
-                # click edits both away together, so the board a coach
-                # is reading is never one of a position that has moved
-                # on.
+                # happened so far, show the board it left, and ask.
                 #
                 # One render, two uploads -- the same board settles the
                 # persistent message, exactly as announce_board_update
@@ -5709,144 +5880,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 if not await flush(png):
                     await self.refresh_match_image(interaction, game, png=png)
 
-                controller_id = self.engine.side_controller_id(game, side)
-                mention = f"<@{controller_id}>" if controller_id else "Someone"
-                prefix = f"{lead_in}\n\n" if lead_in else ""
-
-                # A stack asks who before it asks where, and the two
-                # share one message: the second question is an edit of
-                # the first, which keeps the board that was uploaded
-                # for it rather than paying for a second one. See
-                # RunBackPlayerChoiceView.
-                if len(candidates) == 1:
-                    prompt_view = RunBackChoiceView(
-                        self, game.game_id, candidates[0],
-                    )
-                    body = self.run_back_space_prompt(
-                        match, side, candidates[0], mention,
-                    )
-                else:
-                    prompt_view = RunBackPlayerChoiceView(
-                        self, game.game_id, candidates,
-                    )
-                    body = self.run_back_player_prompt(
-                        match, side, candidates, mention,
-                    )
-
-                prompt_message = await interaction.followup.send(
-                    f"{prefix}{body}",
-                    file=self.match_file_from_png(game, png),
-                    view=prompt_view,
-                    wait=True,
-                    allowed_mentions=discord.AllowedMentions(
-                        users=True, roles=False, everyone=False,
-                    ),
+                await self.send_run_back_prompt(
+                    interaction,
+                    game,
+                    match,
+                    side,
+                    candidates,
+                    png,
+                    lead_in=lead_in,
                 )
-                # The view has to be handed over with the link, or the
-                # edit that adds it drops the buttons this prompt is
-                # for -- see add_full_image_button. Both go when the
-                # choice is made.
-                await add_full_image_button(prompt_message, prompt_view)
-                game.turn_message_id = prompt_message.id
-                save_games(self.games)
                 return
 
             if match.pending_kickoff_fill:
-                # A goal (or own goal) restarts play with nobody
-                # necessarily standing on the kickoff space -- the
-                # conceding side's two midfield players could easily
-                # both be elsewhere in the zone from open play.
-                # Whoever's closest drops back to start the kickoff, at
-                # the usual run-back cost, once every other run-back is
-                # settled.
-                #
-                # Asked here rather than back in restart_after_goal
-                # because everyone has moved since: the new play's
-                # reset, and any placement its substitution window
-                # made. Somebody standing on the space already settles
-                # it for nothing.
-                if match.eligible_ball_handlers():
-                    match.pending_kickoff_fill = False
-                    game.match_state = match.to_dict()
-                    save_games(self.games)
+                keep_going, note = self.run_back_kickoff_fill(game, match)
+                if note is not None:
+                    notes.append(note)
+                if keep_going:
                     continue
-
-                candidates = match.kickoff_fill_candidates()
-                if candidates:
-                    player_id = candidates[0]
-                    player = self.engine.get_player_definition(player_id)
-                    distance = match.fill_kickoff(player_id)
-                    exhaustion_text = self.apply_exhaustion(
-                        match, player_id, distance,
-                    )
-                    game.match_state = match.to_dict()
-                    save_games(self.games)
-
-                    notes.append(
-                        f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
-                        "drops back to "
-                        f"{space_label(match.ball.zone, match.ball.space_index)} "
-                        f"to start the kickoff.\n{exhaustion_text}"
-                    )
-                    continue
-
-                # Nobody fielded in midfield at all (both benched or
-                # injured) -- nothing to place. Clear the flag and let
-                # the loose-ball check downstream handle the empty
-                # kickoff.
-                match.pending_kickoff_fill = False
 
             break
 
         await flush()
-
-        # Nobody is displaced on either side -- run-back is done.
-        match.pending_run_back = False
-        distance_moved = match.pending_run_back_distance
-        turnover_occurred = match.pending_run_back_turnover
-        speed_choice_after = match.pending_run_back_speed_choice
-        stays_player_id = match.pending_run_back_stays_player_id
-        match.pending_run_back_speed_choice = False
-        game.match_state = match.to_dict()
-        save_games(self.games)
-
-        if match.pending_ball_recovery:
-            # An out-of-bounds ball is still lying there with nobody
-            # on it. Now that everyone is back in position, the side
-            # that won it sends the nearest player either side of it,
-            # at the usual per-space cost.
-            await self.begin_ball_recovery(
-                interaction, game, match, lead_in=lead_in,
-            )
-            return
-
-        if speed_choice_after:
-            # Steal: the defender who stole the ball still
-            # gets to manipulate its speed, now that everyone is back
-            # in position.
-            await self.offer_speed_choice(
-                interaction,
-                game,
-                match,
-                player_id=stays_player_id,
-                skill_type="defense",
-                turnover_occurred=turnover_occurred,
-                distance_moved=distance_moved,
-                lead_in=lead_in,
-            )
-            return
-
-        # Run-back itself only ever costs exhaustion, not time -- the
-        # time cost is whatever the triggering maneuver's own ball
-        # movement was, stashed by begin_run_back.
-        await self.finish_maneuver_resolution(
-            interaction,
-            game,
-            match,
-            distance_moved=distance_moved,
-            turnover_occurred=turnover_occurred,
-            lead_in=lead_in,
-        )
+        await self.finish_run_back(interaction, game, match, lead_in=lead_in)
 
     # -- Out-of-bounds recovery (after the run back) ------------------
 
