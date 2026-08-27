@@ -680,10 +680,9 @@ weapon rather than only a saving.
   read the card as a set-up that either happens or does not and left a
   passer with nobody ahead of them unable to play it at all.
   - **A pass landing on nobody settles where it lands**, exactly as a
-    Deflect's does: `apply_setup_pass` hands it to `begin_loose_ball`
-    with `restrict_to_occupants=True`, so the pass's own landing joins
-    Deflect, Clear and this card's push-back cost as a caller of that
-    flag -- see [Who contests a loose ball](#who-contests-a-loose-ball).
+    Deflect's does: `apply_setup_pass` hands it to `begin_loose_ball`,
+    which since 2026-08-26 settles every arrival by what is standing
+    there -- see [Where the ball comes to rest](#where-the-ball-comes-to-rest).
     It pays `SETUP_PASS_CLOCK_COST` there, the card's flat 2 minutes,
     however far the ball actually travelled.
   - **That leaves one position a Setup Pass goes out from, and it is
@@ -1109,9 +1108,9 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
   `DinkyAI.choose_high_pass_distance` falls back to the longest available only
   when no distance reaches anybody. It is not a rules change; it is that the AI's
   own maximizing was working against it, and
-  [the loose ball](#who-contests-a-loose-ball) sharpened the cost: a pass
-  landing where the offense has nobody is a loose ball, so throwing as far as
-  possible was giving the ball away as often as possible.
+  [where the ball comes to rest](#where-the-ball-comes-to-rest) sharpened the
+  cost: a pass landing where the offense has nobody gives the ball up, so
+  throwing as far as possible was giving it away as often as possible.
 - **An overshoot is therefore only ever the no-menu case.** When even the
   shortest pass runs out of field -- the ball 0 or 1 spaces from the end --
   `resolve_high_pass` skips the prompt and applies the minimum distance
@@ -1182,33 +1181,66 @@ pickup use.
   the wording, over `space_label`. The line spells the zone out beside the code
   because "M2" alone means nothing to anyone not already looking at the board.
 
-## Who contests a loose ball
+## Where the ball comes to rest
 
-**A loose ball is a ball nobody is in possession of, and it is won the same
-way however it came free** -- the author, 2026-08-18. See "The loose ball" in
-the living rules. That replaced a definition -- "the possessing team has
-nobody standing on the ball's space" -- which made *loose* a fact about where
-meeples were rather than about the ball, so a ball landing on the right meeple
-could not be loose however it got there.
+**What is standing on the space the ball lands on decides how it is won, and
+only an empty space is a *loose ball*** -- the author, 2026-08-26. See "Where
+the ball comes to rest" in the living rules. Three positions:
 
-Each side's contestant is **whoever of theirs is standing on the ball, and
-otherwise a player they may send**. `MatchState.loose_ball_occupants` is the
-first half and `MatchState.contest_candidates` the second;
-`RulesEngine.loose_ball_candidates` is `occupants or candidates` -- one of two
-pools and never a mixture, exactly the shape `challenge_candidates` has, and
-for the same reason.
+| On the landing space | What happens |
+| --- | --- |
+| Nobody | **Loose.** Each side may send a player after it, or send nobody. |
+| One side only | **Theirs**, uncontested. No roll, and the other side is never offered a send. |
+| Both sides | A **contest** between the players already there. Nobody else may be sent. |
 
-- **Three readings collapsed into that one.** The old "each side may send"
-  (an empty space), the High Pass contest's forced receiver, and the
-  uncontested take -- a ball landing where only the *defense* stood was theirs
-  outright, no movement and no roll. The last is the change with the widest
-  reach: it is the ordinary end of a badly aimed pass, and it is now a contest
-  the side that lost the ball may enter.
-- **`begin_loose_ball` forces nobody any more.** It used to take
-  `forced_offense_player`/`forced_defense_player`, passed only by
-  `begin_high_pass_contest`. Being on the ball is the ordinary rule now, so
-  that function has nothing left to pass but `is_high_pass` -- which is the
-  only thing still peculiar to a High Pass, the ball speed modifier.
+That corrects the 2026-08-18 ruling, which made *loose* a fact about the ball
+("nobody is in possession") rather than about the space, and so let a side walk
+somebody in against a space the other side already held. Half of it was already
+built: `restrict_to_occupants` landed on 2026-08-24 as Deflect/Clear's own
+narrowing and **is** the rule above -- what was wrong is that it was a flag, so
+the two paths that did not pass it kept the old behaviour.
+
+- **The rule is unconditional and the flag is gone.** `D12Ball.begin_loose_ball`
+  reads both sides' `loose_ball_occupants` and, when exactly one is empty, calls
+  `match.decline_loose_ball` on it *before* `auto_resolve_loose_ball_picks`
+  runs -- so that side is never put on the clock, `LooseBallChoiceView` is never
+  built for them, and the occupying side resolves through the existing "sole
+  occupant auto-contests, several -- coach picks" / "one side only, takes
+  without a test" machinery with nobody left to contest against. Don't
+  reintroduce a parameter for this: a call site that could opt out is exactly
+  how the two wrong paths survived 2026-08-24.
+- **A High Pass is the one exemption, and `is_high_pass` is already its flag.**
+  The ball is high in the air, which gives players time to run at it, so a
+  landing space holding only one side may still be contested by the other. That
+  is a property of the pass and not of the space, which is why it rides on the
+  same flag that carries the ball speed modifier rather than getting one of its
+  own. Read **symmetrically** -- the author states it as the defense running at
+  the passer's own teammates, and the justification is about the ball, so the
+  mirror case is contestable too.
+- **Each side's contestant is whoever of theirs is standing on the ball, and
+  otherwise a player they may send.** `MatchState.loose_ball_occupants` is the
+  first half and `MatchState.contest_candidates` the second;
+  `RulesEngine.loose_ball_candidates` is `occupants or candidates` -- one of two
+  pools and never a mixture, exactly the shape `challenge_candidates` has, and
+  for the same reason. The second half is now only ever reached on an empty
+  space or a High Pass.
+- **The word is a rule, not decoration.** `contest_noun` answers three ways --
+  "high pass", "loose ball", "ball" -- and `build_loose_ball_headline` the same
+  three. The message the author caught called every arrival a loose ball *and*
+  offered a send the occupancy rule had already taken away; both halves were
+  wrong, and only in the case a coach was most likely to meet. "ball" rather
+  than "contest" is what the sentences around it need: a coach "contests the
+  ball", never "contests the contest".
+- **`pending_loose_ball_on_empty_space` is persisted, and cannot be derived.**
+  By the time a roll or a result is worded the contestants have been walked onto
+  the space, so the position that decides the word is gone --
+  `MatchState.begin_loose_ball` reads it at the one moment it exists. Same
+  reason `pending_loose_ball_is_high_pass` is stored. A game saved before the
+  field defaults to True, which is what every arrival was called before this.
+- **The machinery keeps its `loose_ball_*` names.** Three positions share one
+  flow, and renaming it would rename a persisted field and every custom_id
+  already sitting in a channel. What a coach reads is what the correction was
+  about.
 - **A side with somebody on the ball may not withhold them**
   (`may_decline_loose_ball`), the same reading `may_decline_challenge` makes:
   declining is a refusal to pay a walk-in's exhaustion and they have no
@@ -1218,9 +1250,9 @@ for the same reason.
 - **Skipping the prompt is a count, not a flag**, exactly as with the
   challenge. `auto_resolve_loose_ball_picks` puts up a **lone** player on the
   ball unasked -- there is nothing to ask -- and leaves two to the coach
-  (2026-08-18, the same call as the maneuver challenge's). `build_loose_ball_prompt`
-  words that case differently, because the question is which of them rather
-  than whether to send anybody.
+  (2026-08-18, the same call as the maneuver challenge's).
+  `build_loose_ball_prompt` words that case differently, because the question
+  is which of them rather than whether to send anybody.
 - **The passer is struck out of the offense's pool in a High Pass contest**,
   in `loose_ball_occupants` and nowhere else, so the pool, the decline and the
   auto-pick cannot disagree about who is standing there. It can only bite on a
@@ -1232,27 +1264,11 @@ for the same reason.
   possessing team have somebody on the ball -- has an answer that does not
   matter. It also stops refreshing the board first, since `begin_loose_ball`
   posts one.
-- **`restrict_to_occupants` is Deflect/Clear's own further narrowing, since
-  2026-08-24** (and Setup Pass's cost, which lands the ball the same way): a
-  side with nobody on the landing space may no longer send a player in against
-  a side that already has one there -- only a landing space nobody occupies is
-  still the ordinary "each side may send" loose ball. `D12Ball.begin_loose_ball`
-  reads both sides' `loose_ball_occupants` and, when exactly one is empty,
-  calls `match.decline_loose_ball` on it *before* `auto_resolve_loose_ball_picks`
-  runs -- so that side is never put on the clock and `LooseBallChoiceView` is
-  never built for them, and the occupying side resolves through the existing
-  "sole occupant auto-contests, several -- coach picks" / "one side only,
-  takes without a test" machinery with nobody left to contest against. Passed
-  by `apply_deflection`'s tail call, both of Setup Pass's push-back cost's
-  `begin_loose_ball` calls (`offer_setup_pass_push_back`'s no-legal-distance
-  fallback and `apply_setup_pass_push_back`'s own), and -- since 2026-08-25 --
-  the Setup Pass's *own* landing in `apply_setup_pass`, when the pass reaches
-  a space the passing side has nobody on. Nowhere else: the flag does nothing
-  when both sides are empty or both occupy, which is exactly the point -- those
-  two cases were already right.
 - **`check_for_loose_ball` has one detour now, not two.** Its guard still
   earns its keep: the maneuvers that leave the ball with a named player are not
-  loose, and that is what it asks.
+  loose, and that is what it asks. What changed on 2026-08-26 is what happens
+  *after* the detour -- a ball landing where only the defense stands is theirs,
+  where between 2026-08-18 and then the offense could walk somebody in.
 
 ## The ball carrier
 
@@ -1620,9 +1636,9 @@ expects.
   that drifts.
   - **Beat 2's loose ball dropped out of that list on 2026-08-24.**
     Dinky's own midfielder is already standing on M3 where the beaten
-    Deflect lands, so under `restrict_to_occupants` (see
-    [Who contests a loose ball](#who-contests-a-loose-ball)) the coach,
-    who has nobody there, is never put on the clock at all --
+    Deflect lands, so under the occupancy rule (see
+    [Where the ball comes to rest](#where-the-ball-comes-to-rest)) the
+    coach, who has nobody there, is never put on the clock at all --
     `LooseBallChoiceView` no longer appears in this script. That also
     removed the automatic challenger it used to leave standing on the
     ball for beat 3's Pressure, which is why beat 3 now rails a

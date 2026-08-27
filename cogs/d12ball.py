@@ -1800,11 +1800,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     f"{movement_note}. "
                     f"Ball speed is now {match.ball.speed}."
                 ),
-                headline=(
-                    "**Loose ball!** Nobody is there to collect the "
-                    "pass -- each side may send a nearby player to "
-                    "contest it."
-                ),
+                # No headline of its own: the ball rolls a space
+                # forward and may well roll onto somebody, so what to
+                # call it is a question about the space it stopped on
+                # rather than about the pass that failed. It used to
+                # assert an empty space here and say each side could
+                # send -- which was wrong the moment it landed on a
+                # defender.
             )
             return
 
@@ -2396,9 +2398,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # **A pass that lands on nobody is still a pass**
             # (2026-08-25). The card is a set-up, but missing the
             # set-up does not un-throw the ball: it settles exactly
-            # where a Deflect's does, so `restrict_to_occupants` is
-            # what decides it -- loose on an empty space, the other
-            # side's outright where only they are standing. Refusing
+            # where a Deflect's does, so occupancy is what decides it
+            # -- loose on an empty space, the other side's outright
+            # where only they are standing. Refusing
             # the distance instead is what used to make this the only
             # pass in the game that could not be thrown badly.
             #
@@ -2416,7 +2418,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     f"{actual_distance} {space_word} forward, with nobody "
                     "there to set up."
                 ),
-                restrict_to_occupants=True,
             )
             return
 
@@ -3011,7 +3012,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         lead_in: str = "",
         headline: Optional[str] = None,
         is_high_pass: bool = False,
-        restrict_to_occupants: bool = False,
     ) -> None:
         """
         `distance_moved` (the pass's own clamped travel) is stashed on
@@ -3024,28 +3024,32 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         yet -- it rides along on this function's own first message.
 
         `headline` overrides the wording, which is otherwise built from
-        the position by build_loose_ball_headline -- a loose ball may
-        now land on an occupied space, so nothing may assume emptiness.
+        the position by build_loose_ball_headline -- the ball may come
+        down on an occupied space, so nothing may assume emptiness.
 
-        **Nobody's contestant is forced from here any more.** A side
-        with somebody standing on the ball puts them up, for nothing
-        and without being asked, and that is one rule read off the
-        position by loose_ball_candidates rather than two call sites
-        passing players in. It used to be the High Pass's alone; it is
-        now every loose ball's, so the High Pass had nothing left to
-        pass.
+        **Nobody's contestant is forced from here.** A side with
+        somebody standing on the ball puts them up, for nothing and
+        without being asked, and that is one rule read off the position
+        by loose_ball_candidates rather than call sites passing players
+        in.
 
-        `restrict_to_occupants` is Deflect/Clear's own rule (and Setup
-        Pass's cost, which lands the ball the same way): a side with
-        nobody on the landing space may no longer send a player in to
-        contest it against a side that already has one there -- only a
-        landing space nobody occupies is a real loose ball. When it's
-        set and exactly one side has somebody there, that side's
-        opponent is pre-declined before either side is ever put on the
-        clock, so they are never prompted and never get the chance. An
-        empty space or a space both sides already share is unaffected
-        -- those are exactly the ordinary "each side may send" and
-        "forced contest" cases already.
+        **Occupancy decides who may be sent, and there is no longer a
+        flag for it** (the author, 2026-08-26). A ball is *loose* only
+        where it comes down on an empty space, and only then may each
+        side send a player after it. Where one side is already standing
+        there the ball is simply theirs; where both are, it is a
+        contest between the players already on the space. Either way
+        nobody walks in, so the side with nobody there is pre-declined
+        before either side is put on the clock -- never prompted, and
+        never given the chance.
+
+        **A High Pass is the one exemption**, and `is_high_pass` is
+        already the flag for it: the ball is high in the air, which
+        gives players time to run at it, so a landing space holding
+        only one side's players may still be contested by the other.
+        That is a property of the pass and not of the space, which is
+        why it rides on the same flag that carries the ball speed
+        modifier.
         """
         match.begin_loose_ball(distance_moved, is_high_pass=is_high_pass)
         # The ball is free and about to be contested, so nobody is
@@ -3055,31 +3059,23 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # off the ball's space in the ordinary way.
         match.clear_ball_carrier()
 
-        single_side_note: Optional[str] = None
-        if restrict_to_occupants:
+        if not is_high_pass:
             offense_side = match.ball.possession
             defense_side = match.defending_side()
             offense_occupied = bool(match.loose_ball_occupants(offense_side))
             defense_occupied = bool(match.loose_ball_occupants(defense_side))
             if offense_occupied != defense_occupied:
-                empty_side, taking_side = (
-                    (defense_side, offense_side)
-                    if offense_occupied
-                    else (offense_side, defense_side)
+                empty_side = (
+                    defense_side if offense_occupied else offense_side
                 )
                 match.decline_loose_ball(empty_side)
-                single_side_note = (
-                    "The ball never goes loose here -- only "
-                    f"{format_team_side_label(match.setup_for_side(taking_side))} "
-                    "has anyone there, so it's simply theirs, uncontested."
-                )
 
         self.engine.auto_resolve_loose_ball_picks(game, match)
         game.match_state = match.to_dict()
         save_games(self.games)
 
         if headline is None:
-            headline = single_side_note or self.engine.build_loose_ball_headline(match)
+            headline = self.engine.build_loose_ball_headline(match)
         prefix = f"{lead_in}\n\n" if lead_in else ""
         if is_high_pass:
             # A High Pass is not a loose ball: the ball is on a player
@@ -3527,12 +3523,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # has somebody on the ball, and here the answer does not
         # matter -- either side's occupant is equally dispossessed.
         #
-        # **Since 2026-08-24, occupancy still decides how it's won.**
-        # An empty landing space is a real loose ball (each side may
-        # send someone); a space only one side already occupies is
-        # theirs outright, with no send offered to the other side; a
-        # space both occupy is a forced contest. `restrict_to_occupants`
-        # is that rule -- see begin_loose_ball.
+        # **Occupancy decides how it is won**, which since 2026-08-26
+        # is the rule everywhere rather than this card's own: an empty
+        # landing space is a loose ball (each side may send someone); a
+        # space only one side occupies is theirs outright, with no send
+        # offered to the other; a space both occupy is a contest
+        # between the players already there. See begin_loose_ball.
         #
         # No refresh_match_image first: begin_loose_ball posts the
         # board with the announcement, and refreshing here would write
@@ -3544,7 +3540,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # grow with the Fullback's extra distance, or Clear's).
         await self.begin_loose_ball(
             interaction, game, match, 1, lead_in=content,
-            restrict_to_occupants=True,
         )
 
     async def offer_setup_pass_push_back(
@@ -3584,7 +3579,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if not distances:
             await self.begin_loose_ball(
                 interaction, game, match, 1, lead_in=lead_in,
-                restrict_to_occupants=True,
             )
             return
 
@@ -3638,7 +3632,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"{prefix}**Setup Pass** was beaten: the ball is driven a "
                 f"further {actual_distance} {space_word} back."
             ),
-            restrict_to_occupants=True,
         )
 
     # -- Steal ----------------------------------------------------------

@@ -940,9 +940,6 @@ class RulesEngine:
             if player_id in offense_setup.field_players
         ]
 
-    def is_landing_space_empty(self, match: MatchState) -> bool:
-        return not match.board.spaces[match.ball.zone][match.ball.space_index]
-
     def loose_ball_candidates(
         self,
         match: MatchState,
@@ -1077,20 +1074,39 @@ class RulesEngine:
 
     def build_loose_ball_headline(self, match: MatchState) -> str:
         """
-        How a loose ball is announced, read off the position rather
-        than off what made it -- an empty space and an occupied one are
-        different questions to the coaches, and since 2026-08-18 both
-        are loose.
+        How the ball's arrival is announced, read off the position
+        rather than off what made it. Three positions, three different
+        questions to the two coaches -- and **only the first of them is
+        a loose ball** (the author, 2026-08-26).
+
+        It is asked before anybody has been sent, which is the only
+        moment the space still holds what the ball came down on.
+        A High Pass never reaches here: it carries its own headline,
+        because the ball is on a receiver both coaches watched catch
+        it.
         """
-        if self.is_landing_space_empty(match):
+        offense = match.setup_for_side(match.ball.possession)
+        defense = match.setup_for_side(match.defending_side())
+        offense_there = bool(match.loose_ball_occupants(match.ball.possession))
+        defense_there = bool(
+            match.loose_ball_occupants(match.defending_side())
+        )
+
+        if not offense_there and not defense_there:
             return (
                 "**Loose ball!** It comes down on an empty space -- each "
                 "side may send a nearby player to contest it."
             )
+        if offense_there and defense_there:
+            return (
+                "**Contest!** It comes down with both sides standing "
+                "there -- they roll for it, and nobody else may be sent."
+            )
+        taking = offense if offense_there else defense
         return (
-            "**Loose ball!** Whoever is standing on it contests for "
-            "their side, for nothing; a side with nobody there may send "
-            "a nearby player after it."
+            "**Not loose.** It comes down with only "
+            f"{format_team_side_label(taking)} standing there, so the ball "
+            "is simply theirs, uncontested -- nobody may be sent after it."
         )
 
     def loose_ball_prompt_side(self, match: MatchState) -> TeamSide:
