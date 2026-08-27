@@ -1395,27 +1395,6 @@ def tie_pairs(
     ]
 
 
-def fit_node_label(
-    pen: Pen, words: list[str], radius: float, max_size: int = 64
-) -> tuple[list[tuple[str, ImageFont.ImageFont]], list[float], int]:
-    """
-    The largest font, no bigger than `max_size`, a maneuver's name fits
-    its node circle at -- one word to a line, searched rather than
-    picked once, because "Pressure" has the whole circle and "Steal"
-    over "Intercept" only has what a chord below the middle allows.
-
-    Checked against the circle rather than a bounding square: a line
-    is only as wide as the chord at its own vertical offset from the
-    centre, which is what lets "Intercept" claim a size a square would
-    have refused.
-
-    Returns the size alongside the fitted lines, which is what lets a
-    caller measure one name and cap the rest of the cycle at it -- see
-    `render_maneuver_card_back`'s use of "Deflect" as the ceiling.
-    """
-    return fit_node_block(pen, [words], radius, max_size)
-
-
 def fit_node_block(
     pen: Pen,
     stacks: list[list[str]],
@@ -1423,15 +1402,24 @@ def fit_node_block(
     max_size: int = 64,
 ) -> tuple[list[tuple[str, ImageFont.ImageFont]], list[float], int]:
     """
-    The same fit over **several** stacks of words, kept apart by
-    `CYCLE_TIER_GAP` -- a node carrying a rank's basic name over its
-    advanced one is two stacks, and both are set at one size so
-    neither reads as the more important of the two.
+    The largest font, no bigger than `max_size`, a node's words fit
+    its circle at -- one word to a line, searched rather than picked
+    once, because "Pressure" has the whole circle and "Steal" over
+    "Intercept" only has what a chord below the middle allows.
+
+    Several **stacks** of words are kept apart by `CYCLE_TIER_GAP` -- a
+    node carrying a rank's basic name over its advanced one is two
+    stacks, and both are set at one size so neither reads as the more
+    important of the two.
 
     The chord test is what makes this worth doing rather than measuring
     against a square: four lines in a circle put the outer two on very
     short chords, and a square would refuse a size those two actually
     clear.
+
+    Returns the size alongside the fitted lines, which is what lets a
+    caller measure one name and cap the rest of the cycle at it -- see
+    `render_maneuver_card_back`'s use of "Deflect" as the ceiling.
     """
     words = [word for stack in stacks for word in stack]
     breaks = set()

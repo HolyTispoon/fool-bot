@@ -317,14 +317,6 @@ class D12BallGame:
         return self.tutorial and self.tutorial_step is not None
 
     @property
-    def is_in_setup(self) -> bool:
-        return self.status == GameStatus.SETUP
-
-    @property
-    def is_in_progress(self) -> bool:
-        return self.status == GameStatus.IN_PROGRESS
-
-    @property
     def is_finished(self) -> bool:
         return self.status == GameStatus.FINISHED
     

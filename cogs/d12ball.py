@@ -8783,22 +8783,6 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             == PBD_ARCHIVE_CATEGORY_NAME.casefold()
         )
 
-    async def finish_and_archive_game(
-        self,
-        game_id: str,
-    ) -> D12BallGame:
-        game = self.games.get(game_id)
-        if game is None:
-            raise ValueError("The D12 Ball game could not be found.")
-
-        if game.status != GameStatus.IN_PROGRESS:
-            raise ValueError("Only a game in progress can be finished.")
-
-        await self.archive_game_channel(game)
-        game.finish_game()
-        save_games(self.games)
-        return game
-
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         # Games whose channel Discord says does not exist. Collected and
