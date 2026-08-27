@@ -6412,6 +6412,85 @@ class ShootoutTestView(ShootoutView):
             ephemeral=True,
         )
 
+    def score_shootout_test(
+        self,
+        match: MatchState,
+    ) -> tuple[list, dict, dict]:
+        """
+        Roll both shooters and total them up, as the sides
+        `render_contest_dice` draws plus the totals and the players
+        behind them.
+
+        Both sides add their **offensive** skill -- a shootout has no
+        defender -- and an injured player adds none at all, the same
+        withholding the loose ball and the long High Pass make. See
+        "Extreme shootout" in docs/living-rules.md.
+        """
+        totals: dict[TeamSide, int] = {}
+        players = {}
+        dice = []
+
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            player = self.cog.engine.get_player_definition(
+                match.shootout_shooter(side),
+            )
+            players[side] = player
+            injured = player.player_id in match.injured
+            skill = (
+                0
+                if injured
+                else self.cog.player_catalog.effective_profile(player).offense
+            )
+            roll = random.randint(1, 12)
+            totals[side] = roll + skill
+            dice.append(
+                (
+                    roll,
+                    match.setup_for_side(side).team,
+                    contestant_detail(
+                        player, "Offensive", skill, injured=injured,
+                    ),
+                    totals[side],
+                )
+            )
+
+        return dice, totals, players
+
+    def settle_shootout_test(
+        self,
+        match: MatchState,
+        totals: dict,
+        players: dict,
+    ) -> tuple[Optional[TeamSide], str]:
+        """
+        Award the goal, if there is one, and word the result.
+
+        **A shootout skill test is not re-rolled.** A tie scores for
+        nobody and the shootout moves on, which is the one place the
+        game settles a tied skill test by leaving it tied.
+        """
+        home_total = totals[TeamSide.HOME]
+        visiting_total = totals[TeamSide.VISITING]
+
+        if home_total == visiting_total:
+            return None, (
+                f"**A tie, {home_total}-{visiting_total}.** Neither "
+                "side scores."
+            )
+
+        winner = (
+            TeamSide.HOME
+            if home_total > visiting_total
+            else TeamSide.VISITING
+        )
+        scorer = players[winner]
+        match.award_shootout_goal(winner, scorer.player_id)
+        return winner, (
+            "## "
+            f"{format_role_bracket(scorer, self.cog.team_emojis, match.team_for_player(scorer.player_id))} "
+            "scores!"
+        )
+
     async def roll(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -6435,68 +6514,11 @@ class ShootoutTestView(ShootoutView):
         # out in SkillTestView.roll.
         await interaction.response.defer()
 
-        rolls: dict[TeamSide, int] = {}
-        totals: dict[TeamSide, int] = {}
-        players = {}
-        dice = []
-        for side in (TeamSide.HOME, TeamSide.VISITING):
-            player = self.cog.engine.get_player_definition(
-                match.shootout_shooter(side),
-            )
-            players[side] = player
-            # Both sides add their **offensive** skill -- a shootout
-            # has no defender -- and an injured player adds none at
-            # all, the same withholding the loose ball and the long
-            # High Pass make. See "Extreme shootout" in
-            # docs/living-rules.md.
-            injured = player.player_id in match.injured
-            skill = (
-                0
-                if injured
-                else self.cog.player_catalog.effective_profile(player).offense
-            )
-            rolls[side] = random.randint(1, 12)
-            totals[side] = rolls[side] + skill
-            dice.append(
-                (
-                    rolls[side],
-                    match.setup_for_side(side).team,
-                    contestant_detail(
-                        player, "Offensive", skill, injured=injured,
-                    ),
-                    totals[side],
-                )
-            )
-
+        dice, totals, players = self.score_shootout_test(match)
         dice_file = await render_contest_dice(
             dice, filename="shootout_dice.png",
         )
-
-        home_total = totals[TeamSide.HOME]
-        visiting_total = totals[TeamSide.VISITING]
-        if home_total == visiting_total:
-            # **A shootout skill test is not re-rolled.** A tie scores
-            # for nobody and the shootout moves on, which is the one
-            # place the game settles a tied skill test by leaving it
-            # tied.
-            winner = None
-            outcome = (
-                f"**A tie, {home_total}-{visiting_total}.** Neither "
-                "side scores."
-            )
-        else:
-            winner = (
-                TeamSide.HOME
-                if home_total > visiting_total
-                else TeamSide.VISITING
-            )
-            scorer = players[winner]
-            match.award_shootout_goal(winner, scorer.player_id)
-            outcome = (
-                "## "
-                f"{format_role_bracket(scorer, self.cog.team_emojis, match.team_for_player(scorer.player_id))} "
-                "scores!"
-            )
+        winner, outcome = self.settle_shootout_test(match, totals, players)
 
         # The goal and the retirement go out in one save, so a restart
         # between this roll and what follows it can never re-roll a
