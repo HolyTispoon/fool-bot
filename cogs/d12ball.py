@@ -8682,6 +8682,100 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 del self.games[game_id]
             save_games(self.games)
 
+    def create_game_refusal(
+        self,
+        interaction: discord.Interaction,
+        p1: Optional[discord.Member],
+        p2: Optional[discord.Member],
+        test_game: bool,
+        tutorial: bool,
+    ) -> Optional[str]:
+        """
+        Why this /d12ball create_game cannot be run at all, or None.
+
+        Asked before the two coaches are worked out, since none of
+        these depend on who they turn out to be.
+        """
+        if interaction.guild is None:
+            return "This command can only be used inside a server."
+
+        if not isinstance(interaction.user, discord.Member):
+            return "I could not identify the person creating the game."
+
+        if test_game and (p1 is not None or p2 is not None):
+            return (
+                "A test game cannot specify p1 or p2; you control both sides."
+            )
+
+        # The tutorial is a scripted warm-up against Dinky and nothing
+        # else -- see d12ball/tutorial.py. Its five beats set a position
+        # a side at a time and rail one coach onto one card, neither of
+        # which means anything with a second human in the game or with
+        # one person holding both sides' menus. Refused rather than
+        # quietly ignored: a coach who asked for a tutorial and got an
+        # ordinary game would have no way to tell.
+        if tutorial and (p1 is not None or p2 is not None or test_game):
+            return (
+                "A tutorial game is played against Dinky on your own, so "
+                "it cannot take p1, p2 or test_game."
+            )
+
+        return None
+
+    def resolve_game_players(
+        self,
+        interaction: discord.Interaction,
+        p1: Optional[discord.Member],
+        p2: Optional[discord.Member],
+        test_game: bool,
+    ) -> tuple[Optional[discord.Member], Optional[discord.Member]]:
+        """
+        Which members are Player 1 and Player 2.
+
+        Naming nobody means a solo game against Dinky; naming one
+        person means them against whoever ran the command; naming two
+        sets up a game between other people. A test game is one person
+        on both sides.
+        """
+        if test_game:
+            return interaction.user, interaction.user
+
+        if p1 is not None and p2 is not None:
+            return p1, p2
+
+        # One named opponent, or none at all -- either way the caller
+        # takes Player 1 and whoever they named (if anyone) takes 2.
+        return interaction.user, p1 if p1 is not None else p2
+
+    def player_pair_refusal(
+        self,
+        player_1: Optional[discord.Member],
+        player_2: Optional[discord.Member],
+        test_game: bool,
+    ) -> Optional[str]:
+        """
+        Why this pair of coaches cannot play each other, or None.
+        A test game is exempt from the last of them, being one person
+        deliberately holding both sides.
+        """
+        if player_1 is None:
+            return "Player 1 could not be identified."
+
+        if player_1.bot:
+            return "Player 1 cannot be a bot."
+
+        if player_2 is not None and player_2.bot:
+            return "Player 2 cannot be a bot."
+
+        if (
+            not test_game
+            and player_2 is not None
+            and player_1.id == player_2.id
+        ):
+            return "Player 1 and Player 2 must be different people."
+
+        return None
+
     @app_commands.command(
         name="create_game",
         description="Create a new D12 Ball game.",
@@ -8711,101 +8805,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         test_game: bool = False,
         tutorial: bool = False,
     ) -> None:
-        guild = interaction.guild
-
-        if guild is None:
-            await interaction.response.send_message(
-                "This command can only be used inside a server.",
-                ephemeral=True,
-            )
+        refusal = self.create_game_refusal(
+            interaction, p1, p2, test_game, tutorial,
+        )
+        if refusal is not None:
+            await interaction.response.send_message(refusal, ephemeral=True)
             return
 
-        if not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message(
-                "I could not identify the person creating the game.",
-                ephemeral=True,
-            )
-            return
+        player_1, player_2 = self.resolve_game_players(
+            interaction, p1, p2, test_game,
+        )
 
-        if test_game and (p1 is not None or p2 is not None):
-            await interaction.response.send_message(
-                "A test game cannot specify p1 or p2; you control both sides.",
-                ephemeral=True,
-            )
-            return
-
-        # The tutorial is a scripted warm-up against Dinky and nothing
-        # else -- see d12ball/tutorial.py. Its five beats set a position
-        # a side at a time and rail one coach onto one card, neither of
-        # which means anything with a second human in the game or with
-        # one person holding both sides' menus. Refused rather than
-        # quietly ignored: a coach who asked for a tutorial and got an
-        # ordinary game would have no way to tell.
-        if tutorial and (p1 is not None or p2 is not None or test_game):
-            await interaction.response.send_message(
-                "A tutorial game is played against Dinky on your own, so "
-                "it cannot take p1, p2 or test_game.",
-                ephemeral=True,
-            )
-            return
-
-        # Work out which members are Player 1 and Player 2.
-        if test_game:
-            player_1 = interaction.user
-            player_2 = interaction.user
-        elif p1 is None and p2 is None:
-            player_1 = interaction.user
-            player_2 = None
-
-        elif p1 is not None and p2 is None:
-            player_1 = interaction.user
-            player_2 = p1
-
-        elif p1 is None and p2 is not None:
-            player_1 = interaction.user
-            player_2 = p2
-
-        else:
-            player_1 = p1
-            player_2 = p2
-
-        if player_1 is None:
-            await interaction.response.send_message(
-                "Player 1 could not be identified.",
-                ephemeral=True,
-            )
-            return
-
-        if player_1.bot:
-            await interaction.response.send_message(
-                "Player 1 cannot be a bot.",
-                ephemeral=True,
-            )
-            return
-
-        if player_2 is not None and player_2.bot:
-            await interaction.response.send_message(
-                "Player 2 cannot be a bot.",
-                ephemeral=True,
-            )
-            return
-
-        if (
-            not test_game
-            and player_2 is not None
-            and player_1.id == player_2.id
-        ):
-            await interaction.response.send_message(
-                "Player 1 and Player 2 must be different people.",
-                ephemeral=True,
-            )
+        refusal = self.player_pair_refusal(player_1, player_2, test_game)
+        if refusal is not None:
+            await interaction.response.send_message(refusal, ephemeral=True)
             return
 
         await interaction.response.defer(ephemeral=True)
 
         try:
             game = await self.open_new_game(
-                guild,
+                interaction.guild,
                 player_1,
                 player_2,
                 test_game=test_game,
