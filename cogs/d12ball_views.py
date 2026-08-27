@@ -237,8 +237,7 @@ class SafeView(discord.ui.View):
                 self.cog.apply_exhaustion(match, second_player_id, 1),
             ]
         )
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         return (
             f"**It's a tie ({offense_total}-{defense_total})!** "
@@ -1331,8 +1330,7 @@ class BallHandlerSelectionView(SafeView):
             )
             return
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
         await interaction.response.edit_message(
             content=self.cog.engine.build_turn_prompt(game, match),
             view=PlayerActionView(self.cog, self.game_id),
@@ -1499,8 +1497,7 @@ class PlayerActionView(SafeView):
             return
 
         match.pending_action = "shoot"
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         refresh_player_names(game, interaction.guild)
         handler = self.cog.engine.get_player_definition(match.active_player_id)
@@ -1572,8 +1569,7 @@ class PlayerActionView(SafeView):
         # ManeuverChallengeView.decline.
         if not match.eligible_challengers():
             match.begin_uncontested_maneuver()
-            game.match_state = match.to_dict()
-            save_games(self.cog.games)
+            self.cog.persist(game, match)
 
             await interaction.response.defer()
             await self.cog.drop_turn_prompt(interaction, game)
@@ -1614,8 +1610,7 @@ class PlayerActionView(SafeView):
             )
             return
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         await self.send_challenger_prompt(
             interaction, game, match, defender_number,
@@ -1922,8 +1917,7 @@ class ManeuverChallengeView(SafeView):
             distance,
         )
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         # The prompt goes rather than being edited down to "has chosen
         # their challenger" -- the challenge image below says who was
@@ -1965,8 +1959,7 @@ class ManeuverChallengeView(SafeView):
             )
             return
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         await interaction.response.defer()
         await self.cog.drop_turn_prompt(interaction, game)
@@ -2262,8 +2255,7 @@ class ManeuverActionPromptView(SafeView):
         else:
             match.choose_defense_maneuver(maneuver_key)
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         await interaction.response.send_message(
             "You chose "
@@ -2832,8 +2824,7 @@ class ScoreAttemptView(SafeView):
         match.pending_run_back = True
         match.pending_run_back_distance = space_minutes
         match.pending_run_back_turnover = True
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         return verdict, space_minutes
 
@@ -4195,8 +4186,7 @@ class RunBackChoiceView(SafeView):
         exhaustion_text = self.cog.apply_exhaustion(
             match, self.player_id, distance,
         )
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         player = self.cog.engine.get_player_definition(self.player_id)
         await interaction.response.edit_message(
@@ -4405,8 +4395,7 @@ class CoachingOfferView(CoachingView):
             return
 
         match.declare_coaching()
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         # No attachments: the offer this replaces already carried the
         # image, and taking the window up moves nobody.
@@ -4724,8 +4713,7 @@ class CoachingFormationView(CoachingView):
             )
             return
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
         await self.back_to_hub(interaction, note=note, moved=True)
 
 
@@ -4855,8 +4843,7 @@ class CoachingSubstitutionInView(CoachingView):
             )
             return
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
         await self.back_to_hub(interaction, note=note, moved=True)
 
 
@@ -4946,8 +4933,7 @@ class CoachingZoneView(CoachingView):
             )
             return
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
         await self.back_to_hub(interaction, note=note, moved=True)
 
 
@@ -5116,8 +5102,7 @@ async def apply_positioning(
         await interaction.response.send_message(str(error), ephemeral=True)
         return
 
-    game.match_state = match.to_dict()
-    save_games(view.cog.games)
+    view.cog.persist(game, match)
     await view.back_to_hub(interaction, note=note, moved=True)
 
 
@@ -5285,8 +5270,7 @@ class HalftimeExtraTokenView(HalftimeView):
         ).defense
         removed = match.recover_exhaustion(player_id, 1, defense_skill)
         self.cog.engine.next_halftime_stage(match)
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         remaining = match.exhaustion.get(player_id, 0)
         text = (
@@ -5509,8 +5493,7 @@ class LooseBallChoiceView(SafeView):
     ) -> None:
         """Save this side's answer, then either put the prompt up for
         the other side or resolve."""
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         await interaction.response.edit_message(
             content=announcement, view=None,
@@ -5781,8 +5764,7 @@ class LooseBallSkillTestView(SafeView):
         match.pending_loose_ball = False
         match.loose_ball_offense_player = None
         match.loose_ball_defense_player = None
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         turnover_line = "# Turnover!\n\n" if turnover_occurred else ""
         winner_bracket = format_role_bracket(
@@ -6134,8 +6116,7 @@ class ShootoutOrderSelectView(SafeView):
             return
 
         match.clear_shootout_order(self.side)
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         await interaction.response.edit_message(
             content=self.cog.shootout_order_text(match, self.side),
@@ -6172,8 +6153,7 @@ class ShootoutOrderSelectView(SafeView):
             )
             return
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         settled = match.shootout_order_complete(self.side)
         await interaction.response.edit_message(
@@ -6325,8 +6305,7 @@ class ShootoutPickSelectView(SafeView):
             )
             return
 
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         player = self.cog.engine.get_player_definition(player_id)
         await interaction.response.edit_message(
@@ -6531,8 +6510,7 @@ class ShootoutTestView(ShootoutView):
         # test that has already been paid for -- see
         # finish_shootout_test.
         match.finish_shootout_test()
-        game.match_state = match.to_dict()
-        save_games(self.cog.games)
+        self.cog.persist(game, match)
 
         # Result under the dice, not above them, for the reason
         # SkillTestView.roll gives: attachments render below content.
