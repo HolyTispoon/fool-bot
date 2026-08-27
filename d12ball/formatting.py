@@ -57,20 +57,39 @@ AI_OPPONENT_NAMES = {
 
 def contest_noun(match: MatchState) -> str:
     """
-    What to call the contest currently pending -- "high pass" or
-    "loose ball".
+    What to call the ball currently being fought over -- "high pass",
+    "loose ball", or plain "ball".
 
-    They share the machinery and nothing else. A loose ball is the
-    ball sitting in a space the possessing side doesn't hold, and
-    whoever wins it takes possession from wherever it lies. A High
-    Pass is a completed pass to a player who is already standing
-    there, defending the ball they just received; losing it is a
-    turnover, winning it changes nothing. Calling one by the other's
-    name in front of a coach who is deciding what to do misreads the
-    position, so every message on the shared path asks for the noun
-    rather than assuming.
+    Three positions share this machinery and nothing else.
+
+    - A **loose ball** is the ball lying on a space nobody is standing
+      on, and it is the only one of the three that word may be used
+      for (the author, 2026-08-26). Each side may send a player after
+      it, and whoever wins it takes possession from where it lies.
+    - Otherwise the ball came down on somebody. Where both sides are
+      standing there it is a **contest** between them, and the plain
+      noun is what the sentences around it want: a coach "contests the
+      ball", not "contests the contest". Where only one side is
+      standing there nobody contests anything -- it is simply theirs,
+      and no prompt is built at all.
+    - A **High Pass** is a completed pass to a player already standing
+      there, defending the ball they just received; losing it is a
+      turnover, winning it changes nothing.
+
+    Calling one by another's name in front of a coach who is deciding
+    what to do misreads the position, so every message on the shared
+    path asks for the noun rather than assuming.
+
+    It reads the flag recorded when the ball arrived rather than the
+    board, because by the time a roll or a result is worded the
+    contestants have been walked onto the space and the position that
+    decided the word is gone.
     """
-    return "high pass" if match.pending_loose_ball_is_high_pass else "loose ball"
+    if match.pending_loose_ball_is_high_pass:
+        return "high pass"
+    return (
+        "loose ball" if match.pending_loose_ball_on_empty_space else "ball"
+    )
 
 
 def format_ai_name(ai_opponent: Optional[AIOpponent]) -> str:

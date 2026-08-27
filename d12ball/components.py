@@ -1332,6 +1332,17 @@ class MatchState:
     pending_loose_ball: bool = False
     pending_loose_ball_distance: int = 1
     pending_loose_ball_is_high_pass: bool = False
+    # **Whether the ball came down on an empty space**, recorded when
+    # it arrived rather than read back off the board. A ball is loose
+    # only where nothing is standing (the author, 2026-08-26), and by
+    # the time the roll and the result are worded the contestants have
+    # been walked onto the space -- so the position that decides the
+    # word is gone. Same reason `pending_loose_ball_is_high_pass` is
+    # stored: neither is derivable after the fact.
+    #
+    # A game saved before this field defaults to True, which is what
+    # every arrival was called before the correction.
+    pending_loose_ball_on_empty_space: bool = True
     loose_ball_offense_player: Optional[str] = None
     loose_ball_defense_player: Optional[str] = None
     loose_ball_offense_declined: bool = False
@@ -2399,6 +2410,13 @@ class MatchState:
         self.pending_loose_ball = True
         self.pending_loose_ball_distance = distance_moved
         self.pending_loose_ball_is_high_pass = is_high_pass
+        # Read now, while the space still holds what the ball landed
+        # on. Every contestant this arrival puts up is walked onto it
+        # before the result is worded, so this is the last moment the
+        # answer exists.
+        self.pending_loose_ball_on_empty_space = not self.board.spaces[
+            self.ball.zone
+        ][self.ball.space_index]
 
     def choose_loose_ball_offense_player(self, player_id: str) -> None:
         if self.loose_ball_offense_player is not None:
@@ -2492,6 +2510,7 @@ class MatchState:
         self.pending_loose_ball = False
         self.pending_loose_ball_distance = 1
         self.pending_loose_ball_is_high_pass = False
+        self.pending_loose_ball_on_empty_space = True
         self.loose_ball_offense_player = None
         self.loose_ball_defense_player = None
         self.loose_ball_offense_declined = False
@@ -3874,6 +3893,9 @@ class MatchState:
             ),
             "pending_loose_ball": self.pending_loose_ball,
             "pending_loose_ball_distance": self.pending_loose_ball_distance,
+            "pending_loose_ball_on_empty_space": (
+                self.pending_loose_ball_on_empty_space
+            ),
             "pending_loose_ball_is_high_pass": (
                 self.pending_loose_ball_is_high_pass
             ),
@@ -4014,6 +4036,9 @@ class MatchState:
             pending_loose_ball=data.get("pending_loose_ball", False),
             pending_loose_ball_distance=data.get(
                 "pending_loose_ball_distance", 1
+            ),
+            pending_loose_ball_on_empty_space=data.get(
+                "pending_loose_ball_on_empty_space", True
             ),
             pending_loose_ball_is_high_pass=data.get(
                 "pending_loose_ball_is_high_pass", False

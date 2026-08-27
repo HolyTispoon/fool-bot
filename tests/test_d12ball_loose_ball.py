@@ -18,7 +18,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_helpers import space_label
+from cogs.d12ball_helpers import HIGH_PASS_CONTEST_HEADLINE, space_label
 from d12ball.components import (
     MatchState,
     TeamSide,
@@ -350,10 +350,11 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         winning_side = match.defending_side()
 
         # Clear the ball's space of the possessing side and stand an
-        # opponent on it. Until 2026-08-18 that handed them the ball
-        # outright; now they are simply the one contestant who costs
-        # their side nothing, and the side that lost it may send
-        # somebody after it -- or, as here, not.
+        # opponent on it. **The ball is simply theirs** -- it never went
+        # loose, because only an empty space is loose (the author,
+        # 2026-08-26), and the side that lost it is never offered a
+        # send. Between 2026-08-18 and then it was a loose ball like
+        # any other and they could walk somebody in to fight for it.
         self.clear_the_ball_s_space(match)
         opponent = match.setup_for_side(winning_side).field_players[0]
         match.board.remove_meeple(opponent)
@@ -368,19 +369,13 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
             handled = await cog.check_for_loose_ball(
                 interaction, game, match, 2,
             )
-            # The defender standing on it is put up without being
-            # asked, and cannot be held back.
-            self.assertEqual(match.loose_ball_defense_player, opponent)
-            self.assertFalse(match.may_decline_loose_ball(winning_side))
-            # Nothing has changed hands yet -- the side that lost it is
-            # still to answer.
-            self.assertEqual(match.ball.possession, losing_side)
-            self.assertEqual(
-                cog.engine.loose_ball_side_on_the_clock(match), "offense",
-            )
 
-            match.decline_loose_ball(losing_side)
-            await cog.resolve_loose_ball(interaction, game, match)
+        # The defender standing on it is put up without being asked;
+        # the side that lost it is pre-declined and never put on the
+        # clock, so the whole thing settles in that one call.
+        self.assertEqual(match.loose_ball_defense_player, opponent)
+        self.assertTrue(match.loose_ball_offense_declined)
+        self.assertIsNone(cog.engine.loose_ball_side_on_the_clock(match))
 
         self.assertTrue(handled)
         self.assertEqual(match.ball.possession, winning_side)
@@ -687,9 +682,14 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_loose_ball.assert_awaited_once()
         self.assertEqual(cog.begin_loose_ball.await_args.args[3], 1)
 
-    def test_the_headline_does_not_claim_an_empty_space(self) -> None:
-        # A loose ball can land on somebody now, so the wording is read
-        # off the position rather than assuming a pass into space.
+    def test_the_headline_names_which_of_the_three_arrivals_it_is(
+        self,
+    ) -> None:
+        """
+        **Only an empty space is a loose ball** (the author,
+        2026-08-26), so the headline reads the position and the word
+        "loose" is reserved for the one arrival it is true of.
+        """
         cog = build_cog()
         match = self.build_match()
         # The standard deal stands somebody on the kickoff space, which
@@ -699,25 +699,44 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         ):
             match.board.remove_meeple(occupant)
         empty = cog.engine.build_loose_ball_headline(match)
+        self.assertIn("Loose ball!", empty)
         self.assertIn("empty space", empty)
 
         self.stand_on_the_ball(match, match.defending_side(), 1)
-        occupied = cog.engine.build_loose_ball_headline(match)
-        self.assertNotIn("empty space", occupied)
-        self.assertIn("standing on it", occupied)
+        one_side = cog.engine.build_loose_ball_headline(match)
+        self.assertNotIn("Loose ball!", one_side)
+        self.assertIn("uncontested", one_side)
+
+        # Placed directly rather than through stand_on_the_ball, which
+        # clears the space first -- both sides have to be there at once.
+        attacker = match.setup_for_side(match.ball.possession).field_players[0]
+        match.board.remove_meeple(attacker)
+        match.board.place_meeple(
+            attacker, match.ball.zone, match.ball.space_index,
+        )
+        both = cog.engine.build_loose_ball_headline(match)
+        self.assertNotIn("Loose ball!", both)
+        self.assertIn("Contest!", both)
 
 
-class RestrictedToOccupantsTests(unittest.IsolatedAsyncioTestCase):
+class OccupancyDecidesTests(unittest.IsolatedAsyncioTestCase):
     """
-    `begin_loose_ball(restrict_to_occupants=True)` -- Deflect/Clear's
-    own rule, and Setup Pass's cost, since 2026-08-24: a side with
-    nobody on the landing space may no longer send a player in to
-    contest it against a side that already has one there. Only a
-    landing space nobody occupies is a real loose ball; a space both
-    occupy is still the ordinary forced contest.
+    **What the ball comes down on decides how it is won**, which since
+    2026-08-26 is every arrival's rule rather than Deflect/Clear's own
+    flag. Three positions:
 
-    See "The loose ball" in docs/living-rules.md and the tail of
-    apply_deflection in cogs/d12ball.py.
+    - an empty space is a **loose ball**, and each side may send;
+    - a space only one side occupies is simply **theirs**, with the
+      other pre-declined rather than offered a send;
+    - a space both occupy is a **contest** between the players already
+      there.
+
+    A High Pass is the one exemption: the ball is in the air, which
+    gives players time to run at it, so a landing space holding only
+    one side's players may still be contested by the other.
+
+    See "The loose ball" in docs/living-rules.md and begin_loose_ball
+    in cogs/d12ball.py.
     """
 
     @classmethod
@@ -755,7 +774,6 @@ class RestrictedToOccupantsTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch("cogs.d12ball.save_games"):
             await cog.begin_loose_ball(
                 build_interaction(), game, match, 1,
-                restrict_to_occupants=True,
             )
 
     async def test_an_empty_landing_space_is_an_ordinary_loose_ball(
@@ -803,10 +821,54 @@ class RestrictedToOccupantsTests(unittest.IsolatedAsyncioTestCase):
         # The one message this posts says the ball was simply kept, not
         # the ordinary "each side may send" wording -- and it is never
         # called loose, since it never was: only an empty landing space
-        # is (the author, correcting this in review).
+        # is (the author, 2026-08-26).
         content = cog.announce_board_update.await_args.args[2]
         self.assertIn("uncontested", content)
         self.assertNotIn("Loose ball!", content)
+
+    async def test_a_high_pass_may_still_be_run_at(self) -> None:
+        """
+        **The one exemption** (the author, 2026-08-26): a High Pass is
+        high in the air, which gives players time to run towards it,
+        so the other side gets a chance at a landing space holding
+        only the passer's own teammates. Every other arrival on that
+        same position is simply theirs.
+
+        Asserted symmetrically -- the justification is about the ball
+        rather than about which side threw it, so the same position
+        with only the *defense* standing there is contestable too.
+        """
+        for occupied_side in ("offense", "defense"):
+            with self.subTest(occupied=occupied_side):
+                cog = build_cog()
+                cog.resolve_loose_ball = mock.AsyncMock()
+                game = build_game()
+                match = self.build_match()
+                self.clear_the_ball(match)
+                side = (
+                    match.ball.possession
+                    if occupied_side == "offense"
+                    else match.defending_side()
+                )
+                self.stand_on_the_ball(match, side)
+                game.match_state = match.to_dict()
+                cog.games[game.game_id] = game
+
+                with mock.patch("cogs.d12ball.save_games"):
+                    await cog.begin_loose_ball(
+                        build_interaction(), game, match, 3,
+                        headline=HIGH_PASS_CONTEST_HEADLINE,
+                        is_high_pass=True,
+                    )
+
+                # Nobody is pre-declined, and the empty side is put on
+                # the clock to send somebody after it.
+                self.assertFalse(match.loose_ball_offense_declined)
+                self.assertFalse(match.loose_ball_defense_declined)
+                self.assertIsNotNone(
+                    cog.engine.loose_ball_side_on_the_clock(match),
+                )
+                cog.resolve_loose_ball.assert_not_awaited()
 
     async def test_only_the_offense_present_keeps_it_uncontested(
         self,

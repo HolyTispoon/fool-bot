@@ -788,10 +788,13 @@ class ClearTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.ball.speed, 5)
         cog.begin_loose_ball.assert_awaited_once()
         # Clear is Deflect's own landing rule, just at 3 (or 4) spaces
-        # instead of 1 (or 2) -- see RestrictedToOccupantsTests in
-        # test_d12ball_loose_ball.py for the occupancy behavior itself.
-        self.assertTrue(
-            cog.begin_loose_ball.await_args.kwargs["restrict_to_occupants"],
+        # instead of 1 (or 2). Occupancy decides how it is won, which
+        # since 2026-08-26 is every arrival's rule -- so what this
+        # asserts is that the one exemption, a High Pass, is not taken.
+        # See OccupancyDecidesTests in test_d12ball_loose_ball.py for
+        # the three-way behavior itself.
+        self.assertFalse(
+            cog.begin_loose_ball.await_args.kwargs.get("is_high_pass", False),
         )
 
     async def test_a_fullback_clears_four_spaces(self) -> None:
@@ -1011,9 +1014,9 @@ class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         """
-        It settles exactly as a Deflect's does, which is what
-        `restrict_to_occupants` says: loose on an empty space, the
-        other side's outright where only they are standing.
+        It settles exactly as a Deflect's does: loose on an empty
+        space, the other side's outright where only they are standing,
+        a contest where both are.
         """
         cog, game, match = self.build("setup_pass", "steal", board_size=9)
         for player_id in list(match.home.field_players):
@@ -1027,8 +1030,8 @@ class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self.flat(match), start + 3)
         cog.begin_loose_ball.assert_awaited_once()
-        self.assertTrue(
-            cog.begin_loose_ball.await_args.kwargs["restrict_to_occupants"],
+        self.assertFalse(
+            cog.begin_loose_ball.await_args.kwargs.get("is_high_pass", False),
         )
         # The ball is thrown, so it is still the offense's until the
         # landing decides otherwise -- and the pass costs its own 2
@@ -1260,10 +1263,10 @@ class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.flat(match), after_clear - push)
         cog.begin_loose_ball.assert_awaited_once()
         # Same occupancy rule as the plain Deflect/Clear landing --
-        # see RestrictedToOccupantsTests in test_d12ball_loose_ball.py
-        # for the three-way behavior this wires into.
-        self.assertTrue(
-            cog.begin_loose_ball.await_args.kwargs["restrict_to_occupants"],
+        # see OccupancyDecidesTests in test_d12ball_loose_ball.py for
+        # the three-way behavior this lands in.
+        self.assertFalse(
+            cog.begin_loose_ball.await_args.kwargs.get("is_high_pass", False),
         )
 
     async def test_no_legal_push_back_still_wires_the_occupancy_rule(
@@ -1272,8 +1275,8 @@ class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         # With the ball already at the edge of the field, none of 1/2/3
         # fits -- the loose ball happens right where the beaten card
         # left it, through the `if not distances:` fallback rather than
-        # apply_setup_pass_push_back, and it still has to carry the
-        # same restriction.
+        # apply_setup_pass_push_back, and it still has to settle by
+        # occupancy like every other arrival.
         cog, game, match = self.build("setup_pass", "clear", board_size=9)
         edge_zone, edge_space = match.board.position_at_flat_index(0)
         match.set_ball_space(edge_zone, edge_space)
@@ -1299,8 +1302,8 @@ class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
             )
 
         cog.begin_loose_ball.assert_awaited_once()
-        self.assertTrue(
-            cog.begin_loose_ball.await_args.kwargs["restrict_to_occupants"],
+        self.assertFalse(
+            cog.begin_loose_ball.await_args.kwargs.get("is_high_pass", False),
         )
 
 

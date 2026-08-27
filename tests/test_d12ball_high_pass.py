@@ -152,6 +152,12 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         return [offense_roll, defense_roll + 1]
 
     def test_the_prompts_name_the_contest_they_belong_to(self) -> None:
+        """
+        Three nouns, because three different things share this
+        machinery -- and **"loose ball" is reserved for the one arrival
+        it is true of** (the author, 2026-08-26): a ball on a space
+        nobody was standing on.
+        """
         cog, game, match, _, _ = self.build_contest(is_high_pass=True)
         self.assertEqual(contest_noun(match), "high pass")
         self.assertEqual(
@@ -161,7 +167,29 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
             ["Roll for the high pass"],
         )
 
+        # Both sides were already standing there, so it is a contest
+        # for the ball and never was loose.
         cog, game, match, _, _ = self.build_contest(is_high_pass=False)
+        self.assertEqual(contest_noun(match), "ball")
+        self.assertEqual(
+            [item.label for item in LooseBallSkillTestView(
+                cog, game.game_id,
+            ).children],
+            ["Roll for the ball"],
+        )
+
+        # The ball came down on an empty space, so it is loose --
+        # asserted on a match whose contest began before anybody was
+        # sent, which is the position the noun is recorded from.
+        cog, game, match, _, _ = self.build_contest(is_high_pass=False)
+        # Walked off the space rather than taken off the board, or the
+        # save would not validate.
+        for occupant in list(
+            match.board.spaces[match.ball.zone][match.ball.space_index]
+        ):
+            match.move_meeple(occupant, Zone.HOME_GOAL, 0)
+        match.begin_loose_ball(2)
+        game.match_state = match.to_dict()
         self.assertEqual(contest_noun(match), "loose ball")
         self.assertEqual(
             [item.label for item in LooseBallSkillTestView(
