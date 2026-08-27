@@ -3185,145 +3185,143 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 
-    async def resolve_loose_ball(
+    async def send_loose_ball_out_of_bounds(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        distance_moved: int,
     ) -> None:
-        offense_player_id = match.loose_ball_offense_player
-        defense_player_id = match.loose_ball_defense_player
-        distance_moved = match.pending_loose_ball_distance
-        is_high_pass = match.pending_loose_ball_is_high_pass
-        ball_noun = contest_noun(match)
+        """
+        Nobody could be sent, or nobody was. The side that last held
+        the ball loses it, and the side that just won it owes a player
+        on the ball's space -- placed after the run back, not before,
+        or the run back would pull that player straight back off the
+        ball again.
+        """
+        winning_side = match.defending_side()
+        reason = (
+            "Nobody is sent after it"
+            if match.loose_ball_offense_declined
+            or match.loose_ball_defense_declined
+            # Only a side with nobody fielded at all lands here now --
+            # distance replaced the zone as the measure on 2026-08-16,
+            # so declining is otherwise the whole of how a ball goes
+            # out.
+            else "Neither side has anyone left to send"
+        )
+        # Assigned rather than set_possession'd: that insists on a
+        # player of the new side already standing on the ball, and out
+        # of bounds is precisely the case where nobody is --
+        # pending_ball_recovery is the promise that somebody will be,
+        # once the run back is done.
+        match.ball.possession = winning_side
+        match.ball.speed = 1
+        match.pending_loose_ball = False
+        match.pending_ball_recovery = True
+        game.match_state = match.to_dict()
+        save_games(self.games)
 
-        if offense_player_id is None and defense_player_id is None:
-            # Out of bounds: nobody could be sent, or nobody was. The
-            # side that last held the ball loses it, and the side that
-            # just won it owes a player on the ball's space -- placed
-            # after the run back, not before, or the run back would
-            # pull that player straight back off the ball again.
-            winning_side = match.defending_side()
-            reason = (
-                "Nobody is sent after it"
-                if match.loose_ball_offense_declined
-                or match.loose_ball_defense_declined
-                # Only a side with nobody fielded at all lands here now
-                # -- distance replaced the zone as the measure on
-                # 2026-08-16, so declining is otherwise the whole of
-                # how a ball goes out.
-                else "Neither side has anyone left to send"
-            )
-            # Assigned rather than set_possession'd: that insists on a
-            # player of the new side already standing on the ball,
-            # and out of bounds is precisely the case where nobody is
-            # -- pending_ball_recovery is the promise that somebody
-            # will be, once the run back is done.
-            match.ball.possession = winning_side
-            match.ball.speed = 1
-            match.pending_loose_ball = False
-            match.pending_ball_recovery = True
-            game.match_state = match.to_dict()
-            save_games(self.games)
+        await interaction.followup.send(
+            f"**Out of bounds!** {reason} -- "
+            f"{format_team_side_label(match.setup_for_side(winning_side))} "
+            "take over.\n\n# Turnover!\nOnce everyone has run back, "
+            "they place a player on the ball."
+        )
+        await self.refresh_match_image(interaction, game)
+        # Out of bounds is the one loose ball that is a new play rather
+        # than a steal: nobody took the ball off anyone, it simply went
+        # dead and is being brought back in.
+        await self.begin_run_back(
+            interaction, game, match,
+            distance_moved=distance_moved,
+            turnover_occurred=True,
+            new_play=True,
+        )
 
-            await interaction.followup.send(
-                f"**Out of bounds!** {reason} -- "
-                f"{format_team_side_label(match.setup_for_side(winning_side))} "
-                "take over.\n\n# Turnover!\nOnce everyone has run back, "
-                "they place a player on the ball."
-            )
-            await self.refresh_match_image(interaction, game)
-            # Out of bounds is the one loose ball that is a new play
-            # rather than a steal: nobody took the ball off anyone, it
-            # simply went dead and is being brought back in.
-            await self.begin_run_back(
-                interaction, game, match,
-                distance_moved=distance_moved,
-                turnover_occurred=True,
-                new_play=True,
-            )
-            return
+    async def resolve_unopposed_loose_ball(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+        turnover: bool,
+        distance_moved: int,
+    ) -> None:
+        """
+        One side sent somebody and the other did not, so there is
+        nothing to roll: they walk in and take it.
 
-        if defense_player_id is None:
-            player = self.engine.get_player_definition(offense_player_id)
-            recovery_distance = match.distance_to_ball(offense_player_id)
-            match.move_meeple(
-                offense_player_id, match.ball.zone, match.ball.space_index,
-            )
-            exhaustion_text = self.apply_exhaustion(
-                match, offense_player_id, recovery_distance,
-            )
-            match.pending_loose_ball = False
-            # They went after it and came away with it, so they are
-            # holding it -- the same answer as a contested win below,
-            # since an unopposed contest is still how they got it.
-            match.set_ball_carrier(offense_player_id)
-            game.match_state = match.to_dict()
-            save_games(self.games)
-
-            recovery_line = (
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} keeps "
-                "possession after the high pass, uncontested."
-                if is_high_pass
-                else f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
-                "recovers the loose ball uncontested."
-            )
-            await interaction.followup.send(
-                f"{recovery_line}\n{exhaustion_text}"
-            )
-            await self.refresh_match_image(interaction, game)
-            await self.begin_run_back(
-                interaction, game, match,
-                distance_moved=distance_moved, turnover_occurred=False,
-            )
-            return
-
-        if offense_player_id is None:
-            # Only the defending side went for it -- because the side
-            # in possession had nobody in the zone, or sent nobody.
-            # Not out of bounds: that is the branch above, where
-            # neither side ends up with a player to send.
-            player = self.engine.get_player_definition(defense_player_id)
-            recovery_distance = match.distance_to_ball(defense_player_id)
-            match.move_meeple(
-                defense_player_id, match.ball.zone, match.ball.space_index,
-            )
-            exhaustion_text = self.apply_exhaustion(
-                match, defense_player_id, recovery_distance,
-            )
+        `turnover` is the whole difference between the two sides
+        arriving here. The defending side taking it changes possession
+        and resets the ball's speed; the side already in possession
+        keeping it changes neither. It is a steal either way -- picked
+        off rather than restarted -- so neither opens a substitution
+        window.
+        """
+        player = self.engine.get_player_definition(player_id)
+        recovery_distance = match.distance_to_ball(player_id)
+        match.move_meeple(
+            player_id, match.ball.zone, match.ball.space_index,
+        )
+        exhaustion_text = self.apply_exhaustion(
+            match, player_id, recovery_distance,
+        )
+        if turnover:
             match.ball.possession = match.defending_side()
             match.ball.speed = 1
-            match.pending_loose_ball = False
-            match.set_ball_carrier(defense_player_id)
-            game.match_state = match.to_dict()
-            save_games(self.games)
+        match.pending_loose_ball = False
+        # They went after it and came away with it, so they are holding
+        # it -- the same answer as a contested win, since an unopposed
+        # contest is still how they got it.
+        match.set_ball_carrier(player_id)
+        game.match_state = match.to_dict()
+        save_games(self.games)
 
+        bracket = format_role_bracket(
+            player, self.team_emojis, match.team_for_player(player.player_id),
+        )
+        if match.pending_loose_ball_is_high_pass:
             headline = (
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
-                "picks off the high pass, uncontested."
-                if is_high_pass
-                else f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
-                "recovers the loose ball uncontested."
+                f"{bracket} picks off the high pass, uncontested."
+                if turnover
+                else f"{bracket} keeps possession after the high pass, "
+                "uncontested."
             )
-            await interaction.followup.send(
+        else:
+            headline = f"{bracket} recovers the loose ball uncontested."
+
+        if turnover:
+            content = (
                 "# Turnover!\n"
                 f"{headline} "
                 f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
-                f"now has possession -- {format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
+                f"now has possession -- {bracket} "
                 f"gets to the ball.\n{exhaustion_text}"
             )
-            await self.refresh_match_image(interaction, game)
-            # Picked off rather than restarted -- a steal, and so no
-            # substitution window.
-            await self.begin_run_back(
-                interaction, game, match,
-                distance_moved=distance_moved, turnover_occurred=True,
-            )
-            return
+        else:
+            content = f"{headline}\n{exhaustion_text}"
 
-        # Both sides have a candidate -- move them both in, charge each
-        # their own recovery distance in exhaustion, and run the actual
-        # skill test.
+        await interaction.followup.send(content)
+        await self.refresh_match_image(interaction, game)
+        await self.begin_run_back(
+            interaction, game, match,
+            distance_moved=distance_moved, turnover_occurred=turnover,
+        )
+
+    async def begin_loose_ball_skill_test(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        offense_player_id: str,
+        defense_player_id: str,
+    ) -> None:
+        """
+        Both sides have a candidate: move them both in, charge each
+        their own recovery distance in exhaustion, and put the skill
+        test up.
+        """
         offense_recovery_distance = match.distance_to_ball(offense_player_id)
         defense_recovery_distance = match.distance_to_ball(defense_player_id)
         match.move_meeple(
@@ -3365,12 +3363,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
             f"(offense skill {offense_skill}) for the high pass -- the "
             "receiver must win this skill test to keep possession!"
-            if is_high_pass
+            if match.pending_loose_ball_is_high_pass
             else f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
             f"(offense skill {offense_skill}) and "
             f"{format_role_bracket(defense_player, self.team_emojis, match.team_for_player(defense_player.player_id))} "
             f"(defense skill {defense_skill}) both contest the "
-            f"{ball_noun} -- skill test!"
+            f"{contest_noun(match)} -- skill test!"
         )
         test_message = await interaction.followup.send(
             f"{contest_line}\n{exhaustion_text}\n\nEither "
@@ -3380,6 +3378,50 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         game.turn_message_id = test_message.id
         save_games(self.games)
+
+    async def resolve_loose_ball(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Settle a loose ball (or a long High Pass, which comes through
+        the same machinery) once both sides have answered: out of
+        bounds when neither sent anybody, an unopposed take when only
+        one did, and a skill test when both did.
+        """
+        offense_player_id = match.loose_ball_offense_player
+        defense_player_id = match.loose_ball_defense_player
+        distance_moved = match.pending_loose_ball_distance
+
+        if offense_player_id is None and defense_player_id is None:
+            await self.send_loose_ball_out_of_bounds(
+                interaction, game, match, distance_moved,
+            )
+            return
+
+        if defense_player_id is None:
+            await self.resolve_unopposed_loose_ball(
+                interaction, game, match, offense_player_id,
+                turnover=False, distance_moved=distance_moved,
+            )
+            return
+
+        if offense_player_id is None:
+            # Only the defending side went for it -- because the side
+            # in possession sent nobody. Not out of bounds: that is the
+            # branch above, where neither side ends up with a player to
+            # send.
+            await self.resolve_unopposed_loose_ball(
+                interaction, game, match, defense_player_id,
+                turnover=True, distance_moved=distance_moved,
+            )
+            return
+
+        await self.begin_loose_ball_skill_test(
+            interaction, game, match, offense_player_id, defense_player_id,
+        )
 
     async def begin_shooter_choice(
         self,
