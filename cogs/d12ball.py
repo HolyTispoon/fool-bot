@@ -639,6 +639,48 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.match_state = match.to_dict()
         save_games(self.games)
 
+    def player_label(
+        self,
+        match: MatchState,
+        player: PlayerDefinition,
+    ) -> str:
+        """
+        "🟠 Hellguard [FB]" -- a player named the way every message in
+        the game names them.
+
+        This is `format_role_bracket` with the two arguments that are
+        the same at every call site already filled in. The emoji dict
+        is the cog's, and the team is **always** the one the match is
+        fielding this card as: a player belongs to two rosters, so
+        their definition cannot answer it and `match.team_for_player`
+        has to (see "One player, both sides" in CLAUDE.md). Ninety-odd
+        sites wrote out all three, which put the same forty characters
+        of lookup in front of every player's name in the codebase.
+
+        `format_role_bracket` itself is still the right call for the
+        few places that have a `TeamSetup` rather than a match, and
+        so already know the side without asking.
+        """
+        return format_role_bracket(
+            player,
+            self.team_emojis,
+            match.team_for_player(player.player_id),
+        )
+
+    def player_id_label(
+        self,
+        match: MatchState,
+        player_id: str,
+    ) -> str:
+        """
+        `player_label` for a caller holding a card id rather than a
+        definition -- a run-back candidate, a shootout order, the
+        injured list on a coaching prompt.
+        """
+        return self.player_label(
+            match, self.engine.get_player_definition(player_id),
+        )
+
     def reference_tier(self, game: Optional[D12BallGame]) -> str:
         """
         Which hexagon to post: the advanced one for an advanced game,
@@ -765,7 +807,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await interaction.followup.send(
             f"**Unchallenged!** {format_team_side_label(defense_setup)} "
             f"{reason} "
-            f"{format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))}, "
+            f"{self.player_label(match, handler)}, "
             "so whichever maneuver the offense picks succeeds."
         )
         await self.begin_maneuver_action_selection(interaction, game, match)
@@ -973,7 +1015,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return (
             f"{reveal}\n\n"
             f"**{offense_name}** ties with **{defense_name}**, but "
-            f"{format_role_bracket(injured_player, self.team_emojis, match.team_for_player(injured_player.player_id))}"
+            f"{self.player_label(match, injured_player)}"
             " is **injured** "
             f"{get_injured_emoji(self.condition_emojis)} and "
             "automatically loses the tie.\n\n"
@@ -1014,7 +1056,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         return (
             f"{reveal}\n\n"
             f"**{would_be_winner}** would win, but "
-            f"{format_role_bracket(injured_player, self.team_emojis, match.team_for_player(injured_player.player_id))} is "
+            f"{self.player_label(match, injured_player)} is "
             f"**injured** {get_injured_emoji(self.condition_emojis)} -- "
             "a skill test decides it instead!\n\n"
         )
@@ -1051,9 +1093,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # being edited away.
         await interaction.followup.send(
             f"{headline}"
-            f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))}: offense skill "
+            f"{self.player_label(match, offense_player)}: offense skill "
             f"{offense_skill}\n"
-            f"{format_role_bracket(defense_player, self.team_emojis, match.team_for_player(defense_player.player_id))}: defense skill "
+            f"{self.player_label(match, defense_player)}: defense skill "
             f"{defense_skill}\n\n"
             + exhaustion_text,
             allowed_mentions=discord.AllowedMentions(
@@ -1214,7 +1256,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             tokens = match.exhaustion.get(player_id, 0)
             prompt_message = await interaction.followup.send(
                 f"{mention}, "
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} is "
+                f"{self.player_label(match, player)} is "
                 "exhausted and owes an injury test: a d12 that has to "
                 f"beat their {tokens} exhaustion "
                 f"{'token' if tokens == 1 else 'tokens'}.",
@@ -1345,7 +1387,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.persist(game, match)
 
             content = (
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} is exhausted and rolls "
+                f"{self.player_label(match, player)} is exhausted and rolls "
                 f"an injury test: {roll} beats their {current_tokens} "
                 "exhaustion tokens — safe."
             )
@@ -1354,10 +1396,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.persist(game, match)
 
             content = (
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} is exhausted and rolls "
+                f"{self.player_label(match, player)} is exhausted and rolls "
                 f"an injury test: {roll} does not beat their "
                 f"{current_tokens} exhaustion tokens — injury! "
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} now has the condition "
+                f"{self.player_label(match, player)} now has the condition "
                 f"**injured** {get_injured_emoji(self.condition_emojis)}. "
                 "Their exhaustion "
                 "tokens are removed; they are no longer exhausted and "
@@ -1611,7 +1653,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             player = self.engine.get_player_definition(match.pending_injury_tests[0])
             return (
                 InjuryTestView(self, game_id, player.player_id),
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} still "
+                f"{self.player_label(match, player)} still "
                 "owes an injury test:",
             )
 
@@ -2023,7 +2065,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         movement_note = "goes to a teammate in the same space"
         if passer_advance:
             movement_note += (
-                f", and {format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))} "
+                f", and {self.player_label(match, handler)} "
                 "moves a space forward"
             )
         return movement_note
@@ -2121,7 +2163,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             distance_moved=distance_moved,
             lead_in=(
                 f"{content} "
-                f"{format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))}'s Winger "
+                f"{self.player_label(match, handler)}'s Winger "
                 "ability can turn this into a scoring opportunity!"
             ),
         )
@@ -2206,7 +2248,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             skill_type="offense",
             lead_in=(
                 f"**Dribble Advance:** "
-                f"{format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))} and the "
+                f"{self.player_label(match, handler)} and the "
                 f"ball move forward {actual_distance} {space_word}"
                 f"{ability_note}."
                 + self.pay_clear_cost(match, "dribble_advance")
@@ -2318,9 +2360,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.refresh_match_image(interaction, game)
 
         space_word = "space" if actual_distance == 1 else "spaces"
-        handler_label = format_role_bracket(
-            handler, self.team_emojis, match.team_for_player(handler.player_id),
-        )
+        handler_label = self.player_label(match, handler)
         if actual_distance:
             lead_in = (
                 f"**Dribble Burst:** {handler_label} bursts "
@@ -2388,14 +2428,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             if player_id is None:
                 continue
             match.move_player_relative(player_id, defense_side, 1)
-            player = self.engine.get_player_definition(player_id)
-            moved.append(
-                format_role_bracket(
-                    player,
-                    self.team_emojis,
-                    match.team_for_player(player_id),
-                )
-            )
+            moved.append(self.player_id_label(match, player_id))
         if not moved:
             return ""
         return (
@@ -2513,7 +2546,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             distance_moved=SETUP_PASS_CLOCK_COST,
             lead_in=(
                 "**Setup Pass:** "
-                f"{format_role_bracket(passer, self.team_emojis, match.team_for_player(passer.player_id))} "
+                f"{self.player_label(match, passer)} "
                 "sets the ball's speed before picking out the pass."
             ),
         )
@@ -2660,7 +2693,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             distance_moved=SETUP_PASS_CLOCK_COST,
             lead_in=(
                 f"**Setup Pass:** the ball {movement} to "
-                f"{format_role_bracket(receiver, self.team_emojis, match.team_for_player(receiver.player_id))} "
+                f"{self.player_label(match, receiver)} "
                 f"-- a scoring opportunity! Ball speed is {match.ball.speed}."
             ),
         )
@@ -2937,7 +2970,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 lead_in=(
                     f"{content}\n\n**Intercept** was beaten -- the "
                     "reception is not contested, and "
-                    f"{format_role_bracket(receiver, self.team_emojis, match.team_for_player(receiver.player_id))} "
+                    f"{self.player_label(match, receiver)} "
                     "keeps the ball."
                 ),
             )
@@ -3140,7 +3173,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         shooter = self.engine.get_player_definition(shooter_id)
         prompt_message = await interaction.followup.send(
             f"{lead_in}\n\n"
-            f"{format_role_bracket(shooter, self.team_emojis, match.team_for_player(shooter.player_id))} can attempt "
+            f"{self.player_label(match, shooter)} can attempt "
             "the scoring opportunity, or let it go:",
             view=SetUpAttemptChoiceView(
                 self, game.game_id, shooter_id, distance_moved,
@@ -3451,9 +3484,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.set_ball_carrier(player_id)
         self.persist(game, match)
 
-        bracket = format_role_bracket(
-            player, self.team_emojis, match.team_for_player(player.player_id),
-        )
+        bracket = self.player_label(match, player)
         if match.pending_loose_ball_is_high_pass:
             headline = (
                 f"{bracket} picks off the high pass, uncontested."
@@ -3530,15 +3561,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # where a loose ball belongs to nobody yet and both sides are
         # going for it.
         contest_line = (
-            f"{format_role_bracket(defense_player, self.team_emojis, match.team_for_player(defense_player.player_id))} "
+            f"{self.player_label(match, defense_player)} "
             f"(defense skill {defense_skill}) challenges "
-            f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
+            f"{self.player_label(match, offense_player)} "
             f"(offense skill {offense_skill}) for the high pass -- the "
             "receiver must win this skill test to keep possession!"
             if match.pending_loose_ball_is_high_pass
-            else f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
+            else f"{self.player_label(match, offense_player)} "
             f"(offense skill {offense_skill}) and "
-            f"{format_role_bracket(defense_player, self.team_emojis, match.team_for_player(defense_player.player_id))} "
+            f"{self.player_label(match, defense_player)} "
             f"(defense skill {defense_skill}) both contest the "
             f"{contest_noun(match)} -- skill test!"
         )
@@ -3665,7 +3696,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         shooter = self.engine.get_player_definition(shooter_id)
         await interaction.followup.send(
-            f"{format_role_bracket(shooter, self.team_emojis, match.team_for_player(shooter.player_id))} takes the "
+            f"{self.player_label(match, shooter)} takes the "
             "shot off the set-up."
         )
         await self.begin_score_attempt(interaction, game, match)
@@ -4042,11 +4073,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """The turnover, and which way the thief carried it."""
         space_word = "space" if actual_distance == 1 else "spaces"
         challenger = self.engine.get_player_definition(challenger_id)
-        challenger_label = format_role_bracket(
-            challenger,
-            self.team_emojis,
-            match.team_for_player(challenger.player_id),
-        )
+        challenger_label = self.player_label(match, challenger)
         new_possession = match.setup_for_side(match.ball.possession)
         travel = (
             f"then carries it {actual_distance} {space_word} forward, "
@@ -4229,9 +4256,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         space_word = "space" if actual_distance == 1 else "spaces"
         content = (
             f"**{name}:** "
-            f"{format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))} and the "
+            f"{self.player_label(match, handler)} and the "
             f"ball go back {actual_distance} {space_word}. "
-            f"{format_role_bracket(defender, self.team_emojis, match.team_for_player(defender.player_id))} moves "
+            f"{self.player_label(match, defender)} moves "
             "forward."
         )
 
@@ -4244,7 +4271,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # teammate" off a board that has moved since.
             match.pending_double_team = [match.challenger_id, partner_id]
             content += (
-                f" {format_role_bracket(partner, self.team_emojis, match.team_for_player(partner_id))} "
+                f" {self.player_label(match, partner)} "
                 "joins them, free of exhaustion -- and **both** will "
                 "challenge on the next maneuver, each adding their "
                 "defensive skill."
@@ -4301,7 +4328,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match.set_ball_carrier(match.challenger_id)
             content += (
                 "\n\n# Turnover!\n"
-                f"{format_role_bracket(defender, self.team_emojis, match.team_for_player(defender.player_id))} "
+                f"{self.player_label(match, defender)} "
                 "steals the ball (Defender ability)! "
                 f"{format_team_side_label(match.setup_for_side(defense_side))} "
                 "now has possession."
@@ -4630,7 +4657,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         prompt_message = await interaction.followup.send(
             f"**Own goal risk!** {mention}, "
-            f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
+            f"{self.player_label(match, offense_player)} "
             "rolls two d12 at an advantage — the higher of the two, plus "
             f"their offensive skill ({offense_skill}). A total of 7 or "
             "more and the own goal is avoided.",
@@ -4669,7 +4696,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         taken = max(rolls)
         breakdown = (
             f"**Own goal risk!** "
-            f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
+            f"{self.player_label(match, offense_player)} "
             f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
             f"is {taken}, + {offense_skill} (offensive skill) "
             f"= {taken + offense_skill}"
@@ -4718,7 +4745,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.persist(game, match)
         return (
             f"# Own goal!\n"
-            f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
+            f"{self.player_label(match, offense_player)} "
             "puts it in their own net on "
             f"**{format_goal_time(match.goals[-1])}**.\n"
             f"{team_display_name(match.home.team)} {match.scoreboard.home_score}:"
@@ -4837,8 +4864,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         outgoing = self.engine.get_player_definition(outgoing_player_id)
         incoming = self.engine.get_player_definition(incoming_player_id)
         text = (
-            f"{format_role_bracket(incoming, self.team_emojis, match.team_for_player(incoming.player_id))} comes on "
-            f"for {format_role_bracket(outgoing, self.team_emojis, match.team_for_player(outgoing.player_id))}"
+            f"{self.player_label(match, incoming)} comes on "
+            f"for {self.player_label(match, outgoing)}"
             f"{' (injured)' if was_injured else ''}."
         )
 
@@ -4886,12 +4913,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         first = self.engine.get_player_definition(player_id)
         second = self.engine.get_player_definition(other_player_id)
         return (
-            f"{format_role_bracket(first, self.team_emojis, match.team_for_player(first.player_id))} and "
-            f"{format_role_bracket(second, self.team_emojis, match.team_for_player(second.player_id))} change "
+            f"{self.player_label(match, first)} and "
+            f"{self.player_label(match, second)} change "
             "places: "
-            f"{format_role_bracket(first, self.team_emojis, match.team_for_player(first.player_id))} to "
+            f"{self.player_label(match, first)} to "
             f"{destination_display_name(setup.assigned_zone(player_id).value, board_size)}"
-            f", {format_role_bracket(second, self.team_emojis, match.team_for_player(second.player_id))} to "
+            f", {self.player_label(match, second)} to "
             f"{destination_display_name(setup.assigned_zone(other_player_id).value, board_size)}"
             ". No exhaustion cost."
         )
@@ -4922,14 +4949,14 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player = self.engine.get_player_definition(player_id)
         if partner is None:
             return (
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} moves "
+                f"{self.player_label(match, player)} moves "
                 f"to {space_label(zone, space_index)}. No exhaustion cost."
             )
         other = self.engine.get_player_definition(partner)
         return (
-            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} moves to "
+            f"{self.player_label(match, player)} moves to "
             f"{space_label(zone, space_index)} and "
-            f"{format_role_bracket(other, self.team_emojis, match.team_for_player(other.player_id))} takes their "
+            f"{self.player_label(match, other)} takes their "
             "place. No exhaustion cost."
         )
 
@@ -5048,11 +5075,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         injured_ids = match.injured_field_players(side)
         if injured_ids:
             injured = ", ".join(
-                format_role_bracket(
-                    self.engine.get_player_definition(player_id),
-                    self.team_emojis,
-                    match.team_for_player(player_id),
-                )
+                self.player_id_label(match, player_id)
                 for player_id in injured_ids
             )
             verb = "is" if len(injured_ids) == 1 else "are"
@@ -5346,8 +5369,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             outgoing = self.engine.get_player_definition(outgoing_player_id)
             incoming = self.engine.get_player_definition(incoming_player_id)
             lines.append(
-                f"{format_role_bracket(incoming, self.team_emojis, match.team_for_player(incoming.player_id))} came "
-                f"on for {format_role_bracket(outgoing, self.team_emojis, match.team_for_player(outgoing.player_id))}."
+                f"{self.player_label(match, incoming)} came "
+                f"on for {self.player_label(match, outgoing)}."
             )
 
         return lines
@@ -5461,7 +5484,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.position_meeple(side, nearest, kickoff_index)
         player = self.engine.get_player_definition(nearest)
         return (
-            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} takes the "
+            f"{self.player_label(match, player)} takes the "
             f"kickoff spot at {space_label(Zone.MIDFIELD, kickoff_index)}."
         )
 
@@ -5855,7 +5878,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             ):
                 player = self.engine.get_player_definition(player_id)
                 moved.append(
-                    f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} to "
+                    f"{self.player_label(match, player)} to "
                     f"{space_label(zone, space_index)}"
                 )
         self.persist(game, match)
@@ -5943,7 +5966,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player = self.engine.get_player_definition(player_id)
         return (
             f"{mention}, choose where "
-            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} runs back "
+            f"{self.player_label(match, player)} runs back "
             f"to:\n{self.engine.describe_run_back_options(match, side, player_id)}"
         )
 
@@ -5965,10 +5988,10 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             player = self.engine.get_player_definition(player_id)
             position = match.board.meeple_position(player_id)
             lines.append(
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} on "
+                f"{self.player_label(match, player)} on "
                 f"{space_label(*position)}"
                 if position is not None
-                else format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))
+                else self.player_label(match, player)
             )
         return (
             f"{mention}, your players are doubled up while their zone "
@@ -6011,7 +6034,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         self.persist(game, match)
 
         return (
-            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
+            f"{self.player_label(match, player)} "
             f"runs back to {space_label(zone, space_index)}."
             f"\n{exhaustion_text}"
         )
@@ -6054,7 +6077,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             self.persist(game, match)
 
             return True, (
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
+                f"{self.player_label(match, player)} "
                 "drops back to "
                 f"{space_label(match.ball.zone, match.ball.space_index)} "
                 f"to start the kickoff.\n{exhaustion_text}"
@@ -6411,7 +6434,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         prefix = f"{lead_in}\n\n" if lead_in else ""
         await interaction.followup.send(
             f"{prefix}"
-            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} picks the "
+            f"{self.player_label(match, player)} picks the "
             f"ball up at "
             f"{space_label(match.ball.zone, match.ball.space_index)}."
             f"\n{exhaustion_text}"
@@ -6711,7 +6734,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 if removed:
                     remaining = match.exhaustion.get(player_id, 0)
                     recovery_lines.append(
-                        f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
+                        f"{self.player_label(match, player)} "
                         f"recovers 1 exhaustion token (now {remaining})."
                     )
 
@@ -6937,7 +6960,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 await interaction.followup.send(
                     f"{format_team_side_label(setup)} removes an extra "
                     "exhaustion token from "
-                    f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
+                    f"{self.player_label(match, player)} "
                     f"(now {remaining})."
                 )
                 await self.refresh_match_image(interaction, game)
@@ -7303,7 +7326,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             note = " — injured" if player_id in match.injured else ""
             lines.append(
                 f"{position}. "
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))}{note}"
+                f"{self.player_label(match, player)}{note}"
             )
 
         if match.shootout_order_complete(side):
@@ -7347,7 +7370,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 else ""
             )
             lines.append(
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))}{note}"
+                f"{self.player_label(match, player)}{note}"
             )
 
         prompt = await interaction.followup.send(
@@ -7507,13 +7530,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         player = self.engine.get_player_definition(player_id)
         if player_id in match.injured:
             return (
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} is injured "
+                f"{self.player_label(match, player)} is injured "
                 f"{get_injured_emoji(self.condition_emojis)} and gains no "
                 "exhaustion tokens."
             )
         if amount <= 0:
             return (
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} was "
+                f"{self.player_label(match, player)} was "
                 "already there -- no exhaustion cost."
             )
 
@@ -7521,7 +7544,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         total = match.exhaustion.get(player_id, 0)
         token_word = "token" if amount == 1 else "tokens"
         text = (
-            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} gains {amount} exhaustion "
+            f"{self.player_label(match, player)} gains {amount} exhaustion "
             f"{token_word} {exhaust_emoji * amount} (now {total} total)."
         )
 
@@ -7529,7 +7552,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         if self.engine.retest_exhausted(match, player_id):
             exhausted_emoji = get_exhausted_emoji(self.condition_emojis)
             text += (
-                f"\n{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} now has the condition "
+                f"\n{self.player_label(match, player)} now has the condition "
                 f"**exhausted** {exhausted_emoji} — {total} exhaustion "
                 f"tokens exceeds their defense skill of {defense_skill}."
             )
@@ -8117,7 +8140,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 f"injured {get_injured_emoji(self.condition_emojis)}"
             )
 
-        entry = format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))
+        entry = self.player_label(match, player)
         if location is not None:
             entry += f" — {location}"
         entry += f" — {tokens} {get_exhaust_emoji(self.condition_emojis)}"
@@ -8178,7 +8201,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
             await interaction.followup.send(
                 f"{ai_name} has chosen to shoot to score with "
-                f"{format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))}.",
+                f"{self.player_label(match, handler)}.",
             )
             await self.begin_score_attempt(interaction, game, match)
             return
@@ -8193,7 +8216,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
             await interaction.followup.send(
                 f"{ai_name} has chosen to maneuver with "
-                f"{format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))}."
+                f"{self.player_label(match, handler)}."
             )
             await self.announce_uncontested_maneuver(
                 interaction, game, match,
@@ -8228,7 +8251,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         challenge_view = ManeuverChallengeView(self, game.game_id)
         challenge_message = await interaction.followup.send(
             f"{ai_name} will maneuver with "
-            f"{format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))}.\n\n"
+            f"{self.player_label(match, handler)}.\n\n"
             f"{defender_mention}, choose which player will maneuver "
             "to challenge for the ball, or send nobody and let the "
             "maneuver through.",
@@ -9997,7 +10020,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.announce_board_update(
             interaction,
             game,
-            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} moved to "
+            f"{self.player_label(match, player)} moved to "
             f"{destination_display_name(destination, match.board.layout.board_size)}.",
         )
 
@@ -10126,7 +10149,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.announce_board_update(
             interaction,
             game,
-            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} moved to "
+            f"{self.player_label(match, player)} moved to "
             f"{destination_display_name(dest_target, match.board.layout.board_size)}.",
         )
 
@@ -10212,7 +10235,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.announce_board_update(
             interaction,
             game,
-            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} moved to "
+            f"{self.player_label(match, player)} moved to "
             f"{space_label(zone, space_index)}.",
         )
 

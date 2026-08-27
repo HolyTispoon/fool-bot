@@ -63,7 +63,6 @@ from cogs.d12ball_helpers import (
     format_goal_time,
     format_player,
     format_player_with_team,
-    format_role_bracket,
     format_team_side_label,
     refresh_player_names,
     send_error_fallback,
@@ -1507,7 +1506,7 @@ class PlayerActionView(SafeView):
         await interaction.response.edit_message(
             content=(
                 f"{offense_display} has chosen to {action_label} with "
-                f"{format_role_bracket(handler, self.cog.team_emojis, match.team_for_player(handler.player_id))}."
+                f"{self.cog.player_label(match, handler)}."
             ),
             view=None,
         )
@@ -1656,7 +1655,7 @@ class PlayerActionView(SafeView):
         handler_team = match.team_for_player(handler.player_id)
         challenge_view = ManeuverChallengeView(self.cog, self.game_id)
         challenge_message = await interaction.followup.send(
-            f"{format_role_bracket(handler, self.cog.team_emojis, handler_team)} will "
+            f"{self.cog.player_label(match, handler)} will "
             f"maneuver for {team_display_name(handler_team)}.\n\n"
             f"{defender_mention}, {ask}",
             view=challenge_view,
@@ -2759,7 +2758,7 @@ class ScoreAttemptView(SafeView):
             match.award_goal(shooter.player_id)
             verdict = (
                 "# GOAL!\n"
-                f"{format_role_bracket(shooter, self.cog.team_emojis, match.team_for_player(shooter.player_id))} scores "
+                f"{self.cog.player_label(match, shooter)} scores "
                 f"for {format_team_side_label(attacking_setup)} on "
                 f"**{format_goal_time(match.goals[-1])}**!\n"
                 f"{team_display_name(match.home.team)} "
@@ -3038,7 +3037,7 @@ class LowPassChoiceView(SafeView):
             content=(
                 f"**{interaction.user.display_name} ({team_name})** chose "
                 "to pass the ball to "
-                f"{format_role_bracket(teammate, self.cog.team_emojis, match.team_for_player(teammate.player_id))} at "
+                f"{self.cog.player_label(match, teammate)} at "
                 f"{space_label(zone, space_index)}."
             ),
             view=None,
@@ -3145,7 +3144,7 @@ class LowPassReceiverView(SafeView):
             content=(
                 f"**{interaction.user.display_name} ({team_name})** chose "
                 "to pass the ball to "
-                f"{format_role_bracket(receiver, self.cog.team_emojis, match.team_for_player(receiver.player_id))} at "
+                f"{self.cog.player_label(match, receiver)} at "
                 f"{space_label(zone, space_index)}."
             ),
             view=None,
@@ -3533,7 +3532,7 @@ class SetUpAttemptChoiceView(SafeView):
         shooter = self.cog.engine.get_player_definition(self.shooter_id)
         await interaction.response.edit_message(
             content=(
-                f"{format_role_bracket(shooter, self.cog.team_emojis, match.team_for_player(shooter.player_id))} "
+                f"{self.cog.player_label(match, shooter)} "
                 "takes the shot."
             ),
             view=None,
@@ -3973,7 +3972,7 @@ class ShooterChoiceView(SafeView):
         shooter = self.cog.engine.get_player_definition(shooter_id)
         await interaction.response.edit_message(
             content=(
-                f"{format_role_bracket(shooter, self.cog.team_emojis, match.team_for_player(shooter.player_id))} "
+                f"{self.cog.player_label(match, shooter)} "
                 "takes the shot."
             ),
             view=None,
@@ -4191,7 +4190,7 @@ class RunBackChoiceView(SafeView):
         player = self.cog.engine.get_player_definition(self.player_id)
         await interaction.response.edit_message(
             content=(
-                f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} "
+                f"{self.cog.player_label(match, player)} "
                 f"runs back to {space_label(zone, space_index)}."
                 f"\n{exhaustion_text}"
             ),
@@ -4341,7 +4340,7 @@ class CoachingView(SafeView):
         button.callback = callback
         self.add_item(button)
 
-    def player_label(
+    def player_button_label(
         self,
         match: MatchState,
         player_id: str,
@@ -4351,6 +4350,11 @@ class CoachingView(SafeView):
         A fielded player on a button: who they are, and where they are.
         Both matter to every choice in this flow and neither is on the
         button otherwise.
+
+        Not `D12Ball.player_label`, which is the name a *message* calls
+        a player by: this one carries the position instead of the team
+        emoji, since every card on a coaching button is that coach's
+        own side, and it is cut to Discord's 80-character button label.
         """
         setup = match.setup_for_side(self.side(match))
         zone = setup.assigned_zone(player_id)
@@ -4740,7 +4744,7 @@ class CoachingSubstitutionOutView(CoachingView):
             injured = player_id in match.injured
             button = discord.ui.Button(
                 label=(
-                    f"{self.player_label(match, player_id)}"
+                    f"{self.player_button_label(match, player_id)}"
                     f"{' - injured' if injured else ''}"
                 )[:80],
                 style=(
@@ -4781,7 +4785,7 @@ class CoachingSubstitutionOutView(CoachingView):
             ),
             note=(
                 "Who comes on for "
-                f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))}? "
+                f"{self.cog.player_label(match, player)}? "
                 "They take their zone and their space exactly."
             ),
         )
@@ -4883,7 +4887,7 @@ class CoachingZoneView(CoachingView):
             ):
                 continue
             button = discord.ui.Button(
-                label=self.player_label(match, player_id),
+                label=self.player_button_label(match, player_id),
                 style=discord.ButtonStyle.secondary,
                 custom_id=f"d12ball:coach_zone_pick:{game_id}:{player_id}",
             )
@@ -4917,7 +4921,7 @@ class CoachingZoneView(CoachingView):
                 CoachingZoneView(self.cog, self.game_id, player_id),
                 note=(
                     "Who does "
-                    f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} "
+                    f"{self.cog.player_label(match, player)} "
                     "change places with?"
                 ),
             )
@@ -4951,7 +4955,7 @@ class CoachingPlaceView(CoachingView):
             self.side(match),
         ).field_players:
             button = discord.ui.Button(
-                label=self.player_label(match, player_id, with_space=True),
+                label=self.player_button_label(match, player_id, with_space=True),
                 style=discord.ButtonStyle.secondary,
                 custom_id=f"d12ball:coach_place:{game_id}:{player_id}",
             )
@@ -4984,7 +4988,7 @@ class CoachingPlaceView(CoachingView):
             CoachingPlaceSpaceView(self.cog, self.game_id, player_id),
             note=(
                 "Where should "
-                f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} "
+                f"{self.cog.player_label(match, player)} "
                 "stand? A space one of your own is already on trades "
                 "places with them."
             ),
@@ -5066,7 +5070,7 @@ class CoachingPlaceSpaceView(CoachingView):
                 note=(
                     "More than one of yours is standing there. Who "
                     "comes back to make room for "
-                    f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))}?"
+                    f"{self.cog.player_label(match, player)}?"
                 ),
             )
             return
@@ -5274,11 +5278,11 @@ class HalftimeExtraTokenView(HalftimeView):
 
         remaining = match.exhaustion.get(player_id, 0)
         text = (
-            f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} loses "
+            f"{self.cog.player_label(match, player)} loses "
             f"an extra exhaustion token (now {remaining})."
             if removed
             else (
-                f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} "
+                f"{self.cog.player_label(match, player)} "
                 "had no tokens to lose."
             )
         )
@@ -5439,7 +5443,7 @@ class LooseBallChoiceView(SafeView):
             interaction,
             game,
             match,
-            f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))} "
+            f"{self.cog.player_label(match, player)} "
             f"contests the {contest_noun(match)} ({self.side}).",
         )
 
@@ -5767,11 +5771,7 @@ class LooseBallSkillTestView(SafeView):
         self.cog.persist(game, match)
 
         turnover_line = "# Turnover!\n\n" if turnover_occurred else ""
-        winner_bracket = format_role_bracket(
-            winner_player,
-            self.cog.team_emojis,
-            match.team_for_player(winner_player.player_id),
-        )
+        winner_bracket = self.cog.player_label(match, winner_player)
         if is_high_pass:
             outcome_line = (
                 f"{winner_bracket} wins possession off the high pass! "
@@ -6311,7 +6311,7 @@ class ShootoutPickSelectView(SafeView):
         await interaction.response.edit_message(
             content=(
                 "You send out "
-                f"{format_role_bracket(player, self.cog.team_emojis, match.team_for_player(player.player_id))}."
+                f"{self.cog.player_label(match, player)}."
             ),
             view=None,
         )
@@ -6374,11 +6374,7 @@ class ShootoutTestView(ShootoutView):
 
         if match.shootout_round > 1:
             remaining = [
-                format_role_bracket(
-                    self.cog.engine.get_player_definition(player_id),
-                    self.cog.team_emojis,
-                    match.team_for_player(player_id),
-                )
+                self.cog.player_id_label(match, player_id)
                 for player_id in match.shootout_eligible(side)
             ]
             await interaction.response.send_message(
@@ -6472,7 +6468,7 @@ class ShootoutTestView(ShootoutView):
         match.award_shootout_goal(winner, scorer.player_id)
         return winner, (
             "## "
-            f"{format_role_bracket(scorer, self.cog.team_emojis, match.team_for_player(scorer.player_id))} "
+            f"{self.cog.player_label(match, scorer)} "
             "scores!"
         )
 
