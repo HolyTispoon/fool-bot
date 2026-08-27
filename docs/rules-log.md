@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-25.
+**As of:** 2026-08-26.
 
 ## Where the rules come from
 
@@ -87,6 +87,66 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-26 -- author, a ball is loose only on an empty space, and a High Pass is the one exemption
+
+*"A loose ball happens **only** when there are no players in the space where the ball landed (e.g.
+after a high pass, setup pass, block deflect, clear). After Deflect won the bot says: 'Loose ball!
+Whoever is standing on it contests for their side, for nothing; a side with nobody there may send
+a nearby player after it.' which is wrong. It's not a loose ball when there are players there. If
+there is just one player (of either team), they get it. If there are players of both teams, it's
+called a 'contest' and they roll for it. The difference between clear/deflect and high pass for 3+
+is that even if the target space has only teammates, the other team gets a chance to send someone
+to contest the ball -- but that's a special feature of a high pass: the ball is high in the air and
+gives players time to run towards it."*
+
+**This corrects the 2026-08-18 ruling, which had gone too wide.** That one made every way the ball
+could come free "a loose ball won the same way", on the reading that *loose* was a fact about the
+ball rather than about the space. The author's answer is the other way round: **what is standing
+on the space the ball lands on is the whole of it**, and there are three answers, only one of
+which is a loose ball.
+
+| On the space the ball lands on | What happens |
+|---|---|
+| Nobody | The ball is **loose**. Each side may send a player after it, or send nobody. |
+| One side only | The ball is simply **theirs**, uncontested -- no roll, and the other side is not offered a send. |
+| Both sides | A **contest** between the players already there. Nobody else may be sent. |
+
+- **"Loose" is reserved for the empty space, and that is a rule about the word.** The wrong
+  message the author quoted was not a stray sentence: the bot called every arrival a loose ball
+  and then described a send that the occupancy rule had already taken away. Both halves were
+  wrong, and only in the case they were most likely to be read in.
+- **A High Pass is the one exemption**, and it is a fact about the pass rather than about the
+  space: the ball is in the air long enough for players to run at it, so a landing space holding
+  only one side may still be contested by the other. **Read symmetrically here** -- the author
+  states it as the defense running at the passer's own teammates, and the justification is about
+  the ball, so the mirror case (only the defense standing there) is contestable too. Worth
+  confirming.
+- **Half of this was already built.** `restrict_to_occupants` landed on 2026-08-24 for Deflect,
+  Clear and a beaten Setup Pass, and is exactly the rule above. What was wrong was that it was a
+  *flag*: the generic post-maneuver check and a pass that reaches nobody did not pass it, so a
+  ball landing where only the defense stood was still a loose ball the offense could walk somebody
+  into. That is the behaviour the 2026-08-18 entry introduced and this reverts.
+
+Where this lands in the code:
+
+- **The flag is gone and the rule is unconditional.** `D12Ball.begin_loose_ball` narrows to
+  occupants for every arrival and reads `is_high_pass` as the exemption -- the same flag that
+  already carries the ball speed modifier, which is the other thing peculiar to a pass in the air.
+  Four call sites stopped passing `restrict_to_occupants=True` and two (`check_for_loose_ball`,
+  and a Low or Skilled Pass with no receiver) changed behaviour by no longer opting out.
+- **`contest_noun` answers three ways** -- "high pass", "loose ball", "ball" -- so a coach is never
+  told the ball is loose when it is not, and the sentences around it still read ("contests the
+  ball", never "contests the contest"). `build_loose_ball_headline` answers the same three ways
+  and absorbed the one-side note the cog used to build itself.
+- **`MatchState.pending_loose_ball_on_empty_space` is new and persisted.** It is recorded when the
+  ball arrives, because by the time a roll or a result is worded the contestants have been walked
+  onto the space and the position that decides the word is gone -- the same reason
+  `pending_loose_ball_is_high_pass` is stored rather than derived. A game saved before the field
+  defaults to True, which is what every arrival was called before this.
+- The internal machinery keeps its `loose_ball_*` names: three positions share one flow, and
+  renaming it would rename a persisted prompt id and every custom_id already sitting in a channel.
+  What a coach reads is what this entry is about.
 
 ### 2026-08-25 -- author, a Setup Pass may be picked out to any space that fits, not only onto a teammate
 
@@ -280,6 +340,11 @@ Nothing here is in the sheet: the `Interactions` column still carries the counte
 sentences. The cards print what the ability does on the card it is on, out of `EXTRA_NOTES`.
 
 ### 2026-08-18 -- author, a loose ball is the one contest and a Block Deflect always makes one
+
+> **Superseded on 2026-08-26** -- see the entry at the top. The "send someone to contest a space
+> only one team is standing on" half of this was narrowed to Deflect/Clear/Setup Pass on
+> 2026-08-24 and taken away everywhere on 2026-08-26, where a High Pass became its one exemption.
+> The Deflect half stands.
 
 *The author, simplifying: "block deflect throws the ball back 1 and makes it a loose ball. A loose
 ball just means that there is no possession -- if there is only a player from one team, the other
