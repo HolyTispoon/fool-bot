@@ -3712,39 +3712,54 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         await self.apply_deflection(interaction, game, match, "clear")
 
-    async def apply_deflection(
+    def deflection_numbers(
         self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
+        defender: PlayerDefinition,
         key: str,
-    ) -> None:
-        offense_side = match.ball.possession
-        defense_side = match.defending_side()
-        defender = self.engine.get_player_definition(match.challenger_id)
-        name = self.engine.maneuver_name(key)
+    ) -> tuple[int, int, bool]:
+        """
+        How far a deflection drives the ball, how much speed it takes
+        off, and whether a Fullback's ability is in it.
 
+        **The speed drop is the card's, not the distance's.** A
+        Fullback's Deflect has always moved the ball 2 and dropped the
+        speed by 1, so the two are separate numbers that happen to
+        match on an ordinary deflection -- and a Clear's -3 stays -3
+        when the Fullback pushes it to 4 spaces. Derived from the
+        distance instead, this read correctly right up until the
+        Fullback was let near a Clear, which is why they are returned
+        as two numbers rather than one.
+        """
         # Role ability -- Fullback: +1 space on a deflection, which
         # takes a Deflect from 1 to 2 and a Clear from 3 to 4.
         fullback_bonus = defender.role == PlayerRole.FULLBACK
         base_distance = 3 if key == "clear" else 1
-        deflect_distance = base_distance + (1 if fullback_bonus else 0)
 
-        # **The speed drop is the card's, not the distance's.** A
-        # Fullback's Deflect has always moved the ball 2 and
-        # dropped the speed by 1, so the two are separate numbers that
-        # happen to match on an ordinary deflection -- and a Clear's
-        # -3 stays -3 when the Fullback pushes it to 4 spaces. Written
-        # as `deflect_distance` this read correctly right up until the
-        # Fullback was let near a Clear.
-        speed_drop = base_distance
+        return (
+            base_distance + (1 if fullback_bonus else 0),
+            base_distance,
+            fullback_bonus,
+        )
 
-        # Overshoot: the deflection is clamped short of the full
-        # distance, i.e. the ball was already close enough to the
-        # offense's own goal that there was nowhere to put it. That no
-        # longer risks an own goal -- only Pressure does -- it sets up
-        # a scoring opportunity for the defense instead, who are now
-        # the side standing next to the goal the ball just reached.
+    def knock_ball_back(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        offense_side: TeamSide,
+        deflect_distance: int,
+        speed_drop: int,
+    ) -> tuple[bool, int]:
+        """
+        Drive the ball back toward the offense's own goal and take the
+        speed off it. Returns whether it ran out of field and how far
+        it actually went.
+
+        The overshoot is read before the ball moves, the way every
+        other overshoot in the game is. It no longer risks an own goal
+        -- only Pressure does -- it sets up a scoring opportunity for
+        the defense instead, who are now the side standing next to the
+        goal the ball just reached.
+        """
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
@@ -3759,6 +3774,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.ball.speed = max(1, match.ball.speed - speed_drop)
         game.match_state = match.to_dict()
         save_games(self.games)
+
+        return overshot, actual_distance
+
+    async def apply_deflection(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        key: str,
+    ) -> None:
+        offense_side = match.ball.possession
+        defense_side = match.defending_side()
+        defender = self.engine.get_player_definition(match.challenger_id)
+        name = self.engine.maneuver_name(key)
+
+        deflect_distance, speed_drop, fullback_bonus = (
+            self.deflection_numbers(defender, key)
+        )
+
+        overshot, actual_distance = self.knock_ball_back(
+            game, match, offense_side, deflect_distance, speed_drop,
+        )
 
         space_word = "space" if actual_distance == 1 else "spaces"
         ability_note = " (Fullback ability)" if fullback_bonus else ""
