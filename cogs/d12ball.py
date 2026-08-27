@@ -8628,67 +8628,34 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             ephemeral=True,
         )
 
-    async def open_new_game(
+    def game_channel_overwrites(
         self,
         guild: discord.Guild,
         player_1: discord.Member,
         player_2: Optional[discord.Member],
-        test_game: bool = False,
-        created_by: Optional[discord.abc.User] = None,
-        mode: GameMode = GameMode.BASIC,
-        board_size: int = 7,
-        ai_opponent: Optional[AIOpponent] = None,
-        game_name: Optional[str] = None,
-        tutorial: bool = False,
-    ) -> D12BallGame:
+        bot_member: discord.Member,
+    ) -> dict:
         """
-        Create the private channel for a game, save the game record,
-        and post its setup message. Shared by /d12ball create_game and
-        the full-time rematch button, which is why everything that can
-        go wrong is raised as a ValueError carrying the text to show
-        the person who asked for the game rather than replying itself.
-
-        The settings arguments exist for the rematch, which carries the
-        finished game's configuration over; a fresh game takes the
-        defaults and settles them in setup.
+        Who can see a game's channel: its coaches and the bot, and
+        nobody else. The bot also needs Manage Channels, since
+        archiving a finished game moves the channel between categories.
         """
-        game_number = self.get_next_game_number(guild)
-        resolved_ai_opponent = (
-            None if player_2 else ai_opponent or AIOpponent.DINKY
-        )
-        player_1_name = "Player 1" if test_game else player_1.display_name
-        player_2_name = (
-            "Player 2"
-            if test_game
-            else player_2.display_name if player_2 else None
-        )
-        channel_name = build_game_channel_name(
-            game_number,
-            player_1_name,
-            player_2_name or format_ai_name(resolved_ai_opponent),
-            # A tutorial names its own channel unless the coach named
-            # it, so the one game in the category whose opening is
-            # scripted says so from the channel list. It goes through
-            # `game_name` rather than being appended to the pattern,
-            # because the number's position in the name is what
-            # CHANNEL_NAME_PATTERN reads back -- see "Game channels".
-            game_name=game_name or ("tutorial" if tutorial else None),
-        )
-
-        bot_member = guild.me
-
-        if bot_member is None:
-            raise ValueError("I could not find my server account.")
+        def player_access() -> discord.PermissionOverwrite:
+            # A fresh object per coach rather than one shared between
+            # them: an overwrite is handed to discord.py, and two
+            # entries in this dict should not be able to become the
+            # same object by accident.
+            return discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                read_message_history=True,
+            )
 
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(
                 view_channel=False,
             ),
-            player_1: discord.PermissionOverwrite(
-                view_channel=True,
-                send_messages=True,
-                read_message_history=True,
-            ),
+            player_1: player_access(),
             bot_member: discord.PermissionOverwrite(
                 view_channel=True,
                 send_messages=True,
@@ -8698,12 +8665,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         }
 
         if player_2 is not None:
-            overwrites[player_2] = discord.PermissionOverwrite(
-                view_channel=True,
-                send_messages=True,
-                read_message_history=True,
-            )
+            overwrites[player_2] = player_access()
 
+        return overwrites
+
+    async def create_private_game_channel(
+        self,
+        guild: discord.Guild,
+        channel_name: str,
+        overwrites: dict,
+        bot_member: discord.Member,
+        created_by: Optional[discord.abc.User],
+    ) -> discord.TextChannel:
+        """
+        Make the channel a game is played in, under the PBD Games
+        category, and confirm the bot came out of it able to manage
+        what it just created.
+
+        Every failure is a ValueError carrying the text to show whoever
+        asked for the game -- see open_new_game.
+        """
         try:
             category = await get_or_create_category(
                 guild,
@@ -8763,6 +8744,113 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "me View Channel and Manage Channels permissions."
             )
 
+        return game_channel
+
+    async def post_game_setup_message(
+        self,
+        game_channel: discord.TextChannel,
+        game: D12BallGame,
+    ) -> int:
+        """
+        The first message in a game's channel: the team picker, and the
+        line above it that the channel keeps for the rest of the game.
+
+        This message is **not** the one the board ends up on -- the
+        coin flip re-points `game.message_id` at the home/visiting
+        choice it posts, which is what every later board is written to.
+        See "Discord's rate limits" in CLAUDE.md.
+        """
+        view = TeamSelectionView(
+            cog=self,
+            game_id=game.game_id,
+        )
+
+        message_text = (
+            "Start playing in this channel.\n\n"
+            f"{view.build_team_message(game)}"
+        )
+
+        try:
+            game_message = await game_channel.send(
+                message_text,
+                view=view,
+                allowed_mentions=discord.AllowedMentions(
+                    users=True,
+                    roles=False,
+                    everyone=False,
+                ),
+            )
+
+        except discord.HTTPException as error:
+            raise ValueError(
+                f"The channel was created, but I could not send "
+                f"the game message: {error}"
+            )
+
+        return game_message.id
+
+    async def open_new_game(
+        self,
+        guild: discord.Guild,
+        player_1: discord.Member,
+        player_2: Optional[discord.Member],
+        test_game: bool = False,
+        created_by: Optional[discord.abc.User] = None,
+        mode: GameMode = GameMode.BASIC,
+        board_size: int = 7,
+        ai_opponent: Optional[AIOpponent] = None,
+        game_name: Optional[str] = None,
+        tutorial: bool = False,
+    ) -> D12BallGame:
+        """
+        Create the private channel for a game, save the game record,
+        and post its setup message. Shared by /d12ball create_game and
+        the full-time rematch button, which is why everything that can
+        go wrong is raised as a ValueError carrying the text to show
+        the person who asked for the game rather than replying itself.
+
+        The settings arguments exist for the rematch, which carries the
+        finished game's configuration over; a fresh game takes the
+        defaults and settles them in setup.
+        """
+        game_number = self.get_next_game_number(guild)
+        resolved_ai_opponent = (
+            None if player_2 else ai_opponent or AIOpponent.DINKY
+        )
+        player_1_name = "Player 1" if test_game else player_1.display_name
+        player_2_name = (
+            "Player 2"
+            if test_game
+            else player_2.display_name if player_2 else None
+        )
+        channel_name = build_game_channel_name(
+            game_number,
+            player_1_name,
+            player_2_name or format_ai_name(resolved_ai_opponent),
+            # A tutorial names its own channel unless the coach named
+            # it, so the one game in the category whose opening is
+            # scripted says so from the channel list. It goes through
+            # `game_name` rather than being appended to the pattern,
+            # because the number's position in the name is what
+            # CHANNEL_NAME_PATTERN reads back -- see "Game channels".
+            game_name=game_name or ("tutorial" if tutorial else None),
+        )
+
+        bot_member = guild.me
+
+        if bot_member is None:
+            raise ValueError("I could not find my server account.")
+
+        game_channel = await self.create_private_game_channel(
+            guild,
+            channel_name,
+            self.game_channel_overwrites(
+                guild, player_1, player_2, bot_member,
+            ),
+            bot_member,
+            created_by,
+        )
+
         game_id = uuid.uuid4().hex
 
         game = D12BallGame(
@@ -8792,38 +8880,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         self.games[game_id] = game
 
-        view = TeamSelectionView(
-            cog=self,
-            game_id=game_id,
-        )
-
-        message_text = view.build_team_message(game)
-
-        message_text = (
-            "Start playing in this channel.\n\n"
-            f"{message_text}"
-        )
-
         try:
-            game_message = await game_channel.send(
-                message_text,
-                view=view,
-                allowed_mentions=discord.AllowedMentions(
-                    users=True,
-                    roles=False,
-                    everyone=False,
-                ),
+            game.message_id = await self.post_game_setup_message(
+                game_channel, game,
             )
-
-        except discord.HTTPException as error:
+        except ValueError:
+            # The record was only ever added so the view could build
+            # its message off it; with nothing posted there is no game.
             self.games.pop(game_id, None)
+            raise
 
-            raise ValueError(
-                f"The channel was created, but I could not send "
-                f"the game message: {error}"
-            )
-
-        game.message_id = game_message.id
         save_games(self.games)
         return game
 
