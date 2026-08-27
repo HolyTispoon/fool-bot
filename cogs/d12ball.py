@@ -2650,35 +2650,34 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             ),
         )
 
-    async def apply_high_pass(
+    def throw_high_pass(
         self,
-        interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        offense_side: TeamSide,
         distance: int,
-    ) -> None:
-        offense_side = match.ball.possession
-        handler = self.engine.get_player_definition(match.active_player_id)
+        handler: PlayerDefinition,
+    ) -> tuple[bool, int, str]:
+        """
+        Put the ball in the air and say what that looked like.
+
+        Returns whether the throw overshot, how far the ball actually
+        travelled, and the line every branch of the pass opens with.
+        The overshoot is read **before** the ball moves, the same way
+        Deflect reads its own and by the same test, so a pass that
+        could not move the ball at all is an overshoot like any other
+        -- which is the whole reason this is one function and not the
+        caller's first three statements.
+        """
         # Role ability -- Fullback: can choose to pass up to 4 spaces
         # instead of the usual 2-3 max (see HighPassChoiceView).
         fullback_bonus = handler.role == PlayerRole.FULLBACK and distance == 4
 
-        # Overshoot: the pass is clamped short of the distance asked
-        # for, i.e. it ran out of field. Read before the ball moves,
-        # the same way Deflect reads its own -- and by the same
-        # test, so a pass that could not move the ball at all is an
-        # overshoot like any other.
         overshot = match.high_pass_overshoots(offense_side, distance)
 
         actual_distance = match.move_ball_relative(offense_side, distance)
         game.match_state = match.to_dict()
         save_games(self.games)
-
-        # High Pass's own cost is a flat 2 space minutes regardless of
-        # distance (2026-08-16) -- the one maneuver that isn't 1. Kept
-        # apart from `actual_distance`, which is what the pass actually
-        # did and what the result says.
-        distance_moved = 2
 
         ability_note = " (Fullback ability)" if fullback_bonus else ""
         if actual_distance:
@@ -2696,6 +2695,54 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "**High Pass:** the ball is thrown up from the last space "
                 "and comes straight back down on it."
             )
+
+        return overshot, actual_distance, content
+
+    async def complete_high_pass_reception(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        receiver_id: str,
+        distance_moved: int,
+        lead_in: str,
+    ) -> None:
+        """
+        A pass that was caught and settles there: the receiver carries
+        it, and the maneuver ends without a contest.
+
+        Two branches reach this -- a 2-space pass out of shooting
+        range, and a pass whose contest a beaten Intercept called off.
+        They differ in what they say and in nothing else.
+        """
+        match.set_ball_carrier(receiver_id)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+        await self.refresh_match_image(interaction, game)
+        await self.finish_maneuver_resolution(
+            interaction, game, match, distance_moved=distance_moved,
+            lead_in=lead_in,
+        )
+
+    async def apply_high_pass(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        distance: int,
+    ) -> None:
+        offense_side = match.ball.possession
+        handler = self.engine.get_player_definition(match.active_player_id)
+
+        overshot, actual_distance, content = self.throw_high_pass(
+            game, match, offense_side, distance, handler,
+        )
+
+        # High Pass's own cost is a flat 2 space minutes regardless of
+        # distance (2026-08-16) -- the one maneuver that isn't 1. Kept
+        # apart from `actual_distance`, which is what the pass actually
+        # did and what the result says.
+        distance_moved = 2
 
         # Who this pass reached, read once now the ball has landed and
         # asked by every branch below -- the passer is not among them,
@@ -2782,13 +2829,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # Caught cleanly, just out of shooting range -- the range
             # rule takes away the shot, not the catch, so the receiver
             # still carries it.
-            match.set_ball_carrier(receiver_candidates[0])
-            game.match_state = match.to_dict()
-            save_games(self.games)
-            await self.refresh_match_image(interaction, game)
-            await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=distance_moved,
-                lead_in=content,
+            await self.complete_high_pass_reception(
+                interaction, game, match, receiver_candidates[0],
+                distance_moved, content,
             )
             return
 
@@ -2827,15 +2870,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # pass reaching nobody have all already returned above, and
         # none of them had a contest to skip.
         if self.engine.advanced_cost(match, "high_pass") == "intercept":
-            match.set_ball_carrier(receiver_candidates[0])
-            game.match_state = match.to_dict()
-            save_games(self.games)
             receiver = self.engine.get_player_definition(
                 receiver_candidates[0]
             )
-            await self.refresh_match_image(interaction, game)
-            await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=distance_moved,
+            await self.complete_high_pass_reception(
+                interaction, game, match, receiver_candidates[0],
+                distance_moved,
                 lead_in=(
                     f"{content}\n\n**Intercept** was beaten -- the "
                     "reception is not contested, and "
