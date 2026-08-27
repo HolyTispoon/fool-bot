@@ -2307,6 +2307,17 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     either coach may ask for at any time. Where the back is drawn it rides on
     the last side's block rather than starting a row of its own, or it would be
     a row one card wide and the image would arrive as a tall ribbon.
+  - **Each side's block is captioned -- "OFFENSE HAND" / "DEFENSE HAND", in that
+    side's own colour** (`HAND_HEADINGS`, `OFFENSE_COLOR`/`DEFENSE_COLOR`). The
+    two rows sitting one above the other read as one grid of cards otherwise,
+    and a coach has to find *their* row before reading a label. `lay_out_hand`
+    takes a `headings` list parallel to `blocks` and reserves a band above each
+    captioned block's first row; a block with no heading (the lone card back,
+    which has fewer headings than blocks because it shares the last side's
+    block) reserves nothing. The player's name and team are deliberately *not*
+    on the image -- the mention line right above the prompt already names both
+    coaches, and putting names on the cards would make the hand depend on the
+    match, which is exactly what the `__init__`-time render avoids.
   - **A basic contested prompt drops the back** (the author). Both basic hands
     together *are* the whole game -- all six cards, each carrying its own
     beats/ties/loses row -- so the hexagon is the same six relations drawn a

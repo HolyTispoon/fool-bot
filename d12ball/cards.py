@@ -1715,6 +1715,16 @@ HAND_MARGIN = 22
 # today; two rows of four and three keep every card the size a coach
 # already reads.
 HAND_MAX_COLUMNS = 4
+# Each side's block is captioned with whose hand it is -- "OFFENSE" over
+# the top rows, "DEFENSE" over the bottom -- in that side's own colour,
+# so a coach picks out their row before reading a single card. The
+# caption is not drawn supersampled (the canvas here is plain PIL, not a
+# Pen), so `load_font` is called directly rather than through `font`.
+HAND_HEADING_SIZE = 30
+# Space between the baseline of a heading and the top of the row it
+# captions.
+HAND_HEADING_GAP = 12
+HAND_HEADINGS = {"offense": "OFFENSE HAND", "defense": "DEFENSE HAND"}
 
 
 def hand_card_images(
@@ -1773,7 +1783,10 @@ def hand_back_image(
     )
 
 
-def lay_out_hand(blocks: Sequence[Sequence[Image.Image]]) -> BytesIO:
+def lay_out_hand(
+    blocks: Sequence[Sequence[Image.Image]],
+    headings: Sequence[Optional[tuple[str, str]]] = (),
+) -> BytesIO:
     """
     Paste one or more blocks of cards onto a single canvas, each block
     starting on a row of its own and wrapping at `HAND_MAX_COLUMNS`.
@@ -1784,20 +1797,36 @@ def lay_out_hand(blocks: Sequence[Sequence[Image.Image]]) -> BytesIO:
     three at a glance. Every card is the same width whatever the block
     count, so a row never gets narrower because there is more on the
     image.
+
+    `headings` is one `(label, colour)` per block, or `None` for a block
+    that gets no caption -- the lone card back, which rides on the last
+    side's block rather than starting one of its own, is the case with
+    fewer headings than blocks. A captioned block reserves a band above
+    its first row for the label; an uncaptioned one does not.
     """
     scale = HAND_CARD_WIDTH / CARD_WIDTH
     height = round(CARD_HEIGHT * scale)
+    heading_font = load_font(HAND_HEADING_SIZE, bold=True)
+    band = HAND_HEADING_SIZE + HAND_HEADING_GAP
 
-    rows: list[list[Image.Image]] = []
-    for block in blocks:
+    # Each block becomes one or more rows; the first row of a block
+    # carries that block's heading, if it has one.
+    groups: list[tuple[Optional[tuple[str, str]], list[list[Image.Image]]]] = []
+    for index, block in enumerate(blocks):
         sized = [
             card.resize((HAND_CARD_WIDTH, height), Image.Resampling.LANCZOS)
             for card in block
         ]
-        for start in range(0, len(sized), HAND_MAX_COLUMNS):
-            rows.append(sized[start:start + HAND_MAX_COLUMNS])
+        rows = [
+            sized[start:start + HAND_MAX_COLUMNS]
+            for start in range(0, len(sized), HAND_MAX_COLUMNS)
+        ]
+        heading = headings[index] if index < len(headings) else None
+        groups.append((heading, rows))
 
-    columns = max(len(row) for row in rows)
+    all_rows = [row for _, rows in groups for row in rows]
+    columns = max(len(row) for row in all_rows)
+    captioned = sum(1 for heading, _ in groups if heading is not None)
     canvas = Image.new(
         "RGB",
         (
@@ -1805,20 +1834,27 @@ def lay_out_hand(blocks: Sequence[Sequence[Image.Image]]) -> BytesIO:
             + HAND_CARD_WIDTH * columns
             + HAND_GAP * (columns - 1),
             HAND_MARGIN * 2
-            + height * len(rows)
-            + HAND_GAP * (len(rows) - 1),
+            + height * len(all_rows)
+            + HAND_GAP * (len(all_rows) - 1)
+            + band * captioned,
         ),
         FACE_COLOR,
     )
-    for row_index, row in enumerate(rows):
-        for column, card in enumerate(row):
-            canvas.paste(
-                card,
-                (
-                    HAND_MARGIN + column * (HAND_CARD_WIDTH + HAND_GAP),
-                    HAND_MARGIN + row_index * (height + HAND_GAP),
-                ),
-            )
+    draw = ImageDraw.Draw(canvas)
+
+    y = HAND_MARGIN
+    for heading, rows in groups:
+        if heading is not None:
+            label, colour = heading
+            draw.text((HAND_MARGIN, y), label, font=heading_font, fill=colour)
+            y += band
+        for row in rows:
+            for column, card in enumerate(row):
+                canvas.paste(
+                    card,
+                    (HAND_MARGIN + column * (HAND_CARD_WIDTH + HAND_GAP), y),
+                )
+            y += height + HAND_GAP
 
     buffer = BytesIO()
     canvas.save(buffer, format="PNG")
@@ -1873,13 +1909,18 @@ def render_maneuver_hands(
     blocks = [
         hand_card_images(catalog, players, side, tiers) for side in sides
     ]
+    colours = {"offense": OFFENSE_COLOR, "defense": DEFENSE_COLOR}
+    headings: list[Optional[tuple[str, str]]] = [
+        (HAND_HEADINGS[side], colours[side]) for side in sides
+    ]
     if len(sides) < 2 or MANEUVER_TIER_ADVANCED in tiers:
         # The back rides on the last side's block rather than starting
         # a row of its own: alone it is a row one card wide, which
         # pushes the whole image to three columns and a phone shows it
-        # as a tall ribbon.
+        # as a tall ribbon. It shares the last side's heading band --
+        # there is nothing to caption a lone back with.
         blocks[-1] = blocks[-1] + [hand_back_image(catalog, tiers)]
-    return lay_out_hand(blocks)
+    return lay_out_hand(blocks, headings)
 
 
 # A cell is a card plus this much white on every side, so cards are
