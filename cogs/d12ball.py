@@ -900,110 +900,96 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await show_prompt(interaction)
 
 
-    async def resolve_maneuver(
+    def maneuver_winner_text(
         self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
         match: MatchState,
-    ) -> None:
-        # Keys are what the match holds and what everything below
-        # dispatches on; the names are only ever printed.
-        offense_key = match.offense_maneuver
-        defense_key = match.defense_maneuver
-        offense_name = self.engine.maneuver_name(offense_key)
-        defense_name = self.engine.maneuver_name(defense_key)
-        offense_number = self.engine.possession_player_number(game, match)
-        defense_number = self.engine.defending_player_number(game, match)
-        offense_display = format_player_with_team(game, offense_number)
-        defense_display = format_player_with_team(game, defense_number)
+        reveal: str,
+        outcome: str,
+        winner_name: str,
+        offense_name: str,
+        defense_name: str,
+    ) -> str:
+        """
+        How a maneuver settled on the cards reads. Two wordings: an
+        ordinary decisive win, and a tie one injured participant loses
+        outright.
+        """
+        if outcome != "tie":
+            # Headed the same way a won skill test is (see
+            # SkillTestView.roll), so the two ways a maneuver can be
+            # won read alike. Whoever resolves the effect isn't named
+            # here: an effect with a choice in it prompts them by name
+            # itself, and one without needs nobody to do anything.
+            return f"{reveal}\n\n## **{winner_name}** wins!"
 
-        if match.maneuver_uncontested:
-            # Nothing to reveal against and nothing to rank: the
-            # offense's pick is the winner, and its effect runs the
-            # same pipeline a decisive win always does.
-            await interaction.followup.send(
-                f"{offense_display} chose **{offense_name}**, "
-                f"unchallenged.\n\n## **{offense_name}** succeeds!"
-            )
-            await self.begin_effect_resolution(
-                interaction, game, match, offense_key,
-            )
-            return
-
-        reveal = (
-            f"{offense_display} chose **{offense_name}**.\n"
-            f"{defense_display} chose **{defense_name}**."
+        # A tie with exactly one injured participant: they lose it
+        # outright. Nothing is rolled, so neither side pays the token a
+        # skill test would have cost them.
+        injured_player = self.engine.get_player_definition(
+            match.challenger_id
+            if match.challenger_id in match.injured
+            else match.active_player_id
+        )
+        return (
+            f"{reveal}\n\n"
+            f"**{offense_name}** ties with **{defense_name}**, but "
+            f"{format_role_bracket(injured_player, self.team_emojis, match.team_for_player(injured_player.player_id))}"
+            " is **injured** "
+            f"{get_injured_emoji(self.condition_emojis)} and "
+            "automatically loses the tie.\n\n"
+            f"## **{winner_name}** wins!"
         )
 
-        # Who wins is settled_maneuver_winner's alone to say; what is
-        # decided here is only how the four ways it can land are
-        # worded. `outcome` is the ranking on its own, which is what
-        # separates a win on the cards from a win handed over by the
-        # other player's injury.
-        outcome = self.maneuver_catalog.resolve(offense_key, defense_key)
-        winner_key = self.engine.settled_maneuver_winner(match)
-        winner_name = self.engine.maneuver_name(winner_key)
-        defense_injured = match.challenger_id in match.injured
-
-        if winner_key is not None:
-            if outcome == "tie":
-                # A tie with exactly one injured participant: they lose
-                # it outright. Nothing is rolled, so neither side pays
-                # the token a skill test would have cost them.
-                injured_player = self.engine.get_player_definition(
-                    match.challenger_id
-                    if defense_injured
-                    else match.active_player_id
-                )
-                await interaction.followup.send(
-                    f"{reveal}\n\n"
-                    f"**{offense_name}** ties with **{defense_name}**, but "
-                    f"{format_role_bracket(injured_player, self.team_emojis, match.team_for_player(injured_player.player_id))}"
-                    " is **injured** "
-                    f"{get_injured_emoji(self.condition_emojis)} and "
-                    "automatically loses the tie.\n\n"
-                    f"## **{winner_name}** wins!"
-                )
-            else:
-                # Headed the same way a won skill test is (see
-                # SkillTestView.roll), so the two ways a maneuver can be
-                # won read alike. Whoever resolves the effect isn't named
-                # here: an effect with a choice in it prompts them by name
-                # itself, and one without needs nobody to do anything.
-                await interaction.followup.send(
-                    f"{reveal}\n\n## **{winner_name}** wins!"
-                )
-            await self.begin_effect_resolution(
-                interaction, game, match, winner_key,
-            )
-            return
-
+    def skill_test_headline(
+        self,
+        match: MatchState,
+        reveal: str,
+        outcome: str,
+        offense_name: str,
+        defense_name: str,
+    ) -> str:
+        """
+        Why a maneuver the cards did not settle is going to a skill
+        test: the two ranked the same, or the one that would have won
+        is owed to an injured player.
+        """
         if outcome == "tie":
             # An ordinary tie -- both or neither participant is injured.
-            headline = (
+            return (
                 f"{reveal}\n\n"
                 f"**{offense_name}** ties with **{defense_name}** — skill "
                 "test!\n\n"
             )
-        else:
-            # An injured player's maneuver never wins outright -- they
-            # still have to win a skill test to make it stick.
-            would_be_winner = (
-                offense_name if outcome == "offense" else defense_name
-            )
-            injured_player = self.engine.get_player_definition(
-                match.active_player_id
-                if outcome == "offense"
-                else match.challenger_id
-            )
-            headline = (
-                f"{reveal}\n\n"
-                f"**{would_be_winner}** would win, but "
-                f"{format_role_bracket(injured_player, self.team_emojis, match.team_for_player(injured_player.player_id))} is "
-                f"**injured** {get_injured_emoji(self.condition_emojis)} -- "
-                "a skill test decides it instead!\n\n"
-            )
 
+        # An injured player's maneuver never wins outright -- they
+        # still have to win a skill test to make it stick.
+        would_be_winner = (
+            offense_name if outcome == "offense" else defense_name
+        )
+        injured_player = self.engine.get_player_definition(
+            match.active_player_id
+            if outcome == "offense"
+            else match.challenger_id
+        )
+        return (
+            f"{reveal}\n\n"
+            f"**{would_be_winner}** would win, but "
+            f"{format_role_bracket(injured_player, self.team_emojis, match.team_for_player(injured_player.player_id))} is "
+            f"**injured** {get_injured_emoji(self.condition_emojis)} -- "
+            "a skill test decides it instead!\n\n"
+        )
+
+    async def begin_maneuver_skill_test(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        headline: str,
+    ) -> None:
+        """
+        Charge both participants their token, post what is at stake,
+        and put the roll behind a button -- every roll is a coach's.
+        """
         exhaustion_text = (
             self.apply_exhaustion(match, match.active_player_id, 1)
             + "\n"
@@ -1046,6 +1032,74 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         game.turn_message_id = test_message.id
         save_games(self.games)
+
+    async def resolve_maneuver(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        # Keys are what the match holds and what everything below
+        # dispatches on; the names are only ever printed.
+        offense_key = match.offense_maneuver
+        defense_key = match.defense_maneuver
+        offense_name = self.engine.maneuver_name(offense_key)
+        defense_name = self.engine.maneuver_name(defense_key)
+        offense_number = self.engine.possession_player_number(game, match)
+        defense_number = self.engine.defending_player_number(game, match)
+        offense_display = format_player_with_team(game, offense_number)
+        defense_display = format_player_with_team(game, defense_number)
+
+        if match.maneuver_uncontested:
+            # Nothing to reveal against and nothing to rank: the
+            # offense's pick is the winner, and its effect runs the
+            # same pipeline a decisive win always does.
+            await interaction.followup.send(
+                f"{offense_display} chose **{offense_name}**, "
+                f"unchallenged.\n\n## **{offense_name}** succeeds!"
+            )
+            await self.begin_effect_resolution(
+                interaction, game, match, offense_key,
+            )
+            return
+
+        reveal = (
+            f"{offense_display} chose **{offense_name}**.\n"
+            f"{defense_display} chose **{defense_name}**."
+        )
+
+        # Who wins is settled_maneuver_winner's alone to say; what is
+        # decided here is only how the four ways it can land are
+        # worded. `outcome` is the ranking on its own, which is what
+        # separates a win on the cards from a win handed over by the
+        # other player's injury.
+        outcome = self.maneuver_catalog.resolve(offense_key, defense_key)
+        winner_key = self.engine.settled_maneuver_winner(match)
+
+        if winner_key is not None:
+            await interaction.followup.send(
+                self.maneuver_winner_text(
+                    match,
+                    reveal,
+                    outcome,
+                    self.engine.maneuver_name(winner_key),
+                    offense_name,
+                    defense_name,
+                )
+            )
+            await self.begin_effect_resolution(
+                interaction, game, match, winner_key,
+            )
+            return
+
+        await self.begin_maneuver_skill_test(
+            interaction,
+            game,
+            match,
+            self.skill_test_headline(
+                match, reveal, outcome, offense_name, defense_name,
+            ),
+        )
 
     async def begin_injury_tests(
         self,
