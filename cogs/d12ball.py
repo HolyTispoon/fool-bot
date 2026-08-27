@@ -4826,92 +4826,50 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             filename=f"d12ball-coaching-{game.game_number}.png",
         )
 
-    async def begin_substitution_window(
+    async def post_tutorial_coaching_note(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
-        match: MatchState,
         side: TeamSide,
-        occasion: CoachingOccasion = CoachingOccasion.NEW_PLAY,
-        is_response: bool = False,
-        lead_in: str = "",
     ) -> None:
         """
-        Offer `side` the window. A declaration is once a half, so a
-        side that has already spent theirs is never offered one. An
-        injured player on the field is named in the heading but
-        compels nothing -- leaving them on is the coach's call.
-
-        `occasion` carries every difference between the five -- the
-        substitution allowance, whether the declare-or-pass offer is
-        put at all, where a player taken off goes, and whether the
-        three positional actions are offered at all. Setup, halftime
-        and full time are given rather than declared, so all three skip
-        the offer and open the menu directly; a ceded ball skips it for
-        the opposite reason, having already been paid for.
-
-        **A window opens on the arrangement its coach last settled**,
-        never on the scramble a run back left behind -- see
-        MatchState.restore_assigned_positions. A new play resets both
-        sides before offering the window, so this only ever does
-        anything at halftime, where the first half ended wherever it
-        ended; but it is the guarantee for every occasion rather than
-        a halftime step, because a coach reading their half-field is
-        reading the shape they set either way.
-
-        Except full time, which has no positioning in it: nothing is
-        played from a position after it, so restoring would rearrange
-        the last board of the game to no purpose.
+        The tutorial's last lesson, and the one it cannot schedule: a
+        new play offers the window to the side *restarting* play, which
+        after the coach's goal is Dinky. So the note fires at the first
+        window this coach is ever offered, whenever the game gets round
+        to it -- which is why it reads `tutorial` rather than
+        `in_tutorial`, and usually lands a few turns after the script
+        has finished. `skip_tutorial` sets the flag so a coach who
+        opted out is not taught anyway.
         """
-        side = TeamSide(side)
-        occasion = CoachingOccasion(occasion)
-
-        # The tutorial's last lesson, and the one it cannot schedule:
-        # a new play offers this window to the side *restarting* play,
-        # which after the coach's goal is Dinky. So the note fires at
-        # the first window this coach is ever offered, whenever the
-        # game gets round to it -- which is why it reads `tutorial`
-        # rather than `in_tutorial`, and usually lands a few turns
-        # after the script has finished. `skip_tutorial` sets the flag
-        # so a coach who opted out is not taught anyway.
         if (
-            game.tutorial
-            and not game.tutorial_coaching_explained
-            and side == self.tutorial_player_side(game)
+            not game.tutorial
+            or game.tutorial_coaching_explained
+            or side != self.tutorial_player_side(game)
         ):
-            game.tutorial_coaching_explained = True
-            save_games(self.games)
-            await interaction.followup.send(tutorial.COACHING_NOTE)
-
-        restored = (
-            match.restore_assigned_positions(side)
-            if occasion.offers_positioning
-            else False
-        )
-        shape = self.engine.current_formation(match, side)
-        match.open_coaching_window(
-            side,
-            occasion,
-            is_response=is_response,
-            formation=shape.value if shape else None,
-        )
-        game.match_state = match.to_dict()
-        save_games(self.games)
-
-        # Only when the restore actually moved somebody, so the common
-        # case -- setup, and a new play that has just reset both sides
-        # -- costs nothing. Halftime does move them, and a coach whose
-        # half-field disagrees with the board above it has no way to
-        # tell which one the game thinks is true.
-        if restored:
-            await self.refresh_match_image(interaction, game)
-
-        if self.engine.side_is_ai(game, side):
-            await self.run_ai_substitution_window(
-                interaction, game, match, lead_in=lead_in,
-            )
             return
 
+        game.tutorial_coaching_explained = True
+        save_games(self.games)
+        await interaction.followup.send(tutorial.COACHING_NOTE)
+
+    def coaching_window_note(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        occasion: CoachingOccasion,
+        is_response: bool,
+        restored: bool,
+    ) -> str:
+        """
+        The line under a coaching prompt: what this window costs, what
+        moved on the way in, and who is hurt.
+
+        The three read as one paragraph but answer separately -- an
+        occasion that is declared says so, a restore is only mentioned
+        when it actually moved somebody, and an injured player is a
+        nudge rather than a requirement.
+        """
         if occasion.asks_declaration:
             note = (
                 "Answering the other team, which leaves your own "
@@ -4956,6 +4914,83 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             verb = "is" if len(injured_ids) == 1 else "are"
             note += f"\n{injured} {verb} injured and still on the field."
+
+        return note
+
+    async def begin_substitution_window(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        occasion: CoachingOccasion = CoachingOccasion.NEW_PLAY,
+        is_response: bool = False,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Offer `side` the window. A declaration is once a half, so a
+        side that has already spent theirs is never offered one. An
+        injured player on the field is named in the heading but
+        compels nothing -- leaving them on is the coach's call.
+
+        `occasion` carries every difference between the five -- the
+        substitution allowance, whether the declare-or-pass offer is
+        put at all, where a player taken off goes, and whether the
+        three positional actions are offered at all. Setup, halftime
+        and full time are given rather than declared, so all three skip
+        the offer and open the menu directly; a ceded ball skips it for
+        the opposite reason, having already been paid for.
+
+        **A window opens on the arrangement its coach last settled**,
+        never on the scramble a run back left behind -- see
+        MatchState.restore_assigned_positions. A new play resets both
+        sides before offering the window, so this only ever does
+        anything at halftime, where the first half ended wherever it
+        ended; but it is the guarantee for every occasion rather than
+        a halftime step, because a coach reading their half-field is
+        reading the shape they set either way.
+
+        Except full time, which has no positioning in it: nothing is
+        played from a position after it, so restoring would rearrange
+        the last board of the game to no purpose.
+        """
+        side = TeamSide(side)
+        occasion = CoachingOccasion(occasion)
+
+        await self.post_tutorial_coaching_note(interaction, game, side)
+
+        restored = (
+            match.restore_assigned_positions(side)
+            if occasion.offers_positioning
+            else False
+        )
+        shape = self.engine.current_formation(match, side)
+        match.open_coaching_window(
+            side,
+            occasion,
+            is_response=is_response,
+            formation=shape.value if shape else None,
+        )
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        # Only when the restore actually moved somebody, so the common
+        # case -- setup, and a new play that has just reset both sides
+        # -- costs nothing. Halftime does move them, and a coach whose
+        # half-field disagrees with the board above it has no way to
+        # tell which one the game thinks is true.
+        if restored:
+            await self.refresh_match_image(interaction, game)
+
+        if self.engine.side_is_ai(game, side):
+            await self.run_ai_substitution_window(
+                interaction, game, match, lead_in=lead_in,
+            )
+            return
+
+        note = self.coaching_window_note(
+            match, side, occasion, is_response, restored,
+        )
 
         prompt = await interaction.followup.send(
             self.engine.coaching_prompt(game, match, side, note, lead_in=lead_in),
