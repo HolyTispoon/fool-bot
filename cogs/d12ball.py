@@ -4535,6 +4535,91 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 
+    async def own_goal_roll_message(
+        self,
+        match: MatchState,
+        offense_player: PlayerDefinition,
+        rolls: tuple[int, int],
+        offense_skill: int,
+        safe: bool,
+    ) -> tuple[discord.File, str]:
+        """
+        The dice image and the arithmetic that produced it, which is
+        posted above it because it is what built it.
+        """
+        offense_setup = match.setup_for_side(match.ball.possession)
+        dice_file = discord.File(
+            await asyncio.to_thread(
+                render_own_goal_dice,
+                list(rolls),
+                TEAM_COLORS[offense_setup.team],
+                safe,
+            ),
+            filename="own_goal_dice.png",
+        )
+
+        taken = max(rolls)
+        breakdown = (
+            f"**Own goal risk!** "
+            f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
+            f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
+            f"is {taken}, + {offense_skill} (offensive skill) "
+            f"= {taken + offense_skill}"
+        )
+
+        return dice_file, breakdown
+
+    def apply_own_goal_outcome(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        offense_player: PlayerDefinition,
+        distance_moved: int,
+        safe: bool,
+        exhaustion_text: str,
+    ) -> str:
+        """
+        Settle the roll and word it. Both outcomes restart play, which
+        is why the caller's dispatch is the same either way -- what
+        differs is whether a goal went on the board.
+        """
+        if safe:
+            # A new play resets speed same as any other -- see
+            # begin_run_back -- and nothing else on this path would,
+            # since Pressure's overshoot branch never touches it.
+            match.ball.speed = 1
+            # The ball stays exactly where the overshot Pressure left
+            # it, with no coverage guarantee at all -- not even the
+            # standard deal's, since that position is wherever the play
+            # happened to reach. So, since 2026-08-24, this owes the
+            # same pickup an out-of-bounds ball does rather than a
+            # two-sided loose ball: begin_ball_recovery checks
+            # eligible_ball_handlers() first and asks nobody when the
+            # reset already covers it.
+            match.pending_ball_recovery = True
+            return f"## Own goal avoided!\n\n{exhaustion_text}"
+
+        conceding_side = match.ball.possession
+        # The goal is the other side's; the kick is this player's,
+        # and the log says both -- see concede_own_goal.
+        match.concede_own_goal(offense_player.player_id)
+        match.restart_after_goal(conceding_side)
+        match.pending_run_back = True
+        match.pending_run_back_distance = distance_moved
+        match.pending_run_back_turnover = True
+        game.match_state = match.to_dict()
+        save_games(self.games)
+        return (
+            f"# Own goal!\n"
+            f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
+            "puts it in their own net on "
+            f"**{format_goal_time(match.goals[-1])}**.\n"
+            f"{team_display_name(match.home.team)} {match.scoreboard.home_score}:"
+            f"{match.scoreboard.visiting_score} "
+            f"{team_display_name(match.visiting.team)}\n\n"
+            f"{exhaustion_text}"
+        )
+
     async def run_own_goal_roll(
         self,
         interaction: discord.Interaction,
@@ -4560,8 +4645,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         ).offense
 
         rolls = (random.randint(1, 12), random.randint(1, 12))
-        taken = max(rolls)
-        total = taken + offense_skill
+        safe = max(rolls) + offense_skill >= 7
 
         # Charged before either branch saves the match, so the token
         # and any Exhausted flag it sets are written out with the rest
@@ -4570,63 +4654,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match, offense_player.player_id, 1,
         )
 
-        safe = total >= 7
-
-        offense_setup = match.setup_for_side(match.ball.possession)
-        dice_file = discord.File(
-            await asyncio.to_thread(
-                render_own_goal_dice,
-                list(rolls),
-                TEAM_COLORS[offense_setup.team],
-                safe,
-            ),
-            filename="own_goal_dice.png",
+        dice_file, breakdown = await self.own_goal_roll_message(
+            match, offense_player, rolls, offense_skill, safe,
         )
-
-        breakdown = (
-            f"**Own goal risk!** "
-            f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
-            f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
-            f"is {taken}, + {offense_skill} (offensive skill) "
-            f"= {total}"
+        verdict = self.apply_own_goal_outcome(
+            game, match, offense_player, distance_moved, safe,
+            exhaustion_text,
         )
-
-        if safe:
-            # A new play resets speed same as any other -- see
-            # begin_run_back below -- and nothing else on this path
-            # would, since Pressure's overshoot branch never touches it.
-            match.ball.speed = 1
-            # The ball stays exactly where the overshot Pressure left
-            # it, with no coverage guarantee at all -- not even the
-            # standard deal's, since that position is wherever the play
-            # happened to reach. So, since 2026-08-24, this owes the
-            # same pickup an out-of-bounds ball does rather than a
-            # two-sided loose ball: begin_ball_recovery checks
-            # eligible_ball_handlers() first and asks nobody when the
-            # reset already covers it.
-            match.pending_ball_recovery = True
-            verdict = f"## Own goal avoided!\n\n{exhaustion_text}"
-        else:
-            conceding_side = match.ball.possession
-            # The goal is the other side's; the kick is this player's,
-            # and the log says both -- see concede_own_goal.
-            match.concede_own_goal(offense_player.player_id)
-            match.restart_after_goal(conceding_side)
-            match.pending_run_back = True
-            match.pending_run_back_distance = distance_moved
-            match.pending_run_back_turnover = True
-            game.match_state = match.to_dict()
-            save_games(self.games)
-            verdict = (
-                f"# Own goal!\n"
-                f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
-                "puts it in their own net on "
-                f"**{format_goal_time(match.goals[-1])}**.\n"
-                f"{team_display_name(match.home.team)} {match.scoreboard.home_score}:"
-                f"{match.scoreboard.visiting_score} "
-                f"{team_display_name(match.visiting.team)}\n\n"
-                f"{exhaustion_text}"
-            )
 
         # The prompt becomes the dice, taking its own explanation with
         # it once the roll it was asking for has happened -- the same
@@ -4642,34 +4676,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         await interaction.followup.send(verdict)
         await self.refresh_match_image(interaction, game)
+
         if safe:
             game.match_state = match.to_dict()
             save_games(self.games)
-            # Avoiding it is a stoppage too, not a play that simply
-            # carries on: both sides reset to their saved arrangement
-            # and the side that kept the ball may declare, exactly like
-            # any other new play -- and if this closes out last
-            # possession, begin_run_back's own check ends the period
-            # here instead. See "Own goal" in docs/living-rules.md.
-            await self.begin_run_back(
-                interaction,
-                game,
-                match,
-                distance_moved=distance_moved,
-                turnover_occurred=True,
-                new_play=True,
-            )
-        else:
-            # A conceded own goal restarts from the kickoff space
-            # exactly as any other goal does, so it is a new play.
-            await self.begin_run_back(
-                interaction,
-                game,
-                match,
-                distance_moved=distance_moved,
-                turnover_occurred=True,
-                new_play=True,
-            )
+
+        # **Both outcomes are new plays.** A conceded own goal restarts
+        # from the kickoff space as any other goal does; avoiding one
+        # is a stoppage too, not a play that carries on -- both sides
+        # reset to their saved arrangement and the side with the ball
+        # may declare. If this closes out last possession,
+        # begin_run_back's own check ends the period here instead. See
+        # "Own goal" in docs/living-rules.md.
+        await self.begin_run_back(
+            interaction,
+            game,
+            match,
+            distance_moved=distance_moved,
+            turnover_occurred=True,
+            new_play=True,
+        )
 
     # -- Run-back (after a turnover) ----------------------------------
 
