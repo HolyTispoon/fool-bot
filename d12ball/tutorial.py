@@ -46,8 +46,11 @@ so no reply comes back the coach's way either. `COACHING_NOTE` is
 therefore a one-off explainer fired from `begin_substitution_window` at
 the first window this coach is ever offered, whenever the game gets
 round to it, and `tutorial_coaching_explained` is what keeps it to one.
-Skipping the tutorial suppresses it, which is what `skip_tutorial`
-setting that flag is for.
+It is held behind a Continue button like every other tutorial note with
+something after it -- the menu it explains -- so
+`begin_substitution_window` hands the window-opening tail to
+`post_tutorial_note` as the continuation. Skipping the tutorial
+suppresses it, which is what `skip_tutorial` setting that flag is for.
 
 **The opening position is the standard deal**, and the script places
 nothing. Both sides are dealt 2-2-2 exactly as every game deals them:
