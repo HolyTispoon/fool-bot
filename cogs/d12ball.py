@@ -3897,31 +3897,29 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         await self.apply_steal(interaction, game, match, "intercept")
 
-    async def apply_steal(
+    def take_ball_by_steal(
         self,
-        interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
-        key: str,
-    ) -> None:
-        new_possession_side = match.defending_side()
-        challenger_id = match.challenger_id
-        name = self.engine.maneuver_name(key)
-        # Toward the new possessor's own goal for a Steal, toward the
-        # goal they now attack for an Intercept -- so the two are one
-        # function and a sign.
-        direction = 1 if key == "intercept" else -1
+        challenger_id: str,
+        new_possession_side: TeamSide,
+        direction: int,
+    ) -> tuple[bool, int]:
+        """
+        Turn the ball over and carry it off, returning whether the
+        carry ran out of field and how far it actually went.
 
-        # The turnover happens first, then both the interceptor and the
-        # ball move -- relative to the *new* possessing side, not the
-        # old one. Moving the challenger's meeple (not just the ball)
-        # and re-deriving the ball's space from it keeps the two in the
-        # same space, so possession can be assigned directly without
-        # set_possession's occupancy check.
+        The turnover happens first, then both the interceptor and the
+        ball move -- relative to the *new* possessing side, not the old
+        one. Moving the challenger's meeple (not just the ball) and
+        re-deriving the ball's space from it keeps the two in the same
+        space, so possession can be assigned directly without
+        set_possession's occupancy check.
+        """
         match.ball.possession = new_possession_side
         # Every turnover drops the ball's speed back to 1 -- the
-        # defender's manipulate-speed choice below applies to that
-        # reset value, not whatever the speed was before the steal.
+        # defender's manipulate-speed choice applies to that reset
+        # value, not whatever the speed was before the steal.
         match.ball.speed = 1
 
         # Intercept moving forward can run out of field, which a Steal
@@ -3942,11 +3940,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.set_ball_space(*match.board.meeple_position(challenger_id))
         # The interceptor took the ball off someone and moved with it,
         # so they carry it into their side's next turn -- the same
-        # player the run back exempts below.
+        # player the run back exempts.
         match.set_ball_carrier(challenger_id)
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        return overshot, actual_distance
+
+    def steal_result_text(
+        self,
+        match: MatchState,
+        key: str,
+        name: str,
+        challenger_id: str,
+        actual_distance: int,
+    ) -> str:
+        """The turnover, and which way the thief carried it."""
         space_word = "space" if actual_distance == 1 else "spaces"
         challenger = self.engine.get_player_definition(challenger_id)
         challenger_label = format_role_bracket(
@@ -3962,12 +3971,34 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else f"then falls back {actual_distance} {space_word} toward "
             "their own goal with the ball"
         )
-        content = (
+        return (
             f"**{name}:**\n"
             "# Turnover!\n"
             f"{challenger_label} steals the ball. "
             f"{format_team_side_label(new_possession)} now has possession, "
             f"{travel}."
+        )
+
+    async def apply_steal(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        key: str,
+    ) -> None:
+        new_possession_side = match.defending_side()
+        challenger_id = match.challenger_id
+        name = self.engine.maneuver_name(key)
+        # Toward the new possessor's own goal for a Steal, toward the
+        # goal they now attack for an Intercept -- so the two are one
+        # function and a sign.
+        direction = 1 if key == "intercept" else -1
+
+        overshot, actual_distance = self.take_ball_by_steal(
+            game, match, challenger_id, new_possession_side, direction,
+        )
+        content = self.steal_result_text(
+            match, key, name, challenger_id, actual_distance,
         )
 
         if key == "intercept" and overshot:
@@ -4019,7 +4050,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # Ball-speed manipulation is offered after run-back finishes,
         # not here -- see begin_run_back's speed_choice_after.
         # No stays_player_id: begin_run_back exempts the ball carrier,
-        # which set_ball_carrier above has already made the interceptor.
+        # which take_ball_by_steal has already made the interceptor.
         await self.begin_run_back(
             interaction,
             game,
