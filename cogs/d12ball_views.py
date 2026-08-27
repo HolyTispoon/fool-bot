@@ -766,6 +766,95 @@ class CoinFlipView(GameConfigurationView):
         self.add_item(self.flip_button)
         self.add_configuration_buttons()
 
+    def settle_coin_toss(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        flipping_player_number: int,
+    ) -> None:
+        """
+        Throw the coin, record who won it, and -- in a solo game Dinky
+        won -- take Dinky's side for it.
+        """
+        face = random.choice((CoinFace.FORTUNE, CoinFace.DOOM))
+
+        refresh_player_names(game, interaction.guild)
+        winner_player_number = game.resolve_coin_toss(
+            flipping_player_number,
+            face,
+        )
+
+        game.coin_winner = format_player(game, winner_player_number)
+        game.start_game()
+
+        if not (game.is_solo_game and winner_player_number == 2):
+            return
+
+        # The tutorial's script is written for a coach with the ball at
+        # kickoff, so Dinky takes the visiting side and leaves them
+        # home. `DinkyAI.choose_home_or_visiting` is a coin flip of its
+        # own and is overridden here rather than inside the strategy:
+        # it takes no arguments, so it cannot know which game is
+        # asking, and a tutorial is a property of the game. The coach's
+        # own half of this is the rail on HomeAwaySelectionView.
+        ai_choice = (
+            HomeChoice.VISITING
+            if game.tutorial
+            else self.cog.engine.get_ai_strategy(
+                game,
+            ).choose_home_or_visiting()
+        )
+        game.choose_home_or_visiting(2, ai_choice)
+        self.cog.engine.initialize_standard_match(game)
+
+    async def announce_coin_toss(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        """
+        Retire the setup prompt, show the coin, and put the
+        home-or-visiting choice up.
+
+        **The choice message becomes the game's persistent message**,
+        which is what every later board refresh edits -- so a board
+        write never touches the post the channel opened with. See
+        "Discord's rate limits".
+        """
+        await interaction.response.edit_message(
+            content=build_setup_message(
+                game,
+                mention_players=False,
+            ),
+            view=None,
+        )
+
+        # The coin goes out on its own, with nothing else in the
+        # message, which is what makes Discord render it large.
+        await interaction.followup.send(
+            format_coin_emoji(
+                await self.cog.ensure_coin_emojis(),
+                game.coin_face,
+            ),
+        )
+
+        # No board yet, even when the match already exists (a solo game
+        # whose AI won the toss and chose for itself). The first board
+        # this message carries is the one the kickoff posts -- so
+        # nothing is drawn until both coaches have finished setting up
+        # and there is a kickoff to show. See
+        # D12Ball.finish_setup_coaching.
+        choice_message = await interaction.followup.send(
+            build_home_choice_message(game),
+            view=HomeAwaySelectionView(
+                cog=self.cog,
+                game_id=self.game_id,
+            ),
+            wait=True,
+        )
+        game.message_id = choice_message.id
+        save_games(self.cog.games)
+
     async def flip_coin(
         self,
         interaction: discord.Interaction,
@@ -792,14 +881,15 @@ class CoinFlipView(GameConfigurationView):
             return
 
         if game.coin_flipped:
-            refreshed_view = HomeAwaySelectionView(
-                cog=self.cog,
-                game_id=self.game_id,
-            )
-
+            # A second click on a prompt the toss has already answered:
+            # put the choice back rather than only refusing, since the
+            # message they clicked is the one carrying it.
             await interaction.response.edit_message(
                 content=build_home_choice_message(game),
-                view=refreshed_view,
+                view=HomeAwaySelectionView(
+                    cog=self.cog,
+                    game_id=self.game_id,
+                ),
             )
 
             await interaction.followup.send(
@@ -808,75 +898,13 @@ class CoinFlipView(GameConfigurationView):
             )
             return
 
-        flipping_player_number = (
-            1 if interaction.user.id == game.player_1_id else 2
-        )
-        face = random.choice((CoinFace.FORTUNE, CoinFace.DOOM))
-
-        refresh_player_names(game, interaction.guild)
-        winner_player_number = game.resolve_coin_toss(
-            flipping_player_number,
-            face,
+        self.settle_coin_toss(
+            interaction,
+            game,
+            1 if interaction.user.id == game.player_1_id else 2,
         )
 
-        game.coin_winner = format_player(game, winner_player_number)
-        game.start_game()
-
-        if game.is_solo_game and winner_player_number == 2:
-            # The tutorial's script is written for a coach with the
-            # ball at kickoff, so Dinky takes the visiting side and
-            # leaves them home. `DinkyAI.choose_home_or_visiting` is a
-            # coin flip of its own and is overridden here rather than
-            # inside the strategy: it takes no arguments, so it cannot
-            # know which game is asking, and a tutorial is a property
-            # of the game. The coach's own half of this is the rail on
-            # HomeAwaySelectionView.
-            ai_choice = (
-                HomeChoice.VISITING
-                if game.tutorial
-                else self.cog.engine.get_ai_strategy(
-                    game,
-                ).choose_home_or_visiting()
-            )
-            game.choose_home_or_visiting(2, ai_choice)
-            self.cog.engine.initialize_standard_match(game)
-
-        refreshed_view = HomeAwaySelectionView(
-            cog=self.cog,
-            game_id=self.game_id,
-        )
-
-        await interaction.response.edit_message(
-            content=build_setup_message(
-                game,
-                mention_players=False,
-            ),
-            view=None,
-        )
-
-        # The coin goes out on its own, with nothing else in the
-        # message, which is what makes Discord render it large.
-        await interaction.followup.send(
-            format_coin_emoji(
-                await self.cog.ensure_coin_emojis(),
-                game.coin_face,
-            ),
-        )
-
-        # No board yet, even when the match already exists (a solo game
-        # whose AI won the toss and chose for itself). This message is
-        # the persistent one every later refresh edits, and the first
-        # board it carries is the one the kickoff posts -- so nothing
-        # is drawn until both coaches have finished setting up and
-        # there is a kickoff to show. See
-        # D12Ball.finish_setup_coaching.
-        choice_message = await interaction.followup.send(
-            build_home_choice_message(game),
-            view=refreshed_view,
-            wait=True,
-        )
-        game.message_id = choice_message.id
-        save_games(self.cog.games)
+        await self.announce_coin_toss(interaction, game)
 
         if game.match_state is not None:
             await self.cog.begin_setup_coaching(interaction, game)
