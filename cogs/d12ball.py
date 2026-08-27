@@ -250,43 +250,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # matches nothing shows as three disabled buttons rather than
         # as an error. See d12ball/tutorial.py.
         tutorial.validate_script(self.maneuver_catalog)
-        # One hexagon per tier: a basic-mode coach has no advanced
-        # cards to read a matchup for, so its hexagon shows one box a
-        # rank rather than the pair an advanced game's does -- see
-        # render_maneuver_reference_image.
-        self.maneuver_reference_image_bytes = {
-            tier: render_maneuver_reference_image(
-                self.maneuver_catalog, tier
-            ).read()
-            for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
-        }
-        # The cards the maneuver prompt carries. All of them are drawn
-        # here for the same reason the reference image is: it is the one
-        # place a render can block the loop harmlessly, and the
-        # alternative is drawing up to thirteen cards on every maneuver.
-        # They cannot go stale -- nothing about a maneuver card depends
-        # on the match.
-        #
-        # **Keyed by the sides on the prompt and the tiers they may
-        # play.** The prompt is public and carries a hand for every side
-        # that still has a human pick to make, so the sides are the two
-        # of them, or one alone when the maneuver is unchallenged or the
-        # other side is Dinky's -- see `RulesEngine.maneuver_pick_sides`
-        # and `maneuver_tiers`.
-        self.maneuver_hand_image_bytes = {
-            (sides, tiers): render_maneuver_hands(
-                self.maneuver_catalog, self.player_catalog, sides, tiers
-            ).read()
-            for sides in (
-                ("offense",),
-                ("defense",),
-                ("offense", "defense"),
-            )
-            for tiers in (
-                (MANEUVER_TIER_BASIC,),
-                (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
-            )
-        }
+        self.prerender_maneuver_images()
+
         self.coin_emojis: dict[CoinFace, str] = {}
         # When the coin emoji were last asked after, on the monotonic
         # clock -- see ensure_coin_emojis. None, not 0.0: monotonic
@@ -334,6 +299,62 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # board_refresh_interval.
         self.board_writes_refused: dict[str, int] = {}
 
+        self.restore_saved_views()
+        self.log_live_games()
+
+    def prerender_maneuver_images(self) -> None:
+        """
+        Draw every maneuver image the bot will ever send, once.
+
+        Startup is the one place a render can block the loop
+        harmlessly, and the alternative is drawing up to thirteen cards
+        on every maneuver. Nothing about a maneuver card or the
+        reference hexagon depends on the match, so none of these can go
+        stale.
+        """
+        # One hexagon per tier: a basic-mode coach has no advanced
+        # cards to read a matchup for, so its hexagon shows one box a
+        # rank rather than the pair an advanced game's does -- see
+        # render_maneuver_reference_image.
+        self.maneuver_reference_image_bytes = {
+            tier: render_maneuver_reference_image(
+                self.maneuver_catalog, tier
+            ).read()
+            for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
+        }
+        # The cards the maneuver prompt carries.
+        #
+        # **Keyed by the sides on the prompt and the tiers they may
+        # play.** The prompt is public and carries a hand for every side
+        # that still has a human pick to make, so the sides are the two
+        # of them, or one alone when the maneuver is unchallenged or the
+        # other side is Dinky's -- see `RulesEngine.maneuver_pick_sides`
+        # and `maneuver_tiers`.
+        self.maneuver_hand_image_bytes = {
+            (sides, tiers): render_maneuver_hands(
+                self.maneuver_catalog, self.player_catalog, sides, tiers
+            ).read()
+            for sides in (
+                ("offense",),
+                ("defense",),
+                ("offense", "defense"),
+            )
+            for tiers in (
+                (MANEUVER_TIER_BASIC,),
+                (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
+            )
+        }
+
+    def restore_saved_views(self) -> None:
+        """
+        Re-arm one message per saved game: whichever setup prompt it
+        stopped at, a finished game's rematch message, and the prompt
+        its turn is waiting on.
+
+        A restart re-arms exactly one turn message per game, which is
+        why a game can still come back with no working button anywhere
+        -- see "Recovering a stuck game" in CLAUDE.md.
+        """
         restored_views = 0
 
         for game in self.games.values():
@@ -411,12 +432,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             restored_views,
         )
 
-        # discord.py reports a 429 as a bare method and URL, and the
-        # only thing in it that identifies the game is the channel and
-        # message id. Three rounds of these warnings were read by
-        # inferring which message that was; one line a live game at
-        # startup makes it a lookup instead. See "Discord's rate
-        # limits" in CLAUDE.md.
+    def log_live_games(self) -> None:
+        """
+        One line per unfinished game, naming its channel and its two
+        message ids.
+
+        discord.py reports a 429 as a bare method and URL, and the only
+        thing in it that identifies the game is the channel and message
+        id. Three rounds of those warnings were read by inferring which
+        message that was, wrongly; this makes it a lookup instead. See
+        "Discord's rate limits" in CLAUDE.md.
+        """
         for game in self.games.values():
             if game.status == GameStatus.FINISHED:
                 continue
