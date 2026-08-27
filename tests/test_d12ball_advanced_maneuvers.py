@@ -186,12 +186,21 @@ class AdvancedHarness:
             *match.board.meeple_position(player_id)
         )
 
-    def put_a_teammate_at(self, match: MatchState, distance: int) -> str:
+    def put_a_teammate_at(
+        self,
+        match: MatchState,
+        distance: int,
+        exclude: tuple[str, ...] = (),
+    ) -> str:
         """
         Stand one of the passer's own side `distance` spaces ahead of
         the ball, and hand back who it is. The standard deal decides
         where everybody starts, and a test about a pass should not also
         be a test of the deal.
+
+        `exclude` is for a test standing two teammates out, which is
+        what a reach is asserted with: one inside it and one past it,
+        and the second must not be the first walked somewhere else.
         """
         target = match.relative_flat_index(
             self.flat(match), match.ball.possession, distance,
@@ -201,6 +210,7 @@ class AdvancedHarness:
             player_id
             for player_id in match.home.field_players
             if player_id != match.active_player_id
+            and player_id not in exclude
         ][0]
         match.move_meeple(teammate, zone, space_index)
         return teammate
@@ -240,7 +250,7 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
             [m.key for m in hand],
             [
                 "low_pass",
-                "precise_pass",
+                "skilled_pass",
                 "dribble_advance",
                 "dribble_burst",
                 "high_pass",
@@ -339,22 +349,22 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
     """
 
     def test_a_decisive_matchup_carries_the_effects(self) -> None:
-        cog, game, match = self.build("precise_pass", "double_team")
+        cog, game, match = self.build("skilled_pass", "double_team")
 
         self.assertTrue(cog.engine.advanced_effects_apply(match))
         self.assertEqual(
-            cog.engine.advanced_cost(match, "precise_pass"), "double_team",
+            cog.engine.advanced_cost(match, "skilled_pass"), "double_team",
         )
 
     def test_a_tie_carries_nothing_and_resolves_as_the_basic_card(
         self,
     ) -> None:
-        cog, game, match = self.build("precise_pass", "clear")
+        cog, game, match = self.build("skilled_pass", "clear")
 
         self.assertFalse(cog.engine.advanced_effects_apply(match))
-        self.assertIsNone(cog.engine.advanced_cost(match, "precise_pass"))
+        self.assertIsNone(cog.engine.advanced_cost(match, "skilled_pass"))
         self.assertEqual(
-            cog.engine.resolving_maneuver(match, "precise_pass"), "low_pass",
+            cog.engine.resolving_maneuver(match, "skilled_pass"), "low_pass",
         )
 
     def test_an_injured_auto_loss_of_a_tie_carries_nothing(self) -> None:
@@ -362,15 +372,15 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         It was a tie on the cards; the injury only settled it without a
         roll. Same reading that makes the downgrade below carry them.
         """
-        cog, game, match = self.build("precise_pass", "clear")
+        cog, game, match = self.build("skilled_pass", "clear")
         match.injured.add(match.challenger_id)
 
         self.assertEqual(
-            cog.engine.settled_maneuver_winner(match), "precise_pass",
+            cog.engine.settled_maneuver_winner(match), "skilled_pass",
         )
         self.assertFalse(cog.engine.advanced_effects_apply(match))
         self.assertEqual(
-            cog.engine.resolving_maneuver(match, "precise_pass"), "low_pass",
+            cog.engine.resolving_maneuver(match, "skilled_pass"), "low_pass",
         )
 
     def test_an_injury_downgrade_still_carries_them(self) -> None:
@@ -381,14 +391,14 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         the effects point, which is why the winner is still None here
         and the effects are still in force.
         """
-        cog, game, match = self.build("precise_pass", "double_team")
+        cog, game, match = self.build("skilled_pass", "double_team")
         match.injured.add(match.active_player_id)
 
         self.assertIsNone(cog.engine.settled_maneuver_winner(match))
         self.assertTrue(cog.engine.advanced_effects_apply(match))
         self.assertEqual(
-            cog.engine.resolving_maneuver(match, "precise_pass"),
-            "precise_pass",
+            cog.engine.resolving_maneuver(match, "skilled_pass"),
+            "skilled_pass",
         )
 
     def test_a_basic_winner_over_a_basic_loser_owes_no_cost(self) -> None:
@@ -454,29 +464,66 @@ class EveryMatchupResolvesTests(
         await self.resolve_every_pairing(solo=True)
 
 
-class PrecisePassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
-    def test_it_reaches_every_teammate_not_the_nearest_each_way(
+class SkilledPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+    def test_it_reaches_any_teammate_within_three_not_the_nearest_each_way(
         self,
     ) -> None:
-        cog, game, match = self.build("precise_pass", "double_team")
+        """
+        What the card buys over a Low Pass: the nearest-each-way rule
+        taken off. A teammate 1 ahead hides a teammate 2 ahead from a
+        Low Pass and hides nobody from this.
 
-        basic = cog.engine.low_pass_candidates(match)
-        precise = cog.engine.precise_pass_candidates(match)
+        Asserted on the distances offered rather than on who is named
+        at each one -- the standard deal has already put somebody on
+        some of these spaces, and a destination button names whichever
+        of them the roster lists first.
+        """
+        cog, game, match = self.build("skilled_pass", "double_team")
+        near = self.put_a_teammate_at(match, 1)
+        far = self.put_a_teammate_at(match, 2, exclude=(near,))
 
-        self.assertGreater(len(precise), len(basic))
-        # Every Low Pass destination is still a Precise Pass one: the
-        # card takes the reach off, it does not change what a pass is.
-        self.assertTrue(set(basic).issubset(set(precise)))
+        basic = [distance for distance, _ in
+                 cog.engine.low_pass_candidates(match)]
+        skilled = [distance for distance, _ in
+                   cog.engine.skilled_pass_candidates(match)]
+
+        self.assertIn(1, basic)
+        self.assertNotIn(2, basic)
+        self.assertIn(1, skilled)
+        self.assertIn(2, skilled)
+        self.assertIn(far, cog.engine.low_pass_receivers(match, 2))
+
+    def test_its_reach_stops_at_three(self) -> None:
+        """
+        The 2026-08-26 bound, asserted on the widest board there is --
+        nine spaces, where a teammate four away is somebody the card
+        used to reach and no longer does. The reach is the only thing
+        keeping them out, which is why `low_pass_receivers` is asked
+        as well: it names them happily.
+        """
+        cog, game, match = self.build(
+            "skilled_pass", "double_team", board_size=9,
+        )
+        inside = self.put_a_teammate_at(match, 3)
+        outside = self.put_a_teammate_at(match, 4, exclude=(inside,))
+
+        distances = [distance for distance, _ in
+                     cog.engine.skilled_pass_candidates(match)]
+
+        self.assertIn(3, distances)
+        self.assertNotIn(4, distances)
+        self.assertNotIn(-4, distances)
+        self.assertIn(outside, cog.engine.low_pass_receivers(match, 4))
 
     async def test_it_adds_three_to_ball_speed(self) -> None:
-        cog, game, match = self.build("precise_pass", "double_team")
+        cog, game, match = self.build("skilled_pass", "double_team")
         match.ball.speed = 4
-        distance, receiver = cog.engine.precise_pass_candidates(match)[-1]
+        distance, receiver = cog.engine.skilled_pass_candidates(match)[-1]
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.apply_low_pass(
                 build_interaction(), game, match, distance,
-                receiver_id=receiver, key="precise_pass",
+                receiver_id=receiver, key="skilled_pass",
             )
 
         self.assertEqual(match.ball.speed, 7)
@@ -490,19 +537,19 @@ class PrecisePassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         exhaustion: nobody chose to go, and every per-space charge in
         the game is for a move somebody was sent on.
         """
-        cog, game, match = self.build("precise_pass", "double_team")
+        cog, game, match = self.build("skilled_pass", "double_team")
         defense_side = match.defending_side()
         partner = cog.engine.double_team_partner(match)
         before = {
             player_id: self.flat_of(match, player_id)
             for player_id in (match.challenger_id, partner)
         }
-        distance, receiver = cog.engine.precise_pass_candidates(match)[-1]
+        distance, receiver = cog.engine.skilled_pass_candidates(match)[-1]
 
         with mock.patch("cogs.d12ball.save_games"):
             await cog.apply_low_pass(
                 build_interaction(), game, match, distance,
-                receiver_id=receiver, key="precise_pass",
+                receiver_id=receiver, key="skilled_pass",
             )
 
         # The visitors attack from high flat indices to low, so "away
@@ -519,7 +566,15 @@ class PrecisePassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
 
 
 class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
-    async def test_it_runs_to_the_last_space_and_charges_a_token_a_space(
+    """
+    The run is the coach's now, bounded at
+    `DRIBBLE_BURST_MAX_DISTANCE` (the author, 2026-08-26). It used to
+    be to the last space of the goal they attack, which is why these
+    are written against `apply_dribble_burst` and a chosen distance
+    rather than against the resolution putting a menu up.
+    """
+
+    async def test_it_runs_the_chosen_distance_and_charges_a_token_a_space(
         self,
     ) -> None:
         cog, game, match = self.build("dribble_burst", "clear")
@@ -533,37 +588,103 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice = mock.AsyncMock()
 
         with mock.patch("cogs.d12ball.save_games"):
-            await cog.resolve_dribble_burst(build_interaction(), game, match)
+            await cog.apply_dribble_burst(
+                build_interaction(), game, match, 2,
+            )
 
         end = self.flat_of(match, handler)
-        # Home attacks toward high indices, so the last space it can
-        # reach is the top of the board.
-        self.assertEqual(end, match.board.layout.board_size - 1)
+        # Home attacks toward high indices.
+        self.assertEqual(end, start + 2)
         self.assertEqual(self.flat(match), end)
-        self.assertEqual(match.exhaustion[handler], end - start)
+        self.assertEqual(match.exhaustion[handler], 2)
         self.assertEqual(match.ball_carrier_id, handler)
+        cog.offer_speed_choice.assert_awaited_once()
+
+    def test_the_run_is_bounded_at_four_and_by_the_field(self) -> None:
+        """
+        `dribble_burst_distances` is the whole of what may be picked.
+        Board 9 is where the bound bites: from midfield the goal they
+        attack is more than four spaces off, so the card stops short
+        of it -- which is the change, and what "runs to the goal" used
+        to mean.
+        """
+        cog, game, match = self.build("dribble_burst", "clear", board_size=9)
+        handler = match.active_player_id
+        # Back in their own goal zone, which on board 9 is eight
+        # spaces from the end of the field -- twice what the card now
+        # runs. From the kickoff space it is exactly four, so the
+        # bound would not have bitten there.
+        match.move_meeple(handler, *match.board.position_at_flat_index(0))
+        match.set_ball_space(*match.board.meeple_position(handler))
+
+        self.assertEqual(
+            match.spaces_to_attacking_end(handler, match.ball.possession), 8,
+        )
+        self.assertEqual(
+            cog.engine.dribble_burst_distances(match), [1, 2, 3, 4],
+        )
+
+        # Two spaces from the end of the field, only those two are on
+        # offer -- the run cannot leave the board.
+        end_flat = match.board.layout.board_size - 1
+        match.move_meeple(
+            handler, *match.board.position_at_flat_index(end_flat - 2),
+        )
+        self.assertEqual(cog.engine.dribble_burst_distances(match), [1, 2])
+
+        # And from the last space itself there is nothing to ask.
+        match.move_meeple(
+            handler, *match.board.position_at_flat_index(end_flat),
+        )
+        self.assertEqual(cog.engine.dribble_burst_distances(match), [])
+
+    async def test_a_handler_on_the_last_space_is_asked_nothing(
+        self,
+    ) -> None:
+        """
+        The one position with no run in it. It still gets its speed
+        choice, and it costs nothing -- a burst that moved nowhere is
+        free, Playmaker or not.
+        """
+        cog, game, match = self.build("dribble_burst", "clear")
+        handler = match.active_player_id
+        end_flat = match.board.layout.board_size - 1
+        match.move_meeple(
+            handler, *match.board.position_at_flat_index(end_flat),
+        )
+        cog.offer_speed_choice = mock.AsyncMock()
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_dribble_burst(interaction, game, match)
+
+        interaction.followup.send.assert_not_awaited()
+        self.assertEqual(self.flat_of(match, handler), end_flat)
+        self.assertEqual(match.exhaustion.get(handler, 0), 0)
         cog.offer_speed_choice.assert_awaited_once()
 
     async def test_a_playmaker_pays_one_token_fewer(self) -> None:
         """
         The one role ability that reads differently on the two cards of
-        its rank (the author, 2026-08-19). A Dribble Burst's distance
-        is not a choice, so the Playmaker's extra space has nothing to
-        add to -- it lands on what the run costs instead.
+        its rank (the author, 2026-08-19), and it stayed that way when
+        the run was bounded on 2026-08-26: the discount is on what the
+        run costs, not on how far it goes -- so the distances offered
+        are the same ones everybody else gets.
         """
         cog, game, match = self.build("dribble_burst", "clear")
         playmaker = fielded(match, PlayerRole.PLAYMAKER)
         match.active_player_id = playmaker
         match.move_meeple(playmaker, match.ball.zone, match.ball.space_index)
-        start = self.flat_of(match, playmaker)
+        offered = cog.engine.dribble_burst_distances(match)
         cog.offer_speed_choice = mock.AsyncMock()
 
         with mock.patch("cogs.d12ball.save_games"):
-            await cog.resolve_dribble_burst(build_interaction(), game, match)
+            await cog.apply_dribble_burst(
+                build_interaction(), game, match, 3,
+            )
 
-        travelled = self.flat_of(match, playmaker) - start
-        self.assertGreater(travelled, 0)
-        self.assertEqual(match.exhaustion[playmaker], travelled - 1)
+        self.assertIn(3, offered)
+        self.assertEqual(match.exhaustion[playmaker], 2)
 
     async def test_defenders_are_no_obstacle(self) -> None:
         """
@@ -572,15 +693,50 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         """
         cog, game, match = self.build("dribble_burst", "clear")
         blocker = match.visiting.field_players[0]
-        last = match.board.layout.board_size - 1
-        zone, space_index = match.board.position_at_flat_index(last)
-        match.move_meeple(blocker, zone, space_index)
+        target = match.relative_flat_index(
+            self.flat(match), match.ball.possession, 2,
+        )
+        match.move_meeple(
+            blocker, *match.board.position_at_flat_index(target),
+        )
         cog.offer_speed_choice = mock.AsyncMock()
 
         with mock.patch("cogs.d12ball.save_games"):
-            await cog.resolve_dribble_burst(build_interaction(), game, match)
+            await cog.apply_dribble_burst(
+                build_interaction(), game, match, 2,
+            )
 
-        self.assertEqual(self.flat(match), last)
+        self.assertEqual(self.flat(match), target)
+
+    async def test_dinky_runs_the_full_distance_on_offer(self) -> None:
+        """
+        Dinky maximizes and is deliberately not weighing the tokens --
+        the same call as never ceding. It also means a solo game never
+        reaches the menu, which is why this asserts the run rather
+        than the prompt.
+        """
+        cog, game, match = self.build("dribble_burst", "clear")
+        game.player_2_id = None
+        game.ai_opponent = AIOpponent.DINKY
+        match.ball.possession = TeamSide.VISITING
+        handler = match.visiting.field_players[0]
+        match.active_player_id = handler
+        match.move_meeple(handler, match.ball.zone, match.ball.space_index)
+        offered = cog.engine.dribble_burst_distances(match)
+        start = self.flat_of(match, handler)
+        cog.offer_speed_choice = mock.AsyncMock()
+        interaction = build_interaction()
+
+        with mock.patch("cogs.d12ball.save_games"):
+            await cog.resolve_dribble_burst(interaction, game, match)
+
+        interaction.followup.send.assert_not_awaited()
+        self.assertEqual(
+            self.flat_of(match, handler),
+            match.relative_flat_index(
+                start, TeamSide.VISITING, offered[-1],
+            ),
+        )
 
     async def test_clears_cost_is_two_exhaustion_on_the_defender(
         self,
@@ -590,7 +746,9 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         cog.offer_speed_choice = mock.AsyncMock()
 
         with mock.patch("cogs.d12ball.save_games"):
-            await cog.resolve_dribble_burst(build_interaction(), game, match)
+            await cog.apply_dribble_burst(
+                build_interaction(), game, match, 1,
+            )
 
         self.assertEqual(match.exhaustion[defender], 2)
 

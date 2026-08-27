@@ -42,8 +42,10 @@ from typing import Optional
 
 from d12ball.ai import AIStrategy
 from d12ball.components import (
+    DRIBBLE_BURST_MAX_DISTANCE,
     SETUP_PASS_DISTANCES,
     SETUP_PASS_FULLBACK_DISTANCE,
+    SKILLED_PASS_REACH,
     MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
     SETUP_AREAS,
@@ -775,38 +777,72 @@ class RulesEngine:
 
     def pass_speed_bonus(self, maneuver_key: str) -> int:
         """
-        What a pass adds to ball speed: Low Pass's +1, or Precise
+        What a pass adds to ball speed: Low Pass's +1, or Skilled
         Pass's +3. Both are capped at 12 by the caller, the way every
         speed change is.
         """
-        return 3 if maneuver_key == "precise_pass" else 1
+        return 3 if maneuver_key == "skilled_pass" else 1
 
-    def precise_pass_candidates(
+    def skilled_pass_candidates(
         self,
         match: MatchState,
     ) -> list[tuple[int, str]]:
         """
-        Precise Pass's destinations: **every** teammate on the board,
-        as (distance, receiver) pairs ordered back-to-front, rather
-        than the nearest one each way within two spaces.
+        Skilled Pass's destinations: **any** teammate within
+        `SKILLED_PASS_REACH` spaces either way, as (distance,
+        receiver) pairs ordered back-to-front, rather than the nearest
+        one each way within two spaces.
 
-        That is the whole of what the card buys over a Low Pass, so it
-        is written as the same shape -- `LowPassChoiceView`, the
-        receiver pick behind it and `DinkyAI` all read whichever list
-        `pass_candidates` hands them and cannot tell the two apart.
-        Unbounded in both directions: "any teammate" has no reach, and
-        the board is what bounds it.
+        That is the whole of what the card buys over a Low Pass -- a
+        teammate the nearest-each-way rule hides, and one space more
+        of it -- so it is written as the same shape:
+        `LowPassChoiceView`, the receiver pick behind it and `DinkyAI`
+        all read whichever list `pass_candidates` hands them and
+        cannot tell the two apart.
+
+        **The reach is a number now, and it used to be the board.** The
+        card was Precise Pass and read "any teammate", which on board
+        9 is a pass eight spaces across the whole field; the author
+        bounded it at 3 and renamed it on 2026-08-26. Distances that
+        run off the end are dropped by `low_pass_receivers`, so a
+        short board narrows this without the reach knowing about it.
         """
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
-        reach = match.board.layout.board_size - 1
         candidates: list[tuple[int, str]] = []
-        for distance in range(-reach, reach + 1):
+        for distance in range(-SKILLED_PASS_REACH, SKILLED_PASS_REACH + 1):
             receivers = self.low_pass_receivers(match, distance)
             if receivers:
                 candidates.append((distance, receivers[0]))
         return candidates
+
+    def dribble_burst_distances(self, match: MatchState) -> list[int]:
+        """
+        How far a Dribble Burst may be run: 1 up to
+        `DRIBBLE_BURST_MAX_DISTANCE`, cut short by the field. It is
+        the coach's pick, and it is charged a token a space -- which
+        is what makes the shorter runs worth offering.
+
+        **It used to be no choice at all.** The card ran the handler
+        to the last space of the goal they attack, so the distance was
+        read off the board and the only thing the coach settled was
+        the ball speed after it. The author bounded the run at 4 on
+        2026-08-26; a burst from deep now stops short of the goal, and
+        a burst from inside 4 spaces of the end still reaches it.
+
+        Empty from the last space of the field itself, which is the
+        one position with nothing to ask -- `resolve_dribble_burst`
+        applies a run of 0 rather than putting up a menu with no
+        buttons on it. The Playmaker's ability is deliberately not
+        here: it is a token off the cost, not a space onto the run
+        (the author, 2026-08-19), so it does not change what is
+        offered.
+        """
+        reach = min(
+            DRIBBLE_BURST_MAX_DISTANCE,
+            match.spaces_to_attacking_end(
+                match.active_player_id, match.ball.possession,
+            ),
+        )
+        return list(range(1, reach + 1))
 
     def pass_candidates(
         self,
@@ -815,16 +851,16 @@ class RulesEngine:
     ) -> list[tuple[int, str]]:
         """
         The destinations the pass being resolved actually offers --
-        Precise Pass's whole board, or a Low Pass's nearest each way.
-        Asked in one place so the buttons, the AI and the click that
-        answers cannot disagree about what was on offer.
+        Skilled Pass's any-teammate-within-3, or a Low Pass's nearest
+        each way. Asked in one place so the buttons, the AI and the
+        click that answers cannot disagree about what was on offer.
         """
         if maneuver_key is None:
             maneuver_key = self.resolving_maneuver(
                 match, match.offense_maneuver,
             ) if match.offense_maneuver else None
-        if maneuver_key == "precise_pass":
-            return self.precise_pass_candidates(match)
+        if maneuver_key == "skilled_pass":
+            return self.skilled_pass_candidates(match)
         return self.low_pass_candidates(match)
 
     def low_pass_receivers(
