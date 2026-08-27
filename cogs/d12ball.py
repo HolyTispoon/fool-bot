@@ -756,75 +756,67 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         await self.begin_maneuver_action_selection(interaction, game, match)
 
-    async def begin_maneuver_action_selection(
+    def write_ai_maneuver_picks(
         self,
-        interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
     ) -> None:
         """
-        Kick off the simultaneous maneuver-action choice once a
-        challenger has been chosen: the AI opponent picks immediately,
-        and every human side gets its own row of buttons on **one
-        public prompt** -- see `ManeuverActionPromptView` for why the
-        cards can be public while the pick stays secret.
+        Dinky answers before the prompt is built, which is what makes a
+        solo game's prompt one hand and one row --
+        `RulesEngine.maneuver_pick_sides` is read afterwards, so it
+        already knows the AI has picked.
 
-        Dinky picking first is what makes a solo game's prompt one hand
-        and one row: `RulesEngine.maneuver_pick_sides` is read after the
-        writes above, so it already knows the AI has answered.
-
-        An uncontested maneuver comes through here too, and waits on
-        the offense alone -- there is no defender to pick a defensive
-        maneuver, and nothing secret about a pick with nobody to
-        conceal it from, but the prompt is the same one so the coach
-        reads the same cards they always do.
+        A tutorial beat names the card Dinky plays, and it is written
+        straight into the match here rather than through the strategy:
+        `choose_maneuver_action` takes a side and nothing else, so it
+        has no way to know which beat is running, and changing its
+        signature for one caller would put the script inside the AI.
+        Dinky's pick is made before the coach's exactly as it always is
+        -- the rails decide what the coach may answer with, not the
+        other way round.
         """
-        if game.is_solo_game:
-            ai_strategy = self.engine.get_ai_strategy(game)
-            # A tutorial beat names the card Dinky plays, and it is
-            # written straight into the match here rather than through
-            # the strategy: `choose_maneuver_action` takes a side and
-            # nothing else, so it has no way to know which beat is
-            # running, and changing its signature for one caller would
-            # put the script inside the AI. Dinky's pick is made before
-            # the coach's exactly as it always is -- the rails decide
-            # what the coach may answer with, not the other way round.
-            beat = self.tutorial_beat(game)
-
-            if self.engine.possession_player_number(game, match) == 2:
-                scripted = beat.dinky_maneuver_for("offense") if beat else None
-                match.choose_offense_maneuver(
-                    scripted
-                    or ai_strategy.choose_maneuver_action(
-                        "offense",
-                        self.engine.maneuver_hand(game, match, "offense"),
-                    )
-                )
-            if (
-                not match.maneuver_uncontested
-                and self.engine.defending_player_number(game, match) == 2
-            ):
-                scripted = beat.dinky_maneuver_for("defense") if beat else None
-                match.choose_defense_maneuver(
-                    scripted
-                    or ai_strategy.choose_maneuver_action(
-                        "defense",
-                        self.engine.maneuver_hand(game, match, "defense"),
-                    )
-                )
-
-        game.match_state = match.to_dict()
-        save_games(self.games)
-
-        if match.maneuver_selections_complete:
-            await self.resolve_maneuver(interaction, game, match)
+        if not game.is_solo_game:
             return
 
-        # Who is mentioned and whose buttons get built are the same
-        # question, asked once: a coach named in the line above the
-        # prompt and given no row to press would be a bug nobody would
-        # catch until a game stalled.
-        sides = self.engine.maneuver_pick_sides(game, match)
+        ai_strategy = self.engine.get_ai_strategy(game)
+        beat = self.tutorial_beat(game)
+
+        if self.engine.possession_player_number(game, match) == 2:
+            scripted = beat.dinky_maneuver_for("offense") if beat else None
+            match.choose_offense_maneuver(
+                scripted
+                or ai_strategy.choose_maneuver_action(
+                    "offense",
+                    self.engine.maneuver_hand(game, match, "offense"),
+                )
+            )
+        if (
+            not match.maneuver_uncontested
+            and self.engine.defending_player_number(game, match) == 2
+        ):
+            scripted = beat.dinky_maneuver_for("defense") if beat else None
+            match.choose_defense_maneuver(
+                scripted
+                or ai_strategy.choose_maneuver_action(
+                    "defense",
+                    self.engine.maneuver_hand(game, match, "defense"),
+                )
+            )
+
+    def maneuver_prompt_wording(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        sides: list[str],
+    ) -> tuple[list[str], str]:
+        """
+        Who is mentioned above the prompt, and what they are told to do.
+
+        Both come off the same `sides` list the buttons are built from,
+        which is the point: a coach named here and given no row to
+        press would stall a game, and nothing else would catch it.
+        """
         waiting_on = [
             format_player_with_team(
                 game,
@@ -848,6 +840,41 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "for the offense, green for the defense. Only you can "
                 "see what you picked."
             )
+        )
+
+        return waiting_on, instruction
+
+    async def begin_maneuver_action_selection(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Kick off the simultaneous maneuver-action choice once a
+        challenger has been chosen: the AI opponent picks immediately,
+        and every human side gets its own row of buttons on **one
+        public prompt** -- see `ManeuverActionPromptView` for why the
+        cards can be public while the pick stays secret.
+
+        An uncontested maneuver comes through here too, and waits on
+        the offense alone -- there is no defender to pick a defensive
+        maneuver, and nothing secret about a pick with nobody to
+        conceal it from, but the prompt is the same one so the coach
+        reads the same cards they always do.
+        """
+        self.write_ai_maneuver_picks(game, match)
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        if match.maneuver_selections_complete:
+            await self.resolve_maneuver(interaction, game, match)
+            return
+
+        sides = self.engine.maneuver_pick_sides(game, match)
+        waiting_on, instruction = self.maneuver_prompt_wording(
+            game, match, sides,
         )
 
         async def show_prompt(inner_interaction: discord.Interaction) -> None:
