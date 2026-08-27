@@ -3959,6 +3959,148 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         await self.apply_pressure(interaction, game, match, "double_team")
 
+    def shove_pressured_handler(
+        self,
+        match: MatchState,
+        push: int,
+        partner_id: Optional[str],
+    ) -> int:
+        """
+        Drive the handler and the ball back, and bring the challenger
+        (and a Double Team's partner) onto the space they left.
+
+        Returns how far the handler actually moved, which is less than
+        `push` only when they were already against their own goal --
+        the caller reads that as the overshoot.
+        """
+        offense_side = match.ball.possession
+
+        actual_distance = match.move_player_relative(
+            match.active_player_id, offense_side, -push,
+        )
+        match.set_ball_space(
+            *match.board.meeple_position(match.active_player_id)
+        )
+
+        # The challenger advances onto the handler's space. A Double
+        # Team brings that teammate onto it as well, free of
+        # exhaustion -- so they are *placed* rather than run, which is
+        # what "no exhaustion cost" means in a game where every other
+        # way to reach a space charges a token a space.
+        handler_zone, handler_space = match.board.meeple_position(
+            match.active_player_id
+        )
+        match.move_meeple(match.challenger_id, handler_zone, handler_space)
+        if partner_id is not None:
+            match.move_meeple(partner_id, handler_zone, handler_space)
+
+        # Losing to a pressure does not lose the ball: the handler was
+        # shoved back still holding it, so they take the next turn.
+        # Set before the caller's overshoot branch, because an own goal
+        # avoided is the same thing -- pressured, and still holding it.
+        # The Defender's steal moves the carry to the Defender, and a
+        # conceded own goal is a new play, which clears it.
+        match.set_ball_carrier(match.active_player_id)
+
+        return actual_distance
+
+    def pressure_result_text(
+        self,
+        match: MatchState,
+        key: str,
+        name: str,
+        actual_distance: int,
+        partner_id: Optional[str],
+    ) -> str:
+        """
+        What the shove reads as, and -- for a Double Team -- the record
+        of who is left challenging the next maneuver.
+        """
+        handler = self.engine.get_player_definition(match.active_player_id)
+        defender = self.engine.get_player_definition(match.challenger_id)
+        space_word = "space" if actual_distance == 1 else "spaces"
+        content = (
+            f"**{name}:** "
+            f"{format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))} and the "
+            f"ball go back {actual_distance} {space_word}. "
+            f"{format_role_bracket(defender, self.team_emojis, match.team_for_player(defender.player_id))} moves "
+            "forward."
+        )
+
+        if key == "double_team" and partner_id is not None:
+            partner = self.engine.get_player_definition(partner_id)
+            # **The pair is recorded, not the fact that a Double Team
+            # happened.** What the next maneuver needs is who
+            # challenges it, and that is two named cards; a flag would
+            # leave the following turn re-deriving "the nearest
+            # teammate" off a board that has moved since.
+            match.pending_double_team = [match.challenger_id, partner_id]
+            content += (
+                f" {format_role_bracket(partner, self.team_emojis, match.team_for_player(partner_id))} "
+                "joins them, free of exhaustion -- and **both** will "
+                "challenge on the next maneuver, each adding their "
+                "defensive skill."
+            )
+
+        return content
+
+    def apply_pressure_turnover(
+        self,
+        match: MatchState,
+        key: str,
+        defense_side: TeamSide,
+    ) -> tuple[str, bool, bool]:
+        """
+        Whether the pressure also took the ball, and what to say about
+        it. Returns the text to append, and the two facts the caller
+        dispatches on: a Dribble Burst cost paid, and a Defender's
+        steal.
+
+        The two are exclusive and in that order -- a burst cost already
+        turns the ball over, so the Defender's ability has nothing left
+        to take.
+        """
+        defender = self.engine.get_player_definition(match.challenger_id)
+        content = ""
+
+        # **Dribble Burst's cost**: beaten by a pressure, the offense
+        # loses possession *and* the ball keeps whatever speed it was
+        # carrying while the defense manipulates it. Neither of those
+        # is something a pressure does on its own -- a turnover is the
+        # steal's and so is the speed step -- which is what the matrix
+        # means by the cost borrowing machinery its defeaters do not
+        # have. It is also **the first exception to "every turnover
+        # resets ball speed to 1"**, and the reason nothing here sets
+        # `match.ball.speed = 1`.
+        burst_cost = self.engine.advanced_cost(match, key) == "dribble_burst"
+        if burst_cost:
+            match.ball.possession = defense_side
+            match.set_ball_carrier(match.challenger_id)
+            content += (
+                "\n\n# Turnover!\n"
+                "**Dribble Burst** was beaten -- "
+                f"{format_team_side_label(match.setup_for_side(defense_side))} "
+                "take the ball, and it keeps the speed the burst put into "
+                f"it ({match.ball.speed})."
+            )
+
+        # Role ability -- Defender: also steals the ball on a won
+        # pressure, on top of the normal effect above.
+        stolen = defender.role == PlayerRole.DEFENDER
+        if stolen and not burst_cost:
+            match.ball.possession = defense_side
+            match.ball.speed = 1
+            match.set_ball_carrier(match.challenger_id)
+            content += (
+                "\n\n# Turnover!\n"
+                f"{format_role_bracket(defender, self.team_emojis, match.team_for_player(defender.player_id))} "
+                "steals the ball (Defender ability)! "
+                f"{format_team_side_label(match.setup_for_side(defense_side))} "
+                "now has possession."
+            )
+
+        return content, burst_cost, stolen
+
     async def apply_pressure(
         self,
         interaction: discord.Interaction,
@@ -3996,58 +4138,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else None
         )
 
-        actual_distance = match.move_player_relative(
-            match.active_player_id, offense_side, -push,
+        actual_distance = self.shove_pressured_handler(
+            match, push, partner_id,
         )
-        match.set_ball_space(
-            *match.board.meeple_position(match.active_player_id)
+        content = self.pressure_result_text(
+            match, key, name, actual_distance, partner_id,
         )
-
-        # The challenger advances onto the handler's space. A Double
-        # Team brings that teammate onto it as well, free of
-        # exhaustion -- so they are *placed* rather than run, which is
-        # what "no exhaustion cost" means in a game where every other
-        # way to reach a space charges a token a space.
-        handler_zone, handler_space = match.board.meeple_position(
-            match.active_player_id
-        )
-        match.move_meeple(match.challenger_id, handler_zone, handler_space)
-        if partner_id is not None:
-            match.move_meeple(partner_id, handler_zone, handler_space)
-
-        # Losing to a pressure does not lose the ball: the handler was
-        # shoved back still holding it, so they take the next turn.
-        # Set before the overshoot branch, because an own goal avoided
-        # is the same thing -- pressured, and still holding it. The
-        # Defender's steal below moves the carry to the Defender, and a
-        # conceded own goal is a new play, which clears it.
-        match.set_ball_carrier(match.active_player_id)
-
-        handler = self.engine.get_player_definition(match.active_player_id)
-        defender = self.engine.get_player_definition(match.challenger_id)
-        space_word = "space" if actual_distance == 1 else "spaces"
-        content = (
-            f"**{name}:** "
-            f"{format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))} and the "
-            f"ball go back {actual_distance} {space_word}. "
-            f"{format_role_bracket(defender, self.team_emojis, match.team_for_player(defender.player_id))} moves "
-            "forward."
-        )
-
-        if key == "double_team" and partner_id is not None:
-            partner = self.engine.get_player_definition(partner_id)
-            # **The pair is recorded, not the fact that a Double Team
-            # happened.** What the next maneuver needs is who
-            # challenges it, and that is two named cards; a flag would
-            # leave the following turn re-deriving "the nearest
-            # teammate" off a board that has moved since.
-            match.pending_double_team = [match.challenger_id, partner_id]
-            content += (
-                f" {format_role_bracket(partner, self.team_emojis, match.team_for_player(partner_id))} "
-                "joins them, free of exhaustion -- and **both** will "
-                "challenge on the next maneuver, each adding their "
-                "defensive skill."
-            )
 
         if overshot:
             game.match_state = match.to_dict()
@@ -4057,49 +4153,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             await self.refresh_match_image(interaction, game)
             # An own goal takes priority over the Defender's steal
-            # ability below: if it's conceded, the point is already
-            # over, and stealing a ball that was just kicked off from
-            # the restart wouldn't mean anything.
+            # ability: if it's conceded, the point is already over, and
+            # stealing a ball that was just kicked off from the restart
+            # wouldn't mean anything.
             await self.begin_own_goal_roll(
                 interaction, game, match, distance_moved=1,
             )
             return
 
-        # **Dribble Burst's cost**: beaten by a pressure, the offense
-        # loses possession *and* the ball keeps whatever speed it was
-        # carrying while the defense manipulates it. Neither of those
-        # is something a pressure does on its own -- a turnover is the
-        # steal's and so is the speed step -- which is what the matrix
-        # means by the cost borrowing machinery its defeaters do not
-        # have. It is also **the first exception to "every turnover
-        # resets ball speed to 1"**, and the reason nothing here calls
-        # `match.ball.speed = 1`.
-        burst_cost = self.engine.advanced_cost(match, key) == "dribble_burst"
-        if burst_cost:
-            match.ball.possession = defense_side
-            match.set_ball_carrier(match.challenger_id)
-            content += (
-                "\n\n# Turnover!\n"
-                "**Dribble Burst** was beaten -- "
-                f"{format_team_side_label(match.setup_for_side(defense_side))} "
-                "take the ball, and it keeps the speed the burst put into "
-                f"it ({match.ball.speed})."
-            )
-
-        # Role ability -- Defender: also steals the ball on a won
-        # pressure, on top of the normal effect above.
-        stolen = defender.role == PlayerRole.DEFENDER
-        if stolen and not burst_cost:
-            match.ball.possession = defense_side
-            match.ball.speed = 1
-            match.set_ball_carrier(match.challenger_id)
-            content += (
-                "\n\n# Turnover!\n"
-                f"{format_role_bracket(defender, self.team_emojis, match.team_for_player(defender.player_id))} "
-                "steals the ball (Defender ability)! "
-                f"{format_team_side_label(match.setup_for_side(defense_side))} "
-                "now has possession."
-            )
+        turnover_text, burst_cost, stolen = self.apply_pressure_turnover(
+            match, key, defense_side,
+        )
+        content += turnover_text
 
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -4107,7 +4172,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.refresh_match_image(interaction, game)
 
         # Fixed 1 space minute per the rules table, independent of
-        # clamping, same reasoning as a deflection above.
+        # clamping, same reasoning as a deflection.
         if burst_cost:
             # The defense has the ball and the speed step the cost
             # granted them, which is the steal's shape: run everyone
@@ -4123,7 +4188,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         elif stolen:
             # The stealing player keeps the ball and stays put --
             # everyone else who's out of position runs back. Read off
-            # the carrier set above, not passed in.
+            # the carrier set in the shove, not passed in.
             await self.begin_run_back(
                 interaction,
                 game,
