@@ -250,43 +250,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # matches nothing shows as three disabled buttons rather than
         # as an error. See d12ball/tutorial.py.
         tutorial.validate_script(self.maneuver_catalog)
-        # One hexagon per tier: a basic-mode coach has no advanced
-        # cards to read a matchup for, so its hexagon shows one box a
-        # rank rather than the pair an advanced game's does -- see
-        # render_maneuver_reference_image.
-        self.maneuver_reference_image_bytes = {
-            tier: render_maneuver_reference_image(
-                self.maneuver_catalog, tier
-            ).read()
-            for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
-        }
-        # The cards the maneuver prompt carries. All of them are drawn
-        # here for the same reason the reference image is: it is the one
-        # place a render can block the loop harmlessly, and the
-        # alternative is drawing up to thirteen cards on every maneuver.
-        # They cannot go stale -- nothing about a maneuver card depends
-        # on the match.
-        #
-        # **Keyed by the sides on the prompt and the tiers they may
-        # play.** The prompt is public and carries a hand for every side
-        # that still has a human pick to make, so the sides are the two
-        # of them, or one alone when the maneuver is unchallenged or the
-        # other side is Dinky's -- see `RulesEngine.maneuver_pick_sides`
-        # and `maneuver_tiers`.
-        self.maneuver_hand_image_bytes = {
-            (sides, tiers): render_maneuver_hands(
-                self.maneuver_catalog, self.player_catalog, sides, tiers
-            ).read()
-            for sides in (
-                ("offense",),
-                ("defense",),
-                ("offense", "defense"),
-            )
-            for tiers in (
-                (MANEUVER_TIER_BASIC,),
-                (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
-            )
-        }
+        self.prerender_maneuver_images()
+
         self.coin_emojis: dict[CoinFace, str] = {}
         # When the coin emoji were last asked after, on the monotonic
         # clock -- see ensure_coin_emojis. None, not 0.0: monotonic
@@ -334,6 +299,62 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # board_refresh_interval.
         self.board_writes_refused: dict[str, int] = {}
 
+        self.restore_saved_views()
+        self.log_live_games()
+
+    def prerender_maneuver_images(self) -> None:
+        """
+        Draw every maneuver image the bot will ever send, once.
+
+        Startup is the one place a render can block the loop
+        harmlessly, and the alternative is drawing up to thirteen cards
+        on every maneuver. Nothing about a maneuver card or the
+        reference hexagon depends on the match, so none of these can go
+        stale.
+        """
+        # One hexagon per tier: a basic-mode coach has no advanced
+        # cards to read a matchup for, so its hexagon shows one box a
+        # rank rather than the pair an advanced game's does -- see
+        # render_maneuver_reference_image.
+        self.maneuver_reference_image_bytes = {
+            tier: render_maneuver_reference_image(
+                self.maneuver_catalog, tier
+            ).read()
+            for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
+        }
+        # The cards the maneuver prompt carries.
+        #
+        # **Keyed by the sides on the prompt and the tiers they may
+        # play.** The prompt is public and carries a hand for every side
+        # that still has a human pick to make, so the sides are the two
+        # of them, or one alone when the maneuver is unchallenged or the
+        # other side is Dinky's -- see `RulesEngine.maneuver_pick_sides`
+        # and `maneuver_tiers`.
+        self.maneuver_hand_image_bytes = {
+            (sides, tiers): render_maneuver_hands(
+                self.maneuver_catalog, self.player_catalog, sides, tiers
+            ).read()
+            for sides in (
+                ("offense",),
+                ("defense",),
+                ("offense", "defense"),
+            )
+            for tiers in (
+                (MANEUVER_TIER_BASIC,),
+                (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
+            )
+        }
+
+    def restore_saved_views(self) -> None:
+        """
+        Re-arm one message per saved game: whichever setup prompt it
+        stopped at, a finished game's rematch message, and the prompt
+        its turn is waiting on.
+
+        A restart re-arms exactly one turn message per game, which is
+        why a game can still come back with no working button anywhere
+        -- see "Recovering a stuck game" in CLAUDE.md.
+        """
         restored_views = 0
 
         for game in self.games.values():
@@ -411,12 +432,17 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             restored_views,
         )
 
-        # discord.py reports a 429 as a bare method and URL, and the
-        # only thing in it that identifies the game is the channel and
-        # message id. Three rounds of these warnings were read by
-        # inferring which message that was; one line a live game at
-        # startup makes it a lookup instead. See "Discord's rate
-        # limits" in CLAUDE.md.
+    def log_live_games(self) -> None:
+        """
+        One line per unfinished game, naming its channel and its two
+        message ids.
+
+        discord.py reports a 429 as a bare method and URL, and the only
+        thing in it that identifies the game is the channel and message
+        id. Three rounds of those warnings were read by inferring which
+        message that was, wrongly; this makes it a lookup instead. See
+        "Discord's rate limits" in CLAUDE.md.
+        """
         for game in self.games.values():
             if game.status == GameStatus.FINISHED:
                 continue
@@ -730,75 +756,67 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         await self.begin_maneuver_action_selection(interaction, game, match)
 
-    async def begin_maneuver_action_selection(
+    def write_ai_maneuver_picks(
         self,
-        interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
     ) -> None:
         """
-        Kick off the simultaneous maneuver-action choice once a
-        challenger has been chosen: the AI opponent picks immediately,
-        and every human side gets its own row of buttons on **one
-        public prompt** -- see `ManeuverActionPromptView` for why the
-        cards can be public while the pick stays secret.
+        Dinky answers before the prompt is built, which is what makes a
+        solo game's prompt one hand and one row --
+        `RulesEngine.maneuver_pick_sides` is read afterwards, so it
+        already knows the AI has picked.
 
-        Dinky picking first is what makes a solo game's prompt one hand
-        and one row: `RulesEngine.maneuver_pick_sides` is read after the
-        writes above, so it already knows the AI has answered.
-
-        An uncontested maneuver comes through here too, and waits on
-        the offense alone -- there is no defender to pick a defensive
-        maneuver, and nothing secret about a pick with nobody to
-        conceal it from, but the prompt is the same one so the coach
-        reads the same cards they always do.
+        A tutorial beat names the card Dinky plays, and it is written
+        straight into the match here rather than through the strategy:
+        `choose_maneuver_action` takes a side and nothing else, so it
+        has no way to know which beat is running, and changing its
+        signature for one caller would put the script inside the AI.
+        Dinky's pick is made before the coach's exactly as it always is
+        -- the rails decide what the coach may answer with, not the
+        other way round.
         """
-        if game.is_solo_game:
-            ai_strategy = self.engine.get_ai_strategy(game)
-            # A tutorial beat names the card Dinky plays, and it is
-            # written straight into the match here rather than through
-            # the strategy: `choose_maneuver_action` takes a side and
-            # nothing else, so it has no way to know which beat is
-            # running, and changing its signature for one caller would
-            # put the script inside the AI. Dinky's pick is made before
-            # the coach's exactly as it always is -- the rails decide
-            # what the coach may answer with, not the other way round.
-            beat = self.tutorial_beat(game)
-
-            if self.engine.possession_player_number(game, match) == 2:
-                scripted = beat.dinky_maneuver_for("offense") if beat else None
-                match.choose_offense_maneuver(
-                    scripted
-                    or ai_strategy.choose_maneuver_action(
-                        "offense",
-                        self.engine.maneuver_hand(game, match, "offense"),
-                    )
-                )
-            if (
-                not match.maneuver_uncontested
-                and self.engine.defending_player_number(game, match) == 2
-            ):
-                scripted = beat.dinky_maneuver_for("defense") if beat else None
-                match.choose_defense_maneuver(
-                    scripted
-                    or ai_strategy.choose_maneuver_action(
-                        "defense",
-                        self.engine.maneuver_hand(game, match, "defense"),
-                    )
-                )
-
-        game.match_state = match.to_dict()
-        save_games(self.games)
-
-        if match.maneuver_selections_complete:
-            await self.resolve_maneuver(interaction, game, match)
+        if not game.is_solo_game:
             return
 
-        # Who is mentioned and whose buttons get built are the same
-        # question, asked once: a coach named in the line above the
-        # prompt and given no row to press would be a bug nobody would
-        # catch until a game stalled.
-        sides = self.engine.maneuver_pick_sides(game, match)
+        ai_strategy = self.engine.get_ai_strategy(game)
+        beat = self.tutorial_beat(game)
+
+        if self.engine.possession_player_number(game, match) == 2:
+            scripted = beat.dinky_maneuver_for("offense") if beat else None
+            match.choose_offense_maneuver(
+                scripted
+                or ai_strategy.choose_maneuver_action(
+                    "offense",
+                    self.engine.maneuver_hand(game, match, "offense"),
+                )
+            )
+        if (
+            not match.maneuver_uncontested
+            and self.engine.defending_player_number(game, match) == 2
+        ):
+            scripted = beat.dinky_maneuver_for("defense") if beat else None
+            match.choose_defense_maneuver(
+                scripted
+                or ai_strategy.choose_maneuver_action(
+                    "defense",
+                    self.engine.maneuver_hand(game, match, "defense"),
+                )
+            )
+
+    def maneuver_prompt_wording(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        sides: list[str],
+    ) -> tuple[list[str], str]:
+        """
+        Who is mentioned above the prompt, and what they are told to do.
+
+        Both come off the same `sides` list the buttons are built from,
+        which is the point: a coach named here and given no row to
+        press would stall a game, and nothing else would catch it.
+        """
         waiting_on = [
             format_player_with_team(
                 game,
@@ -822,6 +840,41 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "for the offense, green for the defense. Only you can "
                 "see what you picked."
             )
+        )
+
+        return waiting_on, instruction
+
+    async def begin_maneuver_action_selection(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Kick off the simultaneous maneuver-action choice once a
+        challenger has been chosen: the AI opponent picks immediately,
+        and every human side gets its own row of buttons on **one
+        public prompt** -- see `ManeuverActionPromptView` for why the
+        cards can be public while the pick stays secret.
+
+        An uncontested maneuver comes through here too, and waits on
+        the offense alone -- there is no defender to pick a defensive
+        maneuver, and nothing secret about a pick with nobody to
+        conceal it from, but the prompt is the same one so the coach
+        reads the same cards they always do.
+        """
+        self.write_ai_maneuver_picks(game, match)
+
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        if match.maneuver_selections_complete:
+            await self.resolve_maneuver(interaction, game, match)
+            return
+
+        sides = self.engine.maneuver_pick_sides(game, match)
+        waiting_on, instruction = self.maneuver_prompt_wording(
+            game, match, sides,
         )
 
         async def show_prompt(inner_interaction: discord.Interaction) -> None:
@@ -874,110 +927,96 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await show_prompt(interaction)
 
 
-    async def resolve_maneuver(
+    def maneuver_winner_text(
         self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
         match: MatchState,
-    ) -> None:
-        # Keys are what the match holds and what everything below
-        # dispatches on; the names are only ever printed.
-        offense_key = match.offense_maneuver
-        defense_key = match.defense_maneuver
-        offense_name = self.engine.maneuver_name(offense_key)
-        defense_name = self.engine.maneuver_name(defense_key)
-        offense_number = self.engine.possession_player_number(game, match)
-        defense_number = self.engine.defending_player_number(game, match)
-        offense_display = format_player_with_team(game, offense_number)
-        defense_display = format_player_with_team(game, defense_number)
+        reveal: str,
+        outcome: str,
+        winner_name: str,
+        offense_name: str,
+        defense_name: str,
+    ) -> str:
+        """
+        How a maneuver settled on the cards reads. Two wordings: an
+        ordinary decisive win, and a tie one injured participant loses
+        outright.
+        """
+        if outcome != "tie":
+            # Headed the same way a won skill test is (see
+            # SkillTestView.roll), so the two ways a maneuver can be
+            # won read alike. Whoever resolves the effect isn't named
+            # here: an effect with a choice in it prompts them by name
+            # itself, and one without needs nobody to do anything.
+            return f"{reveal}\n\n## **{winner_name}** wins!"
 
-        if match.maneuver_uncontested:
-            # Nothing to reveal against and nothing to rank: the
-            # offense's pick is the winner, and its effect runs the
-            # same pipeline a decisive win always does.
-            await interaction.followup.send(
-                f"{offense_display} chose **{offense_name}**, "
-                f"unchallenged.\n\n## **{offense_name}** succeeds!"
-            )
-            await self.begin_effect_resolution(
-                interaction, game, match, offense_key,
-            )
-            return
-
-        reveal = (
-            f"{offense_display} chose **{offense_name}**.\n"
-            f"{defense_display} chose **{defense_name}**."
+        # A tie with exactly one injured participant: they lose it
+        # outright. Nothing is rolled, so neither side pays the token a
+        # skill test would have cost them.
+        injured_player = self.engine.get_player_definition(
+            match.challenger_id
+            if match.challenger_id in match.injured
+            else match.active_player_id
+        )
+        return (
+            f"{reveal}\n\n"
+            f"**{offense_name}** ties with **{defense_name}**, but "
+            f"{format_role_bracket(injured_player, self.team_emojis, match.team_for_player(injured_player.player_id))}"
+            " is **injured** "
+            f"{get_injured_emoji(self.condition_emojis)} and "
+            "automatically loses the tie.\n\n"
+            f"## **{winner_name}** wins!"
         )
 
-        # Who wins is settled_maneuver_winner's alone to say; what is
-        # decided here is only how the four ways it can land are
-        # worded. `outcome` is the ranking on its own, which is what
-        # separates a win on the cards from a win handed over by the
-        # other player's injury.
-        outcome = self.maneuver_catalog.resolve(offense_key, defense_key)
-        winner_key = self.engine.settled_maneuver_winner(match)
-        winner_name = self.engine.maneuver_name(winner_key)
-        defense_injured = match.challenger_id in match.injured
-
-        if winner_key is not None:
-            if outcome == "tie":
-                # A tie with exactly one injured participant: they lose
-                # it outright. Nothing is rolled, so neither side pays
-                # the token a skill test would have cost them.
-                injured_player = self.engine.get_player_definition(
-                    match.challenger_id
-                    if defense_injured
-                    else match.active_player_id
-                )
-                await interaction.followup.send(
-                    f"{reveal}\n\n"
-                    f"**{offense_name}** ties with **{defense_name}**, but "
-                    f"{format_role_bracket(injured_player, self.team_emojis, match.team_for_player(injured_player.player_id))}"
-                    " is **injured** "
-                    f"{get_injured_emoji(self.condition_emojis)} and "
-                    "automatically loses the tie.\n\n"
-                    f"## **{winner_name}** wins!"
-                )
-            else:
-                # Headed the same way a won skill test is (see
-                # SkillTestView.roll), so the two ways a maneuver can be
-                # won read alike. Whoever resolves the effect isn't named
-                # here: an effect with a choice in it prompts them by name
-                # itself, and one without needs nobody to do anything.
-                await interaction.followup.send(
-                    f"{reveal}\n\n## **{winner_name}** wins!"
-                )
-            await self.begin_effect_resolution(
-                interaction, game, match, winner_key,
-            )
-            return
-
+    def skill_test_headline(
+        self,
+        match: MatchState,
+        reveal: str,
+        outcome: str,
+        offense_name: str,
+        defense_name: str,
+    ) -> str:
+        """
+        Why a maneuver the cards did not settle is going to a skill
+        test: the two ranked the same, or the one that would have won
+        is owed to an injured player.
+        """
         if outcome == "tie":
             # An ordinary tie -- both or neither participant is injured.
-            headline = (
+            return (
                 f"{reveal}\n\n"
                 f"**{offense_name}** ties with **{defense_name}** — skill "
                 "test!\n\n"
             )
-        else:
-            # An injured player's maneuver never wins outright -- they
-            # still have to win a skill test to make it stick.
-            would_be_winner = (
-                offense_name if outcome == "offense" else defense_name
-            )
-            injured_player = self.engine.get_player_definition(
-                match.active_player_id
-                if outcome == "offense"
-                else match.challenger_id
-            )
-            headline = (
-                f"{reveal}\n\n"
-                f"**{would_be_winner}** would win, but "
-                f"{format_role_bracket(injured_player, self.team_emojis, match.team_for_player(injured_player.player_id))} is "
-                f"**injured** {get_injured_emoji(self.condition_emojis)} -- "
-                "a skill test decides it instead!\n\n"
-            )
 
+        # An injured player's maneuver never wins outright -- they
+        # still have to win a skill test to make it stick.
+        would_be_winner = (
+            offense_name if outcome == "offense" else defense_name
+        )
+        injured_player = self.engine.get_player_definition(
+            match.active_player_id
+            if outcome == "offense"
+            else match.challenger_id
+        )
+        return (
+            f"{reveal}\n\n"
+            f"**{would_be_winner}** would win, but "
+            f"{format_role_bracket(injured_player, self.team_emojis, match.team_for_player(injured_player.player_id))} is "
+            f"**injured** {get_injured_emoji(self.condition_emojis)} -- "
+            "a skill test decides it instead!\n\n"
+        )
+
+    async def begin_maneuver_skill_test(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        headline: str,
+    ) -> None:
+        """
+        Charge both participants their token, post what is at stake,
+        and put the roll behind a button -- every roll is a coach's.
+        """
         exhaustion_text = (
             self.apply_exhaustion(match, match.active_player_id, 1)
             + "\n"
@@ -1020,6 +1059,74 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         game.turn_message_id = test_message.id
         save_games(self.games)
+
+    async def resolve_maneuver(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        # Keys are what the match holds and what everything below
+        # dispatches on; the names are only ever printed.
+        offense_key = match.offense_maneuver
+        defense_key = match.defense_maneuver
+        offense_name = self.engine.maneuver_name(offense_key)
+        defense_name = self.engine.maneuver_name(defense_key)
+        offense_number = self.engine.possession_player_number(game, match)
+        defense_number = self.engine.defending_player_number(game, match)
+        offense_display = format_player_with_team(game, offense_number)
+        defense_display = format_player_with_team(game, defense_number)
+
+        if match.maneuver_uncontested:
+            # Nothing to reveal against and nothing to rank: the
+            # offense's pick is the winner, and its effect runs the
+            # same pipeline a decisive win always does.
+            await interaction.followup.send(
+                f"{offense_display} chose **{offense_name}**, "
+                f"unchallenged.\n\n## **{offense_name}** succeeds!"
+            )
+            await self.begin_effect_resolution(
+                interaction, game, match, offense_key,
+            )
+            return
+
+        reveal = (
+            f"{offense_display} chose **{offense_name}**.\n"
+            f"{defense_display} chose **{defense_name}**."
+        )
+
+        # Who wins is settled_maneuver_winner's alone to say; what is
+        # decided here is only how the four ways it can land are
+        # worded. `outcome` is the ranking on its own, which is what
+        # separates a win on the cards from a win handed over by the
+        # other player's injury.
+        outcome = self.maneuver_catalog.resolve(offense_key, defense_key)
+        winner_key = self.engine.settled_maneuver_winner(match)
+
+        if winner_key is not None:
+            await interaction.followup.send(
+                self.maneuver_winner_text(
+                    match,
+                    reveal,
+                    outcome,
+                    self.engine.maneuver_name(winner_key),
+                    offense_name,
+                    defense_name,
+                )
+            )
+            await self.begin_effect_resolution(
+                interaction, game, match, winner_key,
+            )
+            return
+
+        await self.begin_maneuver_skill_test(
+            interaction,
+            game,
+            match,
+            self.skill_test_headline(
+                match, reveal, outcome, offense_name, defense_name,
+            ),
+        )
 
     async def begin_injury_tests(
         self,
@@ -1854,6 +1961,69 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 
+    def send_low_pass(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        offense_side: TeamSide,
+        distance: int,
+        key: str,
+        receiver_id: Optional[str],
+    ) -> tuple[int, int]:
+        """
+        Move the ball, step its speed up, and hand it to whoever the
+        pass was aimed at. Returns how far the ball went and how far
+        the passer advanced.
+        """
+        actual_distance = match.move_ball_relative(offense_side, distance)
+        match.ball.speed = min(
+            12, match.ball.speed + self.engine.pass_speed_bonus(key)
+        )
+        # A pass across a shared space sends the passer a space forward
+        # (2026-08-07) -- the ball hasn't gone anywhere, so this is what
+        # the maneuver buys. Clamped at the far end of the field, where
+        # there is nowhere to run to.
+        passer_advance = (
+            match.move_player_relative(match.active_player_id, offense_side, 1)
+            if distance == 0
+            else 0
+        )
+        # The pass was aimed at somebody, and it is the same somebody a
+        # Winger's set-up would hand the shot to -- so they receive it
+        # and take the next turn. A receiver of None means the pass had
+        # no legal destination, which rolls the ball forward loose
+        # instead of completing; nobody carries a loose ball.
+        match.set_ball_carrier(receiver_id)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        return actual_distance, passer_advance
+
+    def low_pass_movement_note(
+        self,
+        match: MatchState,
+        handler: PlayerDefinition,
+        distance: int,
+        actual_distance: int,
+        passer_advance: int,
+    ) -> str:
+        """
+        What the ball did, worded. A pass of 0 crosses a shared space
+        and so is described by what the *passer* did instead.
+        """
+        if distance != 0:
+            direction = "forward" if distance > 0 else "backward"
+            space_word = "space" if actual_distance == 1 else "spaces"
+            return f"moves {actual_distance} {space_word} {direction}"
+
+        movement_note = "goes to a teammate in the same space"
+        if passer_advance:
+            movement_note += (
+                f", and {format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))} "
+                "moves a space forward"
+            )
+        return movement_note
+
     async def apply_low_pass(
         self,
         interaction: discord.Interaction,
@@ -1894,41 +2064,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else None
         )
 
-        actual_distance = match.move_ball_relative(offense_side, distance)
-        match.ball.speed = min(
-            12, match.ball.speed + self.engine.pass_speed_bonus(key)
+        actual_distance, passer_advance = self.send_low_pass(
+            game, match, offense_side, distance, key, receiver_id,
         )
-        # A pass across a shared space sends the passer a space forward
-        # (2026-08-07) -- the ball hasn't gone anywhere, so this is what
-        # the maneuver buys. Clamped at the far end of the field, where
-        # there is nowhere to run to.
-        passer_advance = (
-            match.move_player_relative(match.active_player_id, offense_side, 1)
-            if distance == 0
-            else 0
-        )
-        # The pass was aimed at somebody, and it is the same somebody a
-        # Winger's set-up would hand the shot to -- so they receive it
-        # and take the next turn. `receivers` is empty only when the
-        # pass had no legal destination, which rolls the ball forward
-        # loose instead of completing; nobody carries a loose ball.
-        match.set_ball_carrier(receiver_id)
-        game.match_state = match.to_dict()
-        save_games(self.games)
 
-        if distance == 0:
-            movement_note = "goes to a teammate in the same space"
-            if passer_advance:
-                movement_note += (
-                    f", and {format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))} "
-                    "moves a space forward"
-                )
-        else:
-            direction = "forward" if distance > 0 else "backward"
-            space_word = "space" if actual_distance == 1 else "spaces"
-            movement_note = f"moves {actual_distance} {space_word} {direction}"
         content = (
-            f"**{name}:** the ball {movement_note}. "
+            f"**{name}:** the ball "
+            f"{self.low_pass_movement_note(match, handler, distance, actual_distance, passer_advance)}. "
             f"Ball speed is now {match.ball.speed}."
         )
 
@@ -2570,35 +2712,34 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             ),
         )
 
-    async def apply_high_pass(
+    def throw_high_pass(
         self,
-        interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        offense_side: TeamSide,
         distance: int,
-    ) -> None:
-        offense_side = match.ball.possession
-        handler = self.engine.get_player_definition(match.active_player_id)
+        handler: PlayerDefinition,
+    ) -> tuple[bool, int, str]:
+        """
+        Put the ball in the air and say what that looked like.
+
+        Returns whether the throw overshot, how far the ball actually
+        travelled, and the line every branch of the pass opens with.
+        The overshoot is read **before** the ball moves, the same way
+        Deflect reads its own and by the same test, so a pass that
+        could not move the ball at all is an overshoot like any other
+        -- which is the whole reason this is one function and not the
+        caller's first three statements.
+        """
         # Role ability -- Fullback: can choose to pass up to 4 spaces
         # instead of the usual 2-3 max (see HighPassChoiceView).
         fullback_bonus = handler.role == PlayerRole.FULLBACK and distance == 4
 
-        # Overshoot: the pass is clamped short of the distance asked
-        # for, i.e. it ran out of field. Read before the ball moves,
-        # the same way Deflect reads its own -- and by the same
-        # test, so a pass that could not move the ball at all is an
-        # overshoot like any other.
         overshot = match.high_pass_overshoots(offense_side, distance)
 
         actual_distance = match.move_ball_relative(offense_side, distance)
         game.match_state = match.to_dict()
         save_games(self.games)
-
-        # High Pass's own cost is a flat 2 space minutes regardless of
-        # distance (2026-08-16) -- the one maneuver that isn't 1. Kept
-        # apart from `actual_distance`, which is what the pass actually
-        # did and what the result says.
-        distance_moved = 2
 
         ability_note = " (Fullback ability)" if fullback_bonus else ""
         if actual_distance:
@@ -2616,6 +2757,54 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "**High Pass:** the ball is thrown up from the last space "
                 "and comes straight back down on it."
             )
+
+        return overshot, actual_distance, content
+
+    async def complete_high_pass_reception(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        receiver_id: str,
+        distance_moved: int,
+        lead_in: str,
+    ) -> None:
+        """
+        A pass that was caught and settles there: the receiver carries
+        it, and the maneuver ends without a contest.
+
+        Two branches reach this -- a 2-space pass out of shooting
+        range, and a pass whose contest a beaten Intercept called off.
+        They differ in what they say and in nothing else.
+        """
+        match.set_ball_carrier(receiver_id)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+        await self.refresh_match_image(interaction, game)
+        await self.finish_maneuver_resolution(
+            interaction, game, match, distance_moved=distance_moved,
+            lead_in=lead_in,
+        )
+
+    async def apply_high_pass(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        distance: int,
+    ) -> None:
+        offense_side = match.ball.possession
+        handler = self.engine.get_player_definition(match.active_player_id)
+
+        overshot, actual_distance, content = self.throw_high_pass(
+            game, match, offense_side, distance, handler,
+        )
+
+        # High Pass's own cost is a flat 2 space minutes regardless of
+        # distance (2026-08-16) -- the one maneuver that isn't 1. Kept
+        # apart from `actual_distance`, which is what the pass actually
+        # did and what the result says.
+        distance_moved = 2
 
         # Who this pass reached, read once now the ball has landed and
         # asked by every branch below -- the passer is not among them,
@@ -2702,13 +2891,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             # Caught cleanly, just out of shooting range -- the range
             # rule takes away the shot, not the catch, so the receiver
             # still carries it.
-            match.set_ball_carrier(receiver_candidates[0])
-            game.match_state = match.to_dict()
-            save_games(self.games)
-            await self.refresh_match_image(interaction, game)
-            await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=distance_moved,
-                lead_in=content,
+            await self.complete_high_pass_reception(
+                interaction, game, match, receiver_candidates[0],
+                distance_moved, content,
             )
             return
 
@@ -2747,15 +2932,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # pass reaching nobody have all already returned above, and
         # none of them had a contest to skip.
         if self.engine.advanced_cost(match, "high_pass") == "intercept":
-            match.set_ball_carrier(receiver_candidates[0])
-            game.match_state = match.to_dict()
-            save_games(self.games)
             receiver = self.engine.get_player_definition(
                 receiver_candidates[0]
             )
-            await self.refresh_match_image(interaction, game)
-            await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=distance_moved,
+            await self.complete_high_pass_reception(
+                interaction, game, match, receiver_candidates[0],
+                distance_moved,
                 lead_in=(
                     f"{content}\n\n**Intercept** was beaten -- the "
                     "reception is not contested, and "
@@ -3185,145 +3367,143 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 
-    async def resolve_loose_ball(
+    async def send_loose_ball_out_of_bounds(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
+        distance_moved: int,
     ) -> None:
-        offense_player_id = match.loose_ball_offense_player
-        defense_player_id = match.loose_ball_defense_player
-        distance_moved = match.pending_loose_ball_distance
-        is_high_pass = match.pending_loose_ball_is_high_pass
-        ball_noun = contest_noun(match)
+        """
+        Nobody could be sent, or nobody was. The side that last held
+        the ball loses it, and the side that just won it owes a player
+        on the ball's space -- placed after the run back, not before,
+        or the run back would pull that player straight back off the
+        ball again.
+        """
+        winning_side = match.defending_side()
+        reason = (
+            "Nobody is sent after it"
+            if match.loose_ball_offense_declined
+            or match.loose_ball_defense_declined
+            # Only a side with nobody fielded at all lands here now --
+            # distance replaced the zone as the measure on 2026-08-16,
+            # so declining is otherwise the whole of how a ball goes
+            # out.
+            else "Neither side has anyone left to send"
+        )
+        # Assigned rather than set_possession'd: that insists on a
+        # player of the new side already standing on the ball, and out
+        # of bounds is precisely the case where nobody is --
+        # pending_ball_recovery is the promise that somebody will be,
+        # once the run back is done.
+        match.ball.possession = winning_side
+        match.ball.speed = 1
+        match.pending_loose_ball = False
+        match.pending_ball_recovery = True
+        game.match_state = match.to_dict()
+        save_games(self.games)
 
-        if offense_player_id is None and defense_player_id is None:
-            # Out of bounds: nobody could be sent, or nobody was. The
-            # side that last held the ball loses it, and the side that
-            # just won it owes a player on the ball's space -- placed
-            # after the run back, not before, or the run back would
-            # pull that player straight back off the ball again.
-            winning_side = match.defending_side()
-            reason = (
-                "Nobody is sent after it"
-                if match.loose_ball_offense_declined
-                or match.loose_ball_defense_declined
-                # Only a side with nobody fielded at all lands here now
-                # -- distance replaced the zone as the measure on
-                # 2026-08-16, so declining is otherwise the whole of
-                # how a ball goes out.
-                else "Neither side has anyone left to send"
-            )
-            # Assigned rather than set_possession'd: that insists on a
-            # player of the new side already standing on the ball,
-            # and out of bounds is precisely the case where nobody is
-            # -- pending_ball_recovery is the promise that somebody
-            # will be, once the run back is done.
-            match.ball.possession = winning_side
-            match.ball.speed = 1
-            match.pending_loose_ball = False
-            match.pending_ball_recovery = True
-            game.match_state = match.to_dict()
-            save_games(self.games)
+        await interaction.followup.send(
+            f"**Out of bounds!** {reason} -- "
+            f"{format_team_side_label(match.setup_for_side(winning_side))} "
+            "take over.\n\n# Turnover!\nOnce everyone has run back, "
+            "they place a player on the ball."
+        )
+        await self.refresh_match_image(interaction, game)
+        # Out of bounds is the one loose ball that is a new play rather
+        # than a steal: nobody took the ball off anyone, it simply went
+        # dead and is being brought back in.
+        await self.begin_run_back(
+            interaction, game, match,
+            distance_moved=distance_moved,
+            turnover_occurred=True,
+            new_play=True,
+        )
 
-            await interaction.followup.send(
-                f"**Out of bounds!** {reason} -- "
-                f"{format_team_side_label(match.setup_for_side(winning_side))} "
-                "take over.\n\n# Turnover!\nOnce everyone has run back, "
-                "they place a player on the ball."
-            )
-            await self.refresh_match_image(interaction, game)
-            # Out of bounds is the one loose ball that is a new play
-            # rather than a steal: nobody took the ball off anyone, it
-            # simply went dead and is being brought back in.
-            await self.begin_run_back(
-                interaction, game, match,
-                distance_moved=distance_moved,
-                turnover_occurred=True,
-                new_play=True,
-            )
-            return
+    async def resolve_unopposed_loose_ball(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+        turnover: bool,
+        distance_moved: int,
+    ) -> None:
+        """
+        One side sent somebody and the other did not, so there is
+        nothing to roll: they walk in and take it.
 
-        if defense_player_id is None:
-            player = self.engine.get_player_definition(offense_player_id)
-            recovery_distance = match.distance_to_ball(offense_player_id)
-            match.move_meeple(
-                offense_player_id, match.ball.zone, match.ball.space_index,
-            )
-            exhaustion_text = self.apply_exhaustion(
-                match, offense_player_id, recovery_distance,
-            )
-            match.pending_loose_ball = False
-            # They went after it and came away with it, so they are
-            # holding it -- the same answer as a contested win below,
-            # since an unopposed contest is still how they got it.
-            match.set_ball_carrier(offense_player_id)
-            game.match_state = match.to_dict()
-            save_games(self.games)
-
-            recovery_line = (
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} keeps "
-                "possession after the high pass, uncontested."
-                if is_high_pass
-                else f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
-                "recovers the loose ball uncontested."
-            )
-            await interaction.followup.send(
-                f"{recovery_line}\n{exhaustion_text}"
-            )
-            await self.refresh_match_image(interaction, game)
-            await self.begin_run_back(
-                interaction, game, match,
-                distance_moved=distance_moved, turnover_occurred=False,
-            )
-            return
-
-        if offense_player_id is None:
-            # Only the defending side went for it -- because the side
-            # in possession had nobody in the zone, or sent nobody.
-            # Not out of bounds: that is the branch above, where
-            # neither side ends up with a player to send.
-            player = self.engine.get_player_definition(defense_player_id)
-            recovery_distance = match.distance_to_ball(defense_player_id)
-            match.move_meeple(
-                defense_player_id, match.ball.zone, match.ball.space_index,
-            )
-            exhaustion_text = self.apply_exhaustion(
-                match, defense_player_id, recovery_distance,
-            )
+        `turnover` is the whole difference between the two sides
+        arriving here. The defending side taking it changes possession
+        and resets the ball's speed; the side already in possession
+        keeping it changes neither. It is a steal either way -- picked
+        off rather than restarted -- so neither opens a substitution
+        window.
+        """
+        player = self.engine.get_player_definition(player_id)
+        recovery_distance = match.distance_to_ball(player_id)
+        match.move_meeple(
+            player_id, match.ball.zone, match.ball.space_index,
+        )
+        exhaustion_text = self.apply_exhaustion(
+            match, player_id, recovery_distance,
+        )
+        if turnover:
             match.ball.possession = match.defending_side()
             match.ball.speed = 1
-            match.pending_loose_ball = False
-            match.set_ball_carrier(defense_player_id)
-            game.match_state = match.to_dict()
-            save_games(self.games)
+        match.pending_loose_ball = False
+        # They went after it and came away with it, so they are holding
+        # it -- the same answer as a contested win, since an unopposed
+        # contest is still how they got it.
+        match.set_ball_carrier(player_id)
+        game.match_state = match.to_dict()
+        save_games(self.games)
 
+        bracket = format_role_bracket(
+            player, self.team_emojis, match.team_for_player(player.player_id),
+        )
+        if match.pending_loose_ball_is_high_pass:
             headline = (
-                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
-                "picks off the high pass, uncontested."
-                if is_high_pass
-                else f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
-                "recovers the loose ball uncontested."
+                f"{bracket} picks off the high pass, uncontested."
+                if turnover
+                else f"{bracket} keeps possession after the high pass, "
+                "uncontested."
             )
-            await interaction.followup.send(
+        else:
+            headline = f"{bracket} recovers the loose ball uncontested."
+
+        if turnover:
+            content = (
                 "# Turnover!\n"
                 f"{headline} "
                 f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
-                f"now has possession -- {format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
+                f"now has possession -- {bracket} "
                 f"gets to the ball.\n{exhaustion_text}"
             )
-            await self.refresh_match_image(interaction, game)
-            # Picked off rather than restarted -- a steal, and so no
-            # substitution window.
-            await self.begin_run_back(
-                interaction, game, match,
-                distance_moved=distance_moved, turnover_occurred=True,
-            )
-            return
+        else:
+            content = f"{headline}\n{exhaustion_text}"
 
-        # Both sides have a candidate -- move them both in, charge each
-        # their own recovery distance in exhaustion, and run the actual
-        # skill test.
+        await interaction.followup.send(content)
+        await self.refresh_match_image(interaction, game)
+        await self.begin_run_back(
+            interaction, game, match,
+            distance_moved=distance_moved, turnover_occurred=turnover,
+        )
+
+    async def begin_loose_ball_skill_test(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        offense_player_id: str,
+        defense_player_id: str,
+    ) -> None:
+        """
+        Both sides have a candidate: move them both in, charge each
+        their own recovery distance in exhaustion, and put the skill
+        test up.
+        """
         offense_recovery_distance = match.distance_to_ball(offense_player_id)
         defense_recovery_distance = match.distance_to_ball(defense_player_id)
         match.move_meeple(
@@ -3365,12 +3545,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
             f"(offense skill {offense_skill}) for the high pass -- the "
             "receiver must win this skill test to keep possession!"
-            if is_high_pass
+            if match.pending_loose_ball_is_high_pass
             else f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
             f"(offense skill {offense_skill}) and "
             f"{format_role_bracket(defense_player, self.team_emojis, match.team_for_player(defense_player.player_id))} "
             f"(defense skill {defense_skill}) both contest the "
-            f"{ball_noun} -- skill test!"
+            f"{contest_noun(match)} -- skill test!"
         )
         test_message = await interaction.followup.send(
             f"{contest_line}\n{exhaustion_text}\n\nEither "
@@ -3380,6 +3560,50 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         game.turn_message_id = test_message.id
         save_games(self.games)
+
+    async def resolve_loose_ball(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Settle a loose ball (or a long High Pass, which comes through
+        the same machinery) once both sides have answered: out of
+        bounds when neither sent anybody, an unopposed take when only
+        one did, and a skill test when both did.
+        """
+        offense_player_id = match.loose_ball_offense_player
+        defense_player_id = match.loose_ball_defense_player
+        distance_moved = match.pending_loose_ball_distance
+
+        if offense_player_id is None and defense_player_id is None:
+            await self.send_loose_ball_out_of_bounds(
+                interaction, game, match, distance_moved,
+            )
+            return
+
+        if defense_player_id is None:
+            await self.resolve_unopposed_loose_ball(
+                interaction, game, match, offense_player_id,
+                turnover=False, distance_moved=distance_moved,
+            )
+            return
+
+        if offense_player_id is None:
+            # Only the defending side went for it -- because the side
+            # in possession sent nobody. Not out of bounds: that is the
+            # branch above, where neither side ends up with a player to
+            # send.
+            await self.resolve_unopposed_loose_ball(
+                interaction, game, match, defense_player_id,
+                turnover=True, distance_moved=distance_moved,
+            )
+            return
+
+        await self.begin_loose_ball_skill_test(
+            interaction, game, match, offense_player_id, defense_player_id,
+        )
 
     async def begin_shooter_choice(
         self,
@@ -3488,39 +3712,54 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         await self.apply_deflection(interaction, game, match, "clear")
 
-    async def apply_deflection(
+    def deflection_numbers(
         self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
+        defender: PlayerDefinition,
         key: str,
-    ) -> None:
-        offense_side = match.ball.possession
-        defense_side = match.defending_side()
-        defender = self.engine.get_player_definition(match.challenger_id)
-        name = self.engine.maneuver_name(key)
+    ) -> tuple[int, int, bool]:
+        """
+        How far a deflection drives the ball, how much speed it takes
+        off, and whether a Fullback's ability is in it.
 
+        **The speed drop is the card's, not the distance's.** A
+        Fullback's Deflect has always moved the ball 2 and dropped the
+        speed by 1, so the two are separate numbers that happen to
+        match on an ordinary deflection -- and a Clear's -3 stays -3
+        when the Fullback pushes it to 4 spaces. Derived from the
+        distance instead, this read correctly right up until the
+        Fullback was let near a Clear, which is why they are returned
+        as two numbers rather than one.
+        """
         # Role ability -- Fullback: +1 space on a deflection, which
         # takes a Deflect from 1 to 2 and a Clear from 3 to 4.
         fullback_bonus = defender.role == PlayerRole.FULLBACK
         base_distance = 3 if key == "clear" else 1
-        deflect_distance = base_distance + (1 if fullback_bonus else 0)
 
-        # **The speed drop is the card's, not the distance's.** A
-        # Fullback's Deflect has always moved the ball 2 and
-        # dropped the speed by 1, so the two are separate numbers that
-        # happen to match on an ordinary deflection -- and a Clear's
-        # -3 stays -3 when the Fullback pushes it to 4 spaces. Written
-        # as `deflect_distance` this read correctly right up until the
-        # Fullback was let near a Clear.
-        speed_drop = base_distance
+        return (
+            base_distance + (1 if fullback_bonus else 0),
+            base_distance,
+            fullback_bonus,
+        )
 
-        # Overshoot: the deflection is clamped short of the full
-        # distance, i.e. the ball was already close enough to the
-        # offense's own goal that there was nowhere to put it. That no
-        # longer risks an own goal -- only Pressure does -- it sets up
-        # a scoring opportunity for the defense instead, who are now
-        # the side standing next to the goal the ball just reached.
+    def knock_ball_back(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        offense_side: TeamSide,
+        deflect_distance: int,
+        speed_drop: int,
+    ) -> tuple[bool, int]:
+        """
+        Drive the ball back toward the offense's own goal and take the
+        speed off it. Returns whether it ran out of field and how far
+        it actually went.
+
+        The overshoot is read before the ball moves, the way every
+        other overshoot in the game is. It no longer risks an own goal
+        -- only Pressure does -- it sets up a scoring opportunity for
+        the defense instead, who are now the side standing next to the
+        goal the ball just reached.
+        """
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
@@ -3535,6 +3774,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.ball.speed = max(1, match.ball.speed - speed_drop)
         game.match_state = match.to_dict()
         save_games(self.games)
+
+        return overshot, actual_distance
+
+    async def apply_deflection(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        key: str,
+    ) -> None:
+        offense_side = match.ball.possession
+        defense_side = match.defending_side()
+        defender = self.engine.get_player_definition(match.challenger_id)
+        name = self.engine.maneuver_name(key)
+
+        deflect_distance, speed_drop, fullback_bonus = (
+            self.deflection_numbers(defender, key)
+        )
+
+        overshot, actual_distance = self.knock_ball_back(
+            game, match, offense_side, deflect_distance, speed_drop,
+        )
 
         space_word = "space" if actual_distance == 1 else "spaces"
         ability_note = " (Fullback ability)" if fullback_bonus else ""
@@ -3735,31 +3996,29 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         """
         await self.apply_steal(interaction, game, match, "intercept")
 
-    async def apply_steal(
+    def take_ball_by_steal(
         self,
-        interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
-        key: str,
-    ) -> None:
-        new_possession_side = match.defending_side()
-        challenger_id = match.challenger_id
-        name = self.engine.maneuver_name(key)
-        # Toward the new possessor's own goal for a Steal, toward the
-        # goal they now attack for an Intercept -- so the two are one
-        # function and a sign.
-        direction = 1 if key == "intercept" else -1
+        challenger_id: str,
+        new_possession_side: TeamSide,
+        direction: int,
+    ) -> tuple[bool, int]:
+        """
+        Turn the ball over and carry it off, returning whether the
+        carry ran out of field and how far it actually went.
 
-        # The turnover happens first, then both the interceptor and the
-        # ball move -- relative to the *new* possessing side, not the
-        # old one. Moving the challenger's meeple (not just the ball)
-        # and re-deriving the ball's space from it keeps the two in the
-        # same space, so possession can be assigned directly without
-        # set_possession's occupancy check.
+        The turnover happens first, then both the interceptor and the
+        ball move -- relative to the *new* possessing side, not the old
+        one. Moving the challenger's meeple (not just the ball) and
+        re-deriving the ball's space from it keeps the two in the same
+        space, so possession can be assigned directly without
+        set_possession's occupancy check.
+        """
         match.ball.possession = new_possession_side
         # Every turnover drops the ball's speed back to 1 -- the
-        # defender's manipulate-speed choice below applies to that
-        # reset value, not whatever the speed was before the steal.
+        # defender's manipulate-speed choice applies to that reset
+        # value, not whatever the speed was before the steal.
         match.ball.speed = 1
 
         # Intercept moving forward can run out of field, which a Steal
@@ -3780,11 +4039,22 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match.set_ball_space(*match.board.meeple_position(challenger_id))
         # The interceptor took the ball off someone and moved with it,
         # so they carry it into their side's next turn -- the same
-        # player the run back exempts below.
+        # player the run back exempts.
         match.set_ball_carrier(challenger_id)
         game.match_state = match.to_dict()
         save_games(self.games)
 
+        return overshot, actual_distance
+
+    def steal_result_text(
+        self,
+        match: MatchState,
+        key: str,
+        name: str,
+        challenger_id: str,
+        actual_distance: int,
+    ) -> str:
+        """The turnover, and which way the thief carried it."""
         space_word = "space" if actual_distance == 1 else "spaces"
         challenger = self.engine.get_player_definition(challenger_id)
         challenger_label = format_role_bracket(
@@ -3800,12 +4070,34 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else f"then falls back {actual_distance} {space_word} toward "
             "their own goal with the ball"
         )
-        content = (
+        return (
             f"**{name}:**\n"
             "# Turnover!\n"
             f"{challenger_label} steals the ball. "
             f"{format_team_side_label(new_possession)} now has possession, "
             f"{travel}."
+        )
+
+    async def apply_steal(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        key: str,
+    ) -> None:
+        new_possession_side = match.defending_side()
+        challenger_id = match.challenger_id
+        name = self.engine.maneuver_name(key)
+        # Toward the new possessor's own goal for a Steal, toward the
+        # goal they now attack for an Intercept -- so the two are one
+        # function and a sign.
+        direction = 1 if key == "intercept" else -1
+
+        overshot, actual_distance = self.take_ball_by_steal(
+            game, match, challenger_id, new_possession_side, direction,
+        )
+        content = self.steal_result_text(
+            match, key, name, challenger_id, actual_distance,
         )
 
         if key == "intercept" and overshot:
@@ -3857,7 +4149,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # Ball-speed manipulation is offered after run-back finishes,
         # not here -- see begin_run_back's speed_choice_after.
         # No stays_player_id: begin_run_back exempts the ball carrier,
-        # which set_ball_carrier above has already made the interceptor.
+        # which take_ball_by_steal has already made the interceptor.
         await self.begin_run_back(
             interaction,
             game,
@@ -3890,6 +4182,148 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         both add their defensive skill.
         """
         await self.apply_pressure(interaction, game, match, "double_team")
+
+    def shove_pressured_handler(
+        self,
+        match: MatchState,
+        push: int,
+        partner_id: Optional[str],
+    ) -> int:
+        """
+        Drive the handler and the ball back, and bring the challenger
+        (and a Double Team's partner) onto the space they left.
+
+        Returns how far the handler actually moved, which is less than
+        `push` only when they were already against their own goal --
+        the caller reads that as the overshoot.
+        """
+        offense_side = match.ball.possession
+
+        actual_distance = match.move_player_relative(
+            match.active_player_id, offense_side, -push,
+        )
+        match.set_ball_space(
+            *match.board.meeple_position(match.active_player_id)
+        )
+
+        # The challenger advances onto the handler's space. A Double
+        # Team brings that teammate onto it as well, free of
+        # exhaustion -- so they are *placed* rather than run, which is
+        # what "no exhaustion cost" means in a game where every other
+        # way to reach a space charges a token a space.
+        handler_zone, handler_space = match.board.meeple_position(
+            match.active_player_id
+        )
+        match.move_meeple(match.challenger_id, handler_zone, handler_space)
+        if partner_id is not None:
+            match.move_meeple(partner_id, handler_zone, handler_space)
+
+        # Losing to a pressure does not lose the ball: the handler was
+        # shoved back still holding it, so they take the next turn.
+        # Set before the caller's overshoot branch, because an own goal
+        # avoided is the same thing -- pressured, and still holding it.
+        # The Defender's steal moves the carry to the Defender, and a
+        # conceded own goal is a new play, which clears it.
+        match.set_ball_carrier(match.active_player_id)
+
+        return actual_distance
+
+    def pressure_result_text(
+        self,
+        match: MatchState,
+        key: str,
+        name: str,
+        actual_distance: int,
+        partner_id: Optional[str],
+    ) -> str:
+        """
+        What the shove reads as, and -- for a Double Team -- the record
+        of who is left challenging the next maneuver.
+        """
+        handler = self.engine.get_player_definition(match.active_player_id)
+        defender = self.engine.get_player_definition(match.challenger_id)
+        space_word = "space" if actual_distance == 1 else "spaces"
+        content = (
+            f"**{name}:** "
+            f"{format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))} and the "
+            f"ball go back {actual_distance} {space_word}. "
+            f"{format_role_bracket(defender, self.team_emojis, match.team_for_player(defender.player_id))} moves "
+            "forward."
+        )
+
+        if key == "double_team" and partner_id is not None:
+            partner = self.engine.get_player_definition(partner_id)
+            # **The pair is recorded, not the fact that a Double Team
+            # happened.** What the next maneuver needs is who
+            # challenges it, and that is two named cards; a flag would
+            # leave the following turn re-deriving "the nearest
+            # teammate" off a board that has moved since.
+            match.pending_double_team = [match.challenger_id, partner_id]
+            content += (
+                f" {format_role_bracket(partner, self.team_emojis, match.team_for_player(partner_id))} "
+                "joins them, free of exhaustion -- and **both** will "
+                "challenge on the next maneuver, each adding their "
+                "defensive skill."
+            )
+
+        return content
+
+    def apply_pressure_turnover(
+        self,
+        match: MatchState,
+        key: str,
+        defense_side: TeamSide,
+    ) -> tuple[str, bool, bool]:
+        """
+        Whether the pressure also took the ball, and what to say about
+        it. Returns the text to append, and the two facts the caller
+        dispatches on: a Dribble Burst cost paid, and a Defender's
+        steal.
+
+        The two are exclusive and in that order -- a burst cost already
+        turns the ball over, so the Defender's ability has nothing left
+        to take.
+        """
+        defender = self.engine.get_player_definition(match.challenger_id)
+        content = ""
+
+        # **Dribble Burst's cost**: beaten by a pressure, the offense
+        # loses possession *and* the ball keeps whatever speed it was
+        # carrying while the defense manipulates it. Neither of those
+        # is something a pressure does on its own -- a turnover is the
+        # steal's and so is the speed step -- which is what the matrix
+        # means by the cost borrowing machinery its defeaters do not
+        # have. It is also **the first exception to "every turnover
+        # resets ball speed to 1"**, and the reason nothing here sets
+        # `match.ball.speed = 1`.
+        burst_cost = self.engine.advanced_cost(match, key) == "dribble_burst"
+        if burst_cost:
+            match.ball.possession = defense_side
+            match.set_ball_carrier(match.challenger_id)
+            content += (
+                "\n\n# Turnover!\n"
+                "**Dribble Burst** was beaten -- "
+                f"{format_team_side_label(match.setup_for_side(defense_side))} "
+                "take the ball, and it keeps the speed the burst put into "
+                f"it ({match.ball.speed})."
+            )
+
+        # Role ability -- Defender: also steals the ball on a won
+        # pressure, on top of the normal effect above.
+        stolen = defender.role == PlayerRole.DEFENDER
+        if stolen and not burst_cost:
+            match.ball.possession = defense_side
+            match.ball.speed = 1
+            match.set_ball_carrier(match.challenger_id)
+            content += (
+                "\n\n# Turnover!\n"
+                f"{format_role_bracket(defender, self.team_emojis, match.team_for_player(defender.player_id))} "
+                "steals the ball (Defender ability)! "
+                f"{format_team_side_label(match.setup_for_side(defense_side))} "
+                "now has possession."
+            )
+
+        return content, burst_cost, stolen
 
     async def apply_pressure(
         self,
@@ -3928,58 +4362,12 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else None
         )
 
-        actual_distance = match.move_player_relative(
-            match.active_player_id, offense_side, -push,
+        actual_distance = self.shove_pressured_handler(
+            match, push, partner_id,
         )
-        match.set_ball_space(
-            *match.board.meeple_position(match.active_player_id)
+        content = self.pressure_result_text(
+            match, key, name, actual_distance, partner_id,
         )
-
-        # The challenger advances onto the handler's space. A Double
-        # Team brings that teammate onto it as well, free of
-        # exhaustion -- so they are *placed* rather than run, which is
-        # what "no exhaustion cost" means in a game where every other
-        # way to reach a space charges a token a space.
-        handler_zone, handler_space = match.board.meeple_position(
-            match.active_player_id
-        )
-        match.move_meeple(match.challenger_id, handler_zone, handler_space)
-        if partner_id is not None:
-            match.move_meeple(partner_id, handler_zone, handler_space)
-
-        # Losing to a pressure does not lose the ball: the handler was
-        # shoved back still holding it, so they take the next turn.
-        # Set before the overshoot branch, because an own goal avoided
-        # is the same thing -- pressured, and still holding it. The
-        # Defender's steal below moves the carry to the Defender, and a
-        # conceded own goal is a new play, which clears it.
-        match.set_ball_carrier(match.active_player_id)
-
-        handler = self.engine.get_player_definition(match.active_player_id)
-        defender = self.engine.get_player_definition(match.challenger_id)
-        space_word = "space" if actual_distance == 1 else "spaces"
-        content = (
-            f"**{name}:** "
-            f"{format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))} and the "
-            f"ball go back {actual_distance} {space_word}. "
-            f"{format_role_bracket(defender, self.team_emojis, match.team_for_player(defender.player_id))} moves "
-            "forward."
-        )
-
-        if key == "double_team" and partner_id is not None:
-            partner = self.engine.get_player_definition(partner_id)
-            # **The pair is recorded, not the fact that a Double Team
-            # happened.** What the next maneuver needs is who
-            # challenges it, and that is two named cards; a flag would
-            # leave the following turn re-deriving "the nearest
-            # teammate" off a board that has moved since.
-            match.pending_double_team = [match.challenger_id, partner_id]
-            content += (
-                f" {format_role_bracket(partner, self.team_emojis, match.team_for_player(partner_id))} "
-                "joins them, free of exhaustion -- and **both** will "
-                "challenge on the next maneuver, each adding their "
-                "defensive skill."
-            )
 
         if overshot:
             game.match_state = match.to_dict()
@@ -3989,49 +4377,18 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             await self.refresh_match_image(interaction, game)
             # An own goal takes priority over the Defender's steal
-            # ability below: if it's conceded, the point is already
-            # over, and stealing a ball that was just kicked off from
-            # the restart wouldn't mean anything.
+            # ability: if it's conceded, the point is already over, and
+            # stealing a ball that was just kicked off from the restart
+            # wouldn't mean anything.
             await self.begin_own_goal_roll(
                 interaction, game, match, distance_moved=1,
             )
             return
 
-        # **Dribble Burst's cost**: beaten by a pressure, the offense
-        # loses possession *and* the ball keeps whatever speed it was
-        # carrying while the defense manipulates it. Neither of those
-        # is something a pressure does on its own -- a turnover is the
-        # steal's and so is the speed step -- which is what the matrix
-        # means by the cost borrowing machinery its defeaters do not
-        # have. It is also **the first exception to "every turnover
-        # resets ball speed to 1"**, and the reason nothing here calls
-        # `match.ball.speed = 1`.
-        burst_cost = self.engine.advanced_cost(match, key) == "dribble_burst"
-        if burst_cost:
-            match.ball.possession = defense_side
-            match.set_ball_carrier(match.challenger_id)
-            content += (
-                "\n\n# Turnover!\n"
-                "**Dribble Burst** was beaten -- "
-                f"{format_team_side_label(match.setup_for_side(defense_side))} "
-                "take the ball, and it keeps the speed the burst put into "
-                f"it ({match.ball.speed})."
-            )
-
-        # Role ability -- Defender: also steals the ball on a won
-        # pressure, on top of the normal effect above.
-        stolen = defender.role == PlayerRole.DEFENDER
-        if stolen and not burst_cost:
-            match.ball.possession = defense_side
-            match.ball.speed = 1
-            match.set_ball_carrier(match.challenger_id)
-            content += (
-                "\n\n# Turnover!\n"
-                f"{format_role_bracket(defender, self.team_emojis, match.team_for_player(defender.player_id))} "
-                "steals the ball (Defender ability)! "
-                f"{format_team_side_label(match.setup_for_side(defense_side))} "
-                "now has possession."
-            )
+        turnover_text, burst_cost, stolen = self.apply_pressure_turnover(
+            match, key, defense_side,
+        )
+        content += turnover_text
 
         game.match_state = match.to_dict()
         save_games(self.games)
@@ -4039,7 +4396,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         await self.refresh_match_image(interaction, game)
 
         # Fixed 1 space minute per the rules table, independent of
-        # clamping, same reasoning as a deflection above.
+        # clamping, same reasoning as a deflection.
         if burst_cost:
             # The defense has the ball and the speed step the cost
             # granted them, which is the steal's shape: run everyone
@@ -4055,7 +4412,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         elif stolen:
             # The stealing player keeps the ball and stays put --
             # everyone else who's out of position runs back. Read off
-            # the carrier set above, not passed in.
+            # the carrier set in the shove, not passed in.
             await self.begin_run_back(
                 interaction,
                 game,
@@ -4308,6 +4665,91 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 
+    async def own_goal_roll_message(
+        self,
+        match: MatchState,
+        offense_player: PlayerDefinition,
+        rolls: tuple[int, int],
+        offense_skill: int,
+        safe: bool,
+    ) -> tuple[discord.File, str]:
+        """
+        The dice image and the arithmetic that produced it, which is
+        posted above it because it is what built it.
+        """
+        offense_setup = match.setup_for_side(match.ball.possession)
+        dice_file = discord.File(
+            await asyncio.to_thread(
+                render_own_goal_dice,
+                list(rolls),
+                TEAM_COLORS[offense_setup.team],
+                safe,
+            ),
+            filename="own_goal_dice.png",
+        )
+
+        taken = max(rolls)
+        breakdown = (
+            f"**Own goal risk!** "
+            f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
+            f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
+            f"is {taken}, + {offense_skill} (offensive skill) "
+            f"= {taken + offense_skill}"
+        )
+
+        return dice_file, breakdown
+
+    def apply_own_goal_outcome(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        offense_player: PlayerDefinition,
+        distance_moved: int,
+        safe: bool,
+        exhaustion_text: str,
+    ) -> str:
+        """
+        Settle the roll and word it. Both outcomes restart play, which
+        is why the caller's dispatch is the same either way -- what
+        differs is whether a goal went on the board.
+        """
+        if safe:
+            # A new play resets speed same as any other -- see
+            # begin_run_back -- and nothing else on this path would,
+            # since Pressure's overshoot branch never touches it.
+            match.ball.speed = 1
+            # The ball stays exactly where the overshot Pressure left
+            # it, with no coverage guarantee at all -- not even the
+            # standard deal's, since that position is wherever the play
+            # happened to reach. So, since 2026-08-24, this owes the
+            # same pickup an out-of-bounds ball does rather than a
+            # two-sided loose ball: begin_ball_recovery checks
+            # eligible_ball_handlers() first and asks nobody when the
+            # reset already covers it.
+            match.pending_ball_recovery = True
+            return f"## Own goal avoided!\n\n{exhaustion_text}"
+
+        conceding_side = match.ball.possession
+        # The goal is the other side's; the kick is this player's,
+        # and the log says both -- see concede_own_goal.
+        match.concede_own_goal(offense_player.player_id)
+        match.restart_after_goal(conceding_side)
+        match.pending_run_back = True
+        match.pending_run_back_distance = distance_moved
+        match.pending_run_back_turnover = True
+        game.match_state = match.to_dict()
+        save_games(self.games)
+        return (
+            f"# Own goal!\n"
+            f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
+            "puts it in their own net on "
+            f"**{format_goal_time(match.goals[-1])}**.\n"
+            f"{team_display_name(match.home.team)} {match.scoreboard.home_score}:"
+            f"{match.scoreboard.visiting_score} "
+            f"{team_display_name(match.visiting.team)}\n\n"
+            f"{exhaustion_text}"
+        )
+
     async def run_own_goal_roll(
         self,
         interaction: discord.Interaction,
@@ -4333,8 +4775,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         ).offense
 
         rolls = (random.randint(1, 12), random.randint(1, 12))
-        taken = max(rolls)
-        total = taken + offense_skill
+        safe = max(rolls) + offense_skill >= 7
 
         # Charged before either branch saves the match, so the token
         # and any Exhausted flag it sets are written out with the rest
@@ -4343,63 +4784,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             match, offense_player.player_id, 1,
         )
 
-        safe = total >= 7
-
-        offense_setup = match.setup_for_side(match.ball.possession)
-        dice_file = discord.File(
-            await asyncio.to_thread(
-                render_own_goal_dice,
-                list(rolls),
-                TEAM_COLORS[offense_setup.team],
-                safe,
-            ),
-            filename="own_goal_dice.png",
+        dice_file, breakdown = await self.own_goal_roll_message(
+            match, offense_player, rolls, offense_skill, safe,
         )
-
-        breakdown = (
-            f"**Own goal risk!** "
-            f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
-            f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
-            f"is {taken}, + {offense_skill} (offensive skill) "
-            f"= {total}"
+        verdict = self.apply_own_goal_outcome(
+            game, match, offense_player, distance_moved, safe,
+            exhaustion_text,
         )
-
-        if safe:
-            # A new play resets speed same as any other -- see
-            # begin_run_back below -- and nothing else on this path
-            # would, since Pressure's overshoot branch never touches it.
-            match.ball.speed = 1
-            # The ball stays exactly where the overshot Pressure left
-            # it, with no coverage guarantee at all -- not even the
-            # standard deal's, since that position is wherever the play
-            # happened to reach. So, since 2026-08-24, this owes the
-            # same pickup an out-of-bounds ball does rather than a
-            # two-sided loose ball: begin_ball_recovery checks
-            # eligible_ball_handlers() first and asks nobody when the
-            # reset already covers it.
-            match.pending_ball_recovery = True
-            verdict = f"## Own goal avoided!\n\n{exhaustion_text}"
-        else:
-            conceding_side = match.ball.possession
-            # The goal is the other side's; the kick is this player's,
-            # and the log says both -- see concede_own_goal.
-            match.concede_own_goal(offense_player.player_id)
-            match.restart_after_goal(conceding_side)
-            match.pending_run_back = True
-            match.pending_run_back_distance = distance_moved
-            match.pending_run_back_turnover = True
-            game.match_state = match.to_dict()
-            save_games(self.games)
-            verdict = (
-                f"# Own goal!\n"
-                f"{format_role_bracket(offense_player, self.team_emojis, match.team_for_player(offense_player.player_id))} "
-                "puts it in their own net on "
-                f"**{format_goal_time(match.goals[-1])}**.\n"
-                f"{team_display_name(match.home.team)} {match.scoreboard.home_score}:"
-                f"{match.scoreboard.visiting_score} "
-                f"{team_display_name(match.visiting.team)}\n\n"
-                f"{exhaustion_text}"
-            )
 
         # The prompt becomes the dice, taking its own explanation with
         # it once the roll it was asking for has happened -- the same
@@ -4415,34 +4806,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         )
         await interaction.followup.send(verdict)
         await self.refresh_match_image(interaction, game)
+
         if safe:
             game.match_state = match.to_dict()
             save_games(self.games)
-            # Avoiding it is a stoppage too, not a play that simply
-            # carries on: both sides reset to their saved arrangement
-            # and the side that kept the ball may declare, exactly like
-            # any other new play -- and if this closes out last
-            # possession, begin_run_back's own check ends the period
-            # here instead. See "Own goal" in docs/living-rules.md.
-            await self.begin_run_back(
-                interaction,
-                game,
-                match,
-                distance_moved=distance_moved,
-                turnover_occurred=True,
-                new_play=True,
-            )
-        else:
-            # A conceded own goal restarts from the kickoff space
-            # exactly as any other goal does, so it is a new play.
-            await self.begin_run_back(
-                interaction,
-                game,
-                match,
-                distance_moved=distance_moved,
-                turnover_occurred=True,
-                new_play=True,
-            )
+
+        # **Both outcomes are new plays.** A conceded own goal restarts
+        # from the kickoff space as any other goal does; avoiding one
+        # is a stoppage too, not a play that carries on -- both sides
+        # reset to their saved arrangement and the side with the ball
+        # may declare. If this closes out last possession,
+        # begin_run_back's own check ends the period here instead. See
+        # "Own goal" in docs/living-rules.md.
+        await self.begin_run_back(
+            interaction,
+            game,
+            match,
+            distance_moved=distance_moved,
+            turnover_occurred=True,
+            new_play=True,
+        )
 
     # -- Run-back (after a turnover) ----------------------------------
 
@@ -4599,92 +4982,50 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             filename=f"d12ball-coaching-{game.game_number}.png",
         )
 
-    async def begin_substitution_window(
+    async def post_tutorial_coaching_note(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
-        match: MatchState,
         side: TeamSide,
-        occasion: CoachingOccasion = CoachingOccasion.NEW_PLAY,
-        is_response: bool = False,
-        lead_in: str = "",
     ) -> None:
         """
-        Offer `side` the window. A declaration is once a half, so a
-        side that has already spent theirs is never offered one. An
-        injured player on the field is named in the heading but
-        compels nothing -- leaving them on is the coach's call.
-
-        `occasion` carries every difference between the five -- the
-        substitution allowance, whether the declare-or-pass offer is
-        put at all, where a player taken off goes, and whether the
-        three positional actions are offered at all. Setup, halftime
-        and full time are given rather than declared, so all three skip
-        the offer and open the menu directly; a ceded ball skips it for
-        the opposite reason, having already been paid for.
-
-        **A window opens on the arrangement its coach last settled**,
-        never on the scramble a run back left behind -- see
-        MatchState.restore_assigned_positions. A new play resets both
-        sides before offering the window, so this only ever does
-        anything at halftime, where the first half ended wherever it
-        ended; but it is the guarantee for every occasion rather than
-        a halftime step, because a coach reading their half-field is
-        reading the shape they set either way.
-
-        Except full time, which has no positioning in it: nothing is
-        played from a position after it, so restoring would rearrange
-        the last board of the game to no purpose.
+        The tutorial's last lesson, and the one it cannot schedule: a
+        new play offers the window to the side *restarting* play, which
+        after the coach's goal is Dinky. So the note fires at the first
+        window this coach is ever offered, whenever the game gets round
+        to it -- which is why it reads `tutorial` rather than
+        `in_tutorial`, and usually lands a few turns after the script
+        has finished. `skip_tutorial` sets the flag so a coach who
+        opted out is not taught anyway.
         """
-        side = TeamSide(side)
-        occasion = CoachingOccasion(occasion)
-
-        # The tutorial's last lesson, and the one it cannot schedule:
-        # a new play offers this window to the side *restarting* play,
-        # which after the coach's goal is Dinky. So the note fires at
-        # the first window this coach is ever offered, whenever the
-        # game gets round to it -- which is why it reads `tutorial`
-        # rather than `in_tutorial`, and usually lands a few turns
-        # after the script has finished. `skip_tutorial` sets the flag
-        # so a coach who opted out is not taught anyway.
         if (
-            game.tutorial
-            and not game.tutorial_coaching_explained
-            and side == self.tutorial_player_side(game)
+            not game.tutorial
+            or game.tutorial_coaching_explained
+            or side != self.tutorial_player_side(game)
         ):
-            game.tutorial_coaching_explained = True
-            save_games(self.games)
-            await interaction.followup.send(tutorial.COACHING_NOTE)
-
-        restored = (
-            match.restore_assigned_positions(side)
-            if occasion.offers_positioning
-            else False
-        )
-        shape = self.engine.current_formation(match, side)
-        match.open_coaching_window(
-            side,
-            occasion,
-            is_response=is_response,
-            formation=shape.value if shape else None,
-        )
-        game.match_state = match.to_dict()
-        save_games(self.games)
-
-        # Only when the restore actually moved somebody, so the common
-        # case -- setup, and a new play that has just reset both sides
-        # -- costs nothing. Halftime does move them, and a coach whose
-        # half-field disagrees with the board above it has no way to
-        # tell which one the game thinks is true.
-        if restored:
-            await self.refresh_match_image(interaction, game)
-
-        if self.engine.side_is_ai(game, side):
-            await self.run_ai_substitution_window(
-                interaction, game, match, lead_in=lead_in,
-            )
             return
 
+        game.tutorial_coaching_explained = True
+        save_games(self.games)
+        await interaction.followup.send(tutorial.COACHING_NOTE)
+
+    def coaching_window_note(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        occasion: CoachingOccasion,
+        is_response: bool,
+        restored: bool,
+    ) -> str:
+        """
+        The line under a coaching prompt: what this window costs, what
+        moved on the way in, and who is hurt.
+
+        The three read as one paragraph but answer separately -- an
+        occasion that is declared says so, a restore is only mentioned
+        when it actually moved somebody, and an injured player is a
+        nudge rather than a requirement.
+        """
         if occasion.asks_declaration:
             note = (
                 "Answering the other team, which leaves your own "
@@ -4729,6 +5070,83 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             verb = "is" if len(injured_ids) == 1 else "are"
             note += f"\n{injured} {verb} injured and still on the field."
+
+        return note
+
+    async def begin_substitution_window(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        occasion: CoachingOccasion = CoachingOccasion.NEW_PLAY,
+        is_response: bool = False,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Offer `side` the window. A declaration is once a half, so a
+        side that has already spent theirs is never offered one. An
+        injured player on the field is named in the heading but
+        compels nothing -- leaving them on is the coach's call.
+
+        `occasion` carries every difference between the five -- the
+        substitution allowance, whether the declare-or-pass offer is
+        put at all, where a player taken off goes, and whether the
+        three positional actions are offered at all. Setup, halftime
+        and full time are given rather than declared, so all three skip
+        the offer and open the menu directly; a ceded ball skips it for
+        the opposite reason, having already been paid for.
+
+        **A window opens on the arrangement its coach last settled**,
+        never on the scramble a run back left behind -- see
+        MatchState.restore_assigned_positions. A new play resets both
+        sides before offering the window, so this only ever does
+        anything at halftime, where the first half ended wherever it
+        ended; but it is the guarantee for every occasion rather than
+        a halftime step, because a coach reading their half-field is
+        reading the shape they set either way.
+
+        Except full time, which has no positioning in it: nothing is
+        played from a position after it, so restoring would rearrange
+        the last board of the game to no purpose.
+        """
+        side = TeamSide(side)
+        occasion = CoachingOccasion(occasion)
+
+        await self.post_tutorial_coaching_note(interaction, game, side)
+
+        restored = (
+            match.restore_assigned_positions(side)
+            if occasion.offers_positioning
+            else False
+        )
+        shape = self.engine.current_formation(match, side)
+        match.open_coaching_window(
+            side,
+            occasion,
+            is_response=is_response,
+            formation=shape.value if shape else None,
+        )
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        # Only when the restore actually moved somebody, so the common
+        # case -- setup, and a new play that has just reset both sides
+        # -- costs nothing. Halftime does move them, and a coach whose
+        # half-field disagrees with the board above it has no way to
+        # tell which one the game thinks is true.
+        if restored:
+            await self.refresh_match_image(interaction, game)
+
+        if self.engine.side_is_ai(game, side):
+            await self.run_ai_substitution_window(
+                interaction, game, match, lead_in=lead_in,
+            )
+            return
+
+        note = self.coaching_window_note(
+            match, side, occasion, is_response, restored,
+        )
 
         prompt = await interaction.followup.send(
             self.engine.coaching_prompt(game, match, side, note, lead_in=lead_in),
@@ -5571,6 +5989,212 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
 
 
+    def run_back_ai_placement(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        candidates: list[str],
+    ) -> str:
+        """
+        Place one of an AI side's run-backs and describe it, without
+        posting anything: the line comes back for the cascade in
+        continue_run_back to batch with every other automatic
+        placement. See "Discord's rate limits" in CLAUDE.md.
+        """
+        # One candidate is a settled player and only the space is
+        # open; several is a stack Dinky picks out of, the same call a
+        # coach is given in send_run_back_prompt.
+        player_id = (
+            candidates[0]
+            if len(candidates) == 1
+            else self.engine.get_ai_strategy(game).choose_run_back_player(
+                match, candidates,
+            )
+        )
+        zone = match.setup_for_side(side).assigned_zone(player_id)
+        player = self.engine.get_player_definition(player_id)
+        space_index = self.engine.get_ai_strategy(game).choose_run_back_space(
+            match.placement_spaces_in_zone(side, zone, player_id)
+        )
+        distance = match.run_back_player(player_id, zone, space_index)
+        exhaustion_text = self.apply_exhaustion(match, player_id, distance)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        return (
+            f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
+            f"runs back to {space_label(zone, space_index)}."
+            f"\n{exhaustion_text}"
+        )
+
+    def run_back_kickoff_fill(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Settle a pending kickoff fill, and say whether the cascade goes
+        round again -- with the line describing the drop back, when
+        somebody actually moved.
+
+        A goal (or own goal) restarts play with nobody necessarily
+        standing on the kickoff space -- the conceding side's two
+        midfield players could easily both be elsewhere in the zone
+        from open play. Whoever's closest drops back to start the
+        kickoff, at the usual run-back cost, once every other run-back
+        is settled.
+
+        Asked here rather than back in restart_after_goal because
+        everyone has moved since: the new play's reset, and any
+        placement its substitution window made. Somebody standing on
+        the space already settles it for nothing.
+        """
+        if match.eligible_ball_handlers():
+            match.pending_kickoff_fill = False
+            game.match_state = match.to_dict()
+            save_games(self.games)
+            return True, None
+
+        candidates = match.kickoff_fill_candidates()
+        if candidates:
+            player_id = candidates[0]
+            player = self.engine.get_player_definition(player_id)
+            distance = match.fill_kickoff(player_id)
+            exhaustion_text = self.apply_exhaustion(
+                match, player_id, distance,
+            )
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            return True, (
+                f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
+                "drops back to "
+                f"{space_label(match.ball.zone, match.ball.space_index)} "
+                f"to start the kickoff.\n{exhaustion_text}"
+            )
+
+        # Nobody fielded in midfield at all (both benched or injured)
+        # -- nothing to place. Clear the flag and let the loose-ball
+        # check downstream handle the empty kickoff. The save is the
+        # caller's, which is about to write the settled run back out
+        # anyway.
+        match.pending_kickoff_fill = False
+        return False, None
+
+    async def send_run_back_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        candidates: list[str],
+        png: bytes,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Put a coach's run-back choice up, on the board `png` the
+        cascade has already settled -- because both questions a run
+        back asks (which of these players goes, and which space they
+        go to) are questions about where everybody is standing, and the
+        persistent message has scrolled away up the channel by the time
+        a turn has resolved. It goes with the prompt: the click edits
+        both away together, so the board a coach is reading is never
+        one of a position that has moved on.
+        """
+        controller_id = self.engine.side_controller_id(game, side)
+        mention = f"<@{controller_id}>" if controller_id else "Someone"
+        prefix = f"{lead_in}\n\n" if lead_in else ""
+
+        # A stack asks who before it asks where, and the two share one
+        # message: the second question is an edit of the first, which
+        # keeps the board that was uploaded for it rather than paying
+        # for a second one. See RunBackPlayerChoiceView.
+        if len(candidates) == 1:
+            prompt_view = RunBackChoiceView(self, game.game_id, candidates[0])
+            body = self.run_back_space_prompt(
+                match, side, candidates[0], mention,
+            )
+        else:
+            prompt_view = RunBackPlayerChoiceView(self, game.game_id, candidates)
+            body = self.run_back_player_prompt(
+                match, side, candidates, mention,
+            )
+
+        prompt_message = await interaction.followup.send(
+            f"{prefix}{body}",
+            file=self.match_file_from_png(game, png),
+            view=prompt_view,
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        # The view has to be handed over with the link, or the edit
+        # that adds it drops the buttons this prompt is for -- see
+        # add_full_image_button. Both go when the choice is made.
+        await add_full_image_button(prompt_message, prompt_view)
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
+
+    async def finish_run_back(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Nobody is displaced on either side: clear the run back and hand
+        the turn on to whatever it was still holding up.
+        """
+        match.pending_run_back = False
+        distance_moved = match.pending_run_back_distance
+        turnover_occurred = match.pending_run_back_turnover
+        speed_choice_after = match.pending_run_back_speed_choice
+        stays_player_id = match.pending_run_back_stays_player_id
+        match.pending_run_back_speed_choice = False
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        if match.pending_ball_recovery:
+            # An out-of-bounds ball is still lying there with nobody
+            # on it. Now that everyone is back in position, the side
+            # that won it sends the nearest player either side of it,
+            # at the usual per-space cost.
+            await self.begin_ball_recovery(
+                interaction, game, match, lead_in=lead_in,
+            )
+            return
+
+        if speed_choice_after:
+            # Steal: the defender who stole the ball still
+            # gets to manipulate its speed, now that everyone is back
+            # in position.
+            await self.offer_speed_choice(
+                interaction,
+                game,
+                match,
+                player_id=stays_player_id,
+                skill_type="defense",
+                turnover_occurred=turnover_occurred,
+                distance_moved=distance_moved,
+                lead_in=lead_in,
+            )
+            return
+
+        # Run-back itself only ever costs exhaustion, not time -- the
+        # time cost is whatever the triggering maneuver's own ball
+        # movement was, stashed by begin_run_back.
+        await self.finish_maneuver_resolution(
+            interaction,
+            game,
+            match,
+            distance_moved=distance_moved,
+            turnover_occurred=turnover_occurred,
+            lead_in=lead_in,
+        )
+
     async def continue_run_back(
         self,
         interaction: discord.Interaction,
@@ -5657,50 +6281,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 side, candidates = step
 
                 if self.engine.side_is_ai(game, side):
-                    # One candidate is a settled player and only the
-                    # space is open; several is a stack Dinky picks out
-                    # of, the same call a coach is given below.
-                    player_id = (
-                        candidates[0]
-                        if len(candidates) == 1
-                        else self.engine.get_ai_strategy(
-                            game
-                        ).choose_run_back_player(match, candidates)
-                    )
-                    zone = match.setup_for_side(side).assigned_zone(player_id)
-                    player = self.engine.get_player_definition(player_id)
-                    space_index = self.engine.get_ai_strategy(
-                        game
-                    ).choose_run_back_space(
-                        match.placement_spaces_in_zone(side, zone, player_id)
-                    )
-                    distance = match.run_back_player(
-                        player_id, zone, space_index,
-                    )
-                    exhaustion_text = self.apply_exhaustion(
-                        match, player_id, distance,
-                    )
-                    game.match_state = match.to_dict()
-                    save_games(self.games)
-
                     notes.append(
-                        f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
-                        f"runs back to {space_label(zone, space_index)}."
-                        f"\n{exhaustion_text}"
+                        self.run_back_ai_placement(
+                            game, match, side, candidates,
+                        )
                     )
                     continue
 
                 # A coach's choice ends the cascade here: say what has
-                # happened so far, show the board it left, and ask --
-                # with the board on the prompt itself, because both
-                # questions a run back asks (which of these players
-                # goes, and which space they go to) are questions about
-                # where everybody is standing, and the persistent
-                # message has scrolled away up the channel by the time
-                # a turn has resolved. It goes with the prompt: the
-                # click edits both away together, so the board a coach
-                # is reading is never one of a position that has moved
-                # on.
+                # happened so far, show the board it left, and ask.
                 #
                 # One render, two uploads -- the same board settles the
                 # persistent message, exactly as announce_board_update
@@ -5709,144 +6298,28 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 if not await flush(png):
                     await self.refresh_match_image(interaction, game, png=png)
 
-                controller_id = self.engine.side_controller_id(game, side)
-                mention = f"<@{controller_id}>" if controller_id else "Someone"
-                prefix = f"{lead_in}\n\n" if lead_in else ""
-
-                # A stack asks who before it asks where, and the two
-                # share one message: the second question is an edit of
-                # the first, which keeps the board that was uploaded
-                # for it rather than paying for a second one. See
-                # RunBackPlayerChoiceView.
-                if len(candidates) == 1:
-                    prompt_view = RunBackChoiceView(
-                        self, game.game_id, candidates[0],
-                    )
-                    body = self.run_back_space_prompt(
-                        match, side, candidates[0], mention,
-                    )
-                else:
-                    prompt_view = RunBackPlayerChoiceView(
-                        self, game.game_id, candidates,
-                    )
-                    body = self.run_back_player_prompt(
-                        match, side, candidates, mention,
-                    )
-
-                prompt_message = await interaction.followup.send(
-                    f"{prefix}{body}",
-                    file=self.match_file_from_png(game, png),
-                    view=prompt_view,
-                    wait=True,
-                    allowed_mentions=discord.AllowedMentions(
-                        users=True, roles=False, everyone=False,
-                    ),
+                await self.send_run_back_prompt(
+                    interaction,
+                    game,
+                    match,
+                    side,
+                    candidates,
+                    png,
+                    lead_in=lead_in,
                 )
-                # The view has to be handed over with the link, or the
-                # edit that adds it drops the buttons this prompt is
-                # for -- see add_full_image_button. Both go when the
-                # choice is made.
-                await add_full_image_button(prompt_message, prompt_view)
-                game.turn_message_id = prompt_message.id
-                save_games(self.games)
                 return
 
             if match.pending_kickoff_fill:
-                # A goal (or own goal) restarts play with nobody
-                # necessarily standing on the kickoff space -- the
-                # conceding side's two midfield players could easily
-                # both be elsewhere in the zone from open play.
-                # Whoever's closest drops back to start the kickoff, at
-                # the usual run-back cost, once every other run-back is
-                # settled.
-                #
-                # Asked here rather than back in restart_after_goal
-                # because everyone has moved since: the new play's
-                # reset, and any placement its substitution window
-                # made. Somebody standing on the space already settles
-                # it for nothing.
-                if match.eligible_ball_handlers():
-                    match.pending_kickoff_fill = False
-                    game.match_state = match.to_dict()
-                    save_games(self.games)
+                keep_going, note = self.run_back_kickoff_fill(game, match)
+                if note is not None:
+                    notes.append(note)
+                if keep_going:
                     continue
-
-                candidates = match.kickoff_fill_candidates()
-                if candidates:
-                    player_id = candidates[0]
-                    player = self.engine.get_player_definition(player_id)
-                    distance = match.fill_kickoff(player_id)
-                    exhaustion_text = self.apply_exhaustion(
-                        match, player_id, distance,
-                    )
-                    game.match_state = match.to_dict()
-                    save_games(self.games)
-
-                    notes.append(
-                        f"{format_role_bracket(player, self.team_emojis, match.team_for_player(player.player_id))} "
-                        "drops back to "
-                        f"{space_label(match.ball.zone, match.ball.space_index)} "
-                        f"to start the kickoff.\n{exhaustion_text}"
-                    )
-                    continue
-
-                # Nobody fielded in midfield at all (both benched or
-                # injured) -- nothing to place. Clear the flag and let
-                # the loose-ball check downstream handle the empty
-                # kickoff.
-                match.pending_kickoff_fill = False
 
             break
 
         await flush()
-
-        # Nobody is displaced on either side -- run-back is done.
-        match.pending_run_back = False
-        distance_moved = match.pending_run_back_distance
-        turnover_occurred = match.pending_run_back_turnover
-        speed_choice_after = match.pending_run_back_speed_choice
-        stays_player_id = match.pending_run_back_stays_player_id
-        match.pending_run_back_speed_choice = False
-        game.match_state = match.to_dict()
-        save_games(self.games)
-
-        if match.pending_ball_recovery:
-            # An out-of-bounds ball is still lying there with nobody
-            # on it. Now that everyone is back in position, the side
-            # that won it sends the nearest player either side of it,
-            # at the usual per-space cost.
-            await self.begin_ball_recovery(
-                interaction, game, match, lead_in=lead_in,
-            )
-            return
-
-        if speed_choice_after:
-            # Steal: the defender who stole the ball still
-            # gets to manipulate its speed, now that everyone is back
-            # in position.
-            await self.offer_speed_choice(
-                interaction,
-                game,
-                match,
-                player_id=stays_player_id,
-                skill_type="defense",
-                turnover_occurred=turnover_occurred,
-                distance_moved=distance_moved,
-                lead_in=lead_in,
-            )
-            return
-
-        # Run-back itself only ever costs exhaustion, not time -- the
-        # time cost is whatever the triggering maneuver's own ball
-        # movement was, stashed by begin_run_back.
-        await self.finish_maneuver_resolution(
-            interaction,
-            game,
-            match,
-            distance_moved=distance_moved,
-            turnover_occurred=turnover_occurred,
-            lead_in=lead_in,
-        )
+        await self.finish_run_back(interaction, game, match, lead_in=lead_in)
 
     # -- Out-of-bounds recovery (after the run back) ------------------
 
@@ -8365,6 +8838,100 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 del self.games[game_id]
             save_games(self.games)
 
+    def create_game_refusal(
+        self,
+        interaction: discord.Interaction,
+        p1: Optional[discord.Member],
+        p2: Optional[discord.Member],
+        test_game: bool,
+        tutorial: bool,
+    ) -> Optional[str]:
+        """
+        Why this /d12ball create_game cannot be run at all, or None.
+
+        Asked before the two coaches are worked out, since none of
+        these depend on who they turn out to be.
+        """
+        if interaction.guild is None:
+            return "This command can only be used inside a server."
+
+        if not isinstance(interaction.user, discord.Member):
+            return "I could not identify the person creating the game."
+
+        if test_game and (p1 is not None or p2 is not None):
+            return (
+                "A test game cannot specify p1 or p2; you control both sides."
+            )
+
+        # The tutorial is a scripted warm-up against Dinky and nothing
+        # else -- see d12ball/tutorial.py. Its five beats set a position
+        # a side at a time and rail one coach onto one card, neither of
+        # which means anything with a second human in the game or with
+        # one person holding both sides' menus. Refused rather than
+        # quietly ignored: a coach who asked for a tutorial and got an
+        # ordinary game would have no way to tell.
+        if tutorial and (p1 is not None or p2 is not None or test_game):
+            return (
+                "A tutorial game is played against Dinky on your own, so "
+                "it cannot take p1, p2 or test_game."
+            )
+
+        return None
+
+    def resolve_game_players(
+        self,
+        interaction: discord.Interaction,
+        p1: Optional[discord.Member],
+        p2: Optional[discord.Member],
+        test_game: bool,
+    ) -> tuple[Optional[discord.Member], Optional[discord.Member]]:
+        """
+        Which members are Player 1 and Player 2.
+
+        Naming nobody means a solo game against Dinky; naming one
+        person means them against whoever ran the command; naming two
+        sets up a game between other people. A test game is one person
+        on both sides.
+        """
+        if test_game:
+            return interaction.user, interaction.user
+
+        if p1 is not None and p2 is not None:
+            return p1, p2
+
+        # One named opponent, or none at all -- either way the caller
+        # takes Player 1 and whoever they named (if anyone) takes 2.
+        return interaction.user, p1 if p1 is not None else p2
+
+    def player_pair_refusal(
+        self,
+        player_1: Optional[discord.Member],
+        player_2: Optional[discord.Member],
+        test_game: bool,
+    ) -> Optional[str]:
+        """
+        Why this pair of coaches cannot play each other, or None.
+        A test game is exempt from the last of them, being one person
+        deliberately holding both sides.
+        """
+        if player_1 is None:
+            return "Player 1 could not be identified."
+
+        if player_1.bot:
+            return "Player 1 cannot be a bot."
+
+        if player_2 is not None and player_2.bot:
+            return "Player 2 cannot be a bot."
+
+        if (
+            not test_game
+            and player_2 is not None
+            and player_1.id == player_2.id
+        ):
+            return "Player 1 and Player 2 must be different people."
+
+        return None
+
     @app_commands.command(
         name="create_game",
         description="Create a new D12 Ball game.",
@@ -8394,101 +8961,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         test_game: bool = False,
         tutorial: bool = False,
     ) -> None:
-        guild = interaction.guild
-
-        if guild is None:
-            await interaction.response.send_message(
-                "This command can only be used inside a server.",
-                ephemeral=True,
-            )
+        refusal = self.create_game_refusal(
+            interaction, p1, p2, test_game, tutorial,
+        )
+        if refusal is not None:
+            await interaction.response.send_message(refusal, ephemeral=True)
             return
 
-        if not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message(
-                "I could not identify the person creating the game.",
-                ephemeral=True,
-            )
-            return
+        player_1, player_2 = self.resolve_game_players(
+            interaction, p1, p2, test_game,
+        )
 
-        if test_game and (p1 is not None or p2 is not None):
-            await interaction.response.send_message(
-                "A test game cannot specify p1 or p2; you control both sides.",
-                ephemeral=True,
-            )
-            return
-
-        # The tutorial is a scripted warm-up against Dinky and nothing
-        # else -- see d12ball/tutorial.py. Its five beats set a position
-        # a side at a time and rail one coach onto one card, neither of
-        # which means anything with a second human in the game or with
-        # one person holding both sides' menus. Refused rather than
-        # quietly ignored: a coach who asked for a tutorial and got an
-        # ordinary game would have no way to tell.
-        if tutorial and (p1 is not None or p2 is not None or test_game):
-            await interaction.response.send_message(
-                "A tutorial game is played against Dinky on your own, so "
-                "it cannot take p1, p2 or test_game.",
-                ephemeral=True,
-            )
-            return
-
-        # Work out which members are Player 1 and Player 2.
-        if test_game:
-            player_1 = interaction.user
-            player_2 = interaction.user
-        elif p1 is None and p2 is None:
-            player_1 = interaction.user
-            player_2 = None
-
-        elif p1 is not None and p2 is None:
-            player_1 = interaction.user
-            player_2 = p1
-
-        elif p1 is None and p2 is not None:
-            player_1 = interaction.user
-            player_2 = p2
-
-        else:
-            player_1 = p1
-            player_2 = p2
-
-        if player_1 is None:
-            await interaction.response.send_message(
-                "Player 1 could not be identified.",
-                ephemeral=True,
-            )
-            return
-
-        if player_1.bot:
-            await interaction.response.send_message(
-                "Player 1 cannot be a bot.",
-                ephemeral=True,
-            )
-            return
-
-        if player_2 is not None and player_2.bot:
-            await interaction.response.send_message(
-                "Player 2 cannot be a bot.",
-                ephemeral=True,
-            )
-            return
-
-        if (
-            not test_game
-            and player_2 is not None
-            and player_1.id == player_2.id
-        ):
-            await interaction.response.send_message(
-                "Player 1 and Player 2 must be different people.",
-                ephemeral=True,
-            )
+        refusal = self.player_pair_refusal(player_1, player_2, test_game)
+        if refusal is not None:
+            await interaction.response.send_message(refusal, ephemeral=True)
             return
 
         await interaction.response.defer(ephemeral=True)
 
         try:
             game = await self.open_new_game(
-                guild,
+                interaction.guild,
                 player_1,
                 player_2,
                 test_game=test_game,
@@ -8505,67 +8998,34 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             ephemeral=True,
         )
 
-    async def open_new_game(
+    def game_channel_overwrites(
         self,
         guild: discord.Guild,
         player_1: discord.Member,
         player_2: Optional[discord.Member],
-        test_game: bool = False,
-        created_by: Optional[discord.abc.User] = None,
-        mode: GameMode = GameMode.BASIC,
-        board_size: int = 7,
-        ai_opponent: Optional[AIOpponent] = None,
-        game_name: Optional[str] = None,
-        tutorial: bool = False,
-    ) -> D12BallGame:
+        bot_member: discord.Member,
+    ) -> dict:
         """
-        Create the private channel for a game, save the game record,
-        and post its setup message. Shared by /d12ball create_game and
-        the full-time rematch button, which is why everything that can
-        go wrong is raised as a ValueError carrying the text to show
-        the person who asked for the game rather than replying itself.
-
-        The settings arguments exist for the rematch, which carries the
-        finished game's configuration over; a fresh game takes the
-        defaults and settles them in setup.
+        Who can see a game's channel: its coaches and the bot, and
+        nobody else. The bot also needs Manage Channels, since
+        archiving a finished game moves the channel between categories.
         """
-        game_number = self.get_next_game_number(guild)
-        resolved_ai_opponent = (
-            None if player_2 else ai_opponent or AIOpponent.DINKY
-        )
-        player_1_name = "Player 1" if test_game else player_1.display_name
-        player_2_name = (
-            "Player 2"
-            if test_game
-            else player_2.display_name if player_2 else None
-        )
-        channel_name = build_game_channel_name(
-            game_number,
-            player_1_name,
-            player_2_name or format_ai_name(resolved_ai_opponent),
-            # A tutorial names its own channel unless the coach named
-            # it, so the one game in the category whose opening is
-            # scripted says so from the channel list. It goes through
-            # `game_name` rather than being appended to the pattern,
-            # because the number's position in the name is what
-            # CHANNEL_NAME_PATTERN reads back -- see "Game channels".
-            game_name=game_name or ("tutorial" if tutorial else None),
-        )
-
-        bot_member = guild.me
-
-        if bot_member is None:
-            raise ValueError("I could not find my server account.")
+        def player_access() -> discord.PermissionOverwrite:
+            # A fresh object per coach rather than one shared between
+            # them: an overwrite is handed to discord.py, and two
+            # entries in this dict should not be able to become the
+            # same object by accident.
+            return discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                read_message_history=True,
+            )
 
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(
                 view_channel=False,
             ),
-            player_1: discord.PermissionOverwrite(
-                view_channel=True,
-                send_messages=True,
-                read_message_history=True,
-            ),
+            player_1: player_access(),
             bot_member: discord.PermissionOverwrite(
                 view_channel=True,
                 send_messages=True,
@@ -8575,12 +9035,26 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         }
 
         if player_2 is not None:
-            overwrites[player_2] = discord.PermissionOverwrite(
-                view_channel=True,
-                send_messages=True,
-                read_message_history=True,
-            )
+            overwrites[player_2] = player_access()
 
+        return overwrites
+
+    async def create_private_game_channel(
+        self,
+        guild: discord.Guild,
+        channel_name: str,
+        overwrites: dict,
+        bot_member: discord.Member,
+        created_by: Optional[discord.abc.User],
+    ) -> discord.TextChannel:
+        """
+        Make the channel a game is played in, under the PBD Games
+        category, and confirm the bot came out of it able to manage
+        what it just created.
+
+        Every failure is a ValueError carrying the text to show whoever
+        asked for the game -- see open_new_game.
+        """
         try:
             category = await get_or_create_category(
                 guild,
@@ -8640,6 +9114,113 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 "me View Channel and Manage Channels permissions."
             )
 
+        return game_channel
+
+    async def post_game_setup_message(
+        self,
+        game_channel: discord.TextChannel,
+        game: D12BallGame,
+    ) -> int:
+        """
+        The first message in a game's channel: the team picker, and the
+        line above it that the channel keeps for the rest of the game.
+
+        This message is **not** the one the board ends up on -- the
+        coin flip re-points `game.message_id` at the home/visiting
+        choice it posts, which is what every later board is written to.
+        See "Discord's rate limits" in CLAUDE.md.
+        """
+        view = TeamSelectionView(
+            cog=self,
+            game_id=game.game_id,
+        )
+
+        message_text = (
+            "Start playing in this channel.\n\n"
+            f"{view.build_team_message(game)}"
+        )
+
+        try:
+            game_message = await game_channel.send(
+                message_text,
+                view=view,
+                allowed_mentions=discord.AllowedMentions(
+                    users=True,
+                    roles=False,
+                    everyone=False,
+                ),
+            )
+
+        except discord.HTTPException as error:
+            raise ValueError(
+                f"The channel was created, but I could not send "
+                f"the game message: {error}"
+            )
+
+        return game_message.id
+
+    async def open_new_game(
+        self,
+        guild: discord.Guild,
+        player_1: discord.Member,
+        player_2: Optional[discord.Member],
+        test_game: bool = False,
+        created_by: Optional[discord.abc.User] = None,
+        mode: GameMode = GameMode.BASIC,
+        board_size: int = 7,
+        ai_opponent: Optional[AIOpponent] = None,
+        game_name: Optional[str] = None,
+        tutorial: bool = False,
+    ) -> D12BallGame:
+        """
+        Create the private channel for a game, save the game record,
+        and post its setup message. Shared by /d12ball create_game and
+        the full-time rematch button, which is why everything that can
+        go wrong is raised as a ValueError carrying the text to show
+        the person who asked for the game rather than replying itself.
+
+        The settings arguments exist for the rematch, which carries the
+        finished game's configuration over; a fresh game takes the
+        defaults and settles them in setup.
+        """
+        game_number = self.get_next_game_number(guild)
+        resolved_ai_opponent = (
+            None if player_2 else ai_opponent or AIOpponent.DINKY
+        )
+        player_1_name = "Player 1" if test_game else player_1.display_name
+        player_2_name = (
+            "Player 2"
+            if test_game
+            else player_2.display_name if player_2 else None
+        )
+        channel_name = build_game_channel_name(
+            game_number,
+            player_1_name,
+            player_2_name or format_ai_name(resolved_ai_opponent),
+            # A tutorial names its own channel unless the coach named
+            # it, so the one game in the category whose opening is
+            # scripted says so from the channel list. It goes through
+            # `game_name` rather than being appended to the pattern,
+            # because the number's position in the name is what
+            # CHANNEL_NAME_PATTERN reads back -- see "Game channels".
+            game_name=game_name or ("tutorial" if tutorial else None),
+        )
+
+        bot_member = guild.me
+
+        if bot_member is None:
+            raise ValueError("I could not find my server account.")
+
+        game_channel = await self.create_private_game_channel(
+            guild,
+            channel_name,
+            self.game_channel_overwrites(
+                guild, player_1, player_2, bot_member,
+            ),
+            bot_member,
+            created_by,
+        )
+
         game_id = uuid.uuid4().hex
 
         game = D12BallGame(
@@ -8669,38 +9250,16 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         self.games[game_id] = game
 
-        view = TeamSelectionView(
-            cog=self,
-            game_id=game_id,
-        )
-
-        message_text = view.build_team_message(game)
-
-        message_text = (
-            "Start playing in this channel.\n\n"
-            f"{message_text}"
-        )
-
         try:
-            game_message = await game_channel.send(
-                message_text,
-                view=view,
-                allowed_mentions=discord.AllowedMentions(
-                    users=True,
-                    roles=False,
-                    everyone=False,
-                ),
+            game.message_id = await self.post_game_setup_message(
+                game_channel, game,
             )
-
-        except discord.HTTPException as error:
+        except ValueError:
+            # The record was only ever added so the view could build
+            # its message off it; with nothing posted there is no game.
             self.games.pop(game_id, None)
+            raise
 
-            raise ValueError(
-                f"The channel was created, but I could not send "
-                f"the game message: {error}"
-            )
-
-        game.message_id = game_message.id
         save_games(self.games)
         return game
 
