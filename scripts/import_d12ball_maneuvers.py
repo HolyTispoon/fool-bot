@@ -43,6 +43,8 @@ REQUIRED_COLUMNS = {
 # have caught up.
 LEGACY_MANEUVER_NAMES = {
     "steal intercept": "Steal",
+    # The advanced O1 card became "Skilled Pass" on 2026-08-26.
+    "precise pass": "Skilled Pass",
 }
 
 

@@ -131,6 +131,7 @@ from cogs.d12ball_views import (
     BallRecoveryView,
     CoinFlipView,
     DribbleAdvanceChoiceView,
+    DribbleBurstChoiceView,
     HalftimeExtraTokenView,
     HighPassChoiceView,
     HomeAwaySelectionView,
@@ -1298,7 +1299,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # **An effect continuation is read first**, because it says the
         # effect is already past the prompt its winner would restore.
         # Setup Pass's speed choice has been answered by the time one
-        # is set, and a beaten Precise Pass's Low Pass belongs to the
+        # is set, and a beaten Skilled Pass's Low Pass belongs to the
         # *defense* -- reading the winner there would put the steal's
         # speed choice back up and let a coach answer it twice. See
         # `continue_effect` for why the field outlives its dispatch.
@@ -1316,7 +1317,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         # prompt restored has to be that card's -- see
         # `RulesEngine.resolving_maneuver`.
         winner_key = self.engine.resolving_maneuver(match, winner_key)
-        if winner_key in ("low_pass", "precise_pass"):
+        if winner_key in ("low_pass", "skilled_pass"):
             return LowPassChoiceView(self, game_id, key=winner_key)
         if winner_key == "high_pass":
             return HighPassChoiceView(self, game_id)
@@ -1330,6 +1331,15 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                 handler.role == PlayerRole.PLAYMAKER
             ):
                 return DribbleAdvanceChoiceView(self, game_id)
+            # A Dribble Burst asks a distance of everybody, not only a
+            # Playmaker -- unless the handler is already on the last
+            # space of the field, which is the one position with
+            # nothing to ask and so the one that restores straight to
+            # the speed choice.
+            if winner_key == "dribble_burst" and (
+                self.engine.dribble_burst_distances(match)
+            ):
+                return DribbleBurstChoiceView(self, game_id)
             return SpeedDeltaChoiceView(
                 self, game_id, match.active_player_id, "offense",
             )
@@ -1696,7 +1706,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             "deflect": self.resolve_deflect,
             "steal": self.resolve_steal,
             "pressure": self.resolve_pressure,
-            "precise_pass": self.resolve_precise_pass,
+            "skilled_pass": self.resolve_skilled_pass,
             "dribble_burst": self.resolve_dribble_burst,
             "setup_pass": self.resolve_setup_pass,
             "clear": self.resolve_clear,
@@ -1723,23 +1733,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
 
 
-    async def resolve_precise_pass(
+    async def resolve_skilled_pass(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
     ) -> None:
         """
-        Precise Pass is a Low Pass with the reach taken off and the
-        speed bonus tripled: **any** teammate on the board rather than
-        the nearest each way within two, and +3 instead of +1. Every
-        other thing about it -- the receiver pick out of a stack, the
+        Skilled Pass is a Low Pass with the nearest-each-way rule
+        taken off, a space more reach, and the speed bonus tripled:
+        **any** teammate within `SKILLED_PASS_REACH` rather than the
+        nearest each way within two, and +3 instead of +1. Every other
+        thing about it -- the receiver pick out of a stack, the
         passer's step forward across a shared space, the Winger's
         set-up -- is a Low Pass's, which is why the two share one
         function.
         """
         await self.resolve_low_pass(
-            interaction, game, match, key="precise_pass",
+            interaction, game, match, key="skilled_pass",
         )
 
     async def resolve_low_pass(
@@ -1751,9 +1762,9 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         free: bool = False,
     ) -> None:
         """
-        `free` marks the unopposed Low Pass **Precise Pass's cost**
+        `free` marks the unopposed Low Pass **Skilled Pass's cost**
         hands the defense: it is not this side's maneuver, so it
-        charges no further clock and cannot be a Precise Pass.
+        charges no further clock and cannot be a Skilled Pass.
         """
         candidates = self.engine.pass_candidates(match, key)
 
@@ -1793,7 +1804,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
                     f"**{self.engine.maneuver_name(key)}:** there is "
                     + (
                         "nobody on the field to receive it"
-                        if key == "precise_pass"
+                        if key == "skilled_pass"
                         else "no teammate within two spaces to receive it"
                     )
                     + ", and a pass can't be played to the passer -- "
@@ -1854,7 +1865,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         free: bool = False,
     ) -> None:
         name = self.engine.maneuver_name(key)
-        # A pass granted by Precise Pass's cost is a continuation, and
+        # A pass granted by Skilled Pass's cost is a continuation, and
         # applying it is what spends it -- see `continue_effect`.
         if free:
             match.pending_effect_continuation = None
@@ -1927,7 +1938,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         content += self.pay_double_team_cost(match, key, double_team_partner)
         # Low Pass's own cost is a flat 1 space minute regardless of
         # distance (2026-08-16), the same as every maneuver but High
-        # Pass. A pass granted by Precise Pass's cost is not this
+        # Pass. A pass granted by Skilled Pass's cost is not this
         # side's maneuver and charges nothing: the clock was already
         # spent on the steal that produced it.
         distance_moved = 0 if free else 1
@@ -2064,30 +2075,83 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         match: MatchState,
     ) -> None:
         """
-        Dribble Burst: the handler carries the ball **all the way to
-        the last space of the goal zone they attack**, defenders no
+        Dribble Burst: the handler carries the ball **up to
+        `DRIBBLE_BURST_MAX_DISTANCE` spaces forward**, defenders no
         obstacle, at a token a space -- then manipulates ball speed up
         to their offensive skill, exactly as a Dribble Advance does.
 
-        There is no distance to choose: the run is to the end of the
-        field or it is not a Dribble Burst. What it costs is the
-        exhaustion, which is the first time a maneuver has charged by
-        distance -- every other per-space charge in the game is a walk
-        somebody was sent on.
+        **The distance is the coach's, and it used to be the board's**
+        (the author, 2026-08-26). The run was to the last space of the
+        goal they attack, which is no choice at all: there was one
+        answer and the card simply charged for it. Bounded at 4 the
+        pick is a real one, because the exhaustion is a token a space
+        -- the first time a maneuver has charged by distance, every
+        other per-space charge in the game being a walk somebody was
+        sent on. So this is now shaped like a Playmaker's Dribble
+        Advance: the AI answers for itself, a human gets a menu, and
+        `apply_dribble_burst` is what both of them land in.
 
-        **The Playmaker pays one token fewer** (the author,
-        2026-08-19). Its ability is an extra space on a Dribble
-        Advance, which against a run to the end of the field is no
-        bonus at all -- there is no distance left to add to. So the
-        ability lands on the one thing this card does have that its
-        counterpart does not: what the run costs. It is the only role
-        ability that reads differently on the two cards of a rank.
+        **The Playmaker still pays one token fewer** (the author,
+        2026-08-19) rather than going back to the extra space their
+        sentence names. That ruling was made when there was no
+        distance to add to; it stands with the run bounded, so the
+        Playmaker's ability remains the only one that reads
+        differently on the two cards of a rank.
+        """
+        distances = self.engine.dribble_burst_distances(match)
+
+        # From the last space of the field there is nothing to ask --
+        # a burst that moves nowhere costs nothing and still gets its
+        # speed choice. Applying 0 rather than putting up an empty menu
+        # is the same call `resolve_high_pass` makes for a pass with no
+        # distance left in it.
+        if not distances:
+            await self.apply_dribble_burst(interaction, game, match, 0)
+            return
+
+        if self.engine.side_controlled_by_ai(game, match, "offense"):
+            distance = self.engine.get_ai_strategy(
+                game
+            ).choose_dribble_burst_distance(match, distances)
+            await self.apply_dribble_burst(interaction, game, match, distance)
+            return
+
+        mention = format_player_with_team(
+            game,
+            self.engine.possession_player_number(game, match),
+            mention=True,
+        )
+        prompt_message = await interaction.followup.send(
+            f"{mention}, choose your Dribble Burst distance "
+            "(1 exhaustion token a space):",
+            view=DribbleBurstChoiceView(self, game.game_id),
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
+
+    async def apply_dribble_burst(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        distance: int,
+    ) -> None:
+        """
+        Run the burst `distance` spaces, charge a token a space, and
+        hand over to the speed choice every dribble ends with.
+
+        `distance` is what the coach picked (or what the field left);
+        `actual_distance` is what the move came to, since
+        `move_player_relative` clamps at the end of the field. The
+        exhaustion and the wording both read the second, because what
+        a coach pays for is where the handler actually got to.
         """
         offense_side = match.ball.possession
         handler = self.engine.get_player_definition(match.active_player_id)
-        distance = match.spaces_to_attacking_end(
-            match.active_player_id, offense_side,
-        )
 
         actual_distance = match.move_player_relative(
             match.active_player_id, offense_side, distance,
@@ -2113,12 +2177,24 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         handler_label = format_role_bracket(
             handler, self.team_emojis, match.team_for_player(handler.player_id),
         )
-        lead_in = (
-            f"**Dribble Burst:** {handler_label} bursts "
-            f"{actual_distance} {space_word} to the last space of the goal "
-            "they attack, past everyone in the way."
-        )
-        if playmaker_bonus:
+        if actual_distance:
+            lead_in = (
+                f"**Dribble Burst:** {handler_label} bursts "
+                f"{actual_distance} {space_word} forward, past everyone in "
+                "the way."
+            )
+        else:
+            # The handler was already on the last space of the field,
+            # so the burst had nowhere to go -- said plainly rather
+            # than reported as a run of 0 spaces, which is the same
+            # call `apply_high_pass` makes for a clamped throw.
+            lead_in = (
+                f"**Dribble Burst:** {handler_label} is already as far "
+                "forward as the field goes, so the ball stays where it is."
+            )
+        # Only worth saying where a token was actually saved: a burst
+        # that moved nowhere is free for everybody.
+        if playmaker_bonus and actual_distance:
             lead_in += " That costs them a token less (Playmaker ability)."
         if exhaustion_text:
             lead_in += f"\n{exhaustion_text}"
@@ -3758,19 +3834,19 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             )
             return
 
-        # **Precise Pass's cost**: beaten by a steal, the passing side
+        # **Skilled Pass's cost**: beaten by a steal, the passing side
         # hands the defender an unopposed Low Pass once the steal has
         # settled. It is recorded rather than played here because the
         # steal is not finished: the run back and then the speed choice
         # both come first, and the pass is played from wherever that
         # leaves the interceptor. See `pending_effect_continuation`.
-        if self.engine.advanced_cost(match, key) == "precise_pass":
+        if self.engine.advanced_cost(match, key) == "skilled_pass":
             match.pending_effect_continuation = {
                 "kind": "free_low_pass",
                 "player_id": challenger_id,
             }
             content += (
-                "\n\n**Precise Pass** was beaten -- the defense gets an "
+                "\n\n**Skilled Pass** was beaten -- the defense gets an "
                 "unopposed Low Pass once everyone is back in position."
             )
             game.match_state = match.to_dict()
@@ -4146,7 +4222,7 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         continuation = match.pending_effect_continuation or {}
 
         if continuation.get("kind") == "free_low_pass":
-            # **Precise Pass's cost.** The defense stole the ball and
+            # **Skilled Pass's cost.** The defense stole the ball and
             # now plays a Low Pass with it, unopposed. The passer is
             # whoever took it -- named when the cost was recorded, and
             # re-derived from the ball if a run back has moved things

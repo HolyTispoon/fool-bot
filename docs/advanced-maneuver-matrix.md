@@ -76,7 +76,7 @@ changing any of it should know these are load-bearing.
 - **The importer stopped validating one die face per side.** An advanced card reuses its
   counterpart's faces. The die has been off the rules since 2026-08-17.
 - **`pending_effect_continuation`** is what lets an effect reach past its own maneuver. Two do:
-  Setup Pass sets the speed and *then* picks the pass out, and a beaten Precise Pass hands the
+  Setup Pass sets the speed and *then* picks the pass out, and a beaten Skilled Pass hands the
   defense a Low Pass once the steal has settled. A speed choice had always been the last human
   step of an effect.
 - **`pending_double_team`** carries a won Double Team into the following maneuver, where both

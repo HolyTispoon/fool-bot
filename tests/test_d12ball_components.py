@@ -2667,7 +2667,7 @@ class D12BallManeuverTests(unittest.TestCase):
         # for it is empty for all thirty-six. What every advanced card
         # does carry is the skill-test line, and Intercept carries the
         # ball speed modifier its rank has always carried.
-        self.assertEqual(by_maneuver["precise_pass"], {"TIE"})
+        self.assertEqual(by_maneuver["skilled_pass"], {"TIE"})
         self.assertEqual(by_maneuver["double_team"], {"TIE"})
         self.assertEqual(by_maneuver["intercept"], {"BALL SPEED", "TIE"})
 
