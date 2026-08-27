@@ -12,9 +12,13 @@ from cogs.d12ball import HIGH_PASS_CONTEST_HEADLINE, D12Ball
 from d12ball.cards import (
     HAND_CARD_WIDTH,
     HAND_GAP,
+    HAND_HEADING_GAP,
+    HAND_HEADING_SIZE,
     HAND_MARGIN,
     SHEET_COLUMNS,
     SHEET_MARGIN,
+    CARD_HEIGHT,
+    CARD_WIDTH,
     print_sheet,
     render_maneuver_card,
     render_maneuver_card_back,
@@ -2559,6 +2563,48 @@ class D12BallManeuverTests(unittest.TestCase):
                 )
                 with Image.open(hand) as image:
                     self.assertEqual(image.width, width(columns))
+
+    def test_each_side_block_reserves_a_caption_band(self) -> None:
+        """
+        Each side's rows are captioned ("OFFENSE HAND" / "DEFENSE
+        HAND") so a coach finds their own row before reading a card.
+        The suite cannot read the words, but every captioned block adds
+        a fixed band above its first row, so the image is exactly that
+        much taller than the same cards laid out with no captions --
+        one band per side, and none for the lone shared back.
+        """
+        players = load_player_catalog()
+        scale = HAND_CARD_WIDTH / CARD_WIDTH
+        card_height = round(CARD_HEIGHT * scale)
+        band = HAND_HEADING_SIZE + HAND_HEADING_GAP
+
+        def bare_height(card_rows: int) -> int:
+            return (
+                HAND_MARGIN * 2
+                + card_height * card_rows
+                + HAND_GAP * (card_rows - 1)
+            )
+
+        # sides, tiers, total card rows across the image
+        cases = (
+            (("offense",), (MANEUVER_TIER_BASIC,), 1),
+            (("offense", "defense"), (MANEUVER_TIER_BASIC,), 2),
+            (
+                ("offense", "defense"),
+                (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
+                4,
+            ),
+        )
+        for sides, tiers, card_rows in cases:
+            with self.subTest(sides=sides, tiers=tiers):
+                hand = render_maneuver_hands(
+                    self.catalog, players, sides, tiers,
+                )
+                with Image.open(hand) as image:
+                    self.assertEqual(
+                        image.height,
+                        bare_height(card_rows) + band * len(sides),
+                    )
 
     def test_the_back_joins_every_pair_that_ties(self) -> None:
         """
