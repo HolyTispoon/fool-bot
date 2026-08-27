@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from math import ceil
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from d12ball.game import Formation, Team, team_display_name
 
@@ -1240,6 +1240,173 @@ def formation_space_order(
         outward[index] if index < zone_spaces else stack
         for index in range(player_count)
     ]
+
+
+@dataclass(frozen=True)
+class SavedField:
+    """
+    One field of a match that is saved and read back on its own terms:
+    its key, what a save older than the field comes back as, and any
+    conversion either way.
+
+    `default` is for an immutable fallback and `factory` for a mutable
+    one, exactly as `dataclasses.field` splits them -- a shared `[]`
+    handed to every game that predates a field is the same bug there
+    as anywhere else.
+
+    `write` and `read` are the copies. A mutable field written straight
+    into the dict is one the live match can go on mutating between
+    `to_dict` and the save landing, and one read straight out is a
+    match holding a reference into the loaded JSON. Both directions are
+    usually the same callable; `declared_substitution` is the one that
+    differs, stored `sorted` so a save file is stable and read back as
+    a set.
+    """
+
+    name: str
+    default: Any = None
+    factory: Optional[Callable[[], Any]] = None
+    write: Optional[Callable[[Any], Any]] = None
+    read: Optional[Callable[[Any], Any]] = None
+
+    def stored(self, value: Any) -> Any:
+        """The value as it goes into the save."""
+        return self.write(value) if self.write is not None else value
+
+    def restored(self, data: dict) -> Any:
+        """The value as it comes back, for a save that may predate it."""
+        if self.name not in data:
+            return self.factory() if self.factory is not None else self.default
+        value = data[self.name]
+        return self.read(value) if self.read is not None else value
+
+
+def copy_lists(mapping: dict) -> dict:
+    """`{key: list(value)}` -- one level deeper than `dict()` copies."""
+    return {key: list(value) for key, value in mapping.items()}
+
+
+# Every field of a match whose save is "write it, read it back, and
+# fall back to this when the file predates it". The structured ones --
+# the board, the two setups, the ball, the scoreboard, the maneuver
+# keys with their legacy translation, the five coaching fields with
+# their `pending_substitution_*` fallbacks, and the goal log -- are
+# spelled out in `to_dict`/`from_dict` themselves, because each of
+# them says something a table cannot.
+#
+# **A field on MatchState that is in neither place is not saved**, and
+# nothing about that failure is visible until a restart drops it.
+# `MatchStateSerializationTests` is what makes it impossible: it walks
+# the dataclass and fails on any field this table and the explicit set
+# between them do not name.
+MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
+    SavedField("active_player_id"),
+    SavedField("ball_carrier_id"),
+    SavedField("pending_action"),
+    SavedField("challenger_id"),
+    SavedField("maneuver_uncontested", default=False),
+    SavedField("pending_run_back", default=False),
+    SavedField("pending_run_back_distance", default=1),
+    SavedField("pending_run_back_turnover", default=True),
+    SavedField("pending_run_back_stays_player_id"),
+    SavedField("pending_run_back_speed_choice", default=False),
+    SavedField("pending_effect_continuation"),
+    SavedField("pending_double_team", factory=list, write=list, read=list),
+    SavedField("pending_kickoff_fill", default=False),
+    SavedField("pending_shot_is_set_up", default=False),
+    SavedField("pending_shot_setup_cost", default=0),
+    SavedField("pending_high_pass_overshoot", default=False),
+    SavedField("pending_own_goal", default=False),
+    SavedField("pending_own_goal_distance", default=1),
+    SavedField("pending_injury_tests", factory=list, write=list, read=list),
+    # Copied on the way out only. It is a dict or None, and the read
+    # side has never copied it.
+    SavedField(
+        "pending_injury_resume",
+        write=lambda value: dict(value) if value is not None else None,
+    ),
+    SavedField("pending_loose_ball", default=False),
+    SavedField("pending_loose_ball_distance", default=1),
+    SavedField("pending_loose_ball_is_high_pass", default=False),
+    # True for a save that predates it, which is the old behaviour: a
+    # ball was loose wherever it landed, so every side could be sent.
+    SavedField("pending_loose_ball_on_empty_space", default=True),
+    SavedField("loose_ball_offense_player"),
+    SavedField("loose_ball_defense_player"),
+    SavedField("loose_ball_offense_declined", default=False),
+    SavedField("loose_ball_defense_declined", default=False),
+    SavedField("pending_ball_recovery", default=False),
+    SavedField("pending_cede", default=False),
+    SavedField(
+        "declared_substitution", factory=set, write=sorted, read=set,
+    ),
+    SavedField(
+        "half_substitutions_used", factory=dict, write=dict, read=dict,
+    ),
+    SavedField(
+        "pending_coaching_swaps",
+        factory=list,
+        write=lambda swaps: [list(swap) for swap in swaps],
+        read=lambda swaps: [list(swap) for swap in swaps],
+    ),
+    # A window open when the bot went down keeps its summary, so a
+    # resumed Coaching Choice still closes with what the coach did
+    # before the restart. A game saved before these existed comes back
+    # with nothing recorded, and closes saying only that the side is
+    # done.
+    SavedField("pending_coaching_formation"),
+    SavedField("pending_halftime_stage"),
+    SavedField("pending_setup_stage"),
+    # None for every game saved before the whistle offered a window,
+    # including one already in a shootout: those went straight from
+    # full time to the order prompt and are past this either way.
+    SavedField("pending_full_time_stage"),
+    # A game saved before arrangements were remembered has none. Left
+    # empty, restore_assigned_positions moves nobody, so such a game
+    # keeps the old behaviour until its next window sets one.
+    SavedField(
+        "assigned_positions", factory=dict, write=copy_lists, read=copy_lists,
+    ),
+    SavedField("pending_shootout", default=False),
+    SavedField("shootout_round", default=0),
+    SavedField(
+        "shootout_orders", factory=dict, write=copy_lists, read=copy_lists,
+    ),
+    SavedField(
+        "shootout_used", factory=dict, write=copy_lists, read=copy_lists,
+    ),
+    SavedField("shootout_shooters", factory=dict, write=dict, read=dict),
+    SavedField("shootout_goals", factory=dict, write=dict, read=dict),
+)
+
+# The fields `to_dict`/`from_dict` handle themselves, listed so the
+# coverage test can tell "deliberately explicit" from "forgotten".
+MATCH_EXPLICIT_FIELDS: frozenset[str] = frozenset(
+    {
+        "ruleset_id",
+        "player_data_version",
+        "board",
+        "home",
+        "visiting",
+        "ball",
+        "scoreboard",
+        # Read back together: exhaustion and exhausted are both
+        # filtered against injured.
+        "exhaustion",
+        "exhausted",
+        "injured",
+        # legacy_maneuver_key on the way in.
+        "offense_maneuver",
+        "defense_maneuver",
+        # Each carries a pending_substitution_* fallback.
+        "pending_coaching_side",
+        "pending_coaching_occasion",
+        "pending_coaching_substitutions",
+        "pending_coaching_is_response",
+        "pending_coaching_declared",
+        "goals",
+    }
+)
 
 
 @dataclass
@@ -3830,7 +3997,17 @@ class MatchState:
             )
 
     def to_dict(self) -> dict:
-        return {
+        """
+        The match as it goes into `data/d12ball_games.json`.
+
+        The structured half is spelled out here because each part says
+        something a table cannot -- the board flattens its zones, the
+        two setups and the goal log have `to_dict`s of their own. Every
+        other field is `MATCH_SAVED_FIELDS`, which is also what
+        `from_dict` reads, so neither direction can gain a field the
+        other does not know about.
+        """
+        saved = {
             "ruleset_id": self.ruleset_id,
             "player_data_version": self.player_data_version,
             "board": {
@@ -3858,55 +4035,11 @@ class MatchState:
                 "period": self.scoreboard.period.value,
                 "last_possession": self.scoreboard.last_possession,
             },
-            "active_player_id": self.active_player_id,
-            "ball_carrier_id": self.ball_carrier_id,
-            "pending_action": self.pending_action,
-            "challenger_id": self.challenger_id,
-            "maneuver_uncontested": self.maneuver_uncontested,
             "offense_maneuver": self.offense_maneuver,
             "defense_maneuver": self.defense_maneuver,
             "exhaustion": dict(self.exhaustion),
             "exhausted": sorted(self.exhausted),
             "injured": sorted(self.injured),
-            "pending_run_back": self.pending_run_back,
-            "pending_run_back_distance": self.pending_run_back_distance,
-            "pending_run_back_turnover": self.pending_run_back_turnover,
-            "pending_run_back_stays_player_id": (
-                self.pending_run_back_stays_player_id
-            ),
-            "pending_effect_continuation": self.pending_effect_continuation,
-            "pending_double_team": list(self.pending_double_team),
-            "pending_run_back_speed_choice": (
-                self.pending_run_back_speed_choice
-            ),
-            "pending_kickoff_fill": self.pending_kickoff_fill,
-            "pending_shot_is_set_up": self.pending_shot_is_set_up,
-            "pending_shot_setup_cost": self.pending_shot_setup_cost,
-            "pending_high_pass_overshoot": self.pending_high_pass_overshoot,
-            "pending_own_goal": self.pending_own_goal,
-            "pending_own_goal_distance": self.pending_own_goal_distance,
-            "pending_injury_tests": list(self.pending_injury_tests),
-            "pending_injury_resume": (
-                dict(self.pending_injury_resume)
-                if self.pending_injury_resume is not None
-                else None
-            ),
-            "pending_loose_ball": self.pending_loose_ball,
-            "pending_loose_ball_distance": self.pending_loose_ball_distance,
-            "pending_loose_ball_on_empty_space": (
-                self.pending_loose_ball_on_empty_space
-            ),
-            "pending_loose_ball_is_high_pass": (
-                self.pending_loose_ball_is_high_pass
-            ),
-            "loose_ball_offense_player": self.loose_ball_offense_player,
-            "loose_ball_defense_player": self.loose_ball_defense_player,
-            "loose_ball_offense_declined": self.loose_ball_offense_declined,
-            "loose_ball_defense_declined": self.loose_ball_defense_declined,
-            "pending_ball_recovery": self.pending_ball_recovery,
-            "pending_cede": self.pending_cede,
-            "declared_substitution": sorted(self.declared_substitution),
-            "half_substitutions_used": dict(self.half_substitutions_used),
             "pending_coaching_side": self.pending_coaching_side,
             "pending_coaching_occasion": self.pending_coaching_occasion,
             "pending_coaching_substitutions": (
@@ -3916,31 +4049,13 @@ class MatchState:
                 self.pending_coaching_is_response
             ),
             "pending_coaching_declared": self.pending_coaching_declared,
-            "pending_coaching_formation": self.pending_coaching_formation,
-            "pending_coaching_swaps": [
-                list(swap) for swap in self.pending_coaching_swaps
-            ],
-            "pending_halftime_stage": self.pending_halftime_stage,
-            "pending_setup_stage": self.pending_setup_stage,
-            "pending_full_time_stage": self.pending_full_time_stage,
-            "assigned_positions": {
-                player_id: list(position)
-                for player_id, position in self.assigned_positions.items()
-            },
-            "pending_shootout": self.pending_shootout,
-            "shootout_round": self.shootout_round,
-            "shootout_orders": {
-                side: list(order)
-                for side, order in self.shootout_orders.items()
-            },
-            "shootout_used": {
-                side: list(used)
-                for side, used in self.shootout_used.items()
-            },
-            "shootout_shooters": dict(self.shootout_shooters),
-            "shootout_goals": dict(self.shootout_goals),
             "goals": [goal.to_dict() for goal in self.goals],
         }
+        for saved_field in MATCH_SAVED_FIELDS:
+            saved[saved_field.name] = saved_field.stored(
+                getattr(self, saved_field.name),
+            )
+        return saved
 
     @classmethod
     def from_dict(
@@ -3948,6 +4063,22 @@ class MatchState:
         data: dict,
         ruleset: BasicRuleset,
     ) -> "MatchState":
+        """
+        A match read back out of a save, tolerantly.
+
+        **A save older than a field is not an error**, it is the
+        ordinary case: both developers run the bot from their own tree
+        against their own games, so a half-finished match routinely
+        outlives the change that added a field to it. Every fallback
+        lives in `MATCH_SAVED_FIELDS` beside the field it belongs to.
+
+        What stays spelled out here is what a table cannot say: the
+        board and the two setups rebuild objects, the maneuver keys go
+        through `legacy_maneuver_key`, exhaustion and exhausted are
+        both filtered against injured, and the five coaching fields
+        each carry a `pending_substitution_*` fallback from before the
+        three occasions became one Coaching Choice.
+        """
         board_size = data["board"]["board_size"]
         board = BoardState(
             layout=ruleset.board_layouts[board_size],
@@ -3986,11 +4117,6 @@ class MatchState:
             scoreboard=ScoreboardState(
                 **data.get("scoreboard", {})
             ),
-            active_player_id=data.get("active_player_id"),
-            ball_carrier_id=data.get("ball_carrier_id"),
-            pending_action=data.get("pending_action"),
-            challenger_id=data.get("challenger_id"),
-            maneuver_uncontested=data.get("maneuver_uncontested", False),
             offense_maneuver=legacy_maneuver_key(
                 data.get("offense_maneuver")
             ),
@@ -4000,69 +4126,6 @@ class MatchState:
             exhaustion=exhaustion,
             exhausted=exhausted,
             injured=injured,
-            pending_run_back=data.get("pending_run_back", False),
-            pending_run_back_distance=data.get(
-                "pending_run_back_distance", 1
-            ),
-            pending_run_back_turnover=data.get(
-                "pending_run_back_turnover", True
-            ),
-            pending_run_back_stays_player_id=data.get(
-                "pending_run_back_stays_player_id"
-            ),
-            pending_effect_continuation=data.get(
-                "pending_effect_continuation"
-            ),
-            pending_double_team=list(data.get("pending_double_team", [])),
-            pending_run_back_speed_choice=data.get(
-                "pending_run_back_speed_choice", False
-            ),
-            pending_kickoff_fill=data.get("pending_kickoff_fill", False),
-            pending_shot_is_set_up=data.get(
-                "pending_shot_is_set_up", False
-            ),
-            pending_shot_setup_cost=data.get(
-                "pending_shot_setup_cost", 0
-            ),
-            pending_high_pass_overshoot=data.get(
-                "pending_high_pass_overshoot", False
-            ),
-            pending_own_goal=data.get("pending_own_goal", False),
-            pending_own_goal_distance=data.get(
-                "pending_own_goal_distance", 1
-            ),
-            pending_injury_tests=list(data.get("pending_injury_tests", [])),
-            pending_injury_resume=data.get("pending_injury_resume"),
-            pending_loose_ball=data.get("pending_loose_ball", False),
-            pending_loose_ball_distance=data.get(
-                "pending_loose_ball_distance", 1
-            ),
-            pending_loose_ball_on_empty_space=data.get(
-                "pending_loose_ball_on_empty_space", True
-            ),
-            pending_loose_ball_is_high_pass=data.get(
-                "pending_loose_ball_is_high_pass", False
-            ),
-            loose_ball_offense_player=data.get(
-                "loose_ball_offense_player"
-            ),
-            loose_ball_defense_player=data.get(
-                "loose_ball_defense_player"
-            ),
-            loose_ball_offense_declined=data.get(
-                "loose_ball_offense_declined", False
-            ),
-            loose_ball_defense_declined=data.get(
-                "loose_ball_defense_declined", False
-            ),
-            pending_ball_recovery=data.get("pending_ball_recovery", False),
-            pending_cede=data.get("pending_cede", False),
-            declared_substitution=set(
-                data.get("declared_substitution", [])
-            ),
-            half_substitutions_used=dict(
-                data.get("half_substitutions_used", {})
-            ),
             # The `pending_substitution_*` fallbacks are for a game
             # saved with a window open before the three occasions
             # became one Coaching Choice. Both developers run the bot
@@ -4094,45 +4157,6 @@ class MatchState:
                 "pending_coaching_declared",
                 data.get("pending_substitution_declared", False),
             ),
-            # A window open when the bot went down keeps its summary,
-            # so a resumed Coaching Choice still closes with what the
-            # coach did before the restart. A game saved before these
-            # existed comes back with nothing recorded, and closes
-            # saying only that the side is done.
-            pending_coaching_formation=data.get("pending_coaching_formation"),
-            pending_coaching_swaps=[
-                list(swap)
-                for swap in data.get("pending_coaching_swaps", [])
-            ],
-            pending_halftime_stage=data.get("pending_halftime_stage"),
-            pending_setup_stage=data.get("pending_setup_stage"),
-            # None for every game saved before the whistle offered a
-            # window, including one already in a shootout: those went
-            # straight from full time to the order prompt and are past
-            # this either way.
-            pending_full_time_stage=data.get("pending_full_time_stage"),
-            # A game saved before arrangements were remembered has
-            # none. Left empty, restore_assigned_positions moves
-            # nobody, so such a game simply keeps the old behaviour
-            # until its next window sets an arrangement.
-            assigned_positions={
-                player_id: list(position)
-                for player_id, position in data.get(
-                    "assigned_positions", {},
-                ).items()
-            },
-            pending_shootout=data.get("pending_shootout", False),
-            shootout_round=data.get("shootout_round", 0),
-            shootout_orders={
-                side: list(order)
-                for side, order in data.get("shootout_orders", {}).items()
-            },
-            shootout_used={
-                side: list(used)
-                for side, used in data.get("shootout_used", {}).items()
-            },
-            shootout_shooters=dict(data.get("shootout_shooters", {})),
-            shootout_goals=dict(data.get("shootout_goals", {})),
             # A game saved before the log existed comes back with an
             # empty one and keeps playing: the scoreboard is the score,
             # and this only ever adds to what is reported. Such a game
@@ -4143,6 +4167,10 @@ class MatchState:
                 GoalRecord.from_dict(goal)
                 for goal in data.get("goals", [])
             ],
+            **{
+                saved_field.name: saved_field.restored(data)
+                for saved_field in MATCH_SAVED_FIELDS
+            },
         )
 
 
