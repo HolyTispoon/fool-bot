@@ -21,6 +21,7 @@ from d12ball.components import (
     MANEUVER_TIER_BASIC,
     PlayerDefinition,
     PlayerRole,
+    TeamSetup,
     TeamSide,
     Zone,
 )
@@ -2276,6 +2277,124 @@ class SkillTestView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
+    def score_skill_test(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        offense_player: PlayerDefinition,
+        defense_player: PlayerDefinition,
+    ) -> tuple[list[tuple[int, Team, list[str], int]], int, int]:
+        """
+        Roll the maneuver skill test and add everything that counts
+        towards it, as the two sides `render_contest_dice` draws plus
+        the totals the outcome is read off.
+
+        The dice image carries the whole arithmetic -- who rolled, what
+        they rolled, every modifier and the total -- which is why no
+        message that posts one repeats it in text.
+
+        Nothing here is withheld for injury. What an injured player
+        loses is their own offensive or defensive skill and only in a
+        contest, which is the loose ball and the shootout; a maneuver's
+        skill test pays every modifier to an injured player. See
+        "Injured players" in docs/living-rules.md.
+        """
+        offense_skill = self.cog.player_catalog.effective_profile(
+            offense_player,
+        ).offense
+        defense_skill = self.cog.player_catalog.effective_profile(
+            defense_player,
+        ).defense
+
+        scripted = self.cog.tutorial_dice(game, "skill_test", 2)
+        offense_roll, defense_roll = (
+            scripted if scripted else
+            (random.randint(1, 12), random.randint(1, 12))
+        )
+        offense_total = offense_roll + offense_skill
+        defense_total = defense_roll + defense_skill
+
+        offense_detail = contestant_detail(
+            offense_player, "Offensive", offense_skill,
+        )
+        defense_detail = contestant_detail(
+            defense_player, "Defensive", defense_skill,
+        )
+
+        # Role ability -- Midfielder: +3 on a skill test when
+        # attempting Low Pass (offense) or Pressure (defense).
+        #
+        # **Read by rank, so an advanced card inherits it.** The
+        # Midfielder's +3 and the ball speed modifier below are listed
+        # against both cards on their rank in the sheet's own
+        # `Interactions` column, and neither contradicts what the
+        # advanced card does. The three that *do* contradict -- the
+        # Fullback on Clear, the Playmaker on Dribble Burst, the
+        # Fullback's pass distance on Setup Pass -- are the author's to
+        # settle and are deliberately not inherited anywhere; see
+        # "Still open" in docs/advanced-maneuver-matrix.md.
+        if (
+            offense_player.role == PlayerRole.MIDFIELDER
+            and match.offense_maneuver in ("low_pass", "skilled_pass")
+        ):
+            offense_total += 3
+            offense_detail.append("+3 Midfielder ability")
+
+        if (
+            defense_player.role == PlayerRole.MIDFIELDER
+            and match.defense_maneuver in ("pressure", "double_team")
+        ):
+            defense_total += 3
+            defense_detail.append("+3 Midfielder ability")
+
+        if match.defense_maneuver in ("steal", "intercept"):
+            modifier = match.ball.speed // 2
+            defense_total += modifier
+            defense_detail.append(f"+{modifier} ball speed modifier")
+
+        # **A won Double Team lands on the *next* maneuver**: both
+        # defenders challenge the ball holder, and both add their
+        # defensive skill. `double_team_defenders` is challenger-first
+        # and holds the second only while `pending_double_team` is set,
+        # which one card sets and a new play clears -- so this is a
+        # no-op in every game that never played it.
+        double_team_detail = ""
+        partners = [
+            player_id
+            for player_id in self.cog.engine.double_team_defenders(match)
+            if player_id != match.challenger_id
+        ]
+        for player_id in partners:
+            partner = self.cog.engine.get_player_definition(player_id)
+            partner_skill = self.cog.player_catalog.effective_profile(
+                partner
+            ).defense
+            defense_total += partner_skill
+            double_team_detail = (
+                f"+{partner_skill} {partner.name} (Double Team)"
+            )
+        if double_team_detail:
+            defense_detail.append(double_team_detail)
+
+        return (
+            [
+                (
+                    offense_roll,
+                    match.team_for_player(offense_player.player_id),
+                    offense_detail,
+                    offense_total,
+                ),
+                (
+                    defense_roll,
+                    match.team_for_player(defense_player.player_id),
+                    defense_detail,
+                    defense_total,
+                ),
+            ],
+            offense_total,
+            defense_total,
+        )
+
     async def roll(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -2309,114 +2428,12 @@ class SkillTestView(SafeView):
         defense_player = self.cog.engine.get_player_definition(
             match.challenger_id,
         )
-        offense_skill = self.cog.player_catalog.effective_profile(
-            offense_player,
-        ).offense
-        defense_skill = self.cog.player_catalog.effective_profile(
-            defense_player,
-        ).defense
 
-        scripted = self.cog.tutorial_dice(game, "skill_test", 2)
-        offense_roll, defense_roll = (
-            scripted if scripted else
-            (random.randint(1, 12), random.randint(1, 12))
+        contestants, offense_total, defense_total = self.score_skill_test(
+            game, match, offense_player, defense_player,
         )
-        offense_total = offense_roll + offense_skill
-        defense_total = defense_roll + defense_skill
-
-        # Role ability -- Midfielder: +3 on a skill test when
-        # attempting Low Pass (offense) or Pressure (defense). Injury
-        # does not withhold this: what an injured player loses is their
-        # own offensive or defensive skill, and only in a contest --
-        # every other modifier still applies (see "Injured players" in
-        # docs/living-rules.md).
-        #
-        # **Read by rank, so an advanced card inherits it.** The
-        # Midfielder's +3 and the ball speed modifier below are listed
-        # against both cards on their rank in the sheet's own
-        # `Interactions` column, and neither contradicts what the
-        # advanced card does. The three that *do* contradict -- the
-        # Fullback on Clear, the Playmaker on Dribble Burst, the
-        # Fullback's pass distance on Setup Pass -- are the author's to
-        # settle and are deliberately not inherited anywhere; see
-        # "Still open" in docs/advanced-maneuver-matrix.md.
-        offense_ability_detail = ""
-        if (
-            offense_player.role == PlayerRole.MIDFIELDER
-            and match.offense_maneuver in ("low_pass", "skilled_pass")
-        ):
-            offense_total += 3
-            offense_ability_detail = "+3 Midfielder ability"
-
-        defense_ability_detail = ""
-        if (
-            defense_player.role == PlayerRole.MIDFIELDER
-            and match.defense_maneuver in ("pressure", "double_team")
-        ):
-            defense_total += 3
-            defense_ability_detail = "+3 Midfielder ability"
-
-        modifier_detail = ""
-        if match.defense_maneuver in ("steal", "intercept"):
-            modifier = match.ball.speed // 2
-            defense_total += modifier
-            modifier_detail = f"+{modifier} ball speed modifier"
-
-        # **A won Double Team lands on the *next* maneuver**: both
-        # defenders challenge the ball holder, and both add their
-        # defensive skill. `double_team_defenders` is challenger-first
-        # and holds the second only while `pending_double_team` is set,
-        # which one card sets and a new play clears -- so this is a
-        # no-op in every game that never played it.
-        double_team_detail = ""
-        partners = [
-            player_id
-            for player_id in self.cog.engine.double_team_defenders(match)
-            if player_id != match.challenger_id
-        ]
-        for player_id in partners:
-            partner = self.cog.engine.get_player_definition(player_id)
-            partner_skill = self.cog.player_catalog.effective_profile(
-                partner
-            ).defense
-            defense_total += partner_skill
-            double_team_detail = (
-                f"+{partner_skill} {partner.name} (Double Team)"
-            )
-
-        # The dice image carries the whole arithmetic -- who rolled,
-        # what they rolled, every modifier and the total -- so no
-        # message repeats it in text. See render_skill_test_dice.
-        offense_detail = contestant_detail(
-            offense_player, "Offensive", offense_skill,
-        )
-        if offense_ability_detail:
-            offense_detail.append(offense_ability_detail)
-        defense_detail = contestant_detail(
-            defense_player, "Defensive", defense_skill,
-        )
-        if defense_ability_detail:
-            defense_detail.append(defense_ability_detail)
-        if modifier_detail:
-            defense_detail.append(modifier_detail)
-        if double_team_detail:
-            defense_detail.append(double_team_detail)
         dice_file = await render_contest_dice(
-            [
-                (
-                    offense_roll,
-                    match.team_for_player(offense_player.player_id),
-                    offense_detail,
-                    offense_total,
-                ),
-                (
-                    defense_roll,
-                    match.team_for_player(defense_player.player_id),
-                    defense_detail,
-                    defense_total,
-                ),
-            ],
-            filename="skill_test_dice.png",
+            contestants, filename="skill_test_dice.png",
         )
 
         if offense_total == defense_total:
@@ -2611,26 +2628,22 @@ class ScoreAttemptView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
-    async def roll(self, interaction: discord.Interaction) -> None:
-        game, match = await self.require_match(interaction)
-        if game is None:
-            return
+    def score_score_attempt(
+        self,
+        match: MatchState,
+        shooter: PlayerDefinition,
+        attacking_setup: TeamSetup,
+        defending_setup: TeamSetup,
+    ) -> tuple[list[tuple[int, Team, list[str], int]], int, int]:
+        """
+        Roll the shot and price the wall in front of it, as the two
+        sides `render_contest_dice` draws plus the totals the verdict
+        is read off.
 
-        if match.pending_action != "shoot" or match.active_player_id is None:
-            await interaction.response.send_message(
-                "This score attempt is no longer active.",
-                ephemeral=True,
-            )
-            return
-
-        if not self.is_game_participant(game, interaction.user.id):
-            await interaction.response.send_message(
-                "Only a player in this game can roll the score attempt.",
-                ephemeral=True,
-            )
-            return
-
-        shooter = self.cog.engine.get_player_definition(match.active_player_id)
+        Everything that built the two totals is drawn on the dice
+        image, which is why no message that posts one repeats it in
+        text.
+        """
         offense_skill = self.cog.player_catalog.effective_profile(
             shooter,
         ).offense
@@ -2640,9 +2653,6 @@ class ScoreAttemptView(SafeView):
         # a defender off the ball adds half their skill, rounded up.
         # See ShotDefender.
         defense_skill_total = sum(defender.value for defender in defenders)
-
-        attacking_setup = match.setup_for_side(match.ball.possession)
-        defending_setup = match.setup_for_side(match.defending_side())
 
         # Two dice, one per human: the attacker adds the shooting
         # player's offensive skill and the ball-speed modifier, the
@@ -2654,26 +2664,18 @@ class ScoreAttemptView(SafeView):
         attack_total = attack_roll + offense_skill + speed_modifier
         defense_total = defense_roll + defense_skill_total
 
+        attack_detail = contestant_detail(shooter, "Offensive", offense_skill)
+        if speed_modifier:
+            attack_detail.append(f"{speed_modifier:+d} ball speed modifier")
+
         # Role ability -- Striker: +3 on any scoring attempt off a
         # set-up. Injury does not withhold this one, deliberately: an
         # injured player loses their ability modifier on a roll someone
         # is contesting, and nobody contests a shot (see "Injured
         # players" in docs/living-rules.md). Don't add match.injured
         # here to match the skill test.
-        striker_bonus = (
-            match.pending_shot_is_set_up
-            and shooter.role == PlayerRole.STRIKER
-        )
-        if striker_bonus:
+        if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
             attack_total += 3
-
-        # Everything that built these two totals is drawn on the dice
-        # image, so no message repeats it in text -- see
-        # render_skill_test_dice.
-        attack_detail = contestant_detail(shooter, "Offensive", offense_skill)
-        if speed_modifier:
-            attack_detail.append(f"{speed_modifier:+d} ball speed modifier")
-        if striker_bonus:
             attack_detail.append("+3 Striker ability")
 
         if defenders:
@@ -2691,7 +2693,7 @@ class ScoreAttemptView(SafeView):
         else:
             defense_detail = ["No one in the way"]
 
-        dice_file = await render_contest_dice(
+        return (
             [
                 (
                     attack_roll,
@@ -2706,10 +2708,23 @@ class ScoreAttemptView(SafeView):
                     defense_total,
                 ),
             ],
-            filename="score_attempt_dice.png",
+            attack_total,
+            defense_total,
         )
 
-        scored = attack_total >= defense_total
+    def settle_score_attempt(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        shooter: PlayerDefinition,
+        attacking_setup: TeamSetup,
+        defending_setup: TeamSetup,
+        scored: bool,
+    ) -> tuple[str, int]:
+        """
+        Credit the goal or the miss, restart play from it, and word the
+        verdict -- with the clock cost the run back behind it is owed.
+        """
         if scored:
             # Logged as it is credited, and stamped with the clock as
             # it stands: the shot's own cost is charged afterwards, so
@@ -2736,9 +2751,8 @@ class ScoreAttemptView(SafeView):
         # check -- only a shot taken off a set-up gains a token, taken
         # after the roll regardless of outcome, and injury checks stay
         # exclusive to skill tests either way.
-        set_up_note = ""
         if match.pending_shot_is_set_up:
-            set_up_note = "\n\n" + self.cog.apply_exhaustion(
+            verdict += "\n\n" + self.cog.apply_exhaustion(
                 match, shooter.player_id, 1,
             )
 
@@ -2771,20 +2785,58 @@ class ScoreAttemptView(SafeView):
             # side's own goal -- so, since 2026-08-24, this restart
             # owes the same pickup an out-of-bounds ball does rather
             # than falling through to a two-sided loose ball. Set
-            # before the reset (below, via begin_run_back's new_play):
-            # begin_ball_recovery checks eligible_ball_handlers() first
-            # and asks nobody when the arrangement already covers it.
+            # before the reset (in roll, via begin_run_back's
+            # new_play): begin_ball_recovery checks
+            # eligible_ball_handlers() first and asks nobody when the
+            # arrangement already covers it.
             match.restart_after_missed_score(new_possession_side)
             match.pending_ball_recovery = True
 
         # Save a reconstructible run-back state before refreshing the
         # persistent board. begin_run_back repeats this assignment
-        # idempotently when it posts the run-back announcement below.
+        # idempotently when it posts the run-back announcement.
         match.pending_run_back = True
         match.pending_run_back_distance = space_minutes
         match.pending_run_back_turnover = True
         game.match_state = match.to_dict()
         save_games(self.cog.games)
+
+        return verdict, space_minutes
+
+    async def roll(self, interaction: discord.Interaction) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+
+        if match.pending_action != "shoot" or match.active_player_id is None:
+            await interaction.response.send_message(
+                "This score attempt is no longer active.",
+                ephemeral=True,
+            )
+            return
+
+        if not self.is_game_participant(game, interaction.user.id):
+            await interaction.response.send_message(
+                "Only a player in this game can roll the score attempt.",
+                ephemeral=True,
+            )
+            return
+
+        shooter = self.cog.engine.get_player_definition(match.active_player_id)
+        attacking_setup = match.setup_for_side(match.ball.possession)
+        defending_setup = match.setup_for_side(match.defending_side())
+
+        contestants, attack_total, defense_total = self.score_score_attempt(
+            match, shooter, attacking_setup, defending_setup,
+        )
+        dice_file = await render_contest_dice(
+            contestants, filename="score_attempt_dice.png",
+        )
+
+        scored = attack_total >= defense_total
+        verdict, space_minutes = self.settle_score_attempt(
+            game, match, shooter, attacking_setup, defending_setup, scored,
+        )
 
         # The dice image carries the maths that produced it, and the
         # verdict follows in its own message. A message's attachments
@@ -2795,7 +2847,7 @@ class ScoreAttemptView(SafeView):
             attachments=[dice_file],
             view=None,
         )
-        await interaction.followup.send(f"{verdict}{set_up_note}")
+        await interaction.followup.send(verdict)
         if scored:
             # The scorer, posted under the announcement -- its own
             # message rather than an attachment on it, which would put
@@ -5550,36 +5602,24 @@ class LooseBallSkillTestView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
-    async def roll(self, interaction: discord.Interaction) -> None:
-        game, match = await self.require_match(interaction)
-        if game is None:
-            return
+    def score_loose_ball(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        offense_player: PlayerDefinition,
+        defense_player: PlayerDefinition,
+    ) -> tuple[list[tuple[int, Team, list[str], int]], int, int]:
+        """
+        Roll the contest for the ball and add what counts towards it,
+        as the two sides `render_contest_dice` draws plus the totals
+        the winner is read off. Serves the loose ball and the long High
+        Pass alike, which is the only contest injury and the ball speed
+        modifier both bite in.
 
-        if (
-            not match.pending_loose_ball
-            or match.loose_ball_offense_player is None
-            or match.loose_ball_defense_player is None
-        ):
-            await interaction.response.send_message(
-                f"This {contest_noun(match)} is no longer active.",
-                ephemeral=True,
-            )
-            return
-
-        if not self.is_game_participant(game, interaction.user.id):
-            await interaction.response.send_message(
-                "Only a player in this game can roll for the "
-                f"{contest_noun(match)}.",
-                ephemeral=True,
-            )
-            return
-
-        offense_player = self.cog.engine.get_player_definition(
-            match.loose_ball_offense_player,
-        )
-        defense_player = self.cog.engine.get_player_definition(
-            match.loose_ball_defense_player,
-        )
+        No text breakdown goes alongside it: the dice image already
+        names both players and shows every modifier that built the
+        totals.
+        """
         # An injured contestant adds no skill modifier -- their own
         # offensive or defensive skill stays off the roll, and that is
         # the whole of the disadvantage here (see "Injured players" in
@@ -5611,6 +5651,11 @@ class LooseBallSkillTestView(SafeView):
         offense_total = offense_roll + offense_skill
         defense_total = defense_roll + defense_skill
 
+        offense_detail = contestant_detail(
+            offense_player, "Offensive", offense_skill,
+            injured=offense_injured,
+        )
+
         # A High Pass's receiver adds the ball speed modifier to keep
         # what the pass delivered (2026-08-07). A genuine loose ball is
         # nobody's yet, so neither side gets it there.
@@ -5619,25 +5664,17 @@ class LooseBallSkillTestView(SafeView):
         # overshoot set-up lands, and an overshoot pays the modifier
         # against the receiver in the contest exactly as it would have
         # against the shot (2026-08-10). See ball_speed_modifier.
-        modifier_detail = []
         if match.pending_loose_ball_is_high_pass:
             modifier = match.ball_speed_modifier()
             offense_total += modifier
-            modifier_detail = [f"{modifier:+d} ball speed modifier"]
+            offense_detail.append(f"{modifier:+d} ball speed modifier")
 
-        # No text breakdown alongside: the dice image already names
-        # both players and shows every modifier that built the totals.
-        dice_file = await render_contest_dice(
+        return (
             [
                 (
                     offense_roll,
                     match.team_for_player(offense_player.player_id),
-                    contestant_detail(
-                        offense_player,
-                        "Offensive",
-                        offense_skill,
-                        injured=offense_injured,
-                    ) + modifier_detail,
+                    offense_detail,
                     offense_total,
                 ),
                 (
@@ -5652,25 +5689,25 @@ class LooseBallSkillTestView(SafeView):
                     defense_total,
                 ),
             ],
-            filename="loose_ball_dice.png",
+            offense_total,
+            defense_total,
         )
 
-        if offense_total == defense_total:
-            await interaction.response.edit_message(
-                content=self.pay_skill_test_tie(
-                    game,
-                    match,
-                    match.loose_ball_offense_player,
-                    match.loose_ball_defense_player,
-                    offense_total,
-                    defense_total,
-                ),
-                attachments=[dice_file],
-                view=LooseBallSkillTestView(self.cog, self.game_id),
-            )
-            await self.cog.refresh_match_image(interaction, game)
-            return
-
+    def settle_loose_ball_winner(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        offense_player: PlayerDefinition,
+        defense_player: PlayerDefinition,
+        offense_total: int,
+        defense_total: int,
+    ) -> tuple[str, list[PlayerDefinition], int, bool]:
+        """
+        Give the ball to whoever won the contest and word the result:
+        the announcement, who owes an injury test, and the two things
+        the run back behind it needs -- both read off the match before
+        this clears them.
+        """
         outcome = "offense" if offense_total > defense_total else "defense"
         winner_side = (
             match.ball.possession
@@ -5732,6 +5769,77 @@ class LooseBallSkillTestView(SafeView):
                 f"{winner_bracket} wins the loose ball! {winner_mention} "
                 "has possession."
             )
+
+        return (
+            f"{turnover_line}{outcome_line}",
+            exhausted_participants,
+            distance_moved,
+            turnover_occurred,
+        )
+
+    async def roll(self, interaction: discord.Interaction) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+
+        if (
+            not match.pending_loose_ball
+            or match.loose_ball_offense_player is None
+            or match.loose_ball_defense_player is None
+        ):
+            await interaction.response.send_message(
+                f"This {contest_noun(match)} is no longer active.",
+                ephemeral=True,
+            )
+            return
+
+        if not self.is_game_participant(game, interaction.user.id):
+            await interaction.response.send_message(
+                "Only a player in this game can roll for the "
+                f"{contest_noun(match)}.",
+                ephemeral=True,
+            )
+            return
+
+        offense_player = self.cog.engine.get_player_definition(
+            match.loose_ball_offense_player,
+        )
+        defense_player = self.cog.engine.get_player_definition(
+            match.loose_ball_defense_player,
+        )
+
+        contestants, offense_total, defense_total = self.score_loose_ball(
+            game, match, offense_player, defense_player,
+        )
+        dice_file = await render_contest_dice(
+            contestants, filename="loose_ball_dice.png",
+        )
+
+        if offense_total == defense_total:
+            await interaction.response.edit_message(
+                content=self.pay_skill_test_tie(
+                    game,
+                    match,
+                    match.loose_ball_offense_player,
+                    match.loose_ball_defense_player,
+                    offense_total,
+                    defense_total,
+                ),
+                attachments=[dice_file],
+                view=LooseBallSkillTestView(self.cog, self.game_id),
+            )
+            await self.cog.refresh_match_image(interaction, game)
+            return
+
+        (
+            announcement,
+            exhausted_participants,
+            distance_moved,
+            turnover_occurred,
+        ) = self.settle_loose_ball_winner(
+            game, match, offense_player, defense_player,
+            offense_total, defense_total,
+        )
         # The result follows the dice in its own message, the way every
         # other skill test announces itself -- a message's attachments
         # render below its content, so writing the outcome into this
@@ -5744,7 +5852,7 @@ class LooseBallSkillTestView(SafeView):
             view=None,
         )
         await interaction.followup.send(
-            f"{turnover_line}{outcome_line}",
+            announcement,
             # The edit this replaced never pinged the winner, and the
             # prompt that follows does; one ping per turn is plenty.
             allowed_mentions=discord.AllowedMentions(
