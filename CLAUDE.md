@@ -3015,6 +3015,21 @@ anywhere in the code.
     `d12ball/render.py`'s space-occupant stack grouping and
     `cogs/d12ball.py`'s `/ref` command side-detection. Both now check
     board/roster membership directly instead.
+  - **A message names a player through `D12Ball.player_label`**, which
+    is `format_role_bracket` with the two arguments that never vary
+    already filled in: the emoji dict is the cog's, and the team is
+    always `match.team_for_player`, since the definition cannot answer
+    it. Ninety-odd sites spelled all three out, which put the same
+    forty characters of lookup in front of every player's name in the
+    codebase and was the whole of why two files carried eighty-odd
+    lines past 100 columns. `player_id_label` is the same thing for a
+    caller holding a card id rather than a definition.
+    `format_role_bracket` itself is still right for a caller with a
+    `TeamSetup` rather than a match, which already knows the side.
+    Not to be confused with `CoachingView.player_button_label`, which
+    is the name on a *button*: the position instead of the team emoji
+    (every card in that flow is the clicking coach's own), cut to
+    Discord's 80-character limit.
 - **A player's id is `{slug(name)}_{role}`, not team-prefixed.**
   `hellguard_fullback`, globally unique, because a player's own color
   team is no longer part of their identity -- it can't be, when they
@@ -3348,6 +3363,34 @@ as a bug.
 
 ## Gotchas
 
+- **A new field on `MatchState` goes in `MATCH_SAVED_FIELDS`, and the
+  suite fails until it does.** That table in `d12ball/components.py` is
+  a field's key, what a save older than it comes back as, and its
+  copies in either direction; `to_dict` and `from_dict` both walk it,
+  so the two cannot gain a field the other does not know about. It
+  replaced 44 fields written out three times over — once on the
+  dataclass and once in each half of the save — where landing in two
+  of the three is invisible while the bot is up (the live game is the
+  one in memory) and shows only as state quietly missing after a
+  restart.
+  - **`MATCH_EXPLICIT_FIELDS` is the other half of the guard, not a
+    dumping ground.** It names the eighteen `to_dict`/`from_dict`
+    still handle themselves, each because it says something a table
+    cannot: the board and the two setups rebuild objects, the maneuver
+    keys go through `legacy_maneuver_key`, `exhaustion` and
+    `exhausted` are both filtered against `injured`, and the five
+    coaching fields carry their `pending_substitution_*` fallbacks.
+    `MatchStateSerializationTests` walks `dataclasses.fields` and
+    fails on anything in neither place, so a forgotten field is a red
+    suite rather than a bug in a game.
+  - **`default` and `factory` are split the way `dataclasses.field`
+    splits them.** A shared `[]` handed to every game that predates a
+    field is the same bug here as anywhere else, and there is a test
+    for it.
+  - **The wire format is not the table's to change.** Every fallback
+    in it exists because a half-finished game outlives the commit that
+    added the field — see the rest of this section — so adding an
+    entry is free and changing a key is not.
 - **The team board is saved as `team_board` and read under either name.** It
   was called a player board until 2026-08-10 — `TeamBoardState`, `team_board`
   on `TeamSetup`, and the key in `basic_rules.json` and in every saved match.
@@ -3406,6 +3449,18 @@ as a bug.
   `data/d12ball_games.tmp` — the file `save_games` writes and then renames over
   the JSON — had been committed by accident and was doing exactly the same
   thing. Both are ignored now; neither belongs in a commit.
+- **Saving a match is `D12Ball.persist(game, match)`, not two lines.**
+  Writing the match onto its record and saving it is one step, and it
+  appeared as `game.match_state = match.to_dict()` followed by
+  `save_games(...)` at 111 sites. Separating the halves fails silently:
+  a `save_games` with no `to_dict` above it writes whatever the record
+  was already carrying, so the file keeps a state the game has moved
+  past and nothing shows it until a restart reads it back.
+  `save_games` on its own is still right for the forty-odd callers
+  saving the *game* record alone — a message id, a tutorial flag, the
+  finished status — which have no match to write. `send_turn_prompt`
+  is the one deliberate exception, batching its `to_dict` with
+  `turn_message_id` into a single later save.
 - **`save_games` never raises, and a save failure never fails the turn.**
   It is called from around a hundred and fifty places, most of them part-way
   through resolving a turn, so a raise lands in whichever callback is running

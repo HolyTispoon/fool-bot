@@ -1,3 +1,4 @@
+import dataclasses
 import itertools
 import json
 import os
@@ -29,6 +30,8 @@ from d12ball.cards import (
 from d12ball.components import (
     MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
+    MATCH_EXPLICIT_FIELDS,
+    MATCH_SAVED_FIELDS,
     catalog_player_id,
     duplicate_card_id,
     DUPLICATE_CARD_SUFFIX,
@@ -4027,6 +4030,171 @@ class D12BallFontTests(unittest.TestCase):
                     font.getmask(character).getbbox(),
                     f"No glyph for {character!r}",
                 )
+
+
+class MatchStateSerializationTests(unittest.TestCase):
+    """
+    That the save covers the match, and goes on covering it.
+
+    A field added to MatchState and forgotten in to_dict or from_dict
+    is invisible while the bot is up -- the live game is the one in
+    memory -- and shows only as state quietly missing after a restart,
+    which is the hardest kind of bug to trace back to its commit.
+    """
+
+    def setUp(self) -> None:
+        self.rules = load_basic_ruleset()
+        self.catalog = load_player_catalog()
+
+    def match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+        )
+
+    def test_every_field_is_either_tabled_or_deliberately_explicit(
+        self,
+    ) -> None:
+        """
+        The guard this table exists for. A new field has to be added
+        to MATCH_SAVED_FIELDS, or -- when it needs a conversion or a
+        legacy fallback the table cannot express -- written into
+        to_dict and from_dict and named in MATCH_EXPLICIT_FIELDS.
+        Doing neither fails here rather than in a game.
+        """
+        declared = {
+            saved_field.name for saved_field in MATCH_SAVED_FIELDS
+        } | MATCH_EXPLICIT_FIELDS
+        actual = {
+            match_field.name
+            for match_field in dataclasses.fields(MatchState)
+        }
+
+        self.assertEqual(
+            actual - declared,
+            set(),
+            "MatchState fields that are saved nowhere -- add them to "
+            "MATCH_SAVED_FIELDS, or to to_dict/from_dict and "
+            "MATCH_EXPLICIT_FIELDS.",
+        )
+        self.assertEqual(
+            declared - actual,
+            set(),
+            "Saved names that are not MatchState fields any more.",
+        )
+
+    def test_the_table_and_the_explicit_set_do_not_overlap(self) -> None:
+        # A field in both would be written twice, and the second
+        # writer would silently win.
+        self.assertEqual(
+            {saved_field.name for saved_field in MATCH_SAVED_FIELDS}
+            & MATCH_EXPLICIT_FIELDS,
+            set(),
+        )
+
+    def test_every_tabled_field_reaches_the_save_and_comes_back(
+        self,
+    ) -> None:
+        match = self.match()
+        saved = match.to_dict()
+
+        for saved_field in MATCH_SAVED_FIELDS:
+            with self.subTest(field=saved_field.name):
+                self.assertIn(saved_field.name, saved)
+
+        restored = MatchState.from_dict(saved, self.rules)
+        self.assertEqual(restored.to_dict(), saved)
+
+    def test_a_save_predating_a_field_falls_back_rather_than_raising(
+        self,
+    ) -> None:
+        """
+        The ordinary case, not an error: both developers run the bot
+        from their own tree against their own games, so a
+        half-finished match routinely outlives the change that added a
+        field to it.
+        """
+        saved = self.match().to_dict()
+        for saved_field in MATCH_SAVED_FIELDS:
+            with self.subTest(field=saved_field.name):
+                without = {
+                    key: value
+                    for key, value in saved.items()
+                    if key != saved_field.name
+                }
+                restored = MatchState.from_dict(without, self.rules)
+                expected = (
+                    saved_field.factory()
+                    if saved_field.factory is not None
+                    else saved_field.default
+                )
+                self.assertEqual(
+                    getattr(restored, saved_field.name), expected,
+                )
+
+    def test_a_mutable_field_is_copied_in_both_directions(self) -> None:
+        """
+        A container written straight into the dict is one the live
+        match can go on mutating between to_dict and the file being
+        written; one read straight out is a match holding a reference
+        into the loaded JSON.
+        """
+        match = self.match()
+        match.pending_injury_tests = ["a", "b"]
+        match.assigned_positions = {"a": ["midfield", 1]}
+        match.shootout_orders = {"home": ["a"]}
+
+        saved = match.to_dict()
+        match.pending_injury_tests.append("c")
+        match.assigned_positions["b"] = ["home_goal", 0]
+        match.shootout_orders["home"].append("b")
+
+        self.assertEqual(saved["pending_injury_tests"], ["a", "b"])
+        self.assertEqual(saved["assigned_positions"], {"a": ["midfield", 1]})
+        self.assertEqual(saved["shootout_orders"], {"home": ["a"]})
+
+        restored = MatchState.from_dict(saved, self.rules)
+        restored.pending_injury_tests.append("z")
+        restored.assigned_positions["z"] = ["midfield", 0]
+        restored.shootout_orders["home"].append("z")
+
+        self.assertEqual(saved["pending_injury_tests"], ["a", "b"])
+        self.assertEqual(saved["assigned_positions"], {"a": ["midfield", 1]})
+        self.assertEqual(saved["shootout_orders"], {"home": ["a"]})
+
+    def test_a_mutable_fallback_is_not_shared_between_games(self) -> None:
+        # The reason the table splits `default` from `factory`.
+        saved = self.match().to_dict()
+        bare = {
+            key: value
+            for key, value in saved.items()
+            if key not in {"pending_injury_tests", "assigned_positions"}
+        }
+
+        first = MatchState.from_dict(bare, self.rules)
+        second = MatchState.from_dict(bare, self.rules)
+        first.pending_injury_tests.append("a")
+        first.assigned_positions["a"] = ["midfield", 1]
+
+        self.assertEqual(second.pending_injury_tests, [])
+        self.assertEqual(second.assigned_positions, {})
+
+    def test_declared_substitution_is_stored_sorted_and_read_as_a_set(
+        self,
+    ) -> None:
+        # The one field whose two directions differ: sorted so a save
+        # file is stable, a set so membership is the question asked.
+        match = self.match()
+        match.declared_substitution = {"visiting", "home"}
+
+        saved = match.to_dict()
+        self.assertEqual(saved["declared_substitution"], ["home", "visiting"])
+
+        restored = MatchState.from_dict(saved, self.rules)
+        self.assertEqual(restored.declared_substitution, {"home", "visiting"})
 
 
 if __name__ == "__main__":
