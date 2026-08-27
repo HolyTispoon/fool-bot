@@ -100,6 +100,22 @@ class AIStrategy(ABC):
         ...
 
     @abstractmethod
+    def choose_dribble_burst_distance(
+        self,
+        match: MatchState,
+        distances: list[int],
+    ) -> int:
+        """
+        One of `distances` -- how far to run a won Dribble Burst,
+        which is 1 up to `DRIBBLE_BURST_MAX_DISTANCE` less anything
+        the end of the field takes away. Never called with an empty
+        list: a handler already on the last space has no run to
+        choose, and D12Ball.resolve_dribble_burst takes that branch
+        before asking anyone. See RulesEngine.dribble_burst_distances.
+        """
+        ...
+
+    @abstractmethod
     def choose_high_pass_distance(
         self,
         match: MatchState,
@@ -338,6 +354,23 @@ class DinkyAI(AIStrategy):
         """Always take the full 2 spaces -- same maximizing spirit as
         choose_speed_delta."""
         return 2
+
+    def choose_dribble_burst_distance(
+        self,
+        match: MatchState,
+        distances: list[int],
+    ) -> int:
+        """
+        Always run the full distance on offer -- same maximizing
+        spirit as choose_dribble_advance_distance.
+
+        The exhaustion is a token a space, so a shorter burst is a
+        real option and Dinky is deliberately not taking it: weighing
+        field position against a player's stamina is judgement, and
+        Dinky makes none. Same call as never ceding and never playing
+        an advanced card for its cost rather than its benefit.
+        """
+        return distances[-1]
 
     def choose_high_pass_distance(
         self,

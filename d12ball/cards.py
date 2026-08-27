@@ -551,19 +551,21 @@ STRIP_MOVES: dict[str, tuple[Move, ...]] = {
         Move(-1, "challenger", "defense", start=19, end=19, lift=26, row=1),
     ),
     # -- advanced ------------------------------------------------------
-    # "Any teammate" has no distance, so the two arcs are drawn to the
-    # ends of the strip: the card says *any*, and the picture says the
-    # whole field either way rather than picking a number out of the
-    # air.
-    "precise_pass": (
-        Move(4, "any teammate ahead", "offense", caption_at=3.4),
-        Move(-4, "or behind", "offense"),
+    # Three spaces either way, which is what the card says since the
+    # 2026-08-26 rename -- it used to read "any teammate" and the arcs
+    # were drawn to the ends of the strip because there was no number
+    # to draw them to.
+    "skilled_pass": (
+        Move(3, "any teammate ahead", "offense", caption_at=2.4),
+        Move(-3, "or behind", "offense"),
     ),
-    # One arc, to the last space of the goal they attack -- the run is
-    # not a distance the coach picks, which is why nothing is captioned
-    # with a number.
+    # Two arcs for a range, the way Dribble Advance draws its own: the
+    # near one carries what the run costs and the far one the bound
+    # the coach picks up to. Both solid -- the whole 1-to-4 range is a
+    # choice any handler has, not a role's variant.
     "dribble_burst": (
-        Move(4, "handler + ball,\n1 token a space", "offense", caption_at=3.2),
+        Move(1, "handler + ball,\n1 token a space", "offense", lift=10),
+        Move(4, "up to 4", "offense", caption_at=3.6),
     ),
     # 0 is a teammate already sharing the passer's space, so its arc
     # runs shoulder to shoulder rather than to a neighbouring space.
@@ -613,8 +615,8 @@ STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
     "deflect": ("H", {}),
     "steal": ("HC", {1: "C"}),
     "pressure": ("HC", {-1: "HC"}),
-    "precise_pass": ("H", {4: "R", -4: "R"}),
-    "dribble_burst": ("H", {4: "H"}),
+    "skilled_pass": ("H", {3: "R", -3: "R"}),
+    "dribble_burst": ("H", {1: "H", 4: "H"}),
     # 0 lands on the passer's own space, which already carries the
     # handler's token, so only 1 and 3 name a receiver.
     "setup_pass": ("H", {1: "R", 3: "R", 4: "R"}),
@@ -628,13 +630,13 @@ STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
 # **The basic strip is the standard seven-space board with the ball on
 # the third space, which is the only position from which every basic
 # maneuver fits**: a High Pass of 4 lands on the last space and a
-# Fullback's Deflect of 2 on the first. The advanced cards do not
-# fit it -- a Fullback's Clear drives the ball back 4 and Dribble Burst
-# runs it to the far end -- so they are drawn on the **nine-space
-# board**, which is a real board and not a made-up strip, with the ball
-# in the middle. That gives 4 either way, which is exactly the range
-# the six advanced cards need once the Fullback is allowed near a Clear
-# and a Setup Pass: before that ruling the ball sat a space back and a
+# Fullback's Deflect of 2 on the first. The advanced cards do not fit
+# it -- a Fullback's Clear drives the ball back 4 and a Dribble Burst
+# runs it 4 forward -- so they are drawn on the **nine-space board**,
+# which is a real board and not a made-up strip, with the ball in the
+# middle. That gives 4 either way, which is exactly the range the six
+# advanced cards need once the Fullback is allowed near a Clear and a
+# Setup Pass: before that ruling the ball sat a space back and a
 # Fullback's clearance ran off the end of the panel.
 STRIP_GEOMETRY: dict[str, tuple[int, int]] = {
     MANEUVER_TIER_BASIC: (7, 2),
@@ -1586,7 +1588,7 @@ def render_maneuver_card_back(
 
     # **One size for all six nodes, and it is the tightest of them.**
     # Sized independently they read as six different alphabets: "Low
-    # Pass" over "Precise Pass" has short words and grows to fill the
+    # Pass" over "Skilled Pass" has short words and grows to fill the
     # circle, where "Pressure" over "Double Team" is held back by
     # "Pressure" alone -- a spread of a third at the same radius.
     #
