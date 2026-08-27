@@ -640,7 +640,7 @@ weapon rather than only a saving.
   its own maneuver**, as `{"kind": ...}` -- the same shape
   `pending_injury_resume` uses and for the same reason. Two need it:
   Setup Pass sets the ball's speed and *then* picks the pass out, and a
-  beaten Precise Pass hands the defense an unopposed Low Pass once the
+  beaten Skilled Pass hands the defense an unopposed Low Pass once the
   steal has settled. A speed choice had always been the *last* human
   step of an effect, leading straight into
   `finish_maneuver_resolution`; `continue_effect` is the branch.
@@ -702,7 +702,7 @@ weapon rather than only a saving.
   are nonsense on their advanced counterpart: a Fullback's "ball goes
   back 2" is a *reduction* on a 3-space Clear, its "high pass up to 4"
   is a fourth number against a card offering 0/1/3, and a Playmaker's
-  "may advance 2" is no bonus at all on a run to the end of the field.
+  "may advance 2" was no bonus at all on a run to the end of the field.
   The author settled all three on 2026-08-19 -- **the Fullback's
   ability is +1 distance** (High Pass 3->4, Deflect 1->2, Clear
   3->4, Setup Pass gains a 4), and **the Playmaker's is one exhaustion
@@ -710,6 +710,13 @@ weapon rather than only a saving.
   differently on the two cards of a rank. The Midfielder's +3 and the
   rank-D2 ball speed modifier were already uniform and needed no
   ruling.
+  - **The Playmaker's stayed on the cost when the burst was bounded**
+    (the author, 2026-08-26). The 2026-08-19 reading turned on there
+    being no distance left to add to; a run of up to 4 has one, and the
+    ability is still a token off rather than a fifth space. So the
+    distances a Playmaker is offered are everybody's, and the discount
+    comes out of the total in `apply_dribble_burst` -- named once
+    beside the run rather than subtracted from each button's price.
   - **A Fullback's extra space is distance, not speed.** A Block
     Deflect of 2 has always cost 1 speed, so a Clear of 4 still costs
     3. `apply_deflection` keeps `speed_drop` as the card's own number
@@ -2462,9 +2469,9 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   which is the only position from which every basic maneuver fits: a High Pass
   of 4 lands on the last space and a Fullback's Deflect of 2 on the
   first. **An advanced card is drawn on the nine-space board** with the ball on
-  the fourth, because Clear drives the ball back 3 and Dribble Burst runs it to
-  the far end -- 3 back and 5 forward, which the seven-space strip has no room
-  for. `STRIP_GEOMETRY` is the pair, per tier, and the nine-space board is a
+  the fourth, because Clear drives the ball back 3 and Dribble Burst runs it 4
+  forward -- 4 either way once a Fullback is near a Clear, which the seven-space
+  strip has no room for. `STRIP_GEOMETRY` is the pair, per tier, and the nine-space board is a
   real board rather than a strip invented to fit.
   - **A dashed arc is a role's variant and a solid one is the ordinary move.**
     That is the only thing the dashes mean, which is why Low Pass's backward

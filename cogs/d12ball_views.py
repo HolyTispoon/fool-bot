@@ -1332,7 +1332,7 @@ class PlayerActionView(SafeView):
 
         # The button was built disabled, so this is a click on a prompt
         # from an earlier beat still sitting in the channel -- the same
-        # stale-view guard the shot and the cede keep below.
+        # stale-view guard the shot and the cede keep.
         allowed = tutorial.allowed_actions(self.cog.tutorial_beat(game))
         if allowed is not None and action not in allowed:
             await interaction.response.send_message(
@@ -1343,59 +1343,98 @@ class PlayerActionView(SafeView):
             return
 
         if action == "shoot":
-            # The button is only built when the shot is legal, so this
-            # is a click on a prompt the ball has since moved out from
-            # under -- the same stale-view guard the other choices keep.
-            if not match.can_attempt_score():
-                await interaction.response.send_message(
-                    "The ball is out of shooting range.",
-                    ephemeral=True,
-                )
-                return
-
-            match.pending_action = "shoot"
-            game.match_state = match.to_dict()
-            save_games(self.cog.games)
-
-            refresh_player_names(game, interaction.guild)
-            handler = self.cog.engine.get_player_definition(match.active_player_id)
-            offense_number = self.cog.engine.possession_player_number(game, match)
-            offense_display = format_player_with_team(game, offense_number)
-
-            await interaction.response.edit_message(
-                content=(
-                    f"{offense_display} has chosen to {action_label} with "
-                    f"{format_role_bracket(handler, self.cog.team_emojis, match.team_for_player(handler.player_id))}."
-                ),
-                view=None,
+            await self.begin_shot_action(
+                interaction, game, match, action_label,
             )
-            await self.cog.begin_score_attempt(interaction, game, match)
             return
 
         if action == "cede":
-            # Same stale-view guard the shot keeps, and the same two
-            # reasons the button would not have been built: the ball
-            # has moved into shooting range since, or the side has
-            # spent its once-a-half Coaching Choice elsewhere.
-            if not match.may_cede_possession():
-                await interaction.response.send_message(
-                    "The ball is in shooting range now, so there is "
-                    "nothing to cede for."
-                    if match.can_attempt_score()
-                    else "Your side has already called its Coaching "
-                    "Choice this half.",
-                    ephemeral=True,
-                )
-                return
+            await self.begin_cede_action(interaction, game, match)
+            return
 
-            await interaction.response.edit_message(
-                content=self.cog.engine.cede_confirmation(game, match),
-                view=CedeConfirmView(
-                    self.cog, self.game_id, interaction.message.content,
-                ),
+        await self.begin_maneuver_action(interaction, game, match)
+
+    async def begin_shot_action(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        action_label: str,
+    ) -> None:
+        """Take the shot on, and say who is taking it."""
+        # The button is only built when the shot is legal, so this is a
+        # click on a prompt the ball has since moved out from under --
+        # the same stale-view guard the other choices keep.
+        if not match.can_attempt_score():
+            await interaction.response.send_message(
+                "The ball is out of shooting range.",
+                ephemeral=True,
             )
             return
 
+        match.pending_action = "shoot"
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        refresh_player_names(game, interaction.guild)
+        handler = self.cog.engine.get_player_definition(match.active_player_id)
+        offense_number = self.cog.engine.possession_player_number(game, match)
+        offense_display = format_player_with_team(game, offense_number)
+
+        await interaction.response.edit_message(
+            content=(
+                f"{offense_display} has chosen to {action_label} with "
+                f"{format_role_bracket(handler, self.cog.team_emojis, match.team_for_player(handler.player_id))}."
+            ),
+            view=None,
+        )
+        await self.cog.begin_score_attempt(interaction, game, match)
+
+    async def begin_cede_action(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Put the cost of giving the ball up in front of the coach before
+        anything happens. Ceding is the one turn action that hands the
+        opponent the ball and it sits one button along from Maneuver,
+        so it is confirmed rather than taken -- see CedeConfirmView.
+        """
+        # Same stale-view guard the shot keeps, and the same two
+        # reasons the button would not have been built: the ball has
+        # moved into shooting range since, or the side has spent its
+        # once-a-half Coaching Choice elsewhere.
+        if not match.may_cede_possession():
+            await interaction.response.send_message(
+                "The ball is in shooting range now, so there is "
+                "nothing to cede for."
+                if match.can_attempt_score()
+                else "Your side has already called its Coaching "
+                "Choice this half.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.edit_message(
+            content=self.cog.engine.cede_confirmation(game, match),
+            view=CedeConfirmView(
+                self.cog, self.game_id, interaction.message.content,
+            ),
+        )
+
+    async def begin_maneuver_action(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Start a maneuver, which reaches the offense's pick by one of
+        three routes: nobody to challenge at all, a challenger settled
+        without asking, or the defending coach's own choice.
+        """
         # Nobody left to challenge with at all -- a side with a meeple
         # anywhere on the board has a candidate, so this needs an empty
         # field: the maneuver succeeds automatically and the offense
@@ -1405,8 +1444,7 @@ class PlayerActionView(SafeView):
         # straight to the offense's pick. A defense that is offered a
         # challenge and sends nobody lands in the same place, from
         # ManeuverChallengeView.decline.
-        eligible_challengers = match.eligible_challengers()
-        if not eligible_challengers:
+        if not match.eligible_challengers():
             match.begin_uncontested_maneuver()
             game.match_state = match.to_dict()
             save_games(self.cog.games)
@@ -1419,7 +1457,6 @@ class PlayerActionView(SafeView):
             return
 
         match.pending_action = "maneuver"
-        handler = self.cog.engine.get_player_definition(match.active_player_id)
         defender_number = self.cog.engine.defending_player_number(game, match)
 
         # One defender already sharing the ball's exact space leaves
@@ -1454,7 +1491,23 @@ class PlayerActionView(SafeView):
         game.match_state = match.to_dict()
         save_games(self.cog.games)
 
+        await self.send_challenger_prompt(
+            interaction, game, match, defender_number,
+        )
+
+    async def send_challenger_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        defender_number: int,
+    ) -> None:
+        """
+        Ask the defending coach who challenges, when the answer is
+        genuinely theirs to give.
+        """
         refresh_player_names(game, interaction.guild)
+        handler = self.cog.engine.get_player_definition(match.active_player_id)
         defender_mention = format_player_with_team(
             game,
             defender_number,
@@ -1464,8 +1517,8 @@ class PlayerActionView(SafeView):
         await interaction.response.defer()
         await self.cog.drop_turn_prompt(interaction, game)
 
-        # The handler is named here, unlike in the automatic case
-        # above: the defense is being asked to choose a challenger
+        # The handler is named here, unlike in the automatic case:
+        # the defense is being asked to choose a challenger
         # before the challenge image exists, so this is the only place
         # they can read who they would be up against.
         # Two defenders on the ball are the whole of the choice and
@@ -2193,7 +2246,7 @@ class SkillTestView(SafeView):
         offense_ability_detail = ""
         if (
             offense_player.role == PlayerRole.MIDFIELDER
-            and match.offense_maneuver in ("low_pass", "precise_pass")
+            and match.offense_maneuver in ("low_pass", "skilled_pass")
         ):
             offense_total += 3
             offense_ability_detail = "+3 Midfielder ability"
@@ -2746,9 +2799,10 @@ class LowPassChoiceView(SafeView):
         self.cog = cog
         self.game_id = game_id
         # Which card is being resolved, so the destinations offered are
-        # the ones that card actually reaches -- a Precise Pass reaches
-        # any teammate on the board. `free` is the unopposed pass
-        # Precise Pass's cost hands the defense, which charges no clock.
+        # the ones that card actually reaches -- a Skilled Pass reaches
+        # any teammate within 3 spaces, ahead or behind. `free` is the
+        # unopposed pass Skilled Pass's cost hands the defense, which
+        # charges no clock.
         self.key = key
         self.free = free
 
@@ -3469,6 +3523,109 @@ class DribbleAdvanceChoiceView(SafeView):
             view=None,
         )
         await self.cog.apply_dribble_advance(interaction, game, match, distance)
+
+
+class DribbleBurstChoiceView(SafeView):
+    """
+    How far a won Dribble Burst runs: 1 up to
+    `DRIBBLE_BURST_MAX_DISTANCE`, less anything the end of the field
+    takes away. Shaped like DribbleAdvanceChoiceView, which is the
+    other dribble that asks a distance, and reconstructible on restart
+    from match state alone (see D12Ball.build_effect_choice_view).
+
+    **Every button carries its price**, because the exhaustion is a
+    token a space and that is the whole of what makes the shorter runs
+    worth offering -- the same reasoning as RunBackChoiceView's
+    `M2 (4 spaces)` labels, where the distance *is* the cost. The
+    Playmaker's token off comes out of the total rather than off each
+    space, so it is named once beside the run it discounts rather than
+    subtracted from every label.
+
+    A handler already on the last space of the field never sees this:
+    resolve_dribble_burst applies a run of 0 without a prompt.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+        game, match = self.load_match()
+        if game is None or match.active_player_id is None:
+            # No handler means no run to price. Only reachable in the
+            # same narrow crash window every other reconstructed view
+            # has; the empty view falls back to PlayerActionView.
+            return
+
+        handler_id = match.active_player_id
+        playmaker = (
+            cog.engine.get_player_definition(handler_id).role
+            == PlayerRole.PLAYMAKER
+        )
+
+        for distance in cog.engine.dribble_burst_distances(match):
+            space_word = "space" if distance == 1 else "spaces"
+            # Naming the destination is what "3 spaces" does not say:
+            # which way this side attacks and where that lands is read
+            # off the board, and the board has usually scrolled away.
+            destination = match.relative_move_destination(
+                handler_id, match.ball.possession, distance,
+            )
+            tokens = max(0, distance - (1 if playmaker else 0))
+            token_word = "token" if tokens == 1 else "tokens"
+            button = discord.ui.Button(
+                label=(
+                    f"{distance} {space_word} "
+                    f"({space_label(*destination)}, {tokens} {token_word})"
+                ),
+                style=discord.ButtonStyle.primary,
+                custom_id=f"d12ball:dribble_burst:{game_id}:{distance}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen_distance: int = distance,
+            ) -> None:
+                await self.choose(interaction, chosen_distance)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        distance: int,
+    ) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+
+        if not self.cog.engine.user_controls_possession(
+            interaction.user.id, game, match,
+        ):
+            await interaction.response.send_message(
+                "Only the player resolving this effect can choose.",
+                ephemeral=True,
+            )
+            return
+
+        # A stale click: an older prompt in the channel, or one the
+        # handler has since been moved out from under. The menu carries
+        # no message id, so this is the check that catches it -- the
+        # same refusal HighPassChoiceView makes for the same reason.
+        if distance not in self.cog.engine.dribble_burst_distances(match):
+            await interaction.response.send_message(
+                "That distance is no longer available.",
+                ephemeral=True,
+            )
+            return
+
+        space_word = "space" if distance == 1 else "spaces"
+        await interaction.response.edit_message(
+            content=f"Chose **{distance} {space_word}**.",
+            view=None,
+        )
+        await self.cog.apply_dribble_burst(interaction, game, match, distance)
 
 
 class SpeedDeltaChoiceView(SafeView):

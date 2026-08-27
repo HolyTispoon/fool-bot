@@ -750,6 +750,19 @@ SETUP_PASS_DISTANCES = (0, 1, 3)
 # Pass from 3 to 4 and a Clear from 3 to 4 (the author, 2026-08-19).
 SETUP_PASS_FULLBACK_DISTANCE = 4
 SETUP_PASS_CLOCK_COST = 2
+# How far a Skilled Pass reaches, either way. The card was Precise
+# Pass and read "any teammate", which on the nine-space board is a
+# pass across the whole field; the author bounded it at 3 and renamed
+# it on 2026-08-26. A distance running off the end of the board is
+# dropped by `RulesEngine.low_pass_receivers`, so this is a reach and
+# not a promise that all seven destinations exist.
+SKILLED_PASS_REACH = 3
+# How far a Dribble Burst runs, at most -- the coach picks 1 up to
+# this, or as far as the field allows if that is shorter. It used to
+# be a run to the last space of the goal they attack, which was no
+# choice at all; the author bounded it on 2026-08-26 and the pick is
+# what the exhaustion is charged against.
+DRIBBLE_BURST_MAX_DISTANCE = 4
 
 MANEUVER_TIER_BASIC = "basic"
 MANEUVER_TIER_ADVANCED = "advanced"
@@ -773,20 +786,25 @@ def maneuver_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")
 
 
-# A saved game written before maneuvers had keys holds the printed
-# name in `offense_maneuver`/`defense_maneuver`. Almost all of them
-# slug straight to their key, so only the one that does not is written
-# down: the author renamed the basic D2 card from "Steal Intercept" to
-# "Steal" on 2026-08-18, when the advanced D2 card became "Intercept".
+# **What a rename leaves behind**, which is the one thing a key cannot
+# be derived through. A key is the slug of the printed name, so a card
+# renamed upstream gets a new key -- and a game saved mid-turn holds
+# the old one, either as the key itself or, for a game older than keys
+# altogether, as the printed name in
+# `offense_maneuver`/`defense_maneuver`. Both forms slug to the same
+# string, so one table answers for both.
 #
 # Same tolerant shape as `player_board`/`team_board` and `tie_mode`:
-# nothing writes a name any more, so this dies out on its own. Don't
-# add a migration pass for it, and don't drop it until no half-finished
-# game can predate the change -- both developers run the bot from their
-# own tree against their own saves.
+# nothing writes the old form any more, so each entry dies out on its
+# own. Don't add a migration pass for it, and don't drop an entry until
+# no half-finished game can predate that rename -- both developers run
+# the bot from their own tree against their own saves.
 LEGACY_MANEUVER_KEYS = {
     "steal_intercept": "steal",
     "block_deflect": "deflect",
+    # The author renamed the advanced O1 card from "Precise Pass" to
+    # "Skilled Pass" on 2026-08-26, when its reach was bounded at 3.
+    "precise_pass": "skilled_pass",
 }
 
 
@@ -1270,7 +1288,7 @@ class MatchState:
     #
     # Two of the advanced effects reach past their own maneuver.
     # Setup Pass adjusts ball speed and *then* sets up a scoring
-    # opportunity; Precise Pass, when it is beaten, hands the defense
+    # opportunity; Skilled Pass, when it is beaten, hands the defense
     # an unopposed Low Pass once the steal has settled. Both sit behind
     # a speed choice, which is the last human step of an effect and has
     # always led straight into `finish_maneuver_resolution`. Rather
