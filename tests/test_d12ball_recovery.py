@@ -21,6 +21,7 @@ from unittest import mock
 import discord
 
 from cogs.d12ball import D12Ball
+from cogs.d12ball_boards import BoardRefresher
 from cogs.d12ball_views import (
     BallHandlerSelectionView,
     BallRecoveryView,
@@ -64,13 +65,7 @@ def build_cog() -> D12Ball:
         cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog,
         cog.ai_strategies,
     )
-    cog.board_refresh_tasks = {}
-    cog.board_refreshed_at = {}
-    cog.board_png_digests = {}
-    cog.board_link_owed = {}
-    cog.board_refresh_locks = {}
-    cog.board_writes_refused = {}
-    cog.board_refresh_wanted = set()
+    cog.boards = BoardRefresher(cog)
     cog.refresh_match_image = mock.AsyncMock()
     cog.send_turn_prompt = mock.AsyncMock()
     cog.coaching_file = mock.AsyncMock(return_value=object())
@@ -734,12 +729,12 @@ class AbandonGameTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_pending_board_refresh_is_cancelled(self) -> None:
         cog, game = self.build()
         task = mock.Mock()
-        cog.board_refresh_tasks[game.game_id] = task
+        cog.boards.tasks[game.game_id] = task
 
         await self.run_abandon(cog, build_interaction())
 
         task.cancel.assert_called_once()
-        self.assertNotIn(game.game_id, cog.board_refresh_tasks)
+        self.assertNotIn(game.game_id, cog.boards.tasks)
 
     async def test_without_the_confirm_word_nothing_happens(self) -> None:
         cog, game = self.build()

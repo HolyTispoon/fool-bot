@@ -26,6 +26,7 @@ python3 -m unittest discover -s tests
 | `cogs/d12ball.py` | All D12 Ball slash commands and Discord interaction flow |
 | `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming. Re-imports and re-exports everything `d12ball/formatting.py` holds, so an existing `from cogs.d12ball_helpers import space_label` keeps working; what stayed here needs an emoji dict or discord.py itself. |
 | `cogs/d12ball_views.py` | The `discord.ui.View` classes, one per prompt a player can be shown. `SafeView.load_match`/`require_match` are the shared "get the game and its match, or bail" lookup nearly every view opens with (silent for `__init__`, replying for a callback); `SafeView.is_game_participant` is the shared "is this one of the two coaches" check a roll button's `.roll` answers to. Both replaced call-site-by-call-site copies of themselves. |
+| `cogs/d12ball_boards.py` | The write gate on a game's persistent board message -- `BoardRefresher`, holding the seven game-keyed maps the cog used to carry (`refreshed_at`, `tasks`, `png_digests`, `link_owed`, `locks`, `wanted`, `writes_refused`) and the six methods that read them, plus `BOARD_REFRESH_INTERVAL` and its backoff. They were only ever touched by each other. `D12Ball.refresh_match_image` is still the way in and the only part of it the rest of the cog uses -- see "Discord's rate limits". |
 | `cogs/debug.py` | Maintenance commands, including the PBD channel-and-count reset |
 | `d12ball/components.py` | Game state model — `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog` |
 | `d12ball/engine.py` | `RulesEngine` — the cog's decisions and candidate lists that never touch Discord, over a fixed player catalog/ruleset/maneuver catalog/AI strategies. `D12Ball.engine` is the one instance a cog builds; every call site reads `self.engine.foo(...)` (or `self.cog.engine.foo(...)` from a view) instead of `self.foo(...)`. Includes prompt-text and matchup-data builders (`build_turn_prompt`, `challenge_side`, ...) that are presentation but need nothing beyond the match and the catalogs -- no emoji dict, no cog. |
@@ -1919,6 +1920,12 @@ WARNING, so it is console-only and never reaches #logs); adding our own
 pacing on top would only make a turn take ten seconds and still spend the
 same budget. So:
 
+**The gate itself lives in `cogs/d12ball_boards.py`.** Everything below
+describes `BoardRefresher` and the seven maps it holds; they were seven
+attributes and six methods on the cog, touched by nothing but each other,
+which made the one piece of this bot with measured timing invariants read
+as ordinary cog surface. `D12Ball.refresh_match_image` is the way in.
+
 - **Read a 429 by looking the ids up, not by reasoning about them.** All the
   warning gives you is a method and a URL, and the only thing in it that names
   the game is the channel and message id. Three batches of these were read by
@@ -1965,20 +1972,21 @@ same budget. So:
   message uploads a new attachment, which invalidates the old one, so the
   "View full image" link has to be re-cut in a second edit -- the URL does not
   exist until the upload lands. That is two edits a board, and a turn's worth
-  of boards is more than the bucket has. So `write_board_message` takes
+  of boards is more than the bucket has. So `BoardRefresher.write` takes
   `relink`: an **interim** write (the immediate one, `relink=False`) strips the
   now-dead link in the edit it was already paying for and records the URL in
-  `board_link_owed`, and the **settling** write (the trailing refresh) puts a
+  `link_owed`, and the **settling** write (the trailing refresh) puts a
   live one back. The board is linkless for `BOARD_REFRESH_INTERVAL` rather than
   dead-linked for it.
   - **The settling pass is owed as soon as a link is stripped**, so
     `refresh_match_image` schedules one after an immediate write whenever
-    something is in `board_link_owed` -- not only when a second refresh asks.
+    something is in `link_owed` -- not only when a second refresh asks.
     Without it a quiet board would keep the link the interim write took off.
   - **A settling write with nothing new to draw still pays the link**, from the
     URL it was handed rather than by re-fetching the message: one edit, and the
     common case, since the last step of a click usually moves nothing. That is
-    `settle_board_link`, and it spends no request when nothing is owed.
+    `BoardRefresher.settle_link`, and it spends no request when nothing
+    is owed.
   - Before the home/visiting choice the message is still the setup prompt: its
     buttons are live, it has no link to go stale, and its view is left alone.
     **And it is a different message from the one the channel opens with** --
@@ -2026,7 +2034,7 @@ same budget. So:
     re-drawing is exactly what lets one pending refresh stand in for every
     request behind it.
   - **Only one write per game is ever in the air**, held by
-    `board_refresh_locks`. A write is not instant: drawing a 2200px board and
+    `locks`. A write is not instant: drawing a 2200px board and
     uploading it is most of a second, more on a bad connection, so an upload
     slower than the window let the trailing pass start alongside the immediate
     write and put two PATCHes on one message in the same instant. That is the
@@ -2051,8 +2059,9 @@ same budget. So:
       queued behind a write that is still going and its sleep runs *alongside*
       that write, so by the time it holds the lock its wait is already spent.
       What the interval is still owed is settled under the lock, by
-      `wait_out_board_interval`. It is the only place the bot sleeps before a
-      request, and it is not the pacing ruled out below: nobody is waiting on
+      `BoardRefresher.wait_out_interval`. It is the only place the bot
+      sleeps before a request, and it is not the pacing ruled out below:
+      nobody is waiting on
       a board that has not been drawn yet.
     - **The stamp goes in a `finally`.** A write that raised still spent its
       place in the bucket, and a window left open by the failure is one more
@@ -2096,15 +2105,15 @@ same budget. So:
       an id up. Console-only, like every other WARNING here.
   - **A write in flight does not stand in for a request that arrives during
     it.** The board it is putting up was drawn before that request, so the want
-    is recorded in `board_refresh_wanted` and a pass that finds the flag set
+    is recorded in `wanted` and a pass that finds the flag set
     again when it lands waits out another interval and goes round once more.
     Counting the *task* instead dropped the request on the floor -- it was still
-    in `board_refresh_tasks`, so nothing rescheduled, and the board kept a state
+    in `tasks`, so nothing rescheduled, and the board kept a state
     the click had already moved past until somebody clicked again. Anything
     added to the gate has to keep the discard *before* the write, or the same
     hole reopens.
   - **A board identical to the one already up is not written at all.** The
-    render is deterministic, so `write_board_message` keeps a digest of what
+    render is deterministic, so `BoardRefresher.write` keeps a digest of what
     it last uploaded and skips the upload when the new bytes match (a settling
     write still owes its link). Plenty of steps refresh without moving anything
     visible -- picking a receiver, choosing a maneuver -- and those were
@@ -2119,8 +2128,8 @@ same budget. So:
   - **Fewer requests is not the same as slower requests, and this is the
     difference.** Nothing here sleeps before a call anyone is waiting on. The
     gate drops redundant work; the turn does not get slower for it.
-    `wait_out_board_interval` is the one sleep before a request, and it is on
-    the right side of that line: the board it is holding back has not been
+    `BoardRefresher.wait_out_interval` is the one sleep before a request,
+    and it is on the right side of that line: the board it is holding back has not been
     drawn yet, and every write it delays is one it is about to make
     unnecessary. A coach waits on prompts and on the messages a turn posts,
     and none of those go through this gate.

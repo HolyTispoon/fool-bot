@@ -873,7 +873,7 @@ def full_image_link_button(url: str) -> discord.ui.Button:
     earlier rather than from the message it is going onto.
 
     The board's link is re-cut a beat after the upload it points at
-    (see `settle_board_link`), by which time nothing is holding the
+    (see `BoardRefresher.settle_link`), by which time nothing is holding the
     message it came back on -- only the URL, which is the whole of
     what the button needs.
     """
