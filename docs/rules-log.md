@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-08-25.
+**As of:** 2026-08-26.
 
 ## Where the rules come from
 
@@ -87,6 +87,63 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-08-26 -- author, "Precise Pass" becomes "Skilled Pass" and is bounded at 3, and a Dribble Burst runs up to 4
+
+*"Precise pass has been renamed and revised. From now on it's 'Skilled Pass' and can go to any
+teammate up to 3 spaces rather than any space. Dribble Burst can go up to 4 spaces instead of
+going all the way to the goal."*
+
+Two changes to the advanced offense, and both of them are the same kind of change: a card that
+read as unbounded is now a number.
+
+- **Skilled Pass reaches 3 spaces, either way.** What it still takes off a Low Pass is the
+  nearest-teammate rule -- a teammate 1 space ahead hides nobody -- and what it adds is the
+  third space. It used to be "any teammate on the field", which on the nine-space board is a
+  pass eight spaces across the whole of it and made the card's own strip diagram unable to name
+  a distance at all. Nothing else about the pass moves: +3 ball speed, the receiver pick out of
+  a stack, the passer's step forward across a shared space, the Winger's set-up, and the Low
+  Pass the defense gets for beating it are all unchanged.
+- **A Dribble Burst runs 1 to 4 spaces, and the coach picks.** It used to run to the last space
+  of the goal zone they attack, which is no choice at all -- there was one answer, and the card
+  simply charged a token a space for it. Bounded at 4 the exhaustion becomes a real trade, so
+  the run now asks the same question a Playmaker's Dribble Advance asks, on the same shape of
+  prompt. Defenders are still no obstacle, and a handler with fewer than 4 spaces of field left
+  is offered only what fits.
+- **The Playmaker's ability stays on the cost.** Its sentence names an extra *space* on a
+  Dribble Advance, and it was moved onto the token count on 2026-08-19 because a run to the end
+  of the field had no distance to add to. The author kept it there with the run bounded, so it
+  remains the one role ability that reads differently on the two cards of a rank -- and the
+  distances a Playmaker is offered are the same ones everybody else gets.
+
+Where this lands in the code:
+
+- **The key follows the name**, as it did for `steal_intercept -> steal` (2026-08-18) and
+  `block_deflect -> deflect` (2026-08-24): `precise_pass` is `skilled_pass` throughout, with
+  `LEGACY_MANEUVER_KEYS` in `d12ball/components.py` carrying the old one so a game saved
+  mid-maneuver still loads, and `LEGACY_MANEUVER_NAMES` in
+  `scripts/import_d12ball_maneuvers.py` carrying it for the sheet's own stale references --
+  though the `maneuvers` tab has already rewritten its own `Defeats`/`Defeated by` columns this
+  time, so that entry is a guard rather than a fix.
+- **The sheet was already updated**, so `maneuvers.json` is a straight re-run of
+  `scripts/import_d12ball_maneuvers.py --data-version 11` rather than a hand-edit: both new
+  effect sentences are upstream's own words. That re-run also carried one unrelated change,
+  because the file is rewritten whole -- **Setup Pass's effect loses "as a loose ball"**, three
+  words the author's own 2026-08-21 re-copy added and the sheet does not have. The rule is
+  unchanged (see the 2026-08-24 entry); it is only the printed card that is now terser, and it
+  is listed under [Where upstream is behind](#where-upstream-is-behind) so the next pull knows
+  it is old news.
+- `SKILLED_PASS_REACH` and `DRIBBLE_BURST_MAX_DISTANCE` are the two numbers, in
+  `d12ball/components.py` next to `SETUP_PASS_DISTANCES`.
+  `RulesEngine.skilled_pass_candidates` (was `precise_pass_candidates`) reads the first;
+  `RulesEngine.dribble_burst_distances` is new and is the only answer to what the burst may be
+  run, read by the menu, by the click that answers it and by the restart that rebuilds it.
+- `D12Ball.resolve_dribble_burst` splits into an offer and `apply_dribble_burst`, the same way
+  `resolve_dribble_advance`/`apply_dribble_advance` already did. `DribbleBurstChoiceView` is
+  the menu, and every button carries the tokens it costs -- the distance *is* the price, which
+  is the whole reason the shorter runs are worth offering. `DinkyAI.choose_dribble_burst_distance`
+  always takes the longest: weighing field position against a player's stamina is judgement,
+  and Dinky makes none.
 
 ### 2026-08-25 -- author, a Setup Pass may be picked out to any space that fits, not only onto a teammate
 
@@ -1662,6 +1719,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Two 15-minute periods, each clocked 0 to 15 | One running clock: 00-15 in the first half, 16-30 in the second, and it keeps counting past a period's last minute for as long as last possession runs |
 | The maneuvers sheet has a "Die value" column, and the component data two head-coach d6s | Maneuvers are chosen from the cards; the selection dice are not part of the rules at all (2026-08-17). The column and `head_coach_dice` are still imported, so a fresh pull rewrites them |
 | Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
+| Setup Pass's effect: "opponent picks 1-2-3 spaces back" | The push-back lands as a **loose ball**, contested under the occupancy rule. The card said so between 2026-08-21 and 2026-08-26, from a hand-edit the 2026-08-26 re-import wiped |
 
 ---
 

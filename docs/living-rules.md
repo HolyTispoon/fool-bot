@@ -216,7 +216,7 @@ An [injured](#playing-injured) participant changes this in both directions: a ma
 
 Both participants gain 1 exhaustion token, and then each rolls a d12.
 
-The offense adds the handler's offensive skill and the defense adds the challenger's defensive skill. A Midfielder adds 3 more when the maneuver being tested is their own Low Pass or Precise Pass, or their own Pressure or Double Team. A defense contesting with Steal or Intercept adds the [ball speed modifier](#ball-speed). Where a [Double Team](#double-team) is in force the defense adds its second player's defensive skill as well.
+The offense adds the handler's offensive skill and the defense adds the challenger's defensive skill. A Midfielder adds 3 more when the maneuver being tested is their own Low Pass or Skilled Pass, or their own Pressure or Double Team. A defense contesting with Steal or Intercept adds the [ball speed modifier](#ball-speed). Where a [Double Team](#double-team) is in force the defense adds its second player's defensive skill as well.
 
 The higher total wins and their maneuver is what resolves. A tie is rolled again, and each participant gains another token for it.
 
@@ -300,7 +300,7 @@ A game may be played with a second set of six maneuvers. Each sits on the rank o
 
 | Advanced | Rank | Replaces |
 | --- | --- | --- |
-| Precise Pass | O1 | Low Pass |
+| Skilled Pass | O1 | Low Pass |
 | Dribble Burst | O2 | Dribble Advance |
 | Setup Pass | O3 | High Pass |
 | Clear | D1 | Deflect |
@@ -327,11 +327,11 @@ Two readings follow from that one, and neither is an exception to it:
 
 Twenty-four of the thirty-six pairings are decisive and carry effects. Twelve are ties and carry none.
 
-### Precise Pass
+### Skilled Pass
 
 **Rank O1. Costs 1 space minute. Beats Pressure and Double Team, loses to Steal and Intercept.**
 
-A Low Pass with no reach. The ball goes to **any** teammate on the field, whatever the distance and in either direction; a nearer teammate blocks nobody. Where several are standing on the destination, the passer chooses which of them receives it.
+A Low Pass with the nearest-teammate rule taken off and a space more reach. The ball goes to **any** teammate up to **3 spaces** away, ahead or behind; a nearer teammate blocks nobody. Where several are standing on the destination, the passer chooses which of them receives it.
 
 Ball speed rises by **3**, to a maximum of 12. Everything else is a Low Pass's: the pass has to reach a different player, a pass across a shared space also sends the passer 1 space forward, and a Winger may offer their receiver a [scoring opportunity](#scoring-opportunities).
 
@@ -341,7 +341,7 @@ Ball speed rises by **3**, to a maximum of 12. Everything else is a Low Pass's: 
 
 **Rank O2. Costs 1 space minute. Beats Deflect and Clear, loses to Pressure and Double Team.**
 
-The handler carries the ball to the **last space of the goal zone they attack**, and defenders are no obstacle. There is no distance to choose. The handler gains **1 exhaustion token per space travelled** — the only maneuver that charges by distance.
+The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler gains **1 exhaustion token per space travelled** — the only maneuver that charges by distance, which is what makes the shorter runs worth taking. A handler within 4 spaces of the end of the field may run only as far as the field goes.
 
 *Playmaker:* pays one token fewer for the run.
 
@@ -377,7 +377,7 @@ A Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the
 
 ### Intercept
 
-**Rank D2. Costs 1 space minute. Beats Low Pass and Precise Pass, loses to High Pass and Setup Pass.**
+**Rank D2. Costs 1 space minute. Beats Low Pass and Skilled Pass, loses to High Pass and Setup Pass.**
 
 A Steal with the sign flipped. Possession flips and ball speed resets to 1, and the challenger and the ball then move 1 space **forward** — toward the goal the new possessing team attacks, rather than back toward the one they defend. It is the only card that moves the ball against the way the offense was going.
 
@@ -389,7 +389,7 @@ Where the interceptor is already on the last space that way there is nowhere to 
 
 ### Double Team
 
-**Rank D3. Costs 1 space minute. Beats Dribble Advance and Dribble Burst, loses to Low Pass and Precise Pass.**
+**Rank D3. Costs 1 space minute. Beats Dribble Advance and Dribble Burst, loses to Low Pass and Skilled Pass.**
 
 A Pressure at two spaces, with help. The handler and the ball go **2 spaces back**, and the challenger **and the defending player nearest the space the play started from** both move onto the handler's space — free of exhaustion, however far they came.
 
@@ -407,7 +407,7 @@ The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is ha
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Modifier | 0 | +1 | +2 | +3 | +4 | +5 | +6 |
 
-Only maneuvers change it. In basic mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble Advance and Steal let the player change it by up to their own skill. Their [advanced counterparts](#advanced-maneuvers) do the same in larger amounts — Precise Pass adds 3, Clear takes 3 off, and Dribble Burst, Setup Pass and Intercept all let the player set it by up to their own skill.
+Only maneuvers change it. In basic mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble Advance and Steal let the player change it by up to their own skill. Their [advanced counterparts](#advanced-maneuvers) do the same in larger amounts — Skilled Pass adds 3, Clear takes 3 off, and Dribble Burst, Setup Pass and Intercept all let the player set it by up to their own skill.
 
 **Every turnover resets it to 1**, with one exception: a Dribble Burst that is beaten hands the ball over at whatever speed the burst put into it.
 
