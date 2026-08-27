@@ -19,6 +19,7 @@ from d12ball import tutorial
 from d12ball.components import (
     MatchState,
     MANEUVER_TIER_BASIC,
+    PlayerDefinition,
     PlayerRole,
     TeamSide,
     Zone,
@@ -71,6 +72,64 @@ from cogs.d12ball_helpers import (
 
 if TYPE_CHECKING:
     from cogs.d12ball import D12Ball
+
+
+def contestant_detail(
+    player: PlayerDefinition,
+    skill_word: str,
+    skill: int,
+    injured: bool = False,
+) -> list[str]:
+    """
+    The lines naming one side of a contest on the dice image: who is
+    rolling, and what they add to it.
+
+    `injured` is only ever passed by the contests injury actually bites
+    in -- the loose ball, the long High Pass and the shootout, where an
+    injured contestant's own skill stays off the roll and nothing else
+    does. A maneuver's skill test and a score attempt are untouched by
+    it and pass nothing, which is the rule rather than an omission; see
+    "Injured players" in docs/living-rules.md.
+    """
+    return [
+        f"{player.name} [{ROLE_INITIALS[player.role.value]}]",
+        "Injured — no skill modifier"
+        if injured
+        else f"{skill_word} skill +{skill}",
+    ]
+
+
+async def render_contest_dice(
+    contestants: list[tuple[int, Team, list[str], int]],
+    filename: str,
+) -> discord.File:
+    """
+    The dice image behind every two-sided roll in the game -- a skill
+    test, a loose ball, a score attempt, a shootout test -- as
+    `(roll, team, detail lines, total)` a side.
+
+    The image carries the whole arithmetic, which is why no message
+    that posts one repeats it in text. Rendering is Pillow and pure
+    CPU, so it goes to a worker thread; see "Discord's rate limits" in
+    CLAUDE.md.
+    """
+    return discord.File(
+        await asyncio.to_thread(
+            render_skill_test_dice,
+            [
+                (
+                    roll,
+                    TEAM_COLORS[team],
+                    team_display_name(team),
+                    detail,
+                    total,
+                )
+                for roll, team, detail, total in contestants
+            ],
+        ),
+        filename=filename,
+    )
+
 
 class SafeView(discord.ui.View):
     """
@@ -147,6 +206,44 @@ class SafeView(discord.ui.View):
             participant_ids.add(game.player_2_id)
         return user_id in participant_ids
 
+
+    def pay_skill_test_tie(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        first_player_id: str,
+        second_player_id: str,
+        offense_total: int,
+        defense_total: int,
+    ) -> str:
+        """
+        Charge both contestants the re-roll's exhaustion token, save,
+        and word the tie -- shared by the maneuver skill test and the
+        loose ball (which the long High Pass also comes through).
+
+        The token counts towards Exhausted straight away, so whoever it
+        pushes over is already flagged when the test finally resolves
+        and hands out its injury checks.
+
+        The edit that posts this stays with the caller: one of the two
+        has deferred and answers on `edit_original_response`, the other
+        has not and answers on `interaction.response.edit_message`, and
+        a flag here would hide a difference that is real.
+        """
+        exhaustion_text = "\n".join(
+            [
+                self.cog.apply_exhaustion(match, first_player_id, 1),
+                self.cog.apply_exhaustion(match, second_player_id, 1),
+            ]
+        )
+        game.match_state = match.to_dict()
+        save_games(self.cog.games)
+
+        return (
+            f"**It's a tie ({offense_total}-{defense_total})!** "
+            f"The skill test must be rolled again.\n"
+            f"{exhaustion_text}\n\nRoll again:"
+        )
 
 class GameConfigurationView(SafeView):
     def configuration_start_row(
@@ -2290,74 +2387,47 @@ class SkillTestView(SafeView):
         # The dice image carries the whole arithmetic -- who rolled,
         # what they rolled, every modifier and the total -- so no
         # message repeats it in text. See render_skill_test_dice.
-        offense_detail = [
-            f"{offense_player.name} [{ROLE_INITIALS[offense_player.role.value]}]",
-            f"Offensive skill +{offense_skill}",
-        ]
+        offense_detail = contestant_detail(
+            offense_player, "Offensive", offense_skill,
+        )
         if offense_ability_detail:
             offense_detail.append(offense_ability_detail)
-        defense_detail = [
-            f"{defense_player.name} [{ROLE_INITIALS[defense_player.role.value]}]",
-            f"Defensive skill +{defense_skill}",
-        ]
+        defense_detail = contestant_detail(
+            defense_player, "Defensive", defense_skill,
+        )
         if defense_ability_detail:
             defense_detail.append(defense_ability_detail)
         if modifier_detail:
             defense_detail.append(modifier_detail)
         if double_team_detail:
             defense_detail.append(double_team_detail)
-        offense_team = match.team_for_player(offense_player.player_id)
-        defense_team = match.team_for_player(defense_player.player_id)
-        dice_file = discord.File(
-            await asyncio.to_thread(
-                render_skill_test_dice,
-                [
-                    (
-                        offense_roll,
-                        TEAM_COLORS[offense_team],
-                        team_display_name(offense_team),
-                        offense_detail,
-                        offense_total,
-                    ),
-                    (
-                        defense_roll,
-                        TEAM_COLORS[defense_team],
-                        team_display_name(defense_team),
-                        defense_detail,
-                        defense_total,
-                    ),
-                ]
-            ),
+        dice_file = await render_contest_dice(
+            [
+                (
+                    offense_roll,
+                    match.team_for_player(offense_player.player_id),
+                    offense_detail,
+                    offense_total,
+                ),
+                (
+                    defense_roll,
+                    match.team_for_player(defense_player.player_id),
+                    defense_detail,
+                    defense_total,
+                ),
+            ],
             filename="skill_test_dice.png",
         )
 
         if offense_total == defense_total:
-            # The token each side pays for the re-roll counts towards
-            # Exhausted straight away, so whoever it pushes over is
-            # already flagged when this test finally resolves and the
-            # injury checks below are handed out.
-            exhaustion_text = "\n".join(
-                [
-                    self.cog.apply_exhaustion(
-                        match,
-                        match.active_player_id,
-                        1,
-                    ),
-                    self.cog.apply_exhaustion(
-                        match,
-                        match.challenger_id,
-                        1,
-                    ),
-                ]
-            )
-            game.match_state = match.to_dict()
-            save_games(self.cog.games)
-
             await interaction.edit_original_response(
-                content=(
-                    f"**It's a tie ({offense_total}-{defense_total})!** "
-                    f"The skill test must be rolled again.\n"
-                    f"{exhaustion_text}\n\nRoll again:"
+                content=self.pay_skill_test_tie(
+                    game,
+                    match,
+                    match.active_player_id,
+                    match.challenger_id,
+                    offense_total,
+                    defense_total,
                 ),
                 attachments=[dice_file],
                 view=SkillTestView(self.cog, self.game_id),
@@ -2600,10 +2670,7 @@ class ScoreAttemptView(SafeView):
         # Everything that built these two totals is drawn on the dice
         # image, so no message repeats it in text -- see
         # render_skill_test_dice.
-        attack_detail = [
-            f"{shooter.name} [{ROLE_INITIALS[shooter.role.value]}]",
-            f"Offensive skill +{offense_skill}",
-        ]
+        attack_detail = contestant_detail(shooter, "Offensive", offense_skill)
         if speed_modifier:
             attack_detail.append(f"{speed_modifier:+d} ball speed modifier")
         if striker_bonus:
@@ -2624,26 +2691,21 @@ class ScoreAttemptView(SafeView):
         else:
             defense_detail = ["No one in the way"]
 
-        dice_file = discord.File(
-            await asyncio.to_thread(
-                render_skill_test_dice,
-                [
-                    (
-                        attack_roll,
-                        TEAM_COLORS[attacking_setup.team],
-                        team_display_name(attacking_setup.team),
-                        attack_detail,
-                        attack_total,
-                    ),
-                    (
-                        defense_roll,
-                        TEAM_COLORS[defending_setup.team],
-                        team_display_name(defending_setup.team),
-                        defense_detail,
-                        defense_total,
-                    ),
-                ]
-            ),
+        dice_file = await render_contest_dice(
+            [
+                (
+                    attack_roll,
+                    attacking_setup.team,
+                    attack_detail,
+                    attack_total,
+                ),
+                (
+                    defense_roll,
+                    defending_setup.team,
+                    defense_detail,
+                    defense_total,
+                ),
+            ],
             filename="score_attempt_dice.png",
         )
 
@@ -5565,65 +5627,43 @@ class LooseBallSkillTestView(SafeView):
 
         # No text breakdown alongside: the dice image already names
         # both players and shows every modifier that built the totals.
-        offense_team = match.team_for_player(offense_player.player_id)
-        defense_team = match.team_for_player(defense_player.player_id)
-        dice_file = discord.File(
-            await asyncio.to_thread(
-                render_skill_test_dice,
-                [
-                    (
-                        offense_roll,
-                        TEAM_COLORS[offense_team],
-                        team_display_name(offense_team),
-                        [
-                            f"{offense_player.name} "
-                            f"[{ROLE_INITIALS[offense_player.role.value]}]",
-                            "Injured — no skill modifier"
-                            if offense_injured
-                            else f"Offensive skill +{offense_skill}",
-                        ] + modifier_detail,
-                        offense_total,
+        dice_file = await render_contest_dice(
+            [
+                (
+                    offense_roll,
+                    match.team_for_player(offense_player.player_id),
+                    contestant_detail(
+                        offense_player,
+                        "Offensive",
+                        offense_skill,
+                        injured=offense_injured,
+                    ) + modifier_detail,
+                    offense_total,
+                ),
+                (
+                    defense_roll,
+                    match.team_for_player(defense_player.player_id),
+                    contestant_detail(
+                        defense_player,
+                        "Defensive",
+                        defense_skill,
+                        injured=defense_injured,
                     ),
-                    (
-                        defense_roll,
-                        TEAM_COLORS[defense_team],
-                        team_display_name(defense_team),
-                        [
-                            f"{defense_player.name} "
-                            f"[{ROLE_INITIALS[defense_player.role.value]}]",
-                            "Injured — no skill modifier"
-                            if defense_injured
-                            else f"Defensive skill +{defense_skill}",
-                        ],
-                        defense_total,
-                    ),
-                ]
-            ),
+                    defense_total,
+                ),
+            ],
             filename="loose_ball_dice.png",
         )
 
         if offense_total == defense_total:
-            # As in SkillTestView: the re-roll's token counts towards
-            # Exhausted now, so it is in force for the injury checks
-            # this contest hands out once it resolves.
-            exhaustion_text = "\n".join(
-                [
-                    self.cog.apply_exhaustion(
-                        match, match.loose_ball_offense_player, 1,
-                    ),
-                    self.cog.apply_exhaustion(
-                        match, match.loose_ball_defense_player, 1,
-                    ),
-                ]
-            )
-            game.match_state = match.to_dict()
-            save_games(self.cog.games)
-
             await interaction.response.edit_message(
-                content=(
-                    f"**It's a tie ({offense_total}-{defense_total})!** "
-                    f"The skill test must be rolled again.\n"
-                    f"{exhaustion_text}\n\nRoll again:"
+                content=self.pay_skill_test_tie(
+                    game,
+                    match,
+                    match.loose_ball_offense_player,
+                    match.loose_ball_defense_player,
+                    offense_total,
+                    defense_total,
                 ),
                 attachments=[dice_file],
                 view=LooseBallSkillTestView(self.cog, self.game_id),
@@ -6284,22 +6324,16 @@ class ShootoutTestView(ShootoutView):
             dice.append(
                 (
                     rolls[side],
-                    TEAM_COLORS[match.setup_for_side(side).team],
-                    team_display_name(match.setup_for_side(side).team),
-                    [
-                        f"{player.name} "
-                        f"[{ROLE_INITIALS[player.role.value]}]",
-                        "Injured — no skill modifier"
-                        if injured
-                        else f"Offensive skill +{skill}",
-                    ],
+                    match.setup_for_side(side).team,
+                    contestant_detail(
+                        player, "Offensive", skill, injured=injured,
+                    ),
                     totals[side],
                 )
             )
 
-        dice_file = discord.File(
-            await asyncio.to_thread(render_skill_test_dice, dice),
-            filename="shootout_dice.png",
+        dice_file = await render_contest_dice(
+            dice, filename="shootout_dice.png",
         )
 
         home_total = totals[TeamSide.HOME]
