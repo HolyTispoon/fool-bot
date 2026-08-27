@@ -1934,6 +1934,69 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 
+    def send_low_pass(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        offense_side: TeamSide,
+        distance: int,
+        key: str,
+        receiver_id: Optional[str],
+    ) -> tuple[int, int]:
+        """
+        Move the ball, step its speed up, and hand it to whoever the
+        pass was aimed at. Returns how far the ball went and how far
+        the passer advanced.
+        """
+        actual_distance = match.move_ball_relative(offense_side, distance)
+        match.ball.speed = min(
+            12, match.ball.speed + self.engine.pass_speed_bonus(key)
+        )
+        # A pass across a shared space sends the passer a space forward
+        # (2026-08-07) -- the ball hasn't gone anywhere, so this is what
+        # the maneuver buys. Clamped at the far end of the field, where
+        # there is nowhere to run to.
+        passer_advance = (
+            match.move_player_relative(match.active_player_id, offense_side, 1)
+            if distance == 0
+            else 0
+        )
+        # The pass was aimed at somebody, and it is the same somebody a
+        # Winger's set-up would hand the shot to -- so they receive it
+        # and take the next turn. A receiver of None means the pass had
+        # no legal destination, which rolls the ball forward loose
+        # instead of completing; nobody carries a loose ball.
+        match.set_ball_carrier(receiver_id)
+        game.match_state = match.to_dict()
+        save_games(self.games)
+
+        return actual_distance, passer_advance
+
+    def low_pass_movement_note(
+        self,
+        match: MatchState,
+        handler: PlayerDefinition,
+        distance: int,
+        actual_distance: int,
+        passer_advance: int,
+    ) -> str:
+        """
+        What the ball did, worded. A pass of 0 crosses a shared space
+        and so is described by what the *passer* did instead.
+        """
+        if distance != 0:
+            direction = "forward" if distance > 0 else "backward"
+            space_word = "space" if actual_distance == 1 else "spaces"
+            return f"moves {actual_distance} {space_word} {direction}"
+
+        movement_note = "goes to a teammate in the same space"
+        if passer_advance:
+            movement_note += (
+                f", and {format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))} "
+                "moves a space forward"
+            )
+        return movement_note
+
     async def apply_low_pass(
         self,
         interaction: discord.Interaction,
@@ -1974,41 +2037,13 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
             else None
         )
 
-        actual_distance = match.move_ball_relative(offense_side, distance)
-        match.ball.speed = min(
-            12, match.ball.speed + self.engine.pass_speed_bonus(key)
+        actual_distance, passer_advance = self.send_low_pass(
+            game, match, offense_side, distance, key, receiver_id,
         )
-        # A pass across a shared space sends the passer a space forward
-        # (2026-08-07) -- the ball hasn't gone anywhere, so this is what
-        # the maneuver buys. Clamped at the far end of the field, where
-        # there is nowhere to run to.
-        passer_advance = (
-            match.move_player_relative(match.active_player_id, offense_side, 1)
-            if distance == 0
-            else 0
-        )
-        # The pass was aimed at somebody, and it is the same somebody a
-        # Winger's set-up would hand the shot to -- so they receive it
-        # and take the next turn. `receivers` is empty only when the
-        # pass had no legal destination, which rolls the ball forward
-        # loose instead of completing; nobody carries a loose ball.
-        match.set_ball_carrier(receiver_id)
-        game.match_state = match.to_dict()
-        save_games(self.games)
 
-        if distance == 0:
-            movement_note = "goes to a teammate in the same space"
-            if passer_advance:
-                movement_note += (
-                    f", and {format_role_bracket(handler, self.team_emojis, match.team_for_player(handler.player_id))} "
-                    "moves a space forward"
-                )
-        else:
-            direction = "forward" if distance > 0 else "backward"
-            space_word = "space" if actual_distance == 1 else "spaces"
-            movement_note = f"moves {actual_distance} {space_word} {direction}"
         content = (
-            f"**{name}:** the ball {movement_note}. "
+            f"**{name}:** the ball "
+            f"{self.low_pass_movement_note(match, handler, distance, actual_distance, passer_advance)}. "
             f"Ball speed is now {match.ball.speed}."
         )
 
