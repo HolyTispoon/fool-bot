@@ -2174,6 +2174,66 @@ class ManeuverActionPromptView(SafeView):
         # drop. Webhook route -- see "Discord's rate limits".
         await add_full_image_button_to_response(interaction)
 
+    def pick_refusal(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: str,
+        maneuver_key: str,
+        user_id: int,
+    ) -> Optional[str]:
+        """
+        Why this click cannot be taken as a pick, or None.
+
+        **Authorization is answered first**, and that ordering is a
+        rule rather than a habit: the other coach's row is sitting on
+        the same message, so replying "that side has already chosen"
+        to a click on it would say whether they had.
+        """
+        if side == "offense":
+            authorized = self.cog.engine.user_controls_possession(
+                user_id, game, match,
+            )
+            already_chosen = match.offense_maneuver is not None
+        else:
+            authorized = self.cog.engine.user_controls_defense(
+                user_id, game, match,
+            )
+            already_chosen = match.defense_maneuver is not None
+
+        if not authorized:
+            return "Only the player on that side can choose this maneuver."
+
+        if already_chosen:
+            return "You have already chosen your maneuver."
+
+        # An older prompt can still be sitting in the channel, so the
+        # rail is re-read here rather than trusted from the build --
+        # exactly as the distances are in HighPassChoiceView.choose.
+        allowed = tutorial.allowed_maneuvers(
+            self.cog.tutorial_beat(game), side,
+        )
+        if allowed is not None and maneuver_key not in allowed:
+            return (
+                "This step of the tutorial wants "
+                f"**{self.cog.engine.maneuver_name(allowed[0])}**. Use the "
+                "prompt at the bottom of the channel."
+            )
+
+        # Same reason as the rail above: an advanced card clicked off an
+        # older prompt would be a maneuver this turn does not play.
+        playable = {
+            maneuver.key
+            for maneuver in self.cog.engine.maneuver_hand(game, match, side)
+        }
+        if maneuver_key not in playable:
+            return (
+                "That maneuver isn't in your hand for this turn. Use the "
+                "prompt at the bottom of the channel."
+            )
+
+        return None
+
     async def pick(
         self,
         interaction: discord.Interaction,
@@ -2190,65 +2250,11 @@ class ManeuverActionPromptView(SafeView):
         if game is None:
             return
 
-        if side == "offense":
-            authorized = self.cog.engine.user_controls_possession(
-                interaction.user.id,
-                game,
-                match,
-            )
-            already_chosen = match.offense_maneuver is not None
-        else:
-            authorized = self.cog.engine.user_controls_defense(
-                interaction.user.id,
-                game,
-                match,
-            )
-            already_chosen = match.defense_maneuver is not None
-
-        # Authorization first: the other coach's row is sitting right
-        # there on the same message, and "that side has already picked"
-        # would tell them it had been clicked.
-        if not authorized:
-            await interaction.response.send_message(
-                "Only the player on that side can choose this maneuver.",
-                ephemeral=True,
-            )
-            return
-
-        if already_chosen:
-            await interaction.response.send_message(
-                "You have already chosen your maneuver.",
-                ephemeral=True,
-            )
-            return
-
-        # An older prompt can still be sitting in the channel, so the
-        # rail is re-read here rather than trusted from the build --
-        # exactly as the distances are in HighPassChoiceView.choose.
-        allowed = tutorial.allowed_maneuvers(
-            self.cog.tutorial_beat(game), side,
+        refusal = self.pick_refusal(
+            game, match, side, maneuver_key, interaction.user.id,
         )
-        if allowed is not None and maneuver_key not in allowed:
-            await interaction.response.send_message(
-                "This step of the tutorial wants "
-                f"**{self.cog.engine.maneuver_name(allowed[0])}**. Use the "
-                "prompt at the bottom of the channel.",
-                ephemeral=True,
-            )
-            return
-
-        # Same reason as the rail above: an advanced card clicked off an
-        # older prompt would be a maneuver this turn does not play.
-        playable = {
-            maneuver.key
-            for maneuver in self.cog.engine.maneuver_hand(game, match, side)
-        }
-        if maneuver_key not in playable:
-            await interaction.response.send_message(
-                "That maneuver isn't in your hand for this turn. Use the "
-                "prompt at the bottom of the channel.",
-                ephemeral=True,
-            )
+        if refusal is not None:
+            await interaction.response.send_message(refusal, ephemeral=True)
             return
 
         if side == "offense":
