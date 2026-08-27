@@ -1747,8 +1747,9 @@ Since 2026-08-25 every tutorial note that has something following it
 is held behind a **Continue** button instead: `WELCOME` before beat
 1's lesson, every beat's `lesson` before whatever the turn does next,
 every beat's `maneuver_note` before the maneuver menu, beat 1's
-`speed_note` before the speed prompt, and `HANDOVER` before the first
-un-railed turn prompt.
+`speed_note` before the speed prompt, `HANDOVER` before the first
+un-railed turn prompt, and `COACHING_NOTE` before this coach's first
+Coaching Choice menu.
 
 - **`D12Ball.post_tutorial_note`** is the whole of it: post the note
   with a `TutorialContinueView`, and call `then` -- the continuation
@@ -1774,14 +1775,17 @@ un-railed turn prompt.
   `d12ball/tutorial.py`). The game itself is untouched; a coach whose
   Continue button stopped answering falls back to `/d12ball resume`
   for whatever it was gating, same as any other stuck prompt.
-- **`COACHING_NOTE` is deliberately left out of this.** Everything
-  after it in `begin_substitution_window` branches hard on who is
-  being offered the window and how (AI or human, declared or given),
-  and folding that whole tail into a `then` continuation was judged
-  not worth the risk for a note that fires once, late, outside the
-  five scripted beats, and already ends by telling the coach the
-  window is theirs to take or decline. If it turns out to want the
-  same treatment, the shape to copy is `offer_speed_choice`'s.
+- **`COACHING_NOTE` is gated too, since 2026-08-27.** The tail of
+  `begin_substitution_window` -- the arrangement restore, the AI window,
+  and the human coach's menu -- moves into a nested `open_the_window`,
+  and `post_tutorial_coaching_note` hands that to `post_tutorial_note`
+  as the continuation (returning True to tell the caller it has taken
+  over), the same shape as `offer_speed_choice`. It was left ungated at
+  first on the grounds that the branch chain was hairy and the note
+  fires once, late, outside the five scripted beats -- but an ungated
+  note sitting directly above an interactive menu is exactly the case
+  the Continue gate exists for, and the split (`coaching_window_note`
+  was already extracted) makes the tail no worse to reason about.
 
 ### The Coaching Choice, which the script cannot schedule
 

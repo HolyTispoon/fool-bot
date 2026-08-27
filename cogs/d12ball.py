@@ -4987,7 +4987,8 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         interaction: discord.Interaction,
         game: D12BallGame,
         side: TeamSide,
-    ) -> None:
+        then: Callable[[discord.Interaction], Awaitable[None]],
+    ) -> bool:
         """
         The tutorial's last lesson, and the one it cannot schedule: a
         new play offers the window to the side *restarting* play, which
@@ -4997,17 +4998,27 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         `in_tutorial`, and usually lands a few turns after the script
         has finished. `skip_tutorial` sets the flag so a coach who
         opted out is not taught anyway.
+
+        Held behind a Continue button like every other tutorial note
+        with something after it -- `then`, the window-opening tail, is
+        the interactive menu this note explains, and an ungated note
+        sitting directly above it is exactly what gets scrolled past.
+        Returns True when it has taken over: the caller returns without
+        opening the window itself, and `then` runs on the button click.
         """
         if (
             not game.tutorial
             or game.tutorial_coaching_explained
             or side != self.tutorial_player_side(game)
         ):
-            return
+            return False
 
         game.tutorial_coaching_explained = True
         save_games(self.games)
-        await interaction.followup.send(tutorial.COACHING_NOTE)
+        await self.post_tutorial_note(
+            interaction, game, tutorial.COACHING_NOTE, then,
+        )
+        return True
 
     def coaching_window_note(
         self,
@@ -5113,56 +5124,69 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
         side = TeamSide(side)
         occasion = CoachingOccasion(occasion)
 
-        await self.post_tutorial_coaching_note(interaction, game, side)
-
-        restored = (
-            match.restore_assigned_positions(side)
-            if occasion.offers_positioning
-            else False
-        )
-        shape = self.engine.current_formation(match, side)
-        match.open_coaching_window(
-            side,
-            occasion,
-            is_response=is_response,
-            formation=shape.value if shape else None,
-        )
-        game.match_state = match.to_dict()
-        save_games(self.games)
-
-        # Only when the restore actually moved somebody, so the common
-        # case -- setup, and a new play that has just reset both sides
-        # -- costs nothing. Halftime does move them, and a coach whose
-        # half-field disagrees with the board above it has no way to
-        # tell which one the game thinks is true.
-        if restored:
-            await self.refresh_match_image(interaction, game)
-
-        if self.engine.side_is_ai(game, side):
-            await self.run_ai_substitution_window(
-                interaction, game, match, lead_in=lead_in,
+        async def open_the_window(
+            inner_interaction: discord.Interaction,
+        ) -> None:
+            restored = (
+                match.restore_assigned_positions(side)
+                if occasion.offers_positioning
+                else False
             )
+            shape = self.engine.current_formation(match, side)
+            match.open_coaching_window(
+                side,
+                occasion,
+                is_response=is_response,
+                formation=shape.value if shape else None,
+            )
+            game.match_state = match.to_dict()
+            save_games(self.games)
+
+            # Only when the restore actually moved somebody, so the
+            # common case -- setup, and a new play that has just reset
+            # both sides -- costs nothing. Halftime does move them, and
+            # a coach whose half-field disagrees with the board above it
+            # has no way to tell which one the game thinks is true.
+            if restored:
+                await self.refresh_match_image(inner_interaction, game)
+
+            if self.engine.side_is_ai(game, side):
+                await self.run_ai_substitution_window(
+                    inner_interaction, game, match, lead_in=lead_in,
+                )
+                return
+
+            note = self.coaching_window_note(
+                match, side, occasion, is_response, restored,
+            )
+
+            prompt = await inner_interaction.followup.send(
+                self.engine.coaching_prompt(
+                    game, match, side, note, lead_in=lead_in,
+                ),
+                file=await self.coaching_file(game, match, side),
+                view=(
+                    CoachingOfferView(self, game.game_id)
+                    if occasion.asks_declaration
+                    else CoachingHubView(self, game.game_id)
+                ),
+                wait=True,
+                allowed_mentions=discord.AllowedMentions(
+                    users=True, roles=False, everyone=False,
+                ),
+            )
+            game.turn_message_id = prompt.id
+            save_games(self.games)
+
+        # The tutorial's one-off coaching explainer gates the whole tail
+        # above behind a Continue button, the same as every other note
+        # with an interactive prompt after it -- see post_tutorial_note.
+        if await self.post_tutorial_coaching_note(
+            interaction, game, side, open_the_window,
+        ):
             return
 
-        note = self.coaching_window_note(
-            match, side, occasion, is_response, restored,
-        )
-
-        prompt = await interaction.followup.send(
-            self.engine.coaching_prompt(game, match, side, note, lead_in=lead_in),
-            file=await self.coaching_file(game, match, side),
-            view=(
-                CoachingOfferView(self, game.game_id)
-                if occasion.asks_declaration
-                else CoachingHubView(self, game.game_id)
-            ),
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt.id
-        save_games(self.games)
+        await open_the_window(interaction)
 
     async def repost_coaching_prompt(
         self,
