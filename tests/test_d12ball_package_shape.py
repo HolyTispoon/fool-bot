@@ -145,6 +145,34 @@ class CogPackageTests(unittest.TestCase):
         }
         self.assertEqual(saving, set(SAVING_COG_MODULES))
 
+    def test_every_description_discord_is_sent_fits(self) -> None:
+        """
+        Discord refuses a description over 100 characters with a 400,
+        and `tree.sync()` raises it out of `setup_hook` -- so the bot
+        does not start at all. The group's own description is the one
+        nobody writes deliberately: discord.py falls back to the class
+        docstring for it, which is how the package split broke a
+        startup that had been fine for as long as the class had no
+        docstring to fall back to.
+        """
+        import cogs.d12ball as pkg
+
+        def walk(command, path: str):
+            yield path, command.description
+            for child in getattr(command, "commands", ()):
+                yield from walk(child, f"{path} {child.name}")
+            for parameter in getattr(command, "parameters", ()):
+                yield f"{path}:{parameter.name}", parameter.description
+
+        descriptions = [("d12ball", pkg.D12Ball.__cog_group_description__)]
+        for command in pkg.D12Ball.__cog_app_commands__:
+            descriptions.extend(walk(command, f"d12ball {command.name}"))
+
+        for name, description in descriptions:
+            with self.subTest(command=name):
+                self.assertTrue(description)
+                self.assertLessEqual(len(description), 100)
+
     def test_the_cog_is_assembled_from_exactly_those_mixins(self) -> None:
         """
         A mixin added to the package but left out of the class is a
