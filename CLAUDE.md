@@ -1864,6 +1864,15 @@ expects.
   **d12+11** against the fullback's **d12+6**, which is **85.4%**,
   measured at 87% over 200 playthroughs. A tutorial that cannot lose
   its last shot is not teaching the game.
+  - **So a test that plays the script may not assert the ball went
+    in.** One did, and failed about one run in seven on `main` -- for
+    exactly the reason the shot is left open, which is why it read as
+    a flake rather than as the test asking for something the design
+    refuses to promise. A test that needs the goal pins the dice
+    (`random.randint` to 6, the position doing the rest); a test that
+    only needs the *statistics* to be right reads the outcome off the
+    match and checks the fold agrees with it. See "The playthrough
+    test".
   - **Beat 4's speed rail is worth a whole point of that margin**, and
     is the reason the lesson explains it rather than just greying the
     buttons. A turnover resets ball speed, so beat 1's speed choice is
@@ -1996,7 +2005,18 @@ anything else in the suite. It asserts that **no side is ever
 re-dealt** (`MatchState.deploy_side` is called zero times), that
 staging a beat moves nothing, that only the two intended choices ever
 leave two buttons live, that possession changes hands the three
-scripted times, and that the whole thing arrives at a goal on minute 7.
+scripted times, and that the whole thing arrives at a goal on minute 7
+-- that last one with the dice pinned, since the shot itself is not
+scripted (see "Determinism: rails and dice").
+
+**Only the test that is about the goal pins them.** Everything else
+plays the real dice, which is what makes the suite an actual
+playthrough rather than one fixed transcript -- and is why
+`test_the_scripted_shot_reaches_the_statistics` asserts the shot
+statistics against `len(match.goals)` rather than against 1. The goal
+log is a separate record from the `shot` event that fold counts, so
+the two agreeing is a real claim whichever way the shot went, and the
+miss is the run that would otherwise fail.
 
 **The lesson text is not asserted anywhere.** It is prose, it will be
 revised, and a test quoting it would only ever break on a reword. What
