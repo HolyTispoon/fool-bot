@@ -9,24 +9,26 @@ seconds. After the second round of those, the board message is the only
 thing in this bot that edits through the channel at all, which makes
 this module the whole of that bucket's spending.
 
-What lives here is the state seven parallel game-keyed maps used to
-carry on the cog -- when a write landed, the pass waiting to write
-again, the board already on the message, the link owed for it, the lock
-over the message, the wants arriving mid-write, and the refusals -- and
-the six methods that read them. They were only ever touched by each
-other; on the cog they were seven of its attributes and seven of its
-methods, indistinguishable from the two hundred that carry the game
-forward.
+What lives here is `BoardRefreshState` -- when a write landed, the pass
+waiting to write again, the board already on the message, the link owed
+for it, the lock over the message, the wants arriving mid-write, and the
+refusals -- and the six methods that read it. On the cog those were
+seven parallel dicts keyed by game id, and the invariant that actually
+had to hold was that all seven agreed about one game: expressed nowhere,
+kept by hand at each of the eleven sites that wrote them. They were
+touched by nothing but each other, which on a cog of 223 methods made
+them read as ordinary surface.
 
-`D12Ball.refresh_match_image` is still the way in, and still the only
-one the rest of the cog uses. See "Discord's rate limits" in CLAUDE.md
-for the measurements every decision here rests on.
+`D12Ball` keeps a thin forwarding method for each of the six, so the
+fifty-odd call sites did not move. See "Discord's rate limits" in
+CLAUDE.md for the measurements every decision here rests on.
 """
 
 import asyncio
 import hashlib
 import logging
 import time
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
 import aiohttp
@@ -87,6 +89,55 @@ BOARD_REFRESH_BACKOFF_CEILING = 300.0
 TOO_MANY_REQUESTS = 429
 
 
+@dataclass
+class BoardRefreshState:
+    """
+    Everything one game's board message is carrying between writes.
+
+    These were seven parallel dicts keyed by game id, and every one of
+    the six methods below reached into several of them for the same
+    game in the same breath -- so the invariant that actually had to
+    hold was that all seven agreed about one game, expressed nowhere
+    and enforced by hand at each site. Ten of the eleven places that
+    wrote them wrote two or more.
+
+    Each field is what its dict held for that game, with the dict's
+    "missing" as the default -- `None` for the three that were read
+    with `.get`, False for the membership set, 0 for the counter.
+    """
+
+    # When the last write to this board **landed**. Not when it was
+    # sent: a board is nearly a megabyte, so the request itself is
+    # seconds long and twenty-odd when discord.py is sleeping off a
+    # 429 inside it, and timed from the send the window reads as
+    # having been open for ages exactly when it has not. See refresh.
+    refreshed_at: "float | None" = None
+    # The trailing pass waiting to write again, if one is booked.
+    task: "asyncio.Task[None] | None" = None
+    # A digest of the board already on the message, recorded only once
+    # an upload has landed -- so a write Discord refused leaves the
+    # next refresh believing it still has work to do, which is what
+    # makes the backoff the only exit from a refusal.
+    png_digest: "bytes | None" = None
+    # The full-image URL an interim write took the link off and has
+    # not put back. Set only while the board is carrying an image it
+    # has no link to, which is what the settling write is for.
+    link_owed: "str | None" = None
+    # Held for the length of a write, so two can never be in the air
+    # on one message at once. The lock stops writes being *concurrent*
+    # and the interval stops them being *consecutive*; both are needed,
+    # and neither is a shorter interval.
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    # Whether the board has been asked for since the write covering it
+    # began. A write in flight does not stand in for a request that
+    # arrives during it -- the board it is putting up predates the
+    # request -- so the want is recorded rather than the task counted.
+    wanted: bool = False
+    # Board writes Discord has refused in a row. Widens this game's
+    # interval until one lands. See interval.
+    writes_refused: int = 0
+
+
 class BoardRefresher:
     """
     One game's board is written through one of these per cog.
@@ -99,28 +150,24 @@ class BoardRefresher:
 
     def __init__(self, cog: "D12Ball") -> None:
         self.cog = cog
+        self.states: dict[str, BoardRefreshState] = {}
 
-        # Per game: when its board message was last edited -- the
-        # moment the write *landed*, not the moment it was sent -- the
-        # trailing refresh waiting to edit it again, and a digest of
-        # the board already sitting on the message. See refresh.
-        self.refreshed_at: dict[str, float] = {}
-        self.tasks: dict[str, "asyncio.Task[None]"] = {}
-        self.png_digests: dict[str, bytes] = {}
-        # The full-image URL an interim write took the link off and has
-        # not put back yet, by game. A game is in here only while its
-        # board message is carrying a board it has no link to, which is
-        # what the settling write is for -- see settle_link.
-        self.link_owed: dict[str, str] = {}
-        # Held for the length of a board write, so two of them can
-        # never be in flight on the same message at once, and the set
-        # of games whose board has been asked for since the write
-        # covering it began. See refresh.
-        self.locks: dict[str, asyncio.Lock] = {}
-        self.wanted: set[str] = set()
-        # Board writes Discord has refused in a row, by game. Widens
-        # that game's interval until one lands. See interval.
-        self.writes_refused: dict[str, int] = {}
+    def state(self, game_id: str) -> BoardRefreshState:
+        """
+        This game's board state, started if it has none yet.
+
+        For a caller about to *write* one of the fields. A caller only
+        reading asks `self.states.get` instead, so that asking after a
+        finished game does not quietly file a new entry for it.
+        """
+        return self.states.setdefault(game_id, BoardRefreshState())
+
+    def pending_tasks(self) -> list["asyncio.Task[None]"]:
+        """Every trailing write currently booked, across all games."""
+        return [
+            state.task for state in self.states.values()
+            if state.task is not None
+        ]
 
     async def refresh(
         self,
@@ -146,7 +193,7 @@ class BoardRefresher:
         arrives during it. Drawing and uploading a board is most of a
         second, and the state the caller wants on the message changed
         after that render began -- so this asks for a trailing pass
-        rather than assuming it is covered, and takes `locks` for the
+        rather than assuming it is covered, and takes the game's `lock` for the
         write itself so two edits can never be in the air on one
         message at once. That is the pair of holes the interval alone
         left: a board left showing a state a click had already moved on
@@ -174,33 +221,37 @@ class BoardRefresher:
         if game.message_id is None:
             return
 
-        lock = self.locks.setdefault(game.game_id, asyncio.Lock())
+        state = self.state(game.game_id)
 
         window = self.interval(game)
 
-        if lock.locked():
+        if state.lock.locked():
             self.schedule(channel, game, window)
             return
 
         now = time.monotonic()
-        last = self.refreshed_at.get(game.game_id)
+        last = state.refreshed_at
 
         if last is not None and now - last < window:
             self.schedule(channel, game, last + window - now)
             return
 
-        async with lock:
-            self.wanted.discard(game.game_id)
+        async with state.lock:
+            state.wanted = False
             try:
                 await self.write(channel, game, png, relink=False)
             finally:
-                self.refreshed_at[game.game_id] = time.monotonic()
+                # In a `finally`: a write that raised still spent its
+                # place in the bucket, and a window left open by the
+                # failure is one more request into a channel that is
+                # already unhappy.
+                state.refreshed_at = time.monotonic()
 
         # That write left the board without its full-image link, so a
         # settling pass is owed whether or not anything else asks for
         # one -- and it is the same pass that draws whatever the rest
         # of this click still has to move.
-        if game.game_id in self.link_owed:
+        if state.link_owed is not None:
             self.schedule(channel, game, self.interval(game))
 
     def schedule(
@@ -221,8 +272,8 @@ class BoardRefresher:
         request -- so the want is recorded rather than the task counted,
         and a pass that finds the flag set again when it lands waits out
         another interval and goes round once more. Without that the
-        request was dropped on the floor: the task was still in `tasks`
-        and nothing rescheduled it, so the board kept a state the click
+        request was dropped on the floor: the task was still on the
+        state and nothing rescheduled it, so the board kept a state the click
         had already moved past until somebody clicked again.
 
         `delay` is when to *look*, not when to write. This pass is
@@ -233,9 +284,10 @@ class BoardRefresher:
         interval is owed is settled once the lock is held, against the
         moment the last write landed.
         """
-        self.wanted.add(game.game_id)
+        state = self.state(game.game_id)
+        state.wanted = True
 
-        if game.game_id in self.tasks:
+        if state.task is not None:
             return
 
         async def run() -> None:
@@ -243,28 +295,24 @@ class BoardRefresher:
                 await asyncio.sleep(delay)
 
                 while True:
-                    lock = self.locks.setdefault(
-                        game.game_id, asyncio.Lock(),
-                    )
-                    async with lock:
+                    pass_state = self.state(game.game_id)
+                    async with pass_state.lock:
                         await self.wait_out_interval(game)
-                        # Discarded after the wait and before the write,
+                        # Cleared after the wait and before the write,
                         # so this pass covers everything asked for up to
                         # the moment it starts drawing, and anything
                         # asked for during the write is left to the next.
-                        self.wanted.discard(game.game_id)
+                        pass_state.wanted = False
                         try:
                             await self.write(channel, game)
                         finally:
-                            self.refreshed_at[game.game_id] = (
-                                time.monotonic()
-                            )
+                            pass_state.refreshed_at = time.monotonic()
 
                     # Nothing awaits between the check and the `finally`
                     # below, so a want recorded after this reads False
                     # cannot be lost -- it arrives to find the task gone
                     # and schedules its own.
-                    if game.game_id not in self.wanted:
+                    if not pass_state.wanted:
                         return
 
                     await asyncio.sleep(self.interval(game))
@@ -280,12 +328,17 @@ class BoardRefresher:
                     exc_info=True,
                 )
             finally:
-                self.tasks.pop(game.game_id, None)
-                self.wanted.discard(game.game_id)
+                # Read back rather than closed over: `forget` may have
+                # dropped this game while the pass was running, and
+                # this must not file a fresh entry for it.
+                finished = self.states.get(game.game_id)
+                if finished is not None:
+                    finished.task = None
+                    finished.wanted = False
 
         # The loop keeps only a weak reference to a task, so the handle
         # is held here to keep this one from being collected mid-sleep.
-        self.tasks[game.game_id] = asyncio.create_task(run())
+        state.task = asyncio.create_task(run())
 
     def interval(self, game: D12BallGame) -> float:
         """
@@ -300,7 +353,8 @@ class BoardRefresher:
         unrecorded and so is retried, identically, at the next window,
         for as long as the game goes on.
         """
-        refused = self.writes_refused.get(game.game_id, 0)
+        state = self.states.get(game.game_id)
+        refused = state.writes_refused if state is not None else 0
 
         if not refused:
             return BOARD_REFRESH_INTERVAL
@@ -322,15 +376,14 @@ class BoardRefresher:
         refusal, and there are at most a handful of those now where the
         unbacked-off gate produced sixty.
         """
-        self.writes_refused[game.game_id] = (
-            self.writes_refused.get(game.game_id, 0) + 1
-        )
+        state = self.state(game.game_id)
+        state.writes_refused += 1
 
         LOGGER.warning(
             "Discord refused the board write for D12 Ball game %s "
             "(%d in a row); next attempt in %.0fs.",
             game.game_id,
-            self.writes_refused[game.game_id],
+            state.writes_refused,
             self.interval(game),
         )
 
@@ -339,10 +392,10 @@ class BoardRefresher:
         Sleep whatever is left of this game's window, measured from the
         moment its last board write landed.
 
-        The caller holds `locks`, so nothing else can write or restamp
-        the clock while this waits -- and a refresh arriving meanwhile
-        finds the lock held and books itself in rather than going out
-        alongside.
+        The caller holds the game's `lock`, so nothing else can write
+        or restamp the clock while this waits -- and a refresh arriving
+        meanwhile finds the lock held and books itself in rather than
+        going out alongside.
 
         This is the only place the bot sleeps *before* a request, and
         it is not the pacing "fewer requests, never slower ones" rules
@@ -350,7 +403,8 @@ class BoardRefresher:
         because it has not been drawn yet. Every other write it might
         stand in for is one it is about to make unnecessary.
         """
-        last = self.refreshed_at.get(game.game_id)
+        state = self.states.get(game.game_id)
+        last = state.refreshed_at if state is not None else None
 
         if last is None:
             return
@@ -413,8 +467,10 @@ class BoardRefresher:
         if png is None:
             png = await self.cog.render_match_png(game)
 
+        state = self.state(game.game_id)
+
         digest = hashlib.sha256(png).digest()
-        if self.png_digests.get(game.game_id) == digest:
+        if state.png_digest == digest:
             if relink:
                 await self.settle_link(channel, game)
             return
@@ -445,16 +501,17 @@ class BoardRefresher:
             return
 
         # Recorded only once the upload has landed, so a failed edit
-        # leaves the next refresh believing it still has work to do.
-        self.png_digests[game.game_id] = digest
+        # -- a refused write above all -- leaves the next refresh
+        # believing it still has work to do.
+        state.png_digest = digest
         # One landing is the whole of the recovery: the window goes
         # straight back to its ordinary width rather than stepping down
         # through the backoff, because what the backoff was waiting for
         # has just happened.
-        self.writes_refused.pop(game.game_id, None)
+        state.writes_refused = 0
         # Whatever was owed was owed against the upload this one just
         # replaced, so it dies with it either way.
-        self.link_owed.pop(game.game_id, None)
+        state.link_owed = None
 
         if not game.home_and_visiting_selected:
             return
@@ -468,7 +525,7 @@ class BoardRefresher:
 
         button = build_full_image_button(updated_message)
         if button is not None:
-            self.link_owed[game.game_id] = button.url
+            state.link_owed = button.url
 
     async def settle_link(
         self,
@@ -483,7 +540,15 @@ class BoardRefresher:
         neither a fresh render nor the message back -- one edit, and
         only when something is actually owed.
         """
-        url = self.link_owed.pop(game.game_id, None)
+        state = self.states.get(game.game_id)
+
+        if state is None:
+            return
+
+        # Cleared before the message_id guard, not after: on `main`
+        # this read was a `pop`, so a game whose board message has gone
+        # stopped owing a link rather than owing one for ever.
+        url, state.link_owed = state.link_owed, None
 
         if url is None or game.message_id is None:
             return
@@ -508,16 +573,10 @@ class BoardRefresher:
         that has just been archived, and the seven maps would otherwise
         keep a finished game's entries for the life of the process.
         """
-        task = self.tasks.pop(game.game_id, None)
-        if task is not None:
-            task.cancel()
+        state = self.states.pop(game.game_id, None)
 
-        self.refreshed_at.pop(game.game_id, None)
-        self.png_digests.pop(game.game_id, None)
-        self.wanted.discard(game.game_id)
-        self.locks.pop(game.game_id, None)
-        self.link_owed.pop(game.game_id, None)
-        self.writes_refused.pop(game.game_id, None)
+        if state is not None and state.task is not None:
+            state.task.cancel()
 
     def shutdown(self) -> None:
         """
@@ -529,7 +588,8 @@ class BoardRefresher:
         it has and loses its full-image link until the next write puts
         one back -- the same trade the link is under everywhere else.
         """
-        for task in list(self.tasks.values()):
+        for task in self.pending_tasks():
             task.cancel()
 
-        self.wanted.clear()
+        for state in self.states.values():
+            state.wanted = False

@@ -26,7 +26,7 @@ python3 -m unittest discover -s tests
 | `cogs/d12ball.py` | All D12 Ball slash commands and Discord interaction flow |
 | `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming. Re-imports and re-exports everything `d12ball/formatting.py` holds, so an existing `from cogs.d12ball_helpers import space_label` keeps working; what stayed here needs an emoji dict or discord.py itself. |
 | `cogs/d12ball_views.py` | The `discord.ui.View` classes, one per prompt a player can be shown. `SafeView.load_match`/`require_match` are the shared "get the game and its match, or bail" lookup nearly every view opens with (silent for `__init__`, replying for a callback); `SafeView.is_game_participant` is the shared "is this one of the two coaches" check a roll button's `.roll` answers to. Both replaced call-site-by-call-site copies of themselves. |
-| `cogs/d12ball_boards.py` | The write gate on a game's persistent board message -- `BoardRefresher`, holding the seven game-keyed maps the cog used to carry (`refreshed_at`, `tasks`, `png_digests`, `link_owed`, `locks`, `wanted`, `writes_refused`) and the six methods that read them, plus `BOARD_REFRESH_INTERVAL` and its backoff. They were only ever touched by each other. `D12Ball.refresh_match_image` is still the way in and the only part of it the rest of the cog uses -- see "Discord's rate limits". |
+| `cogs/d12ball_boards.py` | The write gate on a game's persistent board message. `BoardRefreshState` is one game's -- when a write landed, the pass waiting to write again, the board already on the message, the link owed for it, the lock, the wants arriving mid-write, the refusals -- and `BoardRefresher` holds one per game and the six methods that read it. Those were seven parallel dicts keyed by game id on the cog, agreeing about a game only by hand at each of the eleven sites that wrote them. `D12Ball` keeps a thin forwarding method for each of the six, so no call site moved -- see "Discord's rate limits". |
 | `cogs/debug.py` | Maintenance commands, including the PBD channel-and-count reset |
 | `d12ball/components.py` | Game state model — `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog` |
 | `d12ball/engine.py` | `RulesEngine` — the cog's decisions and candidate lists that never touch Discord, over a fixed player catalog/ruleset/maneuver catalog/AI strategies. `D12Ball.engine` is the one instance a cog builds; every call site reads `self.engine.foo(...)` (or `self.cog.engine.foo(...)` from a view) instead of `self.foo(...)`. Includes prompt-text and matchup-data builders (`build_turn_prompt`, `challenge_side`, ...) that are presentation but need nothing beyond the match and the catalogs -- no emoji dict, no cog. |
@@ -1921,10 +1921,25 @@ pacing on top would only make a turn take ten seconds and still spend the
 same budget. So:
 
 **The gate itself lives in `cogs/d12ball_boards.py`.** Everything below
-describes `BoardRefresher` and the seven maps it holds; they were seven
-attributes and six methods on the cog, touched by nothing but each other,
-which made the one piece of this bot with measured timing invariants read
-as ordinary cog surface. `D12Ball.refresh_match_image` is the way in.
+describes `BoardRefresher` and the `BoardRefreshState` it keeps per game.
+They were seven attributes and six methods on the cog, touched by nothing
+but each other, which made the one piece of this bot with measured timing
+invariants read as ordinary cog surface among 223 methods.
+
+- **The seven were parallel dicts keyed by game id, and are now one
+  object.** Every method reached into several of them for the same game in
+  the same breath, so the invariant that had to hold was that all seven
+  agreed about one game -- written down nowhere, and kept by hand at each
+  of the eleven sites that wrote them. Each field of the dataclass carries
+  its dict's "missing" as its default, so nothing had to learn a new
+  absent-value.
+- **`state()` starts an entry and `states.get` does not.** A caller about
+  to write asks the first; a caller only reading asks the second, so that
+  asking after a finished game does not quietly file a new entry for it.
+- **`D12Ball` keeps a thin forwarding method for each of the six**, so the
+  fifty-odd call sites did not move in the change that extracted this. They
+  are the identical call on `self.boards` and carry no reasoning of their
+  own; the reasoning is on the method each forwards to.
 
 - **Read a 429 by looking the ids up, not by reasoning about them.** All the
   warning gives you is a method and a URL, and the only thing in it that names

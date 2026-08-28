@@ -7672,6 +7672,45 @@ class D12Ball(commands.GroupCog, group_name="d12ball"):
 
         await self.boards.refresh(interaction.channel, game, png)
 
+    # The five below forward for the same reason: the gate moved, the
+    # call sites did not. Each is the identical call on `self.boards`,
+    # and the reasoning for every one of them is on the method it
+    # forwards to.
+
+    def schedule_board_refresh(
+        self,
+        channel: discord.TextChannel,
+        game: D12BallGame,
+        delay: float,
+    ) -> None:
+        self.boards.schedule(channel, game, delay)
+
+    def board_refresh_interval(self, game: D12BallGame) -> float:
+        return self.boards.interval(game)
+
+    def note_board_write_refused(self, game: D12BallGame) -> None:
+        self.boards.note_write_refused(game)
+
+    async def wait_out_board_interval(self, game: D12BallGame) -> None:
+        await self.boards.wait_out_interval(game)
+
+    async def write_board_message(
+        self,
+        channel: discord.TextChannel,
+        game: D12BallGame,
+        png: Optional[bytes] = None,
+        *,
+        relink: bool = True,
+    ) -> None:
+        await self.boards.write(channel, game, png, relink=relink)
+
+    async def settle_board_link(
+        self,
+        channel: discord.TextChannel,
+        game: D12BallGame,
+    ) -> None:
+        await self.boards.settle_link(channel, game)
+
 
 
     def format_team_roster_entry(

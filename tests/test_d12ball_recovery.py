@@ -729,12 +729,12 @@ class AbandonGameTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_pending_board_refresh_is_cancelled(self) -> None:
         cog, game = self.build()
         task = mock.Mock()
-        cog.boards.tasks[game.game_id] = task
+        cog.boards.state(game.game_id).task = task
 
         await self.run_abandon(cog, build_interaction())
 
         task.cancel.assert_called_once()
-        self.assertNotIn(game.game_id, cog.boards.tasks)
+        self.assertIsNone(cog.boards.state(game.game_id).task)
 
     async def test_without_the_confirm_word_nothing_happens(self) -> None:
         cog, game = self.build()
