@@ -1671,7 +1671,9 @@ class ManeuverEffectsMixin:
                 "uncontested."
             )
         else:
-            headline = f"{bracket} recovers the loose ball uncontested."
+            headline = (
+                f"{bracket} recovers the {contest_noun(match)} uncontested."
+            )
 
         if turnover:
             content = (
