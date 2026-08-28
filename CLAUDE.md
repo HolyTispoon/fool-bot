@@ -1238,7 +1238,9 @@ the two paths that did not pass it kept the old behaviour.
   offered a send the occupancy rule had already taken away; both halves were
   wrong, and only in the case a coach was most likely to meet. "ball" rather
   than "contest" is what the sentences around it need: a coach "contests the
-  ball", never "contests the contest".
+  ball", never "contests the contest". See
+  [What a message says](#what-a-message-says) for the wording rules the same
+  correction produced.
 - **`pending_loose_ball_on_empty_space` is persisted, and cannot be derived.**
   By the time a roll or a result is worded the contestants have been walked onto
   the space, so the position that decides the word is gone --
@@ -1277,6 +1279,37 @@ the two paths that did not pass it kept the old behaviour.
   loose, and that is what it asks. What changed on 2026-08-26 is what happens
   *after* the detour -- a ball landing where only the defense stands is theirs,
   where between 2026-08-18 and then the offense could walk somebody in.
+
+## What a message says
+
+Three rules the author gave on 2026-08-27, after reading a turn back out of
+a channel. They are about every message the bot posts, not only the ones that
+produced them.
+
+- **Say what the position is, never what it is not.** A ball coming down where
+  one side is standing was announced "**Not loose.** ... so the ball is simply
+  theirs" -- a sentence fragment that defines the position by the two it is
+  not, in front of a coach who has to act on it. It reads "The ball comes down
+  to a space where {team} has a player, so they get the ball." The other two
+  arrivals were reworded with it; see
+  [Where the ball comes to rest](#where-the-ball-comes-to-rest).
+- **Don't answer a question nobody asked.** That same message closed with
+  "nobody may be sent after it", and the contest's with "and nobody else may
+  be sent" -- both denying an offer neither message had made. A coach reading
+  a result is not owed a list of what the rules did not do.
+- **A move that costs nothing says nothing.** `describe_exhaustion_gain`
+  returns `""` for a charge of zero, where it used to say "was already there --
+  no exhaustion cost", and "free of exhaustion" is gone from the new-play
+  reset, the halftime restore and Double Team's second defender. Every move
+  that *does* cost a token says so in that same line, so silence already
+  carries the fact -- and "free" left a coach to work out what was free about
+  it. **Callers join on the parts that are there** (`"\n".join(filter(None,
+  ...))`) rather than interpolating, or the empty string shows as a blank line.
+
+The subject is spelled out for a related reason: "It comes down on an empty
+space" followed a sentence about a maneuver, so the pronoun read as the
+maneuver. Nothing in a result message should have to be resolved backwards
+through the message above it.
 
 ## The ball carrier
 
@@ -2018,21 +2051,41 @@ invariants read as ordinary cog surface among 223 methods.
   message uploads a new attachment, which invalidates the old one, so the
   "View full image" link has to be re-cut in a second edit -- the URL does not
   exist until the upload lands. That is two edits a board, and a turn's worth
-  of boards is more than the bucket has. So `BoardRefresher.write` takes
-  `relink`: an **interim** write (the immediate one, `relink=False`) strips the
-  now-dead link in the edit it was already paying for and records the URL in
-  `link_owed`, and the **settling** write (the trailing refresh) puts a
-  live one back. The board is linkless for `BOARD_REFRESH_INTERVAL` rather than
-  dead-linked for it.
+  of boards is more than the bucket has. So every write strips the now-dead
+  link in the edit it was already paying for and records the URL in
+  `link_owed`, and a later pass with nothing new to draw puts a live one back.
+  The board is linkless for a window or two rather than dead-linked for it.
+  - **The link may not ride along with the upload that killed it**, and that
+    pair is what the fifth batch of 429s was. `BoardRefresher.write` used to
+    relink in the same pass, so a settling write sent its second PATCH about a
+    third of a second after its first had landed -- inside the window that
+    first request opened. The log is six refusals evenly 11.8 seconds apart
+    (one interval, plus the retry each cost), every one carrying a
+    `retry_after` that was the remainder of a window a board upload had just
+    opened, for as long as the two coaches kept clicking. **A 429 reaching the
+    log at all means a limit the headers did not advertise**: discord.py
+    pre-emptively waits out any bucket Discord tells it about, so the gate can
+    only be beaten from inside its own window. Every pass is one request now --
+    the board if one was asked for, otherwise the link the last one owes --
+    which is what makes the interval the whole of the spacing.
+  - **`relink` says which of the two a pass may spend its request on**, not
+    whether it pays for both. An interim write (the immediate one,
+    `relink=False`) leaves the link to the trailing pass; a trailing pass
+    (`relink=True`) draws the board if it has a new one and settles the link if
+    it does not.
   - **The settling pass is owed as soon as a link is stripped**, so
     `refresh_match_image` schedules one after an immediate write whenever
     something is in `link_owed` -- not only when a second refresh asks.
-    Without it a quiet board would keep the link the interim write took off.
+    Without it a quiet board would keep the link that write took off. The same
+    fact keeps the trailing task looping: `schedule` returns only once nothing
+    is wanted **and** nothing is owed, since the link is the one piece of work
+    no call site will ever come back and ask for.
   - **A settling write with nothing new to draw still pays the link**, from the
     URL it was handed rather than by re-fetching the message: one edit, and the
     common case, since the last step of a click usually moves nothing. That is
     `BoardRefresher.settle_link`, and it spends no request when nothing
-    is owed.
+    is owed. It always clears `link_owed`, which is what stops the loop above
+    spinning on a link it cannot place.
   - Before the home/visiting choice the message is still the setup prompt: its
     buttons are live, it has no link to go stale, and its view is left alone.
     **And it is a different message from the one the channel opens with** --
@@ -2066,15 +2119,17 @@ invariants read as ordinary cog surface among 223 methods.
     buttons are public (see [The maneuver prompt](#the-maneuver-prompt)), so an
     edit greying a picked side's row would tell the other coach they had
     answered.
-  - **A board refresh spends one of the five**, two when it is the settling
-    one, so `refresh_match_image` is rate-gated per game: the first goes out at
-    once and any that arrive within `BOARD_REFRESH_INTERVAL` collapse into
-    **one** trailing refresh rather than queueing.
+  - **A board refresh spends exactly one of the five, and so does every
+    pass**, so `refresh_match_image` is rate-gated per game: the first goes out
+    at once and any that arrive within `BOARD_REFRESH_INTERVAL` collapse into
+    **one** trailing refresh rather than queueing. A pass that spends two is
+    a pass the interval cannot space -- see the full-image link above.
   - **`BOARD_REFRESH_INTERVAL` must stay above Discord's five-second window**,
     or two refreshes fall inside one window. At three seconds a turn spent
     exactly five and was still earning 429s -- measured. Six leaves a turn at
-    three requests: one interim board, then the settling board and its link.
-    Adding a call site is free; shortening the interval is not.
+    three requests over three passes: the immediate board, the settling board,
+    and the link that one owes. Adding a call site is free; shortening the
+    interval is not.
   - A trailing refresh **draws when it runs**, never from a `png=` handed to it
     earlier -- the board it was offered is stale by the time it fires, and
     re-drawing is exactly what lets one pending refresh stand in for every

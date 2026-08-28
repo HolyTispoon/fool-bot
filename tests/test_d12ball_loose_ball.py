@@ -706,7 +706,11 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.stand_on_the_ball(match, match.defending_side(), 1)
         one_side = cog.engine.build_loose_ball_headline(match)
         self.assertNotIn("Loose ball!", one_side)
-        self.assertIn("uncontested", one_side)
+        # Says whose it is, rather than which of the other two
+        # positions this is not (the author, 2026-08-27).
+        self.assertIn("so they get the ball", one_side)
+        self.assertNotIn("Not loose", one_side)
+        self.assertNotIn("may be sent", one_side)
 
         # Placed directly rather than through stand_on_the_ball, which
         # clears the space first -- both sides have to be there at once.
@@ -819,13 +823,16 @@ class OccupancyDecidesTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.loose_ball_defense_player, defender)
         self.assertIsNone(cog.engine.loose_ball_side_on_the_clock(match))
         cog.resolve_loose_ball.assert_awaited_once()
-        # The one message this posts says the ball was simply kept, not
-        # the ordinary "each side may send" wording -- and it is never
+        # The one message this posts says the ball is theirs, not the
+        # ordinary "each side may send" wording -- and it is never
         # called loose, since it never was: only an empty landing space
-        # is (the author, 2026-08-26).
+        # is (the author, 2026-08-26). It does not mention the send
+        # that was not offered either, which is a question no coach
+        # reading this has asked (the author, 2026-08-27).
         content = cog.announce_board_update.await_args.args[2]
-        self.assertIn("uncontested", content)
+        self.assertIn("so they get the ball", content)
         self.assertNotIn("Loose ball!", content)
+        self.assertNotIn("may be sent", content)
 
     async def test_a_high_pass_may_still_be_run_at(self) -> None:
         """

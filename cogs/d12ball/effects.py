@@ -1663,26 +1663,35 @@ class ManeuverEffectsMixin:
         self.persist(game, match)
 
         bracket = self.player_label(match, player)
+        # Each of these says what happened and stops there. "Recovers
+        # the loose ball uncontested" was three faults in five words:
+        # it called an arrival loose that the message above it had just
+        # said was not, and "uncontested" defined the result by the
+        # roll that did not happen -- which no coach was waiting for,
+        # since nobody had been offered a send.
         if match.pending_loose_ball_is_high_pass:
             headline = (
-                f"{bracket} picks off the high pass, uncontested."
+                f"{bracket} picks off the high pass."
                 if turnover
-                else f"{bracket} keeps possession after the high pass, "
-                "uncontested."
+                else f"{bracket} keeps possession after the high pass."
             )
         else:
-            headline = f"{bracket} recovers the loose ball uncontested."
+            headline = f"{bracket} picks up the ball."
 
         if turnover:
             content = (
                 "# Turnover!\n"
                 f"{headline} "
                 f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
-                f"now has possession -- {bracket} "
-                f"gets to the ball.\n{exhaustion_text}"
+                "now has possession."
             )
         else:
-            content = f"{headline}\n{exhaustion_text}"
+            content = headline
+
+        # A move that costs nothing says nothing -- see
+        # `describe_exhaustion_gain`, which is why this is a join over
+        # what is there rather than an interpolation.
+        content = "\n".join(filter(None, [content, exhaustion_text]))
 
         await interaction.followup.send(content)
         await self.refresh_match_image(interaction, game)
@@ -1712,15 +1721,21 @@ class ManeuverEffectsMixin:
         match.move_meeple(
             defense_player_id, match.ball.zone, match.ball.space_index,
         )
+        # Filtered: a contestant already standing on the ball is
+        # charged nothing and says nothing, and an unfiltered join
+        # would leave their blank line in the message.
         exhaustion_text = "\n".join(
-            [
-                self.apply_exhaustion(
-                    match, offense_player_id, offense_recovery_distance,
-                ),
-                self.apply_exhaustion(
-                    match, defense_player_id, defense_recovery_distance,
-                ),
-            ]
+            filter(
+                None,
+                [
+                    self.apply_exhaustion(
+                        match, offense_player_id, offense_recovery_distance,
+                    ),
+                    self.apply_exhaustion(
+                        match, defense_player_id, defense_recovery_distance,
+                    ),
+                ],
+            )
         )
         self.persist(game, match)
         await self.refresh_match_image(interaction, game)
@@ -2450,9 +2465,8 @@ class ManeuverEffectsMixin:
             match.pending_double_team = [match.challenger_id, partner_id]
             content += (
                 f" {self.player_label(match, partner)} "
-                "joins them, free of exhaustion -- and **both** will "
-                "challenge on the next maneuver, each adding their "
-                "defensive skill."
+                "joins them -- and **both** will challenge on the next "
+                "maneuver, each adding their defensive skill."
             )
 
         return content

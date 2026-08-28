@@ -35,7 +35,6 @@ import aiohttp
 import discord
 
 from cogs.d12ball_helpers import (
-    add_full_image_button,
     build_full_image_button,
     full_image_link_button,
 )
@@ -54,13 +53,18 @@ LOGGER = logging.getLogger(__name__)
 # It must stay above Discord's own five-second window, or two refreshes
 # fall inside one of them: at three seconds a turn spent exactly five
 # requests and was still earning 429s, measured. Six leaves a turn at
-# three: one interim board, then the settling board and its link. See
-# "The board message is one bucket" in CLAUDE.md.
+# three requests over three passes -- the immediate board, the settling
+# board, and the link the second of those owes. See "The board message
+# is one bucket" in CLAUDE.md.
 #
-# It is also how long the board goes without its full-image link: an
-# interim write strips the link rather than paying a second edit to
-# re-cut it, and the settling write scheduled at this interval is what
-# puts it back. See BoardRefresher.write.
+# Nothing spends two requests inside one of these windows any more,
+# which is what the last batch of 429s turned out to be: see
+# BoardRefresher.write.
+#
+# It is also how long the board goes without its full-image link, and
+# since the link stopped riding along with the upload that killed it,
+# up to two of these: a write strips the link in the edit it is already
+# paying for, and a later pass with nothing new to draw puts one back.
 BOARD_REFRESH_INTERVAL = 6.0
 
 # What the interval widens to while Discord is refusing board writes,
@@ -119,9 +123,11 @@ class BoardRefreshState:
     # next refresh believing it still has work to do, which is what
     # makes the backoff the only exit from a refusal.
     png_digest: "bytes | None" = None
-    # The full-image URL an interim write took the link off and has
-    # not put back. Set only while the board is carrying an image it
-    # has no link to, which is what the settling write is for.
+    # The full-image URL the last write took the link off and has not
+    # put back. Set only while the board is carrying an image it has no
+    # link to, and what keeps a trailing pass going when nothing else
+    # wants one -- the link is the one thing left undone that no call
+    # site will ever come back and ask for.
     link_owed: "str | None" = None
     # Held for the length of a write, so two can never be in the air
     # on one message at once. The lock stops writes being *concurrent*
@@ -181,13 +187,12 @@ class BoardRefresher:
 
         Discord buckets message edits per message, and this one message
         is edited from fifty-odd places -- a single click walks through
-        several of them, and each is two edits (see `write`). That is
-        what was earning the 429s, and the intermediate boards are
-        worth nothing: a coach reads the board once everything has
-        finished moving. So a refresh that arrives inside the window
-        does not queue behind the last one, it *replaces* it -- one
-        trailing refresh is scheduled, and by the time it runs it draws
-        whatever the state has become.
+        several of them. That is what was earning the 429s, and the
+        intermediate boards are worth nothing: a coach reads the board
+        once everything has finished moving. So a refresh that arrives
+        inside the window does not queue behind the last one, it
+        *replaces* it -- one trailing refresh is scheduled, and by the
+        time it runs it draws whatever the state has become.
 
         A write already in flight does not stand in for a request that
         arrives during it. Drawing and uploading a board is most of a
@@ -302,9 +307,17 @@ class BoardRefresher:
                         # so this pass covers everything asked for up to
                         # the moment it starts drawing, and anything
                         # asked for during the write is left to the next.
-                        pass_state.wanted = False
+                        wanted, pass_state.wanted = pass_state.wanted, False
                         try:
-                            await self.write(channel, game)
+                            # One request a pass and never two. A pass
+                            # somebody asked for draws the board; a
+                            # pass reached only because the last one
+                            # left a link owed pays that instead. See
+                            # `write` for why the two may not share.
+                            if wanted:
+                                await self.write(channel, game)
+                            else:
+                                await self.settle_link(channel, game)
                         finally:
                             pass_state.refreshed_at = time.monotonic()
 
@@ -312,7 +325,12 @@ class BoardRefresher:
                     # below, so a want recorded after this reads False
                     # cannot be lost -- it arrives to find the task gone
                     # and schedules its own.
-                    if not pass_state.wanted:
+                    #
+                    # A link owed keeps the pass going on its own: it is
+                    # the one thing left undone that nothing else will
+                    # come back and ask for, and `settle_link` clears it
+                    # whatever happens, so this cannot spin.
+                    if not pass_state.wanted and pass_state.link_owed is None:
                         return
 
                     await asyncio.sleep(self.interval(game))
@@ -433,13 +451,31 @@ class BoardRefresher:
         turn's worth of refreshes on its own comes to about what the
         bucket has, which is what the 429s were.
 
-        So `relink` splits it. An interim write says False: it strips
-        the dead link in the edit it was already paying for, and
-        records the URL as owed. The settling write -- the trailing
-        refresh, once the state has stopped moving -- says True and
-        pays for the live link once, however many boards went past in
-        between. The board is linkless for BOARD_REFRESH_INTERVAL
-        rather than dead-linked for it, which is the honest of the two.
+        So no write ever cuts the link it has just killed. Every one
+        of them strips the dead link in the edit it was already paying
+        for and records the URL as owed; a later pass with nothing new
+        to draw spends its own request putting a live one back. The
+        board is linkless for a window or two rather than dead-linked
+        for it, which is the honest of the two.
+
+        **The upload and the relink used to be one pass**, and that
+        pair is what the last batch of 429s was. Six refusals, evenly
+        11.8 seconds apart, every one of them arriving about a third of
+        a second after a board upload had just landed and carrying a
+        `retry_after` that was the remainder of *that* request's
+        window -- the shape of a second request inside a window the
+        first had opened, repeated once per settling pass for as long
+        as the two coaches kept clicking. discord.py waits out any
+        bucket Discord tells it about, so a 429 reaching the log at all
+        means a limit the headers did not advertise; the gate spaced
+        its passes and then spent two requests inside one of them.
+
+        `relink` now says only whether a pass may spend its request on
+        a link it owes when there is no new board to draw. It never
+        buys a second request: an interim write (False) leaves the link
+        to the trailing pass, and a trailing pass that uploads leaves
+        it to the pass after that -- which is what `schedule` keeps
+        going for.
 
         A board identical to the one already on the message is not
         written at all. Plenty of steps refresh without moving anything
@@ -481,7 +517,7 @@ class BoardRefresher:
         # only state a board refresh runs in; before it, this message
         # is still the team/coin prompt, its buttons are live, and it
         # has no link on it to go stale -- so it is left alone.
-        strip_link = not relink and game.home_and_visiting_selected
+        strip_link = game.home_and_visiting_selected
 
         try:
             board_message = channel.get_partial_message(game.message_id)
@@ -514,13 +550,6 @@ class BoardRefresher:
         state.link_owed = None
 
         if not game.home_and_visiting_selected:
-            return
-
-        if relink:
-            await add_full_image_button(
-                updated_message,
-                HomeAwaySelectionView(cog=self.cog, game_id=game.game_id),
-            )
             return
 
         button = build_full_image_button(updated_message)
