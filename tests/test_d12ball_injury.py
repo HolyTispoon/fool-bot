@@ -43,7 +43,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import D12BallGame, GameStatus, Team
-from view_patches import suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -110,7 +110,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
 
     async def resolve(self, cog, game, match) -> SimpleNamespace:
         interaction = build_interaction()
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_maneuver(interaction, game, match)
         return interaction
 
@@ -360,9 +360,7 @@ class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
             raise Stop
 
         view = ScoreAttemptView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
-            "cogs.d12ball.save_games",
-        ), mock.patch(
+        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
             "random.randint", return_value=7,
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice", side_effect=capture,
@@ -445,9 +443,7 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
             ),
         )
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
-            "cogs.d12ball.save_games",
-        ), mock.patch(
+        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
             "random.randint", return_value=7,
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice", side_effect=capture,

@@ -28,10 +28,10 @@ from unittest import mock
 
 import discord
 
-from cogs import d12ball as d12ball_cog
+from cogs.d12ball import presentation as presentation_mod
 from cogs.d12ball_views import runback as runback_views
 from cogs.d12ball_views import turn as turn_views
-from view_patches import suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
     HomeAwaySelectionView,
@@ -443,7 +443,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         multi_choice = []
         signatures = []
 
-        with mock.patch.object(d12ball_cog, "save_games"), \
+        with suppressed_cog_saves(), \
                 suppressed_view_saves(), \
                 mock.patch.object(
                     runback_views, "add_full_image_button",
@@ -451,10 +451,9 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
                 mock.patch.object(
                     turn_views, "add_full_image_button_to_response",
                     mock.AsyncMock()), \
+                suppressed_full_image_links(), \
                 mock.patch.object(
-                    d12ball_cog, "add_full_image_button", mock.AsyncMock()), \
-                mock.patch.object(
-                    d12ball_cog, "pin_board_message", mock.AsyncMock()), \
+                    presentation_mod, "pin_board_message", mock.AsyncMock()), \
                 mock.patch.object(
                     MatchState, "deploy_side", counting_deploy):
 
@@ -523,7 +522,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         cog.games["g1"] = game
         before = board_signature(cog.engine.load_match_state(game))
 
-        with mock.patch.object(d12ball_cog, "save_games"):
+        with suppressed_cog_saves():
             await cog.stage_tutorial_beat(build_interaction(), game)
 
         self.assertEqual(
@@ -815,7 +814,7 @@ class TutorialStagingTests(unittest.IsolatedAsyncioTestCase):
         interaction.followup.send = mock.AsyncMock(
             side_effect=lambda content=None, **kw: recorded.append(content),
         )
-        with mock.patch.object(d12ball_cog, "save_games"):
+        with suppressed_cog_saves():
             await cog.stage_tutorial_beat(interaction, game)
         return recorded
 
@@ -931,7 +930,7 @@ class TutorialCoachingNoteTests(unittest.IsolatedAsyncioTestCase):
             side_effect=lambda content=None, **kw: posted.append(content)
             or SimpleNamespace(id=1, attachments=[]),
         )
-        with mock.patch.object(d12ball_cog, "save_games"):
+        with suppressed_cog_saves():
             await cog.begin_substitution_window(
                 interaction, game, match, side,
             )

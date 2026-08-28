@@ -28,6 +28,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
+from save_patches import suppressed_cog_saves, suppressed_full_image_links
 
 
 def build_cog() -> D12Ball:
@@ -95,7 +96,7 @@ class ManeuverPromptLifetimeTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def refresh(self, cog, game, match, prompt_message) -> None:
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.close_maneuver_prompt(
                 build_interaction(prompt_message), game, match,
             )
@@ -216,7 +217,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         interaction = self.build_interaction()
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.auto_resolve_challenger(
                 interaction, game, match, challenger,
             )
@@ -269,7 +270,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         game.turn_message_id = 555
         interaction = self.build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.drop_turn_prompt(interaction, game)
 
         interaction.delete_original_response.assert_awaited_once()
@@ -288,7 +289,7 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
             ),
         )
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.drop_turn_prompt(interaction, game)
 
         self.assertIsNone(game.turn_message_id)
@@ -359,9 +360,7 @@ class ManeuverPickHarness:
             response=SimpleNamespace(send_message=mock.AsyncMock()),
             followup=SimpleNamespace(send=mock.AsyncMock(return_value=sent)),
         )
-        with mock.patch("cogs.d12ball.save_games"), mock.patch(
-            "cogs.d12ball.add_full_image_button", new=mock.AsyncMock(),
-        ):
+        with suppressed_cog_saves(), suppressed_full_image_links():
             await cog.begin_maneuver_action_selection(
                 interaction, game, match,
             )
@@ -590,9 +589,7 @@ class ManeuverPickShowsTheFieldTests(
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock()),
         )
-        with mock.patch(
-            "cogs.d12ball.add_full_image_button", new=mock.AsyncMock(),
-        ):
+        with suppressed_full_image_links():
             await cog.post_field_image(interaction, game)
 
         interaction.followup.send.assert_not_awaited()

@@ -29,6 +29,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
+from save_patches import suppressed_cog_saves
 
 
 def build_cog() -> D12Ball:
@@ -292,7 +293,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         where = space_label(match.ball.zone, match.ball.space_index)
 
         interaction = build_interaction()
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_loose_ball(interaction, game, match, 2)
 
         cog.announce_board_update.assert_awaited_once()
@@ -320,7 +321,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_loose_ball(build_interaction(), game, match)
 
         self.assertEqual(match.ball.possession, winning_side)
@@ -365,7 +366,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
 
         interaction = build_interaction()
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             handled = await cog.check_for_loose_ball(
                 interaction, game, match, 2,
             )
@@ -405,7 +406,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         travel = match.distance_to_ball(recoverer)
         self.assertGreater(travel, 0)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_ball_recovery(
                 build_interaction(), game, match, recoverer,
             )
@@ -448,7 +449,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         }
         self.assertGreater(len(set(travel.values())), 1)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_ball_recovery(build_interaction(), game, match)
 
         self.assertFalse(match.pending_ball_recovery)
@@ -471,7 +472,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(match.eligible_ball_handlers())
         standing = [list(s) for s in match.board.spaces[match.ball.zone]]
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_ball_recovery(build_interaction(), game, match)
 
         self.assertFalse(match.pending_ball_recovery)
@@ -497,7 +498,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.continue_run_back(build_interaction(), game, match)
 
         cog.begin_ball_recovery.assert_awaited_once()
@@ -667,7 +668,7 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         teammate = match.home.field_players[0]
         match.move_meeple(teammate, *landing)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_deflect(
                 SimpleNamespace(), game, match,
             )
@@ -771,7 +772,7 @@ class OccupancyDecidesTests(unittest.IsolatedAsyncioTestCase):
         return chosen
 
     async def begin(self, cog, game, match):
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_loose_ball(
                 build_interaction(), game, match, 1,
             )
@@ -854,7 +855,7 @@ class OccupancyDecidesTests(unittest.IsolatedAsyncioTestCase):
                 game.match_state = match.to_dict()
                 cog.games[game.game_id] = game
 
-                with mock.patch("cogs.d12ball.save_games"):
+                with suppressed_cog_saves():
                     await cog.begin_loose_ball(
                         build_interaction(), game, match, 3,
                         headline=HIGH_PASS_CONTEST_HEADLINE,

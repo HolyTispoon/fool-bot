@@ -32,7 +32,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import D12BallGame, GameStatus, Team
-from view_patches import suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -339,7 +339,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match, handler, _ = self.build()
         cog.offer_speed_choice = mock.AsyncMock()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_dribble_advance(
                 build_interaction(), game, match, 1,
             )
@@ -355,7 +355,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         )
         cog.begin_run_back = mock.AsyncMock()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_steal(
                 build_interaction(), game, match,
             )
@@ -370,7 +370,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog.finish_maneuver_resolution = mock.AsyncMock()
         cog.begin_run_back = mock.AsyncMock()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_pressure(build_interaction(), game, match)
 
         self.assertEqual(match.ball.possession, TeamSide.HOME)
@@ -386,7 +386,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog.finish_maneuver_resolution = mock.AsyncMock()
         cog.begin_run_back = mock.AsyncMock()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_pressure(build_interaction(), game, match)
 
         self.assertEqual(match.ball.possession, TeamSide.VISITING)
@@ -403,7 +403,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match, handler, teammate = self.build()
         cog.finish_maneuver_resolution = mock.AsyncMock()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_low_pass(
                 build_interaction(), game, match, 0, receiver_id=teammate,
             )
@@ -421,7 +421,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         cog.build_loose_ball_view = mock.Mock(return_value=None)
         cog.engine.build_loose_ball_prompt = mock.Mock(return_value="prompt")
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_loose_ball(build_interaction(), game, match, 1)
 
         self.assertIsNone(match.ball_carrier_id)
@@ -431,7 +431,7 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
         match.set_ball_carrier(handler)
         cog.post_new_play_board = mock.AsyncMock()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.announce_new_play_reset(
                 build_interaction(), game, match,
             )
@@ -496,9 +496,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         self, cog: D12Ball, game: D12BallGame, dice: list[int],
     ) -> MatchState:
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
-            "cogs.d12ball.save_games",
-        ), mock.patch(
+        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
             "random.randint", side_effect=dice,
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",
@@ -555,7 +553,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         match.loose_ball_defense_player = None
         match.decline_loose_ball(match.defending_side())
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_loose_ball(
                 build_contest_interaction(), game, match,
             )
@@ -570,7 +568,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         match.loose_ball_offense_player = None
         match.decline_loose_ball(match.ball.possession)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_loose_ball(
                 build_contest_interaction(), game, match,
             )
@@ -592,7 +590,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         match.decline_loose_ball(match.ball.possession)
         match.decline_loose_ball(match.defending_side())
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_loose_ball(
                 build_contest_interaction(), game, match,
             )
@@ -647,7 +645,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
         winner = self.displaced_winner(cog, match)
         match.set_ball_carrier(winner)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_run_back(build_interaction(), game, match)
 
         self.assertEqual(match.pending_run_back_stays_player_id, winner)
@@ -665,7 +663,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
         winner = self.displaced_winner(cog, match)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_run_back(build_interaction(), game, match)
 
         self.assertIsNone(match.pending_run_back_stays_player_id)
@@ -683,7 +681,7 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
         shooter = self.displaced_winner(cog, match)
         match.set_ball_carrier(shooter)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_run_back(
                 build_interaction(), game, match, new_play=True,
             )

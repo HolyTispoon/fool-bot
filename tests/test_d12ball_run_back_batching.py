@@ -29,7 +29,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, Team
 from roster import fielded
-from view_patches import suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
 
 
 def build_interaction() -> SimpleNamespace:
@@ -122,10 +122,8 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
     async def run_back(self, cog, game, match) -> SimpleNamespace:
         interaction = build_interaction()
         with (
-            mock.patch("cogs.d12ball.save_games"),
-            mock.patch(
-                "cogs.d12ball.add_full_image_button", mock.AsyncMock(),
-            ),
+            suppressed_cog_saves(),
+            suppressed_full_image_links(),
         ):
             await cog.continue_run_back(interaction, game, match)
         return interaction
@@ -435,8 +433,8 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with (
-            mock.patch("cogs.d12ball.save_games"),
-            mock.patch("cogs.d12ball.LOGGER") as logger,
+            suppressed_cog_saves(),
+            mock.patch("cogs.d12ball.turnovers.LOGGER") as logger,
         ):
             await cog.continue_run_back(interaction, game, match)
 
@@ -493,10 +491,8 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
-            mock.patch("cogs.d12ball.save_games"),
-            mock.patch(
-                "cogs.d12ball.add_full_image_button", mock.AsyncMock(),
-            ),
+            suppressed_cog_saves(),
+            suppressed_full_image_links(),
         ):
             await cog.finish_maneuver_resolution(
                 interaction, game, match,

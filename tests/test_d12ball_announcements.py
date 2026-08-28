@@ -35,7 +35,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
-from view_patches import suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -259,7 +259,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_maneuver(interaction, game, match)
 
         announcement = sent_texts(interaction)[0]
@@ -297,7 +297,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         game, match = self.build_score_attempt(cog)
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_score_attempt(interaction, game, match)
 
         calls = interaction.followup.send.await_args_list
@@ -319,7 +319,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(len(cog.engine.intervening_defenders(match)), 1)
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_score_attempt(interaction, game, match)
 
         self.assertIn(
@@ -394,10 +394,10 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         interaction = build_interaction()
-        with mock.patch("cogs.d12ball.save_games"), mock.patch(
-            "cogs.d12ball.random.randint", return_value=roll,
-        ), mock.patch("cogs.d12ball.render_own_goal_dice"), mock.patch(
-            "cogs.d12ball.discord.File",
+        with suppressed_cog_saves(), mock.patch(
+            "random.randint", return_value=roll,
+        ), mock.patch("cogs.d12ball.effects.render_own_goal_dice"), mock.patch(
+            "discord.File",
         ):
             await cog.run_own_goal_roll(interaction, game, match)
         return cog, interaction

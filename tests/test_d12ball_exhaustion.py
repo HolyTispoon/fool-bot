@@ -30,7 +30,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
-from view_patches import suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -131,7 +131,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(offense_id, match.exhausted)
         game.match_state = match.to_dict()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_maneuver(build_interaction(), game, match)
 
         self.assertIn(offense_id, cog.engine.load_match_state(game).exhausted)
@@ -161,7 +161,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         interaction = build_interaction()
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_maneuver(interaction, game, match)
         self.assertNotIn(offense_id, cog.engine.load_match_state(game).exhausted)
 
@@ -228,8 +228,8 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
                 match.pending_own_goal_distance = 1
                 game.match_state = match.to_dict()
 
-                with mock.patch("cogs.d12ball.save_games"), mock.patch(
-                    "cogs.d12ball.random.randint", return_value=roll,
+                with suppressed_cog_saves(), mock.patch(
+                    "random.randint", return_value=roll,
                 ):
                     await cog.run_own_goal_roll(
                         build_interaction(), game, match,

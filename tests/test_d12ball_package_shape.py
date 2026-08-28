@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 
 import cogs.d12ball_views as views
-from view_patches import SAVING_VIEW_MODULES
+from save_patches import SAVING_COG_MODULES, SAVING_VIEW_MODULES, suppressed_view_saves
 
 PACKAGE = Path(views.__file__).parent
 SUBMODULES = sorted(
@@ -90,3 +90,70 @@ class ViewsPackageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CogPackageTests(unittest.TestCase):
+    """
+    `cogs/d12ball` is six mixins assembled into one class, so the two
+    things that would go wrong quietly are a method defined in two of
+    them -- where the MRO silently picks one -- and a mixin that starts
+    saving without being named in `save_patches`.
+    """
+
+    MIXINS = (
+        "core", "effects", "turnovers", "periods",
+        "presentation", "slash_commands",
+    )
+
+    def test_no_method_is_defined_by_two_mixins(self) -> None:
+        """
+        The mixin order is the order the single file read in and is
+        meant to carry no resolution. A name in two of them means one
+        of the two is dead, and which one is decided by the MRO rather
+        than by anybody.
+        """
+        seen: dict[str, str] = {}
+        for module in self.MIXINS:
+            mod = importlib.import_module(f"cogs.d12ball.{module}")
+            cls = next(
+                value for name, value in vars(mod).items()
+                if name.endswith("Mixin")
+            )
+            for name, value in vars(cls).items():
+                if name.startswith("__") or not callable(value):
+                    continue
+                with self.subTest(method=name):
+                    self.assertNotIn(
+                        name, seen,
+                        f"{name} is defined by both {seen.get(name)} "
+                        f"and {module}",
+                    )
+                seen[name] = module
+
+    def test_every_saving_mixin_is_patched_in_tests(self) -> None:
+        """
+        The same silent failure the views have: a suppression patch
+        that no longer intercepts leaves the real save writing
+        `data/d12ball_games.json` while the test goes on passing.
+        """
+        saving = {
+            f"cogs.d12ball.{module}"
+            for module in self.MIXINS
+            if "save_games" in vars(
+                importlib.import_module(f"cogs.d12ball.{module}")
+            )
+        }
+        self.assertEqual(saving, set(SAVING_COG_MODULES))
+
+    def test_the_cog_is_assembled_from_exactly_those_mixins(self) -> None:
+        """
+        A mixin added to the package but left out of the class is a
+        module of dead code that imports and tests clean.
+        """
+        import cogs.d12ball as pkg
+
+        bases = [
+            base.__name__ for base in pkg.D12Ball.__mro__
+            if base.__name__.endswith("Mixin")
+        ]
+        self.assertEqual(len(bases), len(self.MIXINS))

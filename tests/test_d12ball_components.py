@@ -105,6 +105,7 @@ from d12ball.render import (
     zone_bounds_between,
 )
 from roster import benched, field_players, fielded, roles
+from save_patches import suppressed_cog_saves
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -2856,7 +2857,7 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         )
         game = SimpleNamespace(match_state=None)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             detoured = await cog.check_for_loose_ball(
                 interaction, game, match, distance_moved=1,
             )
@@ -2881,7 +2882,7 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         )
         game = SimpleNamespace(match_state=None)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             detoured = await cog.check_for_loose_ball(
                 interaction, game, match, distance_moved=2, lead_in="Lead-in.",
             )
@@ -2925,7 +2926,7 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         )
         game = SimpleNamespace(match_state=None)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             detoured = await cog.check_for_loose_ball(
                 interaction, game, match, distance_moved=1,
                 lead_in="Deflect happened.",
@@ -3214,7 +3215,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock()),
         )
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_low_pass(
                 interaction, game, match, 0, receiver_id=second,
             )
@@ -3239,7 +3240,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_low_pass(interaction, game, match, 2)
 
         self.assertEqual(
@@ -3277,7 +3278,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_low_pass(interaction, game, match, 0)
 
         self.assertEqual(
@@ -3321,7 +3322,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_low_pass(interaction, game, match, 1)
 
         self.assertEqual(
@@ -3346,7 +3347,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_low_pass(interaction, game, match, 1)
 
         self.assertEqual(
@@ -3389,7 +3390,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_low_pass(interaction, game, match, 0)
 
         _, kwargs = cog.offer_scoring_attempt_choice.await_args
@@ -3419,7 +3420,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             send=mock.AsyncMock(),
         ))
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_low_pass(interaction, game, match)
 
         # No prompt, and no view to answer it with.
@@ -3455,7 +3456,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             send=mock.AsyncMock(),
         ))
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_low_pass(interaction, game, match)
 
         self.assertEqual(
@@ -3489,7 +3490,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_high_pass(interaction, game, match, 2)
 
         self.assertEqual(
@@ -3523,7 +3524,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_high_pass(interaction, game, match, 2)
 
         self.assertEqual(
@@ -3575,7 +3576,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_high_pass(interaction, game, match, 3)
 
         self.assertEqual(
@@ -3630,7 +3631,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_high_pass(interaction, game, match, 2)
 
         self.assertEqual(
@@ -3666,7 +3667,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_high_pass(interaction, game, match, 3)
 
         self.assertEqual(
@@ -3708,7 +3709,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         for space_index in (1, 2):  # flat 7 and flat 8: 1 away, then 0
             match.set_ball_space(Zone.VISITORS_GOAL, space_index)
             self.assertTrue(match.high_pass_distance_is_moot(TeamSide.HOME))
-            with mock.patch("cogs.d12ball.save_games"):
+            with suppressed_cog_saves():
                 await cog.resolve_high_pass(interaction, game, match)
 
         self.assertEqual(cog.apply_high_pass.await_count, 2)
@@ -3815,7 +3816,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_high_pass(interaction, game, match, 2)
 
         cog.offer_scoring_attempt_choice.assert_awaited_once()
@@ -3846,7 +3847,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_high_pass(interaction, game, match, 3)
 
         cog.offer_scoring_attempt_choice.assert_not_awaited()
@@ -3867,7 +3868,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_high_pass(interaction, game, match, 4)
 
         self.assertEqual(
@@ -3893,7 +3894,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = SimpleNamespace()
         game = SimpleNamespace(match_state=None)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resolve_deflect(interaction, game, match)
 
         # HOME attacks left-to-right, so "back" is toward lower flat

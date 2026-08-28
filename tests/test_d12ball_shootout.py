@@ -40,7 +40,7 @@ from d12ball.components import (
 from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
-from view_patches import suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def by_role(match: MatchState, side: TeamSide) -> list[str]:
@@ -404,7 +404,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.end_period(interaction, game, match)
 
         # The game is not over: it is the shootout that ends it, and
@@ -432,7 +432,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.end_period(interaction, game, match)
 
         reloaded = cog.engine.load_match_state(game)
@@ -447,7 +447,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.end_period(interaction, game, match)
 
         self.assertTrue(game.is_finished)
@@ -466,7 +466,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_shootout(interaction, game, match)
 
         self.assertTrue(match.shootout_order_complete(TeamSide.VISITING))
@@ -490,9 +490,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
 
         squad = match.shootout_squad(TeamSide.HOME)
         view = ShootoutOrderSelectView(cog, game.game_id, TeamSide.HOME)
-        with suppressed_view_saves(), mock.patch(
-            "cogs.d12ball.save_games",
-        ):
+        with suppressed_view_saves(), suppressed_cog_saves():
             for player_id in squad:
                 await view.pick(interaction, player_id)
 
@@ -576,7 +574,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         cog, game, match = self.build()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_full_time_coaching(
                 build_interaction(), game, match,
             )
@@ -606,7 +604,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         # nothing here: full time's one is counted inside the window.
         match.half_substitutions_used = {"home": 2}
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_full_time_coaching(
                 build_interaction(), game, match,
             )
@@ -635,7 +633,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         # nothing a coach could do to enable them.
         cog, game, match = self.build()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_full_time_coaching(
                 build_interaction(), game, match,
             )
@@ -669,7 +667,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.substitution_pool(TeamSide.HOME), [])
         game.match_state = match.to_dict()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_full_time_coaching(
                 build_interaction(), game, match,
             )
@@ -693,7 +691,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         match.board.remove_meeple(strayed)
         match.board.place_meeple(strayed, zone, 1 - space)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_full_time_coaching(
                 build_interaction(), game, match,
             )
@@ -711,7 +709,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         # starts, which is after this window and not before it.
         cog, game, match = self.build()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_full_time_coaching(
                 build_interaction(), game, match,
             )
@@ -735,7 +733,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_restart_comes_back_to_the_hub(self) -> None:
         cog, game, match = self.build()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_full_time_coaching(
                 build_interaction(), game, match,
             )
@@ -757,7 +755,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         match.pending_full_time_stage = "coaching_visiting"
         game.match_state = match.to_dict()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             where = await cog.resume_pending_prompt(
                 build_interaction(222), game, cog.engine.load_match_state(game),
             )
@@ -779,7 +777,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         match.injured.add(hurt)
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_full_time_coaching(interaction, game, match)
             self.assertEqual(match.pending_coaching_side, "home")
             await cog.finish_substitution_window(interaction, game, match)
@@ -818,9 +816,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
     async def roll(self, cog, game, rolls: list[int]):
         interaction = build_interaction()
         view = ShootoutTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
-            "cogs.d12ball.save_games",
-        ), mock.patch(
+        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",
             return_value=b"",
         ), mock.patch(
@@ -957,7 +953,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.roll(cog, game, [7, 7])
         # Nothing scored, so the roll's continuation is the one the
         # injury queue would have made.
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.continue_shootout(
                 interaction, game, cog.engine.load_match_state(game),
             )

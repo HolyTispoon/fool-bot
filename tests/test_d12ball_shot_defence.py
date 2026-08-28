@@ -37,7 +37,7 @@ from d12ball.render import (
     group_text_lines,
     render_score_attempt,
 )
-from view_patches import suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -323,7 +323,7 @@ class ShotClockCostTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_score_attempt = mock.AsyncMock()
         shooter_id = match.active_player_id
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.start_set_up_shot(
                 build_interaction(), game, match, shooter_id,
             )
@@ -342,7 +342,7 @@ class ShotClockCostTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_score_attempt = mock.AsyncMock()
         shooter_id = match.active_player_id
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.start_set_up_shot(
                 build_interaction(), game, match, shooter_id,
                 maneuver_cost=2,

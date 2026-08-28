@@ -23,7 +23,7 @@ python3 -m unittest discover -s tests
 | `botstate.py` | The little the bot remembers between runs, in `data/bot_state.json` |
 | `discord_emoji_cache.py` | The cache-with-cooldown shape shared by every cog's application-emoji lookup (`cogs/coins.py`, `cogs/d12ball.py`) -- not what each cog loads, only the retry timing |
 | `botlog/` | Console logging setup, and the #logs channel mirror — see below |
-| `cogs/d12ball.py` | All D12 Ball slash commands and Discord interaction flow |
+| `cogs/d12ball/` | All D12 Ball slash commands and the Discord interaction flow. One class of 217 methods over 10,087 lines is what this package replaced, split along the section banners the file already carried: `core` (lifecycle, lookups, `persist`, the spine of a turn, `pending_turn_view`), `effects` (one banner per maneuver), `turnovers` (run back, cede, out-of-bounds pickup), `periods` (clock, halftime, shootout), `presentation` (prompts, images, channels, the AI turn, the tutorial's narration) and `slash_commands` (every command, the two subgroups, the startup sweep). `__init__.py` assembles `D12Ball` from the six mixins and re-exports what the module exposed, so `from cogs.d12ball import D12Ball` is unchanged. |
 | `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming. Re-imports and re-exports everything `d12ball/formatting.py` holds, so an existing `from cogs.d12ball_helpers import space_label` keeps working; what stayed here needs an emoji dict or discord.py itself. |
 | `cogs/d12ball_views/` | The `discord.ui.View` classes, one per prompt a player can be shown -- forty-nine of them, split into ten modules along the clusters they already fell into (`base`, `setup`, `turn`, `rolls`, `runback`, `effects`, `coaching`, `halftime`, `loose_ball`, `shootout`). `__init__.py` re-exports every name the single file held, so `from cogs.d12ball_views import X` is unchanged for every X and no call site moved -- the arrangement `cogs/d12ball_helpers.py` has with `d12ball/formatting.py`. `base` holds `SafeView` (whose `load_match`/`require_match` are the shared "get the game and its match, or bail" lookup nearly every view opens with, and whose `is_game_participant` is the shared "is this one of the two coaches" check a roll button answers to) plus the two contest-rendering helpers; it imports from no sibling, which is what keeps the package a DAG. |
 | `cogs/d12ball_boards.py` | The write gate on a game's persistent board message. `BoardRefreshState` is one game's -- when a write landed, the pass waiting to write again, the board already on the message, the link owed for it, the lock, the wants arriving mid-write, the refusals -- and `BoardRefresher` holds one per game and the six methods that read it. Those were seven parallel dicts keyed by game id on the cog, agreeing about a game only by hand at each of the eleven sites that wrote them. `D12Ball` keeps a thin forwarding method for each of the six, so no call site moved -- see "Discord's rate limits". |
@@ -1821,6 +1821,37 @@ which maneuver beats which, that the deal starts out of shooting range,
 that the striker is on the space the last pass lands on, that exactly
 one Dinky card is standing there.
 
+## Why the cog is mixins
+
+`cogs/d12ball/` is six mixin classes assembled into one `D12Ball` in
+`__init__.py`, and the choice of mixins over collaborator objects is the whole
+design.
+
+- **These methods co-operate through the cog's own state and call each other by
+  the hundred.** `self.foo(...)` has to keep working across every seam, and a
+  mixin is the only split where it does, untouched. Turning those calls into
+  explicit dependencies on collaborator objects is a far larger change and a
+  different one -- don't start it by halves.
+- **The seams are the author's, not invented.** The single file carried sixteen
+  `# -- Low Pass ---` banners, and the split follows them. Each mixin is a
+  contiguous run of the old file, so the moves are readable as moves.
+- **The mixin order carries no resolution.** It is the order the file read in.
+  No method is defined by two mixins, and `test_no_method_is_defined_by_two_mixins`
+  in `tests/test_d12ball_package_shape.py` is what keeps that true -- a name in
+  two of them means one is dead code, chosen by the MRO rather than by anybody.
+- **`commands.GroupCog` comes last**, so the mixins sit ahead of it in the MRO.
+  discord.py collects commands by walking the whole MRO (`CogMeta.__new__`), so
+  a command or subgroup defined on a mixin registers exactly as one on the cog
+  would -- verified against the assembled class, which has the same 221 methods
+  and the same 17 app commands as the single file did.
+- **The command module is `slash_commands.py`, not `commands.py`.** A submodule
+  binds its own name into the package namespace, so `commands.py` would shadow
+  `discord.ext.commands` in the very file that reads `commands.GroupCog`.
+- **`pending_turn_view` moved whole, into `core`.** It is a flat, ordered
+  dispatch chain whose ordering is load-bearing and mostly comments explaining
+  why each branch sits where it does -- see "Recovering a stuck game". A second
+  copy of that chain is the failure mode; splitting it is how you get one.
+
 ## Logging and the #logs channel
 
 **Use `logging`, not `print`.** Every module gets its own logger
@@ -3550,16 +3581,19 @@ as a bug.
 ## The test suite
 
 **A patch target naming a module is a patch on that module's own binding.**
+This bit both package splits, and bit the cog's hardest: 192 patches of
+`cogs.d12ball.save_games` against six mixins that all save.
 `cogs/d12ball_views` was one module, so
 `mock.patch("cogs.d12ball_views.save_games")` covered every view in the game;
 it is a package now, and `from ... import save_games` binds the name into
 each submodule, so the same patch reaches none of them. It fails *silently*
 -- the patch applies to the package, the test passes, and the real save
 writes `data/d12ball_games.json`, because not one of those forty-odd patches
-was ever bound with `as` or asserted on. `tests/view_patches.py` is the one
-answer for all of them (`suppressed_view_saves`, patching every submodule
-that calls it), and `tests/test_d12ball_views_package.py` fails if a
-submodule starts saving and is not named there.
+was ever bound with `as` or asserted on. `tests/save_patches.py` is the one
+answer for all of them (`suppressed_view_saves`, `suppressed_cog_saves` and
+`suppressed_full_image_links`, each patching every submodule that names
+the thing), and `tests/test_d12ball_package_shape.py` fails if a submodule
+starts saving and is not named there.
 
 - **The way to be sure is to make the real function raise and run the
   suite.** Replacing `gamesaves.d12ball.storage.save_games` with a recorder

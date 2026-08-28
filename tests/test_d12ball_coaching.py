@@ -27,7 +27,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import AIOpponent, D12BallGame, Formation, GameStatus, Team
-from view_patches import suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -382,7 +382,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_setup_coaching(interaction, game)
 
         match = cog.engine.load_match_state(game)
@@ -402,7 +402,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_visitors_follow_and_then_play_starts(self) -> None:
         cog, game, _ = self.build()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_setup_coaching(build_interaction(), game)
 
             match = cog.engine.load_match_state(game)
@@ -430,7 +430,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         # play's board does.
         cog, game, _ = self.build()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_setup_coaching(build_interaction(), game)
             match = cog.engine.load_match_state(game)
             await cog.finish_substitution_window(
@@ -451,7 +451,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         cog, game, _ = self.build()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_setup_coaching(build_interaction(), game)
         match = cog.engine.load_match_state(game)
 
@@ -507,7 +507,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         )
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_setup_coaching(interaction, game)
             match = cog.engine.load_match_state(game)
             await cog.finish_substitution_window(interaction, game, match)

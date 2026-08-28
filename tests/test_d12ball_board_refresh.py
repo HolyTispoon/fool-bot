@@ -109,7 +109,7 @@ class BoardRefreshCoalescingTests(unittest.IsolatedAsyncioTestCase):
         cog, game, channel = build_cog(), build_game(), FakeChannel()
         interaction = SimpleNamespace(channel=channel)
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             for _ in range(8):
                 await cog.refresh_match_image(interaction, game)
 
@@ -131,7 +131,7 @@ class BoardRefreshCoalescingTests(unittest.IsolatedAsyncioTestCase):
         await cog.refresh_match_image(interaction, game, png=b"first")
         cog.render_match_png.reset_mock()
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await cog.refresh_match_image(interaction, game, png=b"second")
             await asyncio.gather(*cog.boards.pending_tasks())
 
@@ -141,7 +141,7 @@ class BoardRefreshCoalescingTests(unittest.IsolatedAsyncioTestCase):
         cog, game, channel = build_cog(), build_game(), FakeChannel()
         interaction = SimpleNamespace(channel=channel)
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await cog.refresh_match_image(interaction, game)
             for _ in range(5):
                 await cog.refresh_match_image(interaction, game)
@@ -254,7 +254,7 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
         cog, game, channel, interaction = self.build()
         message = channel.message
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             # The immediate write, straight through.
             message.release.set()
             await cog.refresh_match_image(interaction, game)
@@ -285,7 +285,7 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
         cog, game, channel, interaction = self.build()
         message, real_sleep = channel.message, asyncio.sleep
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             writing = asyncio.create_task(
                 cog.refresh_match_image(interaction, game),
             )
@@ -616,7 +616,7 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
     async def test_an_interim_write_is_one_edit_without_the_link(self) -> None:
         cog, game, channel, interaction = self.build()
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await cog.refresh_match_image(interaction, game)
 
             self.assertEqual(channel.message.edits, 1)
@@ -630,7 +630,7 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_settling_write_puts_the_link_back(self) -> None:
         cog, game, channel, interaction = self.build()
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await cog.refresh_match_image(interaction, game)
             await asyncio.gather(*cog.boards.pending_tasks())
 
@@ -646,7 +646,7 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
         cog, game, channel, interaction = self.build()
         cog.render_match_png = mock.AsyncMock(return_value=b"one board")
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await cog.refresh_match_image(interaction, game)
             await asyncio.gather(*cog.boards.pending_tasks())
 
@@ -661,7 +661,7 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
         # settling write and its link.
         cog, game, channel, interaction = self.build()
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             for _ in range(8):
                 await cog.refresh_match_image(interaction, game)
             await asyncio.gather(*cog.boards.pending_tasks())

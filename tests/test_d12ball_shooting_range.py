@@ -30,6 +30,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
+from save_patches import suppressed_cog_saves
 
 
 def build_cog() -> D12Ball:
@@ -332,7 +333,7 @@ class SetUpShotRangeTests(unittest.IsolatedAsyncioTestCase):
         return cog, game, match, receiver
 
     async def apply_high_pass(self, cog, game, match) -> None:
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_high_pass(build_interaction(), game, match, 2)
 
     async def test_a_high_pass_of_two_sets_up_only_within_range(
@@ -366,14 +367,14 @@ class SetUpShotRangeTests(unittest.IsolatedAsyncioTestCase):
         # The Winger's ability frees the set-up from a distance, not
         # from where a goal can be scored from.
         cog, game, match, receiver = self.build_pass(PlayerRole.WINGER, 2)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_low_pass(
                 build_interaction(), game, match, 2, receiver_id=receiver,
             )
         cog.offer_scoring_attempt_choice.assert_awaited_once()
 
         cog, game, match, receiver = self.build_pass(PlayerRole.WINGER, 0)
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.apply_low_pass(
                 build_interaction(), game, match, 2, receiver_id=receiver,
             )

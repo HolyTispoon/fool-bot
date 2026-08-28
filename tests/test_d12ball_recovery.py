@@ -48,6 +48,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Formation, GameStatus, Team
+from save_patches import suppressed_cog_saves
 
 
 def build_cog() -> D12Ball:
@@ -412,7 +413,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         match.pending_run_back = True
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             waiting_on = await cog.resume_pending_prompt(
                 interaction, game, match,
             )
@@ -426,7 +427,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = match.eligible_ball_handlers()[0]
         match.pending_ball_recovery = True
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resume_pending_prompt(
                 build_interaction(), game, match,
             )
@@ -449,7 +450,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         remaining_before = match.substitutions_remaining()
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             waiting_on = await cog.resume_pending_prompt(
                 interaction, game, match,
             )
@@ -475,7 +476,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
             TeamSide.VISITING, CoachingOccasion.NEW_PLAY,
         )
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             waiting_on = await cog.resume_pending_prompt(
                 build_interaction(), game, match,
             )
@@ -490,7 +491,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         match.pending_setup_stage = "coaching_home"
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.SETUP)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resume_pending_prompt(
                 build_interaction(), game, match,
             )
@@ -505,7 +506,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
         match.pending_setup_stage = "coaching_home"
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             waiting_on = await cog.resume_pending_prompt(
                 build_interaction(), game, match,
             )
@@ -519,7 +520,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
         match.pending_halftime_stage = "extra_token_visiting"
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resume_pending_prompt(
                 build_interaction(), game, match,
             )
@@ -532,7 +533,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         match.pending_action = "shoot"
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.resume_pending_prompt(interaction, game, match)
 
         _, kwargs = interaction.followup.send.await_args
@@ -568,7 +569,7 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
         return cog, game, match
 
     async def run_resume(self, cog, interaction, force: bool = False):
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await D12Ball.resume.callback(cog, interaction, force=force)
 
     async def test_a_player_may_resume_their_own_game(self) -> None:
@@ -692,7 +693,7 @@ class AbandonGameTests(unittest.IsolatedAsyncioTestCase):
         return cog, game
 
     async def run_abandon(self, cog, interaction, confirm: str = "confirm"):
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await D12Ball.abandon_game.callback(cog, interaction, confirm)
 
     async def test_confirming_archives_and_ends_the_game(self) -> None:

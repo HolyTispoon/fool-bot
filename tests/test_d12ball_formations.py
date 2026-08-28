@@ -47,7 +47,7 @@ from d12ball.game import (
     GameStatus,
     Team,
 )
-from view_patches import suppressed_view_saves
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -900,7 +900,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         chosen = others[-1]
 
         with suppressed_view_saves(), \
-                mock.patch("cogs.d12ball.save_games"):
+                suppressed_cog_saves():
             await LowPassReceiverView(cog, game.game_id, 0).choose(
                 build_interaction(), chosen,
             )
@@ -917,7 +917,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         with suppressed_view_saves(), \
-                mock.patch("cogs.d12ball.save_games"):
+                suppressed_cog_saves():
             await LowPassChoiceView(cog, game.game_id).choose(interaction, 0)
 
         self.assertIsNone(
