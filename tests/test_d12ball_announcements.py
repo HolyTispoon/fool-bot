@@ -163,7 +163,12 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
 
     # -- High pass and loose ball --------------------------------------
 
-    def build_contest(self, cog: D12Ball, is_high_pass: bool):
+    def build_contest(
+        self,
+        cog: D12Ball,
+        is_high_pass: bool,
+        on_empty_space: bool = True,
+    ):
         match = self.build_match()
         game = build_game()
         match.active_player_id = match.setup_for_side(
@@ -174,6 +179,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         )
         match.pending_loose_ball = True
         match.pending_loose_ball_is_high_pass = is_high_pass
+        match.pending_loose_ball_on_empty_space = on_empty_space
         match.loose_ball_offense_player = match.setup_for_side(
             match.ball.possession
         ).field_players[0]
@@ -226,6 +232,54 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         announcement = sent_texts(interaction)[0]
         self.assertTrue(announcement.startswith("# Turnover!"))
         self.assertIn("wins the loose ball!", announcement)
+
+    async def test_a_contest_on_an_occupied_space_is_not_called_loose(
+        self,
+    ) -> None:
+        # Only a ball lying where nobody is standing is *loose* (the
+        # author, 2026-08-26). Both sides having somebody there is a
+        # contest, and the result used to announce it as a loose ball
+        # anyway -- telling a coach the opposite of what they had just
+        # watched. The noun is read off the position, like every other
+        # message on this path; see contest_noun.
+        cog = build_cog()
+        game, _ = self.build_contest(
+            cog, is_high_pass=False, on_empty_space=False,
+        )
+
+        interaction = await self.roll_contest(cog, game, [1, 12])
+
+        announcement = sent_texts(interaction)[0]
+        self.assertIn("wins the ball!", announcement)
+        self.assertNotIn("loose", announcement)
+
+    # -- The tie -------------------------------------------------------
+
+    async def test_a_tied_skill_test_is_headed_like_every_other_outcome(
+        self,
+    ) -> None:
+        # A tie is one of the ways a skill test lands, and the other
+        # three are announced at `##`. Left as bold body text it read
+        # as a footnote to the dice rather than the result of them.
+        cog = build_cog()
+        game, _ = self.build_skill_test(cog)
+        interaction = build_interaction()
+
+        view = SkillTestView(cog, game.game_id)
+        with suppressed_view_saves(), mock.patch.object(
+            SkillTestView, "score_skill_test", return_value=([], 7, 7),
+        ), mock.patch(
+            "cogs.d12ball_views.base.render_skill_test_dice",
+        ), mock.patch("discord.File"):
+            await view.roll(interaction)
+
+        # The tie is the one result that stays on the dice message,
+        # because that message also carries the roll-again button.
+        content = interaction.edit_original_response.await_args.kwargs[
+            "content"
+        ]
+        self.assertTrue(content.startswith("## "), content)
+        self.assertIn("It's a tie (7-7)!", content)
 
     # -- Maneuver won outright -----------------------------------------
 

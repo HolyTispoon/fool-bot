@@ -195,8 +195,12 @@ class SafeView(discord.ui.View):
         )
         self.cog.persist(game, match)
 
+        # Headed like the outcome it is: a tie is one of the four ways
+        # a skill test lands, and every other one is announced at `##`
+        # (see SkillTestView.roll). Left as bold body text it read as a
+        # footnote to the dice rather than the result of them.
         return (
-            f"**It's a tie ({offense_total}-{defense_total})!** "
+            f"## **It's a tie ({offense_total}-{defense_total})!**\n"
             f"The skill test must be rolled again.\n"
             f"{exhaustion_text}\n\nRoll again:"
         )
