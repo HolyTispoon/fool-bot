@@ -15,7 +15,13 @@ import unittest
 from pathlib import Path
 
 import cogs.d12ball_views as views
-from save_patches import SAVING_COG_MODULES, SAVING_VIEW_MODULES, suppressed_view_saves
+from save_patches import (
+    SAVING_COG_MODULES,
+    SAVING_MODULES,
+    SAVING_VIEW_MODULES,
+    refuse_stray_save,
+    suppressed_view_saves,
+)
 
 PACKAGE = Path(views.__file__).parent
 SUBMODULES = sorted(
@@ -185,3 +191,85 @@ class CogPackageTests(unittest.TestCase):
             if base.__name__.endswith("Mixin")
         ]
         self.assertEqual(len(bases), len(self.MIXINS))
+
+
+class StraySaveGuardTests(unittest.TestCase):
+    """
+    What keeps the suppression helpers from being quietly optional.
+
+    A patch on the wrong binding is invisible: it applies, the test
+    passes, and the real `save_games` writes
+    `data/d12ball_games.json` underneath it -- which is a developer's
+    own saved games, since `PROJECT_ROOT` is resolved per checkout.
+    Nineteen call sites were doing exactly that, on `main`, and
+    nothing in the suite said so. `save_patches.guard_stray_saves`
+    makes it raise instead; these are what stop the guard itself
+    going missing.
+    """
+
+    def test_every_module_that_saves_is_named_in_saving_modules(self) -> None:
+        """
+        The guard arms a list, so a binding the list does not name is
+        a binding the guard cannot see -- and `cogs/debug.py` is the
+        reminder that they are not all in the two packages.
+        """
+        binding = {
+            path
+            for path in Path("cogs").rglob("*.py")
+            if "save_games" in vars(
+                importlib.import_module(
+                    str(path.with_suffix("")).replace("/", ".")
+                )
+            )
+        }
+        named = {
+            Path(module.replace(".", "/")).with_suffix(".py")
+            for module in SAVING_MODULES
+        }
+        self.assertEqual(binding, named)
+
+    def test_the_guard_is_armed_on_every_one_of_them(self) -> None:
+        """
+        Importing `save_patches` is what arms it. A test module that
+        never imports it is still covered, because `unittest discover`
+        imports every module before running any test -- but only for
+        as long as the call at the foot of that file is there.
+        """
+        for module in SAVING_MODULES:
+            with self.subTest(module=module):
+                self.assertIs(
+                    vars(importlib.import_module(module))["save_games"],
+                    refuse_stray_save,
+                )
+
+    def test_a_suppression_helper_puts_the_guard_back(self) -> None:
+        """
+        `mock.patch` restores what it replaced, which is what lets the
+        guard survive the four hundred-odd suppressions in the suite.
+        """
+        module = importlib.import_module(SAVING_VIEW_MODULES[0])
+        with suppressed_view_saves():
+            self.assertIsNot(vars(module)["save_games"], refuse_stray_save)
+        self.assertIs(vars(module)["save_games"], refuse_stray_save)
+
+    def test_an_unsuppressed_save_raises_where_it_happens(self) -> None:
+        """
+        The point of the whole thing: the failure names the test that
+        owes the suppression, rather than being found by a script
+        months later.
+        """
+        module = importlib.import_module(SAVING_COG_MODULES[0])
+        with self.assertRaises(AssertionError) as caught:
+            vars(module)["save_games"]({})
+        self.assertIn("suppressed_cog_saves", str(caught.exception))
+
+    def test_the_storage_module_itself_is_left_alone(self) -> None:
+        """
+        `tests/test_game_storage.py` is the one place that means to
+        reach the disk, and it goes through `storage.save_games` with
+        `GAMES_FILE` pointed at a tempdir. Arming that would break the
+        tests for the thing being guarded.
+        """
+        from gamesaves.d12ball import storage
+
+        self.assertIsNot(storage.save_games, refuse_stray_save)
