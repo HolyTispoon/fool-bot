@@ -28,6 +28,7 @@ those two check the writing.
 """
 
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
@@ -42,6 +43,7 @@ from d12ball.components import (
     EVENT_GOAL,
     EVENT_INJURY_TEST,
     EVENT_MANEUVER,
+    EVENT_OWN_GOAL_ROLL,
     EVENT_SHOT,
     EVENT_SKILL_TEST,
     EVENT_TURN_ACTION,
@@ -55,6 +57,7 @@ from d12ball.components import (
 from d12ball.game import D12BallGame, Team
 
 from roster import fielded
+from save_patches import suppressed_cog_saves
 
 
 def build_match() -> MatchState:
@@ -853,3 +856,152 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         """
         offered = {choice.value for choice in D12Ball.STATS_SCOPE_CHOICES}
         self.assertEqual(offered, set(stats.SCOPE_LABELS))
+
+
+class RollsReachTheLogTests(unittest.IsolatedAsyncioTestCase):
+    """
+    That the two rolls the tutorial and the matchup sweep never reach
+    -- an injury test and an own-goal roll -- log what they did, and
+    that what they logged **survives the save**.
+
+    The reload is the whole point of these two. An event written onto
+    a match and not persisted is invisible until the next click loads
+    the match back out of the save file, which no unit test asserting
+    on the live object would ever notice -- and is exactly how beat 1
+    of the tutorial went missing. So each of these asserts against
+    `load_match_state`, never against the match it just passed in.
+    """
+
+    def build_cog(self) -> D12Ball:
+        cog = build_cog()
+        cog.team_emojis = {}
+        cog.condition_emojis = {}
+        cog.refresh_match_image = mock.AsyncMock()
+        cog.begin_run_back = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
+        cog.continue_injury_tests = mock.AsyncMock()
+        return cog
+
+    def build_interaction(self):
+        return SimpleNamespace(
+            user=SimpleNamespace(id=10, display_name="One"),
+            channel=None,
+            guild=None,
+            followup=SimpleNamespace(
+                send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+            ),
+            response=SimpleNamespace(
+                defer=mock.AsyncMock(),
+                edit_message=mock.AsyncMock(),
+                send_message=mock.AsyncMock(),
+            ),
+            edit_original_response=mock.AsyncMock(),
+        )
+
+    def on_the_ball(self, match: MatchState) -> str:
+        """A home player standing on the ball, which both rolls need."""
+        player_id = match.home.field_players[0]
+        zone, space_index = match.board.meeple_position(player_id)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(zone, space_index)
+        match.active_player_id = player_id
+        return player_id
+
+    async def run_injury_test(self, cog, game, match, player_id, roll):
+        with suppressed_cog_saves(), mock.patch(
+            "random.randint", return_value=roll,
+        ), mock.patch("cogs.d12ball.core.render_injury_test_die"), mock.patch(
+            "discord.File",
+        ):
+            await cog.run_injury_test(
+                self.build_interaction(),
+                game,
+                match,
+                cog.engine.get_player_definition(player_id),
+            )
+
+    async def test_an_injury_test_logs_whichever_way_it_goes(self) -> None:
+        for roll, injured in ((12, False), (1, True)):
+            with self.subTest(injured=injured):
+                cog = self.build_cog()
+                match = build_match()
+                game = build_game()
+                cog.games[game.game_id] = game
+                player_id = self.on_the_ball(match)
+                match.add_exhaustion(player_id, 6)
+                match.pending_injury_tests = [player_id]
+                game.match_state = match.to_dict()
+
+                await self.run_injury_test(cog, game, match, player_id, roll)
+
+                logged = [
+                    event
+                    for event in cog.engine.load_match_state(game).events
+                    if event.kind == EVENT_INJURY_TEST
+                ]
+                self.assertEqual(len(logged), 1)
+                self.assertEqual(logged[0].player_id, player_id)
+                self.assertEqual(logged[0].details["injured"], injured)
+                self.assertEqual(logged[0].side, TeamSide.HOME)
+
+    async def test_an_own_goal_roll_logs_whichever_way_it_goes(self) -> None:
+        for roll, conceded in ((12, False), (1, True)):
+            with self.subTest(conceded=conceded):
+                cog = self.build_cog()
+                match = build_match()
+                game = build_game()
+                cog.games[game.game_id] = game
+                player_id = self.on_the_ball(match)
+                match.pending_own_goal = True
+                match.pending_own_goal_distance = 1
+                game.match_state = match.to_dict()
+
+                with suppressed_cog_saves(), mock.patch(
+                    "random.randint", return_value=roll,
+                ), mock.patch(
+                    "cogs.d12ball.effects.render_own_goal_dice",
+                ), mock.patch("discord.File"):
+                    await cog.run_own_goal_roll(
+                        self.build_interaction(), game, match,
+                    )
+
+                logged = [
+                    event
+                    for event in cog.engine.load_match_state(game).events
+                    if event.kind == EVENT_OWN_GOAL_ROLL
+                ]
+                self.assertEqual(len(logged), 1)
+                self.assertEqual(logged[0].details["conceded"], conceded)
+
+    async def test_a_conceded_own_goal_reaches_the_statistics(self) -> None:
+        """
+        The whole chain for the one goal nobody meant to score: the
+        roll is logged, `concede_own_goal` logs the goal beside it,
+        and the fold reads both back.
+        """
+        cog = self.build_cog()
+        match = build_match()
+        game = build_game()
+        cog.games[game.game_id] = game
+        player_id = self.on_the_ball(match)
+        match.pending_own_goal = True
+        match.pending_own_goal_distance = 1
+        game.match_state = match.to_dict()
+
+        with suppressed_cog_saves(), mock.patch(
+            "random.randint", return_value=1,
+        ), mock.patch(
+            "cogs.d12ball.effects.render_own_goal_dice",
+        ), mock.patch("discord.File"):
+            await cog.run_own_goal_roll(
+                self.build_interaction(), game, match,
+            )
+
+        reloaded = cog.engine.load_match_state(game)
+        shots = stats.collect_shots([reloaded])
+        self.assertEqual(shots.own_goal_rolls, 1)
+        self.assertEqual(shots.own_goals, 1)
+
+        overview = stats.collect_overview([(game, reloaded)])
+        self.assertEqual(overview.goals, 1)
+        self.assertEqual(overview.own_goals, 1)
