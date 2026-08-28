@@ -58,11 +58,19 @@ class D12Ball(
     CommandsMixin,
     commands.GroupCog,
     group_name="d12ball",
+    group_description="Play D12 Ball -- one game per channel.",
 ):
     """
     A Discord cog running games of D12 Ball, one per channel.
 
     The body of this class is its parts -- see the module docstring.
+
+    `group_description` is passed explicitly because discord.py falls
+    back to this docstring for it, and Discord refuses a command group
+    description over 100 characters -- which is a failed `tree.sync()`
+    out of `setup_hook`, so the bot does not start at all. The single
+    module carried no docstring here, so the split was what first gave
+    the group one.
     """
 
 
