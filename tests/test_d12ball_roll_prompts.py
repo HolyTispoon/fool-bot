@@ -35,6 +35,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import D12BallGame, GameStatus, Team
+from view_patches import suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -277,12 +278,12 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
     async def resolve_skill_test(self, cog, game) -> SimpleNamespace:
         interaction = build_interaction()
         view = SkillTestView(cog, game.game_id)
-        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+        with suppressed_view_saves(), mock.patch(
             "cogs.d12ball.save_games",
         ), mock.patch(
-            "cogs.d12ball_views.random.randint", side_effect=[12, 1],
-        ), mock.patch("cogs.d12ball_views.render_skill_test_dice"), mock.patch(
-            "cogs.d12ball_views.discord.File",
+            "random.randint", side_effect=[12, 1],
+        ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
+            "discord.File",
         ):
             await view.roll(interaction)
         return interaction
@@ -429,12 +430,12 @@ class ContestInjuryResumeTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = build_interaction()
         view = LooseBallSkillTestView(cog, game.game_id)
-        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+        with suppressed_view_saves(), mock.patch(
             "cogs.d12ball.save_games",
         ), mock.patch(
-            "cogs.d12ball_views.random.randint", side_effect=[12, 1],
-        ), mock.patch("cogs.d12ball_views.render_skill_test_dice"), mock.patch(
-            "cogs.d12ball_views.discord.File",
+            "random.randint", side_effect=[12, 1],
+        ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
+            "discord.File",
         ):
             await view.roll(interaction)
 

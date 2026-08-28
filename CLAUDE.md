@@ -25,7 +25,7 @@ python3 -m unittest discover -s tests
 | `botlog/` | Console logging setup, and the #logs channel mirror — see below |
 | `cogs/d12ball.py` | All D12 Ball slash commands and Discord interaction flow |
 | `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming. Re-imports and re-exports everything `d12ball/formatting.py` holds, so an existing `from cogs.d12ball_helpers import space_label` keeps working; what stayed here needs an emoji dict or discord.py itself. |
-| `cogs/d12ball_views.py` | The `discord.ui.View` classes, one per prompt a player can be shown. `SafeView.load_match`/`require_match` are the shared "get the game and its match, or bail" lookup nearly every view opens with (silent for `__init__`, replying for a callback); `SafeView.is_game_participant` is the shared "is this one of the two coaches" check a roll button's `.roll` answers to. Both replaced call-site-by-call-site copies of themselves. |
+| `cogs/d12ball_views/` | The `discord.ui.View` classes, one per prompt a player can be shown -- forty-nine of them, split into ten modules along the clusters they already fell into (`base`, `setup`, `turn`, `rolls`, `runback`, `effects`, `coaching`, `halftime`, `loose_ball`, `shootout`). `__init__.py` re-exports every name the single file held, so `from cogs.d12ball_views import X` is unchanged for every X and no call site moved -- the arrangement `cogs/d12ball_helpers.py` has with `d12ball/formatting.py`. `base` holds `SafeView` (whose `load_match`/`require_match` are the shared "get the game and its match, or bail" lookup nearly every view opens with, and whose `is_game_participant` is the shared "is this one of the two coaches" check a roll button answers to) plus the two contest-rendering helpers; it imports from no sibling, which is what keeps the package a DAG. |
 | `cogs/d12ball_boards.py` | The write gate on a game's persistent board message. `BoardRefreshState` is one game's -- when a write landed, the pass waiting to write again, the board already on the message, the link owed for it, the lock, the wants arriving mid-write, the refusals -- and `BoardRefresher` holds one per game and the six methods that read it. Those were seven parallel dicts keyed by game id on the cog, agreeing about a game only by hand at each of the eleven sites that wrote them. `D12Ball` keeps a thin forwarding method for each of the six, so no call site moved -- see "Discord's rate limits". |
 | `cogs/debug.py` | Maintenance commands, including the PBD channel-and-count reset |
 | `d12ball/components.py` | Game state model — `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog` |
@@ -3548,6 +3548,30 @@ as a bug.
   file quiet.
 
 ## The test suite
+
+**A patch target naming a module is a patch on that module's own binding.**
+`cogs/d12ball_views` was one module, so
+`mock.patch("cogs.d12ball_views.save_games")` covered every view in the game;
+it is a package now, and `from ... import save_games` binds the name into
+each submodule, so the same patch reaches none of them. It fails *silently*
+-- the patch applies to the package, the test passes, and the real save
+writes `data/d12ball_games.json`, because not one of those forty-odd patches
+was ever bound with `as` or asserted on. `tests/view_patches.py` is the one
+answer for all of them (`suppressed_view_saves`, patching every submodule
+that calls it), and `tests/test_d12ball_views_package.py` fails if a
+submodule starts saving and is not named there.
+
+- **The way to be sure is to make the real function raise and run the
+  suite.** Replacing `gamesaves.d12ball.storage.save_games` with a recorder
+  before the tests import anything lists every call site that reaches it,
+  and the list is identical before and after the split -- fourteen, all of
+  them `test_game_storage.py` testing storage on purpose, plus two in the
+  cog. That is the check worth repeating after anything that moves a view.
+- **`cogs.d12ball_views.random` and `.discord` were never the views'.** Both
+  named the global module through the views' namespace, so those patches
+  were always global; they say `random.` and `discord.` now, which is what
+  they always did.
+
 
 **A test names a player by their role, not by their name.** The roster is data
 the author revises, and a revision is not a code change: 36250a9 renamed five

@@ -47,6 +47,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
+from view_patches import suppressed_view_saves
 
 
 def build_game(player_2_id: int = 222) -> D12BallGame:
@@ -408,9 +409,9 @@ class D12BallCoinTossTests(unittest.TestCase):
             ),
         )
 
-        with mock.patch("cogs.d12ball_views.save_games"), \
+        with suppressed_view_saves(), \
                 mock.patch(
-                    "cogs.d12ball_views.random.choice",
+                    "random.choice",
                     side_effect=lambda pool: pool[0],
                 ) as choice:
             asyncio.run(view.select_team(interaction, Team.ORANGE))
@@ -1278,7 +1279,7 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
         view = CoinFlipView(cog, game.game_id)
         interaction = self.build_interaction(game.player_1_id)
 
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             asyncio.run(view.select_mode(interaction, GameMode.ADVANCED))
 
         self.assertEqual(game.board_size, 9)
@@ -1297,7 +1298,7 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
         view = CoinFlipView(cog, game.game_id)
         interaction = self.build_interaction(game.player_1_id)
 
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             asyncio.run(view.select_board_size(interaction, 6))
 
         self.assertEqual(game.board_size, 6)

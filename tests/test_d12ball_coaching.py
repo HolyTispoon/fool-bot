@@ -27,6 +27,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import AIOpponent, D12BallGame, Formation, GameStatus, Team
+from view_patches import suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -609,7 +610,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         click = build_click()
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await CoachingHubView(cog, game.game_id).finish(click)
 
         content = click.response.edit_message.await_args.kwargs["content"]
@@ -627,7 +628,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         cog.finish_substitution_window = mock.AsyncMock()
 
         click = build_click()
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await CoachingHubView(cog, game.game_id).finish(click)
 
         self.assertIn(

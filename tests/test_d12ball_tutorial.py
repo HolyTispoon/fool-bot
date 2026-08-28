@@ -29,7 +29,9 @@ from unittest import mock
 import discord
 
 from cogs import d12ball as d12ball_cog
-from cogs import d12ball_views as views_mod
+from cogs.d12ball_views import runback as runback_views
+from cogs.d12ball_views import turn as turn_views
+from view_patches import suppressed_view_saves
 from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
     HomeAwaySelectionView,
@@ -442,11 +444,12 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         signatures = []
 
         with mock.patch.object(d12ball_cog, "save_games"), \
-                mock.patch.object(views_mod, "save_games"), \
+                suppressed_view_saves(), \
                 mock.patch.object(
-                    views_mod, "add_full_image_button", mock.AsyncMock()), \
+                    runback_views, "add_full_image_button",
+                    mock.AsyncMock()), \
                 mock.patch.object(
-                    views_mod, "add_full_image_button_to_response",
+                    turn_views, "add_full_image_button_to_response",
                     mock.AsyncMock()), \
                 mock.patch.object(
                     d12ball_cog, "add_full_image_button", mock.AsyncMock()), \
@@ -590,7 +593,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         # The shot is real dice, so this is the position doing the
         # work: a striker's +9 against a lone halved +3.
         with mock.patch(
-            "cogs.d12ball_views.random.randint", return_value=6,
+            "random.randint", return_value=6,
         ):
             cog, game, log = await self.play()
 

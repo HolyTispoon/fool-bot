@@ -32,6 +32,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import D12BallGame, GameStatus, Team
+from view_patches import suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -495,13 +496,13 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         self, cog: D12Ball, game: D12BallGame, dice: list[int],
     ) -> MatchState:
         view = LooseBallSkillTestView(cog, game.game_id)
-        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+        with suppressed_view_saves(), mock.patch(
             "cogs.d12ball.save_games",
         ), mock.patch(
-            "cogs.d12ball_views.random.randint", side_effect=dice,
+            "random.randint", side_effect=dice,
         ), mock.patch(
-            "cogs.d12ball_views.render_skill_test_dice",
-        ), mock.patch("cogs.d12ball_views.discord.File"):
+            "cogs.d12ball_views.base.render_skill_test_dice",
+        ), mock.patch("discord.File"):
             await view.roll(build_contest_interaction())
         return cog.engine.load_match_state(game)
 

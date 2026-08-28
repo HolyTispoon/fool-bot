@@ -35,6 +35,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
+from view_patches import suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -142,10 +143,10 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         view = SkillTestView(cog, game.game_id)
-        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
-            "cogs.d12ball_views.random.randint", side_effect=[12, 1],
-        ), mock.patch("cogs.d12ball_views.render_skill_test_dice"), mock.patch(
-            "cogs.d12ball_views.discord.File",
+        with suppressed_view_saves(), mock.patch(
+            "random.randint", side_effect=[12, 1],
+        ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
+            "discord.File",
         ):
             await view.roll(interaction)
 
@@ -186,10 +187,10 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
     async def roll_contest(self, cog, game, rolls) -> SimpleNamespace:
         interaction = build_interaction()
         view = LooseBallSkillTestView(cog, game.game_id)
-        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
-            "cogs.d12ball_views.random.randint", side_effect=rolls,
-        ), mock.patch("cogs.d12ball_views.render_skill_test_dice"), mock.patch(
-            "cogs.d12ball_views.discord.File",
+        with suppressed_view_saves(), mock.patch(
+            "random.randint", side_effect=rolls,
+        ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
+            "discord.File",
         ):
             await view.roll(interaction)
         return interaction
@@ -328,10 +329,10 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
     async def roll_score_attempt(self, cog, game, rolls) -> SimpleNamespace:
         interaction = build_interaction()
         view = ScoreAttemptView(cog, game.game_id)
-        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
-            "cogs.d12ball_views.random.randint", side_effect=rolls,
-        ), mock.patch("cogs.d12ball_views.render_skill_test_dice"), mock.patch(
-            "cogs.d12ball_views.discord.File",
+        with suppressed_view_saves(), mock.patch(
+            "random.randint", side_effect=rolls,
+        ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
+            "discord.File",
         ):
             await view.roll(interaction)
         return interaction

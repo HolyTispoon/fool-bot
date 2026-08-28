@@ -30,6 +30,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
+from view_patches import suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -178,8 +179,8 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(1 <= defense_roll <= 12)
 
         view = SkillTestView(cog, game.game_id)
-        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
-            "cogs.d12ball_views.random.randint",
+        with suppressed_view_saves(), mock.patch(
+            "random.randint",
             side_effect=[offense_roll, defense_roll],
         ):
             await view.roll(interaction)

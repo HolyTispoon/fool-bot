@@ -47,6 +47,7 @@ from d12ball.game import (
     GameStatus,
     Team,
 )
+from view_patches import suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -735,7 +736,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build(board_size=9)
         view = CoachingFormationView(cog, game.game_id)
 
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await view.choose(build_interaction(), Formation.THREE_TWO_ONE)
 
         match = cog.engine.load_match_state(game)
@@ -772,7 +773,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
         view = CoachingFormationView(cog, game.game_id)
 
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await view.choose(
                 build_interaction(), Formation.TWO_THREE_ONE,
             )
@@ -796,7 +797,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
         view = CoachingFormationView(cog, game.game_id)
 
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await view.choose(
                 build_interaction(), Formation.ONE_THREE_TWO,
             )
@@ -885,7 +886,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _, others = self.build()
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await LowPassChoiceView(cog, game.game_id).choose(interaction, 0)
 
         view = interaction.response.edit_message.call_args.kwargs["view"]
@@ -898,7 +899,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _, others = self.build()
         chosen = others[-1]
 
-        with mock.patch("cogs.d12ball_views.save_games"), \
+        with suppressed_view_saves(), \
                 mock.patch("cogs.d12ball.save_games"):
             await LowPassReceiverView(cog, game.game_id, 0).choose(
                 build_interaction(), chosen,
@@ -915,7 +916,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _, others = self.build(extras=0)
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball_views.save_games"), \
+        with suppressed_view_saves(), \
                 mock.patch("cogs.d12ball.save_games"):
             await LowPassChoiceView(cog, game.game_id).choose(interaction, 0)
 
@@ -931,7 +932,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _, others = self.build()
         interaction = build_interaction(user_id=999)
 
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await LowPassReceiverView(cog, game.game_id, 0).choose(
                 interaction, others[0],
             )

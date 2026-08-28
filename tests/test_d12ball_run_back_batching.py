@@ -29,6 +29,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, Team
 from roster import fielded
+from view_patches import suppressed_view_saves
 
 
 def build_interaction() -> SimpleNamespace:
@@ -359,7 +360,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             ),
             followup=SimpleNamespace(send=mock.AsyncMock()),
         )
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await view.choose(click, midfield[1])
 
         click.response.edit_message.assert_awaited_once()

@@ -40,6 +40,7 @@ from d12ball.components import (
 from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
+from view_patches import suppressed_view_saves
 
 
 def by_role(match: MatchState, side: TeamSide) -> list[str]:
@@ -489,7 +490,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
 
         squad = match.shootout_squad(TeamSide.HOME)
         view = ShootoutOrderSelectView(cog, game.game_id, TeamSide.HOME)
-        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+        with suppressed_view_saves(), mock.patch(
             "cogs.d12ball.save_games",
         ):
             for player_id in squad:
@@ -817,15 +818,15 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
     async def roll(self, cog, game, rolls: list[int]):
         interaction = build_interaction()
         view = ShootoutTestView(cog, game.game_id)
-        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
+        with suppressed_view_saves(), mock.patch(
             "cogs.d12ball.save_games",
         ), mock.patch(
-            "cogs.d12ball_views.render_skill_test_dice",
+            "cogs.d12ball_views.base.render_skill_test_dice",
             return_value=b"",
         ), mock.patch(
-            "cogs.d12ball_views.discord.File", return_value=None,
+            "discord.File", return_value=None,
         ), mock.patch(
-            "cogs.d12ball_views.random.randint", side_effect=rolls,
+            "random.randint", side_effect=rolls,
         ):
             await view.roll(interaction)
         return interaction
@@ -1179,7 +1180,7 @@ class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction(user_id=111)
 
         view = ShootoutOrderSelectView(cog, game.game_id, TeamSide.HOME)
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await view.pick(interaction, squad[0])
 
         self.assertEqual(
@@ -1200,7 +1201,7 @@ class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction(user_id=111)
 
         view = ShootoutOrderSelectView(cog, game.game_id, TeamSide.HOME)
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await view.restart(interaction)
 
         self.assertEqual(
@@ -1280,7 +1281,7 @@ class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction(user_id=111)
 
         view = ShootoutOrderSelectView(cog, game.game_id, TeamSide.HOME)
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await view.restart(interaction)
 
         self.assertEqual(
