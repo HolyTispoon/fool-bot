@@ -500,6 +500,13 @@ class LooseBallSkillTestView(SafeView):
         ]
         distance_moved = match.pending_loose_ball_distance
         is_high_pass = match.pending_loose_ball_is_high_pass
+        # Read with the rest of the position, before anything below
+        # clears it: what the ball was is a fact about where it came
+        # down, and only a space nobody was standing on makes it loose
+        # (the author, 2026-08-26). Two players rolling for it is a
+        # contest, and calling that a loose ball in the result told a
+        # coach the opposite of what they had just watched.
+        noun = contest_noun(match)
 
         match.ball.possession = winner_side
         if turnover_occurred:
@@ -527,7 +534,7 @@ class LooseBallSkillTestView(SafeView):
             )
         else:
             outcome_line = (
-                f"{winner_bracket} wins the loose ball! {winner_mention} "
+                f"{winner_bracket} wins the {noun}! {winner_mention} "
                 "has possession."
             )
 

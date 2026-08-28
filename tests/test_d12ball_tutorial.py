@@ -544,22 +544,39 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
                 {beat.player_maneuver, beat.dinky_maneuver},
             )
 
-    async def test_the_scripted_goal_reaches_the_statistics(self) -> None:
+    async def test_the_scripted_shot_reaches_the_statistics(self) -> None:
         """
-        The whole pipeline in one number: five turns played, a shot
-        taken off beat 5's set-up, and a goal that the fold credits to
-        the possession -- and so to the High Pass that made it.
+        The whole pipeline: five turns played, a shot taken off beat
+        5's set-up, and whatever it produced credited to the
+        possession -- and so to the High Pass that made it.
+
+        **The shot's outcome is not asserted, because the script does
+        not fix it.** It is deliberately left to the dice (see "The
+        five beats" in CLAUDE.md), a heavy favourite and not a
+        certainty, so a test demanding a goal fails one run in seven
+        for the reason the tutorial is built to allow -- which it did,
+        on `main`, at about that rate. What the fold has to agree with
+        is what *happened*, so the goal counts are read off the goal
+        log: a separate record, written by `record_goal` rather than
+        by the `shot` event this fold counts, so the two agreeing is a
+        real claim either way round. The one test that does need the
+        ball in the net pins the dice --
+        `test_the_script_ends_in_a_goal_at_the_minute_it_should`.
         """
         cog, game, _ = await self.play()
         match = cog.engine.load_match_state(game)
+        scored = len(match.goals)
 
         shots = stats.collect_shots([match])
         self.assertEqual(shots.attempts, 1)
-        self.assertEqual(shots.goals, 1)
         self.assertEqual(shots.set_up_attempts, 1)
+        self.assertEqual(shots.goals, scored)
+        self.assertEqual(shots.set_up_goals, scored)
 
         report = stats.collect_maneuvers([match])
-        self.assertEqual(report.records[tutorial.HIGH_PASS].goals_for, 1)
+        self.assertEqual(
+            report.records[tutorial.HIGH_PASS].goals_for, scored,
+        )
 
     async def test_no_side_is_ever_re_dealt(self) -> None:
         # The whole of "no seams", in one number. The tutorial kicks

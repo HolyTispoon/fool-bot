@@ -464,6 +464,18 @@ nothing downstream has to know which happened.
     the view is now built in a state where declining is refused, which used to
     happen only after a restart re-attached it to a stale prompt. That check
     still earns its keep for the same reason it did before.
+    - **Both routes into a challenge read the count, and one of them used to
+      read it as a flag.** `play_ai_turn` -- the AI on offense, so a *human*
+      defending -- took `on_ball_space[0]` and sent it, picking for the coach
+      off placement order in the one game where nobody else could. It asks the
+      same `len(...) == 1` now. A rule about how many candidates there are has
+      to be asked wherever candidates are counted, not only where it was
+      written down first.
+    - **The two prompts word themselves out of `challenger_prompt_ask`**, in
+      `d12ball/formatting.py`: two defenders on the ball cannot be held back,
+      so a prompt offering "or send nobody" offers what
+      `ManeuverChallengeView` does not build. The AI's route said it
+      regardless, which is what having the sentence twice buys you.
 - **Which way it happened is read off the candidates, never stored.** Anybody
   still eligible to challenge means the defense was offered the challenge and
   passed, since a defense with nobody to send is never asked.
@@ -550,6 +562,13 @@ extra click bought a round trip and nothing else.
   cards chunked at the five-per-row limit would read five and one. An advanced
   contested prompt is exactly five rows -- two a side plus the reference -- which
   is Discord's ceiling and worth knowing before adding a seventh card.
+  - **The wording above the prompt names the colour by looking it up**, in
+    `MANEUVER_ROW_COLOURS`, rather than by knowing which side a lone row
+    belongs to. A one-row prompt is the *defense's* whenever Dinky has the
+    ball, and `maneuver_prompt_wording` said "the red row" either way -- which
+    sent a solo coach on defense looking for buttons that were not theirs. One
+    table for the two names, so the sentence cannot come to disagree with the
+    `danger`/`success` styles the buttons are built with.
 - **The restart story got simpler, not more complicated.** The prompt is on a
   real message recorded in `turn_message_id`, so `on_ready` re-attaches it
   through `pending_turn_view` like any other view. The message-agnostic
@@ -1366,6 +1385,13 @@ the two paths that did not pass it kept the old behaviour.
   ball", never "contests the contest". See
   [What a message says](#what-a-message-says) for the wording rules the same
   correction produced.
+  - **Every message on the path asks for it, the result and the resume
+    included.** `settle_loose_ball_winner` announced "wins the loose ball!"
+    whatever had happened, so the sentence a coach read *after* watching two
+    players roll for a space they were both standing on denied what they had
+    just seen; `pending_turn_view`'s two loose-ball prompts said it too, in
+    front of a coach about to act on the position. The noun is read with the
+    rest of the position, before the fields the result clears.
 - **`pending_loose_ball_on_empty_space` is persisted, and cannot be derived.**
   By the time a roll or a result is worded the contestants have been walked onto
   the space, so the position that decides the word is gone --
@@ -1838,6 +1864,15 @@ expects.
   **d12+11** against the fullback's **d12+6**, which is **85.4%**,
   measured at 87% over 200 playthroughs. A tutorial that cannot lose
   its last shot is not teaching the game.
+  - **So a test that plays the script may not assert the ball went
+    in.** One did, and failed about one run in seven on `main` -- for
+    exactly the reason the shot is left open, which is why it read as
+    a flake rather than as the test asking for something the design
+    refuses to promise. A test that needs the goal pins the dice
+    (`random.randint` to 6, the position doing the rest); a test that
+    only needs the *statistics* to be right reads the outcome off the
+    match and checks the fold agrees with it. See "The playthrough
+    test".
   - **Beat 4's speed rail is worth a whole point of that margin**, and
     is the reason the lesson explains it rather than just greying the
     buttons. A turnover resets ball speed, so beat 1's speed choice is
@@ -1970,7 +2005,18 @@ anything else in the suite. It asserts that **no side is ever
 re-dealt** (`MatchState.deploy_side` is called zero times), that
 staging a beat moves nothing, that only the two intended choices ever
 leave two buttons live, that possession changes hands the three
-scripted times, and that the whole thing arrives at a goal on minute 7.
+scripted times, and that the whole thing arrives at a goal on minute 7
+-- that last one with the dice pinned, since the shot itself is not
+scripted (see "Determinism: rails and dice").
+
+**Only the test that is about the goal pins them.** Everything else
+plays the real dice, which is what makes the suite an actual
+playthrough rather than one fixed transcript -- and is why
+`test_the_scripted_shot_reaches_the_statistics` asserts the shot
+statistics against `len(match.goals)` rather than against 1. The goal
+log is a separate record from the `shot` event that fold counts, so
+the two agreeing is a real claim whichever way the shot went, and the
+miss is the run that would otherwise fail.
 
 **The lesson text is not asserted anywhere.** It is prose, it will be
 revised, and a test quoting it would only ever break on a reword. What

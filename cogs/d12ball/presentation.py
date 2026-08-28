@@ -38,6 +38,7 @@ from cogs.d12ball_helpers import (
     PBD_ARCHIVE_CATEGORY_NAME,
     add_full_image_button,
     board_image_filename,
+    challenger_prompt_ask,
     format_ai_name,
     format_player_with_team,
     format_team_side_label,
@@ -526,10 +527,14 @@ class PresentationMixin:
 
         match.pending_action = "maneuver"
 
-        # A defender already sharing the ball's exact space leaves
-        # nothing to choose -- see PlayerActionView.choose_action.
+        # *One* defender already sharing the ball's exact space leaves
+        # nothing to choose -- see PlayerActionView.choose_action, and
+        # note that this is a count and not a flag there too: two of
+        # them on the ball is the defending coach's pick (the author,
+        # 2026-08-17), and taking `on_ball_space[0]` here picked for
+        # them off placement order without asking.
         on_ball_space = match.automatic_challengers()
-        if on_ball_space:
+        if len(on_ball_space) == 1:
             self.persist(game, match)
 
             # Nothing is announced here: the challenge image
@@ -553,9 +558,7 @@ class PresentationMixin:
         challenge_message = await interaction.followup.send(
             f"{ai_name} will maneuver with "
             f"{self.player_label(match, handler)}.\n\n"
-            f"{defender_mention}, choose which player will maneuver "
-            "to challenge for the ball, or send nobody and let the "
-            "maneuver through.",
+            f"{defender_mention}, {challenger_prompt_ask(match)}",
             view=challenge_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(

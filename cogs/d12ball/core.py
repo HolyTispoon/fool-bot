@@ -64,7 +64,9 @@ from cogs.d12ball_helpers import (
     EMOJI_REFETCH_INTERVAL,
     ERROR_RECOVERY_ADVICE,
     LOGGER,
+    MANEUVER_ROW_COLOURS,
     add_full_image_button,
+    contest_noun,
     fetch_application_emojis,
     format_player_with_team,
     format_role_bracket,
@@ -771,9 +773,16 @@ class CoreMixin:
         # The buttons are on the message, so there is nothing to tell a
         # coach to open. What the wording has to do instead is say which
         # row is theirs, since a contested prompt carries both.
+        #
+        # A lone side is not always the offense: a solo game's prompt
+        # is one row, and it is the *defense's* whenever Dinky has the
+        # ball. So the colour is read off the side rather than written
+        # down -- it is the row's own colour either way (offense red,
+        # defense green; see ManeuverActionPromptView).
         instruction = (
-            "choose a maneuver from the red row -- only you can see "
-            "what you picked."
+            "choose a maneuver from the "
+            f"{MANEUVER_ROW_COLOURS[sides[0]]} row -- only you can "
+            "see what you picked."
             if len(sides) == 1
             else (
                 "both sides pick privately from the same message: red "
@@ -1648,18 +1657,24 @@ class CoreMixin:
             )
 
         if match.pending_loose_ball:
+            # Named off the position like every other message on this
+            # path: only a ball lying where nobody stands is loose, and
+            # a resume that calls a contest -- or a High Pass -- a
+            # loose ball misreads it in front of the coach about to
+            # act on it. See contest_noun.
+            noun = contest_noun(match)
             if (
                 match.loose_ball_offense_player is not None
                 and match.loose_ball_defense_player is not None
             ):
                 return (
                     LooseBallSkillTestView(self, game_id),
-                    "Either player can roll for the loose ball:",
+                    f"Either player can roll for the {noun}:",
                 )
             return (
                 self.build_loose_ball_view(game_id, match)
                 or PlayerActionView(self, game_id),
-                "Choose who goes after the loose ball:",
+                f"Choose who goes after the {noun}:",
             )
 
         if match.pending_action == "shoot":
