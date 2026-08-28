@@ -838,6 +838,11 @@ def format_shots(report: ShotReport) -> list[str]:
 
 
 def format_conditions(report: ConditionReport) -> list[str]:
+    tie_rate = (
+        report.skill_test_ties / report.skill_tests
+        if report.skill_tests
+        else None
+    )
     lines = [
         f"{'EXHAUSTION AND INJURY':<34}{'count':>10}{'rate':>10}",
         _rule(),
@@ -846,7 +851,7 @@ def format_conditions(report: ConditionReport) -> list[str]:
         f"{'Skill tests rolled':<34}{report.skill_tests:>10}{'':>10}",
         f"{'  of them tied and re-rolled':<34}"
         f"{report.skill_test_ties:>10}"
-        f"{_percent(report.skill_test_ties / report.skill_tests if report.skill_tests else None, 10)}",
+        f"{_percent(tie_rate, 10)}",
         f"{'Injury tests rolled':<34}{report.injury_tests:>10}{'':>10}",
         f"{'  that ended in an injury':<34}{report.injuries:>10}"
         f"{_percent(report.injury_rate, 10)}",
