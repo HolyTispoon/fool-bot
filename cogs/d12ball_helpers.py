@@ -26,6 +26,7 @@ from d12ball.formatting import (
     ROLE_INITIALS,
     ZONE_LETTERS,
     ball_space_label,
+    challenger_prompt_ask,
     contest_noun,
     destination_display_name,
     format_ai_name,
@@ -93,6 +94,16 @@ HIGH_PASS_CONTEST_HEADLINE = (
     "**High Pass:** the receiving player must win a skill test to keep "
     "possession."
 )
+
+# What a maneuver row is called in the prompt above it. The colours
+# are the buttons' own (ManeuverActionPromptView builds an offense row
+# `danger` and a defense row `success`) and the cards' -- one name for
+# both, so the wording cannot come to disagree with what a coach is
+# looking at.
+MANEUVER_ROW_COLOURS = {
+    "offense": "red",
+    "defense": "green",
+}
 
 # contest_noun is imported above, from d12ball.formatting.
 

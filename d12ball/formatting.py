@@ -92,6 +92,30 @@ def contest_noun(match: MatchState) -> str:
     )
 
 
+def challenger_prompt_ask(match: MatchState) -> str:
+    """
+    What the defending coach is being asked when they pick a
+    challenger, which is two different questions.
+
+    Ordinarily the choice includes not making one: a walk-in costs a
+    token a space, so keeping everybody back is a real option
+    (may_decline_challenge). Where the candidates are defenders already
+    standing on the ball it is not -- they pay nothing to challenge and
+    their side may not withhold them -- so the question narrows to
+    which of them goes. The prompt must not offer what the view does
+    not build; see MatchState.challenge_candidates.
+    """
+    if match.may_decline_challenge():
+        return (
+            "choose which player will maneuver to challenge for the "
+            "ball, or send nobody and let the maneuver through."
+        )
+    return (
+        "these players are already on the ball, so one of them has to "
+        "challenge -- choose which."
+    )
+
+
 def format_ai_name(ai_opponent: Optional[AIOpponent]) -> str:
     return AI_OPPONENT_NAMES[ai_opponent or AIOpponent.DINKY]
 

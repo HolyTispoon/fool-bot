@@ -21,6 +21,7 @@ from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     ROLE_INITIALS,
     add_full_image_button_to_response,
+    challenger_prompt_ask,
     format_player_with_team,
     refresh_player_names,
 )
@@ -431,14 +432,8 @@ class PlayerActionView(SafeView):
         # Two defenders on the ball are the whole of the choice and
         # neither of them can be kept back, so the prompt must not
         # offer what the view does not build -- see
-        # MatchState.challenge_candidates.
-        ask = (
-            "choose which player will maneuver to challenge for the "
-            "ball, or send nobody and let the maneuver through."
-            if match.may_decline_challenge()
-            else "these players are already on the ball, so one of "
-            "them has to challenge -- choose which."
-        )
+        # challenger_prompt_ask, which the AI's own turn asks as well.
+        ask = challenger_prompt_ask(match)
         handler_team = match.team_for_player(handler.player_id)
         challenge_view = ManeuverChallengeView(self.cog, self.game_id)
         challenge_message = await interaction.followup.send(

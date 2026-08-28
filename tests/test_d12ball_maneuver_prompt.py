@@ -158,6 +158,59 @@ class ManeuverPromptLifetimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(game.turn_message_id)
 
 
+class ManeuverPromptWordingTests(unittest.TestCase):
+    """
+    Which row the coach above the prompt is told is theirs.
+
+    A lone side is not always the offense: a solo game's prompt is one
+    hand and one row, and it is the *defense's* whenever Dinky has the
+    ball. The wording said "the red row" either way, which sent a coach
+    looking for buttons that were not on their side of the message.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build(self):
+        cog = build_cog()
+        game = build_game()
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        return cog, game, match
+
+    def test_a_lone_offense_is_sent_to_the_red_row(self) -> None:
+        cog, game, match = self.build()
+
+        _, instruction = cog.maneuver_prompt_wording(game, match, ["offense"])
+
+        self.assertIn("red row", instruction)
+
+    def test_a_lone_defense_is_sent_to_the_green_row(self) -> None:
+        cog, game, match = self.build()
+
+        _, instruction = cog.maneuver_prompt_wording(game, match, ["defense"])
+
+        self.assertIn("green row", instruction)
+
+    def test_a_contested_prompt_names_both(self) -> None:
+        cog, game, match = self.build()
+
+        waiting_on, instruction = cog.maneuver_prompt_wording(
+            game, match, ["offense", "defense"],
+        )
+
+        self.assertEqual(len(waiting_on), 2)
+        self.assertIn("red for the offense", instruction)
+        self.assertIn("green for the defense", instruction)
+
+
 class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
     """
     How a settled challenge is announced.
