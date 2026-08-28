@@ -266,7 +266,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch.object(
+        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch.object(
             SkillTestView, "score_skill_test", return_value=([], 7, 7),
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",
