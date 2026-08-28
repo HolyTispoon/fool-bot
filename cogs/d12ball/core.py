@@ -1733,7 +1733,12 @@ class CoreMixin:
             return RunBackChoiceView(self, game_id, candidates[0])
         return RunBackPlayerChoiceView(self, game_id, candidates)
 
-    def record_maneuver(self, match: MatchState, winner_key: str) -> None:
+    def record_maneuver(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        winner_key: str,
+    ) -> None:
         """
         Log the maneuver that has just been settled -- both picks, the
         winner, and how it was won.
@@ -1781,6 +1786,15 @@ class CoreMixin:
             decision=decision,
             challenger_id=match.challenger_id,
         )
+        # **Saved here, and this is not optional.** An effect that
+        # ends in a prompt hands the turn to a click that will load
+        # the match back out of the save file, so an event written and
+        # not persisted is an event the next interaction never sees --
+        # which is exactly what a Dribble Advance did, since its own
+        # prompt saves the game record without rewriting the match
+        # (correctly: nothing on the match had changed until now).
+        # Anything that records has to save in the same breath.
+        self.persist(game, match)
 
     async def begin_effect_resolution(
         self,
@@ -1798,7 +1812,7 @@ class CoreMixin:
         restart mid-choice can still reconstruct exactly where things
         left off (see build_effect_choice_view).
         """
-        self.record_maneuver(match, winner_key)
+        self.record_maneuver(game, match, winner_key)
 
         handlers = {
             "low_pass": self.resolve_low_pass,
