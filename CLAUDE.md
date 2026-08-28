@@ -23,7 +23,7 @@ python3 -m unittest discover -s tests
 | `botstate.py` | The little the bot remembers between runs, in `data/bot_state.json` |
 | `discord_emoji_cache.py` | The cache-with-cooldown shape shared by every cog's application-emoji lookup (`cogs/coins.py`, `cogs/d12ball.py`) -- not what each cog loads, only the retry timing |
 | `botlog/` | Console logging setup, and the #logs channel mirror — see below |
-| `cogs/d12ball/` | All D12 Ball slash commands and the Discord interaction flow. One class of 217 methods over 10,087 lines is what this package replaced, split along the section banners the file already carried: `core` (lifecycle, lookups, `persist`, the spine of a turn, `pending_turn_view`), `effects` (one banner per maneuver), `turnovers` (run back, cede, out-of-bounds pickup), `periods` (clock, halftime, shootout), `presentation` (prompts, images, channels, the AI turn, the tutorial's narration) and `slash_commands` (every command, the two subgroups, the startup sweep). `__init__.py` assembles `D12Ball` from the six mixins and re-exports what the module exposed, so `from cogs.d12ball import D12Ball` is unchanged. |
+| `cogs/d12ball/` | All D12 Ball slash commands and the Discord interaction flow. One class of 217 methods over 10,087 lines is what this package replaced, split along the section banners the file already carried: `core` (lifecycle, lookups, `persist`, the spine of a turn, `pending_turn_view`), `effects` (one banner per maneuver), `turnovers` (run back, cede, out-of-bounds pickup), `periods` (clock, halftime, shootout), `presentation` (prompts, images, channels, the AI turn, the tutorial's narration) and `slash_commands` (every command, the three subgroups, the startup sweep). `__init__.py` assembles `D12Ball` from the six mixins and re-exports what the module exposed, so `from cogs.d12ball import D12Ball` is unchanged. |
 | `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming. Re-imports and re-exports everything `d12ball/formatting.py` holds, so an existing `from cogs.d12ball_helpers import space_label` keeps working; what stayed here needs an emoji dict or discord.py itself. |
 | `cogs/d12ball_views/` | The `discord.ui.View` classes, one per prompt a player can be shown -- forty-nine of them, split into ten modules along the clusters they already fell into (`base`, `setup`, `turn`, `rolls`, `runback`, `effects`, `coaching`, `halftime`, `loose_ball`, `shootout`). `__init__.py` re-exports every name the single file held, so `from cogs.d12ball_views import X` is unchanged for every X and no call site moved -- the arrangement `cogs/d12ball_helpers.py` has with `d12ball/formatting.py`. `base` holds `SafeView` (whose `load_match`/`require_match` are the shared "get the game and its match, or bail" lookup nearly every view opens with, and whose `is_game_participant` is the shared "is this one of the two coaches" check a roll button answers to) plus the two contest-rendering helpers; it imports from no sibling, which is what keeps the package a DAG. |
 | `cogs/d12ball_boards.py` | The write gate on a game's persistent board message. `BoardRefreshState` is one game's -- when a write landed, the pass waiting to write again, the board already on the message, the link owed for it, the lock, the wants arriving mid-write, the refusals -- and `BoardRefresher` holds one per game and the six methods that read it. Those were seven parallel dicts keyed by game id on the cog, agreeing about a game only by hand at each of the eleven sites that wrote them. `D12Ball` keeps a thin forwarding method for each of the six, so no call site moved -- see "Discord's rate limits". |
@@ -37,6 +37,7 @@ python3 -m unittest discover -s tests
 | `d12ball/player_cards.py` | The roster as cards, print-only, over `cards.py`'s print machinery |
 | `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
+| `d12ball/stats.py` | Every statistic `/d12ball stats` reports, as a fold over `MatchState.events`, plus the plain-text tables it renders. No Discord and no game flow: a statistic is a reading of what happened, and a reading that could change what happens is a bug waiting to be written -- see "The event log" below |
 | `d12ball/tutorial.py` | The scripted opening a tutorial game plays -- the five beats as data, and the rails -- see below |
 | `d12ball/data/` | `players.json`, `basic_rules.json`, `maneuvers.json` |
 | `d12ball/images/` | Card art and emoji |
@@ -905,6 +906,130 @@ which is the whole reason this exists.
   own announcement carries `format_goal_time`, and the full listing is added to
   `announce_game_over`'s content by its two callers -- not inside it, which is
   handed a string and holds no match.
+
+## The event log, and the statistics read off it
+
+`MatchState.events` is everything that happened in a match, in the order it
+happened, and `d12ball/stats.py` folds it into every number `/d12ball stats`
+reports. It exists for the reason [the goal log](#the-goal-log) does, one step
+further on: a match holds the **current position**, so who is injured is
+readable and what injured them is not, and how many tokens a player is carrying
+is readable and what charged them is not. Neither is reconstructable after the
+fact.
+
+- **`MatchState.record_event` is the only writer**, exactly as `record_goal` is
+  for the goal log, and for the same reason: a second way in is a second thing
+  that can disagree about what a match did.
+- **The list's order is the whole of its structure.** There is no turn counter
+  and no possession counter, deliberately -- an event belongs to the last
+  `turn_action` before it (`events_this_turn`), and a possession is a run of
+  consecutive `turn_action`s by one side (`stats.possessions`). Both are exact
+  reads of the order, where a stored counter is a second thing that can
+  disagree with it, and would have to be cleared, bumped and persisted in step
+  with a flow that has enough of those already.
+- **It is not state.** Nothing in the game asks it a question and a match with
+  an empty log plays identically -- which is what lets a game saved before the
+  field load and simply report nothing. Don't make a rule read it.
+- **Anything that records has to save in the same breath.** An effect that ends
+  in a prompt hands the turn to a click that reloads the match out of the save
+  file, so an event written and not persisted is one the next interaction never
+  sees. That is not hypothetical: `record_maneuver` landed without a `persist`
+  of its own and beat 1 of the tutorial vanished from the log, because
+  `resolve_dribble_advance` saves the *game record* without rewriting the match
+  (correctly -- nothing on the match had changed until the event did).
+- **Where each kind is written**, all of them single funnels every path already
+  bottoms out in:
+
+  | kind | recorded by | why there |
+  | --- | --- | --- |
+  | `turn_action` | `D12Ball.record_turn_action`, from the three buttons on `PlayerActionView` and from `play_ai_turn` | after each one's own stale-view guard -- a refused click is not a turn |
+  | `maneuver` | `begin_effect_resolution` | every maneuver in the game reaches it exactly once, decisive, unchallenged or through the skill test |
+  | `skill_test` | `SkillTestView.roll` | before either branch, so a tie that re-rolls is in the record as well as the roll that settles it |
+  | `shot` | `ScoreAttemptView.roll` | before `settle_score_attempt`, which awards the goal |
+  | `own_goal_roll` | `run_own_goal_roll` | both outcomes: the rate needs the attempts as well as the concessions |
+  | `injury_test` | `run_injury_test` | both outcomes, same reason -- `mark_injured` deliberately logs nothing, or a failed test would be in twice |
+  | `goal` | `MatchState.record_goal` | beside the `GoalRecord`, which has no way to say *where in the run of play* |
+
+- **Exhaustion is attributed, not logged.** `MatchState.add_exhaustion` adds to
+  the open turn's own event rather than writing one apiece: a game makes around
+  a hundred of those calls, and what a statistic asks is what a maneuver cost,
+  never in what order the tokens were handed out. Every path that charges
+  bottoms out there -- the cog's `apply_exhaustion`, the run back's own charge,
+  and the AI's -- which is why the attribution is at the model and not at those
+  three. A charge between turns (a halftime recovery) belongs to no turn and is
+  simply not attributed.
+- **How a maneuver was won is read off the log, not off the match.** The
+  obvious test -- ask `settled_maneuver_winner` whether the cards decided it --
+  is wrong by a hair: the injury tests run between the roll and the effect, so
+  a skill test whose loser went down injured would come back reading as a win
+  on the cards. A `skill_test` event in the turn means the dice settled it,
+  full stop, and the log cannot move under it that way.
+- **`abandoned` on `D12BallGame` splits the two ways a game reaches
+  `FINISHED`.** Nothing in the flow needs them apart -- neither is coming back
+  -- but a scoreboard read off a game nobody finished is a win nobody earned,
+  so `abandon()` sets it and `collect_overview` counts such a game without
+  counting its result. It defaults False, so a game saved before the field
+  counts as played out, which is what almost all of them are.
+
+### What the statistics are, and what they are not
+
+- **An uncontested maneuver is in no rate.** It always wins, so counting it
+  would report the defense's decision to send nobody as the offense card's own
+  success -- `ManeuverRecord.contested` is `CONTESTED_DECISIONS` and the
+  unchallenged plays are reported in a column of their own.
+- **A goal belongs to the possession, not the turn.** A pass that works pays
+  off on the shot it set up a turn or two later, so `collect_maneuvers` credits
+  a possession's goals to every maneuver played in it. That over-credits by
+  design: the log cannot say which of three maneuvers mattered most, and
+  crediting only the last would report the High Pass as the only card that ever
+  scores.
+- **`exh` and `inj` on a maneuver's row are the turn's, not the card's.** A
+  turn charges both sides, and the log does not say which of the two a token
+  belonged to. Splitting it further would be inventing an attribution the data
+  does not carry, which is why the table says so under itself.
+- **A rate with no denominator is `None`, drawn as a dash.** "0%" for a card
+  played once unchallenged would say it always loses, which is the opposite of
+  what happened.
+- **A game with no events is not a game with no statistics -- it is a game the
+  bot was not counting yet**, and every report says how many of those it is
+  standing on. Same reason `build_goal_log` counts itself against the
+  scoreboard rather than trusting the two agree.
+- **Scoped to the guild, always, with no option to widen it.** `self.games` is
+  every game on every server the bot is in; one server's players have no
+  business reading another's, and a cross-server total is a disclosure nobody
+  consented to.
+- **The tables are sized to 58 characters** and live in `d12ball/stats.py`
+  rather than the cog, for the reason `d12ball/formatting.py` exists -- they
+  are words about match data with no Discord in them. A Discord code block
+  scrolls rather than wraps, so a row wider than a phone's message column is
+  one a coach has to drag sideways to read. Adding a column means taking one
+  out. Rows are in the catalog's own rank order rather than by frequency: a
+  table whose rows move between two runs cannot be compared with the one a
+  coach read last week.
+
+### Where the statistics are tested
+
+Split three ways, because a recorder that fires on the wrong object -- or
+before a save that never happens -- is invisible to a unit test:
+
+- `tests/test_d12ball_stats.py` checks the **reading**, over events built by
+  hand. That is deliberate: the fold needs fixtures a real game would take
+  fifty turns to reach.
+- `TutorialPlaythroughTests` checks the **writing**, against
+  `tutorial.BEATS` rather than a copy of it -- five real turns through the real
+  cog is what caught the missing `persist`.
+- `EveryMatchupResolvesTests` checks the writing across **all thirty-six
+  pairings**, on three boards and both control paths, which is the coverage a
+  log written at seven funnels needs.
+
+### What is deliberately not counted yet
+
+A loose ball's own contest logs no event of its own -- injuries and exhaustion
+out of one still reach the log through the turn they happened in, but who
+contested and who won does not. It is the one contest in the game that is not
+a maneuver, and nothing in the author's questions asked for it. Adding it is a
+`record_event` beside `LooseBallSkillTestView.roll` and a column, not a
+redesign.
 
 ## The extreme shootout
 
@@ -3661,6 +3786,15 @@ starts saving and is not named there.
   were always global; they say `random.` and `discord.` now, which is what
   they always did.
 
+
+**A recorder is tested where a real game is already being played.** The event
+log behind the statistics is written at seven separate funnels, and a recorder
+that fires on the wrong object -- or before a save that never happens -- passes
+every unit test and loses the event. So `tests/test_d12ball_stats.py` covers
+the fold and the two suites that already play real games cover the writing:
+`TutorialPlaythroughTests` (five scripted turns through the real cog) and
+`EveryMatchupResolvesTests` (all thirty-six pairings). See "Where the
+statistics are tested".
 
 **A test names a player by their role, not by their name.** The roster is data
 the author revises, and a revision is not a code change: 36250a9 renamed five

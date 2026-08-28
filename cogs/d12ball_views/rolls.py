@@ -10,6 +10,8 @@ import random
 from typing import TYPE_CHECKING
 
 from d12ball.components import (
+    EVENT_SHOT,
+    EVENT_SKILL_TEST,
     MatchState,
     PlayerDefinition,
     PlayerRole,
@@ -210,6 +212,23 @@ class SkillTestView(SafeView):
 
         contestants, offense_total, defense_total = self.score_skill_test(
             game, match, offense_player, defense_player,
+        )
+        # Logged before either branch, so a tie that re-rolls is in the
+        # record as well as the roll that settles it -- a maneuver
+        # decided on the third attempt cost three rolls and six
+        # exhaustion tokens, and only the log says so. It is also what
+        # `record_maneuver` reads to tell a win on the dice from a win
+        # on the cards, so it has to be written before the effect is
+        # dispatched.
+        match.record_event(
+            EVENT_SKILL_TEST,
+            side=match.ball.possession,
+            player_id=match.active_player_id,
+            offense_total=offense_total,
+            defense_total=defense_total,
+            tied=offense_total == defense_total,
+            offense_key=match.offense_maneuver,
+            defense_key=match.defense_maneuver,
         )
         dice_file = await render_contest_dice(
             contestants, filename="skill_test_dice.png",
@@ -612,6 +631,29 @@ class ScoreAttemptView(SafeView):
         )
 
         scored = attack_total >= defense_total
+        # Ahead of `settle_score_attempt`, which is what awards the
+        # goal: the shot goes into the log before the goal it produced,
+        # so a fold reading the two in order sees cause and then
+        # effect. Everything that priced the shot rides on it, because
+        # a bare conversion rate says nothing about why -- these four
+        # are what a coach can actually change: who takes it, whether
+        # it came off a set-up, at what ball speed, and through how
+        # many defenders. The two are recomputed rather than threaded
+        # out of `score_score_attempt`, which owns them and mutates
+        # nothing.
+        match.record_event(
+            EVENT_SHOT,
+            side=match.ball.possession,
+            player_id=shooter.player_id,
+            scored=scored,
+            set_up=bool(match.pending_shot_is_set_up),
+            speed_modifier=match.ball_speed_modifier(),
+            defender_count=len(
+                self.cog.engine.intervening_defenders(match)
+            ),
+            attack_total=attack_total,
+            defense_total=defense_total,
+        )
         verdict, space_minutes = self.settle_score_attempt(
             game, match, shooter, attacking_setup, defending_setup, scored,
         )

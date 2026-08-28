@@ -1,5 +1,5 @@
 """
-Every slash command, the two subgroups they hang off, and the
+Every slash command, the three subgroups they hang off, and the
 startup sweep that files finished games away.
 """
 
@@ -13,6 +13,7 @@ from discord import app_commands
 from discord.ext import commands
 from d12ball.components import (
     MatchPeriod,
+    MatchState,
     PlayerRole,
     TeamSide,
     Zone,
@@ -24,7 +25,7 @@ from d12ball.game import (
     GameStatus,
     team_display_name,
 )
-from d12ball import tutorial
+from d12ball import stats, tutorial
 from d12ball.rules_doc import (
     LIVING_RULES_PATH,
     RulesDocument,
@@ -56,7 +57,8 @@ from cogs.d12ball.constants import MAX_DEBUG_CLOCK
 
 class CommandsMixin:
     """
-    Every slash command, the two subgroups they hang off, and the
+    Every slash command, the three subgroups they hang off, and the
+    startup sweep that files finished games away.
     """
 
     ball_group = app_commands.Group(
@@ -67,6 +69,354 @@ class CommandsMixin:
         name="meeple",
         description="Move meeples on the board.",
     )
+
+    stats_group = app_commands.Group(
+        name="stats",
+        description="What has actually been played -- this game, or all of them.",
+    )
+
+    # The scopes a coach may ask for, in the order they are offered.
+    # `this_game` is first because it is the one with an obvious
+    # answer in a game channel; the other three are the split the
+    # author asked for and the only one that means anything -- see
+    # `stats.game_category`.
+    STATS_SCOPE_CHOICES = [
+        app_commands.Choice(name="This game", value=stats.SCOPE_THIS_GAME),
+        app_commands.Choice(name="Games against Dinky", value=stats.SCOPE_DINKY),
+        app_commands.Choice(name="Test games", value=stats.SCOPE_TEST),
+        app_commands.Choice(
+            name="Games between two players", value=stats.SCOPE_HUMAN,
+        ),
+        app_commands.Choice(name="Every game", value=stats.SCOPE_ALL),
+    ]
+
+    def stats_matches(
+        self,
+        interaction: discord.Interaction,
+        scope: str,
+    ) -> Optional[tuple[list[tuple[D12BallGame, MatchState]], int, str]]:
+        """
+        Every game the scope covers in **this server**, with its match
+        -- plus how many of them had nothing recorded, and a heading.
+
+        **Scoped to the guild, always.** `self.games` is every game the
+        bot knows about on every server it is in, and one server's
+        players have no business reading another's. There is no option
+        to widen it: a cross-server total is not a statistic anybody
+        asked for and is a disclosure nobody consented to.
+
+        A game whose match fails to load is skipped rather than
+        raising. A saved game older than a rename can refuse to build
+        (see the legacy-migration gotcha in CLAUDE.md), and a report
+        that dies on one bad record is worse than one that counts the
+        other forty and says how many it could not read.
+        """
+        if scope == stats.SCOPE_THIS_GAME:
+            game, match = self.match_for_channel(interaction.channel_id)
+            if game is None:
+                return None
+            return [(game, match)], 0, self.stats_game_heading(game, match)
+
+        in_scope = [
+            game
+            for game in stats.games_in_scope(self.games.values(), scope)
+            if game.guild_id == interaction.guild_id
+        ]
+        pairs: list[tuple[D12BallGame, MatchState]] = []
+        unreadable = 0
+        for game in in_scope:
+            if game.match_state is None:
+                continue
+            try:
+                pairs.append((game, self.engine.load_match_state(game)))
+            except (ValueError, KeyError) as error:
+                unreadable += 1
+                LOGGER.info(
+                    "Leaving game %s out of the statistics: %s",
+                    game.game_id,
+                    error,
+                )
+
+        empty = sum(1 for _, match in pairs if not match.events) + (
+            len(in_scope) - len(pairs)
+        )
+        heading = "\n".join(
+            stats.format_scope_heading(scope, len(in_scope), empty)
+        )
+        return pairs, empty, heading
+
+    def stats_game_heading(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> str:
+        """The one-line "which game is this" a per-game report opens with."""
+        status = {
+            GameStatus.SETUP: "in setup",
+            GameStatus.IN_PROGRESS: "in progress",
+            GameStatus.FINISHED: (
+                "abandoned" if game.abandoned else "finished"
+            ),
+        }[game.status]
+        board = match.scoreboard
+        return (
+            f"**PBD{game.game_number}** -- "
+            f"{team_display_name(match.home.team)} "
+            f"{board.home_score}:{board.visiting_score} "
+            f"{team_display_name(match.visiting.team)} "
+            f"({status}, {board.period.value.replace('_', ' ')} "
+            f"minute {board.time:02d})"
+        )
+
+    async def send_stats(
+        self,
+        interaction: discord.Interaction,
+        heading: str,
+        blocks: list[list[str]],
+        share: bool,
+    ) -> None:
+        """
+        Post a report: the heading as text, each table in its own code
+        fence.
+
+        **One message per table, not one per report.** Discord's 2000
+        characters would hold most of these together, but a fence with
+        two tables in it scrolls as one block on a phone -- and a
+        report that outgrows the limit would then fail rather than
+        arriving in pieces. Every send here is a followup, which is
+        the webhook route and so competes with nothing in the
+        channel's edit bucket (see "Discord's rate limits").
+        """
+        await interaction.followup.send(heading, ephemeral=not share)
+        for block in blocks:
+            if not block:
+                continue
+            await interaction.followup.send(
+                "```\n" + "\n".join(block) + "\n```",
+                ephemeral=not share,
+            )
+
+    @stats_group.command(
+        name="game",
+        description="What has happened in this channel's game.",
+    )
+    @app_commands.describe(
+        share="Post it in the channel instead of only to you.",
+    )
+    @app_commands.guild_only()
+    async def stats_game(
+        self,
+        interaction: discord.Interaction,
+        share: bool = False,
+    ) -> None:
+        await interaction.response.defer(ephemeral=not share)
+        found = self.stats_matches(interaction, stats.SCOPE_THIS_GAME)
+        if found is None:
+            await interaction.followup.send(
+                "There is no D12 Ball game in this channel to report on.",
+                ephemeral=True,
+            )
+            return
+
+        pairs, _, heading = found
+        matches = [match for _, match in pairs]
+        maneuvers = stats.collect_maneuvers(matches)
+        if not maneuvers.turns:
+            await interaction.followup.send(
+                f"{heading}\n\nNothing has been played yet -- or this "
+                "game was already under way before the bot started "
+                "keeping a record of what happens in it.",
+                ephemeral=not share,
+            )
+            return
+
+        conditions = stats.collect_conditions(matches)
+        await self.send_stats(
+            interaction,
+            heading,
+            [
+                stats.format_turn_actions(maneuvers),
+                stats.format_maneuver_usage(maneuvers, self.maneuver_catalog),
+                stats.format_maneuver_cost(maneuvers, self.maneuver_catalog),
+                stats.format_shots(stats.collect_shots(matches)),
+                stats.format_conditions(conditions),
+                stats.format_players(conditions, self.stats_player_name),
+            ],
+            share,
+        )
+
+    @stats_group.command(
+        name="maneuvers",
+        description="Which maneuvers get played, and which of them win.",
+    )
+    @app_commands.describe(
+        scope="Which games to count.",
+        share="Post it in the channel instead of only to you.",
+    )
+    @app_commands.choices(scope=STATS_SCOPE_CHOICES)
+    @app_commands.guild_only()
+    async def stats_maneuvers(
+        self,
+        interaction: discord.Interaction,
+        scope: Optional[app_commands.Choice[str]] = None,
+        share: bool = False,
+    ) -> None:
+        await interaction.response.defer(ephemeral=not share)
+        await self.post_scoped_stats(
+            interaction,
+            scope,
+            share,
+            lambda maneuvers, matches, pairs: [
+                stats.format_turn_actions(maneuvers),
+                stats.format_maneuver_usage(maneuvers, self.maneuver_catalog),
+                stats.format_maneuver_cost(maneuvers, self.maneuver_catalog),
+            ],
+        )
+
+    @stats_group.command(
+        name="matchups",
+        description="Which maneuver has met which, and how often.",
+    )
+    @app_commands.describe(
+        scope="Which games to count.",
+        share="Post it in the channel instead of only to you.",
+    )
+    @app_commands.choices(scope=STATS_SCOPE_CHOICES)
+    @app_commands.guild_only()
+    async def stats_matchups(
+        self,
+        interaction: discord.Interaction,
+        scope: Optional[app_commands.Choice[str]] = None,
+        share: bool = False,
+    ) -> None:
+        await interaction.response.defer(ephemeral=not share)
+        await self.post_scoped_stats(
+            interaction,
+            scope,
+            share,
+            lambda maneuvers, matches, pairs: [
+                stats.format_matchups(maneuvers, self.maneuver_catalog),
+            ],
+        )
+
+    @stats_group.command(
+        name="overview",
+        description="Games, goals and results.",
+    )
+    @app_commands.describe(
+        scope="Which games to count.",
+        share="Post it in the channel instead of only to you.",
+    )
+    @app_commands.choices(scope=STATS_SCOPE_CHOICES)
+    @app_commands.guild_only()
+    async def stats_overview(
+        self,
+        interaction: discord.Interaction,
+        scope: Optional[app_commands.Choice[str]] = None,
+        share: bool = False,
+    ) -> None:
+        await interaction.response.defer(ephemeral=not share)
+        await self.post_scoped_stats(
+            interaction,
+            scope,
+            share,
+            lambda maneuvers, matches, pairs: [
+                stats.format_overview(stats.collect_overview(pairs)),
+                stats.format_shots(stats.collect_shots(matches)),
+            ],
+        )
+
+    @stats_group.command(
+        name="players",
+        description="Goals, injuries and exhaustion by player.",
+    )
+    @app_commands.describe(
+        scope="Which games to count.",
+        share="Post it in the channel instead of only to you.",
+    )
+    @app_commands.choices(scope=STATS_SCOPE_CHOICES)
+    @app_commands.guild_only()
+    async def stats_players(
+        self,
+        interaction: discord.Interaction,
+        scope: Optional[app_commands.Choice[str]] = None,
+        share: bool = False,
+    ) -> None:
+        await interaction.response.defer(ephemeral=not share)
+
+        def blocks(maneuvers, matches, pairs):
+            conditions = stats.collect_conditions(matches)
+            return [
+                stats.format_players(
+                    conditions, self.stats_player_name, limit=15,
+                ),
+                stats.format_roles(conditions, self.player_catalog),
+                stats.format_conditions(conditions),
+            ]
+
+        await self.post_scoped_stats(interaction, scope, share, blocks)
+
+    def stats_player_name(self, player_id: str) -> str:
+        """
+        A card's name for a statistics table.
+
+        Deliberately **no team emoji and no role bracket**, unlike
+        `player_label` and every other place the bot names somebody:
+        these tables are read across games, and the same person can
+        appear in them under either of their two rosters (see "One
+        player, both sides" in CLAUDE.md). A colour that changed
+        between rows of one table would be saying something untrue
+        about the player.
+
+        `player_by_id` resolves a visiting side's suffixed card id to
+        the same person, which is what makes one row rather than two.
+        """
+        try:
+            return self.player_catalog.player_by_id(player_id).name
+        except ValueError:
+            return player_id
+
+    async def post_scoped_stats(
+        self,
+        interaction: discord.Interaction,
+        scope: Optional[app_commands.Choice[str]],
+        share: bool,
+        blocks,
+    ) -> None:
+        """
+        The body every scoped stats command shares: resolve the scope,
+        fold the matches, and post whichever tables the command asked
+        for.
+
+        `blocks` is handed the folded maneuver report, the matches and
+        the game/match pairs, because the five commands need different
+        subsets of the three and folding them all for every command
+        would walk every saved game four times over for tables nobody
+        asked for.
+        """
+        chosen = scope.value if scope is not None else stats.SCOPE_ALL
+        found = self.stats_matches(interaction, chosen)
+        if found is None:
+            await interaction.followup.send(
+                "There is no D12 Ball game in this channel to report on.",
+                ephemeral=True,
+            )
+            return
+
+        pairs, _, heading = found
+        matches = [match for _, match in pairs]
+        maneuvers = stats.collect_maneuvers(matches)
+        if not pairs:
+            await interaction.followup.send(
+                f"{heading}\n\nThere is nothing to report yet.",
+                ephemeral=not share,
+            )
+            return
+
+        await self.send_stats(
+            interaction, heading, blocks(maneuvers, matches, pairs), share,
+        )
+
 
 
     @commands.Cog.listener()

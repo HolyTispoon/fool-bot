@@ -19,6 +19,14 @@ from discord.ext import commands
 from d12ball.ai import build_ai_strategies
 from d12ball.engine import RulesEngine
 from d12ball.components import (
+    DECISION_CARDS,
+    DECISION_INJURY_FORFEIT,
+    DECISION_SKILL_TEST,
+    DECISION_UNCONTESTED,
+    EVENT_INJURY_TEST,
+    EVENT_MANEUVER,
+    EVENT_SKILL_TEST,
+    EVENT_TURN_ACTION,
     MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
     MatchState,
@@ -482,6 +490,38 @@ class CoreMixin:
         """
         game.match_state = match.to_dict()
         save_games(self.games)
+
+    def record_turn_action(
+        self,
+        match: MatchState,
+        action: str,
+        by_ai: bool = False,
+    ) -> None:
+        """
+        Open a turn in the event log -- see MatchEvent.
+
+        **Every event in a turn belongs to the `turn_action` that
+        opened it**, and belongs to it by being logged after it, so
+        this has to be called before anything the turn does.
+
+        `action` is the button's own value -- `maneuver`, `shoot`,
+        `cede` -- so the share of each in the statistics is the share
+        of the choice a coach actually made, not of what it led to.
+
+        The four callers are `play_ai_turn` and the three turn
+        actions, each at the point the action is **taken**: the shot
+        and the maneuver at their button, past its own stale-view
+        guard, and the cede in `begin_cede` rather than at the confirm
+        prompt it asks through -- a coach who backs out of that
+        confirm has not taken a turn.
+        """
+        match.record_event(
+            EVENT_TURN_ACTION,
+            side=match.ball.possession,
+            player_id=match.active_player_id,
+            action=action,
+            by_ai=by_ai,
+        )
 
     def player_label(
         self,
@@ -1227,6 +1267,20 @@ class CoreMixin:
         if player.player_id in match.pending_injury_tests:
             match.pending_injury_tests.remove(player.player_id)
 
+        # Both outcomes, not only the injury. What a coach wants from
+        # this is the *rate* -- how often playing a card that ties
+        # actually costs a player -- and a log holding only the
+        # failures has no denominator. `mark_injured` deliberately
+        # logs nothing for the same reason.
+        match.record_event(
+            EVENT_INJURY_TEST,
+            side=match.side_for_player(player.player_id),
+            player_id=player.player_id,
+            roll=roll,
+            tokens=current_tokens,
+            injured=not safe,
+        )
+
         if safe:
             self.persist(game, match)
 
@@ -1682,6 +1736,69 @@ class CoreMixin:
             return RunBackChoiceView(self, game_id, candidates[0])
         return RunBackPlayerChoiceView(self, game_id, candidates)
 
+    def record_maneuver(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        winner_key: str,
+    ) -> None:
+        """
+        Log the maneuver that has just been settled -- both picks, the
+        winner, and how it was won.
+
+        Called from `begin_effect_resolution`, which every maneuver in
+        the game reaches **exactly once**: a decisive win and an
+        unchallenged one go straight there from `resolve_maneuver`, and
+        a tie goes there through the skill test and whatever injury
+        tests it owed. A skill-test tie re-rolls without passing
+        through, which is right -- nothing has been settled yet, and
+        the re-roll logs a `skill_test` event of its own.
+
+        **How it was won is read off the log, not off the match.** The
+        obvious test -- ask `settled_maneuver_winner` whether the cards
+        decided it -- is wrong here by a hair: the injury tests run
+        between the roll and this call, so a skill test whose loser
+        went down injured would come back reading as a win on the
+        cards. The log cannot move under it that way: a `skill_test`
+        event in this turn means the dice settled it, full stop.
+        """
+        decision = DECISION_UNCONTESTED
+        if not match.maneuver_uncontested:
+            rolled = any(
+                event.kind == EVENT_SKILL_TEST
+                for event in match.events_this_turn()
+            )
+            if rolled:
+                decision = DECISION_SKILL_TEST
+            elif self.maneuver_catalog.resolve(
+                match.offense_maneuver, match.defense_maneuver,
+            ) == "tie":
+                # A tie nothing was rolled for is the one an injured
+                # participant forfeits outright.
+                decision = DECISION_INJURY_FORFEIT
+            else:
+                decision = DECISION_CARDS
+
+        match.record_event(
+            EVENT_MANEUVER,
+            side=match.ball.possession,
+            player_id=match.active_player_id,
+            offense_key=match.offense_maneuver,
+            defense_key=match.defense_maneuver,
+            winner_key=winner_key,
+            decision=decision,
+            challenger_id=match.challenger_id,
+        )
+        # **Saved here, and this is not optional.** An effect that
+        # ends in a prompt hands the turn to a click that will load
+        # the match back out of the save file, so an event written and
+        # not persisted is an event the next interaction never sees --
+        # which is exactly what a Dribble Advance did, since its own
+        # prompt saves the game record without rewriting the match
+        # (correctly: nothing on the match had changed until now).
+        # Anything that records has to save in the same breath.
+        self.persist(game, match)
+
     async def begin_effect_resolution(
         self,
         interaction: discord.Interaction,
@@ -1698,6 +1815,8 @@ class CoreMixin:
         restart mid-choice can still reconstruct exactly where things
         left off (see build_effect_choice_view).
         """
+        self.record_maneuver(game, match, winner_key)
+
         handlers = {
             "low_pass": self.resolve_low_pass,
             "dribble_advance": self.resolve_dribble_advance,

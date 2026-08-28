@@ -1114,6 +1114,110 @@ class GoalRecord:
         )
 
 
+# What a MatchEvent's `kind` may be. Strings rather than an Enum for
+# the reason the maneuver keys are strings: they go into a save file
+# and come back out of one, and a kind written by a build older than
+# the reader has to survive the round trip rather than raise. An
+# unrecognised kind is skipped by the fold in `d12ball/stats.py` and
+# kept in the log.
+EVENT_TURN_ACTION = "turn_action"
+EVENT_MANEUVER = "maneuver"
+EVENT_SKILL_TEST = "skill_test"
+EVENT_SHOT = "shot"
+EVENT_OWN_GOAL_ROLL = "own_goal_roll"
+EVENT_INJURY_TEST = "injury_test"
+EVENT_GOAL = "goal"
+
+# How a maneuver came to be won -- `details["decision"]` on a
+# `maneuver` event. The four are what `resolve_maneuver` already words
+# four different ways, named so the fold can tell them apart:
+# `CARDS` is the ranking deciding it outright, `SKILL_TEST` a tie (or
+# an injured player's downgraded win) settled on the dice,
+# `INJURY_FORFEIT` a tie one injured participant loses with nothing
+# rolled, and `UNCONTESTED` a maneuver the defense never challenged.
+#
+# **Only the first three are a contest**, which is what a success rate
+# has to be measured over: an uncontested maneuver always wins, so
+# counting it inflates every offense card it is available to. See
+# `contested_maneuvers` in `d12ball/stats.py`.
+DECISION_CARDS = "cards"
+DECISION_SKILL_TEST = "skill_test"
+DECISION_INJURY_FORFEIT = "injury_forfeit"
+DECISION_UNCONTESTED = "uncontested"
+
+CONTESTED_DECISIONS = frozenset(
+    {DECISION_CARDS, DECISION_SKILL_TEST, DECISION_INJURY_FORFEIT}
+)
+
+
+@dataclass
+class MatchEvent:
+    """
+    One thing that happened in a match, in the order it happened --
+    the record `d12ball/stats.py` folds into every statistic the bot
+    reports.
+
+    It exists for the reason `GoalRecord` does, one step further on:
+    a match holds the *current* position, so who was injured is
+    readable and what injured them is not, and how many tokens a
+    player is carrying is readable and what charged them is not.
+    Neither can be reconstructed after the fact, so they are written
+    down as they happen.
+
+    **The list's order is the whole of its structure.** There is no
+    turn counter and no possession counter, deliberately: an event
+    belongs to the last `turn_action` before it, and a possession is
+    a run of consecutive `turn_action`s by one side. Both are exact
+    reads of the order, where a stored counter is a second thing that
+    can disagree with it -- and a counter would have to be cleared,
+    bumped and persisted in step with a flow that already has enough
+    of those.
+
+    `details` is per-kind and documented on the recorder that writes
+    it (`MatchState.record_event`'s callers). A dict rather than a
+    field per kind because the kinds share almost nothing -- a shot
+    carries its two totals, a maneuver carries two keys and a winner
+    -- and the one consumer is a fold that already branches on kind.
+    """
+
+    kind: str
+    period: MatchPeriod
+    time: int
+    side: Optional[TeamSide] = None
+    player_id: Optional[str] = None
+    details: dict = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.period = MatchPeriod(self.period)
+        if self.side is not None:
+            self.side = TeamSide(self.side)
+
+    def to_dict(self) -> dict:
+        return {
+            "kind": self.kind,
+            "period": self.period.value,
+            "time": self.time,
+            "side": None if self.side is None else self.side.value,
+            "player_id": self.player_id,
+            "details": dict(self.details),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "MatchEvent":
+        return cls(
+            kind=data["kind"],
+            period=MatchPeriod(data["period"]),
+            time=data["time"],
+            side=(
+                None
+                if data.get("side") is None
+                else TeamSide(data["side"])
+            ),
+            player_id=data.get("player_id"),
+            details=dict(data.get("details", {})),
+        )
+
+
 def kickoff_space_index(midfield_spaces: int, kicking_side: TeamSide) -> int:
     """
     The midfield space a kickoff (or any other restart) places the ball
@@ -1312,6 +1416,15 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("pending_run_back_speed_choice", default=False),
     SavedField("pending_effect_continuation"),
     SavedField("pending_double_team", factory=list, write=list, read=list),
+    # The event log. Empty for a game saved before it existed, which
+    # is what makes such a game load and simply report no statistics
+    # rather than a wrong set of them -- see build_stats_report.
+    SavedField(
+        "events",
+        factory=list,
+        write=lambda events: [event.to_dict() for event in events],
+        read=lambda events: [MatchEvent.from_dict(event) for event in events],
+    ),
     SavedField("pending_kickoff_fill", default=False),
     SavedField("pending_shot_is_set_up", default=False),
     SavedField("pending_shot_setup_cost", default=0),
@@ -1585,6 +1698,18 @@ class MatchState:
     # backwards; this is what says who scored and when. See
     # record_goal, which is the only thing that writes to it.
     goals: list[GoalRecord] = field(default_factory=list)
+    # Everything that happened in the match, in the order it happened
+    # -- see MatchEvent, and d12ball/stats.py, which is the only thing
+    # that reads it. `record_event` is the only thing that writes to
+    # it, the way `record_goal` is for the goal log above.
+    #
+    # It is not state: nothing in the game asks it a question, and a
+    # match with an empty log plays identically. That is deliberate,
+    # and is what makes a game saved before this field loads and
+    # simply reports nothing -- see build_stats_report, which counts
+    # itself against the scoreboard rather than trusting the two
+    # agree, exactly as build_goal_log does.
+    events: list[MatchEvent] = field(default_factory=list)
 
     @classmethod
     def standard(
@@ -1695,6 +1820,31 @@ class MatchState:
             )
             if player_id in roster_ids:
                 return setup.team
+        raise ValueError(
+            f"{player_id} is not on either side of this match."
+        )
+
+    def side_for_player(self, player_id: str) -> TeamSide:
+        """
+        Which side of this match `player_id` is playing for --
+        `team_for_player` asking the same question and answering with
+        the position rather than the roster.
+
+        The two are not interchangeable: a card's `Team` is what
+        colours it, and its `TeamSide` is what a statistic is grouped
+        by. Reading a side back off a team would be wrong exactly
+        where it matters, since a color side and a species side can
+        field the same person as two cards.
+        """
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            setup = self.setup_for_side(side)
+            roster_ids = (
+                setup.field_players
+                + setup.team_board.bench
+                + setup.team_board.back_bench
+            )
+            if player_id in roster_ids:
+                return side
         raise ValueError(
             f"{player_id} is not on either side of this match."
         )
@@ -2212,6 +2362,62 @@ class MatchState:
             self.automatic_challengers()
         )
 
+    def record_event(
+        self,
+        kind: str,
+        side: Optional[TeamSide] = None,
+        player_id: Optional[str] = None,
+        **details,
+    ) -> MatchEvent:
+        """
+        Append one thing that happened to the match's event log,
+        stamped with the clock as it stands.
+
+        **The only writer.** Everything in `d12ball/stats.py` is a
+        fold over this list, so a second way in is a second thing
+        that can disagree about what a match did -- the same reason
+        `record_goal` below is the only writer of the goal log.
+
+        The stamp is the clock at the moment of the event, before
+        whatever it costs is charged, so the log reads as the minute
+        something happened rather than the minute play restarted.
+        """
+        event = MatchEvent(
+            kind=kind,
+            period=self.scoreboard.period,
+            time=self.scoreboard.time,
+            side=None if side is None else TeamSide(side),
+            player_id=player_id,
+            details=details,
+        )
+        self.events.append(event)
+        return event
+
+    def events_this_turn(self) -> list[MatchEvent]:
+        """
+        Every event since the turn began -- the `turn_action` that
+        opened it and everything logged under it.
+
+        This is what "the current turn" means anywhere it is asked,
+        and it is read off the order rather than off a counter: see
+        MatchEvent. Empty before the first turn action of a game,
+        which is what a charge made during setup or halftime answers
+        to.
+        """
+        for index in range(len(self.events) - 1, -1, -1):
+            if self.events[index].kind == EVENT_TURN_ACTION:
+                return self.events[index:]
+        return []
+
+    def current_turn_event(self) -> Optional[MatchEvent]:
+        """
+        The `turn_action` the match is inside, or None when it is
+        between turns -- setup, halftime, or a game that has not
+        kicked off. What `add_exhaustion` charges its tokens to.
+        """
+        turn = self.events_this_turn()
+        return turn[0] if turn else None
+
     def record_goal(
         self,
         side: TeamSide,
@@ -2241,6 +2447,20 @@ class MatchState:
             shootout=shootout,
         )
         self.goals.append(record)
+        # Logged twice on purpose, and the two are not redundant. The
+        # goal log answers "what was the score and when"; the event
+        # carries the goal's *position in the run of play*, which is
+        # what attributes it to the turn -- and so to the maneuver --
+        # that produced it. A GoalRecord has no way to say that, and
+        # giving it one would be a second ordering to keep in step
+        # with the log's own.
+        self.record_event(
+            EVENT_GOAL,
+            side=record.side,
+            player_id=player_id,
+            own_goal=own_goal,
+            shootout=shootout,
+        )
         return record
 
     def goals_for(self, side: TeamSide) -> list[GoalRecord]:
@@ -2404,11 +2624,31 @@ class MatchState:
         return False
 
     def add_exhaustion(self, player_id: str, amount: int) -> None:
+        """
+        Charge exhaustion tokens, and attribute them to the turn that
+        charged them.
+
+        **Every path that charges bottoms out here** -- the cog's
+        `apply_exhaustion`, the run back's own charge, and the AI's --
+        which is why the attribution is here and not at those three.
+
+        It is written onto the open turn's own event rather than
+        logged as an event apiece: a game makes something like a
+        hundred of these calls, and what any statistic asks is "what
+        did this maneuver cost", never "in what order were the tokens
+        handed out". A charge made between turns -- a halftime
+        recovery, a setup placement -- belongs to no turn and is
+        simply not attributed.
+        """
         if amount <= 0 or player_id in self.injured:
             return
         self.exhaustion[player_id] = (
             self.exhaustion.get(player_id, 0) + amount
         )
+        turn = self.current_turn_event()
+        if turn is not None:
+            charged = turn.details.setdefault("exhaustion", {})
+            charged[player_id] = charged.get(player_id, 0) + amount
 
     def mark_exhausted_if_needed(
         self,
@@ -2428,6 +2668,14 @@ class MatchState:
         return False
 
     def mark_injured(self, player_id: str) -> None:
+        """
+        Take a player out of the game.
+
+        Nothing is logged here: the roll that decides an injury is
+        one step up, in `run_injury_test`, which is the only caller
+        and the only place that knows a *passed* test happened at all.
+        Logging both would put a failed test in the record twice.
+        """
         self.injured.add(player_id)
         self.exhaustion.pop(player_id, None)
         self.exhausted.discard(player_id)

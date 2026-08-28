@@ -14,6 +14,7 @@ from typing import Optional
 
 from d12ball.engine import RulesEngine
 from d12ball.components import (
+    EVENT_OWN_GOAL_ROLL,
     MIN_HIGH_PASS_DISTANCE,
     MatchState,
     PlayerDefinition,
@@ -2972,6 +2973,21 @@ class ManeuverEffectsMixin:
 
         rolls = (random.randint(1, 12), random.randint(1, 12))
         safe = max(rolls) + offense_skill >= 7
+
+        # Logged ahead of `apply_own_goal_outcome`, which is what
+        # concedes the goal, so the risk sits above the goal it
+        # sometimes produced. Both outcomes, for the reason the injury
+        # test logs both: the interesting number is how often a
+        # Pressure that risks an own goal actually costs one, and that
+        # needs the attempts as well as the concessions.
+        match.record_event(
+            EVENT_OWN_GOAL_ROLL,
+            side=match.ball.possession,
+            player_id=offense_player.player_id,
+            conceded=not safe,
+            rolls=list(rolls),
+            offense_skill=offense_skill,
+        )
 
         # Charged before either branch saves the match, so the token
         # and any Exhausted flag it sets are written out with the rest

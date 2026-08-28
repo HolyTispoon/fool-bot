@@ -279,6 +279,7 @@ class PlayerActionView(SafeView):
             )
             return
 
+        self.cog.record_turn_action(match, "shoot")
         match.pending_action = "shoot"
         self.cog.persist(game, match)
 
@@ -341,6 +342,8 @@ class PlayerActionView(SafeView):
         three routes: nobody to challenge at all, a challenger settled
         without asking, or the defending coach's own choice.
         """
+        self.cog.record_turn_action(match, "maneuver")
+
         # Nobody left to challenge with at all -- a side with a meeple
         # anywhere on the board has a candidate, so this needs an empty
         # field: the maneuver succeeds automatically and the offense
