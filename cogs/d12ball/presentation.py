@@ -491,6 +491,10 @@ class PresentationMixin:
         match.select_ball_handler(handler_id)
         handler = self.engine.get_player_definition(handler_id)
         action = ai_strategy.choose_action(match)
+        # Recorded here rather than in the two branches below: the AI
+        # has no prompt and no stale click to guard against, so the
+        # strategy's answer *is* the turn it takes.
+        self.record_turn_action(match, action, by_ai=True)
 
         if action == "shoot":
             match.pending_action = "shoot"

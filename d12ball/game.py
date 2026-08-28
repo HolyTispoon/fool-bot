@@ -216,6 +216,17 @@ class D12BallGame:
     match_state: Optional[dict] = None
     turn_message_id: Optional[int] = None
 
+    # Whether this game was given up rather than played out. Both
+    # `finish_game` and `abandon` leave the status FINISHED, which is
+    # right -- neither is coming back -- but only one of them produced
+    # a result. Nothing in the flow needs to tell them apart; the
+    # statistics do, since a scoreboard read off a game nobody
+    # finished is a win nobody earned. Defaults False, so a game saved
+    # before this counts as played out: that is what almost all of
+    # them are, and the alternative is throwing away every finished
+    # game older than the field.
+    abandoned: bool = False
+
     # The full-time message carrying the rematch button, and the game
     # that button created. The id restores the button after a restart;
     # the game id is what keeps a second click from opening a second
@@ -428,6 +439,7 @@ class D12BallGame:
             raise ValueError("This game has already finished.")
 
         self.status = GameStatus.FINISHED
+        self.abandoned = True
 
     def to_dict(self) -> dict:
         """
