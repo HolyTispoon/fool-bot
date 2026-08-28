@@ -502,15 +502,18 @@ class CoreMixin:
 
         **Every event in a turn belongs to the `turn_action` that
         opened it**, and belongs to it by being logged after it, so
-        this has to be called before anything the turn does. The four
-        callers are the three buttons on `PlayerActionView` and
-        `play_ai_turn`, each after its own stale-view guard: a click
-        on a prompt the ball has moved out from under is refused, and
-        a refused click is not a turn.
+        this has to be called before anything the turn does.
 
         `action` is the button's own value -- `maneuver`, `shoot`,
         `cede` -- so the share of each in the statistics is the share
         of the choice a coach actually made, not of what it led to.
+
+        The four callers are `play_ai_turn` and the three turn
+        actions, each at the point the action is **taken**: the shot
+        and the maneuver at their button, past its own stale-view
+        guard, and the cede in `begin_cede` rather than at the confirm
+        prompt it asks through -- a coach who backs out of that
+        confirm has not taken a turn.
         """
         match.record_event(
             EVENT_TURN_ACTION,

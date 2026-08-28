@@ -456,6 +456,24 @@ class CedeConfirmTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(kwargs["view"], CedeConfirmView)
         cog.begin_cede.assert_not_awaited()
 
+    async def test_opening_the_confirm_is_not_yet_a_turn(self) -> None:
+        """
+        Ceding is the one turn action that asks before it acts, so it
+        is the one that must not be recorded at its button: a coach
+        who opens the confirm and presses Back has taken no turn, and
+        logging one there would put a cede in the statistics that
+        never happened -- followed by a second turn action for
+        whatever they did instead. See `D12Ball.record_turn_action`.
+        """
+        cog, game, _ = self.build()
+
+        view = PlayerActionView(cog, game.game_id)
+        await view.choose_action(
+            build_interaction(), "cede", "Cede ball to coach",
+        )
+
+        self.assertEqual(cog.engine.load_match_state(game).events, [])
+
     async def test_back_puts_the_prompt_back_word_for_word(self) -> None:
         cog, game, _ = self.build()
         interaction = build_interaction()

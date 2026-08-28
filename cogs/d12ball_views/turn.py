@@ -324,9 +324,6 @@ class PlayerActionView(SafeView):
             )
             return
 
-        self.cog.record_turn_action(match, "cede")
-        self.cog.persist(game, match)
-
         await interaction.response.edit_message(
             content=self.cog.engine.cede_confirmation(game, match),
             view=CedeConfirmView(

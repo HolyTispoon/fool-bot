@@ -834,6 +834,16 @@ class TurnoverMixin:
         `finish_cede` entirely -- every turn of last possession is
         charged as usual, this included.
         """
+        # **Recorded here rather than on the confirm prompt**, which is
+        # where the other two turn actions are recorded. Ceding is the
+        # one of the three that asks first, and a coach who opens the
+        # confirm and presses Back has not taken a turn -- logging it
+        # there put a cede in the record that never happened, and then
+        # a second turn_action for whatever they did instead. Read
+        # before `cede_possession`, which is what flips possession out
+        # from under it.
+        self.record_turn_action(match, "cede")
+
         ceding_side = match.ball.possession
         ceding_label = format_team_side_label(
             match.setup_for_side(ceding_side)
