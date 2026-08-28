@@ -33,6 +33,9 @@ from cogs.d12ball_views import (
 )
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
+    CONTESTED_DECISIONS,
+    DECISION_UNCONTESTED,
+    EVENT_MANEUVER,
     MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
     MatchState,
@@ -457,6 +460,47 @@ class EveryMatchupResolvesTests(
                             await cog.resolve_maneuver(
                                 build_interaction(), game, match,
                             )
+                        self.assert_the_log_reads_back(
+                            match, offense.key, defense.key,
+                        )
+
+    def assert_the_log_reads_back(
+        self,
+        match: MatchState,
+        offense_key: str,
+        defense_key: str,
+    ) -> None:
+        """
+        That the maneuver the sweep just resolved went into the event
+        log, and went in coherently.
+
+        Worth asserting **here** rather than only in the statistics'
+        own tests: this is the one place all thirty-six pairings are
+        put through the real `resolve_maneuver`, on three boards and
+        both control paths, which is exactly the coverage a log
+        written at one funnel needs. `tests/test_d12ball_stats.py`
+        checks the reading; this checks the writing.
+
+        A pairing that ties leaves a skill test owed and logs no
+        maneuver yet -- that is not a gap, it is the flow, so the
+        assertion is on the events that *are* there.
+        """
+        logged = [
+            event for event in match.events
+            if event.kind == EVENT_MANEUVER
+        ]
+        self.assertLessEqual(len(logged), 1)
+        for event in logged:
+            details = event.details
+            self.assertEqual(details["offense_key"], offense_key)
+            self.assertEqual(details["defense_key"], defense_key)
+            self.assertIn(
+                details["winner_key"], (offense_key, defense_key),
+            )
+            self.assertIn(
+                details["decision"],
+                CONTESTED_DECISIONS | {DECISION_UNCONTESTED},
+            )
 
     async def test_every_pairing_resolves_for_two_coaches(self) -> None:
         await self.resolve_every_pairing(solo=False)

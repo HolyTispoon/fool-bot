@@ -269,7 +269,6 @@ class ManeuverReport:
     turns: int = 0
     actions: Counter = field(default_factory=Counter)
     games_counted: int = 0
-    games_without_events: int = 0
 
     def record(self, key: str) -> ManeuverRecord:
         if key not in self.records:
@@ -281,10 +280,7 @@ class ManeuverReport:
         return sum(record.picks for record in self.records.values())
 
 
-def collect_maneuvers(
-    matches: Iterable[MatchState],
-    empty_games: int = 0,
-) -> ManeuverReport:
+def collect_maneuvers(matches: Iterable[MatchState]) -> ManeuverReport:
     """
     Fold every match's turns into the maneuver table.
 
@@ -294,7 +290,7 @@ def collect_maneuvers(
     gets the win, and `decision` decides whether either does -- see
     ManeuverRecord.contested.
     """
-    report = ManeuverReport(games_without_events=empty_games)
+    report = ManeuverReport()
 
     for match in matches:
         turns = match_turns(match)
@@ -860,7 +856,6 @@ def format_conditions(report: ConditionReport) -> list[str]:
 
 def format_players(
     report: ConditionReport,
-    catalog: PlayerCatalog,
     display_name,
     limit: int = 10,
 ) -> list[str]:
@@ -898,6 +893,45 @@ def format_players(
             f"{report.goals_by_player[player_id]:>8}"
             f"{report.injuries_by_player[player_id]:>6}"
             f"{report.exhaustion_by_player[player_id]:>6}"
+        )
+    return _ruled(lines)
+
+
+def format_roles(
+    report: ConditionReport,
+    catalog: PlayerCatalog,
+) -> list[str]:
+    """
+    The same three numbers grouped by role rather than by player.
+
+    Worth its own table because it is the one that generalises: a
+    player's tally says who has been fielded a lot, and a role's says
+    what the role is *for* -- whether Strikers score, whether
+    Defenders are the ones who get hurt. Roles are the same six on
+    every team, so this reads across a whole server's games where a
+    player's line does not.
+    """
+    totals: dict[str, list[int]] = {}
+    for source, index in (
+        (report.goals_by_player, 0),
+        (report.injuries_by_player, 1),
+        (report.exhaustion_by_player, 2),
+    ):
+        for player_id, count in source.items():
+            role = role_of(catalog, player_id)
+            totals.setdefault(role, [0, 0, 0])[index] += count
+    if not totals:
+        return ["Nobody has done anything worth counting yet."]
+
+    lines = [
+        f"{'ROLE':<20}{'goals':>8}{'inj':>7}{'exh':>7}",
+        _rule(),
+    ]
+    for role in sorted(totals, key=lambda name: (-totals[name][0], name)):
+        goals, injuries, exhaustion = totals[role]
+        lines.append(
+            f"{role.replace('_', ' ').title():<20}"
+            f"{goals:>8}{injuries:>7}{exhaustion:>7}"
         )
     return _ruled(lines)
 

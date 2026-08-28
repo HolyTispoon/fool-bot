@@ -240,13 +240,7 @@ class CommandsMixin:
                 stats.format_maneuver_cost(maneuvers, self.maneuver_catalog),
                 stats.format_shots(stats.collect_shots(matches)),
                 stats.format_conditions(conditions),
-                stats.format_players(
-                    conditions,
-                    self.player_catalog,
-                    lambda player_id: self.stats_player_name(
-                        pairs[0][1], player_id,
-                    ),
-                ),
+                stats.format_players(conditions, self.stats_player_name),
             ],
             share,
         )
@@ -354,35 +348,29 @@ class CommandsMixin:
             conditions = stats.collect_conditions(matches)
             return [
                 stats.format_players(
-                    conditions,
-                    self.player_catalog,
-                    self.stats_player_name,
-                    limit=15,
+                    conditions, self.stats_player_name, limit=15,
                 ),
+                stats.format_roles(conditions, self.player_catalog),
                 stats.format_conditions(conditions),
             ]
 
         await self.post_scoped_stats(interaction, scope, share, blocks)
 
-    def stats_player_name(
-        self,
-        match: Optional[MatchState],
-        player_id: Optional[str] = None,
-    ) -> str:
+    def stats_player_name(self, player_id: str) -> str:
         """
         A card's name for a statistics table.
 
-        Two shapes, because two callers: a per-game report has one
-        match and passes it, and an aggregate report has many and
-        passes only the id. Deliberately **no team emoji and no role
-        bracket** either way -- these tables are read across games, and
-        the same person can appear in them under either of their two
-        rosters (see "One player, both sides"). A colour that changes
-        between rows of one table says something untrue about the
-        player.
+        Deliberately **no team emoji and no role bracket**, unlike
+        `player_label` and every other place the bot names somebody:
+        these tables are read across games, and the same person can
+        appear in them under either of their two rosters (see "One
+        player, both sides" in CLAUDE.md). A colour that changed
+        between rows of one table would be saying something untrue
+        about the player.
+
+        `player_by_id` resolves a visiting side's suffixed card id to
+        the same person, which is what makes one row rather than two.
         """
-        if player_id is None:
-            match, player_id = None, match
         try:
             return self.player_catalog.player_by_id(player_id).name
         except ValueError:

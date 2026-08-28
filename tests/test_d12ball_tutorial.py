@@ -38,9 +38,10 @@ from cogs.d12ball_views import (
     ManeuverActionPromptView,
     PlayerActionView,
 )
-from d12ball import tutorial
+from d12ball import stats, tutorial
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
+    EVENT_MANEUVER,
     MatchState,
     PlayerRole,
     TeamSide,
@@ -499,6 +500,66 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
             multi_choice=multi_choice,
             signatures=signatures,
         )
+
+    async def test_the_event_log_records_the_five_scripted_beats(
+        self,
+    ) -> None:
+        """
+        That the statistics' event log is written by a real game, and
+        written correctly.
+
+        This is the one place five real turns are played end to end
+        through the real cog, so it is where a log written at half a
+        dozen funnels can actually be checked -- a recorder that fires
+        on the wrong object, or before a save that never happens, is
+        invisible in a unit test and shows up here as a missing beat.
+        That is not hypothetical: the maneuver recorder was landed
+        without a save of its own, and beat 1 went missing exactly
+        this way.
+
+        Asserted against `tutorial.BEATS` rather than a written-out
+        list of five cards, for the reason every other tutorial
+        assertion is: the script is data the author revises, and a
+        copy of it here would only ever break on a rewrite.
+        """
+        cog, game, _ = await self.play()
+        match = cog.engine.load_match_state(game)
+        turns = stats.match_turns(match)
+
+        self.assertEqual(len(turns), len(tutorial.BEATS))
+        self.assertEqual(
+            [turn.action for turn in turns],
+            [beat.actions[0] for beat in tutorial.BEATS],
+        )
+        for turn, beat in zip(turns, tutorial.BEATS):
+            logged = turn.first(EVENT_MANEUVER)
+            self.assertIsNotNone(
+                logged, f"beat {beat.player_maneuver} logged no maneuver",
+            )
+            self.assertEqual(
+                {
+                    logged.details["offense_key"],
+                    logged.details["defense_key"],
+                },
+                {beat.player_maneuver, beat.dinky_maneuver},
+            )
+
+    async def test_the_scripted_goal_reaches_the_statistics(self) -> None:
+        """
+        The whole pipeline in one number: five turns played, a shot
+        taken off beat 5's set-up, and a goal that the fold credits to
+        the possession -- and so to the High Pass that made it.
+        """
+        cog, game, _ = await self.play()
+        match = cog.engine.load_match_state(game)
+
+        shots = stats.collect_shots([match])
+        self.assertEqual(shots.attempts, 1)
+        self.assertEqual(shots.goals, 1)
+        self.assertEqual(shots.set_up_attempts, 1)
+
+        report = stats.collect_maneuvers([match])
+        self.assertEqual(report.records[tutorial.HIGH_PASS].goals_for, 1)
 
     async def test_no_side_is_ever_re_dealt(self) -> None:
         # The whole of "no seams", in one number. The tutorial kicks
