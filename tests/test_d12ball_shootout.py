@@ -1197,7 +1197,7 @@ class ShootoutMenuTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction(user_id=111)
 
         view = ShootoutOrderSelectView(cog, game.game_id, TeamSide.HOME)
-        with suppressed_view_saves():
+        with suppressed_view_saves(), suppressed_cog_saves():
             await view.restart(interaction)
 
         self.assertEqual(

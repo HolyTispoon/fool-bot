@@ -3821,12 +3821,40 @@ answer for all of them (`suppressed_view_saves`, `suppressed_cog_saves` and
 the thing), and `tests/test_d12ball_package_shape.py` fails if a submodule
 starts saving and is not named there.
 
-- **The way to be sure is to make the real function raise and run the
+- **Naming the right module is not the whole of it, because most views do
+  not save through their own binding.** `suppressed_view_saves` covers the
+  three view submodules that call `save_games` themselves; every other view
+  saves through `self.cog.persist`, which is `cogs.d12ball.core`'s binding
+  and needs `suppressed_cog_saves`. A test that wraps only the first is the
+  same silent failure one step along -- it reads as suppressed, and the cog
+  writes underneath it. Nineteen call sites on `main` were doing exactly
+  that, across six files, and the suite was green for all of them. **A view
+  usually needs both helpers**, not the one that matches its package.
+- **A forgotten suppression now fails the test that forgot it.**
+  `save_patches.guard_stray_saves` replaces `save_games` in all ten modules
+  that bind it with a stand-in that raises, and importing `save_patches`
+  arms it -- which covers the whole run, because `unittest discover` imports
+  every test module before it runs any test, so the nine that exercise the
+  cog without importing `save_patches` are guarded too. It arms the
+  *modules'* bindings and never `gamesaves.d12ball.storage` itself, which is
+  what leaves `test_game_storage.py` -- the one place that means to reach a
+  disk, through a `GAMES_FILE` pointed at a tempdir -- working untouched.
+  `mock.patch` restores what it replaced, so a suppression helper puts the
+  guard back on its way out.
+  - **`SAVING_MODULES` is armed, and `cogs/debug.py` is why it is a third
+    list.** `/debug reset_channels` saves too, and belongs to neither
+    package, so the two lists the suppression helpers use would never have
+    named it. `StraySaveGuardTests` walks `cogs/` and fails if any module
+    binds `save_games` without being named -- the guard can only see a
+    binding the list knows about.
+- **The way to be sure is still to make the real function raise and run the
   suite.** Replacing `gamesaves.d12ball.storage.save_games` with a recorder
   before the tests import anything lists every call site that reaches it,
-  and the list is identical before and after the split -- fourteen, all of
-  them `test_game_storage.py` testing storage on purpose, plus two in the
-  cog. That is the check worth repeating after anything that moves a view.
+  which is the only thing that found the nineteen. The list should now be
+  twelve, all of them `test_game_storage.py` testing storage on purpose.
+  That is the check worth repeating after anything that moves a view -- and
+  the cheaper version of it is that a full run must not create `data/` at
+  all.
 - **`cogs.d12ball_views.random` and `.discord` were never the views'.** Both
   named the global module through the views' namespace, so those patches
   were always global; they say `random.` and `discord.` now, which is what

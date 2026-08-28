@@ -21,9 +21,14 @@ patch.
 `tests/test_d12ball_package_shape.py` is what keeps both honest: it
 fails if a submodule starts importing `save_games` and is not named
 here.
+
+And a call site that forgets one of these entirely is what
+`guard_stray_saves` at the foot of this file catches -- see the
+reasoning there.
 """
 
 import contextlib
+import importlib
 from unittest import mock
 
 # The view submodules that call `save_games` themselves. Views not
@@ -79,3 +84,73 @@ def suppressed_full_image_links():
                 mock.patch(f"{module}.add_full_image_button", mock.AsyncMock())
             )
         yield
+
+
+# `cogs/debug.py` binds `save_games` too, and belongs to neither
+# package -- `/debug reset_channels` saves the games it clears the
+# channels of. Nothing in either list above would ever name it, so the
+# guard below would have one binding it could not see.
+SAVING_OTHER_MODULES = (
+    "cogs.debug",
+)
+
+# Every module in the bot that holds a `save_games` of its own. This is
+# what the guard arms; the two lists above are what a test suppresses.
+SAVING_MODULES = (
+    *SAVING_VIEW_MODULES,
+    *SAVING_COG_MODULES,
+    *SAVING_OTHER_MODULES,
+)
+
+
+class StraySaveError(AssertionError):
+    """A test reached the real `save_games` without suppressing it."""
+
+
+def refuse_stray_save(*args, **kwargs):
+    raise StraySaveError(
+        "This test reached the real save_games and would have written "
+        "data/d12ball_games.json. Wrap the call in suppressed_cog_saves() "
+        "and/or suppressed_view_saves() from tests/save_patches.py -- a "
+        "view usually needs both, since most of them save through "
+        "self.cog.persist rather than their own binding."
+    )
+
+
+def guard_stray_saves() -> None:
+    """
+    Make a forgotten suppression fail the test that forgot it.
+
+    The failure this exists for is silent by construction. A patch on
+    the wrong binding still applies, so the `with` block succeeds and
+    the assertions after it pass -- and the real save runs underneath,
+    writing `data/d12ball_games.json`, which on a developer's machine
+    is the bot's own saved games. Nineteen call sites were doing that,
+    and the only way anybody found out was replacing the real function
+    with a recorder and reading the stack of every caller.
+
+    So the guard replaces the binding rather than watching it: a stray
+    save raises where it happens, naming the test that owes the
+    suppression, instead of being discovered months later by a script.
+    Nothing in the packages catches a broad exception, so it lands in
+    the test.
+
+    Armed by importing this module, which is enough for the whole run:
+    `unittest discover` imports every test module before it runs any
+    test, and twenty-six of them import this one -- so the nine that
+    exercise the cog without importing it are covered too. It arms the
+    modules' own bindings and never `gamesaves.d12ball.storage`
+    itself, which is what leaves `tests/test_game_storage.py` -- the
+    one place that means to reach the disk, and does it through a
+    `GAMES_FILE` pointed at a tempdir -- working untouched.
+
+    `mock.patch` restores whatever it replaced, so a suppression
+    helper puts the guard back on its way out.
+    """
+    for module in SAVING_MODULES:
+        setattr(
+            importlib.import_module(module), "save_games", refuse_stray_save,
+        )
+
+
+guard_stray_saves()

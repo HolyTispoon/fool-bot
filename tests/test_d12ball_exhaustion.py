@@ -179,7 +179,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(1 <= defense_roll <= 12)
 
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
+        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
             "random.randint",
             side_effect=[offense_roll, defense_roll],
         ):
