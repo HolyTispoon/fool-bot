@@ -1017,6 +1017,16 @@ fact.
   every game on every server the bot is in; one server's players have no
   business reading another's, and a cross-server total is a disclosure nobody
   consented to.
+- **A report goes in a thread of its own, not an ephemeral message.**
+  `CommandsMixin.open_stats_thread` starts a parent-message-less public thread
+  off the game channel and posts the heading and every table there, then points
+  the caller at it ephemerally -- so the channel gets nothing but the thread,
+  the report survives a restart, and both coaches (not just whoever ran the
+  command) can read it. `share:true` posts straight into the channel instead,
+  and a command run inside a thread already, or one that cannot open a thread
+  for want of the Create Public Threads permission, falls back to followups.
+  The thread is also a rate-limit bucket of its own, the same reason
+  `rules_full` uses one.
 - **The tables are sized to 58 characters** and live in `d12ball/stats.py`
   rather than the cog, for the reason `d12ball/formatting.py` exists -- they
   are words about match data with no Discord in them. A Discord code block

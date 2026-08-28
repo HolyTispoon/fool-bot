@@ -5,6 +5,7 @@ startup sweep that files finished games away.
 
 import asyncio
 import discord
+import re
 import time
 import uuid
 from typing import Optional
@@ -168,6 +169,62 @@ class CommandsMixin:
             f"minute {board.time:02d})"
         )
 
+    @staticmethod
+    def stats_thread_name(heading: str) -> str:
+        """A thread name off the report's first heading line, markdown
+        stripped and cut to Discord's 100 characters."""
+        first = re.sub(r"[*_`~#]", "", heading.splitlines()[0]).strip()
+        return first[:100] or "D12 Ball stats"
+
+    async def open_stats_thread(
+        self,
+        interaction: discord.Interaction,
+        heading: str,
+        share: bool,
+    ) -> Optional[discord.Thread]:
+        """
+        The thread a report's tables go in, or `None` when they should
+        go back to the caller as followups instead.
+
+        **Not sharing puts the whole report in a thread of its own.**
+        A report is several messages of wide code block, and a coach
+        asking about maneuver usage mid-game is not asking to fill the
+        channel both sides are playing in -- but the ephemeral dump
+        this replaced was worse: it was gone on the next restart, and
+        neither the other coach nor a scrollback could ever see it. A
+        thread keeps it out of the channel's history, hands every
+        coach a durable copy, and lands those sends in a rate-limit
+        bucket of its own (see "Discord's rate limits"). The thread is
+        started with no parent message, so the channel gets nothing
+        but the thread; the caller is pointed at it ephemerally.
+
+        `None` -- meaning "just use followups" -- covers sharing
+        (straight into the channel), a command already run inside a
+        thread (threads do not nest), and a thread that could not be
+        opened for want of the Create Public Threads permission.
+        """
+        channel = interaction.channel
+        if share or channel is None or isinstance(channel, discord.Thread):
+            return None
+        try:
+            thread = await channel.create_thread(
+                name=self.stats_thread_name(heading),
+                type=discord.ChannelType.public_thread,
+                auto_archive_duration=1440,
+            )
+        except discord.HTTPException as error:
+            LOGGER.error(
+                "Could not open a stats thread in #%s, posting to you "
+                "instead: %s",
+                getattr(channel, "name", interaction.channel_id),
+                error,
+            )
+            return None
+        await interaction.followup.send(
+            f"Your D12 Ball stats are in {thread.mention}.", ephemeral=True,
+        )
+        return thread
+
     async def send_stats(
         self,
         interaction: discord.Interaction,
@@ -183,25 +240,30 @@ class CommandsMixin:
         characters would hold most of these together, but a fence with
         two tables in it scrolls as one block on a phone -- and a
         report that outgrows the limit would then fail rather than
-        arriving in pieces. Every send here is a followup, which is
-        the webhook route and so competes with nothing in the
-        channel's edit bucket (see "Discord's rate limits").
+        arriving in pieces. None of these sends is a channel message
+        edit, so none competes for that bucket (see "Discord's rate
+        limits").
         """
-        await interaction.followup.send(heading, ephemeral=not share)
+        thread = await self.open_stats_thread(interaction, heading, share)
+        if thread is not None:
+            await thread.send(heading)
+        else:
+            await interaction.followup.send(heading, ephemeral=not share)
         for block in blocks:
             if not block:
                 continue
-            await interaction.followup.send(
-                "```\n" + "\n".join(block) + "\n```",
-                ephemeral=not share,
-            )
+            payload = "```\n" + "\n".join(block) + "\n```"
+            if thread is not None:
+                await thread.send(payload)
+            else:
+                await interaction.followup.send(payload, ephemeral=not share)
 
     @stats_group.command(
         name="game",
         description="What has happened in this channel's game.",
     )
     @app_commands.describe(
-        share="Post it in the channel instead of only to you.",
+        share="Post it straight into the channel instead of a thread of its own.",
     )
     @app_commands.guild_only()
     async def stats_game(
@@ -251,7 +313,7 @@ class CommandsMixin:
     )
     @app_commands.describe(
         scope="Which games to count.",
-        share="Post it in the channel instead of only to you.",
+        share="Post it straight into the channel instead of a thread of its own.",
     )
     @app_commands.choices(scope=STATS_SCOPE_CHOICES)
     @app_commands.guild_only()
@@ -279,7 +341,7 @@ class CommandsMixin:
     )
     @app_commands.describe(
         scope="Which games to count.",
-        share="Post it in the channel instead of only to you.",
+        share="Post it straight into the channel instead of a thread of its own.",
     )
     @app_commands.choices(scope=STATS_SCOPE_CHOICES)
     @app_commands.guild_only()
@@ -305,7 +367,7 @@ class CommandsMixin:
     )
     @app_commands.describe(
         scope="Which games to count.",
-        share="Post it in the channel instead of only to you.",
+        share="Post it straight into the channel instead of a thread of its own.",
     )
     @app_commands.choices(scope=STATS_SCOPE_CHOICES)
     @app_commands.guild_only()
@@ -332,7 +394,7 @@ class CommandsMixin:
     )
     @app_commands.describe(
         scope="Which games to count.",
-        share="Post it in the channel instead of only to you.",
+        share="Post it straight into the channel instead of a thread of its own.",
     )
     @app_commands.choices(scope=STATS_SCOPE_CHOICES)
     @app_commands.guild_only()

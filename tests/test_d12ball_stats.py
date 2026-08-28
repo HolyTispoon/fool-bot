@@ -31,6 +31,8 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
+import discord
+
 from cogs.d12ball import D12Ball
 from d12ball import stats
 from d12ball.ai import build_ai_strategies
@@ -640,18 +642,45 @@ class FakeResponse:
         self.deferred = True
 
 
-class FakeFollowup:
+class FakeMessageable:
     def __init__(self) -> None:
         self.sent: list[tuple[str, bool]] = []
 
     async def send(self, content=None, **kwargs):
         self.sent.append((content, kwargs.get("ephemeral")))
+        return SimpleNamespace(id=len(self.sent))
 
 
-def build_interaction(channel_id: int = 2, guild_id: int = 1):
+class FakeFollowup(FakeMessageable):
+    pass
+
+
+class FakeThread(FakeMessageable):
+    mention = "<#9001>"
+
+
+class FakeChannel(FakeMessageable):
+    name = "d12ball-pbd1"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.thread = FakeThread()
+        self.create_thread_calls: list[dict] = []
+
+    async def create_thread(self, **kwargs):
+        self.create_thread_calls.append(kwargs)
+        return self.thread
+
+
+def build_interaction(channel_id: int = 2, guild_id: int = 1, in_thread=False):
     interaction = mock.Mock()
     interaction.response = FakeResponse()
     interaction.followup = FakeFollowup()
+    interaction.channel = (
+        mock.Mock(spec=discord.Thread) if in_thread else FakeChannel()
+    )
+    if in_thread:
+        interaction.channel.send = mock.AsyncMock()
     interaction.channel_id = channel_id
     interaction.guild_id = guild_id
     return interaction
@@ -799,51 +828,81 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(sent), 1)
         self.assertIn("nothing to report", sent[0][0])
 
-    async def test_every_command_answers_privately_unless_shared(
+    STATS_COMMANDS = (
+        "stats_game",
+        "stats_maneuvers",
+        "stats_matchups",
+        "stats_overview",
+        "stats_players",
+    )
+
+    async def test_a_report_goes_in_a_thread_of_its_own_unless_shared(
         self,
     ) -> None:
         """
-        Ephemeral by default: a stats dump is several messages, and a
+        A stats dump is several messages of wide code block, and a
         coach asking about maneuver usage mid-game is not asking to
-        put six tables into the channel both of them are playing in.
+        put them into the channel both sides are playing in -- but an
+        ephemeral one was gone on the next restart and invisible to
+        the other coach. So it goes in a thread, and the caller is
+        pointed at it.
         """
-        for share in (False, True):
+        for name in self.STATS_COMMANDS:
+            kwargs = {} if name == "stats_game" else {"scope": None}
+
             cog = build_cog()
             played_game(cog)
-            for name in (
-                "stats_game",
-                "stats_maneuvers",
-                "stats_matchups",
-                "stats_overview",
-                "stats_players",
-            ):
-                interaction = build_interaction()
-                kwargs = {} if name == "stats_game" else {"scope": None}
-                sent = await self.run_command(
-                    cog, name, interaction, share=share, **kwargs
-                )
-                self.assertTrue(sent, name)
-                for content, ephemeral in sent:
-                    self.assertEqual(bool(ephemeral), not share, name)
+            interaction = build_interaction()
+            await self.run_command(cog, name, interaction, share=False, **kwargs)
 
-    async def test_every_command_posts_something_readable(self) -> None:
-        cog = build_cog()
-        played_game(cog)
-        for name in (
-            "stats_game",
-            "stats_maneuvers",
-            "stats_matchups",
-            "stats_overview",
-            "stats_players",
-        ):
-            kwargs = {} if name == "stats_game" else {"scope": None}
-            sent = await self.run_command(
-                cog, name, build_interaction(), **kwargs
+            self.assertEqual(
+                len(interaction.channel.create_thread_calls), 1, name,
             )
-            fenced = [content for content, _ in sent if content.startswith("```")]
-            self.assertTrue(fenced, f"{name} posted no table")
+            thread_blocks = [c for c, _ in interaction.channel.thread.sent]
+            self.assertTrue(
+                any(c.startswith("```") for c in thread_blocks), name,
+            )
+            # Nothing fenced reaches the channel or the caller directly.
+            self.assertFalse(
+                any(c.startswith("```") for c, _ in interaction.channel.sent),
+                name,
+            )
+            for content, ephemeral in interaction.followup.sent:
+                self.assertFalse(content.startswith("```"), name)
+            self.assertTrue(
+                all(e for _, e in interaction.followup.sent), name,
+            )
+
+    async def test_sharing_posts_straight_into_the_channel(self) -> None:
+        for name in self.STATS_COMMANDS:
+            kwargs = {} if name == "stats_game" else {"scope": None}
+
+            cog = build_cog()
+            played_game(cog)
+            interaction = build_interaction()
+            sent = await self.run_command(
+                cog, name, interaction, share=True, **kwargs
+            )
+
+            self.assertEqual(interaction.channel.create_thread_calls, [], name)
+            fenced = [c for c, _ in sent if c.startswith("```")]
+            self.assertTrue(fenced, name)
             for block in fenced:
                 self.assertTrue(block.endswith("```"), name)
+            for _, ephemeral in sent:
+                self.assertFalse(ephemeral, name)
+
+    async def test_a_command_run_in_a_thread_stays_there(self) -> None:
+        """Threads do not nest, so a report asked for inside one is
+        posted in it rather than starting a child thread."""
+        cog = build_cog()
+        played_game(cog)
+        interaction = build_interaction(in_thread=True)
+        sent = await self.run_command(
+            cog, "stats_maneuvers", interaction, share=False, scope=None,
+        )
+        fenced = [c for c, _ in sent if c and c.startswith("```")]
+        self.assertTrue(fenced)
 
     async def test_a_scope_choice_is_offered_for_every_category(
         self,
