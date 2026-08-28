@@ -5,9 +5,10 @@ Every 429 the bot collected in a session of play was a PATCH on the
 board message. `message_id` is not one of Discord's major rate-limit
 parameters, so those edits share a single per-*channel* bucket with
 every other channel-sourced edit in the game -- roughly five requests
-in five seconds, and a refresh spends two of them. Fifty-odd call sites
-ask for one, so what has to be held down is how often the board is
-actually written, and whether the write says anything new.
+in five seconds, and a refresh used to spend two of them back to back.
+Fifty-odd call sites ask for one, so what has to be held down is how
+often the board is actually written, whether the write says anything
+new, and that no pass ever asks twice.
 """
 
 import asyncio
@@ -638,6 +639,29 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(channel.message.edits, 3)
         self.assertEqual(link_urls(channel.message.fields[-1]), [ATTACHMENT_URL])
         self.assertIsNone(cog.boards.state(game.game_id).link_owed)
+
+    async def test_the_board_and_its_link_are_never_one_pass(self) -> None:
+        # The pair the interval could not space, and the last batch of
+        # 429s: a settling write used to upload the board and then cut
+        # the link onto it in the same breath, so the second PATCH went
+        # out a third of a second after the first had landed, inside
+        # the window that first one opened. Every edit is its own pass
+        # now, and passes are what the interval spaces.
+        cog, game, channel, interaction = self.build()
+
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await cog.refresh_match_image(interaction, game)
+            await asyncio.gather(*cog.boards.pending_tasks())
+
+        # Two boards, neither carrying a link, then the link on its own.
+        self.assertEqual(
+            [sorted(fields) for fields in channel.message.fields],
+            [["attachments", "view"], ["attachments", "view"], ["view"]],
+        )
+        self.assertEqual(
+            [link_urls(fields) for fields in channel.message.fields],
+            [[], [], [ATTACHMENT_URL]],
+        )
 
     async def test_an_unchanged_board_still_pays_its_link(self) -> None:
         # The common case: the click's last step moved nothing, so the

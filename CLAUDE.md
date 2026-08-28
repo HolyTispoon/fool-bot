@@ -2018,21 +2018,41 @@ invariants read as ordinary cog surface among 223 methods.
   message uploads a new attachment, which invalidates the old one, so the
   "View full image" link has to be re-cut in a second edit -- the URL does not
   exist until the upload lands. That is two edits a board, and a turn's worth
-  of boards is more than the bucket has. So `BoardRefresher.write` takes
-  `relink`: an **interim** write (the immediate one, `relink=False`) strips the
-  now-dead link in the edit it was already paying for and records the URL in
-  `link_owed`, and the **settling** write (the trailing refresh) puts a
-  live one back. The board is linkless for `BOARD_REFRESH_INTERVAL` rather than
-  dead-linked for it.
+  of boards is more than the bucket has. So every write strips the now-dead
+  link in the edit it was already paying for and records the URL in
+  `link_owed`, and a later pass with nothing new to draw puts a live one back.
+  The board is linkless for a window or two rather than dead-linked for it.
+  - **The link may not ride along with the upload that killed it**, and that
+    pair is what the fifth batch of 429s was. `BoardRefresher.write` used to
+    relink in the same pass, so a settling write sent its second PATCH about a
+    third of a second after its first had landed -- inside the window that
+    first request opened. The log is six refusals evenly 11.8 seconds apart
+    (one interval, plus the retry each cost), every one carrying a
+    `retry_after` that was the remainder of a window a board upload had just
+    opened, for as long as the two coaches kept clicking. **A 429 reaching the
+    log at all means a limit the headers did not advertise**: discord.py
+    pre-emptively waits out any bucket Discord tells it about, so the gate can
+    only be beaten from inside its own window. Every pass is one request now --
+    the board if one was asked for, otherwise the link the last one owes --
+    which is what makes the interval the whole of the spacing.
+  - **`relink` says which of the two a pass may spend its request on**, not
+    whether it pays for both. An interim write (the immediate one,
+    `relink=False`) leaves the link to the trailing pass; a trailing pass
+    (`relink=True`) draws the board if it has a new one and settles the link if
+    it does not.
   - **The settling pass is owed as soon as a link is stripped**, so
     `refresh_match_image` schedules one after an immediate write whenever
     something is in `link_owed` -- not only when a second refresh asks.
-    Without it a quiet board would keep the link the interim write took off.
+    Without it a quiet board would keep the link that write took off. The same
+    fact keeps the trailing task looping: `schedule` returns only once nothing
+    is wanted **and** nothing is owed, since the link is the one piece of work
+    no call site will ever come back and ask for.
   - **A settling write with nothing new to draw still pays the link**, from the
     URL it was handed rather than by re-fetching the message: one edit, and the
     common case, since the last step of a click usually moves nothing. That is
     `BoardRefresher.settle_link`, and it spends no request when nothing
-    is owed.
+    is owed. It always clears `link_owed`, which is what stops the loop above
+    spinning on a link it cannot place.
   - Before the home/visiting choice the message is still the setup prompt: its
     buttons are live, it has no link to go stale, and its view is left alone.
     **And it is a different message from the one the channel opens with** --
@@ -2066,15 +2086,17 @@ invariants read as ordinary cog surface among 223 methods.
     buttons are public (see [The maneuver prompt](#the-maneuver-prompt)), so an
     edit greying a picked side's row would tell the other coach they had
     answered.
-  - **A board refresh spends one of the five**, two when it is the settling
-    one, so `refresh_match_image` is rate-gated per game: the first goes out at
-    once and any that arrive within `BOARD_REFRESH_INTERVAL` collapse into
-    **one** trailing refresh rather than queueing.
+  - **A board refresh spends exactly one of the five, and so does every
+    pass**, so `refresh_match_image` is rate-gated per game: the first goes out
+    at once and any that arrive within `BOARD_REFRESH_INTERVAL` collapse into
+    **one** trailing refresh rather than queueing. A pass that spends two is
+    a pass the interval cannot space -- see the full-image link above.
   - **`BOARD_REFRESH_INTERVAL` must stay above Discord's five-second window**,
     or two refreshes fall inside one window. At three seconds a turn spent
     exactly five and was still earning 429s -- measured. Six leaves a turn at
-    three requests: one interim board, then the settling board and its link.
-    Adding a call site is free; shortening the interval is not.
+    three requests over three passes: the immediate board, the settling board,
+    and the link that one owes. Adding a call site is free; shortening the
+    interval is not.
   - A trailing refresh **draws when it runs**, never from a `png=` handed to it
     earlier -- the board it was offered is stale by the time it fires, and
     re-drawing is exactly what lets one pending refresh stand in for every
