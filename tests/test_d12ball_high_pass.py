@@ -559,7 +559,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
         cog.build_field_file = mock.AsyncMock(return_value="field.png")
         interaction = build_interaction()
 
-        with suppressed_full_image_links():
+        with suppressed_full_image_links(), suppressed_cog_saves():
             await cog.resolve_high_pass(interaction, game, match)
 
         sent = interaction.followup.send.await_args

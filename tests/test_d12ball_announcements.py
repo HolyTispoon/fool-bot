@@ -187,7 +187,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
     async def roll_contest(self, cog, game, rolls) -> SimpleNamespace:
         interaction = build_interaction()
         view = LooseBallSkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
+        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
             "random.randint", side_effect=rolls,
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
             "discord.File",
@@ -329,7 +329,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
     async def roll_score_attempt(self, cog, game, rolls) -> SimpleNamespace:
         interaction = build_interaction()
         view = ScoreAttemptView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
+        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
             "random.randint", side_effect=rolls,
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
             "discord.File",

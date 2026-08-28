@@ -736,7 +736,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build(board_size=9)
         view = CoachingFormationView(cog, game.game_id)
 
-        with suppressed_view_saves():
+        with suppressed_view_saves(), suppressed_cog_saves():
             await view.choose(build_interaction(), Formation.THREE_TWO_ONE)
 
         match = cog.engine.load_match_state(game)
@@ -773,7 +773,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
         view = CoachingFormationView(cog, game.game_id)
 
-        with suppressed_view_saves():
+        with suppressed_view_saves(), suppressed_cog_saves():
             await view.choose(
                 build_interaction(), Formation.TWO_THREE_ONE,
             )
@@ -797,7 +797,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
         view = CoachingFormationView(cog, game.game_id)
 
-        with suppressed_view_saves():
+        with suppressed_view_saves(), suppressed_cog_saves():
             await view.choose(
                 build_interaction(), Formation.ONE_THREE_TWO,
             )
