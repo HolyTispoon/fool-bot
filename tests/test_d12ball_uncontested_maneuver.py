@@ -43,6 +43,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -161,8 +162,8 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
     async def go_unchallenged(self, cog, game, user_id: int = 222):
         """The defense sends nobody, which is the way into this state."""
         interaction = build_interaction(user_id=user_id)
-        with mock.patch("cogs.d12ball_views.save_games"), \
-                mock.patch("cogs.d12ball.save_games"):
+        with suppressed_view_saves(), \
+                suppressed_cog_saves():
             await ManeuverChallengeView(cog, game.game_id).decline(interaction)
         return interaction
 
@@ -212,8 +213,8 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
         await self.go_unchallenged(cog, game)
 
-        with mock.patch("cogs.d12ball_views.save_games"), \
-                mock.patch("cogs.d12ball.save_games"):
+        with suppressed_view_saves(), \
+                suppressed_cog_saves():
             await ManeuverActionPromptView(cog, game.game_id).pick(
                 build_interaction(), "offense", "dribble_advance",
             )
@@ -229,8 +230,8 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
         await self.go_unchallenged(cog, game)
 
-        with mock.patch("cogs.d12ball_views.save_games"), \
-                mock.patch("cogs.d12ball.save_games"):
+        with suppressed_view_saves(), \
+                suppressed_cog_saves():
             await ManeuverActionPromptView(cog, game.game_id).pick(
                 build_interaction(), "offense", "low_pass",
             )
@@ -388,8 +389,8 @@ class DeclinedChallengeTests(unittest.IsolatedAsyncioTestCase):
 
     async def decline(self, cog, game, user_id: int = 222):
         interaction = build_interaction(user_id=user_id)
-        with mock.patch("cogs.d12ball_views.save_games"), \
-                mock.patch("cogs.d12ball.save_games"):
+        with suppressed_view_saves(), \
+                suppressed_cog_saves():
             await ManeuverChallengeView(cog, game.game_id).decline(interaction)
         return interaction
 
@@ -474,8 +475,8 @@ class DeclinedChallengeTests(unittest.IsolatedAsyncioTestCase):
         view = ManeuverChallengeView(cog, game.game_id)
         cog.announce_maneuver_challenge = mock.AsyncMock()
         cog.begin_maneuver_action_selection = mock.AsyncMock()
-        with mock.patch("cogs.d12ball_views.save_games"), \
-                mock.patch("cogs.d12ball.save_games"):
+        with suppressed_view_saves(), \
+                suppressed_cog_saves():
             await view.select_challenger(build_interaction(222), challenger)
 
         interaction = await self.decline(cog, game)
@@ -578,8 +579,8 @@ class AutomaticChallengerTests(DeclinedChallengeTests):
 
         interaction = build_interaction(user_id=111)
         interaction.guild = None
-        with mock.patch("cogs.d12ball_views.save_games"), \
-                mock.patch("cogs.d12ball.save_games"):
+        with suppressed_view_saves(), \
+                suppressed_cog_saves():
             await PlayerActionView(cog, game.game_id).choose_action(
                 interaction, "maneuver", "Maneuver",
             )

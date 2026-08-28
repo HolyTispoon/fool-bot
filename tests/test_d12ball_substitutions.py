@@ -25,6 +25,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.game import Team
 from roster import benched, fielded
+from save_patches import suppressed_cog_saves
 
 
 def build_cog() -> D12Ball:
@@ -63,7 +64,7 @@ class SubstitutionHandoffTests(unittest.IsolatedAsyncioTestCase):
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock())
         )
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.finish_substitution_window(interaction, game, match)
         return game
 
@@ -474,7 +475,7 @@ class ContinueRunBackKickoffFillTests(unittest.IsolatedAsyncioTestCase):
             followup=SimpleNamespace(send=mock.AsyncMock())
         )
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.continue_run_back(interaction, game, match)
 
         self.assertFalse(match.pending_kickoff_fill)

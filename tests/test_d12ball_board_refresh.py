@@ -20,11 +20,12 @@ from unittest import mock
 
 import discord
 
-from cogs.d12ball import (
+from cogs.d12ball import D12Ball
+from cogs.d12ball_boards import (
     BOARD_REFRESH_BACKOFF_CEILING,
     BOARD_REFRESH_INTERVAL,
     LOGGER,
-    D12Ball,
+    BoardRefresher,
 )
 
 
@@ -68,13 +69,7 @@ ATTACHMENT_URL = (
 def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)
     cog.games = {}
-    cog.board_refreshed_at = {}
-    cog.board_refresh_tasks = {}
-    cog.board_png_digests = {}
-    cog.board_link_owed = {}
-    cog.board_refresh_locks = {}
-    cog.board_writes_refused = {}
-    cog.board_refresh_wanted = set()
+    cog.boards = BoardRefresher(cog)
     # Every render differs, so these tests see the write path. The
     # identical-board case has its own class below.
     cog.render_match_png = mock.AsyncMock(
@@ -114,13 +109,13 @@ class BoardRefreshCoalescingTests(unittest.IsolatedAsyncioTestCase):
         cog, game, channel = build_cog(), build_game(), FakeChannel()
         interaction = SimpleNamespace(channel=channel)
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             for _ in range(8):
                 await cog.refresh_match_image(interaction, game)
 
             self.assertEqual(channel.message.edits, 1)
-            self.assertIn(game.game_id, cog.board_refresh_tasks)
-            await asyncio.gather(*cog.board_refresh_tasks.values())
+            self.assertIsNotNone(cog.boards.state(game.game_id).task)
+            await asyncio.gather(*cog.boards.pending_tasks())
 
         # One immediate, one trailing -- not eight.
         self.assertEqual(channel.message.edits, 2)
@@ -136,9 +131,9 @@ class BoardRefreshCoalescingTests(unittest.IsolatedAsyncioTestCase):
         await cog.refresh_match_image(interaction, game, png=b"first")
         cog.render_match_png.reset_mock()
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await cog.refresh_match_image(interaction, game, png=b"second")
-            await asyncio.gather(*cog.board_refresh_tasks.values())
+            await asyncio.gather(*cog.boards.pending_tasks())
 
         cog.render_match_png.assert_awaited_once_with(game)
 
@@ -146,14 +141,14 @@ class BoardRefreshCoalescingTests(unittest.IsolatedAsyncioTestCase):
         cog, game, channel = build_cog(), build_game(), FakeChannel()
         interaction = SimpleNamespace(channel=channel)
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await cog.refresh_match_image(interaction, game)
             for _ in range(5):
                 await cog.refresh_match_image(interaction, game)
-            self.assertEqual(len(cog.board_refresh_tasks), 1)
-            await asyncio.gather(*cog.board_refresh_tasks.values())
+            self.assertEqual(len(cog.boards.pending_tasks()), 1)
+            await asyncio.gather(*cog.boards.pending_tasks())
 
-        self.assertEqual(cog.board_refresh_tasks, {})
+        self.assertEqual(cog.boards.pending_tasks(), [])
 
     async def test_games_are_gated_separately(self) -> None:
         # The bucket is the channel, so two games in two channels do
@@ -167,7 +162,7 @@ class BoardRefreshCoalescingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(first.message.edits, 1)
         self.assertEqual(second.message.edits, 1)
-        self.assertEqual(cog.board_refresh_tasks, {})
+        self.assertEqual(cog.boards.pending_tasks(), [])
 
     async def test_the_window_reopens(self) -> None:
         cog, game, channel = build_cog(), build_game(), FakeChannel()
@@ -175,11 +170,11 @@ class BoardRefreshCoalescingTests(unittest.IsolatedAsyncioTestCase):
 
         await cog.refresh_match_image(interaction, game)
         # A turn later, well outside the window.
-        cog.board_refreshed_at[game.game_id] -= BOARD_REFRESH_INTERVAL + 1
+        cog.boards.state(game.game_id).refreshed_at -= BOARD_REFRESH_INTERVAL + 1
         await cog.refresh_match_image(interaction, game)
 
         self.assertEqual(channel.message.edits, 2)
-        self.assertEqual(cog.board_refresh_tasks, {})
+        self.assertEqual(cog.boards.pending_tasks(), [])
 
     async def test_a_game_with_no_board_message_is_left_alone(self) -> None:
         cog, channel = build_cog(), FakeChannel()
@@ -189,7 +184,7 @@ class BoardRefreshCoalescingTests(unittest.IsolatedAsyncioTestCase):
         await cog.refresh_match_image(SimpleNamespace(channel=channel), game)
 
         self.assertEqual(channel.message.edits, 0)
-        self.assertEqual(cog.board_refresh_tasks, {})
+        self.assertEqual(cog.boards.pending_tasks(), [])
 
     async def test_unloading_drops_a_pending_refresh(self) -> None:
         cog, game, channel = build_cog(), build_game(), FakeChannel()
@@ -197,7 +192,7 @@ class BoardRefreshCoalescingTests(unittest.IsolatedAsyncioTestCase):
 
         await cog.refresh_match_image(interaction, game)
         await cog.refresh_match_image(interaction, game)
-        task = cog.board_refresh_tasks[game.game_id]
+        task = cog.boards.state(game.game_id).task
 
         await cog.cog_unload()
         await asyncio.gather(task, return_exceptions=True)
@@ -253,13 +248,13 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_request_during_a_write_is_not_dropped(self) -> None:
         # A trailing pass puts up a board it drew before this request
         # arrived, so it does not stand in for it. This used to be lost:
-        # the pass was still registered in `board_refresh_tasks`, so the
+        # the pass was still registered in `BoardRefresher.states`, so the
         # request scheduled nothing, and the board kept a state the
         # click had already moved past until somebody clicked again.
         cog, game, channel, interaction = self.build()
         message = channel.message
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             # The immediate write, straight through.
             message.release.set()
             await cog.refresh_match_image(interaction, game)
@@ -269,7 +264,7 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
             # A second request in the same window, which becomes the
             # trailing pass -- and hangs mid-upload.
             await cog.refresh_match_image(interaction, game)
-            trailing = cog.board_refresh_tasks[game.game_id]
+            trailing = cog.boards.state(game.game_id).task
             await message.started.wait()
 
             # A third, while that upload is still in the air.
@@ -290,14 +285,14 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
         cog, game, channel, interaction = self.build()
         message, real_sleep = channel.message, asyncio.sleep
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             writing = asyncio.create_task(
                 cog.refresh_match_image(interaction, game),
             )
             await message.started.wait()
 
             await cog.refresh_match_image(interaction, game)
-            trailing = cog.board_refresh_tasks[game.game_id]
+            trailing = cog.boards.state(game.game_id).task
 
             # The trailing pass's window is up (its sleep is mocked), so
             # this is where it would join the write already in flight.
@@ -331,7 +326,7 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
         message = channel.message
         interval = 0.3
 
-        with mock.patch("cogs.d12ball.BOARD_REFRESH_INTERVAL", interval):
+        with mock.patch("cogs.d12ball_boards.BOARD_REFRESH_INTERVAL", interval):
             writing = asyncio.create_task(
                 cog.refresh_match_image(interaction, game),
             )
@@ -353,7 +348,7 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
             await message.started.wait()
             gap = time.monotonic() - landed
 
-            await asyncio.gather(*cog.board_refresh_tasks.values())
+            await asyncio.gather(*cog.boards.pending_tasks())
 
         # The state that arrived mid-retry still reaches the message,
         # a full window after the write it was queued behind landed.
@@ -373,7 +368,7 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
         message = channel.message
         message.release.set()
 
-        with mock.patch("cogs.d12ball.BOARD_REFRESH_INTERVAL", interval):
+        with mock.patch("cogs.d12ball_boards.BOARD_REFRESH_INTERVAL", interval):
             await cog.refresh_match_image(interaction, game)
             landed = time.monotonic()
 
@@ -387,7 +382,7 @@ class WriteInFlightTests(unittest.IsolatedAsyncioTestCase):
             gap = time.monotonic() - landed
 
             await pending
-            await asyncio.gather(*cog.board_refresh_tasks.values())
+            await asyncio.gather(*cog.boards.pending_tasks())
 
         self.assertGreaterEqual(gap, interval)
 
@@ -412,7 +407,7 @@ class UnchangedBoardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(channel.message.edits, 1)
 
         # A later turn, window wide open, but nothing has moved.
-        cog.board_refreshed_at[game.game_id] -= BOARD_REFRESH_INTERVAL + 1
+        cog.boards.state(game.game_id).refreshed_at -= BOARD_REFRESH_INTERVAL + 1
         await cog.refresh_match_image(interaction, game)
 
         self.assertEqual(channel.message.edits, 1)
@@ -422,7 +417,7 @@ class UnchangedBoardTests(unittest.IsolatedAsyncioTestCase):
 
         await cog.refresh_match_image(interaction, game)
         cog.render_match_png.return_value = b"a meeple moved"
-        cog.board_refreshed_at[game.game_id] -= BOARD_REFRESH_INTERVAL + 1
+        cog.boards.state(game.game_id).refreshed_at -= BOARD_REFRESH_INTERVAL + 1
         await cog.refresh_match_image(interaction, game)
 
         self.assertEqual(channel.message.edits, 2)
@@ -439,7 +434,7 @@ class UnchangedBoardTests(unittest.IsolatedAsyncioTestCase):
 
         await cog.refresh_match_image(interaction, game)
 
-        self.assertNotIn(game.game_id, cog.board_png_digests)
+        self.assertIsNone(cog.boards.state(game.game_id).png_digest)
 
     async def test_the_first_refresh_after_a_restart_still_writes(self) -> None:
         # Nothing records what is on the message across a restart, and
@@ -517,7 +512,7 @@ class RefusedWriteBackoffTests(unittest.IsolatedAsyncioTestCase):
             widths.append(cog.board_refresh_interval(game))
             # Let the next one through the window rather than the
             # backoff, so what is being measured is the backoff alone.
-            cog.board_refreshed_at[game.game_id] -= widths[-1] + 1
+            cog.boards.state(game.game_id).refreshed_at -= widths[-1] + 1
 
         self.assertEqual(widths, [
             BOARD_REFRESH_INTERVAL * 2,
@@ -527,7 +522,7 @@ class RefusedWriteBackoffTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_backoff_has_a_ceiling(self) -> None:
         cog, game, _, _ = self.build()
-        cog.board_writes_refused[game.game_id] = 40
+        cog.boards.state(game.game_id).writes_refused = 40
 
         self.assertEqual(
             cog.board_refresh_interval(game), BOARD_REFRESH_BACKOFF_CEILING,
@@ -537,16 +532,16 @@ class RefusedWriteBackoffTests(unittest.IsolatedAsyncioTestCase):
         cog, game, channel, interaction = self.build(error=refused())
 
         await cog.refresh_match_image(interaction, game)
-        self.assertEqual(cog.board_writes_refused[game.game_id], 1)
+        self.assertEqual(cog.boards.state(game.game_id).writes_refused, 1)
 
         # Discord lets the next one through.
         channel.message = FakeMessage()
-        cog.board_refreshed_at[game.game_id] -= (
+        cog.boards.state(game.game_id).refreshed_at -= (
             cog.board_refresh_interval(game) + 1
         )
         await cog.refresh_match_image(interaction, game)
 
-        self.assertNotIn(game.game_id, cog.board_writes_refused)
+        self.assertEqual(cog.boards.state(game.game_id).writes_refused, 0)
         self.assertEqual(
             cog.board_refresh_interval(game), BOARD_REFRESH_INTERVAL,
         )
@@ -562,7 +557,7 @@ class RefusedWriteBackoffTests(unittest.IsolatedAsyncioTestCase):
 
         # Far enough past the ordinary interval to have been let
         # through before, and nowhere near the backed-off one.
-        cog.board_refreshed_at[game.game_id] -= BOARD_REFRESH_INTERVAL + 1
+        cog.boards.state(game.game_id).refreshed_at -= BOARD_REFRESH_INTERVAL + 1
         await cog.refresh_match_image(interaction, game)
 
         self.assertEqual(channel.message.edit.await_count, 1)
@@ -579,7 +574,7 @@ class RefusedWriteBackoffTests(unittest.IsolatedAsyncioTestCase):
 
         await cog.refresh_match_image(interaction, game)
 
-        self.assertEqual(cog.board_writes_refused, {})
+        self.assertEqual(cog.boards.state(game.game_id).writes_refused, 0)
 
 
 def build_assigned_game(game_id: str = "g") -> SimpleNamespace:
@@ -621,28 +616,28 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
     async def test_an_interim_write_is_one_edit_without_the_link(self) -> None:
         cog, game, channel, interaction = self.build()
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await cog.refresh_match_image(interaction, game)
 
             self.assertEqual(channel.message.edits, 1)
             self.assertEqual(link_urls(channel.message.fields[0]), [])
             # Held against the upload it was read off, for the
             # settling write to spend.
-            self.assertEqual(cog.board_link_owed[game.game_id], ATTACHMENT_URL)
+            self.assertEqual(cog.boards.state(game.game_id).link_owed, ATTACHMENT_URL)
 
-            await asyncio.gather(*cog.board_refresh_tasks.values())
+            await asyncio.gather(*cog.boards.pending_tasks())
 
     async def test_the_settling_write_puts_the_link_back(self) -> None:
         cog, game, channel, interaction = self.build()
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await cog.refresh_match_image(interaction, game)
-            await asyncio.gather(*cog.board_refresh_tasks.values())
+            await asyncio.gather(*cog.boards.pending_tasks())
 
         # The interim write, then the settling board and its link.
         self.assertEqual(channel.message.edits, 3)
         self.assertEqual(link_urls(channel.message.fields[-1]), [ATTACHMENT_URL])
-        self.assertNotIn(game.game_id, cog.board_link_owed)
+        self.assertIsNone(cog.boards.state(game.game_id).link_owed)
 
     async def test_an_unchanged_board_still_pays_its_link(self) -> None:
         # The common case: the click's last step moved nothing, so the
@@ -651,14 +646,14 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
         cog, game, channel, interaction = self.build()
         cog.render_match_png = mock.AsyncMock(return_value=b"one board")
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await cog.refresh_match_image(interaction, game)
-            await asyncio.gather(*cog.board_refresh_tasks.values())
+            await asyncio.gather(*cog.boards.pending_tasks())
 
         self.assertEqual(channel.message.edits, 2)
         self.assertEqual(link_urls(channel.message.fields[-1]), [ATTACHMENT_URL])
         self.assertEqual(list(channel.message.fields[-1]), ["view"])
-        self.assertNotIn(game.game_id, cog.board_link_owed)
+        self.assertIsNone(cog.boards.state(game.game_id).link_owed)
 
     async def test_a_burst_costs_three_edits(self) -> None:
         # The whole point of the split. A turn's refreshes used to be
@@ -666,10 +661,10 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
         # settling write and its link.
         cog, game, channel, interaction = self.build()
 
-        with mock.patch("cogs.d12ball.asyncio.sleep", new=mock.AsyncMock()):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             for _ in range(8):
                 await cog.refresh_match_image(interaction, game)
-            await asyncio.gather(*cog.board_refresh_tasks.values())
+            await asyncio.gather(*cog.boards.pending_tasks())
 
         self.assertEqual(channel.message.edits, 3)
 
@@ -691,8 +686,8 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
         await cog.refresh_match_image(SimpleNamespace(channel=channel), game)
 
         self.assertEqual(link_urls(channel.message.fields[0]), None)
-        self.assertEqual(cog.board_link_owed, {})
-        self.assertEqual(cog.board_refresh_tasks, {})
+        self.assertEqual(cog.boards.state(game.game_id).link_owed, None)
+        self.assertEqual(cog.boards.pending_tasks(), [])
 
     async def test_a_failed_write_owes_nothing(self) -> None:
         cog, game, channel, interaction = self.build()
@@ -704,7 +699,7 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
 
         await cog.refresh_match_image(interaction, game)
 
-        self.assertEqual(cog.board_link_owed, {})
+        self.assertEqual(cog.boards.state(game.game_id).link_owed, None)
 
 
 if __name__ == "__main__":

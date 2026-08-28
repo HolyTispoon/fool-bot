@@ -27,6 +27,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import AIOpponent, D12BallGame, Formation, GameStatus, Team
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -381,7 +382,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         cog, game, _ = self.build()
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_setup_coaching(interaction, game)
 
         match = cog.engine.load_match_state(game)
@@ -401,7 +402,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_visitors_follow_and_then_play_starts(self) -> None:
         cog, game, _ = self.build()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_setup_coaching(build_interaction(), game)
 
             match = cog.engine.load_match_state(game)
@@ -429,7 +430,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         # play's board does.
         cog, game, _ = self.build()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_setup_coaching(build_interaction(), game)
             match = cog.engine.load_match_state(game)
             await cog.finish_substitution_window(
@@ -450,7 +451,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         cog, game, _ = self.build()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_setup_coaching(build_interaction(), game)
         match = cog.engine.load_match_state(game)
 
@@ -506,7 +507,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         )
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_setup_coaching(interaction, game)
             match = cog.engine.load_match_state(game)
             await cog.finish_substitution_window(interaction, game, match)
@@ -609,7 +610,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         click = build_click()
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await CoachingHubView(cog, game.game_id).finish(click)
 
         content = click.response.edit_message.await_args.kwargs["content"]
@@ -627,7 +628,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         cog.finish_substitution_window = mock.AsyncMock()
 
         click = build_click()
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             await CoachingHubView(cog, game.game_id).finish(click)
 
         self.assertIn(

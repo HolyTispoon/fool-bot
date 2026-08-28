@@ -47,6 +47,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
+from save_patches import SAVING_COG_MODULES, suppressed_cog_saves, suppressed_view_saves
 
 
 def build_game(player_2_id: int = 222) -> D12BallGame:
@@ -76,8 +77,14 @@ class NewPlayBoardStubMixin:
     def stub_new_play_board(self, cog) -> None:
         cog.render_match_png = mock.AsyncMock(return_value=b"")
         cog.match_file_from_png = mock.Mock(return_value=None)
-        for name in ("add_full_image_button", "pin_board_message"):
-            patcher = mock.patch(f"cogs.d12ball.{name}", mock.AsyncMock())
+        # `add_full_image_button` is imported by every cog mixin and
+        # `pin_board_message` by the one that posts boards, so these
+        # name modules rather than the package -- see save_patches.
+        targets = [
+            f"{module}.add_full_image_button" for module in SAVING_COG_MODULES
+        ] + ["cogs.d12ball.presentation.pin_board_message"]
+        for target in targets:
+            patcher = mock.patch(target, mock.AsyncMock())
             patcher.start()
             self.addCleanup(patcher.stop)
 
@@ -408,9 +415,9 @@ class D12BallCoinTossTests(unittest.TestCase):
             ),
         )
 
-        with mock.patch("cogs.d12ball_views.save_games"), \
+        with suppressed_view_saves(), \
                 mock.patch(
-                    "cogs.d12ball_views.random.choice",
+                    "random.choice",
                     side_effect=lambda pool: pool[0],
                 ) as choice:
             asyncio.run(view.select_team(interaction, Team.ORANGE))
@@ -600,7 +607,7 @@ class D12BallRunBackAnnouncementTests(
         # a space.
         cog, interaction, game, match = self.build_stubs(may_declare=True)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_run_back(
                 interaction,
                 game,
@@ -633,7 +640,7 @@ class D12BallRunBackAnnouncementTests(
             match.board.meeple_position(stray), (Zone.MIDFIELD, 0),
         )
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_run_back(
                 interaction, game, match,
                 turnover_occurred=True, new_play=True,
@@ -666,7 +673,7 @@ class D12BallRunBackAnnouncementTests(
         stray = match.home.zones[Zone.HOME_GOAL][0]
         home_zone, home_space = match.assigned_positions[stray]
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_run_back(
                 interaction, game, match,
                 turnover_occurred=True, new_play=True,
@@ -698,7 +705,7 @@ class D12BallRunBackAnnouncementTests(
         # declaration.
         cog, interaction, game, match = self.build_stubs(may_declare=True)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_run_back(
                 interaction, game, match, turnover_occurred=True,
             )
@@ -717,7 +724,7 @@ class D12BallRunBackAnnouncementTests(
         # cost, and goes straight on to the clock.
         cog, interaction, game, match = self.build_stubs(may_declare=True)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_run_back(
                 interaction, game, match,
                 distance_moved=3, turnover_occurred=False,
@@ -745,7 +752,7 @@ class D12BallRunBackAnnouncementTests(
         cog, interaction, game, match = self.build_stubs(may_declare=True)
         match.scoreboard.last_possession = True
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_run_back(
                 interaction,
                 game,
@@ -772,7 +779,7 @@ class D12BallRunBackAnnouncementTests(
         cog, interaction, game, match = self.build_stubs(may_declare=True)
         match.scoreboard.last_possession = True
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_run_back(
                 interaction, game, match, turnover_occurred=False,
             )
@@ -826,7 +833,7 @@ class D12BallNewPlayKickoffTests(
         )
         game.match_state = match.to_dict()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_run_back(
                 interaction, game, match,
                 distance_moved=2, turnover_occurred=True, new_play=True,
@@ -1231,7 +1238,7 @@ class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
         bot = self.CountingBot([])
         cog = self.build_cog(bot)
 
-        with mock.patch("cogs.d12ball.time.monotonic", return_value=42.0):
+        with mock.patch("time.monotonic", return_value=42.0):
             await cog.ensure_coin_emojis()
 
         self.assertEqual(bot.fetches, 1)
@@ -1278,7 +1285,7 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
         view = CoinFlipView(cog, game.game_id)
         interaction = self.build_interaction(game.player_1_id)
 
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             asyncio.run(view.select_mode(interaction, GameMode.ADVANCED))
 
         self.assertEqual(game.board_size, 9)
@@ -1297,7 +1304,7 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
         view = CoinFlipView(cog, game.game_id)
         interaction = self.build_interaction(game.player_1_id)
 
-        with mock.patch("cogs.d12ball_views.save_games"):
+        with suppressed_view_saves():
             asyncio.run(view.select_board_size(interaction, 6))
 
         self.assertEqual(game.board_size, 6)

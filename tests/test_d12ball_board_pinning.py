@@ -21,6 +21,7 @@ from cogs.d12ball_helpers import (
     is_board_image_message,
     pin_board_message,
 )
+from save_patches import suppressed_full_image_links
 
 
 class FakeResponse:
@@ -175,8 +176,8 @@ class NewPlayBoardTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_board_is_drawn_once_and_uploaded_twice(self) -> None:
         cog, interaction, game, _ = self.build()
 
-        with mock.patch("cogs.d12ball.add_full_image_button", mock.AsyncMock()), \
-                mock.patch("cogs.d12ball.pin_board_message", mock.AsyncMock()):
+        with suppressed_full_image_links(), \
+                mock.patch("cogs.d12ball.presentation.pin_board_message", mock.AsyncMock()):
             await cog.post_new_play_board(interaction, game, "# New play")
 
         cog.render_match_png.assert_awaited_once()
@@ -193,8 +194,8 @@ class NewPlayBoardTests(unittest.IsolatedAsyncioTestCase):
         cog, interaction, game, snapshot = self.build()
         pin = mock.AsyncMock()
 
-        with mock.patch("cogs.d12ball.add_full_image_button", mock.AsyncMock()), \
-                mock.patch("cogs.d12ball.pin_board_message", pin):
+        with suppressed_full_image_links(), \
+                mock.patch("cogs.d12ball.presentation.pin_board_message", pin):
             await cog.post_new_play_board(interaction, game, "# New play")
 
         pin.assert_awaited_once_with(snapshot)

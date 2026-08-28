@@ -66,7 +66,7 @@ def build_not_found() -> discord.NotFound:
 
 class StartupArchivingTests(unittest.IsolatedAsyncioTestCase):
     async def run_sweep(self, cog: D12Ball) -> tuple[list, mock.Mock]:
-        with mock.patch("cogs.d12ball.save_games") as save:
+        with mock.patch("cogs.d12ball.slash_commands.save_games") as save:
             with self.assertLogs("cogs.d12ball_helpers", level="INFO") as logs:
                 await cog.on_ready()
 

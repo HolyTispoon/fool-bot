@@ -49,6 +49,7 @@ from d12ball.game import (
     GameStatus,
     Team,
 )
+from save_patches import suppressed_cog_saves, suppressed_full_image_links
 
 
 def build_cog() -> D12Ball:
@@ -145,9 +146,7 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
 
     async def resolve(self, cog, game, match, **kwargs):
         interaction = build_interaction()
-        with mock.patch("cogs.d12ball.save_games"), mock.patch(
-            "cogs.d12ball.add_full_image_button", mock.AsyncMock(),
-        ):
+        with suppressed_cog_saves(), suppressed_full_image_links():
             await cog.finish_maneuver_resolution(
                 interaction, game, match, **kwargs,
             )
@@ -242,7 +241,7 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
 
         interaction = build_interaction()
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.end_period(interaction, game, match)
 
         self.assertEqual(match.scoreboard.period, MatchPeriod.SECOND_HALF)
@@ -530,7 +529,7 @@ class EndPeriodFullTimeTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.end_period(interaction, game, match)
 
         self.assertTrue(game.is_finished)
@@ -557,7 +556,7 @@ class EndPeriodFullTimeTests(unittest.IsolatedAsyncioTestCase):
         cog.games[game.game_id] = game
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.end_period(interaction, game, match)
 
         cog.render_match_png.assert_awaited_once()
@@ -645,7 +644,7 @@ class RematchTests(unittest.IsolatedAsyncioTestCase):
         )
         cog.bot = SimpleNamespace(get_guild=lambda guild_id: guild)
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             created = await cog.start_rematch(game)
 
         self.assertIs(created, rematch)
@@ -674,7 +673,7 @@ class RematchTests(unittest.IsolatedAsyncioTestCase):
             ),
         )
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.start_rematch(game)
 
         args, kwargs = cog.open_new_game.await_args

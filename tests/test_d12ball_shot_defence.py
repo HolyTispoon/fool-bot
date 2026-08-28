@@ -37,6 +37,7 @@ from d12ball.render import (
     group_text_lines,
     render_score_attempt,
 )
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def build_cog() -> D12Ball:
@@ -220,11 +221,11 @@ class ShotRollTests(unittest.IsolatedAsyncioTestCase):
         """Roll the shot, and hand back what the dice image was told."""
         interaction = build_interaction()
         view = ScoreAttemptView(cog, game.game_id)
-        with mock.patch("cogs.d12ball_views.save_games"), mock.patch(
-            "cogs.d12ball_views.random.randint", side_effect=rolls,
+        with suppressed_view_saves(), mock.patch(
+            "random.randint", side_effect=rolls,
         ), mock.patch(
-            "cogs.d12ball_views.render_skill_test_dice",
-        ) as dice, mock.patch("cogs.d12ball_views.discord.File"):
+            "cogs.d12ball_views.base.render_skill_test_dice",
+        ) as dice, mock.patch("discord.File"):
             await view.roll(interaction)
         return dice.call_args.args[0][1]
 
@@ -322,7 +323,7 @@ class ShotClockCostTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_score_attempt = mock.AsyncMock()
         shooter_id = match.active_player_id
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.start_set_up_shot(
                 build_interaction(), game, match, shooter_id,
             )
@@ -341,7 +342,7 @@ class ShotClockCostTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_score_attempt = mock.AsyncMock()
         shooter_id = match.active_player_id
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.start_set_up_shot(
                 build_interaction(), game, match, shooter_id,
                 maneuver_cost=2,

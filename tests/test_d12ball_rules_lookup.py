@@ -400,7 +400,7 @@ class RulesFullCommandTests(unittest.TestCase):
         interaction = build_interaction(
             SimpleNamespace(name="pbd1"), anchor=anchor,
         )
-        with mock.patch("cogs.d12ball.LOGGER") as logger:
+        with mock.patch("cogs.d12ball.slash_commands.LOGGER") as logger:
             asyncio.run(D12Ball.rules_full.callback(self.cog, interaction))
 
         self.assertTrue(logger.error.called)

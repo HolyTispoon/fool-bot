@@ -26,6 +26,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
+from save_patches import suppressed_cog_saves
 
 
 def build_cog() -> D12Ball:
@@ -329,7 +330,7 @@ class CedeFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_cede(interaction, game, match)
 
         cog.drop_turn_prompt.assert_awaited_once()
@@ -347,7 +348,7 @@ class CedeFlowTests(unittest.IsolatedAsyncioTestCase):
         match.scoreboard.last_possession = True
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.begin_cede(interaction, game, match)
 
         cog.end_period.assert_awaited_once()
@@ -361,7 +362,7 @@ class CedeFlowTests(unittest.IsolatedAsyncioTestCase):
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.CEDED)
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.finish_substitution_window(interaction, game, match)
 
         cog.begin_substitution_window.assert_awaited_once()
@@ -384,7 +385,7 @@ class CedeFlowTests(unittest.IsolatedAsyncioTestCase):
         )
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.finish_substitution_window(interaction, game, match)
 
         cog.announce_run_back.assert_not_awaited()
@@ -404,7 +405,7 @@ class CedeFlowTests(unittest.IsolatedAsyncioTestCase):
             match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await cog.finish_cede(interaction, game, match)
 
         cog.begin_ball_recovery.assert_awaited_once()
@@ -532,7 +533,7 @@ class CedeOffensiveChoiceTests(unittest.IsolatedAsyncioTestCase):
         cog.defer_and_get_match = mock.AsyncMock(return_value=(game, match))
         interaction = build_interaction()
 
-        with mock.patch("cogs.d12ball.save_games"):
+        with suppressed_cog_saves():
             await D12Ball.offensive_choice.callback(cog, interaction)
 
         cog.send_turn_prompt.assert_not_awaited()

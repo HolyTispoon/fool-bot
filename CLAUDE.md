@@ -23,9 +23,10 @@ python3 -m unittest discover -s tests
 | `botstate.py` | The little the bot remembers between runs, in `data/bot_state.json` |
 | `discord_emoji_cache.py` | The cache-with-cooldown shape shared by every cog's application-emoji lookup (`cogs/coins.py`, `cogs/d12ball.py`) -- not what each cog loads, only the retry timing |
 | `botlog/` | Console logging setup, and the #logs channel mirror — see below |
-| `cogs/d12ball.py` | All D12 Ball slash commands and Discord interaction flow |
+| `cogs/d12ball/` | All D12 Ball slash commands and the Discord interaction flow. One class of 217 methods over 10,087 lines is what this package replaced, split along the section banners the file already carried: `core` (lifecycle, lookups, `persist`, the spine of a turn, `pending_turn_view`), `effects` (one banner per maneuver), `turnovers` (run back, cede, out-of-bounds pickup), `periods` (clock, halftime, shootout), `presentation` (prompts, images, channels, the AI turn, the tutorial's narration) and `slash_commands` (every command, the two subgroups, the startup sweep). `__init__.py` assembles `D12Ball` from the six mixins and re-exports what the module exposed, so `from cogs.d12ball import D12Ball` is unchanged. |
 | `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming. Re-imports and re-exports everything `d12ball/formatting.py` holds, so an existing `from cogs.d12ball_helpers import space_label` keeps working; what stayed here needs an emoji dict or discord.py itself. |
-| `cogs/d12ball_views.py` | The `discord.ui.View` classes, one per prompt a player can be shown. `SafeView.load_match`/`require_match` are the shared "get the game and its match, or bail" lookup nearly every view opens with (silent for `__init__`, replying for a callback); `SafeView.is_game_participant` is the shared "is this one of the two coaches" check a roll button's `.roll` answers to. Both replaced call-site-by-call-site copies of themselves. |
+| `cogs/d12ball_views/` | The `discord.ui.View` classes, one per prompt a player can be shown -- forty-nine of them, split into ten modules along the clusters they already fell into (`base`, `setup`, `turn`, `rolls`, `runback`, `effects`, `coaching`, `halftime`, `loose_ball`, `shootout`). `__init__.py` re-exports every name the single file held, so `from cogs.d12ball_views import X` is unchanged for every X and no call site moved -- the arrangement `cogs/d12ball_helpers.py` has with `d12ball/formatting.py`. `base` holds `SafeView` (whose `load_match`/`require_match` are the shared "get the game and its match, or bail" lookup nearly every view opens with, and whose `is_game_participant` is the shared "is this one of the two coaches" check a roll button answers to) plus the two contest-rendering helpers; it imports from no sibling, which is what keeps the package a DAG. |
+| `cogs/d12ball_boards.py` | The write gate on a game's persistent board message. `BoardRefreshState` is one game's -- when a write landed, the pass waiting to write again, the board already on the message, the link owed for it, the lock, the wants arriving mid-write, the refusals -- and `BoardRefresher` holds one per game and the six methods that read it. Those were seven parallel dicts keyed by game id on the cog, agreeing about a game only by hand at each of the eleven sites that wrote them. `D12Ball` keeps a thin forwarding method for each of the six, so no call site moved -- see "Discord's rate limits". |
 | `cogs/debug.py` | Maintenance commands, including the PBD channel-and-count reset |
 | `d12ball/components.py` | Game state model — `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog` |
 | `d12ball/engine.py` | `RulesEngine` — the cog's decisions and candidate lists that never touch Discord, over a fixed player catalog/ruleset/maneuver catalog/AI strategies. `D12Ball.engine` is the one instance a cog builds; every call site reads `self.engine.foo(...)` (or `self.cog.engine.foo(...)` from a view) instead of `self.foo(...)`. Includes prompt-text and matchup-data builders (`build_turn_prompt`, `challenge_side`, ...) that are presentation but need nothing beyond the match and the catalogs -- no emoji dict, no cog. |
@@ -1820,6 +1821,37 @@ which maneuver beats which, that the deal starts out of shooting range,
 that the striker is on the space the last pass lands on, that exactly
 one Dinky card is standing there.
 
+## Why the cog is mixins
+
+`cogs/d12ball/` is six mixin classes assembled into one `D12Ball` in
+`__init__.py`, and the choice of mixins over collaborator objects is the whole
+design.
+
+- **These methods co-operate through the cog's own state and call each other by
+  the hundred.** `self.foo(...)` has to keep working across every seam, and a
+  mixin is the only split where it does, untouched. Turning those calls into
+  explicit dependencies on collaborator objects is a far larger change and a
+  different one -- don't start it by halves.
+- **The seams are the author's, not invented.** The single file carried sixteen
+  `# -- Low Pass ---` banners, and the split follows them. Each mixin is a
+  contiguous run of the old file, so the moves are readable as moves.
+- **The mixin order carries no resolution.** It is the order the file read in.
+  No method is defined by two mixins, and `test_no_method_is_defined_by_two_mixins`
+  in `tests/test_d12ball_package_shape.py` is what keeps that true -- a name in
+  two of them means one is dead code, chosen by the MRO rather than by anybody.
+- **`commands.GroupCog` comes last**, so the mixins sit ahead of it in the MRO.
+  discord.py collects commands by walking the whole MRO (`CogMeta.__new__`), so
+  a command or subgroup defined on a mixin registers exactly as one on the cog
+  would -- verified against the assembled class, which has the same 221 methods
+  and the same 17 app commands as the single file did.
+- **The command module is `slash_commands.py`, not `commands.py`.** A submodule
+  binds its own name into the package namespace, so `commands.py` would shadow
+  `discord.ext.commands` in the very file that reads `commands.GroupCog`.
+- **`pending_turn_view` moved whole, into `core`.** It is a flat, ordered
+  dispatch chain whose ordering is load-bearing and mostly comments explaining
+  why each branch sits where it does -- see "Recovering a stuck game". A second
+  copy of that chain is the failure mode; splitting it is how you get one.
+
 ## Logging and the #logs channel
 
 **Use `logging`, not `print`.** Every module gets its own logger
@@ -1919,6 +1951,27 @@ WARNING, so it is console-only and never reaches #logs); adding our own
 pacing on top would only make a turn take ten seconds and still spend the
 same budget. So:
 
+**The gate itself lives in `cogs/d12ball_boards.py`.** Everything below
+describes `BoardRefresher` and the `BoardRefreshState` it keeps per game.
+They were seven attributes and six methods on the cog, touched by nothing
+but each other, which made the one piece of this bot with measured timing
+invariants read as ordinary cog surface among 223 methods.
+
+- **The seven were parallel dicts keyed by game id, and are now one
+  object.** Every method reached into several of them for the same game in
+  the same breath, so the invariant that had to hold was that all seven
+  agreed about one game -- written down nowhere, and kept by hand at each
+  of the eleven sites that wrote them. Each field of the dataclass carries
+  its dict's "missing" as its default, so nothing had to learn a new
+  absent-value.
+- **`state()` starts an entry and `states.get` does not.** A caller about
+  to write asks the first; a caller only reading asks the second, so that
+  asking after a finished game does not quietly file a new entry for it.
+- **`D12Ball` keeps a thin forwarding method for each of the six**, so the
+  fifty-odd call sites did not move in the change that extracted this. They
+  are the identical call on `self.boards` and carry no reasoning of their
+  own; the reasoning is on the method each forwards to.
+
 - **Read a 429 by looking the ids up, not by reasoning about them.** All the
   warning gives you is a method and a URL, and the only thing in it that names
   the game is the channel and message id. Three batches of these were read by
@@ -1965,20 +2018,21 @@ same budget. So:
   message uploads a new attachment, which invalidates the old one, so the
   "View full image" link has to be re-cut in a second edit -- the URL does not
   exist until the upload lands. That is two edits a board, and a turn's worth
-  of boards is more than the bucket has. So `write_board_message` takes
+  of boards is more than the bucket has. So `BoardRefresher.write` takes
   `relink`: an **interim** write (the immediate one, `relink=False`) strips the
   now-dead link in the edit it was already paying for and records the URL in
-  `board_link_owed`, and the **settling** write (the trailing refresh) puts a
+  `link_owed`, and the **settling** write (the trailing refresh) puts a
   live one back. The board is linkless for `BOARD_REFRESH_INTERVAL` rather than
   dead-linked for it.
   - **The settling pass is owed as soon as a link is stripped**, so
     `refresh_match_image` schedules one after an immediate write whenever
-    something is in `board_link_owed` -- not only when a second refresh asks.
+    something is in `link_owed` -- not only when a second refresh asks.
     Without it a quiet board would keep the link the interim write took off.
   - **A settling write with nothing new to draw still pays the link**, from the
     URL it was handed rather than by re-fetching the message: one edit, and the
     common case, since the last step of a click usually moves nothing. That is
-    `settle_board_link`, and it spends no request when nothing is owed.
+    `BoardRefresher.settle_link`, and it spends no request when nothing
+    is owed.
   - Before the home/visiting choice the message is still the setup prompt: its
     buttons are live, it has no link to go stale, and its view is left alone.
     **And it is a different message from the one the channel opens with** --
@@ -2026,7 +2080,7 @@ same budget. So:
     re-drawing is exactly what lets one pending refresh stand in for every
     request behind it.
   - **Only one write per game is ever in the air**, held by
-    `board_refresh_locks`. A write is not instant: drawing a 2200px board and
+    `locks`. A write is not instant: drawing a 2200px board and
     uploading it is most of a second, more on a bad connection, so an upload
     slower than the window let the trailing pass start alongside the immediate
     write and put two PATCHes on one message in the same instant. That is the
@@ -2051,8 +2105,9 @@ same budget. So:
       queued behind a write that is still going and its sleep runs *alongside*
       that write, so by the time it holds the lock its wait is already spent.
       What the interval is still owed is settled under the lock, by
-      `wait_out_board_interval`. It is the only place the bot sleeps before a
-      request, and it is not the pacing ruled out below: nobody is waiting on
+      `BoardRefresher.wait_out_interval`. It is the only place the bot
+      sleeps before a request, and it is not the pacing ruled out below:
+      nobody is waiting on
       a board that has not been drawn yet.
     - **The stamp goes in a `finally`.** A write that raised still spent its
       place in the bucket, and a window left open by the failure is one more
@@ -2096,15 +2151,15 @@ same budget. So:
       an id up. Console-only, like every other WARNING here.
   - **A write in flight does not stand in for a request that arrives during
     it.** The board it is putting up was drawn before that request, so the want
-    is recorded in `board_refresh_wanted` and a pass that finds the flag set
+    is recorded in `wanted` and a pass that finds the flag set
     again when it lands waits out another interval and goes round once more.
     Counting the *task* instead dropped the request on the floor -- it was still
-    in `board_refresh_tasks`, so nothing rescheduled, and the board kept a state
+    in `tasks`, so nothing rescheduled, and the board kept a state
     the click had already moved past until somebody clicked again. Anything
     added to the gate has to keep the discard *before* the write, or the same
     hole reopens.
   - **A board identical to the one already up is not written at all.** The
-    render is deterministic, so `write_board_message` keeps a digest of what
+    render is deterministic, so `BoardRefresher.write` keeps a digest of what
     it last uploaded and skips the upload when the new bytes match (a settling
     write still owes its link). Plenty of steps refresh without moving anything
     visible -- picking a receiver, choosing a maneuver -- and those were
@@ -2119,8 +2174,8 @@ same budget. So:
   - **Fewer requests is not the same as slower requests, and this is the
     difference.** Nothing here sleeps before a call anyone is waiting on. The
     gate drops redundant work; the turn does not get slower for it.
-    `wait_out_board_interval` is the one sleep before a request, and it is on
-    the right side of that line: the board it is holding back has not been
+    `BoardRefresher.wait_out_interval` is the one sleep before a request,
+    and it is on the right side of that line: the board it is holding back has not been
     drawn yet, and every write it delays is one it is about to make
     unnecessary. A coach waits on prompts and on the messages a turn posts,
     and none of those go through this gate.
@@ -3524,6 +3579,33 @@ as a bug.
   file quiet.
 
 ## The test suite
+
+**A patch target naming a module is a patch on that module's own binding.**
+This bit both package splits, and bit the cog's hardest: 192 patches of
+`cogs.d12ball.save_games` against six mixins that all save.
+`cogs/d12ball_views` was one module, so
+`mock.patch("cogs.d12ball_views.save_games")` covered every view in the game;
+it is a package now, and `from ... import save_games` binds the name into
+each submodule, so the same patch reaches none of them. It fails *silently*
+-- the patch applies to the package, the test passes, and the real save
+writes `data/d12ball_games.json`, because not one of those forty-odd patches
+was ever bound with `as` or asserted on. `tests/save_patches.py` is the one
+answer for all of them (`suppressed_view_saves`, `suppressed_cog_saves` and
+`suppressed_full_image_links`, each patching every submodule that names
+the thing), and `tests/test_d12ball_package_shape.py` fails if a submodule
+starts saving and is not named there.
+
+- **The way to be sure is to make the real function raise and run the
+  suite.** Replacing `gamesaves.d12ball.storage.save_games` with a recorder
+  before the tests import anything lists every call site that reaches it,
+  and the list is identical before and after the split -- fourteen, all of
+  them `test_game_storage.py` testing storage on purpose, plus two in the
+  cog. That is the check worth repeating after anything that moves a view.
+- **`cogs.d12ball_views.random` and `.discord` were never the views'.** Both
+  named the global module through the views' namespace, so those patches
+  were always global; they say `random.` and `discord.` now, which is what
+  they always did.
+
 
 **A test names a player by their role, not by their name.** The roster is data
 the author revises, and a revision is not a code change: 36250a9 renamed five
