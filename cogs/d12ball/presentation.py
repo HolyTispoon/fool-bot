@@ -156,10 +156,16 @@ class PresentationMixin:
                 "exhaustion tokens."
             )
         if amount <= 0:
-            return (
-                f"{self.player_label(match, player)} was "
-                "already there -- no exhaustion cost."
-            )
+            # Nothing to say, and the silence is the answer (the
+            # author, 2026-08-27). Every move that costs a token says
+            # so right here, so a result carrying no exhaustion line
+            # already tells a coach none was charged -- where "no
+            # exhaustion cost" answered a question the message had not
+            # raised, and "free" left it to the coach to work out what
+            # was free about it. Callers join on what is there rather
+            # than interpolating, or the empty string shows as a blank
+            # line.
+            return ""
 
         exhaust_emoji = get_exhaust_emoji(self.condition_emojis)
         total = match.exhaustion.get(player_id, 0)

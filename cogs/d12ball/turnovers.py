@@ -284,8 +284,7 @@ class TurnoverMixin:
         # should be told why.
         if restored:
             note += (
-                "\nYour side is back on the arrangement you last set, "
-                "free of exhaustion."
+                "\nYour side is back on the arrangement you last set."
             )
 
         # An injured player is worth pointing out, but only as a
@@ -1104,8 +1103,8 @@ class TurnoverMixin:
 
         prefix = f"{lead_in}\n\n" if lead_in else ""
         body = (
-            "Both teams reset to the positions their coaches last set, "
-            "free of exhaustion:\n" + "\n".join(moved)
+            "Both teams reset to the positions their coaches last "
+            "set:\n" + "\n".join(moved)
             if moved
             else "Both teams are already standing where their coaches "
             "last set them."

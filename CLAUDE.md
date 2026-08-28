@@ -1238,7 +1238,9 @@ the two paths that did not pass it kept the old behaviour.
   offered a send the occupancy rule had already taken away; both halves were
   wrong, and only in the case a coach was most likely to meet. "ball" rather
   than "contest" is what the sentences around it need: a coach "contests the
-  ball", never "contests the contest".
+  ball", never "contests the contest". See
+  [What a message says](#what-a-message-says) for the wording rules the same
+  correction produced.
 - **`pending_loose_ball_on_empty_space` is persisted, and cannot be derived.**
   By the time a roll or a result is worded the contestants have been walked onto
   the space, so the position that decides the word is gone --
@@ -1277,6 +1279,37 @@ the two paths that did not pass it kept the old behaviour.
   loose, and that is what it asks. What changed on 2026-08-26 is what happens
   *after* the detour -- a ball landing where only the defense stands is theirs,
   where between 2026-08-18 and then the offense could walk somebody in.
+
+## What a message says
+
+Three rules the author gave on 2026-08-27, after reading a turn back out of
+a channel. They are about every message the bot posts, not only the ones that
+produced them.
+
+- **Say what the position is, never what it is not.** A ball coming down where
+  one side is standing was announced "**Not loose.** ... so the ball is simply
+  theirs" -- a sentence fragment that defines the position by the two it is
+  not, in front of a coach who has to act on it. It reads "The ball comes down
+  to a space where {team} has a player, so they get the ball." The other two
+  arrivals were reworded with it; see
+  [Where the ball comes to rest](#where-the-ball-comes-to-rest).
+- **Don't answer a question nobody asked.** That same message closed with
+  "nobody may be sent after it", and the contest's with "and nobody else may
+  be sent" -- both denying an offer neither message had made. A coach reading
+  a result is not owed a list of what the rules did not do.
+- **A move that costs nothing says nothing.** `describe_exhaustion_gain`
+  returns `""` for a charge of zero, where it used to say "was already there --
+  no exhaustion cost", and "free of exhaustion" is gone from the new-play
+  reset, the halftime restore and Double Team's second defender. Every move
+  that *does* cost a token says so in that same line, so silence already
+  carries the fact -- and "free" left a coach to work out what was free about
+  it. **Callers join on the parts that are there** (`"\n".join(filter(None,
+  ...))`) rather than interpolating, or the empty string shows as a blank line.
+
+The subject is spelled out for a related reason: "It comes down on an empty
+space" followed a sentence about a maneuver, so the pronoun read as the
+maneuver. Nothing in a result message should have to be resolved backwards
+through the message above it.
 
 ## The ball carrier
 

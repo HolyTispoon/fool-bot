@@ -1120,6 +1120,17 @@ class RulesEngine:
         A High Pass never reaches here: it carries its own headline,
         because the ball is on a receiver both coaches watched catch
         it.
+
+        **Each one says what the position is, never what it is not**
+        (the author, 2026-08-27). The one-side case led with "**Not
+        loose.**" and closed with "nobody may be sent after it", which
+        is two ways of saying the same thing wrong: the first is a
+        sentence fragment defining the position by the one it is not,
+        and the second answers a question no coach had asked -- nothing
+        in the message had offered a send. The subject is spelled out
+        for the same reason. "It comes down..." followed a sentence
+        about the maneuver, so the pronoun read as the maneuver rather
+        than the ball.
         """
         offense = match.setup_for_side(match.ball.possession)
         defense = match.setup_for_side(match.defending_side())
@@ -1130,19 +1141,19 @@ class RulesEngine:
 
         if not offense_there and not defense_there:
             return (
-                "**Loose ball!** It comes down on an empty space -- each "
-                "side may send a nearby player to contest it."
+                "**Loose ball!** The ball comes down on an empty space, "
+                "so each side may send a nearby player after it."
             )
         if offense_there and defense_there:
             return (
-                "**Contest!** It comes down with both sides standing "
-                "there -- they roll for it, and nobody else may be sent."
+                "**Contest!** The ball comes down to a space where both "
+                "teams have a player, so those two roll for it."
             )
         taking = offense if offense_there else defense
         return (
-            "**Not loose.** It comes down with only "
-            f"{format_team_side_label(taking)} standing there, so the ball "
-            "is simply theirs, uncontested -- nobody may be sent after it."
+            "The ball comes down to a space where "
+            f"{format_team_side_label(taking)} has a player, so they get "
+            "the ball."
         )
 
     def loose_ball_prompt_side(self, match: MatchState) -> TeamSide:
