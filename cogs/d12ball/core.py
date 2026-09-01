@@ -853,7 +853,11 @@ class CoreMixin:
             # It is the webhook route, not the channel's edit bucket --
             # see "Discord's rate limits". Adding it re-sends the view,
             # or the edit would drop the buttons the prompt exists for.
-            await add_full_image_button(prompt_message, view=prompt_view)
+            await add_full_image_button(
+                prompt_message,
+                view=prompt_view,
+                row=prompt_view.full_image_row,
+            )
             await self.post_field_image(inner_interaction, game)
 
         # The cards are what this beat is about, so its note goes in

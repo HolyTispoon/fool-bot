@@ -304,6 +304,45 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
             ],
         )
 
+    def test_the_full_image_link_sits_after_the_advanced_cards(self) -> None:
+        # discord.py drops a rowless button into the first row with
+        # space, which on an advanced prompt (every hand two rows of
+        # three) is between a side's basic and advanced cards.
+        # `full_image_row` points it at the reference's row instead.
+        import asyncio
+
+        from cogs.d12ball_helpers import (
+            FULL_IMAGE_BUTTON_LABEL,
+            add_full_image_button,
+        )
+
+        cog, game, match = self.build("low_pass", "pressure")
+        cog.engine.load_match_state = mock.Mock(return_value=match)
+
+        view = ManeuverActionPromptView(cog, game.game_id)
+
+        message = SimpleNamespace(
+            attachments=[SimpleNamespace(url="https://cdn/hand.png")],
+            edit=mock.AsyncMock(),
+        )
+        asyncio.run(
+            add_full_image_button(
+                message, view=view, row=view.full_image_row,
+            )
+        )
+
+        rendered = [
+            [component.get("label") for component in row["components"]]
+            for row in message.edit.await_args.kwargs["view"].to_components()
+        ]
+        self.assertEqual(
+            rendered[-1], ["Maneuver Reference", FULL_IMAGE_BUTTON_LABEL],
+        )
+        self.assertNotIn(
+            FULL_IMAGE_BUTTON_LABEL,
+            [label for row in rendered[:-1] for label in row],
+        )
+
 
 class DinkyAdvancedManeuverPickTests(AdvancedHarness, unittest.TestCase):
     """

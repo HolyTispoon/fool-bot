@@ -926,6 +926,19 @@ class ManeuverActionPromptView(SafeView):
                 button.row = index
                 self.add_item(button)
 
+        # The full-image link is added after the message is posted (the
+        # URL does not exist until then -- see `add_full_image_button`),
+        # and discord.py drops a rowless button into the *first* row with
+        # space. On an advanced prompt every side's hand is two rows of
+        # three, so that first gap is between a side's basic and advanced
+        # cards. Point it at the reference's row instead, so it lands
+        # after every maneuver button. None where the fallback above
+        # packed the reference onto a maneuver row -- that row may be
+        # full, and the default placement is fine there anyway.
+        self.full_image_row = (
+            reference.row if reference in rows[-1] else None
+        )
+
     async def show_reference(self, interaction: discord.Interaction) -> None:
         """
         The defeat cycle, ephemeral to the coach who asked.
