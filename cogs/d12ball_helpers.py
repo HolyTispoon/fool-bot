@@ -898,6 +898,7 @@ def full_image_link_button(url: str) -> discord.ui.Button:
 async def add_full_image_button(
     message: discord.Message,
     view: Optional[discord.ui.View] = None,
+    row: Optional[int] = None,
 ) -> None:
     """
     Put the full-image link on a message that has already gone out.
@@ -908,6 +909,11 @@ async def add_full_image_button(
     discord.py routes clicks against the components in the payload, and
     dropping them would leave a message that looks interactive and
     is not.
+
+    `row` pins the link to a specific action row. Without it discord.py
+    drops the button into the first row with space, which on a prompt
+    whose rows are not packed to five (the advanced maneuver prompt)
+    leaves it wedged between a side's basic and advanced cards.
     """
     button = build_full_image_button(message)
 
@@ -915,6 +921,8 @@ async def add_full_image_button(
         return
 
     view = discord.ui.View(timeout=None) if view is None else view
+    if row is not None:
+        button.row = row
     view.add_item(button)
 
     try:
