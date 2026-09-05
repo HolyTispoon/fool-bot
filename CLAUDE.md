@@ -43,6 +43,7 @@ python3 -m unittest discover -s tests
 | `d12ball/images/` | Card art and emoji |
 | `d12ball/fonts/` | Bundled DejaVu — see "Fonts" below |
 | `gamesaves/d12ball/storage.py` | Persistence to `data/d12ball_games.json` |
+| `gamesaves/d12ball/archive_export.py` | Writing one finished game's export (record, final board, channel transcript) to disk for `/debug export_archived_games` -- see "Freeing up the PBD Archive" below |
 | `scripts/` | CLI tools used repeatedly (not one-off scratch work) |
 | `tests/roster.py` | Naming a player in a test by role -- see "The test suite" |
 | `docs/` | The game rules, and how they got that way -- see below |
@@ -3525,6 +3526,80 @@ and reused by the rematch button), or the two sides otherwise —
     (the first post, and the startup re-arm), and answers False for a channel
     it cannot see: the move is idempotent, so a button offered needlessly
     costs a no-op where one withheld leaves a pair with no way to archive.
+
+## Freeing up the PBD Archive
+
+A category holds at most 50 channels, and PBD Archive only ever grows --
+nothing un-archives a game -- so a long-lived server eventually hits
+`400 Bad Request ... Maximum number of channels in category reached (50)`
+the moment the next game tries to archive. `/debug export_archived_games`
+is the way out: write everything a finished game and its channel know to
+local disk, then delete the channel, which is the only thing that actually
+frees a slot in the category.
+
+- **Exported, not merely archived.** Archiving moves a channel and keeps it
+  forever, on the theory that the channel *is* the record -- see "Game
+  channels" above. Freeing a category slot needs the channel gone, so this
+  command is a deliberate exception to "abandoning archives, it does not
+  delete" (see "Recovering a stuck game" below): it deletes on purpose, and
+  only after writing the record down somewhere else first.
+- **The export has to land before the channel dies, never after.**
+  `gamesaves/d12ball/archive_export.write_game_export` is called and
+  checked for success before `channel.delete()` is even attempted; an
+  `OSError` there leaves that game's channel and save record completely
+  untouched; a game moves on to `save_games` only once its channel is
+  actually gone. Losing a channel Discord will never give back over a
+  write that could be retried is the one failure mode this whole feature
+  exists to avoid.
+- **Four files a game, mirroring what a coach could have looked up while
+  the channel was alive**: `game.json` is the exact record `save_games`
+  already writes for it (`game.to_dict()`, so it carries the whole
+  `MatchState` too); `board.png` is the final position, rendered the same
+  way `render_match_png` always has -- best-effort, since a game abandoned
+  before it ever had match state has no board to draw, and a render
+  failure there costs the picture and nothing else; `transcript.jsonl` is
+  every message the channel ever held, oldest first, one JSON object a
+  line; `attachments/` is every file any of those messages carried,
+  downloaded there and then rather than left as a URL. Discord's
+  attachment links are signed and expire (see "The 'View full image'
+  button dies after 24 hours" under Gotchas) -- a transcript that only
+  recorded the URL would go quietly unreadable long before anyone opened
+  the export.
+- **No Google Drive API call exists anywhere in this bot.** "Export to
+  Google Drive" means `FOOLBOT_D12BALL_ARCHIVE_EXPORT_DIR` points at a
+  folder Google Drive is already syncing -- on the live host, a folder
+  inside the mounted `K:\` letter the whole checkout already runs from
+  (see "Two of those machines"). `archive_export_dir()` reads it the same
+  opt-in-by-`.env` way `FOOLBOT_LOG_MIRROR` does: unset means the command
+  refuses outright rather than deleting anybody's channels with nowhere to
+  put what it took from them, which is also what keeps a fresh clone or a
+  developer's own test checkout from ever running this by accident.
+- **A manual command, capped per run, oldest game first.** Deleting a
+  channel is the tightest rate limit Discord has (see "Discord's rate
+  limits"), and downloading a whole channel's history and every attachment
+  in it is not fast either, so this is explicitly `/debug`, gated the same
+  `manage_channels` way as `/debug reset_channels`, and takes a `limit`
+  (default 5, capped at 20) rather than draining the whole category in one
+  call. Oldest `game_number` first, because any archived channel freed
+  makes the same room and there is no other reason to prefer one over
+  another.
+- **Only channels the bot can already see are candidates.** The category
+  is re-checked at call time the same way `/debug reset_channels` checks
+  it -- a channel matching `CHANNEL_NAME_PATTERN`, currently sitting in
+  PBD Archive, whose `channel_id` names a saved game with
+  `GameStatus.FINISHED` -- so a game whose channel already vanished (the
+  case the `on_ready` sweep already prunes, see "Startup drops finished
+  games whose channel was deleted" under Gotchas) is left for that sweep
+  rather than picked up here with nothing left to export.
+- **The pure write and the Discord fetching are two different modules on
+  purpose.** `gamesaves/d12ball/archive_export.py` knows nothing about
+  `discord` -- it takes plain bytes and dicts and writes them down,
+  raising `OSError` outright rather than swallowing it the way
+  `save_games` does, because this caller has to know the write actually
+  landed before it does something `save_games` never has to contend with:
+  an action Discord cannot undo. `cogs/debug.py` does every bit of
+  fetching (the channel, its history, each attachment's bytes) and only
+  hands this module data once it has all of it for one game.
 
 ## Recovering a stuck game
 
