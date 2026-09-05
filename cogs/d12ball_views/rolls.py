@@ -34,6 +34,7 @@ from cogs.d12ball_views.base import (
     contestant_detail,
     render_contest_dice,
 )
+from cogs.d12ball_views.turn import PlayerActionView
 
 if TYPE_CHECKING:
     from cogs.d12ball import D12Ball
@@ -426,6 +427,27 @@ class ScoreAttemptView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
+        # Only an ordinary shot a coach actually chose has anything to
+        # walk back -- see `MatchState.may_cancel_pending_shot` -- and
+        # only the side that chose it may reconsider. No
+        # `possession_user_id` means Dinky is the one shooting, which
+        # is not a choice a human standing in for its rolls gets to
+        # undo either (see "Every roll is a coach's" in CLAUDE.md).
+        game, match = self.load_match()
+        if (
+            game is not None
+            and match is not None
+            and match.may_cancel_pending_shot()
+            and cog.engine.possession_user_id(game, match) is not None
+        ):
+            back = discord.ui.Button(
+                label="Back",
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"d12ball:score_attempt_back:{game_id}",
+            )
+            back.callback = self.back
+            self.add_item(back)
+
     def score_score_attempt(
         self,
         match: MatchState,
@@ -704,4 +726,40 @@ class ScoreAttemptView(SafeView):
             distance_moved=space_minutes,
             turnover_occurred=True,
             new_play=True,
+        )
+
+    async def back(self, interaction: discord.Interaction) -> None:
+        """
+        Walk an unrolled "shoot" choice back to the turn prompt. The
+        composition image already posted stays in the channel as a
+        harmless remnant -- the same tradeoff a picked maneuver's hand
+        image makes.
+        """
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+
+        if not match.may_cancel_pending_shot():
+            await interaction.response.send_message(
+                "This score attempt is no longer active.",
+                ephemeral=True,
+            )
+            return
+
+        if not self.cog.engine.user_controls_possession(
+            interaction.user.id, game, match,
+        ):
+            await interaction.response.send_message(
+                "Only the player who chose to shoot can change their "
+                "mind.",
+                ephemeral=True,
+            )
+            return
+
+        match.retract_pending_shot()
+        self.cog.persist(game, match)
+
+        await interaction.response.edit_message(
+            content=self.cog.engine.build_turn_prompt(game, match),
+            view=PlayerActionView(self.cog, self.game_id),
         )

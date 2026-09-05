@@ -14,8 +14,10 @@ working for every X and no call site moved -- the same arrangement
 same reason: the split says where the code lives, not how it is reached.
 
 `base` imports from no sibling and everything else imports from `base`,
-which is what keeps this a DAG. The three cross-cluster edges beyond it
-are `loose_ball` and `shootout` on `rolls`, and `loose_ball` on `turn`.
+which is what keeps this a DAG. The cross-cluster edges beyond it are
+`loose_ball` and `shootout` on `rolls`, `loose_ball` on `turn`, and
+`turn` on `rolls` -- `ScoreAttemptView`'s Back button rebuilds the turn
+prompt the same way `CedeConfirmView` does, off `turn.PlayerActionView`.
 """
 
 from cogs.d12ball_views.base import (

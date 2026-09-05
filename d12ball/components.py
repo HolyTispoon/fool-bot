@@ -1958,6 +1958,35 @@ class MatchState:
             self.board.flat_index(self.ball.zone, self.ball.space_index),
         )
 
+    def may_cancel_pending_shot(self) -> bool:
+        """
+        Whether the "Back" button on the score attempt prompt has
+        anything to undo: an ordinary shot a coach chose off the turn
+        prompt, not yet rolled. A set-up's shot (`pending_shot_is_set_up`)
+        is not offered a Back at all -- the maneuver that earned it has
+        already resolved, so there is no turn prompt left to return to.
+        """
+        return self.pending_action == "shoot" and not self.pending_shot_is_set_up
+
+    def retract_pending_shot(self) -> None:
+        """
+        Undo an ordinary "shoot" turn choice nobody has rolled yet, for
+        that Back button.
+
+        Safe because nothing can happen between choosing to shoot and
+        backing out of it: a score attempt costs no exhaustion and owes
+        no injury check until it is actually rolled (see
+        `ScoreAttemptView`), so the `turn_action` it logged is still
+        the last thing in the event log. Popping it is exactly a coach
+        who has not, after all, taken a turn -- see `record_turn_action`
+        and the same reasoning for a cede backed out of its confirm.
+        """
+        self.pending_action = None
+        if self.events and self.events[-1].kind == EVENT_TURN_ACTION and (
+            self.events[-1].details.get("action") == "shoot"
+        ):
+            self.events.pop()
+
     def may_cede_possession(self) -> bool:
         """
         Whether the team in possession may give the ball up to coach --
