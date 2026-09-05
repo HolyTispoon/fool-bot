@@ -34,6 +34,7 @@ from cogs.d12ball_views.base import (
     contestant_detail,
     render_contest_dice,
 )
+from cogs.d12ball_views.effects import SetUpAttemptChoiceView
 from cogs.d12ball_views.turn import PlayerActionView
 
 if TYPE_CHECKING:
@@ -427,12 +428,12 @@ class ScoreAttemptView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
-        # Only an ordinary shot a coach actually chose has anything to
-        # walk back -- see `MatchState.may_cancel_pending_shot` -- and
-        # only the side that chose it may reconsider. No
-        # `possession_user_id` means Dinky is the one shooting, which
-        # is not a choice a human standing in for its rolls gets to
-        # undo either (see "Every roll is a coach's" in CLAUDE.md).
+        # A shot not yet rolled always has somewhere to walk back to --
+        # see `MatchState.may_cancel_pending_shot` -- and only the side
+        # that chose it may reconsider. No `possession_user_id` means
+        # Dinky is the one shooting, which is not a choice a human
+        # standing in for its rolls gets to undo either (see "Every
+        # roll is a coach's" in CLAUDE.md).
         game, match = self.load_match()
         if (
             game is not None
@@ -444,6 +445,18 @@ class ScoreAttemptView(SafeView):
                 label="Back",
                 style=discord.ButtonStyle.secondary,
                 custom_id=f"d12ball:score_attempt_back:{game_id}",
+                # Built disabled, never absent, exactly like
+                # SetUpAttemptChoiceView's own decline button -- a
+                # tutorial beat that rails a set-up shot to "attempt"
+                # is railing this same choice (Back leads straight back
+                # to that view's decline), and the scripted goal at the
+                # end of beat 5 depends on nobody reaching it.
+                disabled=(
+                    match.pending_shot_is_set_up
+                    and cog.tutorial_railed_option(
+                        game, "setup_attempt", ("attempt", "decline"),
+                    ) == "attempt"
+                ),
             )
             back.callback = self.back
             self.add_item(back)
@@ -730,10 +743,19 @@ class ScoreAttemptView(SafeView):
 
     async def back(self, interaction: discord.Interaction) -> None:
         """
-        Walk an unrolled "shoot" choice back to the turn prompt. The
-        composition image already posted stays in the channel as a
+        Walk an unrolled "shoot" choice back to wherever it was chosen.
+        The composition image already posted stays in the channel as a
         harmless remnant -- the same tradeoff a picked maneuver's hand
         image makes.
+
+        An ordinary turn's shot and a set-up's are two different
+        choices with two different ways back, so they split here:
+        `retract_pending_shot` undoes the former (the turn prompt's own
+        "Shoot to score" button) and `back_from_set_up_shot` the latter
+        (`SetUpAttemptChoiceView`'s "attempt" button). Both are real
+        choices a coach made a moment ago and neither has happened to
+        anything else in between, which is what makes either safe to
+        undo -- see `MatchState.may_cancel_pending_shot`.
         """
         game, match = await self.require_match(interaction)
         if game is None:
@@ -756,10 +778,62 @@ class ScoreAttemptView(SafeView):
             )
             return
 
+        if match.pending_shot_is_set_up:
+            await self.back_from_set_up_shot(interaction, game, match)
+            return
+
         match.retract_pending_shot()
         self.cog.persist(game, match)
 
         await interaction.response.edit_message(
             content=self.cog.engine.build_turn_prompt(game, match),
             view=PlayerActionView(self.cog, self.game_id),
+        )
+
+    async def back_from_set_up_shot(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Undo `start_set_up_shot` and put its own "attempt or decline"
+        choice back up -- the real reconsideration point for a scoring
+        opportunity, since the maneuver that earned it (a Low Pass, a
+        Deflect overshoot, a High Pass) had already resolved before the
+        shot was ever offered.
+
+        Every argument `SetUpAttemptChoiceView` needs is still sitting
+        on the match, because nothing has touched it since
+        `start_set_up_shot` wrote it a moment ago: the shooter is
+        `active_player_id` (that call is what pointed it at them),
+        the distance is `pending_shot_setup_cost` (read before it is
+        zeroed back out), and whether declining lands in a contest
+        rather than a settled pass is `pending_high_pass_overshoot` --
+        the same flag `resolve_high_pass_overshoot` set before ever
+        offering this choice the first time, and which nothing before
+        `reset_maneuver` clears.
+        """
+        shooter_id = match.active_player_id
+        distance_moved = match.pending_shot_setup_cost
+        contest_on_decline = match.pending_high_pass_overshoot
+
+        match.pending_action = None
+        match.pending_shot_is_set_up = False
+        match.pending_shot_setup_cost = 0
+        self.cog.persist(game, match)
+
+        shooter = self.cog.engine.get_player_definition(shooter_id)
+        await interaction.response.edit_message(
+            content=(
+                f"{self.cog.player_label(match, shooter)} can attempt "
+                "the scoring opportunity, or let it go:"
+            ),
+            view=SetUpAttemptChoiceView(
+                self.cog,
+                self.game_id,
+                shooter_id,
+                distance_moved,
+                contest_on_decline=contest_on_decline,
+            ),
         )
