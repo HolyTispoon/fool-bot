@@ -1958,6 +1958,45 @@ class MatchState:
             self.board.flat_index(self.ball.zone, self.ball.space_index),
         )
 
+    def may_cancel_pending_shot(self) -> bool:
+        """
+        Whether the "Back" button on the score attempt prompt has
+        anything to undo: a shot chosen but not yet rolled, whether it
+        is an ordinary turn's or a set-up's. A set-up's shot
+        (`pending_shot_is_set_up`) already has a real "reconsider"
+        point of its own -- `SetUpAttemptChoiceView`'s "attempt or
+        decline" choice, the same one an ordinary turn's "Shoot to
+        score" button is -- so Back undoes whichever of the two
+        `start_set_up_shot`/`begin_shot_action` just committed to,
+        rather than being withheld for one of them.
+        """
+        return self.pending_action == "shoot"
+
+    def retract_pending_shot(self) -> None:
+        """
+        Undo an ordinary (not a set-up's) "shoot" turn choice nobody
+        has rolled yet, for that Back button.
+
+        Safe because nothing can happen between choosing to shoot and
+        backing out of it: a score attempt costs no exhaustion and owes
+        no injury check until it is actually rolled (see
+        `ScoreAttemptView`), so the `turn_action` it logged is still
+        the last thing in the event log. Popping it is exactly a coach
+        who has not, after all, taken a turn -- see `record_turn_action`
+        and the same reasoning for a cede backed out of its confirm.
+
+        A set-up's shot never reaches here: it never recorded a
+        `turn_action` of its own (the maneuver that earned it already
+        recorded one) and there is no ordinary turn prompt to return
+        to, so `ScoreAttemptView.back` handles it separately, by
+        rebuilding `SetUpAttemptChoiceView` instead.
+        """
+        self.pending_action = None
+        if self.events and self.events[-1].kind == EVENT_TURN_ACTION and (
+            self.events[-1].details.get("action") == "shoot"
+        ):
+            self.events.pop()
+
     def may_cede_possession(self) -> bool:
         """
         Whether the team in possession may give the ball up to coach --
