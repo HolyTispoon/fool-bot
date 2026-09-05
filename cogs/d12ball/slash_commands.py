@@ -34,13 +34,16 @@ from d12ball.rules_doc import (
     load_rules_document,
 )
 from gamesaves.d12ball.storage import save_games
+from gamesaves.d12ball.hub import get_hub, set_hub
 from cogs.d12ball_helpers import (
     BENCH_DESTINATIONS,
     LOGGER,
+    NEW_GAME_HUB_MESSAGE,
     PBD_GAMES_CATEGORY_NAME,
     add_full_image_button,
     add_full_image_button_to_response,
     build_game_channel_name,
+    build_lobby_message,
     destination_display_name,
     filter_choices,
     format_ai_name,
@@ -51,7 +54,7 @@ from cogs.d12ball_helpers import (
     space_choices,
     space_label,
 )
-from cogs.d12ball_views import TeamSelectionView
+from cogs.d12ball_views import LobbyView, NewGameHubView, TeamSelectionView
 
 from cogs.d12ball.constants import MAX_DEBUG_CLOCK
 
@@ -968,6 +971,402 @@ class CommandsMixin:
 
         save_games(self.games)
         return game
+
+    # -- The game-creation hub and the lobby --------------------------
+    #
+    # The friendly front door: a locked channel with one button that
+    # opens a private lobby, where players join and pick settings before
+    # anyone commits to a game. `/d12ball create_game` stays for test,
+    # tutorial and explicitly-paired games. See "The game-creation hub
+    # and the lobby" in CLAUDE.md.
+
+    @app_commands.command(
+        name="setup_hub",
+        description=(
+            "Post (or repair) the 'want to play?' message in this "
+            "channel and lock it."
+        ),
+    )
+    @app_commands.guild_only()
+    async def setup_hub(self, interaction: discord.Interaction) -> None:
+        """
+        Register the current channel as this server's game-creation
+        hub: lock it so only the bot can post, then send or edit the
+        single message carrying the D12 Ball button.
+
+        Re-runnable -- run it again to move the hub to another channel
+        or to put the message back if it was deleted.
+        """
+        permissions = getattr(interaction.user, "guild_permissions", None)
+        if permissions is None or not permissions.manage_channels:
+            await interaction.response.send_message(
+                "Only someone who can manage channels can set up the hub.",
+                ephemeral=True,
+            )
+            return
+
+        channel = interaction.channel
+        guild = interaction.guild
+        if not isinstance(channel, discord.TextChannel) or guild is None:
+            await interaction.response.send_message(
+                "Run this in a normal text channel.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            await channel.set_permissions(
+                guild.default_role,
+                send_messages=False,
+                reason="Lock the D12 Ball game-creation hub channel.",
+            )
+            if guild.me is not None:
+                await channel.set_permissions(
+                    guild.me,
+                    view_channel=True,
+                    send_messages=True,
+                    reason="Keep the bot able to post in the hub channel.",
+                )
+        except discord.HTTPException as error:
+            await interaction.followup.send(
+                f"I could not lock this channel: {error}",
+                ephemeral=True,
+            )
+            return
+
+        existing = get_hub(guild.id)
+        message = None
+        if existing is not None and existing["channel_id"] == channel.id:
+            try:
+                message = await channel.fetch_message(existing["message_id"])
+            except discord.HTTPException:
+                message = None
+
+        try:
+            if message is not None:
+                await message.edit(
+                    content=NEW_GAME_HUB_MESSAGE,
+                    view=NewGameHubView(self),
+                )
+            else:
+                message = await channel.send(
+                    NEW_GAME_HUB_MESSAGE,
+                    view=NewGameHubView(self),
+                )
+        except discord.HTTPException as error:
+            await interaction.followup.send(
+                f"I could not post the hub message: {error}",
+                ephemeral=True,
+            )
+            return
+
+        set_hub(guild.id, channel.id, message.id)
+        self.hubs[guild.id] = {
+            "channel_id": channel.id,
+            "message_id": message.id,
+        }
+
+        await interaction.followup.send(
+            "This channel is now the D12 Ball game-creation hub. It is "
+            "locked, and its message is live.",
+            ephemeral=True,
+        )
+
+    async def open_lobby(self, interaction: discord.Interaction) -> None:
+        """
+        Make a private lobby channel for whoever clicked the hub button
+        and post its LobbyView. The channel is reused as the game
+        channel once Start Game is pressed -- see `lobby_start`.
+        """
+        guild = interaction.guild
+        if guild is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message(
+                "This only works inside a server.",
+                ephemeral=True,
+            )
+            return
+
+        bot_member = guild.me
+        if bot_member is None:
+            await interaction.response.send_message(
+                "I could not find my server account.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        creator = interaction.user
+        game_number = self.get_next_game_number(guild)
+
+        try:
+            channel = await self.create_private_game_channel(
+                guild,
+                f"d12ball-pbd{game_number}-lobby",
+                # Exactly the creator plus the bot -- the same overwrites
+                # a solo game gets, since a lobby has no second player
+                # yet.
+                self.game_channel_overwrites(
+                    guild, creator, None, bot_member,
+                ),
+                bot_member,
+                creator,
+            )
+        except ValueError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+
+        game_id = uuid.uuid4().hex
+        game = D12BallGame(
+            game_id=game_id,
+            game_number=game_number,
+            guild_id=guild.id,
+            channel_id=channel.id,
+            message_id=None,
+            player_1_id=creator.id,
+            player_2_id=None,
+            player_1_name=creator.display_name,
+            player_2_name=None,
+            status=GameStatus.SETUP,
+            in_lobby=True,
+        )
+        self.games[game_id] = game
+
+        try:
+            message = await channel.send(
+                build_lobby_message(game),
+                view=LobbyView(self, game_id),
+                allowed_mentions=discord.AllowedMentions(
+                    users=True, roles=False, everyone=False,
+                ),
+            )
+        except discord.HTTPException as error:
+            self.games.pop(game_id, None)
+            await interaction.followup.send(
+                f"The lobby channel was created, but I could not post its "
+                f"message: {error}",
+                ephemeral=True,
+            )
+            return
+
+        game.message_id = message.id
+        save_games(self.games)
+
+        await interaction.followup.send(
+            f"Your lobby is ready: <#{channel.id}>",
+            ephemeral=True,
+        )
+
+    async def lobby_join(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        user = interaction.user
+        if user.id == game.player_1_id:
+            await interaction.response.send_message(
+                "You are already in this lobby.", ephemeral=True,
+            )
+            return
+        if game.test_game:
+            await interaction.response.send_message(
+                "This is a test game -- one person plays both sides. The "
+                "creator can turn that off to let you join.",
+                ephemeral=True,
+            )
+            return
+        if game.player_2_id is not None:
+            await interaction.response.send_message(
+                "This lobby is full -- a game is two players.",
+                ephemeral=True,
+            )
+            return
+
+        game.player_2_id = user.id
+        game.player_2_name = getattr(user, "display_name", None)
+        # A second human settles the opponent: it is no longer a solo
+        # game, so clear any AI pick the creator made.
+        game.ai_opponent = None
+
+        if isinstance(interaction.channel, discord.TextChannel):
+            try:
+                await interaction.channel.set_permissions(
+                    user,
+                    view_channel=True,
+                    send_messages=True,
+                    read_message_history=True,
+                    reason="D12 Ball lobby: player joined.",
+                )
+            except discord.HTTPException as error:
+                LOGGER.warning(
+                    "Could not grant lobby access for game %s: %s",
+                    game.game_id, error,
+                )
+
+        save_games(self.games)
+        await interaction.response.edit_message(
+            content=build_lobby_message(game),
+            view=LobbyView(self, game.game_id),
+        )
+
+    async def lobby_leave(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        user = interaction.user
+        channel = interaction.channel
+
+        if user.id == game.player_2_id:
+            game.player_2_id = None
+            game.player_2_name = None
+            if isinstance(channel, discord.TextChannel):
+                try:
+                    await channel.set_permissions(
+                        user, overwrite=None,
+                        reason="D12 Ball lobby: player left.",
+                    )
+                except discord.HTTPException:
+                    pass
+            save_games(self.games)
+            await interaction.response.edit_message(
+                content=build_lobby_message(game),
+                view=LobbyView(self, game.game_id),
+            )
+            return
+
+        if user.id != game.player_1_id:
+            await interaction.response.send_message(
+                "You are not in this lobby.", ephemeral=True,
+            )
+            return
+
+        # The creator is leaving. Hand the lobby to the other player if
+        # there is one; otherwise close it.
+        if game.player_2_id is not None:
+            promoted_id = game.player_2_id
+            game.player_1_id = promoted_id
+            game.player_1_name = game.player_2_name
+            game.player_2_id = None
+            game.player_2_name = None
+            if isinstance(channel, discord.TextChannel):
+                try:
+                    await channel.set_permissions(
+                        user, overwrite=None,
+                        reason="D12 Ball lobby: creator left.",
+                    )
+                except discord.HTTPException:
+                    pass
+            save_games(self.games)
+            await interaction.response.edit_message(
+                content=build_lobby_message(game),
+                view=LobbyView(self, game.game_id),
+            )
+            return
+
+        await interaction.response.edit_message(
+            content="**Lobby closed** -- everyone left.",
+            view=None,
+        )
+        try:
+            await self.abandon_and_archive_game(game, user)
+        except (ValueError, discord.HTTPException) as error:
+            LOGGER.warning(
+                "Could not archive empty lobby %s: %s", game.game_id, error,
+            )
+
+    async def lobby_start(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> None:
+        lobby_player_ids = {game.player_1_id}
+        if game.player_2_id is not None:
+            lobby_player_ids.add(game.player_2_id)
+        if interaction.user.id not in lobby_player_ids:
+            await interaction.response.send_message(
+                "Only a player in this lobby can start the game.",
+                ephemeral=True,
+            )
+            return
+
+        channel = interaction.channel
+        if not isinstance(channel, discord.TextChannel):
+            await interaction.response.send_message(
+                "I could not find the lobby channel.", ephemeral=True,
+            )
+            return
+
+        if game.test_game:
+            # One person on both sides -- Player 2 is the creator, and
+            # `__post_init__`'s "same user" rule holds again from here
+            # (it is relaxed only while `in_lobby`).
+            game.player_2_id = game.player_1_id
+            game.player_2_name = game.player_1_name
+            game.ai_opponent = None
+        elif game.player_2_id is None:
+            # Nobody joined -- a solo game against Dinky.
+            game.ai_opponent = game.ai_opponent or AIOpponent.DINKY
+
+        game.in_lobby = False
+
+        try:
+            new_message_id = await self.post_game_setup_message(channel, game)
+        except ValueError as error:
+            game.in_lobby = True
+            if game.test_game:
+                game.player_2_id = None
+                game.player_2_name = None
+            await interaction.response.send_message(
+                f"I could not start the game: {error}", ephemeral=True,
+            )
+            return
+
+        # The one deliberate channel rename in the codebase (see "Game
+        # channels"): once per game, best-effort, cosmetic if the
+        # rate limit refuses it -- the game is already under way.
+        if game.test_game:
+            channel_name = build_game_channel_name(
+                game.game_number, "", "",
+                game_name=f"{game.player_1_name or 'player'} test game",
+            )
+        else:
+            player_2_label = (
+                game.player_2_name
+                if game.player_2_id is not None
+                else format_ai_name(game.ai_opponent)
+            )
+            channel_name = build_game_channel_name(
+                game.game_number,
+                game.player_1_name or "player-1",
+                player_2_label or "player-2",
+            )
+        try:
+            await channel.edit(
+                name=channel_name,
+                reason="D12 Ball: lobby started, becoming the game channel.",
+            )
+        except discord.HTTPException as error:
+            LOGGER.warning(
+                "Could not rename lobby channel for game %s: %s",
+                game.game_id, error,
+            )
+
+        try:
+            await interaction.response.edit_message(
+                content=(
+                    "**Game starting** -- pick your teams in the message "
+                    "below."
+                ),
+                view=None,
+            )
+        except discord.HTTPException:
+            pass
+
+        game.message_id = new_message_id
+        save_games(self.games)
 
     async def start_rematch(
         self,

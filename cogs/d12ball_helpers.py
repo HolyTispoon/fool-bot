@@ -680,6 +680,79 @@ def build_setup_message(
     return text
 
 
+# The single message the game-creation hub channel carries. `/d12ball
+# setup_hub` posts it (or edits the existing one) behind a NewGameHubView
+# -- see "The game-creation hub and the lobby" in CLAUDE.md. One section
+# per game, each ending with the button that opens its lobby; only D12
+# Ball for now, but the shape is meant to grow.
+NEW_GAME_HUB_MESSAGE = (
+    "# 🎮 Game Hub\n\n"
+    "Want to play something? Pick a game below and you'll get your own "
+    "private channel to set it up and play in.\n\n"
+    "In a game's lobby you can invite an opponent (or take both sides "
+    "yourself, or play the AI), choose the rules, and start when "
+    "everyone's ready.\n\n"
+    "───────────────────\n\n"
+    "## 🏈 D12 Ball\n\n"
+    "A tabletop-style football game played on a twelve-sided die. Draft "
+    "a team of specialists, win the coin toss, set your formation, and "
+    "play maneuvers turn by turn to work the ball into shooting range. "
+    "One clock, two halves, and an extreme shootout if it's level at "
+    "full time.\n\n"
+    "**Modes:** Basic (three maneuvers a side) or Advanced (six). "
+    "**Boards:** 6, 7 or 9 spaces. **Players:** two coaches, one coach "
+    "vs the Dinky AI, or one coach playing both sides.\n\n"
+    "New to it? Run `/d12ball create_game tutorial:True` for a guided "
+    "first game against the AI — the opening five turns are scripted.\n\n"
+    "Otherwise, press **D12 Ball** below to open a lobby."
+)
+
+
+def build_lobby_message(game: D12BallGame) -> str:
+    """
+    What a lobby channel's message says while players are still joining
+    and picking settings. Plain text in the style of `build_setup_message`.
+
+    Player 2 is shown as "_open_" rather than through `format_player`:
+    a lobby has `player_2_id = None` even for a game two humans will
+    play, so `format_player` would call it a game against Dinky.
+    """
+    if game.test_game:
+        player_2 = f"<@{game.player_1_id}> _(test game -- you play both sides)_"
+    elif game.player_2_id is not None:
+        player_2 = f"<@{game.player_2_id}>"
+    else:
+        player_2 = (
+            "_open -- click **Join**, or **Start Game** to play against "
+            f"{format_ai_name(game.ai_opponent)}_"
+        )
+
+    text = (
+        "## 🏈 D12 Ball -- game lobby\n\n"
+        "Set this game up, then any player can press **Start Game** to "
+        "move on to team selection, the coin toss, and formations.\n\n"
+        f"**Player 1:** <@{game.player_1_id}>\n"
+        f"**Player 2:** {player_2}\n\n"
+        "### Settings\n\n"
+        f"Mode: **{game.mode.value.title()}** "
+        + (
+            "-- three maneuvers a side"
+            if game.mode == GameMode.BASIC
+            else "-- six maneuvers a side"
+        )
+        + "\n"
+        f"Board size: **{game.board_size}** spaces\n"
+    )
+
+    if not game.test_game and game.player_2_id is None:
+        text += f"Opponent: **{format_ai_name(game.ai_opponent)}**\n"
+
+    if game.mode == GameMode.ADVANCED and game.board_size != 9:
+        text += "\n_Advanced mode plays best on a board size of 9._\n"
+
+    return text
+
+
 # format_player and format_player_with_team are imported above, from
 # d12ball.formatting.
 

@@ -1,6 +1,7 @@
 """
-The lobby: game settings, team selection, the coin toss, the
-home-or-visiting choice, and the rematch offer at full time.
+Setup: team selection, game settings, the coin toss, the
+home-or-visiting choice, and the rematch offer at full time. The
+pre-game lobby that now precedes all of this is in `lobby.py`.
 """
 
 import aiohttp

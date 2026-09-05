@@ -3601,6 +3601,62 @@ frees a slot in the category.
   fetching (the channel, its history, each attachment's bytes) and only
   hands this module data once it has all of it for one game.
 
+## The game-creation hub and the lobby
+
+The friendly front door to a new game, alongside `/d12ball create_game` (which
+stays, and is still the only way to a tutorial or explicitly-paired game). Two
+pieces:
+
+- **The hub** is one locked channel per server carrying a single persistent
+  message with a **D12 Ball** button (`NewGameHubView`, in
+  `cogs/d12ball_views/lobby.py`). An admin registers it by running
+  `/d12ball setup_hub` **in the channel** -- the command sets
+  `@everyone send_messages=False` (keeping the bot's own send), posts or edits
+  the message, and records `{channel_id, message_id}` per guild in
+  `data/d12ball_hubs.json` via `gamesaves/d12ball/hub.py`. Re-runnable to move
+  the hub or repair a deleted message. The button's custom_id names no game and
+  no guild (the interaction carries the guild, and there is no lobby yet), which
+  leaves room for the planned role-self-assign buttons on the same message.
+  `data/d12ball_hubs.json` is untracked runtime state like the saved games, and
+  local to each machine -- the message lives in Discord, this is only a pointer.
+
+- **The lobby** is an ordinary `SETUP` game with `in_lobby=True` on the record
+  (`d12ball/game.py`). `D12Ball.open_lobby` creates its private channel through
+  the existing `create_private_game_channel` (named `d12ball-pbdN-lobby`, the
+  creator plus the bot, from `game_channel_overwrites(guild, creator, None,
+  bot)`), builds the game with `player_2_id`/`ai_opponent` **both None**, and
+  posts a `LobbyView` -- Join / Leave / Test game / Start Game plus the mode,
+  board-size and opponent settings. **Nothing may read `is_solo_game` off a
+  lobby**: a two-human game also starts with `player_2_id` None, and who the
+  opponent is (a second human, Dinky, or the creator on both sides) is only
+  settled when Start Game is pressed.
+  - **Join** fills `player_2_id` (and clears any AI pick); **Leave** clears it,
+    or -- for the creator -- promotes the other player, or abandons the lobby
+    through `abandon_and_archive_game` when it is empty. Each grants/revokes the
+    channel overwrite for that user.
+  - **Test game** toggles `game.test_game` -- one person on both sides. While a
+    lobby carries the flag `player_2_id` is still None, so
+    `D12BallGame.__post_init__`'s "a test game must use the same user for both
+    players" check is **relaxed while `in_lobby`** and holds again once Start
+    Game assigns `player_2_id = player_1_id`. The toggle is refused once someone
+    has joined, and Join is refused while the flag is set.
+  - **Start Game** (`lobby_start`) finalises the record: for a test game
+    `player_2_id = player_1_id`; otherwise `ai_opponent = DINKY` when nobody
+    joined. Then `in_lobby = False`, a **one-time best-effort** channel rename
+    to `build_game_channel_name(...)` -- the deliberate exception to "Archiving
+    ... never renames it" under "Game channels", since it happens once and a
+    rate-limit failure is only cosmetic -- and then `post_game_setup_message`,
+    the same `TeamSelectionView` message the rest of setup already drives (test
+    games included -- it prompts Player 1 then Player 2 in turn). `game.message_id`
+    is re-pointed at it, exactly as `CoinFlipView` re-points at the home/visiting
+    message.
+
+- **`restore_saved_views` re-arms both.** A hub message per stored guild
+  (`NewGameHubView`), and `LobbyView` on an `in_lobby` game's `message_id`
+  ahead of the team-picker branch -- without that a lobby would come back as
+  the team picker. A `TutorialContinueView`-style gap does not apply: the lobby
+  view is fully persistent.
+
 ## Recovering a stuck game
 
 A restart re-arms exactly **one** message per game — the one recorded in

@@ -9,6 +9,8 @@ cards/
 print/
 data/d12ball_games.json
 data/d12ball_games.tmp
+data/d12ball_hubs.json
+data/d12ball_hubs.tmp
 data/tethysdeck_decks.json
 data/bot_state.json
 data/bot_state.tmp

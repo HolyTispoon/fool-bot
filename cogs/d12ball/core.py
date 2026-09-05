@@ -58,6 +58,7 @@ from gamesaves.d12ball.storage import (
     load_games,
     save_games,
 )
+from gamesaves.d12ball.hub import load_hubs
 from discord_emoji_cache import ensure_cached_emojis
 from cogs.d12ball_helpers import (
     COIN_EMOJI_NAMES,
@@ -90,10 +91,12 @@ from cogs.d12ball_views import (
     HighPassChoiceView,
     HomeAwaySelectionView,
     InjuryTestView,
+    LobbyView,
     LooseBallSkillTestView,
     LowPassChoiceView,
     ManeuverActionPromptView,
     ManeuverChallengeView,
+    NewGameHubView,
     OwnGoalRollView,
     PlayerActionView,
     RematchView,
@@ -122,6 +125,10 @@ class CoreMixin:
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.games = load_games()
+        # `{guild_id: {"channel_id", "message_id"}}` for each server's
+        # game-creation hub message -- see gamesaves/d12ball/hub.py and
+        # "The game-creation hub and the lobby" in CLAUDE.md.
+        self.hubs = load_hubs()
         self.player_catalog = load_player_catalog()
         self.basic_ruleset = load_basic_ruleset()
         self.maneuver_catalog = load_maneuver_catalog()
@@ -219,7 +226,29 @@ class CoreMixin:
         """
         restored_views = 0
 
+        for entry in self.hubs.values():
+            # The hub button has no game to lose and stays live for the
+            # life of the message. A stale entry (the message deleted by
+            # hand) just registers a view nothing will ever dispatch to.
+            self.bot.add_view(
+                NewGameHubView(self),
+                message_id=entry["message_id"],
+            )
+            restored_views += 1
+
         for game in self.games.values():
+            if game.in_lobby:
+                # A lobby is a SETUP game with no teams picked yet, so
+                # without this branch it would restore the team picker
+                # instead of the lobby's own Join/Leave/Start view.
+                if game.message_id is not None:
+                    self.bot.add_view(
+                        LobbyView(self, game.game_id),
+                        message_id=game.message_id,
+                    )
+                    restored_views += 1
+                continue
+
             setup_view = None
             if game.coin_flipped and not game.home_and_visiting_selected:
                 setup_view = HomeAwaySelectionView(
