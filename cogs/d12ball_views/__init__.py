@@ -35,6 +35,10 @@ from cogs.d12ball_views.setup import (
     RematchView,
     TeamSelectionView,
 )
+from cogs.d12ball_views.lobby import (
+    LobbyView,
+    NewGameHubView,
+)
 from cogs.d12ball_views.turn import (
     BallHandlerSelectionView,
     CedeConfirmView,
@@ -108,6 +112,8 @@ __all__ = [
     "HomeAwaySelectionView",
     "RematchView",
     "TeamSelectionView",
+    "LobbyView",
+    "NewGameHubView",
     "BallHandlerSelectionView",
     "CedeConfirmView",
     "MAX_BUTTONS_PER_ROW",

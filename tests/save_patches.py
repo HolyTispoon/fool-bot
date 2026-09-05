@@ -36,6 +36,7 @@ from unittest import mock
 # `cogs.d12ball.save_games` by the same call sites.
 SAVING_VIEW_MODULES = (
     "cogs.d12ball_views.setup",
+    "cogs.d12ball_views.lobby",
     "cogs.d12ball_views.turn",
     "cogs.d12ball_views.loose_ball",
 

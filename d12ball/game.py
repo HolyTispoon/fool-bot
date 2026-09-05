@@ -199,6 +199,23 @@ class D12BallGame:
     status: GameStatus = GameStatus.SETUP
     board_size: int = 7
 
+    # Whether the game record exists but is still sitting in its
+    # pre-game lobby -- players joining or leaving, settings being
+    # picked, nobody having pressed Start Game yet. See "The
+    # game-creation hub and the lobby" in CLAUDE.md.
+    #
+    # A lobby is an ordinary SETUP game (no GameStatus value of its
+    # own), so `start_game`, the stats scoping and the startup sweep are
+    # all untouched. While this is True the game has `player_2_id = None`
+    # and `ai_opponent = None` even for a game two humans will play, and
+    # `test_game` may be set with `player_2_id` still None -- all of it
+    # is settled when Start Game is pressed, so nothing may read
+    # `is_solo_game` off a lobby, and `__post_init__` relaxes its "a
+    # test game uses one user for both sides" check while this holds.
+    # `restore_saved_views` re-arms the lobby view rather than the team
+    # picker while it is set.
+    in_lobby: bool = False
+
     # Coin-toss information
     coin_flipped: bool = False
     coin_winner: Optional[str] = None
@@ -304,7 +321,15 @@ class D12BallGame:
                 "Player 1 and Player 2 must be different users."
             )
 
-        if self.test_game and self.player_1_id != self.player_2_id:
+        if (
+            self.test_game
+            and not self.in_lobby
+            and self.player_1_id != self.player_2_id
+        ):
+            # A test-game lobby carries the flag before Start Game
+            # assigns Player 2 -- `lobby_start` sets `player_2_id =
+            # player_1_id` on the way out, so the record is consistent
+            # for the whole of the game itself.
             raise ValueError(
                 "A test game must use the same user for both players."
             )
