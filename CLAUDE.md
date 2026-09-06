@@ -3617,8 +3617,11 @@ does bar naming specific opponents up front). Two pieces:
   `data/d12ball_hubs.json` via `gamesaves/d12ball/hub.py`. Re-runnable to move
   the hub or repair a deleted message. The button's custom_id names no game and
   no guild (the interaction carries the guild, and there is no lobby yet), which
-  leaves room for the planned role-self-assign buttons on the same message. The
-  message is kept terse. The **only image that ever accompanies "D12 Ball"** is a
+  leaves room for the planned role-self-assign buttons on the same message.
+  `build_hub_message` is a welcome plus one titled block per game -- name,
+  button, and **the game's own description, which is the author's copy and kept
+  verbatim** (D12 Ball's came back in review as the one to use). The **only image
+  that ever accompanies "D12 Ball"** is a
   d12 -- the `d12dice` application emoji, uploaded through the Developer Portal;
   `load_d12_emoji` resolves it to a `<:d12dice:id>` string (or `None`, degrading
   to no emoji everywhere), loaded in `cog_load` onto `self.d12_emoji` and

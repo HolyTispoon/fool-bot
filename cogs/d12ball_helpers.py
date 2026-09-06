@@ -717,16 +717,23 @@ def build_hub_message(d12_emoji: Optional[str] = None) -> str:
     """
     The single message the game-creation hub channel carries. `/d12ball
     setup_hub` posts it (or edits the existing one) behind a
-    `NewGameHubView`. One line per game, each with the button that opens
-    its lobby; only D12 Ball for now, but the shape is meant to grow.
-    Deliberately terse -- the buttons are the point, and the lobby
-    explains itself.
+    `NewGameHubView`: a welcome, then one titled block per game -- name,
+    button, and the game's own description -- with only D12 Ball for now
+    and room to grow. The description text is the author's own copy; keep
+    it verbatim.
     """
     d12 = f"{d12_emoji} " if d12_emoji else ""
     return (
-        "## Start a game\n\n"
-        "Pick a game below to open a private lobby.\n\n"
-        f"{d12}**D12 Ball** — football on a twelve-sided die."
+        "## Prophetic Fools Games\n\n"
+        "Hello! This is the game-creation channel of the Prophetic Fools "
+        "Games server. We'd love for you to try our games! Use the buttons "
+        "below to start a new game.\n\n"
+        f"### {d12}D12 Ball\n\n"
+        "D12 Ball is a fast playing fantasy sports game with tense "
+        "last-ditch efforts and dramatic comebacks, where two teams of "
+        "fantasy creatures compete by maneuvering around the field, "
+        "manipulating the ball and outwitting the other team on their way "
+        "to score epic goals."
     )
 
 
