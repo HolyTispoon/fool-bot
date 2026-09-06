@@ -1246,7 +1246,13 @@ class CommandsMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
     ) -> None:
-        save_games(self.games)
+        # Acknowledge the click first, persist after. `save_games` is a
+        # synchronous disk write, and on the live bot's Google Drive
+        # mount it can block the loop for seconds -- long enough for
+        # Discord to drop the interaction and turn the edit into a
+        # `10062 Unknown interaction`. The live game is the in-memory
+        # one either way; the file is only what a restart reads. Same
+        # order `lobby_start` already uses.
         await interaction.response.edit_message(
             content=build_lobby_message(game, self.d12_emoji),
             view=LobbyView(self, game.game_id),
@@ -1254,6 +1260,7 @@ class CommandsMixin:
             # edit that adds one must not ping them.
             allowed_mentions=discord.AllowedMentions.none(),
         )
+        save_games(self.games)
 
     async def lobby_join(
         self,

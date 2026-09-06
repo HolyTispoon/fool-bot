@@ -105,12 +105,14 @@ class LobbyNameModal(discord.ui.Modal, title="Name this game"):
             return
 
         game.game_name = str(self.game_name.value).strip() or None
-        save_games(self.cog.games)
+        # Acknowledge the click before persisting -- see
+        # `D12Ball._refresh_lobby` for why the save comes second.
         await interaction.response.edit_message(
             content=build_lobby_message(game, self.cog.d12_emoji),
             view=LobbyView(self.cog, self.game_id),
             allowed_mentions=discord.AllowedMentions.none(),
         )
+        save_games(self.cog.games)
 
 
 class LobbyView(SafeView):
@@ -387,9 +389,11 @@ class LobbyView(SafeView):
             )
             return
 
-        save_games(self.cog.games)
+        # Acknowledge the click before persisting -- see
+        # `D12Ball._refresh_lobby` for why the save comes second.
         await interaction.response.edit_message(
             content=build_lobby_message(game, self.cog.d12_emoji),
             view=LobbyView(self.cog, self.game_id),
             allowed_mentions=discord.AllowedMentions.none(),
         )
+        save_games(self.cog.games)
