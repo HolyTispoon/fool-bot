@@ -3576,14 +3576,30 @@ frees a slot in the category.
   refuses outright rather than deleting anybody's channels with nowhere to
   put what it took from them, which is also what keeps a fresh clone or a
   developer's own test checkout from ever running this by accident.
-- **A manual command, capped per run, oldest game first.** Deleting a
-  channel is the tightest rate limit Discord has (see "Discord's rate
-  limits"), and downloading a whole channel's history and every attachment
-  in it is not fast either, so this is explicitly `/debug`, and takes a
-  `limit` (default 5, capped at 20) rather than draining the whole category
-  in one call. Oldest `game_number` first, because any archived channel
-  freed makes the same room and there is no other reason to prefer one over
-  another.
+- **A manual command that clears the whole category, oldest game first.**
+  `limit` is 1 to 50, defaulting to 50, because **50 is what fills the
+  category** -- a command whose entire purpose is making room in a full
+  one should be able to empty it in a single run. Oldest `game_number`
+  first, because any archived channel freed makes the same room and there
+  is no other reason to prefer one over another.
+  - **It was capped at 20, defaulting to 5, on a misreading of the delete
+    limit.** Deleting a channel is two per ten minutes and **per
+    channel**: `channel_id` is one of the four major rate-limit
+    parameters (`discord.http.Route.major_parameters`), so fifty
+    different channels are fifty separate buckets, not one queue two
+    deep. Only a repeat against the *same* channel is rationed, which is
+    what `CHANNEL_DELETE_RETRY_DELAYS` is for. This is the mirror of the
+    board-edit bucket, where `message_id` is **not** major and so every
+    message in a channel shares one -- the same table read for two
+    different ids, which is why "check `discord.http.Route`" is the
+    standing instruction rather than "remember which".
+  - **What a full run does cost is time**, and it is unbounded by
+    anything here: a channel's whole history plus every attachment in it,
+    fifty times over, where a single board is close to a megabyte. It
+    outlives the fifteen-minute interaction token, which is why the
+    summary already falls back to the console -- and why
+    `write_game_export` logs a line per game, so a long run is legible
+    while it is still running.
 - **Gated to Administrator, narrower than `/debug reset_channels`'s
   `manage_channels`.** Both delete channels, but this one also downloads
   and holds a copy of everything the channel ever said before it does --
@@ -3639,9 +3655,15 @@ frees a slot in the category.
 - **`confirm` is checked before anything else that can refuse**, including
   whether an export directory is even configured. Typing the command wrong
   should be told exactly that, not some unrelated reason it wouldn't have
-  worked anyway -- and the cancellation message has to cope with an
-  unconfigured export directory gracefully rather than crashing trying to
-  print it.
+  worked anyway.
+  - **The refusal names the field and stops.** It used to restate the whole
+    operation -- how many games, out of where, to which directory, and that
+    the channels would not survive it -- which is a briefing, delivered to
+    somebody who has just been told their command did not run. What they
+    need is which field was wrong. The warning belongs on `confirm`'s own
+    description, where it is read *before* the command is sent rather than
+    after it has failed. That is also what stops the message having to cope
+    with an export directory it was never given.
 - **Only channels the bot can already see are candidates.** The category
   is re-checked at call time the same way `/debug reset_channels` checks
   it -- a channel matching `CHANNEL_NAME_PATTERN`, currently sitting in
