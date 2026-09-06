@@ -797,8 +797,14 @@ def build_lobby_message(
         f"Board size: **{game.board_size}** spaces\n"
     )
 
-    if game.mode == GameMode.ADVANCED and game.board_size != 9:
-        text += "\n_Advanced mode plays best on a board size of 9._\n"
+    if game.mode == GameMode.ADVANCED:
+        # Shown the whole time Advanced is on, not only once the board is
+        # off 9 -- picking Advanced defaults the board to 9, and this note
+        # is what tells a coach why it moved.
+        text += (
+            "\n_It is recommended to play advanced mode on a board size "
+            "of 9._\n"
+        )
 
     return text
 
