@@ -22,7 +22,14 @@ LOGGER = logging.getLogger(__name__)
 # refused.
 #
 # Deleting a channel sits in the channel-modification bucket, which is
-# the most restrictive limit Discord documents -- two per ten minutes.
+# the most restrictive limit Discord documents -- two per ten minutes,
+# and **per channel**: `channel_id` is one of discord.py's four major
+# rate-limit parameters (`discord.http.Route.major_parameters`), so
+# fifty different channels are fifty separate buckets rather than one
+# queue two deep. Only a repeat request against the *same* channel is
+# rationed -- which is exactly what a retry is, and the whole of why
+# these delays exist.
+#
 # discord.py does the waiting for an ordinary 429 itself, so a plain
 # rate limit never reaches this loop at all; what does reach it is a
 # Discord-side failure it gave up on, or a Cloudflare ban, which is
@@ -319,13 +326,13 @@ class Debug(commands.Cog):
     )
     @app_commands.describe(
         confirm='Type "confirm" to export and delete channels.',
-        limit="How many archived games to process this run (default 5).",
+        limit="How many archived games to process this run (default 50).",
     )
     async def export_archived_games(
         self,
         interaction: discord.Interaction,
         confirm: str,
-        limit: app_commands.Range[int, 1, 20] = 5,
+        limit: app_commands.Range[int, 1, 50] = 50,
     ) -> None:
         """
         Discord caps a category at 50 channels (see "Could not archive
@@ -389,6 +396,15 @@ class Debug(commands.Cog):
         the first thing typing the command wrong should tell a coach
         is that they typed it wrong, not some other unrelated reason it
         wouldn't have worked anyway.
+
+        The refusal says that and stops. It used to restate what the
+        command was about to do -- how many games, out of where, to
+        which directory, and that the channels would not survive it --
+        which is a briefing, and the person reading it has just been
+        told their command did not run. What they need is which field
+        was wrong. The description on `confirm` carries the warning,
+        where it is read *before* the command is sent rather than after
+        it has failed.
         """
         if not await defer_or_report(interaction):
             return
@@ -406,13 +422,10 @@ class Debug(commands.Cog):
         export_dir = archive_export_dir()
 
         if confirm != "confirm":
-            destination = f" to {export_dir}" if export_dir is not None else ""
             await interaction.followup.send(
-                'Cancelled. Type "confirm" in the confirm field to '
-                f"export up to {limit} finished game(s) from the PBD "
-                f"Archive{destination} and then **permanently "
-                "delete** their channels. Archiving keeps the channel; "
-                "this does not.",
+                'This command has to be confirmed with "confirm" in the '
+                "confirm field. It did not go through because the "
+                "confirmation was missing.",
                 ephemeral=True,
             )
             return

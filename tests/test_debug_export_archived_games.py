@@ -342,6 +342,72 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("second process", logs.output[0])
         self.assertIn("unknown command", logs.output[0])
 
+    async def test_one_run_can_clear_a_full_category(self) -> None:
+        """
+        50 is what fills a Discord category, and making room in a full
+        one is this command's whole purpose -- so a single run has to be
+        able to empty it.
+
+        It was capped at 20, defaulting to 5, on the reading that
+        deleting channels is rationed two per ten minutes. That limit is
+        real but **per channel** -- `channel_id` is one of the four
+        major rate-limit parameters -- so fifty different channels are
+        fifty buckets, not one queue two deep.
+        """
+        bot = commands.Bot(
+            command_prefix="!", intents=discord.Intents.none(),
+        )
+        await bot.add_cog(Debug(bot))
+        group = next(iter(bot.tree.get_commands()))
+        command = next(
+            sub for sub in group.commands
+            if sub.name == "export_archived_games"
+        )
+        option = next(
+            param for param in command.to_dict(bot.tree)["options"]
+            if param["name"] == "limit"
+        )
+
+        self.assertEqual(option["min_value"], 1)
+        self.assertEqual(option["max_value"], 50)
+        self.assertEqual(command._params["limit"].default, 50)
+        self.assertIn(
+            "channel_id",
+            discord.http.Route("DELETE", "/channels/{channel_id}", channel_id=1)
+            .major_parameters or "channel_id",
+        ) if False else self.assertEqual(
+            discord.http.Route(
+                "DELETE", "/channels/{channel_id}", channel_id=7,
+            ).major_parameters,
+            "7",
+        )
+
+    async def test_the_run_is_bounded_by_the_limit_it_was_given(self) -> None:
+        """
+        The cap is the only thing between one run and the whole
+        category, so it has to actually bound the work -- not just the
+        wording of the confirmation.
+        """
+        channels = [
+            build_channel(f"d12ball-pbd{n}-alice-vs-bob") for n in range(1, 5)
+        ]
+        games = {
+            f"g{n}": build_game(f"g{n}", channel.id, game_number=n)
+            for n, channel in enumerate(channels, start=1)
+        }
+        cog, _ = self.build_cog(games)
+        interaction = self.build_interaction(channels)
+
+        write_export, _ = await self.run_export(cog, interaction, limit=2)
+
+        self.assertEqual(write_export.call_count, 2)
+        # Oldest game_number first, and no further.
+        exported = [call.args[0].name for call in write_export.call_args_list]
+        self.assertEqual(
+            exported,
+            ["d12ball-pbd1-alice-vs-bob", "d12ball-pbd2-alice-vs-bob"],
+        )
+
     async def test_refuses_when_no_export_directory_is_configured(self) -> None:
         cog, _ = self.build_cog({})
         interaction = self.build_interaction([])
@@ -372,9 +438,12 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
     async def test_confirm_is_checked_before_the_export_directory(self) -> None:
         """
         Typing the command wrong should be told exactly that, not some
-        other unrelated reason it wouldn't have worked anyway -- and
-        the cancellation message must not choke formatting a
-        destination that was never configured.
+        other unrelated reason it wouldn't have worked anyway.
+
+        The refusal names the field and stops. It used to restate the
+        whole operation -- how many games, out of where, to which
+        directory -- which is a briefing given to somebody who has just
+        been told their command did not run.
         """
         cog, _ = self.build_cog({})
         interaction = self.build_interaction([])
@@ -386,10 +455,15 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
         write_export.assert_not_called()
         save_games.assert_not_called()
         message = interaction.followup.send.await_args.args[0]
-        self.assertIn('Type "confirm"', message)
+        self.assertIn("confirm field", message)
+        self.assertIn("confirmation was missing", message)
         self.assertNotIn(
             "FOOLBOT_D12BALL_ARCHIVE_EXPORT_DIR", message,
         )
+        # Not a briefing: no count, no destination, no warning about
+        # what the command would have done.
+        self.assertNotIn("game(s)", message)
+        self.assertNotIn("delete", message)
 
     async def test_a_clean_export_writes_then_deletes_then_saves(self) -> None:
         channel = build_channel(
