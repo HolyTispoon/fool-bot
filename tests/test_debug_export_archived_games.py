@@ -127,6 +127,7 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
     ) -> SimpleNamespace:
         guild = SimpleNamespace(
             id=1,
+            name="Prophetic Fools",
             channels=channels,
             fetch_channels=mock.AsyncMock(return_value=channels),
         )
@@ -156,6 +157,7 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
         confirm: str = "confirm",
         limit: int = 5,
         export_dir: Path | None = Path("/export"),
+        notices: mock.AsyncMock | None = None,
     ):
         with (
             mock.patch(
@@ -163,6 +165,10 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
             ),
             mock.patch("cogs.debug.write_game_export") as write_export,
             mock.patch("cogs.debug.save_games") as save_games,
+            mock.patch(
+                "botlog.post_notice",
+                notices if notices is not None else mock.AsyncMock(),
+            ),
         ):
             await Debug.export_archived_games.callback(
                 cog, interaction, confirm, limit,
@@ -407,6 +413,51 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
             exported,
             ["d12ball-pbd1-alice-vs-bob", "d12ball-pbd2-alice-vs-bob"],
         )
+
+    async def test_both_ends_of_a_run_are_announced_in_the_log_channel(
+        self,
+    ) -> None:
+        """
+        A full run outlives its fifteen-minute interaction token, so
+        the summary it would have replied with is the thing most likely
+        to be lost -- on exactly the runs that matter. #logs is where
+        that goes, and it goes through `post_notice` rather than the
+        logger: neither line is an error, and logging one at ERROR to
+        reach the channel would break what an ERROR there means.
+        """
+        channel = build_channel("d12ball-pbd1-alice-vs-bob")
+        games = {"g1": build_game("g1", channel.id)}
+        cog, _ = self.build_cog(games)
+        interaction = self.build_interaction([channel])
+        notices = mock.AsyncMock()
+
+        await self.run_export(cog, interaction, notices=notices)
+
+        started, finished = [
+            call.args[1] for call in notices.await_args_list
+        ]
+        self.assertIn("started", started.lower())
+        self.assertIn("1 finished game(s)", started)
+        self.assertIn("/export", started)
+        self.assertIn("finished", finished.lower())
+        self.assertIn("Exported 1 game(s)", finished)
+
+    async def test_nothing_is_announced_for_a_run_that_never_starts(
+        self,
+    ) -> None:
+        """
+        The start notice sits after every refusal, so a missing confirm
+        or an empty archive puts nothing in #logs. A channel that
+        announces work nobody asked for is a channel people stop
+        reading.
+        """
+        cog, _ = self.build_cog({})
+        interaction = self.build_interaction([])
+        notices = mock.AsyncMock()
+
+        await self.run_export(cog, interaction, confirm="no", notices=notices)
+
+        notices.assert_not_awaited()
 
     async def test_refuses_when_no_export_directory_is_configured(self) -> None:
         cog, _ = self.build_cog({})

@@ -11,6 +11,7 @@ from cogs.d12ball_helpers import (
     build_game_channel_name,
     send_error_fallback,
 )
+import botlog
 from d12ball.game import GameStatus
 from gamesaves.d12ball.archive_export import archive_export_dir, write_game_export
 from gamesaves.d12ball.storage import save_games
@@ -496,6 +497,26 @@ class Debug(commands.Cog):
             )
             return
 
+        # #logs, not the invoking channel, and at both ends.
+        #
+        # A full run walks fifty channels' histories and every
+        # attachment in them, which outlives the fifteen-minute
+        # interaction token -- so the summary the command would have
+        # replied with is exactly the thing most likely to be lost, on
+        # exactly the runs that matter most. These two lines are not
+        # errors, so they cannot go through the logger without breaking
+        # what an ERROR in that channel means; `botlog.post_notice` is
+        # the deliberate, non-error way in. It is opt-in with the rest
+        # of the mirror and never raises, so a bot that posts nothing
+        # exports exactly as before.
+        await botlog.post_notice(
+            self.bot,
+            f"**Archive export started** by {interaction.user} in "
+            f"{guild.name}: {len(candidates)} finished game(s) from the "
+            f"PBD Archive to `{export_dir}`. Their channels are deleted "
+            "once each export is written.",
+        )
+
         exported = 0
         deleted = 0
         failures: list[tuple[str, str]] = []
@@ -613,6 +634,8 @@ class Debug(commands.Cog):
                 "\n\nThese games were left alone -- their channel and "
                 f"save data are unchanged:\n{failure_details}"
             )
+
+        await botlog.post_notice(self.bot, f"**Archive export finished.** {result}")
 
         try:
             await interaction.followup.send(result, ephemeral=True)
