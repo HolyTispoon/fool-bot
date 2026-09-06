@@ -2455,6 +2455,7 @@ One more `.env` variable, alongside the logging ones above:
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `FOOLBOT_COMMAND_SYNC` | off | `always` registers the commands even when the tree is unchanged |
+| `FOOLBOT_D12BALL_ARCHIVE_EXPORT_DIR` | unset | Where `/debug export_archived_games` writes a game before deleting its channel; unset, that command refuses outright — see "Freeing up the PBD Archive" |
 
 ## Working on the board image
 
@@ -3589,6 +3590,52 @@ frees a slot in the category.
   more is riding on trusting whoever is allowed to run it, so it gets the
   narrower default. Either gate is only Discord's *default*; a server can
   widen or narrow it per-role in Integrations settings.
+  - **A permission gate belongs on the `debug` group, not on a
+    subcommand, and a subcommand that wants a narrower one has to check
+    it in its own body.** Discord carries
+    `default_member_permissions` and `dm_permission`/`contexts` on a
+    top-level command only, and discord.py's `Command.to_dict` fills
+    those keys in `if self.parent is None` -- so
+    `@app_commands.default_permissions(...)` and
+    `@app_commands.guild_only()` on a `@debug.command` set the
+    attributes, read correctly from Python, and are left out of the
+    payload entirely. Both of these commands shipped that way for two
+    releases and were runnable by every member of the server. The group
+    now carries `manage_channels` for the pair, and
+    `export_archived_games` re-checks `guild_permissions.administrator`
+    itself. `test_the_permission_gate_rides_on_the_group` reads the
+    payload rather than the attribute, which is the only way to see it.
+  - **The Administrator check is the one refusal ahead of `confirm`.**
+    Somebody who may not run this command should be told that and
+    nothing else -- not walked through what it would have done, and not
+    handed the export path. Every *operational* refusal still comes
+    after confirm.
+- **A dead interaction diagnoses itself, in `defer_or_report`.** Both
+  commands here acknowledge through it rather than calling
+  `interaction.response.defer` directly. Discord discards an
+  interaction nothing has acknowledged within three seconds, and the
+  defer is then a 404 (10062, "Unknown interaction") raised out of the
+  command's **first line** -- which reads as a bug in the command and
+  cannot be one, since nothing of ours has run yet. Deferring earlier
+  cannot fix it; the defer is the thing that fails. Only two states
+  put a dead token there, and they want opposite fixes: the bot took
+  over three seconds to reach that line, or **a second process is
+  signed in on the same token** and answered first. The interaction's
+  own age tells them apart -- Discord stamps the id with its creation
+  time, so `utcnow() - snowflake_time(interaction.id)` is exactly how
+  long it waited -- so the ERROR that reaches #logs carries the number
+  and says which reading it supports. Nothing runs afterwards: a
+  refusal sent on a dead token is a second traceback for one cause.
+- **An unexpected exception reports back, through
+  `Debug.cog_app_command_error`.** Both commands here defer first, so
+  without it a crash below the defer leaves the caller watching an
+  ephemeral spinner that never resolves while the traceback goes only to
+  the console and #logs -- which are on the machine hosting the bot,
+  not in front of whoever pressed the button. Unlike the coach-facing
+  `D12Ball.cog_app_command_error`, this one **names the exception**: the
+  audience is whoever is allowed to delete channels, the reason is the
+  whole of what they need, and there is no `/d12ball resume` to point
+  them at.
 - **`confirm` is checked before anything else that can refuse**, including
   whether an export directory is even configured. Typing the command wrong
   should be told exactly that, not some unrelated reason it wouldn't have

@@ -11,12 +11,14 @@ alone rather than losing the game.
 """
 
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
 import discord
+
+from discord.ext import commands
 
 from cogs.debug import Debug
 from d12ball.game import D12BallGame, GameStatus
@@ -100,8 +102,29 @@ def build_game(game_id: str, channel_id: int, game_number: int = 1) -> D12BallGa
     )
 
 
+class FakeUser:
+    """
+    Whoever ran the command. `guild_permissions` is what the runtime
+    Administrator gate reads -- Discord only carries a default
+    permission on the top-level `/debug` group, so a subcommand that
+    wants a narrower one has to ask for it itself.
+    """
+
+    def __init__(self, administrator: bool = True):
+        self.guild_permissions = discord.Permissions(
+            administrator=administrator,
+        )
+
+    def __str__(self) -> str:
+        return "tester"
+
+
 class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
-    def build_interaction(self, channels: list) -> SimpleNamespace:
+    def build_interaction(
+        self,
+        channels: list,
+        user: object | None = None,
+    ) -> SimpleNamespace:
         guild = SimpleNamespace(
             id=1,
             channels=channels,
@@ -109,7 +132,7 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
         )
         return SimpleNamespace(
             guild=guild,
-            user="tester",
+            user=user if user is not None else FakeUser(),
             response=SimpleNamespace(
                 send_message=mock.AsyncMock(),
                 defer=mock.AsyncMock(),
@@ -166,6 +189,158 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
 
         interaction.response.defer.assert_awaited_once()
         interaction.response.send_message.assert_not_awaited()
+
+    async def test_a_non_administrator_is_refused_before_anything_else(
+        self,
+    ) -> None:
+        """
+        Discord fills `default_member_permissions` in only for a
+        top-level command -- discord.py's own `Command.to_dict` gates
+        it on `self.parent is None` -- so the
+        `@app_commands.default_permissions(administrator=True)` that
+        used to sit on this subcommand was sent to nobody, and every
+        member of the server could run it. The group carries
+        `manage_channels` for the pair of them now, and the narrower
+        gate this one wants is checked here.
+
+        It is checked ahead of `confirm`, unlike every other refusal:
+        somebody who may not run this should not be walked through
+        what it would have done, or handed the export path.
+        """
+        cog, d12ball = self.build_cog({})
+        interaction = self.build_interaction(
+            [], user=FakeUser(administrator=False),
+        )
+
+        write_export, save_games = await self.run_export(
+            cog, interaction, confirm="not the word",
+        )
+
+        write_export.assert_not_called()
+        save_games.assert_not_called()
+        message = interaction.followup.send.await_args.args[0]
+        self.assertIn("Administrator", message)
+        self.assertNotIn("confirm", message.lower())
+
+    async def test_the_permission_gate_rides_on_the_group(self) -> None:
+        """
+        The one place Discord reads it. A `default_permissions` on a
+        subcommand applies the decorator, sets the attribute, and is
+        left out of the payload entirely -- which is invisible from
+        the Python side and was live for two releases.
+        """
+        payload = Debug.debug.to_dict(mock.Mock())
+
+        self.assertEqual(
+            payload["default_member_permissions"],
+            discord.Permissions(manage_channels=True).value,
+        )
+        self.assertFalse(payload["dm_permission"])
+
+    async def test_an_unexpected_failure_is_reported_back_by_name(
+        self,
+    ) -> None:
+        """
+        Both commands here defer first, so a crash below the defer used
+        to leave the caller on an ephemeral spinner that never resolved
+        while the traceback went only to the host console and #logs.
+
+        discord.py's own handler stands down as soon as a cog defines
+        `cog_app_command_error` (`Command._has_any_error_handlers`), so
+        this one has to log the traceback itself or #logs loses it --
+        which is asserted here alongside the reply.
+        """
+        cog = Debug(mock.Mock())
+        interaction = self.build_interaction([])
+        interaction.response.is_done = mock.Mock(return_value=True)
+        interaction.command = SimpleNamespace(
+            qualified_name="debug export_archived_games",
+        )
+        error = discord.app_commands.CommandInvokeError(
+            mock.Mock(), OSError("K:\\ is not there"),
+        )
+
+        with self.assertLogs("cogs.debug", level="ERROR") as logs:
+            await cog.cog_app_command_error(interaction, error)
+
+        self.assertIn("export_archived_games", logs.output[0])
+        message = interaction.followup.send.await_args.args[0]
+        self.assertIn("debug export_archived_games", message)
+        self.assertIn("OSError", message)
+        self.assertIn("K:\\ is not there", message)
+
+    async def test_discord_defers_to_our_error_handler(self) -> None:
+        """
+        The handler only ever runs because discord.py checks the cog
+        for one and stands down -- if that link breaks, the reply above
+        is never sent and the failure is silent again.
+        """
+        bot = commands.Bot(
+            command_prefix="!", intents=discord.Intents.none(),
+        )
+        await bot.add_cog(Debug(bot))
+        group = next(iter(bot.tree.get_commands()))
+        command = next(
+            sub for sub in group.commands
+            if sub.name == "export_archived_games"
+        )
+
+        self.assertTrue(command._has_any_error_handlers())
+
+    async def test_a_dead_interaction_names_its_own_cause(self) -> None:
+        """
+        The live failure: `defer` raised 10062 out of the first line of
+        the command, which reads as a bug in the command and cannot be
+        one -- nothing of ours has run yet. Only a lagging bot or a
+        second process on the same token puts a dead token there, and
+        the interaction's own age tells them apart, so the log line has
+        to carry it. Nothing may run afterwards either: a refusal sent
+        on a dead token is a second traceback for the same cause.
+        """
+        cog, d12ball = self.build_cog({})
+        interaction = self.build_interaction([])
+        interaction.id = discord.utils.time_snowflake(
+            discord.utils.utcnow() - timedelta(seconds=9),
+        )
+        interaction.command = SimpleNamespace(
+            qualified_name="debug export_archived_games",
+        )
+        interaction.response.defer = mock.AsyncMock(
+            side_effect=discord.NotFound(mock.Mock(status=404), "10062"),
+        )
+
+        with self.assertLogs("cogs.debug", level="ERROR") as logs:
+            write_export, save_games = await self.run_export(cog, interaction)
+
+        write_export.assert_not_called()
+        save_games.assert_not_called()
+        interaction.followup.send.assert_not_awaited()
+        self.assertIn("10062", logs.output[0])
+        # Nine seconds: the bot was too busy, not a second process.
+        self.assertIn("9.0", logs.output[0])
+
+    async def test_a_token_spent_by_someone_else_reads_as_no_delay(
+        self,
+    ) -> None:
+        """
+        The other half of the same diagnosis. A token barely a moment
+        old that Discord has already discarded was not lost to a slow
+        bot -- it was answered by a second process signed in on the
+        same token, which is the opposite fix.
+        """
+        cog, _ = self.build_cog({})
+        interaction = self.build_interaction([])
+        interaction.id = discord.utils.time_snowflake(discord.utils.utcnow())
+        interaction.command = None
+        interaction.response.defer = mock.AsyncMock(
+            side_effect=discord.NotFound(mock.Mock(status=404), "10062"),
+        )
+
+        with self.assertLogs("cogs.debug", level="ERROR") as logs:
+            await self.run_export(cog, interaction)
+
+        self.assertIn("second process", logs.output[0])
+        self.assertIn("unknown command", logs.output[0])
 
     async def test_refuses_when_no_export_directory_is_configured(self) -> None:
         cog, _ = self.build_cog({})
