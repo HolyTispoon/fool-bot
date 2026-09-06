@@ -192,7 +192,7 @@ class Debug(commands.Cog):
         name="export_archived_games",
         description=(
             "Export finished PBD Archive games to disk, then delete "
-            "their channels to free up room in the category."
+            "their channels to free category room."
         ),
     )
     @app_commands.describe(
