@@ -680,20 +680,60 @@ def build_setup_message(
     return text
 
 
-# The single message the game-creation hub channel carries. `/d12ball
-# setup_hub` posts it (or edits the existing one) behind a NewGameHubView
-# -- see "The game-creation hub and the lobby" in CLAUDE.md. One line per
-# game, each with the button that opens its lobby; only D12 Ball for now,
-# but the shape is meant to grow. Deliberately terse -- the buttons are
-# the point, and the lobby explains itself.
-NEW_GAME_HUB_MESSAGE = (
-    "## Start a game\n\n"
-    "Pick a game below to open a private lobby.\n\n"
-    "**D12 Ball** — football on a twelve-sided die."
-)
+# The name of the application emoji uploaded through the Developer
+# Portal for D12 Ball -- a d12. The only image that belongs next to "D12
+# Ball" (see "The game-creation hub and the lobby" in CLAUDE.md), used on
+# the hub button, the hub message and the lobby heading. Everything
+# degrades to no emoji when the upload is missing.
+D12_EMOJI_NAME = "d12dice"
 
 
-def build_lobby_message(game: D12BallGame) -> str:
+async def load_d12_emoji(
+    bot: commands.Bot,
+    emojis_by_name: Optional[dict] = None,
+) -> Optional[str]:
+    """
+    The `<:d12dice:id>` string for the D12 Ball d12 emoji, or None when
+    it has not been uploaded -- the same shape as `load_coin_emojis` and
+    friends. A guild emoji of the same name is accepted as a fallback.
+    """
+    if emojis_by_name is None:
+        emojis_by_name = await fetch_application_emojis(bot) or {}
+
+    emoji = emojis_by_name.get(D12_EMOJI_NAME) or next(
+        (e for e in bot.emojis if e.name == D12_EMOJI_NAME), None,
+    )
+    if emoji is None:
+        LOGGER.info(
+            "No application emoji named %r; D12 Ball's hub and lobby will "
+            "show no d12.",
+            D12_EMOJI_NAME,
+        )
+        return None
+    return str(emoji)
+
+
+def build_hub_message(d12_emoji: Optional[str] = None) -> str:
+    """
+    The single message the game-creation hub channel carries. `/d12ball
+    setup_hub` posts it (or edits the existing one) behind a
+    `NewGameHubView`. One line per game, each with the button that opens
+    its lobby; only D12 Ball for now, but the shape is meant to grow.
+    Deliberately terse -- the buttons are the point, and the lobby
+    explains itself.
+    """
+    d12 = f"{d12_emoji} " if d12_emoji else ""
+    return (
+        "## Start a game\n\n"
+        "Pick a game below to open a private lobby.\n\n"
+        f"{d12}**D12 Ball** — football on a twelve-sided die."
+    )
+
+
+def build_lobby_message(
+    game: D12BallGame,
+    d12_emoji: Optional[str] = None,
+) -> str:
     """
     What a lobby channel's message says while players are still joining
     and picking settings. Plain text in the style of `build_setup_message`.
@@ -717,7 +757,12 @@ def build_lobby_message(game: D12BallGame) -> str:
             f"**{format_ai_name(game.ai_opponent)}**_"
         )
 
-    heading = f"## {game.game_name} -- D12 Ball" if game.game_name else "## D12 Ball -- game lobby"
+    d12 = f"{d12_emoji} " if d12_emoji else ""
+    heading = (
+        f"## {d12}{game.game_name} -- D12 Ball"
+        if game.game_name
+        else f"## {d12}D12 Ball -- game lobby"
+    )
 
     text = (
         f"{heading}\n\n"

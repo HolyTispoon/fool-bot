@@ -29,6 +29,7 @@ def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)
     cog.games = {}
     cog.hubs = {}
+    cog.d12_emoji = None
     cog.bot = SimpleNamespace(add_view=mock.Mock())
     return cog
 
@@ -489,6 +490,22 @@ class LobbyMessageTests(unittest.TestCase):
     def test_joined_slot_mentions_the_player(self) -> None:
         game = build_lobby_game(player_2_id=222, player_2_name="Two")
         self.assertIn("<@222>", build_lobby_message(game))
+
+    def test_d12_emoji_rides_the_heading_and_the_hub(self) -> None:
+        from cogs.d12ball_helpers import build_hub_message
+
+        emoji = "<:d12dice:123456789012345678>"
+        self.assertIn(emoji, build_hub_message(emoji))
+        self.assertIn(emoji, build_lobby_message(build_lobby_game(), emoji))
+        # And degrades cleanly to nothing.
+        self.assertNotIn("None", build_hub_message(None))
+        self.assertNotIn("None", build_lobby_message(build_lobby_game(), None))
+
+    def test_hub_button_carries_the_emoji(self) -> None:
+        cog = build_cog()
+        cog.d12_emoji = "<:d12dice:123456789012345678>"
+        button = NewGameHubView(cog).children[0]
+        self.assertEqual(button.emoji.name, "d12dice")
 
 
 if __name__ == "__main__":

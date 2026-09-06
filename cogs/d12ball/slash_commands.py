@@ -38,12 +38,13 @@ from gamesaves.d12ball.hub import get_hub, set_hub
 from cogs.d12ball_helpers import (
     BENCH_DESTINATIONS,
     LOGGER,
-    NEW_GAME_HUB_MESSAGE,
     PBD_GAMES_CATEGORY_NAME,
     add_full_image_button,
     add_full_image_button_to_response,
     build_game_channel_name,
+    build_hub_message,
     build_lobby_message,
+    load_d12_emoji,
     destination_display_name,
     filter_choices,
     format_ai_name,
@@ -1115,6 +1116,11 @@ class CommandsMixin:
             )
             return
 
+        # Re-fetch the d12 emoji here so an upload through the Developer
+        # Portal takes effect on the next `setup_hub` without a restart.
+        self.d12_emoji = await load_d12_emoji(self.bot)
+        hub_message = build_hub_message(self.d12_emoji)
+
         existing = get_hub(guild.id)
         message = None
         if existing is not None and existing["channel_id"] == channel.id:
@@ -1126,12 +1132,12 @@ class CommandsMixin:
         try:
             if message is not None:
                 await message.edit(
-                    content=NEW_GAME_HUB_MESSAGE,
+                    content=hub_message,
                     view=NewGameHubView(self),
                 )
             else:
                 message = await channel.send(
-                    NEW_GAME_HUB_MESSAGE,
+                    hub_message,
                     view=NewGameHubView(self),
                 )
         except discord.HTTPException as error:
@@ -1214,7 +1220,7 @@ class CommandsMixin:
 
         try:
             message = await channel.send(
-                build_lobby_message(game),
+                build_lobby_message(game, self.d12_emoji),
                 view=LobbyView(self, game_id),
                 allowed_mentions=discord.AllowedMentions.none(),
             )
@@ -1242,7 +1248,7 @@ class CommandsMixin:
     ) -> None:
         save_games(self.games)
         await interaction.response.edit_message(
-            content=build_lobby_message(game),
+            content=build_lobby_message(game, self.d12_emoji),
             view=LobbyView(self, game.game_id),
             # The message lists players and observers by mention; an
             # edit that adds one must not ping them.

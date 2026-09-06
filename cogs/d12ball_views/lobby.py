@@ -43,12 +43,15 @@ class NewGameHubView(SafeView):
         super().__init__(timeout=None)
         self.cog = cog
 
+        # The d12 application emoji (`d12dice`) -- the only image that
+        # belongs next to D12 Ball -- or nothing when it has not been
+        # uploaded. Loaded in `cog_load`, refreshed by `/d12ball
+        # setup_hub`. The rendered message keeps whatever emoji it was
+        # last posted/edited with, so a restart before `cog_load` does
+        # not blank it.
         button = discord.ui.Button(
             label="D12 Ball",
-            # No emoji: the only image that belongs next to D12 Ball is a
-            # d12, and there is no d12 in Unicode -- so nothing, rather
-            # than something that is not a d12. A custom `d12` application
-            # emoji could be added here later.
+            emoji=getattr(cog, "d12_emoji", None) or None,
             style=discord.ButtonStyle.primary,
             custom_id="d12ball:hub:new_game",
         )
@@ -104,7 +107,7 @@ class LobbyNameModal(discord.ui.Modal, title="Name this game"):
         game.game_name = str(self.game_name.value).strip() or None
         save_games(self.cog.games)
         await interaction.response.edit_message(
-            content=build_lobby_message(game),
+            content=build_lobby_message(game, self.cog.d12_emoji),
             view=LobbyView(self.cog, self.game_id),
             allowed_mentions=discord.AllowedMentions.none(),
         )
@@ -386,7 +389,7 @@ class LobbyView(SafeView):
 
         save_games(self.cog.games)
         await interaction.response.edit_message(
-            content=build_lobby_message(game),
+            content=build_lobby_message(game, self.cog.d12_emoji),
             view=LobbyView(self.cog, self.game_id),
             allowed_mentions=discord.AllowedMentions.none(),
         )

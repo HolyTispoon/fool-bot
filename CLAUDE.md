@@ -2431,10 +2431,11 @@ invariants read as ordinary cog surface among 223 methods.
   syncs, which is what it always did; `FOOLBOT_COMMAND_SYNC=always` forces it
   when Discord's copy has drifted some other way.
 - **The application emoji are fetched once per startup.** `fetch_application_emojis`
-  makes the call and the three loaders read the same answer. `ensure_coin_emojis`
-  still retries so an upload takes effect without a restart, but no more often
-  than `EMOJI_REFETCH_INTERVAL` -- an application with none of them uploaded
-  comes up short on every toss, and the retry was an HTTP request per flip.
+  makes the call and the loaders (coins, conditions, teams, the d12) read the
+  same answer. Two paths re-fetch so an upload takes without a restart, each at
+  its own natural moment: `ensure_coin_emojis` on a coin toss (throttled to
+  `EMOJI_REFETCH_INTERVAL` -- an application with none uploaded came up short on
+  every toss, one HTTP request per flip), and `/d12ball setup_hub` for the d12.
 - **Deleting a channel is the tightest limit there is** -- two per ten minutes
   -- so `/debug reset_channels` is slow by nature and backs off between
   retries (`CHANNEL_DELETE_RETRY_DELAYS`). What reaches that loop is not an
@@ -3617,10 +3618,14 @@ does bar naming specific opponents up front). Two pieces:
   the hub or repair a deleted message. The button's custom_id names no game and
   no guild (the interaction carries the guild, and there is no lobby yet), which
   leaves room for the planned role-self-assign buttons on the same message. The
-  message is kept terse and the button carries **no emoji**: the only image that
-  belongs next to D12 Ball is a d12, Unicode has none, and this is a studio that
-  makes tabletop games -- a 🎲/🏈/🎮 would be wrong on all three counts.
-  `NEW_GAME_HUB_MESSAGE` in `cogs/d12ball_helpers.py` is the whole text.
+  message is kept terse. The **only image that ever accompanies "D12 Ball"** is a
+  d12 -- the `d12dice` application emoji, uploaded through the Developer Portal;
+  `load_d12_emoji` resolves it to a `<:d12dice:id>` string (or `None`, degrading
+  to no emoji everywhere), loaded in `cog_load` onto `self.d12_emoji` and
+  **re-fetched by `/d12ball setup_hub`** so a fresh upload takes without a
+  restart. It rides the hub button, `build_hub_message(...)`, and the lobby
+  heading. Never a 🎲/🏈/🎮 -- a d6, a gridiron or a video-game pad, none of
+  which this is.
   `data/d12ball_hubs.json` is untracked runtime state like the saved games, and
   local to each machine -- the message lives in Discord, this is only a pointer.
 
