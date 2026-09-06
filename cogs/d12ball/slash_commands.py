@@ -45,6 +45,7 @@ from cogs.d12ball_helpers import (
     build_hub_message,
     build_lobby_message,
     load_d12_emoji,
+    load_d12_button_emoji,
     destination_display_name,
     filter_choices,
     format_ai_name,
@@ -1116,9 +1117,10 @@ class CommandsMixin:
             )
             return
 
-        # Re-fetch the d12 emoji here so an upload through the Developer
+        # Re-fetch both d12 emoji here so an upload through the Developer
         # Portal takes effect on the next `setup_hub` without a restart.
         self.d12_emoji = await load_d12_emoji(self.bot)
+        self.d12_button_emoji = await load_d12_button_emoji(self.bot)
         hub_message = build_hub_message(self.d12_emoji)
 
         existing = get_hub(guild.id)
