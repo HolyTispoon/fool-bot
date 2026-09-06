@@ -206,7 +206,7 @@ class Debug(commands.Cog):
         limit="How many archived games to process this run (default 5).",
     )
     @app_commands.guild_only()
-    @app_commands.default_permissions(manage_channels=True)
+    @app_commands.default_permissions(administrator=True)
     async def export_archived_games(
         self,
         interaction: discord.Interaction,
@@ -233,6 +233,12 @@ class Debug(commands.Cog):
         already runs from, and the export reaches Drive exactly the
         way the checkout and the saved games already do.
 
+        **Gated to Administrator, not `manage_channels`** like
+        `reset_channels`. This one downloads a channel's whole message
+        history and then permanently deletes it -- reset_channels only
+        deletes, with nothing to lose beyond the channel itself -- so
+        it gets the narrower gate.
+
         **Deferred before anything else runs**, unlike every other
         check in this file. Discord invalidates an interaction it has
         waited three seconds on with no acknowledgement at all, and
@@ -243,10 +249,29 @@ class Debug(commands.Cog):
         slow enough to hit it. Deferring first means every branch
         below answers through the followup webhook instead, which has
         no three-second clock on it.
+
+        **`confirm` is checked before anything else that can refuse**,
+        including whether an export directory is even configured --
+        the first thing typing the command wrong should tell a coach
+        is that they typed it wrong, not some other unrelated reason it
+        wouldn't have worked anyway.
         """
         await interaction.response.defer(ephemeral=True)
 
         export_dir = archive_export_dir()
+
+        if confirm != "confirm":
+            destination = f" to {export_dir}" if export_dir is not None else ""
+            await interaction.followup.send(
+                'Cancelled. Type "confirm" in the confirm field to '
+                f"export up to {limit} finished game(s) from the PBD "
+                f"Archive{destination} and then **permanently "
+                "delete** their channels. Archiving keeps the channel; "
+                "this does not.",
+                ephemeral=True,
+            )
+            return
+
         if export_dir is None:
             await interaction.followup.send(
                 "FOOLBOT_D12BALL_ARCHIVE_EXPORT_DIR is not set in this "
@@ -254,17 +279,6 @@ class Debug(commands.Cog):
                 "it to a folder (e.g. one inside the mounted Google "
                 "Drive letter) and restart the bot before running this "
                 "again.",
-                ephemeral=True,
-            )
-            return
-
-        if confirm != "confirm":
-            await interaction.followup.send(
-                'Cancelled. Type "confirm" in the confirm field to '
-                f"export up to {limit} finished game(s) from the PBD "
-                f"Archive to {export_dir} and then **permanently "
-                "delete** their channels. Archiving keeps the channel; "
-                "this does not.",
                 ephemeral=True,
             )
             return

@@ -3577,12 +3577,23 @@ frees a slot in the category.
 - **A manual command, capped per run, oldest game first.** Deleting a
   channel is the tightest rate limit Discord has (see "Discord's rate
   limits"), and downloading a whole channel's history and every attachment
-  in it is not fast either, so this is explicitly `/debug`, gated the same
-  `manage_channels` way as `/debug reset_channels`, and takes a `limit`
-  (default 5, capped at 20) rather than draining the whole category in one
-  call. Oldest `game_number` first, because any archived channel freed
-  makes the same room and there is no other reason to prefer one over
+  in it is not fast either, so this is explicitly `/debug`, and takes a
+  `limit` (default 5, capped at 20) rather than draining the whole category
+  in one call. Oldest `game_number` first, because any archived channel
+  freed makes the same room and there is no other reason to prefer one over
   another.
+- **Gated to Administrator, narrower than `/debug reset_channels`'s
+  `manage_channels`.** Both delete channels, but this one also downloads
+  and holds a copy of everything the channel ever said before it does --
+  more is riding on trusting whoever is allowed to run it, so it gets the
+  narrower default. Either gate is only Discord's *default*; a server can
+  widen or narrow it per-role in Integrations settings.
+- **`confirm` is checked before anything else that can refuse**, including
+  whether an export directory is even configured. Typing the command wrong
+  should be told exactly that, not some unrelated reason it wouldn't have
+  worked anyway -- and the cancellation message has to cope with an
+  unconfigured export directory gracefully rather than crashing trying to
+  print it.
 - **Only channels the bot can already see are candidates.** The category
   is re-checked at call time the same way `/debug reset_channels` checks
   it -- a channel matching `CHANNEL_NAME_PATTERN`, currently sitting in

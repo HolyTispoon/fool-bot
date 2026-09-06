@@ -194,6 +194,28 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
         interaction.response.defer.assert_awaited_once()
         interaction.followup.send.assert_awaited_once()
 
+    async def test_confirm_is_checked_before_the_export_directory(self) -> None:
+        """
+        Typing the command wrong should be told exactly that, not some
+        other unrelated reason it wouldn't have worked anyway -- and
+        the cancellation message must not choke formatting a
+        destination that was never configured.
+        """
+        cog, _ = self.build_cog({})
+        interaction = self.build_interaction([])
+
+        write_export, save_games = await self.run_export(
+            cog, interaction, confirm="", export_dir=None,
+        )
+
+        write_export.assert_not_called()
+        save_games.assert_not_called()
+        message = interaction.followup.send.await_args.args[0]
+        self.assertIn('Type "confirm"', message)
+        self.assertNotIn(
+            "FOOLBOT_D12BALL_ARCHIVE_EXPORT_DIR", message,
+        )
+
     async def test_a_clean_export_writes_then_deletes_then_saves(self) -> None:
         channel = build_channel(
             "d12ball-pbd1-alice-vs-bob",
