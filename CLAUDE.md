@@ -3553,7 +3553,38 @@ frees a slot in the category.
   actually gone. Losing a channel Discord will never give back over a
   write that could be retried is the one failure mode this whole feature
   exists to avoid.
-- **Four files a game, mirroring what a coach could have looked up while
+- **`transcript.html` is the file a person opens, and the only reason the
+  rest are readable.** JSONL is lossless and unreadable without a tool, and
+  `game.json` is the whole `MatchState`; neither answers "how did that game
+  go?". The page carries the summary (`summarise_game`), the goal log
+  (`describe_goals`), the final board and every message in order with its
+  images **shown** rather than named. It is written from the same list in
+  the same call as the JSONL, so the two cannot come to disagree.
+  - **The folder is the unit.** Attachments are referenced by relative
+    path, because inlining them as data URIs puts a hundred board renders
+    -- close to a megabyte each -- into one file no browser opens happily,
+    and the images are the whole reason the page is worth having.
+  - **Escape first, then markdown.** The bot writes `**bold**` in nearly
+    every message and a page printing the asterisks reads worse than the
+    channel it replaced, so `render_message_content` turns a small subset
+    into tags -- *after* `html.escape`, so a `<script>` somebody typed is
+    already `&lt;script&gt;` and no pattern can put back what the escape
+    took out. This page is opened straight off disk with nothing
+    sandboxing it.
+  - **`plain()` is not decoration.** `game.to_dict()` is
+    `dataclasses.asdict`, which leaves enum *members* in place: `json.dump`
+    writes a `str, Enum` as its value, so the file says "finished", but
+    `str()` on the member says `GameStatus.FINISHED` -- and this page is
+    built from the dict, not the file. The first version shipped reading
+    `Home: Tomer (Team.ORANGE)` with a green suite behind it, because the
+    fixture had honest strings in it. `RealSaveDataTests` carries the
+    enums a real save carries.
+  - **Player ids are prettified textually, never looked up.**
+    `prettify_player_id` is a string transform, so an export cannot fail
+    because the roster was reshuffled after it was written -- which is
+    exactly the failure this whole file exists to avoid. The exact ids are
+    in `game.json` and the JSONL either way.
+- **Five files a game, mirroring what a coach could have looked up while
   the channel was alive**: `game.json` is the exact record `save_games`
   already writes for it (`game.to_dict()`, so it carries the whole
   `MatchState` too); `board.png` is the final position, rendered the same
@@ -3576,6 +3607,21 @@ frees a slot in the category.
   refuses outright rather than deleting anybody's channels with nowhere to
   put what it took from them, which is also what keeps a fresh clone or a
   developer's own test checkout from ever running this by accident.
+- **Both ends of a run are announced in #logs, through
+  `botlog.post_notice`.** A full run walks fifty channels' histories and
+  every attachment in them, which outlives the fifteen-minute interaction
+  token -- so the summary the command replies with is exactly what is lost
+  on the runs that matter most. Neither line is an error, so neither may
+  go through the logger to get there: an ERROR in that channel means
+  somebody has to fix something. `post_notice` is the third thing that
+  reaches the channel deliberately, after the sink and the deploy notice,
+  and the third place `FOOLBOT_LOG_MIRROR` is read -- a bot that posts
+  nothing exports exactly as it did before. It never raises, and it sends
+  prose rather than going through `chunk_log_message`, which wraps a
+  record in a code fence.
+  - **The start notice sits after every refusal**, so a missing confirm or
+    an empty archive puts nothing in the channel. One that announces work
+    nobody asked for is one people stop reading.
 - **A manual command that clears the whole category, oldest game first.**
   `limit` is 1 to 50, defaulting to 50, because **50 is what fills the
   category** -- a command whose entire purpose is making room in a full

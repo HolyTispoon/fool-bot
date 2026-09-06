@@ -72,11 +72,17 @@ __all__ = [
     "log_channel_name",
     "log_target_guild",
     "mirror_enabled",
+    "post_notice",
     "start_mirror",
 ]
 
 
 DEFAULT_CONSOLE_LEVEL = logging.INFO
+
+# Discord's own cap on a message. post_notice truncates rather than
+# pages: everything it sends is a sentence or two, and a notice long
+# enough to need splitting is a notice that should have been shorter.
+NOTICE_LENGTH_LIMIT = 2000
 
 LOGGER = logging.getLogger(__name__)
 
@@ -200,6 +206,53 @@ async def start_mirror(
         # taking down the startup of a bot that is otherwise fine, and
         # the console handler still has this traceback.
         LOGGER.exception("Could not bind the Discord log channel.")
+
+
+async def post_notice(client: discord.Client, message: str) -> bool:
+    """
+    Put one deliberate, non-error line in the log channel, and say
+    whether it landed.
+
+    The mirror carries records at ERROR and above, and a long
+    maintenance job is neither an error nor something anybody wants
+    raised at them -- but "the export started" and "the export
+    finished, here is what it did" are exactly what somebody watching
+    #logs needs, because the job outlives its own interaction token and
+    goes silent otherwise. Logging it at ERROR to get it into the
+    channel would break the one rule that makes that channel worth
+    reading: an ERROR means somebody has to fix something (see "The
+    level you log at decides who sees it" in CLAUDE.md).
+
+    So this is the third thing that reaches the channel on purpose,
+    after the sink and the deploy notice, and the third place
+    FOOLBOT_LOG_MIRROR is read -- a bot that is not posting stays not
+    posting, and does not go looking for a channel to bind.
+
+    Never raises. A notice that cannot be delivered is worth a console
+    line and nothing more: the work it is reporting on has either
+    already happened or is about to, and neither should fail over its
+    own commentary.
+    """
+    if not mirror_enabled():
+        return False
+
+    try:
+        channel = await ensure_log_channel(client)
+
+        if channel is None:
+            return False
+
+        # Sent as prose, not through chunk_log_message, which wraps a
+        # record in a code fence -- right for a traceback and wrong for
+        # a sentence somebody is meant to read. A notice is a line or
+        # two by construction, so the limit is a guard rather than a
+        # paging scheme.
+        await channel.send(message[:NOTICE_LENGTH_LIMIT])
+
+        return True
+    except Exception:
+        LOGGER.exception("Could not post a notice to the log channel.")
+        return False
 
 
 async def announce_startup(client: discord.Client) -> None:
