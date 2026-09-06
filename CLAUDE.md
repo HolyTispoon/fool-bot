@@ -3747,13 +3747,16 @@ does bar naming specific opponents up front). Two pieces:
   `build_hub_message` is a welcome plus one titled block per game -- name,
   button, and **the game's own description, which is the author's copy and kept
   verbatim** (D12 Ball's came back in review as the one to use). The **only image
-  that ever accompanies "D12 Ball"** is a
-  d12 -- the `d12dice` application emoji, uploaded through the Developer Portal;
-  `load_d12_emoji` resolves it to a `<:d12dice:id>` string (or `None`, degrading
-  to no emoji everywhere), loaded in `cog_load` onto `self.d12_emoji` and
+  that ever accompanies "D12 Ball"** is a d12, and there are **two cuts of it**,
+  both uploaded through the Developer Portal: `d12dice` (light blue ink) rides
+  `build_hub_message(...)` and the lobby heading -- message text on the channel
+  background -- and `d12dicecream` (cream ink) rides the **hub button alone**,
+  because the button's blue fill swallowed the blue die. `load_d12_emoji(name=)`
+  resolves either to a `<:name:id>` string; `load_d12_button_emoji` is the
+  button's, `d12dicecream` **falling back to `d12dice` and then to nothing**.
+  Both load in `cog_load` onto `self.d12_emoji` / `self.d12_button_emoji` and are
   **re-fetched by `/d12ball setup_hub`** so a fresh upload takes without a
-  restart. It rides the hub button, `build_hub_message(...)`, and the lobby
-  heading. Never a 🎲/🏈/🎮 -- a d6, a gridiron or a video-game pad, none of
+  restart. Never a 🎲/🏈/🎮 -- a d6, a gridiron or a video-game pad, none of
   which this is.
   `data/d12ball_hubs.json` is untracked runtime state like the saved games, and
   local to each machine -- the message lives in Discord, this is only a pointer.

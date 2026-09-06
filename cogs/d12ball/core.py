@@ -76,6 +76,7 @@ from cogs.d12ball_helpers import (
     load_coin_emojis,
     load_condition_emojis,
     load_d12_emoji,
+    load_d12_button_emoji,
     load_team_emojis,
     send_error_fallback,
     space_label,
@@ -151,10 +152,13 @@ class CoreMixin:
         self.coin_emojis_checked_at: Optional[float] = None
         self.condition_emojis: dict[str, str] = {}
         self.team_emojis: dict[Team, str] = {}
-        # The `<:d12dice:id>` string for the hub button, the hub message
-        # and the lobby heading -- None until cog_load, and re-fetched by
-        # `/d12ball setup_hub` so a fresh upload takes without a restart.
+        # The `<:d12dice:id>` string for the hub message and the lobby
+        # heading, and the lighter `<:d12dicecream:id>` for the hub
+        # button (its blue fill swallowed the darker die) -- both None
+        # until cog_load, and re-fetched by `/d12ball setup_hub` so a
+        # fresh upload takes without a restart.
         self.d12_emoji: Optional[str] = None
+        self.d12_button_emoji: Optional[str] = None
         self.ai_strategies = build_ai_strategies(
             self.player_catalog,
             self.maneuver_catalog,
@@ -374,6 +378,9 @@ class CoreMixin:
             self.bot, application_emojis,
         )
         self.d12_emoji = await load_d12_emoji(self.bot, application_emojis)
+        self.d12_button_emoji = await load_d12_button_emoji(
+            self.bot, application_emojis,
+        )
 
     async def cog_unload(self) -> None:
         """

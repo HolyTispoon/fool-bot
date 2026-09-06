@@ -30,6 +30,7 @@ def build_cog() -> D12Ball:
     cog.games = {}
     cog.hubs = {}
     cog.d12_emoji = None
+    cog.d12_button_emoji = None
     cog.bot = SimpleNamespace(add_view=mock.Mock())
     return cog
 
@@ -506,6 +507,13 @@ class LobbyMessageTests(unittest.TestCase):
         cog.d12_emoji = "<:d12dice:123456789012345678>"
         button = NewGameHubView(cog).children[0]
         self.assertEqual(button.emoji.name, "d12dice")
+
+    def test_hub_button_prefers_the_cream_emoji(self) -> None:
+        cog = build_cog()
+        cog.d12_emoji = "<:d12dice:123456789012345678>"
+        cog.d12_button_emoji = "<:d12dicecream:876543210987654321>"
+        button = NewGameHubView(cog).children[0]
+        self.assertEqual(button.emoji.name, "d12dicecream")
 
 
 if __name__ == "__main__":

@@ -43,15 +43,19 @@ class NewGameHubView(SafeView):
         super().__init__(timeout=None)
         self.cog = cog
 
-        # The d12 application emoji (`d12dice`) -- the only image that
-        # belongs next to D12 Ball -- or nothing when it has not been
-        # uploaded. Loaded in `cog_load`, refreshed by `/d12ball
-        # setup_hub`. The rendered message keeps whatever emoji it was
-        # last posted/edited with, so a restart before `cog_load` does
-        # not blank it.
+        # The lighter d12 application emoji (`d12dicecream`) -- the button
+        # fill is blue and swallowed the plain `d12dice` -- falling back
+        # to `d12dice` and then to nothing when neither is uploaded.
+        # Loaded in `cog_load`, refreshed by `/d12ball setup_hub`. The
+        # rendered message keeps whatever emoji it was last posted/edited
+        # with, so a restart before `cog_load` does not blank it.
         button = discord.ui.Button(
             label="D12 Ball",
-            emoji=getattr(cog, "d12_emoji", None) or None,
+            emoji=(
+                getattr(cog, "d12_button_emoji", None)
+                or getattr(cog, "d12_emoji", None)
+                or None
+            ),
             style=discord.ButtonStyle.primary,
             custom_id="d12ball:hub:new_game",
         )

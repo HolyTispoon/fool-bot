@@ -680,37 +680,55 @@ def build_setup_message(
     return text
 
 
-# The name of the application emoji uploaded through the Developer
-# Portal for D12 Ball -- a d12. The only image that belongs next to "D12
-# Ball" (see "The game-creation hub and the lobby" in CLAUDE.md), used on
-# the hub button, the hub message and the lobby heading. Everything
-# degrades to no emoji when the upload is missing.
+# The names of the application emoji uploaded through the Developer
+# Portal for D12 Ball -- both a d12 (see "The game-creation hub and the
+# lobby" in CLAUDE.md). `d12dice` is the one that sits in message text
+# (the hub message and the lobby heading); `d12dicecream` is a
+# lighter-inked cut used only on the hub button, whose blue Discord fill
+# swallowed the darker die. Everything degrades to the other name, then
+# to no emoji, when an upload is missing.
 D12_EMOJI_NAME = "d12dice"
+D12_BUTTON_EMOJI_NAME = "d12dicecream"
 
 
 async def load_d12_emoji(
     bot: commands.Bot,
     emojis_by_name: Optional[dict] = None,
+    name: str = D12_EMOJI_NAME,
 ) -> Optional[str]:
     """
-    The `<:d12dice:id>` string for the D12 Ball d12 emoji, or None when
-    it has not been uploaded -- the same shape as `load_coin_emojis` and
+    The `<:name:id>` string for a D12 Ball d12 emoji, or None when it has
+    not been uploaded -- the same shape as `load_coin_emojis` and
     friends. A guild emoji of the same name is accepted as a fallback.
     """
     if emojis_by_name is None:
         emojis_by_name = await fetch_application_emojis(bot) or {}
 
-    emoji = emojis_by_name.get(D12_EMOJI_NAME) or next(
-        (e for e in bot.emojis if e.name == D12_EMOJI_NAME), None,
+    emoji = emojis_by_name.get(name) or next(
+        (e for e in bot.emojis if e.name == name), None,
     )
     if emoji is None:
         LOGGER.info(
             "No application emoji named %r; D12 Ball's hub and lobby will "
-            "show no d12.",
-            D12_EMOJI_NAME,
+            "fall back for it.",
+            name,
         )
         return None
     return str(emoji)
+
+
+async def load_d12_button_emoji(
+    bot: commands.Bot,
+    emojis_by_name: Optional[dict] = None,
+) -> Optional[str]:
+    """
+    The emoji for the hub's "D12 Ball" button: the lighter `d12dicecream`
+    cut, falling back to the plain `d12dice` when that one has not been
+    uploaded.
+    """
+    return await load_d12_emoji(
+        bot, emojis_by_name, name=D12_BUTTON_EMOJI_NAME,
+    ) or await load_d12_emoji(bot, emojis_by_name)
 
 
 def build_hub_message(d12_emoji: Optional[str] = None) -> str:
