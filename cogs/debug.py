@@ -9,6 +9,7 @@ from cogs.d12ball_helpers import (
     CHANNEL_NAME_PATTERN,
     PBD_ARCHIVE_CATEGORY_NAME,
     build_game_channel_name,
+    send_error_fallback,
 )
 from d12ball.game import GameStatus
 from gamesaves.d12ball.archive_export import archive_export_dir, write_game_export
@@ -31,14 +32,130 @@ LOGGER = logging.getLogger(__name__)
 CHANNEL_DELETE_RETRY_DELAYS = (2.0, 8.0)
 
 
+async def defer_or_report(interaction: discord.Interaction) -> bool:
+    """
+    Acknowledge the interaction, and if Discord has already thrown it
+    away, say **why** rather than raising a traceback that names only
+    the symptom.
+
+    Discord invalidates an interaction nothing has acknowledged within
+    three seconds, and `defer` is then a 404 (error code 10062,
+    "Unknown interaction"). Raised out of the first line of a command,
+    that reads as a bug in the command -- it is not, and cannot be:
+    nothing of ours has run yet. Only two things put a dead token
+    there. Either the bot took longer than three seconds to reach this
+    line (a blocked event loop, a stalled gateway), or something else
+    had already answered that interaction, which for a token this bot
+    has never used means a **second process signed in on the same
+    token** -- two checkouts, or one started twice.
+
+    Those two want opposite fixes, and the age of the interaction tells
+    them apart. It is readable to the microsecond off the snowflake:
+    Discord stamps the id with its own creation time, so the gap
+    between that and now is exactly how long this interaction spent
+    waiting for the bot. Three seconds or more is the first case; a
+    handful of milliseconds is the second, because a token that young
+    can only have been spent by somebody else.
+
+    Logged at ERROR, so it reaches #logs. This is precisely the kind of
+    failure nobody can act on from the symptom alone -- see "The level
+    you log at decides who sees it" in CLAUDE.md.
+    """
+    try:
+        await interaction.response.defer(ephemeral=True)
+        return True
+    except discord.NotFound:
+        age = (
+            discord.utils.utcnow() - discord.utils.snowflake_time(interaction.id)
+        ).total_seconds()
+        command_name = (
+            interaction.command.qualified_name
+            if interaction.command is not None
+            else "unknown command"
+        )
+        LOGGER.error(
+            "Discord had already discarded the interaction for /%s "
+            "(10062) by the time the bot acknowledged it, %.2fs after "
+            "Discord created it. Three seconds or more means this bot "
+            "was too busy to answer in time; a fraction of a second "
+            "means a second process is signed in on the same token and "
+            "answered first. Nothing ran, and nothing was deleted.",
+            command_name, age,
+        )
+        return False
+
+
 class Debug(commands.Cog):
+    # The permission gate has to sit on the **group**, not on the
+    # subcommands. Discord only carries `default_member_permissions`
+    # and `dm_permission`/`contexts` on a top-level command, and
+    # discord.py's own `Command.to_dict` says so: it fills those keys
+    # in only `if self.parent is None`. So the
+    # `@app_commands.default_permissions(...)` and
+    # `@app_commands.guild_only()` that used to sit on
+    # `reset_channels` and `export_archived_games` were read by
+    # nothing -- the decorators applied, the attributes were set, and
+    # the payload Discord was sent carried neither. Both commands were
+    # therefore visible to, and runnable by, every member of the
+    # server, which for two commands whose whole job is deleting
+    # channels is the wrong way round.
+    #
+    # `manage_channels` is the wider of the two gates the subcommands
+    # wanted, and Discord has no way to express a narrower one per
+    # subcommand -- so `export_archived_games` re-checks for
+    # Administrator itself at runtime. Either gate is only Discord's
+    # *default*; a server can widen or narrow it per-role in
+    # Integrations settings.
     debug = app_commands.Group(
         name="debug",
         description="Debug and maintenance commands.",
+        guild_only=True,
+        default_permissions=discord.Permissions(manage_channels=True),
     )
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    async def cog_app_command_error(
+        self,
+        interaction: discord.Interaction,
+        error: app_commands.AppCommandError,
+    ) -> None:
+        """
+        Report an unexpected failure back to whoever ran the command,
+        the way `D12Ball.cog_app_command_error` does for a coach.
+
+        Both commands in this file defer first, so without this a
+        crash anywhere below the defer leaves the caller looking at an
+        ephemeral "thinking" spinner that never resolves -- and the
+        traceback only reaches the console and #logs, which is on the
+        machine hosting the bot rather than in front of the person who
+        pressed the button. These two are the most destructive
+        commands the bot has; "it gave an error" has to be answerable
+        without going to look at a log.
+
+        Unlike the coach-facing one, this **names the exception**. The
+        audience is whoever is allowed to delete channels, the reason
+        is the whole of what they need, and there is no `/d12ball
+        resume` to point them at.
+        """
+        original = getattr(error, "original", error)
+        command_name = (
+            interaction.command.qualified_name
+            if interaction.command is not None
+            else "unknown command"
+        )
+        LOGGER.error(
+            "Unhandled error in /%s: %r",
+            command_name, original, exc_info=original,
+        )
+        await send_error_fallback(
+            interaction,
+            f"`/{command_name}` failed: "
+            f"`{type(original).__name__}: {original}`. Nothing was "
+            "deleted after the point it failed. The full traceback is "
+            "on the bot's console and in #logs.",
+        )
 
     @debug.command(
         name="reset_channels",
@@ -47,8 +164,6 @@ class Debug(commands.Cog):
     @app_commands.describe(
         confirm='Type "confirm" to delete every D12 Ball PBD channel.',
     )
-    @app_commands.guild_only()
-    @app_commands.default_permissions(manage_channels=True)
     async def reset_channels(
         self,
         interaction: discord.Interaction,
@@ -60,7 +175,8 @@ class Debug(commands.Cog):
         Discord's three-second limit on an un-acknowledged interaction
         -- see the same note on `export_archived_games`.
         """
-        await interaction.response.defer(ephemeral=True)
+        if not await defer_or_report(interaction):
+            return
 
         if confirm != "confirm":
             await interaction.followup.send(
@@ -205,8 +321,6 @@ class Debug(commands.Cog):
         confirm='Type "confirm" to export and delete channels.',
         limit="How many archived games to process this run (default 5).",
     )
-    @app_commands.guild_only()
-    @app_commands.default_permissions(administrator=True)
     async def export_archived_games(
         self,
         interaction: discord.Interaction,
@@ -239,6 +353,20 @@ class Debug(commands.Cog):
         deletes, with nothing to lose beyond the channel itself -- so
         it gets the narrower gate.
 
+        That gate is checked **here, in the body**, because Discord
+        cannot express one per subcommand: `default_member_permissions`
+        rides on the top-level `/debug` group alone, which is set to
+        `manage_channels` for the pair of them (see the comment on the
+        group). A decorator on this function set an attribute nothing
+        ever sent, so for two releases this command was runnable by
+        every member of the server.
+
+        **Authorization comes before the `confirm` check**, and it is
+        the one thing that does. Somebody who may not run this command
+        should be told that and nothing else -- not walked through what
+        it would have done, and not handed the export path. Every
+        *operational* refusal below still comes after confirm.
+
         **Deferred before anything else runs**, unlike every other
         check in this file. Discord invalidates an interaction it has
         waited three seconds on with no acknowledgement at all, and
@@ -250,13 +378,30 @@ class Debug(commands.Cog):
         below answers through the followup webhook instead, which has
         no three-second clock on it.
 
+        **That did not fix the failure it was written for**, and could
+        not have: the live 10062 was raised *by the defer itself*, on
+        the command's first line, before anything of ours had run. See
+        `defer_or_report`, which is what says so in the log rather than
+        raising a traceback that names the symptom.
+
         **`confirm` is checked before anything else that can refuse**,
         including whether an export directory is even configured --
         the first thing typing the command wrong should tell a coach
         is that they typed it wrong, not some other unrelated reason it
         wouldn't have worked anyway.
         """
-        await interaction.response.defer(ephemeral=True)
+        if not await defer_or_report(interaction):
+            return
+
+        permissions = getattr(interaction.user, "guild_permissions", None)
+        if permissions is None or not permissions.administrator:
+            await interaction.followup.send(
+                "This command needs the Administrator permission: it "
+                "downloads a game channel's whole history and then "
+                "permanently deletes the channel.",
+                ephemeral=True,
+            )
+            return
 
         export_dir = archive_export_dir()
 
