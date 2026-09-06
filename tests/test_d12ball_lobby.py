@@ -19,7 +19,7 @@ import discord
 
 from cogs.d12ball import D12Ball
 from cogs.d12ball_helpers import build_lobby_message
-from cogs.d12ball_views import LobbyView, NewGameHubView
+from cogs.d12ball_views import LobbyNameModal, LobbyView, NewGameHubView
 from d12ball.game import AIOpponent, D12BallGame, GameMode, GameStatus
 from gamesaves.d12ball import hub as hub_storage
 from save_patches import suppressed_cog_saves, suppressed_view_saves
@@ -29,6 +29,7 @@ def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)
     cog.games = {}
     cog.hubs = {}
+    cog.d12_emoji = None
     cog.bot = SimpleNamespace(add_view=mock.Mock())
     return cog
 
@@ -76,6 +77,7 @@ def fake_interaction(user_id: int, channel=None) -> SimpleNamespace:
             send_message=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
             defer=mock.AsyncMock(),
+            send_modal=mock.AsyncMock(),
         ),
         followup=SimpleNamespace(send=mock.AsyncMock()),
     )
@@ -130,20 +132,30 @@ class OpenLobbyTests(unittest.TestCase):
 
 
 class LobbyMembershipTests(unittest.TestCase):
-    def test_join_fills_player_two_and_grants_access(self) -> None:
+    def test_join_fills_player_two(self) -> None:
         cog = build_cog()
         game = build_lobby_game(ai_opponent=AIOpponent.DINKY)
         cog.games[game.game_id] = game
-        channel = fake_channel()
-        interaction = fake_interaction(222, channel=channel)
+        interaction = fake_interaction(222, channel=fake_channel())
 
         with suppressed_cog_saves():
             asyncio.run(cog.lobby_join(interaction, game))
 
         self.assertEqual(game.player_2_id, 222)
         self.assertIsNone(game.ai_opponent)
-        channel.set_permissions.assert_awaited_once()
         interaction.response.edit_message.assert_awaited_once()
+
+    def test_join_drops_the_user_from_observers(self) -> None:
+        cog = build_cog()
+        game = build_lobby_game(observer_ids=[222])
+        cog.games[game.game_id] = game
+        interaction = fake_interaction(222, channel=fake_channel())
+
+        with suppressed_cog_saves():
+            asyncio.run(cog.lobby_join(interaction, game))
+
+        self.assertEqual(game.player_2_id, 222)
+        self.assertEqual(game.observer_ids, [])
 
     def test_join_refused_for_a_test_game(self) -> None:
         cog = build_cog()
@@ -157,6 +169,17 @@ class LobbyMembershipTests(unittest.TestCase):
         self.assertIsNone(game.player_2_id)
         interaction.response.send_message.assert_awaited_once()
 
+    def test_join_refused_for_a_tutorial(self) -> None:
+        cog = build_cog()
+        game = build_lobby_game(tutorial=True)
+        cog.games[game.game_id] = game
+        interaction = fake_interaction(222, channel=fake_channel())
+
+        with suppressed_cog_saves():
+            asyncio.run(cog.lobby_join(interaction, game))
+
+        self.assertIsNone(game.player_2_id)
+
     def test_join_refused_when_full(self) -> None:
         cog = build_cog()
         game = build_lobby_game(player_2_id=222, player_2_name="Two")
@@ -169,18 +192,42 @@ class LobbyMembershipTests(unittest.TestCase):
         self.assertEqual(game.player_2_id, 222)
         interaction.response.send_message.assert_awaited_once()
 
+    def test_observe_adds_to_the_list_and_leave_removes(self) -> None:
+        cog = build_cog()
+        game = build_lobby_game()
+        cog.games[game.game_id] = game
+        interaction = fake_interaction(444, channel=fake_channel())
+
+        with suppressed_cog_saves():
+            asyncio.run(cog.lobby_observe(interaction, game))
+        self.assertEqual(game.observer_ids, [444])
+
+        with suppressed_cog_saves():
+            asyncio.run(cog.lobby_leave(interaction, game))
+        self.assertEqual(game.observer_ids, [])
+
+    def test_a_player_cannot_observe(self) -> None:
+        cog = build_cog()
+        game = build_lobby_game()
+        cog.games[game.game_id] = game
+        interaction = fake_interaction(111, channel=fake_channel())
+
+        with suppressed_cog_saves():
+            asyncio.run(cog.lobby_observe(interaction, game))
+
+        self.assertEqual(game.observer_ids, [])
+        interaction.response.send_message.assert_awaited_once()
+
     def test_player_two_leaving_clears_the_slot(self) -> None:
         cog = build_cog()
         game = build_lobby_game(player_2_id=222, player_2_name="Two")
         cog.games[game.game_id] = game
-        channel = fake_channel()
-        interaction = fake_interaction(222, channel=channel)
+        interaction = fake_interaction(222, channel=fake_channel())
 
         with suppressed_cog_saves():
             asyncio.run(cog.lobby_leave(interaction, game))
 
         self.assertIsNone(game.player_2_id)
-        channel.set_permissions.assert_awaited_once()
 
     def test_creator_leaving_promotes_the_other_player(self) -> None:
         cog = build_cog()
@@ -194,7 +241,7 @@ class LobbyMembershipTests(unittest.TestCase):
         self.assertEqual(game.player_1_id, 222)
         self.assertIsNone(game.player_2_id)
 
-    def test_creator_leaving_an_empty_lobby_abandons_it(self) -> None:
+    def test_creator_leaving_an_empty_lobby_keeps_it_open(self) -> None:
         cog = build_cog()
         game = build_lobby_game()
         cog.games[game.game_id] = game
@@ -204,7 +251,10 @@ class LobbyMembershipTests(unittest.TestCase):
         with suppressed_cog_saves():
             asyncio.run(cog.lobby_leave(interaction, game))
 
-        cog.abandon_and_archive_game.assert_awaited_once()
+        cog.abandon_and_archive_game.assert_not_awaited()
+        self.assertIn("lob1", cog.games)
+        self.assertTrue(game.in_lobby)
+        interaction.response.send_message.assert_awaited_once()
 
 
 class LobbyStartTests(unittest.TestCase):
@@ -261,7 +311,7 @@ class LobbyStartTests(unittest.TestCase):
 
 
 class LobbyViewTests(unittest.TestCase):
-    def test_view_has_join_leave_start_and_settings(self) -> None:
+    def test_view_has_every_lobby_action(self) -> None:
         cog = build_cog()
         game = build_lobby_game()
         cog.games[game.game_id] = game
@@ -269,9 +319,14 @@ class LobbyViewTests(unittest.TestCase):
         actions = {
             item.custom_id.split(":")[2]
             for item in view.children
+            if getattr(item, "custom_id", None)
         }
         self.assertLessEqual(
-            {"join", "leave", "start", "mode", "board", "ai"}, actions,
+            {
+                "join", "observe", "leave", "start", "name",
+                "test", "tutorial", "mode", "board", "ai",
+            },
+            actions,
         )
 
     def test_setting_change_is_gated_to_lobby_players(self) -> None:
@@ -332,6 +387,82 @@ class LobbyViewTests(unittest.TestCase):
         self.assertEqual(game.mode, GameMode.ADVANCED)
         self.assertEqual(game.board_size, 9)
 
+    def test_tutorial_toggle_pins_basic_seven_and_dinky(self) -> None:
+        cog = build_cog()
+        game = build_lobby_game(
+            mode=GameMode.ADVANCED, board_size=9, test_game=True,
+        )
+        cog.games[game.game_id] = game
+        view = LobbyView(cog, game.game_id)
+        interaction = fake_interaction(game.player_1_id)
+
+        with suppressed_view_saves():
+            asyncio.run(
+                view.change_setting(interaction, game, "tutorial", "")
+            )
+
+        self.assertTrue(game.tutorial)
+        self.assertFalse(game.test_game)
+        self.assertEqual(game.mode, GameMode.BASIC)
+        self.assertEqual(game.board_size, 7)
+        self.assertEqual(game.ai_opponent, AIOpponent.DINKY)
+
+    def test_mode_change_refused_during_tutorial(self) -> None:
+        cog = build_cog()
+        game = build_lobby_game(tutorial=True, ai_opponent=AIOpponent.DINKY)
+        cog.games[game.game_id] = game
+        view = LobbyView(cog, game.game_id)
+        interaction = fake_interaction(game.player_1_id)
+
+        with suppressed_view_saves():
+            asyncio.run(
+                view.change_setting(interaction, game, "mode", "advanced")
+            )
+
+        self.assertEqual(game.mode, GameMode.BASIC)
+        interaction.response.send_message.assert_awaited_once()
+
+    def test_name_button_opens_the_modal(self) -> None:
+        cog = build_cog()
+        game = build_lobby_game()
+        cog.games[game.game_id] = game
+        view = LobbyView(cog, game.game_id)
+        interaction = fake_interaction(game.player_1_id)
+
+        asyncio.run(view.dispatch(interaction, "name"))
+
+        interaction.response.send_modal.assert_awaited_once()
+        self.assertIsInstance(
+            interaction.response.send_modal.await_args.args[0], LobbyNameModal,
+        )
+
+    def test_name_modal_sets_the_game_name(self) -> None:
+        cog = build_cog()
+        game = build_lobby_game()
+        cog.games[game.game_id] = game
+        modal = LobbyNameModal(cog, game.game_id)
+        modal.game_name._value = "The Cup Final"
+        interaction = fake_interaction(game.player_1_id)
+
+        with suppressed_view_saves():
+            asyncio.run(modal.on_submit(interaction))
+
+        self.assertEqual(game.game_name, "The Cup Final")
+
+    def test_name_modal_gated_to_players(self) -> None:
+        cog = build_cog()
+        game = build_lobby_game()
+        cog.games[game.game_id] = game
+        modal = LobbyNameModal(cog, game.game_id)
+        modal.game_name._value = "Nope"
+        interaction = fake_interaction(555)
+
+        with suppressed_view_saves():
+            asyncio.run(modal.on_submit(interaction))
+
+        self.assertIsNone(game.game_name)
+        interaction.response.send_message.assert_awaited_once()
+
 
 class RestoreTests(unittest.TestCase):
     def test_restore_rearms_lobby_and_hub_views(self) -> None:
@@ -359,6 +490,22 @@ class LobbyMessageTests(unittest.TestCase):
     def test_joined_slot_mentions_the_player(self) -> None:
         game = build_lobby_game(player_2_id=222, player_2_name="Two")
         self.assertIn("<@222>", build_lobby_message(game))
+
+    def test_d12_emoji_rides_the_heading_and_the_hub(self) -> None:
+        from cogs.d12ball_helpers import build_hub_message
+
+        emoji = "<:d12dice:123456789012345678>"
+        self.assertIn(emoji, build_hub_message(emoji))
+        self.assertIn(emoji, build_lobby_message(build_lobby_game(), emoji))
+        # And degrades cleanly to nothing.
+        self.assertNotIn("None", build_hub_message(None))
+        self.assertNotIn("None", build_lobby_message(build_lobby_game(), None))
+
+    def test_hub_button_carries_the_emoji(self) -> None:
+        cog = build_cog()
+        cog.d12_emoji = "<:d12dice:123456789012345678>"
+        button = NewGameHubView(cog).children[0]
+        self.assertEqual(button.emoji.name, "d12dice")
 
 
 if __name__ == "__main__":

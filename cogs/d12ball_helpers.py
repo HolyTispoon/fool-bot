@@ -680,60 +680,113 @@ def build_setup_message(
     return text
 
 
-# The single message the game-creation hub channel carries. `/d12ball
-# setup_hub` posts it (or edits the existing one) behind a NewGameHubView
-# -- see "The game-creation hub and the lobby" in CLAUDE.md. One section
-# per game, each ending with the button that opens its lobby; only D12
-# Ball for now, but the shape is meant to grow.
-NEW_GAME_HUB_MESSAGE = (
-    "# 🎮 Game Hub\n\n"
-    "Want to play something? Pick a game below and you'll get your own "
-    "private channel to set it up and play in.\n\n"
-    "In a game's lobby you can invite an opponent (or take both sides "
-    "yourself, or play the AI), choose the rules, and start when "
-    "everyone's ready.\n\n"
-    "───────────────────\n\n"
-    "## 🏈 D12 Ball\n\n"
-    "A tabletop-style football game played on a twelve-sided die. Draft "
-    "a team of specialists, win the coin toss, set your formation, and "
-    "play maneuvers turn by turn to work the ball into shooting range. "
-    "One clock, two halves, and an extreme shootout if it's level at "
-    "full time.\n\n"
-    "**Modes:** Basic (three maneuvers a side) or Advanced (six). "
-    "**Boards:** 6, 7 or 9 spaces. **Players:** two coaches, one coach "
-    "vs the Dinky AI, or one coach playing both sides.\n\n"
-    "New to it? Run `/d12ball create_game tutorial:True` for a guided "
-    "first game against the AI — the opening five turns are scripted.\n\n"
-    "Otherwise, press **D12 Ball** below to open a lobby."
-)
+# The name of the application emoji uploaded through the Developer
+# Portal for D12 Ball -- a d12. The only image that belongs next to "D12
+# Ball" (see "The game-creation hub and the lobby" in CLAUDE.md), used on
+# the hub button, the hub message and the lobby heading. Everything
+# degrades to no emoji when the upload is missing.
+D12_EMOJI_NAME = "d12dice"
 
 
-def build_lobby_message(game: D12BallGame) -> str:
+async def load_d12_emoji(
+    bot: commands.Bot,
+    emojis_by_name: Optional[dict] = None,
+) -> Optional[str]:
+    """
+    The `<:d12dice:id>` string for the D12 Ball d12 emoji, or None when
+    it has not been uploaded -- the same shape as `load_coin_emojis` and
+    friends. A guild emoji of the same name is accepted as a fallback.
+    """
+    if emojis_by_name is None:
+        emojis_by_name = await fetch_application_emojis(bot) or {}
+
+    emoji = emojis_by_name.get(D12_EMOJI_NAME) or next(
+        (e for e in bot.emojis if e.name == D12_EMOJI_NAME), None,
+    )
+    if emoji is None:
+        LOGGER.info(
+            "No application emoji named %r; D12 Ball's hub and lobby will "
+            "show no d12.",
+            D12_EMOJI_NAME,
+        )
+        return None
+    return str(emoji)
+
+
+def build_hub_message(d12_emoji: Optional[str] = None) -> str:
+    """
+    The single message the game-creation hub channel carries. `/d12ball
+    setup_hub` posts it (or edits the existing one) behind a
+    `NewGameHubView`: a welcome, then one titled block per game -- name,
+    button, and the game's own description -- with only D12 Ball for now
+    and room to grow. The description text is the author's own copy; keep
+    it verbatim.
+    """
+    d12 = f"{d12_emoji} " if d12_emoji else ""
+    return (
+        "## Prophetic Fools Games\n\n"
+        "Hello! This is the game-creation channel of the Prophetic Fools "
+        "Games server. We'd love for you to try our games! Use the buttons "
+        "below to start a new game.\n\n"
+        f"### {d12}D12 Ball\n\n"
+        "D12 Ball is a fast playing fantasy sports game with tense "
+        "last-ditch efforts and dramatic comebacks, where two teams of "
+        "fantasy creatures compete by maneuvering around the field, "
+        "manipulating the ball and outwitting the other team on their way "
+        "to score epic goals."
+    )
+
+
+def build_lobby_message(
+    game: D12BallGame,
+    d12_emoji: Optional[str] = None,
+) -> str:
     """
     What a lobby channel's message says while players are still joining
     and picking settings. Plain text in the style of `build_setup_message`.
 
-    Player 2 is shown as "_open_" rather than through `format_player`:
-    a lobby has `player_2_id = None` even for a game two humans will
-    play, so `format_player` would call it a game against Dinky.
+    Player 2 is worded by hand rather than through `format_player`: a
+    lobby has `player_2_id = None` even for a game two humans will play,
+    so `format_player` would call it a game against Dinky.
     """
-    if game.test_game:
+    if game.tutorial:
+        player_2 = (
+            f"**{format_ai_name(game.ai_opponent)}** _(guided tutorial -- "
+            "the first turns are scripted)_"
+        )
+    elif game.test_game:
         player_2 = f"<@{game.player_1_id}> _(test game -- you play both sides)_"
     elif game.player_2_id is not None:
         player_2 = f"<@{game.player_2_id}>"
     else:
         player_2 = (
-            "_open -- click **Join**, or **Start Game** to play against "
-            f"{format_ai_name(game.ai_opponent)}_"
+            "_open -- press **Join**, or **Start Game** to play "
+            f"**{format_ai_name(game.ai_opponent)}**_"
         )
 
+    d12 = f"{d12_emoji} " if d12_emoji else ""
+    heading = (
+        f"## {d12}{game.game_name} -- D12 Ball"
+        if game.game_name
+        else f"## {d12}D12 Ball -- game lobby"
+    )
+
     text = (
-        "## 🏈 D12 Ball -- game lobby\n\n"
-        "Set this game up, then any player can press **Start Game** to "
-        "move on to team selection, the coin toss, and formations.\n\n"
+        f"{heading}\n\n"
+        "Anyone in the server can look in here. **Join** to take the "
+        "second seat, **Observe** to keep watching once the game locks "
+        "to its players, **Name** to give it a title, or set it up and "
+        "press **Start Game**.\n\n"
         f"**Player 1:** <@{game.player_1_id}>\n"
-        f"**Player 2:** {player_2}\n\n"
-        "### Settings\n\n"
+        f"**Player 2:** {player_2}\n"
+    )
+
+    if game.observer_ids:
+        watchers = ", ".join(f"<@{oid}>" for oid in game.observer_ids)
+        text += f"**Observers:** {watchers}\n"
+
+    text += (
+        "\n### Settings\n\n"
         f"Mode: **{game.mode.value.title()}** "
         + (
             "-- three maneuvers a side"
@@ -743,9 +796,6 @@ def build_lobby_message(game: D12BallGame) -> str:
         + "\n"
         f"Board size: **{game.board_size}** spaces\n"
     )
-
-    if not game.test_game and game.player_2_id is None:
-        text += f"Opponent: **{format_ai_name(game.ai_opponent)}**\n"
 
     if game.mode == GameMode.ADVANCED and game.board_size != 9:
         text += "\n_Advanced mode plays best on a board size of 9._\n"

@@ -36,6 +36,7 @@ from cogs.d12ball_views.setup import (
     TeamSelectionView,
 )
 from cogs.d12ball_views.lobby import (
+    LobbyNameModal,
     LobbyView,
     NewGameHubView,
 )
@@ -112,6 +113,7 @@ __all__ = [
     "HomeAwaySelectionView",
     "RematchView",
     "TeamSelectionView",
+    "LobbyNameModal",
     "LobbyView",
     "NewGameHubView",
     "BallHandlerSelectionView",

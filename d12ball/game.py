@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Optional
 
@@ -215,6 +215,14 @@ class D12BallGame:
     # `restore_saved_views` re-arms the lobby view rather than the team
     # picker while it is set.
     in_lobby: bool = False
+
+    # User ids who asked to watch this game from its lobby. A lobby
+    # channel is visible to the whole server; when Start Game locks it
+    # down to the two players, everyone in this list keeps read-only
+    # access. Players are never in here -- joining as a player removes
+    # you. Only meaningful up to kickoff; carried afterwards only so a
+    # restart still knows who to keep visible.
+    observer_ids: list[int] = field(default_factory=list)
 
     # Coin-toss information
     coin_flipped: bool = False
