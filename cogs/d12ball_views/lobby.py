@@ -3,7 +3,8 @@ The game-creation hub and the pre-game lobby.
 
 `NewGameHubView` is the one button on the locked hub channel's single
 message; clicking it asks the cog to open a lobby. `LobbyView` is the
-lobby channel's message -- Join / Leave / Test game / Start Game plus
+lobby channel's message -- Join / Observe / Leave / Start Game, the Test
+game and Tutorial toggles, a Name button (opening `LobbyNameModal`), and
 the mode, board-size and opponent settings -- and hands each click back
 to the cog so the game-record and channel-permission changes live next
 to `open_new_game`.
@@ -44,7 +45,10 @@ class NewGameHubView(SafeView):
 
         button = discord.ui.Button(
             label="D12 Ball",
-            emoji="🏈",
+            # No emoji: the only image that belongs next to D12 Ball is a
+            # d12, and there is no d12 in Unicode -- so nothing, rather
+            # than something that is not a d12. A custom `d12` application
+            # emoji could be added here later.
             style=discord.ButtonStyle.primary,
             custom_id="d12ball:hub:new_game",
         )
@@ -55,13 +59,74 @@ class NewGameHubView(SafeView):
         await self.cog.open_lobby(interaction)
 
 
+class LobbyNameModal(discord.ui.Modal, title="Name this game"):
+    """
+    The one text field in the lobby -- a fun name for the game, the same
+    thing `/d12ball create_game`'s `game_name` sets. It decides only what
+    the channel is called once the game starts (see `lobby_start`).
+    Opened fresh from the Name button each time, so it needs no
+    persistence.
+    """
+
+    game_name = discord.ui.TextInput(
+        label="Fun game name",
+        placeholder="e.g. The Cup Final -- leave blank to name it after the players",
+        required=False,
+        max_length=80,
+    )
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__()
+        self.cog = cog
+        self.game_id = game_id
+        game = cog.games.get(game_id)
+        if game is not None and game.game_name:
+            self.game_name.default = game.game_name
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        game = self.cog.games.get(self.game_id)
+        if game is None or not game.in_lobby:
+            await interaction.response.send_message(
+                "This lobby is no longer open.", ephemeral=True,
+            )
+            return
+
+        participant_ids = {game.player_1_id}
+        if game.player_2_id is not None:
+            participant_ids.add(game.player_2_id)
+        if interaction.user.id not in participant_ids:
+            await interaction.response.send_message(
+                "Only a player in this lobby can name the game.",
+                ephemeral=True,
+            )
+            return
+
+        game.game_name = str(self.game_name.value).strip() or None
+        save_games(self.cog.games)
+        await interaction.response.edit_message(
+            content=build_lobby_message(game),
+            view=LobbyView(self.cog, self.game_id),
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+
+
 class LobbyView(SafeView):
     """
     The lobby channel's message, rebuilt fresh on every interaction the
-    way every other setup view is. Join / Leave / Test game / Start Game
-    on the top row, then the settings: mode, board size, and -- only
-    while Player 2 is still open and it is not a test game -- the AI
-    opponent.
+    way every other setup view is. Join / Observe / Leave / Start Game,
+    then the two game-type toggles (Test game, Tutorial), then the
+    settings: mode, board size, and -- only for an open solo game -- the
+    AI opponent.
+
+    Test game, Tutorial and a second human are mutually exclusive: each
+    is a different answer to "who plays the other side", and a lobby
+    holds exactly one. Tutorial also pins Basic mode on a 7-space board,
+    which is the only shape `d12ball/tutorial.py`'s script is written
+    for.
+
+    A lobby channel is visible to the whole server, so **Observe** is
+    only about what happens at kickoff: `lobby_start` locks the channel
+    to the two players, and observers keep read-only access.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -72,16 +137,27 @@ class LobbyView(SafeView):
         game = self.cog.games.get(game_id)
         started = game is None or not game.in_lobby
         test_game = bool(game and game.test_game)
+        tutorial = bool(game and game.tutorial)
         has_opponent = bool(game and game.player_2_id is not None)
+        solo = test_game or tutorial
 
         self._add_button(
             "Join", discord.ButtonStyle.success, "join",
-            row=0, disabled=started or test_game,
+            row=0, disabled=started or solo,
+        )
+        self._add_button(
+            "Observe", discord.ButtonStyle.secondary, "observe",
+            row=0, disabled=started,
         )
         self._add_button(
             "Leave", discord.ButtonStyle.secondary, "leave",
             row=0, disabled=started,
         )
+        self._add_button(
+            "Start Game", discord.ButtonStyle.primary, "start",
+            row=0, disabled=started,
+        )
+
         self._add_button(
             "Test game: on" if test_game else "Test game: off",
             (
@@ -90,14 +166,28 @@ class LobbyView(SafeView):
                 else discord.ButtonStyle.secondary
             ),
             "test",
-            row=0,
-            # Can't switch to one-person-both-sides once someone else
-            # has joined the lobby.
-            disabled=started or has_opponent,
+            row=1,
+            # Not once someone else is in, and not alongside the
+            # tutorial -- both answer "who takes the other side".
+            disabled=started or has_opponent or tutorial,
         )
         self._add_button(
-            "Start Game", discord.ButtonStyle.primary, "start",
-            row=0, disabled=started,
+            "Tutorial: on" if tutorial else "Tutorial: off",
+            (
+                discord.ButtonStyle.success
+                if tutorial
+                else discord.ButtonStyle.secondary
+            ),
+            "tutorial",
+            row=1,
+            disabled=started or has_opponent or test_game,
+        )
+        self._add_button(
+            "Name",
+            discord.ButtonStyle.secondary,
+            "name",
+            row=1,
+            disabled=started,
         )
 
         selected_mode = game.mode if game else GameMode.BASIC
@@ -113,8 +203,10 @@ class LobbyView(SafeView):
                     else discord.ButtonStyle.primary
                 ),
                 f"mode:{mode.value}",
-                row=1,
-                disabled=started or mode == selected_mode,
+                row=2,
+                # The tutorial is a Basic-mode script -- see the class
+                # docstring.
+                disabled=started or tutorial or mode == selected_mode,
             )
 
         selected_board = game.board_size if game else 7
@@ -127,15 +219,20 @@ class LobbyView(SafeView):
                     else discord.ButtonStyle.primary
                 ),
                 f"board:{board_size}",
-                row=2,
-                disabled=started or board_size == selected_board,
+                row=3,
+                disabled=started or tutorial or board_size == selected_board,
             )
 
-        # The opponent row is only meaningful while nobody has joined and
-        # it is not a test game -- a second human, or one person taking
-        # both sides, settles who the opponent is. Decent AI is offered
-        # and refused in its callback, matching CoinFlipView's settings.
-        if game is not None and game.player_2_id is None and not test_game:
+        # The opponent row is only meaningful for an open solo game -- a
+        # second human, one person on both sides, or the tutorial (always
+        # Dinky) all settle it. Decent AI is offered and refused in its
+        # callback, matching CoinFlipView's settings.
+        if (
+            game is not None
+            and game.player_2_id is None
+            and not test_game
+            and not tutorial
+        ):
             selected_ai = game.ai_opponent or AIOpponent.DINKY
             for ai_type, label in AI_OPPONENT_NAMES.items():
                 self._add_button(
@@ -146,7 +243,7 @@ class LobbyView(SafeView):
                         else discord.ButtonStyle.primary
                     ),
                     f"ai:{ai_type.value}",
-                    row=3,
+                    row=4,
                     disabled=started or ai_type == selected_ai,
                 )
 
@@ -188,8 +285,16 @@ class LobbyView(SafeView):
             )
             return
 
+        if action == "name":
+            await interaction.response.send_modal(
+                LobbyNameModal(self.cog, self.game_id)
+            )
+            return
         if action == "join":
             await self.cog.lobby_join(interaction, game)
+            return
+        if action == "observe":
+            await self.cog.lobby_observe(interaction, game)
             return
         if action == "leave":
             await self.cog.lobby_leave(interaction, game)
@@ -218,16 +323,36 @@ class LobbyView(SafeView):
             )
             return
 
-        if setting == "test":
+        if setting in ("test", "tutorial"):
             if game.player_2_id is not None:
                 await interaction.response.send_message(
-                    "Someone has already joined -- they would have to "
-                    "leave before this can become a test game.",
+                    "Someone has already joined -- they would have to leave "
+                    "first.",
                     ephemeral=True,
                 )
                 return
-            game.test_game = not game.test_game
+            if setting == "test":
+                game.test_game = not game.test_game
+                if game.test_game:
+                    game.tutorial = False
+            else:
+                game.tutorial = not game.tutorial
+                if game.tutorial:
+                    # One person against Dinky, and the script is written
+                    # for Basic on a 7-space board -- see
+                    # d12ball/tutorial.py.
+                    game.test_game = False
+                    game.ai_opponent = AIOpponent.DINKY
+                    game.mode = GameMode.BASIC
+                    game.board_size = 7
         elif setting == "mode":
+            if game.tutorial:
+                await interaction.response.send_message(
+                    "The tutorial is a Basic-mode game. Turn Tutorial off "
+                    "to change the mode.",
+                    ephemeral=True,
+                )
+                return
             game.mode = GameMode(value)
             # Advanced mode's extra maneuvers want the room a 9-space
             # board gives them -- default to it, the coach may still pick
@@ -235,6 +360,13 @@ class LobbyView(SafeView):
             if game.mode == GameMode.ADVANCED:
                 game.board_size = 9
         elif setting == "board":
+            if game.tutorial:
+                await interaction.response.send_message(
+                    "The tutorial is played on a 7-space board. Turn "
+                    "Tutorial off to change the board.",
+                    ephemeral=True,
+                )
+                return
             game.board_size = int(value)
         elif setting == "ai":
             ai_type = AIOpponent(value)
@@ -256,4 +388,5 @@ class LobbyView(SafeView):
         await interaction.response.edit_message(
             content=build_lobby_message(game),
             view=LobbyView(self.cog, self.game_id),
+            allowed_mentions=discord.AllowedMentions.none(),
         )
