@@ -95,47 +95,105 @@ $pidFile = Join-Path $runtimeFolder 'foolbot-main.pid'
 $stdoutLog = Join-Path $runtimeFolder 'foolbot-main.stdout.log'
 $stderrLog = Join-Path $runtimeFolder 'foolbot-main.stderr.log'
 
-$processToStop = $null
-if (Test-Path -LiteralPath $pidFile) {
-    $savedPid = 0
-    $rawPid = (Get-Content -LiteralPath $pidFile -Raw).Trim()
-    if ([int]::TryParse($rawPid, [ref]$savedPid)) {
-        $candidate = Get-CimInstance Win32_Process -Filter "ProcessId = $savedPid" -ErrorAction SilentlyContinue
-        if ($null -ne $candidate -and $candidate.CommandLine -match 'foolbot\.py') {
-            $processToStop = $candidate
-        }
-    }
-}
+# Every foolbot.py belonging to THIS checkout, however it was started.
+#
+# It has to be *every* one of them. This used to stop a single process
+# -- whichever the pid file named, or the first that matched -- and
+# then start a fresh one, so a bot somebody had started by hand was
+# invisible to the pid file and survived the restart. Two runs
+# alongside one hand-started bot leaves three signed in on the same
+# token, and Discord delivers each interaction to all of them: one
+# answers and the rest fail with "Unknown interaction" (10062), out of
+# the first line of whatever command was run. Four had accumulated on
+# the live host before anybody worked out what they were looking at,
+# each holding its own copy of the games and writing the whole of
+# data/d12ball_games.json over the others.
+#
+# Matched on this repository's own venv python or the full path to its
+# foolbot.py, so a bot run out of a different checkout is left alone --
+# both developers run one. A hand-started bot has a bare "foolbot.py"
+# on its command line and is only ever caught by the first of those.
+function Get-RepositoryFoolBots {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PythonPath,
 
-if ($null -eq $processToStop) {
-    $normalizedPythonPath = [System.IO.Path]::GetFullPath($venvPython)
-    $runningFoolBots = @(
-        Get-CimInstance Win32_Process |
-        Where-Object {
-            $_.Name -match '^pythonw?\.exe$' -and
-            $_.CommandLine -match 'foolbot\.py' -and
-            $null -ne $_.ExecutablePath
-        }
+        [Parameter(Mandatory = $true)]
+        [string]$ScriptPath,
+
+        [int]$AlsoIncludePid = 0
     )
 
-    $processToStop = $runningFoolBots |
+    @(
+        Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
         Where-Object {
-            [System.IO.Path]::GetFullPath($_.ExecutablePath) -eq $normalizedPythonPath
-        } |
-        Select-Object -First 1
+            $null -ne $_.CommandLine -and
+            $_.Name -match '^pythonw?\.exe$' -and
+            $_.CommandLine -match 'foolbot\.py' -and
+            (
+                $_.ProcessId -eq $AlsoIncludePid -or
+                $_.CommandLine.Contains($ScriptPath) -or
+                (
+                    $null -ne $_.ExecutablePath -and
+                    [System.IO.Path]::GetFullPath($_.ExecutablePath) -eq $PythonPath
+                )
+            )
+        }
+    )
+}
 
-    if ($null -eq $processToStop -and $runningFoolBots.Count -eq 1) {
-        $processToStop = $runningFoolBots[0]
-    }
-    elseif ($null -eq $processToStop -and $runningFoolBots.Count -gt 1) {
-        throw 'Multiple foolbot.py processes are running and none matches this repository virtual environment. Stop the main bot manually once, then retry.'
+$normalizedPythonPath = [System.IO.Path]::GetFullPath($venvPython)
+$normalizedBotScript = [System.IO.Path]::GetFullPath($botScript)
+
+# The pid file is kept as a second source rather than as the answer.
+# Win32_Process reports no CommandLine for a process owned by another
+# user, and one we cannot read is one the filter above cannot match --
+# so the pid we wrote ourselves is the way that bot still gets stopped.
+$savedPid = 0
+if (Test-Path -LiteralPath $pidFile) {
+    $rawPid = (Get-Content -LiteralPath $pidFile -Raw).Trim()
+    if (-not [int]::TryParse($rawPid, [ref]$savedPid)) {
+        $savedPid = 0
     }
 }
 
-if ($null -ne $processToStop) {
-    Write-Host "Stopping Fool bot process $($processToStop.ProcessId)..."
-    Stop-Process -Id $processToStop.ProcessId -Force
-    Wait-Process -Id $processToStop.ProcessId -Timeout 15 -ErrorAction SilentlyContinue
+$runningFoolBots = Get-RepositoryFoolBots `
+    -PythonPath $normalizedPythonPath `
+    -ScriptPath $normalizedBotScript `
+    -AlsoIncludePid $savedPid
+
+foreach ($foolBot in $runningFoolBots) {
+    Write-Host "Stopping Fool bot process $($foolBot.ProcessId)..."
+    Stop-Process -Id $foolBot.ProcessId -Force -ErrorAction SilentlyContinue
+    Wait-Process -Id $foolBot.ProcessId -Timeout 15 -ErrorAction SilentlyContinue
+}
+
+if ($runningFoolBots.Count -gt 1) {
+    # Interpolated, not -f: the format operator binds tighter than +,
+    # so a placeholder in the first line of a concatenation is never
+    # the string -f is applied to, and prints as "{0}".
+    $stoppedCount = $runningFoolBots.Count
+    Write-Warning (
+        "Stopped $stoppedCount Fool bot processes -- there should only " +
+        "ever be one. A second bot signed in on the same token answers " +
+        "the same interactions and overwrites the others' saved games."
+    )
+}
+
+# Refuse to start rather than add to a pile. No bot at all is a state
+# somebody notices and fixes; a second one is the failure this whole
+# change is about, and it hides.
+$survivingFoolBots = Get-RepositoryFoolBots `
+    -PythonPath $normalizedPythonPath `
+    -ScriptPath $normalizedBotScript `
+    -AlsoIncludePid $savedPid
+
+if ($survivingFoolBots.Count -gt 0) {
+    $survivorIds = ($survivingFoolBots | ForEach-Object { $_.ProcessId }) -join ', '
+    throw ("Could not stop every Fool bot for this repository (still " +
+        "running: $survivorIds). Not starting another one -- two bots " +
+        "on one token answer the same interaction and overwrite each " +
+        "other's saved games. Stop them by hand and run this again.")
 }
 
 Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue

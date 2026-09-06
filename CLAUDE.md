@@ -4185,6 +4185,36 @@ person's development checkout. So:
   the swallowed-save handling under Gotchas was written for -- when the mount
   goes away mid-game every `save_games` raises.
 
+**One bot per token, and `scripts/update_main_bot.ps1` is what enforces it.**
+Discord lets a token hold more than one gateway session and delivers every
+interaction to all of them, so a second bot on the same token is not a spare:
+one of them answers and the rest fail on their own first line with
+`404 ... (error code: 10062): Unknown interaction`, whichever command was run.
+They also each hold their own copy of `self.games` and write the whole of
+`data/d12ball_games.json` over one another, and each refresh the same board
+message -- through a gate whose whole five-in-five arithmetic assumes one
+writer per game (see "Discord's rate limits").
+
+- **They accumulate silently, which is how four of them ended up on the live
+  host.** The updater used to stop exactly one process -- whichever the pid
+  file named, or the first that matched -- and then start a fresh one, so a
+  bot started by hand was invisible to it and survived every restart. It stops
+  **every** foolbot belonging to that checkout now, and **refuses to start**
+  if any survive: no bot at all is a state somebody notices, where a second one
+  hides.
+- **A hand-started bot is only ever caught by the venv path.** Its command line
+  is a bare `foolbot.py` with no directory in it, so matching the full path to
+  `foolbot.py` misses it -- and matching `foolbot.py` alone would stop the
+  *other* developer's bot if they ran one on the same machine. The pid file is
+  kept as a second source rather than as the answer, because `Win32_Process`
+  reports no `CommandLine` for a process owned by another user.
+- **Read a 10062 as this first.** It is raised out of a command's first line,
+  before anything of ours has run, so it can never be a bug in that command --
+  see `defer_or_report` in `cogs/debug.py`, which says so in #logs rather than
+  raising a traceback that names only the symptom. The other cause is a bot too
+  busy to acknowledge inside three seconds; `Get-CimInstance Win32_Process`
+  tells the two apart in one command.
+
 ## Notes for Claude
 
 - **Keep this file current with the code.** When a change alters the
