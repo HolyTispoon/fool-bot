@@ -54,8 +54,16 @@ class Debug(commands.Cog):
         interaction: discord.Interaction,
         confirm: str,
     ) -> None:
+        """
+        Deferred before any check runs, so a refusal below always
+        answers through the followup webhook rather than racing
+        Discord's three-second limit on an un-acknowledged interaction
+        -- see the same note on `export_archived_games`.
+        """
+        await interaction.response.defer(ephemeral=True)
+
         if confirm != "confirm":
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 'Reset cancelled. Type "confirm" in the confirm field '
                 "to run this command.",
                 ephemeral=True,
@@ -64,7 +72,7 @@ class Debug(commands.Cog):
 
         guild = interaction.guild
         if guild is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "This command can only be used inside a server.",
                 ephemeral=True,
             )
@@ -72,13 +80,11 @@ class Debug(commands.Cog):
 
         d12ball_cog = self.bot.get_cog("D12Ball")
         if d12ball_cog is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "The D12 Ball game system is not loaded.",
                 ephemeral=True,
             )
             return
-
-        await interaction.response.defer(ephemeral=True)
 
         try:
             guild_channels = await guild.fetch_channels()
@@ -226,10 +232,23 @@ class Debug(commands.Cog):
         to a folder inside the mounted Drive letter the live bot
         already runs from, and the export reaches Drive exactly the
         way the checkout and the saved games already do.
+
+        **Deferred before anything else runs**, unlike every other
+        check in this file. Discord invalidates an interaction it has
+        waited three seconds on with no acknowledgement at all, and
+        every refusal below it (a missing confirm, no export
+        directory) used to answer with a fresh `response.send_message`
+        that could lose that race under load -- a channel-heavy guild
+        with a nearly full archive is exactly the case likely to be
+        slow enough to hit it. Deferring first means every branch
+        below answers through the followup webhook instead, which has
+        no three-second clock on it.
         """
+        await interaction.response.defer(ephemeral=True)
+
         export_dir = archive_export_dir()
         if export_dir is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "FOOLBOT_D12BALL_ARCHIVE_EXPORT_DIR is not set in this "
                 "bot's .env, so there is nowhere to export games to. Set "
                 "it to a folder (e.g. one inside the mounted Google "
@@ -240,7 +259,7 @@ class Debug(commands.Cog):
             return
 
         if confirm != "confirm":
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 'Cancelled. Type "confirm" in the confirm field to '
                 f"export up to {limit} finished game(s) from the PBD "
                 f"Archive to {export_dir} and then **permanently "
@@ -252,7 +271,7 @@ class Debug(commands.Cog):
 
         guild = interaction.guild
         if guild is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "This command can only be used inside a server.",
                 ephemeral=True,
             )
@@ -260,13 +279,11 @@ class Debug(commands.Cog):
 
         d12ball_cog = self.bot.get_cog("D12Ball")
         if d12ball_cog is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "The D12 Ball game system is not loaded.",
                 ephemeral=True,
             )
             return
-
-        await interaction.response.defer(ephemeral=True)
 
         try:
             guild_channels = await guild.fetch_channels()
