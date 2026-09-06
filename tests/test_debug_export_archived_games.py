@@ -146,6 +146,27 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
             )
         return write_export, save_games
 
+    async def test_defers_before_any_check_so_nothing_ever_races_the_ack(
+        self,
+    ) -> None:
+        """
+        Discord invalidates an interaction it waited three seconds on
+        with no acknowledgement -- reported live as a 404 "Unknown
+        interaction" on this exact command, on every single invocation,
+        because every early refusal used to answer with a fresh
+        `response.send_message` instead of deferring first. Every
+        branch below must go through the followup webhook, which has
+        no such clock, and `response.send_message` must never be
+        called at all.
+        """
+        cog, _ = self.build_cog({})
+        interaction = self.build_interaction([])
+
+        await self.run_export(cog, interaction, export_dir=None)
+
+        interaction.response.defer.assert_awaited_once()
+        interaction.response.send_message.assert_not_awaited()
+
     async def test_refuses_when_no_export_directory_is_configured(self) -> None:
         cog, _ = self.build_cog({})
         interaction = self.build_interaction([])
@@ -156,9 +177,10 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
 
         write_export.assert_not_called()
         save_games.assert_not_called()
+        interaction.response.defer.assert_awaited_once()
         self.assertIn(
             "FOOLBOT_D12BALL_ARCHIVE_EXPORT_DIR",
-            interaction.response.send_message.await_args.args[0],
+            interaction.followup.send.await_args.args[0],
         )
 
     async def test_a_missing_confirmation_changes_nothing(self) -> None:
@@ -169,7 +191,30 @@ class ExportArchivedGamesTests(unittest.IsolatedAsyncioTestCase):
 
         write_export.assert_not_called()
         save_games.assert_not_called()
-        interaction.response.send_message.assert_awaited_once()
+        interaction.response.defer.assert_awaited_once()
+        interaction.followup.send.assert_awaited_once()
+
+    async def test_confirm_is_checked_before_the_export_directory(self) -> None:
+        """
+        Typing the command wrong should be told exactly that, not some
+        other unrelated reason it wouldn't have worked anyway -- and
+        the cancellation message must not choke formatting a
+        destination that was never configured.
+        """
+        cog, _ = self.build_cog({})
+        interaction = self.build_interaction([])
+
+        write_export, save_games = await self.run_export(
+            cog, interaction, confirm="", export_dir=None,
+        )
+
+        write_export.assert_not_called()
+        save_games.assert_not_called()
+        message = interaction.followup.send.await_args.args[0]
+        self.assertIn('Type "confirm"', message)
+        self.assertNotIn(
+            "FOOLBOT_D12BALL_ARCHIVE_EXPORT_DIR", message,
+        )
 
     async def test_a_clean_export_writes_then_deletes_then_saves(self) -> None:
         channel = build_channel(

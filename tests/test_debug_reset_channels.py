@@ -79,6 +79,25 @@ class ResetChannelsBackoffTests(unittest.IsolatedAsyncioTestCase):
 
         return interaction, slept
 
+    async def test_defers_before_any_check_so_nothing_ever_races_the_ack(
+        self,
+    ) -> None:
+        """
+        Discord invalidates an un-acknowledged interaction after three
+        seconds -- see the identical regression test on
+        export_archived_games, which hit this live. Every refusal here
+        must answer through the followup webhook instead of a fresh
+        `response.send_message`.
+        """
+        cog = Debug(mock.Mock())
+        cog.bot.get_cog = mock.Mock(return_value=None)
+        interaction = self.build_interaction([])
+
+        await Debug.reset_channels.callback(cog, interaction, "")
+
+        interaction.response.defer.assert_awaited_once()
+        interaction.response.send_message.assert_not_awaited()
+
     async def test_a_clean_delete_never_sleeps(self) -> None:
         channels = [
             build_channel("d12ball-pbd1"), build_channel("d12ball-pbd2"),
