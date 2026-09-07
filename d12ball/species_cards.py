@@ -45,6 +45,7 @@ from d12ball.render import (
     TEAM_COLORS,
     high_contrast_ink,
     load_goal_zone_font,
+    species_icon,
 )
 
 # The species order the card set is built in, and the colour each
@@ -81,6 +82,15 @@ CARD_FACES: tuple[tuple[tuple[str, str], tuple[str, str]], ...] = (
 HEADER_HEIGHT = 44
 BAND_HEIGHT = 96
 PANEL_GAP = 22
+
+# The species icon at the head of its own panel, in the band's ink for
+# the reason the printed player card's is: the band is already a
+# colour, and `high_contrast_ink` is what keeps the Oozes' green one
+# readable. It is the same silhouette the player cards and the board
+# carry, so a coach matches this panel to the cards in front of them
+# without reading either.
+BAND_ICON = 62
+BAND_ICON_GAP = 18
 
 
 def _fitted_display(
@@ -152,10 +162,20 @@ def _draw_panel(
         fill=color,
     )
 
+    icon = species_icon(species, band_ink)
+    name_left = left + 22
+    if icon is not None:
+        pen.paste(
+            icon,
+            (name_left + BAND_ICON / 2, top + BAND_HEIGHT / 2),
+            (BAND_ICON, BAND_ICON),
+        )
+        name_left += BAND_ICON + BAND_ICON_GAP
+
     name = ability["name"].upper()
-    name_face = _fitted_display(pen, name, right - left - 220)
+    name_face = _fitted_display(pen, name, right - name_left - 198)
     pen.text(
-        (left + 22, top + BAND_HEIGHT / 2),
+        (name_left, top + BAND_HEIGHT / 2),
         name,
         name_face,
         band_ink,

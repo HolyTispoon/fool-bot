@@ -1,6 +1,6 @@
 """
 The four species abilities: the import off the sheet's `spec_abilities`
-tab, and the reference cards drawn from what it writes.
+tab, the reference cards drawn from what it writes, and the icons.
 
 The suite cannot see a picture, so what the card test checks is what a
 print gets wrong silently -- a face that is no longer poker size, and a
@@ -8,7 +8,15 @@ pairing that never made it onto a card. The import test covers the
 formula-guard strip (shared with the player import) and the "every
 species present" check.
 
-See scripts/import_d12ball_species.py and d12ball/species_cards.py.
+The icon tests are the same shape and for the same reason. An icon is
+loaded through a swallowed OSError so a render can go on without it,
+and it is drawn in three different inks on three different grounds --
+so a species with no art, or a tint that quietly did nothing, comes out
+as a card that simply has no icon on it. That is invisible to a test
+that only asks whether the card rendered.
+
+See scripts/import_d12ball_species.py, scripts/render_species_icons.py
+and d12ball/species_cards.py.
 """
 import csv
 import importlib.util
@@ -17,9 +25,16 @@ import unittest
 from pathlib import Path
 
 from d12ball.cards import BLEED, CARD_HEIGHT, CARD_WIDTH
+from d12ball.render import (
+    TEAM_COLORS,
+    high_contrast_ink,
+    load_species_icon,
+    species_icon,
+)
 from d12ball.species_cards import (
     CARD_FACES,
     SPECIES_ORDER,
+    SPECIES_TEAM,
     load_species_abilities,
     render_species_card,
     render_species_card_set,
@@ -136,6 +151,75 @@ class SpeciesCardTests(unittest.TestCase):
             [name for name, _ in faces],
             ["1-front", "1-back", "2-front", "2-back", "3-front", "3-back"],
         )
+
+
+class D12BallSpeciesIconTests(unittest.TestCase):
+    """
+    The four silhouettes, and the tint every card puts them through.
+    """
+
+    def test_every_species_has_an_icon(self) -> None:
+        for species in SPECIES_ORDER:
+            with self.subTest(species=species):
+                self.assertIsNotNone(
+                    load_species_icon(species),
+                    f"No icon for {species} -- run "
+                    "scripts/render_species_icons.py --in-place",
+                )
+
+    def test_an_unknown_species_draws_nothing_rather_than_raising(
+        self,
+    ) -> None:
+        # A players.json written before the species column loads with
+        # an empty species; every caller here is drawing something
+        # optional, so the answer is None and the card goes on without
+        # it. See "Player species" in CLAUDE.md.
+        self.assertIsNone(load_species_icon(""))
+        self.assertIsNone(species_icon("", "#ffffff", 32))
+
+    def test_the_tint_paints_the_ink_and_keeps_the_shape(self) -> None:
+        """
+        The art is one flat ink on transparency precisely so that one
+        file can sit on a team-coloured band, on a species-coloured
+        pill and on the bot's white card. A tint that returned the
+        source unchanged would leave black icons on a black-ish band
+        and nothing would fail.
+        """
+        for species in SPECIES_ORDER:
+            for color in ("#ffffff", "#000000"):
+                with self.subTest(species=species, color=color):
+                    icon = species_icon(species, color, 64)
+                    self.assertEqual(icon.size, (64, 64))
+                    opaque = [
+                        icon.getpixel((x, y))
+                        for x in range(64)
+                        for y in range(64)
+                        if icon.getpixel((x, y))[3] > 200
+                    ]
+                    self.assertTrue(opaque, "the icon drew nothing")
+                    expected = (
+                        (255, 255, 255) if color == "#ffffff" else (0, 0, 0)
+                    )
+                    self.assertEqual(
+                        {pixel[:3] for pixel in opaque}, {expected}
+                    )
+
+    def test_a_band_ink_is_readable_against_every_species_colour(
+        self,
+    ) -> None:
+        # The icon is drawn in the band's ink rather than the species'
+        # colour wherever it sits on a filled band -- which is what
+        # keeps the Oozes' green one legible. Asserting the pairing
+        # here is what stops somebody "simplifying" it to white.
+        self.assertEqual(
+            high_contrast_ink(TEAM_COLORS[SPECIES_TEAM["ooze"]]), "#000000"
+        )
+        for species in ("fire_demon", "cyborg", "telekinetic"):
+            with self.subTest(species=species):
+                self.assertEqual(
+                    high_contrast_ink(TEAM_COLORS[SPECIES_TEAM[species]]),
+                    "#ffffff",
+                )
 
 
 if __name__ == "__main__":
