@@ -41,7 +41,7 @@ python3 -m unittest discover -s tests
 | `d12ball/stats.py` | Every statistic `/d12ball stats` reports, as a fold over `MatchState.events`, plus the plain-text tables it renders. No Discord and no game flow: a statistic is a reading of what happened, and a reading that could change what happens is a bug waiting to be written -- see "The event log" below |
 | `d12ball/tutorial.py` | The scripted opening a tutorial game plays -- the five beats as data, and the rails -- see below |
 | `d12ball/data/` | `players.json`, `basic_rules.json`, `maneuvers.json`, `species.json` |
-| `d12ball/images/` | Card art, emoji, and the four species icons -- see "The species icons" below |
+| `d12ball/images/` | Card art, emoji, and the four species icons (ink and coloured) -- see "The species icons" below |
 | `d12ball/fonts/` | Bundled DejaVu — see "Fonts" below |
 | `gamesaves/d12ball/storage.py` | Persistence to `data/d12ball_games.json` |
 | `gamesaves/d12ball/archive_export.py` | Writing one finished game's export (record, final board, channel transcript) to disk for `/debug export_archived_games` -- see "Freeing up the PBD Archive" below |
@@ -3457,6 +3457,28 @@ python3 scripts/render_species_icons.py --out /tmp --sheet # look first
 python3 scripts/render_species_icons.py --in-place
 ```
 
+- **Two files a species.** `<species>.png` is the ink silhouette every render
+  reads; `<species>_color.png` is the same shape painted in that species' own
+  colour -- the paired colour team's hex out of `TEAM_COLORS`, so it is the
+  colour the board already draws those meeples in and there is still exactly
+  one hex per colour in the codebase (see "Team colors").
+  - **Nothing in the bot reads the coloured copy, and it is not a second
+    source of truth.** It is written from the same shape in the same pass,
+    through the same `render.tint_silhouette` the renderer tints with, so the
+    two cannot come to disagree by being generated separately. It is there for
+    the places a file has to arrive *already* coloured -- a Developer Portal
+    emoji upload, a document, a slide -- where the bot's own drawing tints at
+    the moment it draws. **Anything drawing an icon in code still asks
+    `species_icon`**; reaching for the coloured file instead is how the Oozes'
+    icon ends up invisible on the Oozes' own band.
+  - **The way the pair comes apart is somebody regenerating the art and
+    shipping half of it**, which nothing would otherwise notice --
+    `test_the_coloured_copy_cannot_drift_from_the_silhouette` compares the two
+    alpha channels, since the alpha *is* the shape.
+  - Read the Oozes' coloured one on something dark. Slime green is the one of
+    the four that all but disappears on white, which is the fact
+    `high_contrast_ink` exists for and the reason a card never uses this file.
+    The script's `--sheet` draws on a dark ground for the same reason.
 - **They are one flat ink on transparency, not coloured art**, and that is
   what lets one file serve every place an icon appears. A species icon sits
   on three grounds -- a team-coloured header band on a printed player card,
@@ -3465,6 +3487,9 @@ python3 scripts/render_species_icons.py --in-place
   `render.species_icon` tints a copy at draw time, keeping the alpha and
   replacing the ink, which is only possible because there is one ink to
   replace. **Nothing may paste `load_species_icon`'s answer straight.**
+  `tint_silhouette` is the repaint itself, its own function because the icon
+  script calls it too -- two implementations of that is how the coloured
+  copies on disk come to disagree with what the bot draws.
 - **The tint is cached per (species, colour, size)**, because the board draws
   up to a dozen cards a render and each wants the same few pixels. Asking for
   no size gets the icon as drawn, which is what a caller at print resolution

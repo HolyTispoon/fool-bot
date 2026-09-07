@@ -3,12 +3,34 @@
 
 One silhouette a species -- a flame for the Fire Demons' Volatile, a
 cell for the Cyborgs' Lithium Powered, an inward spiral for the
-Telekinetics' Mind Pull, and a dripping blob for the Oozes' Slimey.
+Telekinetics' Mind Pull, and a wobbling bubbled blob for the Oozes'
+Slimey.
 
     python3 scripts/render_species_icons.py                 # dry run
     python3 scripts/render_species_icons.py --in-place
     python3 scripts/render_species_icons.py --out /tmp/icons
     python3 scripts/render_species_icons.py --out /tmp/icons --sheet
+
+**Two files a species**: `<species>.png` is the ink silhouette every
+render reads, and `<species>_color.png` is the same shape painted in
+that species' own colour -- the paired colour team's hex out of
+`TEAM_COLORS`, so it is the colour the board already draws that
+species' meeples in and there is still exactly one hex per colour in
+the codebase.
+
+**Nothing in the bot reads the coloured copy**, and it is not a second
+source of truth: it is written from the same shape in the same pass,
+through the same `tint_silhouette` the renderer tints with, so the two
+cannot come to disagree. It is there for the places a file has to
+arrive already coloured -- a Developer Portal emoji upload, a document,
+a slide -- where the bot's own drawing tints at the moment it draws.
+Anything drawing an icon *in code* asks `render.species_icon` for the
+colour it needs; see "The species icons" in CLAUDE.md.
+
+Read the Oozes' on something dark. Its hex is Slime green, which is the
+one of the four that all but disappears on white -- the same fact
+`high_contrast_ink` exists for, and the reason the icon on a card is
+never this file.
 
 It writes nothing unless asked, because what it overwrites is tracked
 art -- the same reason `render_condition_tokens.py` and
@@ -40,7 +62,12 @@ from PIL import Image, ImageDraw
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from d12ball.render import SPECIES_ICON_DIR  # noqa: E402
+from d12ball.render import (  # noqa: E402
+    SPECIES_ICON_DIR,
+    TEAM_COLORS,
+    tint_silhouette,
+)
+from d12ball.species_cards import SPECIES_TEAM  # noqa: E402
 
 # Drawn once at a size larger than anywhere it is shown: the printed
 # card wants it at around 100px and the bot's own card at 26, and a
@@ -57,6 +84,12 @@ SUPERSAMPLE = 4
 # nothing else; black is what makes a stray untinted paste obvious
 # rather than invisible.
 INK = (0, 0, 0, 255)
+
+# What the coloured copy of an icon is named. Underscored like every
+# other bundled image, and a suffix rather than a directory of its own
+# so the pair sits together in a listing -- there is no case where you
+# want one of these without knowing the other exists.
+COLOR_SUFFIX = "_color"
 
 Point = tuple[float, float]
 
@@ -246,16 +279,28 @@ def render_icon(draw_shape) -> Image.Image:
     return icon.resize((CANVAS, CANVAS), Image.LANCZOS)
 
 
-def contact_sheet(icons: list[Image.Image]) -> Image.Image:
-    """The four side by side on a light ground, to look at them on."""
+def contact_sheet(rows: list[list[Image.Image]]) -> Image.Image:
+    """
+    The icons on a ground dark enough to read both rows on.
+
+    Dark rather than light because the ink row is black and the Oozes'
+    coloured one is Slime green: there is no single ground both rows
+    read on, and this is the one that fails on the row you are least
+    likely to be checking.
+    """
     pad = CANVAS // 8
-    sheet = Image.new(
-        "RGBA",
-        (len(icons) * (CANVAS + pad) + pad, CANVAS + pad * 2),
-        (245, 243, 238, 255),
-    )
-    for index, icon in enumerate(icons):
-        sheet.alpha_composite(icon, (pad + index * (CANVAS + pad), pad))
+    width = max(len(row) for row in rows) * (CANVAS + pad) + pad
+    height = len(rows) * (CANVAS + pad) + pad
+    sheet = Image.new("RGBA", (width, height), (32, 34, 38, 255))
+    for row_index, row in enumerate(rows):
+        for index, icon in enumerate(row):
+            sheet.alpha_composite(
+                icon,
+                (
+                    pad + index * (CANVAS + pad),
+                    pad + row_index * (CANVAS + pad),
+                ),
+            )
     return sheet
 
 
@@ -285,20 +330,32 @@ def main() -> int:
     if destination is not None:
         destination.mkdir(parents=True, exist_ok=True)
 
-    drawn = []
+    ink_row = []
+    color_row = []
     for species, (keyword, draw_shape) in ICONS.items():
         icon = render_icon(draw_shape)
-        drawn.append(icon)
+        color = TEAM_COLORS[SPECIES_TEAM[species]]
+        colored = tint_silhouette(icon, color)
+        ink_row.append(icon)
+        color_row.append(colored)
+
         if destination is None:
-            print(f"{species}: {keyword} ({icon.width}px) -- not written")
+            print(
+                f"{species}: {keyword} {color} ({icon.width}px) "
+                "-- not written"
+            )
             continue
+
         path = destination / f"{species}.png"
+        color_path = destination / f"{species}{COLOR_SUFFIX}.png"
         icon.save(path)
+        colored.save(color_path)
         print(f"{species}: {keyword} -> {path}")
+        print(f"{species}: {keyword} {color} -> {color_path}")
 
     if destination is not None and args.sheet:
         path = destination / "species-icons.png"
-        contact_sheet(drawn).save(path)
+        contact_sheet([ink_row, color_row]).save(path)
         print(f"sheet -> {path}")
 
     if destination is None:

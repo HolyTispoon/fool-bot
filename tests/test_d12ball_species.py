@@ -21,11 +21,15 @@ and d12ball/species_cards.py.
 import csv
 import importlib.util
 import io
+import os
 import unittest
 from pathlib import Path
 
+from PIL import Image
+
 from d12ball.cards import BLEED, CARD_HEIGHT, CARD_WIDTH
 from d12ball.render import (
+    SPECIES_ICON_DIR,
     TEAM_COLORS,
     high_contrast_ink,
     load_species_icon,
@@ -41,18 +45,21 @@ from d12ball.species_cards import (
 )
 
 
-def load_import_script():
-    path = (
-        Path(__file__).resolve().parents[1]
-        / "scripts"
-        / "import_d12ball_species.py"
-    )
-    spec = importlib.util.spec_from_file_location(
-        "import_d12ball_species", path
-    )
+def load_script(name: str):
+    path = Path(__file__).resolve().parents[1] / "scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def rgb(color: str) -> tuple[int, int, int]:
+    value = color.lstrip("#")
+    return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def load_import_script():
+    return load_script("import_d12ball_species")
 
 
 importer = load_import_script()
@@ -203,6 +210,77 @@ class D12BallSpeciesIconTests(unittest.TestCase):
                     self.assertEqual(
                         {pixel[:3] for pixel in opaque}, {expected}
                     )
+
+    def test_the_script_draws_every_species(self) -> None:
+        icons = load_script("render_species_icons")
+        self.assertEqual(set(icons.ICONS), set(SPECIES_ORDER))
+
+    def test_every_species_icon_has_a_coloured_copy(self) -> None:
+        """
+        The coloured copy is not read by the bot -- it is there for the
+        places a file has to arrive already coloured, an emoji upload
+        or a document. Nothing would notice one missing, which is why
+        the check is here.
+
+        Compared against the directory's own listing rather than asked
+        with `Path.exists`, for the reason the bundled-art check is:
+        one developer's filesystem is case-insensitive and the other's
+        is not.
+        """
+        suffix = load_script("render_species_icons").COLOR_SUFFIX
+        listing = os.listdir(SPECIES_ICON_DIR)
+        for species in SPECIES_ORDER:
+            with self.subTest(species=species):
+                self.assertIn(f"{species}{suffix}.png", listing)
+
+    def test_the_coloured_copy_cannot_drift_from_the_silhouette(
+        self,
+    ) -> None:
+        """
+        Both files are written from one shape in one pass, so the way
+        they come apart is somebody regenerating the art and shipping
+        half of it -- a coloured icon that is still last month's shape,
+        beside an ink one that is not. The alpha channel is the shape,
+        so comparing it is the whole check.
+        """
+        suffix = load_script("render_species_icons").COLOR_SUFFIX
+        for species in SPECIES_ORDER:
+            with self.subTest(species=species):
+                ink = Image.open(
+                    SPECIES_ICON_DIR / f"{species}.png"
+                ).convert("RGBA")
+                colored = Image.open(
+                    SPECIES_ICON_DIR / f"{species}{suffix}.png"
+                ).convert("RGBA")
+                self.assertEqual(ink.size, colored.size)
+                self.assertEqual(
+                    ink.getchannel("A").tobytes(),
+                    colored.getchannel("A").tobytes(),
+                    "the coloured copy is a different shape -- rerun "
+                    "scripts/render_species_icons.py --in-place",
+                )
+
+    def test_the_coloured_copy_is_the_species_own_colour(self) -> None:
+        """
+        The paired colour team's hex out of `TEAM_COLORS`, so there is
+        still exactly one hex per colour in the codebase and a palette
+        change reaches these by re-running the script -- see "Team
+        colors" in CLAUDE.md.
+        """
+        suffix = load_script("render_species_icons").COLOR_SUFFIX
+        for species in SPECIES_ORDER:
+            with self.subTest(species=species):
+                icon = Image.open(
+                    SPECIES_ICON_DIR / f"{species}{suffix}.png"
+                ).convert("RGBA")
+                opaque = {
+                    pixel[:3]
+                    for _count, pixel in icon.getcolors(maxcolors=1 << 24)
+                    if pixel[3] > 250
+                }
+                self.assertEqual(
+                    opaque, {rgb(TEAM_COLORS[SPECIES_TEAM[species]])}
+                )
 
     def test_a_band_ink_is_readable_against_every_species_colour(
         self,

@@ -503,9 +503,23 @@ def species_icon(
         if size is None
         else source.resize((size, size), Image.Resampling.LANCZOS)
     )
+    tinted = tint_silhouette(shape, color)
+    _SPECIES_ICON_TINTS[key] = tinted
+    return tinted
+
+
+def tint_silhouette(shape: Image.Image, color: str) -> Image.Image:
+    """
+    A flat-ink silhouette repainted in `color`, keeping its own alpha.
+
+    Its own function because it has two callers that must not drift:
+    `species_icon` above, and `scripts/render_species_icons.py`, which
+    writes the coloured copy of each icon that sits beside the ink one
+    on disk. Two implementations of this is how a coloured file comes
+    to disagree with what the bot draws.
+    """
     tinted = Image.new("RGBA", shape.size, color)
     tinted.putalpha(shape.getchannel("A"))
-    _SPECIES_ICON_TINTS[key] = tinted
     return tinted
 
 
