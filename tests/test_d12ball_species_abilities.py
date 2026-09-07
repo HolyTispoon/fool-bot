@@ -23,6 +23,13 @@ Layers, and they fail for different reasons:
 - **Slimey.** Slip in widens `turn_handler_candidates` rather than
   adding to it -- an Ooze on the ball is already an eligible handler --
   and Merge is a sum over the bystanders, not a pick.
+- **Mind Pull**, which is the one ability that interrupts a maneuver
+  rather than modifying it. Three layers again: the path
+  (`ball_path_to`, recorded by `set_ball_space`), who it offers a pull
+  to (`mind_pull_candidates`), and the gate actually stopping the turn
+  to ask -- that last one through the **real cog**, because a gate
+  wired to the wrong function, or one that forgets to spend the path,
+  is invisible to a unit test on the engine.
 
 The rules are "Species abilities" in docs/living-rules.md. Nothing here
 asserts the wording of a message -- that is prose and will be revised;
@@ -36,11 +43,16 @@ which one it was.
 """
 
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
+from cogs.d12ball import D12Ball
+from cogs.d12ball_views import MindPullView
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     CYBORG_DRAINED_AT,
+    MIND_PULL_SUCCESS_FACES,
+    MIND_PULL_TOKEN_COST,
     OVERDRIVE_BONUS,
     OVERDRIVE_DRAIN_COST,
     SPECIES_CYBORG,
@@ -62,6 +74,7 @@ from d12ball.engine import (
     RulesEngine,
 )
 from d12ball.game import (
+    AIOpponent,
     D12BallGame,
     GameMode,
     GameStatus,
@@ -69,6 +82,7 @@ from d12ball.game import (
 )
 
 from roster import field_players, fielded_of_species
+from save_patches import suppressed_cog_saves
 
 
 def build_engine() -> RulesEngine:
@@ -1062,6 +1076,584 @@ class MergeTests(unittest.TestCase):
             game, match, side, (roller,), "offense",
         )
         self.assertEqual(bonus, 0)
+
+
+class BallPathTests(unittest.TestCase):
+    """
+    "It passes over the space on its way somewhere, or comes to rest on
+    it ... The ball's own starting space does not count as moved to."
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game()
+        self.match = build_match(self.engine, self.game)
+
+    def flat(self, step) -> int:
+        return self.match.board.flat_index(Zone(step[0]), step[1])
+
+    def test_the_path_excludes_the_start_and_includes_the_end(self):
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        target_zone, target_index = self.match.board.position_at_flat_index(
+            origin + 3,
+        )
+        path = self.match.ball_path_to(target_zone, target_index)
+        self.assertEqual(
+            [self.flat(step) for step in path],
+            [origin + 1, origin + 2, origin + 3],
+        )
+
+    def test_a_move_of_one_space_is_a_path_of_one(self):
+        # The broadening from "through" to "to or through" on
+        # 2026-09-06 is exactly what makes a 1-space pass pullable.
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        zone, index = self.match.board.position_at_flat_index(origin + 1)
+        self.assertEqual(len(self.match.ball_path_to(zone, index)), 1)
+
+    def test_a_move_that_goes_nowhere_is_an_empty_path(self):
+        self.assertEqual(
+            self.match.ball_path_to(
+                self.match.ball.zone, self.match.ball.space_index,
+            ),
+            [],
+        )
+
+    def test_a_backward_move_is_walked_backwards(self):
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        zone, index = self.match.board.position_at_flat_index(origin - 2)
+        path = self.match.ball_path_to(zone, index)
+        self.assertEqual(
+            [self.flat(step) for step in path], [origin - 1, origin - 2],
+        )
+
+    def test_moving_the_ball_records_the_path(self):
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        zone, index = self.match.board.position_at_flat_index(origin + 2)
+        self.match.set_ball_space(zone, index)
+        self.assertEqual(len(self.match.last_ball_path), 2)
+
+    def test_the_path_survives_a_save(self):
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        zone, index = self.match.board.position_at_flat_index(origin + 2)
+        self.match.set_ball_space(zone, index)
+        restored = MatchState.from_dict(
+            self.match.to_dict(), self.engine.basic_ruleset,
+        )
+        self.assertEqual(restored.last_ball_path, self.match.last_ball_path)
+
+    def test_a_restored_path_does_not_share_its_rows(self):
+        # A shallow copy would hand the restored match the same inner
+        # lists the saved dict holds.
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        zone, index = self.match.board.position_at_flat_index(origin + 1)
+        self.match.set_ball_space(zone, index)
+        saved = self.match.to_dict()
+        restored = MatchState.from_dict(saved, self.engine.basic_ruleset)
+        restored.last_ball_path[0][1] = 99
+        self.assertNotEqual(saved["last_ball_path"][0][1], 99)
+
+
+class MindPullCandidateTests(unittest.TestCase):
+    """
+    Who is offered a pull, and in what order.
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        # The visiting side is the one that pulls, so give *them* the
+        # Telekinetics: home holds the ball off the standard deal.
+        self.game = build_game(
+            player_1_team=Team.PURPLE, player_2_team=Team.TELEKINETICS,
+        )
+        self.match = build_match(self.engine, self.game)
+        self.defending = self.match.defending_side()
+
+    def clear_the_defence_out_of_the_way(self) -> None:
+        """
+        Park every defending player behind the ball, so a test puts
+        exactly who it means on the path.
+
+        The standard deal already stands defenders across midfield --
+        which is the whole point of the ability, and exactly what makes
+        a fixture that only *adds* to the path count players it never
+        mentioned.
+        """
+        for player_id in self.defenders():
+            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+
+    def line_up_on_the_path(self, *player_ids) -> None:
+        """
+        Stand each player one space further along, and move the ball
+        past all of them.
+        """
+        self.clear_the_defence_out_of_the_way()
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        for offset, player_id in enumerate(player_ids, start=1):
+            zone, index = self.match.board.position_at_flat_index(
+                origin + offset,
+            )
+            self.match.board.place_meeple(player_id, zone, index)
+        zone, index = self.match.board.position_at_flat_index(
+            origin + len(player_ids),
+        )
+        self.match.set_ball_space(zone, index)
+
+    def defenders(self) -> list[str]:
+        return list(
+            self.match.setup_for_side(self.defending).field_players
+        )
+
+    def test_a_telekinetic_the_ball_crosses_may_pull(self):
+        defender = self.defenders()[0]
+        self.line_up_on_the_path(defender)
+        self.assertEqual(
+            self.engine.mind_pull_candidates(self.game, self.match),
+            [defender],
+        )
+
+    def test_they_are_offered_in_the_order_the_ball_reaches_them(self):
+        first, second = self.defenders()[:2]
+        self.line_up_on_the_path(first, second)
+        self.assertEqual(
+            self.engine.mind_pull_candidates(self.game, self.match),
+            [first, second],
+        )
+
+    def test_the_ball_s_own_starting_space_is_not_crossed(self):
+        # Somebody standing where the ball already is gets no roll.
+        self.clear_the_defence_out_of_the_way()
+        defender = self.defenders()[0]
+        self.match.board.place_meeple(
+            defender, self.match.ball.zone, self.match.ball.space_index,
+        )
+        self.match.last_ball_path = []
+        self.assertEqual(
+            self.engine.mind_pull_candidates(self.game, self.match), [],
+        )
+
+    def test_a_telekinetic_on_the_possessing_side_may_not_pull(self):
+        # "Only the opposing team's ball."
+        game = build_game(
+            player_1_team=Team.TELEKINETICS, player_2_team=Team.PURPLE,
+        )
+        match = build_match(self.engine, game)
+        teammate = match.setup_for_side(match.ball.possession).field_players[0]
+        origin = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        zone, index = match.board.position_at_flat_index(origin + 1)
+        match.board.place_meeple(teammate, zone, index)
+        match.set_ball_space(zone, index)
+        self.assertEqual(
+            self.engine.mind_pull_candidates(game, match), [],
+        )
+
+    def test_an_injured_telekinetic_may_not_pull(self):
+        # They cannot pay the token, so they are never offered the
+        # roll -- `add_exhaustion` would refuse it silently.
+        defender = self.defenders()[0]
+        self.line_up_on_the_path(defender)
+        self.match.mark_injured(defender)
+        self.assertEqual(
+            self.engine.mind_pull_candidates(self.game, self.match), [],
+        )
+
+    def test_a_non_telekinetic_never_pulls(self):
+        game = build_game(
+            player_1_team=Team.PURPLE, player_2_team=Team.OOZES,
+        )
+        match = build_match(self.engine, game)
+        defender = match.setup_for_side(
+            match.defending_side(),
+        ).field_players[0]
+        origin = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        zone, index = match.board.position_at_flat_index(origin + 1)
+        match.board.place_meeple(defender, zone, index)
+        match.set_ball_space(zone, index)
+        self.assertEqual(self.engine.mind_pull_candidates(game, match), [])
+
+    def test_a_basic_game_offers_nobody_a_pull(self):
+        defender = self.defenders()[0]
+        self.line_up_on_the_path(defender)
+        basic = build_game(
+            player_1_team=Team.PURPLE,
+            player_2_team=Team.TELEKINETICS,
+            mode=GameMode.BASIC,
+        )
+        self.assertEqual(
+            self.engine.mind_pull_candidates(basic, self.match), [],
+        )
+
+    def test_nobody_is_offered_twice_for_one_movement(self):
+        defender = self.defenders()[0]
+        self.line_up_on_the_path(defender)
+        candidates = self.engine.mind_pull_candidates(self.game, self.match)
+        self.assertEqual(len(candidates), len(set(candidates)))
+
+
+class MindPullOutcomeTests(unittest.TestCase):
+    """
+    What a pull that lands does to the match.
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game(
+            player_1_team=Team.PURPLE, player_2_team=Team.TELEKINETICS,
+        )
+        self.match = build_match(self.engine, self.game)
+        self.puller = self.match.setup_for_side(
+            self.match.defending_side(),
+        ).field_players[0]
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        self.zone, self.index = self.match.board.position_at_flat_index(
+            origin + 1,
+        )
+        self.match.board.place_meeple(self.puller, self.zone, self.index)
+
+    def test_the_ball_stops_on_their_space(self):
+        self.match.apply_mind_pull(self.puller)
+        self.assertEqual(
+            (self.match.ball.zone, self.match.ball.space_index),
+            (self.zone, self.index),
+        )
+
+    def test_their_side_takes_possession_and_they_hold_it(self):
+        was = self.match.ball.possession
+        self.match.apply_mind_pull(self.puller)
+        self.assertNotEqual(self.match.ball.possession, was)
+        self.assertEqual(
+            self.match.ball.possession,
+            self.match.side_for_player(self.puller),
+        )
+        self.assertEqual(self.match.ball_carrier_id, self.puller)
+
+    def test_the_carrier_is_what_exempts_them_from_running_back(self):
+        # `begin_run_back` reads the exemption off `ball_carrier_id`,
+        # so setting it is the whole of arranging that -- the puller
+        # must not be run off the ball they just took.
+        self.match.apply_mind_pull(self.puller)
+        self.match.pending_run_back_stays_player_id = (
+            self.match.ball_carrier_id
+        )
+        self.assertNotIn(
+            self.puller,
+            self.engine.run_back_displaced(
+                self.match, self.match.side_for_player(self.puller),
+            ),
+        )
+
+    def test_the_pull_clears_the_path_and_the_queue(self):
+        # Or the same movement would offer the same pull again at the
+        # next arrival point.
+        self.match.last_ball_path = [[self.zone.value, self.index]]
+        self.match.pending_mind_pull = [self.puller]
+        self.match.apply_mind_pull(self.puller)
+        self.assertEqual(self.match.last_ball_path, [])
+        self.assertEqual(self.match.pending_mind_pull, [])
+
+    def test_the_queue_and_the_resume_survive_a_save(self):
+        # A coach may take minutes over the offer, and between the
+        # interrupt and the answer these are the only thing on the
+        # match saying what the ball was about to do.
+        self.match.pending_mind_pull = [self.puller]
+        self.match.pending_mind_pull_resume = {
+            "kind": "finish_maneuver", "distance_moved": 2,
+        }
+        restored = MatchState.from_dict(
+            self.match.to_dict(), self.engine.basic_ruleset,
+        )
+        self.assertEqual(restored.pending_mind_pull, [self.puller])
+        self.assertEqual(
+            restored.pending_mind_pull_resume["distance_moved"], 2,
+        )
+
+    def test_a_save_written_before_the_fields_pulls_nothing(self):
+        saved = self.match.to_dict()
+        for field_name in (
+            "last_ball_path", "pending_mind_pull", "pending_mind_pull_resume",
+        ):
+            saved.pop(field_name, None)
+        restored = MatchState.from_dict(saved, self.engine.basic_ruleset)
+        self.assertEqual(restored.last_ball_path, [])
+        self.assertEqual(restored.pending_mind_pull, [])
+        self.assertIsNone(restored.pending_mind_pull_resume)
+
+    def test_the_turn_reset_clears_all_three(self):
+        self.match.last_ball_path = [[self.zone.value, self.index]]
+        self.match.pending_mind_pull = [self.puller]
+        self.match.pending_mind_pull_resume = {"kind": "finish_maneuver"}
+        self.match.reset_maneuver()
+        self.assertEqual(self.match.last_ball_path, [])
+        self.assertEqual(self.match.pending_mind_pull, [])
+        self.assertIsNone(self.match.pending_mind_pull_resume)
+
+    def test_the_success_faces_are_the_rules_numbers(self):
+        self.assertEqual(MIND_PULL_SUCCESS_FACES, (1, 2))
+        self.assertEqual(MIND_PULL_TOKEN_COST, 1)
+
+
+def build_mind_pull_cog() -> D12Ball:
+    """
+    A cog with just enough on it to drive an arrival through the real
+    `finish_maneuver_resolution`.
+
+    The gate is the whole point of these tests, so it is emphatically
+    **not** mocked -- unlike the fixtures in the suites that are about
+    something else.
+    """
+    cog = object.__new__(D12Ball)
+    cog.games = {}
+    cog.player_catalog = load_player_catalog()
+    cog.maneuver_catalog = load_maneuver_catalog()
+    cog.basic_ruleset = load_basic_ruleset()
+    cog.team_emojis = {}
+    cog.condition_emojis = {}
+    cog.coin_emojis = {}
+    cog.ai_strategies = build_ai_strategies(
+        cog.player_catalog, cog.maneuver_catalog,
+    )
+    cog.engine = RulesEngine(
+        cog.player_catalog,
+        cog.basic_ruleset,
+        cog.maneuver_catalog,
+        cog.ai_strategies,
+    )
+    cog.refresh_match_image = mock.AsyncMock()
+    cog.send_turn_prompt = mock.AsyncMock()
+    cog.check_for_loose_ball = mock.AsyncMock(return_value=False)
+    cog.begin_run_back = mock.AsyncMock()
+    cog.render_match_png = mock.AsyncMock(return_value=b"png")
+    cog.match_file_from_png = mock.Mock(return_value=None)
+    cog.build_match_file = mock.AsyncMock(return_value=None)
+    cog.bot = SimpleNamespace(get_channel=lambda channel_id: None)
+    return cog
+
+
+def build_mind_pull_interaction() -> SimpleNamespace:
+    sent = SimpleNamespace(id=999, attachments=[])
+    return SimpleNamespace(
+        user=SimpleNamespace(id=222, display_name="Two"),
+        guild=None,
+        channel=None,
+        response=SimpleNamespace(
+            defer=mock.AsyncMock(),
+            edit_message=mock.AsyncMock(),
+            send_message=mock.AsyncMock(),
+        ),
+        followup=SimpleNamespace(send=mock.AsyncMock(return_value=sent)),
+        edit_original_response=mock.AsyncMock(),
+    )
+
+
+class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The gate itself, through the real cog.
+
+    `mind_pull_candidates` answering correctly is not the same claim as
+    the turn actually stopping to ask -- the interrupt is three gates
+    and a resume, and a gate wired to the wrong function, or one that
+    forgets to spend the path, is invisible to a unit test on the
+    engine.
+    """
+
+    def setUp(self) -> None:
+        self.cog = build_mind_pull_cog()
+        self.game = build_game(
+            player_1_team=Team.PURPLE, player_2_team=Team.TELEKINETICS,
+        )
+        self.cog.games[self.game.game_id] = self.game
+        self.match = self.cog.engine.initialize_standard_match(self.game)
+        self.interaction = build_mind_pull_interaction()
+
+        defending = self.match.defending_side()
+        for player_id in self.match.setup_for_side(defending).field_players:
+            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+        self.puller = self.match.setup_for_side(defending).field_players[0]
+
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        zone, index = self.match.board.position_at_flat_index(origin + 1)
+        self.match.board.place_meeple(self.puller, zone, index)
+        self.match.set_ball_space(zone, index)
+
+    def sent_views(self) -> list:
+        return [
+            call.kwargs.get("view")
+            for call in self.interaction.followup.send.await_args_list
+        ]
+
+    async def test_a_crossed_telekinetic_stops_the_turn_to_ask(self):
+        with suppressed_cog_saves():
+            await self.cog.finish_maneuver_resolution(
+                self.interaction, self.game, self.match, distance_moved=1,
+            )
+        self.assertTrue(
+            any(isinstance(view, MindPullView) for view in self.sent_views()),
+        )
+        self.assertEqual(self.match.pending_mind_pull, [self.puller])
+        # The arrival it interrupted is remembered, not lost.
+        self.assertEqual(
+            self.match.pending_mind_pull_resume["kind"], "finish_maneuver",
+        )
+        # And the turn did not carry on underneath the question.
+        self.cog.send_turn_prompt.assert_not_awaited()
+
+    async def test_the_path_is_spent_so_one_movement_asks_once(self):
+        # `finish_maneuver_resolution` gates and then calls
+        # `check_for_loose_ball`, which reaches the second gate; the
+        # spent path is what stops that asking again.
+        with suppressed_cog_saves():
+            await self.cog.finish_maneuver_resolution(
+                self.interaction, self.game, self.match, distance_moved=1,
+            )
+        self.assertEqual(self.match.last_ball_path, [])
+        self.assertFalse(
+            self.cog.engine.mind_pull_candidates(self.game, self.match),
+        )
+
+    async def test_a_movement_crossing_nobody_does_not_interrupt(self):
+        self.match.board.place_meeple(self.puller, Zone.HOME_GOAL, 0)
+        self.match.last_ball_path = []
+        with suppressed_cog_saves():
+            interrupted = await self.cog.check_for_mind_pull(
+                self.interaction, self.game, self.match, {"kind": "x"},
+            )
+        self.assertFalse(interrupted)
+        self.assertEqual(self.match.pending_mind_pull, [])
+
+    async def test_a_basic_game_never_interrupts(self):
+        basic = build_game(
+            player_1_team=Team.PURPLE,
+            player_2_team=Team.TELEKINETICS,
+            mode=GameMode.BASIC,
+        )
+        self.cog.games[basic.game_id] = basic
+        with suppressed_cog_saves():
+            interrupted = await self.cog.check_for_mind_pull(
+                self.interaction, basic, self.match, {"kind": "x"},
+            )
+        self.assertFalse(interrupted)
+
+    async def test_declining_the_last_offer_resumes_the_arrival(self):
+        # The queue's one exit: a coach who declines has to leave the
+        # turn exactly where the pull found it.
+        self.match.pending_mind_pull = []
+        self.match.pending_mind_pull_resume = {
+            "kind": "finish_maneuver", "distance_moved": 1,
+        }
+        self.cog.finish_maneuver_resolution = mock.AsyncMock()
+        with suppressed_cog_saves():
+            await self.cog.continue_mind_pull(
+                self.interaction, self.game, self.match,
+            )
+        # The dispatch itself is the claim, not whatever
+        # `finish_maneuver_resolution` goes on to do with it.
+        self.cog.finish_maneuver_resolution.assert_awaited()
+        self.assertIsNone(self.match.pending_mind_pull_resume)
+
+    async def test_dinky_is_never_asked(self):
+        # "Dinky never pulls" -- an AI side's Telekinetics are skipped
+        # rather than prompted, which is also what keeps this flow free
+        # of an AI branch.
+        solo = build_game(
+            player_1_team=Team.PURPLE,
+            player_2_team=Team.TELEKINETICS,
+            player_2_id=None,
+            ai_opponent=AIOpponent.DINKY,
+        )
+        self.cog.games[solo.game_id] = solo
+        self.cog.finish_maneuver_resolution = mock.AsyncMock()
+        self.match.pending_mind_pull = [self.puller]
+        self.match.pending_mind_pull_resume = {
+            "kind": "finish_maneuver", "distance_moved": 1,
+        }
+        with suppressed_cog_saves():
+            await self.cog.continue_mind_pull(
+                self.interaction, solo, self.match,
+            )
+        self.assertFalse(
+            any(isinstance(view, MindPullView) for view in self.sent_views()),
+        )
+        self.assertEqual(self.match.pending_mind_pull, [])
+        self.cog.finish_maneuver_resolution.assert_awaited()
+
+    async def test_a_pull_that_lands_turns_the_ball_over(self):
+        self.match.pending_mind_pull = [self.puller]
+        self.match.pending_mind_pull_resume = {
+            "kind": "finish_maneuver", "distance_moved": 2,
+        }
+        was = self.match.ball.possession
+        with suppressed_cog_saves(), mock.patch(
+            "random.randint", return_value=MIND_PULL_SUCCESS_FACES[0],
+        ):
+            await self.cog.run_mind_pull(
+                self.interaction, self.game, self.match, self.puller,
+            )
+
+        self.assertNotEqual(self.match.ball.possession, was)
+        self.assertEqual(self.match.ball_carrier_id, self.puller)
+        self.assertEqual(self.match.ball.speed, 1)
+        self.assertEqual(
+            self.match.exhaustion.get(self.puller), MIND_PULL_TOKEN_COST,
+        )
+        # A pull is a steal, so it runs everyone back -- and carries the
+        # interrupted maneuver's own clock cost with it.
+        self.cog.begin_run_back.assert_awaited()
+        self.assertEqual(
+            self.cog.begin_run_back.await_args.kwargs["distance_moved"], 2,
+        )
+        # The arrival it pre-empted never happens.
+        self.assertIsNone(self.match.pending_mind_pull_resume)
+
+    async def test_a_pull_that_misses_still_costs_the_token(self):
+        self.match.pending_mind_pull = [self.puller]
+        self.match.pending_mind_pull_resume = {
+            "kind": "finish_maneuver", "distance_moved": 1,
+        }
+        was = self.match.ball.possession
+        self.cog.finish_maneuver_resolution = mock.AsyncMock()
+        with suppressed_cog_saves(), mock.patch(
+            "random.randint", return_value=12,
+        ):
+            await self.cog.run_mind_pull(
+                self.interaction, self.game, self.match, self.puller,
+            )
+
+        self.assertEqual(self.match.ball.possession, was)
+        self.assertEqual(
+            self.match.exhaustion.get(self.puller), MIND_PULL_TOKEN_COST,
+        )
+        self.cog.begin_run_back.assert_not_awaited()
+        # And the arrival it was holding back goes ahead.
+        self.cog.finish_maneuver_resolution.assert_awaited()
+
+    async def test_a_restart_mid_offer_puts_the_same_question_back(self):
+        self.match.pending_mind_pull = [self.puller]
+        view, prompt = self.cog.pending_turn_view(
+            self.game.game_id, self.match,
+        )
+        self.assertIsInstance(view, MindPullView)
+        self.assertIn("reach", prompt)
 
 
 if __name__ == "__main__":

@@ -215,6 +215,14 @@ CYBORG_DRAINED_AT = 7
 OVERDRIVE_DRAIN_COST = 3
 OVERDRIVE_BONUS = 5
 
+# Mind Pull's two numbers: what trying costs, and the faces that land
+# it. Both the author's -- the steal number stayed at 1-2 when the
+# trigger was broadened from "through" to "to or through" on
+# 2026-09-06, which is the change that makes a 1-space pass pullable
+# at all.
+MIND_PULL_TOKEN_COST = 1
+MIND_PULL_SUCCESS_FACES = (1, 2)
+
 # What each ability is called, for the messages the bot posts when one
 # fires. The names are the author's and are on the printed cards, so a
 # coach reading "Volatile" in the channel and one holding the reference
@@ -1471,6 +1479,19 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField(
         "pending_overdrive", factory=list, write=list, read=list,
     ),
+    # Mind Pull. The path is a list of [zone, index] pairs, so the
+    # copies are deep enough to matter: a shallow list() would hand a
+    # restored match the same inner lists the saved dict holds.
+    SavedField(
+        "last_ball_path",
+        factory=list,
+        write=lambda path: [list(step) for step in path],
+        read=lambda path: [list(step) for step in path],
+    ),
+    SavedField(
+        "pending_mind_pull", factory=list, write=list, read=list,
+    ),
+    SavedField("pending_mind_pull_resume"),
     SavedField("pending_run_back", default=False),
     SavedField("pending_run_back_distance", default=1),
     SavedField("pending_run_back_turnover", default=True),
@@ -1656,6 +1677,28 @@ class MatchState:
     # clicks with a save between them -- the whole point of declaring
     # blind is that a coach commits and *then* somebody presses Roll.
     pending_overdrive: list[str] = field(default_factory=list)
+    # **Mind Pull.** Three fields, and all three exist because a pull
+    # is a *choice with a roll* that has to happen before the ball
+    # settles -- see "Mind Pull (Telekinetic)" in docs/living-rules.md.
+    #
+    # `last_ball_path` is where the ball just went, recorded by
+    # `set_ball_space` (the one funnel every maneuver's movement comes
+    # through) and read by the three arrival points that may offer a
+    # pull. `pending_mind_pull` is the Telekinetics still to be asked,
+    # **in the order the ball reached them** -- "the first to succeed
+    # stops the ball there and the rest get no roll", which is why it
+    # is an ordered queue rather than a set, exactly like
+    # `pending_injury_tests`. `pending_mind_pull_resume` is the arrival
+    # the pull interrupted, so a queue that runs out can put the turn
+    # back where it found it -- the same shape, and for the same
+    # reason, as `pending_injury_resume`.
+    #
+    # All three are persisted: a coach may take minutes over the offer,
+    # and between the interrupt and the answer these are the only thing
+    # on the match saying what the ball was about to do.
+    last_ball_path: list[list] = field(default_factory=list)
+    pending_mind_pull: list[str] = field(default_factory=list)
+    pending_mind_pull_resume: Optional[dict] = None
     exhaustion: dict[str, int] = field(default_factory=dict)
     exhausted: set[str] = field(default_factory=set)
     injured: set[str] = field(default_factory=set)
@@ -2815,6 +2858,29 @@ class MatchState:
             charged = turn.details.setdefault("exhaustion", {})
             charged[player_id] = charged.get(player_id, 0) + amount
 
+    def apply_mind_pull(self, player_id: str) -> None:
+        """
+        A pull that landed: the ball stops on the Telekinetic's space,
+        their side takes possession, and they hold it.
+
+        **It is a steal**, so the caller runs the ordinary turnover --
+        ball speed back to 1, everyone displaced runs back, and this
+        player is the carrier who does not (`begin_run_back` reads the
+        exemption off `ball_carrier_id`, which is why setting it here
+        is the whole of arranging that).
+
+        The path is cleared with it: the movement that offered this
+        pull is over, and leaving it set would offer the same pull
+        again at the next arrival point.
+        """
+        zone, space_index = self.board.meeple_position(player_id)
+        self.ball.zone = zone
+        self.ball.space_index = space_index
+        self.ball.possession = self.side_for_player(player_id)
+        self.set_ball_carrier(player_id)
+        self.last_ball_path = []
+        self.pending_mind_pull = []
+
     def declare_overdrive(self, player_id: str, threshold: int) -> None:
         """
         Take Overdrive's 3 drain tokens and record the declaration, so
@@ -3129,6 +3195,9 @@ class MatchState:
         self.defense_maneuver = None
         self.volatile_tier_upgrade = False
         self.pending_overdrive = []
+        self.last_ball_path = []
+        self.pending_mind_pull = []
+        self.pending_mind_pull_resume = None
         self.pending_run_back = False
         self.pending_run_back_distance = 1
         self.pending_run_back_turnover = True
@@ -3224,12 +3293,57 @@ class MatchState:
         deflection can legitimately land on an empty space. Possession
         is left untouched; callers apply a turnover separately via
         `set_possession`.
+
+        **It records the path it travelled**, in `last_ball_path`, so
+        Mind Pull can be offered to every Telekinetic the ball crossed
+        -- see "Mind Pull (Telekinetic)" in docs/living-rules.md. This
+        is the one funnel every maneuver's ball movement comes through
+        (`move_ball_relative` included), which is what makes the path
+        recordable in one place rather than at eleven effect sites.
+
+        Recording is unconditional and reading is not: a kickoff and a
+        period restart come through here too and are not a ball moving
+        through play, so the three arrival points that *consult* the
+        path are what decide when a pull may be offered, and each
+        clears it as it goes.
         """
         zone = Zone(zone)
         if space_index not in range(len(self.board.spaces[zone])):
             raise ValueError("The target board space does not exist.")
+        self.last_ball_path = self.ball_path_to(zone, space_index)
         self.ball.zone = zone
         self.ball.space_index = space_index
+
+    def ball_path_to(
+        self, zone: Zone, space_index: int,
+    ) -> list[list]:
+        """
+        The spaces a move from the ball's current position to
+        `(zone, space_index)` crosses -- **excluding where it starts
+        and including where it lands**.
+
+        That is exactly what "to or through" means: "it passes over the
+        space on its way somewhere, or comes to rest on it", and "the
+        ball's own starting space does not count as moved to". A move
+        that goes nowhere is an empty path, so a clamped pass offers
+        nobody a pull.
+
+        Each entry is `[zone value, space index]` rather than a tuple,
+        because this is persisted with the rest of the match and JSON
+        has no tuples.
+        """
+        origin = self.board.flat_index(self.ball.zone, self.ball.space_index)
+        target = self.board.flat_index(Zone(zone), space_index)
+        if target == origin:
+            return []
+        step = 1 if target > origin else -1
+        path = []
+        for flat in range(origin + step, target + step, step):
+            crossed_zone, crossed_index = self.board.position_at_flat_index(
+                flat,
+            )
+            path.append([crossed_zone.value, crossed_index])
+        return path
 
     def move_ball_relative(self, side: TeamSide, spaces: int) -> int:
         """

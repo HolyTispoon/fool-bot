@@ -93,6 +93,7 @@ from cogs.d12ball_views import (
     HighPassChoiceView,
     HomeAwaySelectionView,
     InjuryTestView,
+    MindPullView,
     LobbyView,
     LooseBallSkillTestView,
     LowPassChoiceView,
@@ -1613,6 +1614,24 @@ class CoreMixin:
             return (
                 CoachingHubView(self, game_id),
                 "Halftime Coaching Choice:",
+            )
+
+        if match.pending_mind_pull:
+            # Ahead of the injury tests and of everything a maneuver
+            # leaves set, for a stronger version of their reason: a
+            # pull interrupts an arrival that has *not happened yet*,
+            # so the maneuver's own state is still exactly as it was
+            # and every branch below would resolve the arrival this is
+            # holding back. It is also the one interrupt that can
+            # change who has the ball, so answering it first is what
+            # keeps the rest of the chain reading a settled position.
+            player = self.engine.get_player_definition(
+                match.pending_mind_pull[0],
+            )
+            return (
+                MindPullView(self, game_id, player.player_id),
+                f"{self.player_label(match, player)} can still reach "
+                "for the ball:",
             )
 
         if match.pending_injury_tests:

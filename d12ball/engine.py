@@ -57,6 +57,7 @@ from d12ball.components import (
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
     SPECIES_OOZE,
+    SPECIES_TELEKINETIC,
     BasicRuleset,
     CoachingOccasion,
     FormationShape,
@@ -412,6 +413,56 @@ class RulesEngine:
         return match.turn_handler_candidates(
             self.slip_in_candidates(game, match),
         )
+
+    def mind_pull_candidates(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        The Telekinetics the ball just crossed who may try to pull it
+        in, **in the order the ball reached them** -- which is the
+        whole of "each may try in the order the ball reaches them; the
+        first to succeed stops the ball there and the rest get no
+        roll".
+
+        Read off `match.last_ball_path`, which `set_ball_space`
+        recorded, so this needs no argument beyond the match and
+        answers the same way after a restart.
+
+        Three things narrow it, and each is a sentence of the rule:
+
+        - **The opposing side only.** "Only the opposing team's ball"
+          -- a Telekinetic never pulls their own side's ball in, so
+          this is the side *not* in possession at the moment the ball
+          moved.
+        - **Injured players are out**, because a pull costs an
+          exhaustion token and an injured player cannot gain one. That
+          is the ordinary rule reaching here rather than an exception:
+          `add_exhaustion` would silently refuse, leaving a coach
+          paying nothing for a free roll.
+        - **One roll per Telekinetic per movement.** A player standing
+          on two spaces of the path is impossible, but a path that
+          doubles back is not worth relying on being impossible, so
+          the list is de-duplicated.
+        """
+        if not self.species_abilities_apply(game):
+            return []
+
+        defending = match.defending_side()
+        theirs = set(match.setup_for_side(defending).field_players)
+
+        candidates: list[str] = []
+        for zone_value, space_index in match.last_ball_path:
+            for player_id in match.board.spaces[Zone(zone_value)][space_index]:
+                if player_id not in theirs or player_id in candidates:
+                    continue
+                if player_id in match.injured:
+                    continue
+                if not self.has_species_ability(
+                    game, player_id, SPECIES_TELEKINETIC,
+                ):
+                    continue
+                candidates.append(player_id)
+        return candidates
 
     def merge_bonus(
         self,

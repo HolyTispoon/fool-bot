@@ -985,6 +985,82 @@ with it.
   own skill is already in the total, so they are struck out rather than
   double-counted.
 
+### Mind Pull, and the arrival gate
+
+**The only ability that interrupts a maneuver rather than modifying one.**
+"Mind Pull resolves before the ball settles: a pull that lands pre-empts
+whatever the movement would have led to -- a reception, a scoring
+opportunity, a contest, a loose ball." So the ball has to be able to stop
+mid-flight, which is a change to the spine of a turn and not an addition
+beside one.
+
+**`set_ball_space` records the path; three arrival points read it.** That
+split is the whole design.
+
+- **Recording is one place** because `set_ball_space` is the funnel every
+  maneuver's ball movement comes through, `move_ball_relative` included --
+  eleven effect sites, one method. `MatchState.ball_path_to` is the geometry:
+  **excluding where the ball starts and including where it lands**, which is
+  exactly "to or through" plus "the ball's own starting space does not count
+  as moved to". A move that goes nowhere is an empty path, so a clamped pass
+  offers nobody a pull.
+- **Reading is three places**, and they are the functions that settle an
+  arrival: `finish_maneuver_resolution` (the tail of every ordinary path,
+  receptions included), `begin_loose_ball` (a Deflect, which calls it
+  directly, and the High Pass contest, which comes through it), and
+  `offer_scoring_attempt_choice` (a set-up). Between them they are every one
+  of the four things the rules say a pull pre-empts.
+- **`check_for_mind_pull` returns True when it took over**, exactly the shape
+  `check_for_loose_ball` has, so a gate is one `if ...: return` at the top of
+  each. It sits *above* the loose-ball check in
+  `finish_maneuver_resolution`: whether the possessing side has anybody where
+  the maneuver would have left the ball is a question that must not be asked
+  while a pull could still move it somewhere else.
+- **The path is spent whether or not anybody may pull**, before the early
+  return. That is what stops one movement being offered twice when two gates
+  run in a row -- `finish_maneuver_resolution` gates and then calls
+  `check_for_loose_ball`, which reaches the second gate with the path already
+  empty.
+
+**Recording unconditionally and reading selectively is deliberate.** A
+kickoff and a period restart come through `set_ball_space` too and are not a
+ball moving through play; making the *readers* decide when a pull may be
+offered is what keeps the recorder free of a list of exceptions.
+
+**The queue and the resume are `pending_injury_tests`' shape**, and for the
+same reasons. `pending_mind_pull` is ordered because "each may try in the
+order the ball reaches them; the first to succeed stops the ball there and
+the rest get no roll"; `pending_mind_pull_resume` is the arrival that was
+interrupted, because between the interrupt and the answer nothing else on the
+match says what the ball was about to do. `continue_mind_pull` is the one
+exit, so a coach who declines and a Telekinetic who was never asked leave by
+the same door.
+
+- **A pull that lands drops the resume rather than dispatching it** -- the
+  arrival it pre-empted never happens. What it does not drop is that
+  maneuver's clock cost, which rides into `begin_run_back` as
+  `distance_moved`: "the maneuver that moved the ball still costs its space
+  minute".
+- **A pull is a steal**, so `apply_mind_pull` sets `ball_carrier_id` and the
+  caller runs an ordinary turnover. Setting the carrier *is* the whole of
+  arranging the exemption, since `begin_run_back` reads it off there -- see
+  "The ball carrier".
+- **Dinky never pulls**, so an AI side's Telekinetics are skipped rather than
+  prompted. Paying a token for a one-in-six steal is a judgement call and
+  Dinky makes none; it is also what keeps this flow free of an AI branch.
+- **The token is paid whether or not the pull lands**, so the charge is above
+  the roll rather than in the winning branch. It is **not a skill test and
+  owes no injury check**, which the rules state outright -- nothing here goes
+  through `begin_injury_tests`.
+- **An injured Telekinetic is skipped, not refused**, in both
+  `mind_pull_candidates` and `run_mind_pull`. They cannot pay the token, and
+  `add_exhaustion` would refuse it silently and hand them a free roll.
+- **`pending_mind_pull` is checked first in `pending_turn_view`**, ahead even
+  of the injury tests, for a stronger version of their reason: a pull
+  interrupts an arrival that has *not happened yet*, so the maneuver's state
+  is still exactly as it was and every branch below would resolve the arrival
+  this is holding back.
+
 ## Who wins a maneuver
 
 **`D12Ball.settled_maneuver_winner` is the only answer to that**, and it

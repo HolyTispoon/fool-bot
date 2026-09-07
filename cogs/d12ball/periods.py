@@ -84,6 +84,24 @@ class PeriodMixin:
         team occupies -- this detours into the loose-ball flow instead,
         which re-enters this function itself once it's settled.
         """
+        # **Mind Pull first**, because it pre-empts the arrival rather
+        # than reacting to it: a pull that lands stops the ball on the
+        # Telekinetic's space, so whether the possessing side has
+        # anybody where the maneuver *would* have left it is a
+        # question that must not be asked yet.
+        if await self.check_for_mind_pull(
+            interaction,
+            game,
+            match,
+            {
+                "kind": "finish_maneuver",
+                "distance_moved": distance_moved,
+                "turnover_occurred": turnover_occurred,
+                "lead_in": lead_in,
+            },
+        ):
+            return
+
         if await self.check_for_loose_ball(
             interaction, game, match, distance_moved, lead_in=lead_in,
         ):

@@ -67,7 +67,7 @@ review). `GameMode` is still a single BASIC/ADVANCED switch and the opt-out is t
 game record beside it (`advanced_maneuvers`, `species_abilities`), both defaulting on -- so
 turning advanced mode on brings both, and a game may drop either.
 
-**Volatile, Lithium Powered and Slimey are built** (2026-09-07); Mind Pull is not yet.
+**All four abilities are built** (2026-09-07).
 
 Two readings the build had to make that the rules do not spell out, **for the author to confirm
 or overrule**:
@@ -78,6 +78,13 @@ or overrule**:
   send one of them to a different space in that zone. The build reads moving within your own
   zone as not running back, so both stack candidates charge up. The alternative is that
   whichever one the coach moves does not.
+- **A pull is offered at the arrival, not at the moment the ball crosses the space.** The
+  rules say Mind Pull resolves before the ball settles, and the build reads that as "before the
+  arrival is resolved" -- the offer goes out once the movement is complete, in the order the
+  ball reached each Telekinetic, and a pull that lands overrides where the ball had landed.
+  Offering it strictly mid-flight would mean a pass being interrupted before its own distance
+  is known, which no other rule in the game does. The outcome is the same in every case the
+  author has described; it is the *timing of the question* that is a reading.
 - **Volatile's tier rider raises the winner's card and switches on no cost.** "A surge on the
   winning side resolves that side's maneuver as its advanced version" says what *resolves*; it
   does not say the loser now pays their card's advanced cost. So a tie raised to advanced by a
