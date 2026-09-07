@@ -314,19 +314,23 @@ Where the handler is already standing on the space closest to their own goal the
 
 ### When an advanced effect fires
 
-**The cards decide, not the dice.**
+**The cards decide, not the dice — and they decide about each card separately.**
 
-| The cards | The effects |
+| An advanced card | Carries |
 | --- | --- |
-| Decisive | The winner takes their card's benefit and the loser pays their card's cost. |
-| A tie | Neither. The winner of the skill test resolves the **basic** card on their rank instead. |
+| **Won on the cards** | Its **benefit**, when it is the card that resolves. |
+| **Lost on the cards** | Its **cost**, paid by the side that played it. |
+| Tied on the cards | Neither. The winner of the skill test resolves the **basic** card on their rank instead. |
 
-Two readings follow from that one, and neither is an exception to it:
+A tie is the commonest case where nothing fires, but it is not the test. What matters is what the cards said about **that card**.
 
-- An [injured](#playing-injured) participant's automatic loss of a tie carries nothing. It was a tie on the cards; the injury only settled it without a roll.
-- A skill test forced by an injured participant's disadvantage still carries them. The cards were decisive, so the effects are in force, and the roll only decides which way they point.
+Everything else follows from it, and none of it is an exception:
 
-Twenty-four of the thirty-six pairings are decisive and carry effects. Twelve are ties and carry none.
+- An [injured](#playing-injured) participant's automatic loss of a tie carries nothing. Nobody won or lost on the cards; the injury only settled it without a roll.
+- Where the cards were decisive and the card-winner also wins the skill test their injury forced, both effects land where the cards put them: their benefit, and the loser's cost.
+- **Where the card-winner is injured and *loses* that skill test, neither fires.** The card now resolving lost on the cards, so it resolves at its basic rank; and the card that won on the cards is not paying a cost for a matchup it won.
+
+Twenty-four of the thirty-six pairings are decisive; twelve are ties and carry nothing either way.
 
 ### Skilled Pass
 
@@ -419,7 +423,7 @@ Every roll a Fire Demon makes is covered: their die in a [skill test](#the-skill
 
 **In a maneuver skill test the surge or backfire decides a tier, and what the loser pays.** Four cases, one for each way an ignite can land:
 
-- **A surge that wins** resolves that side's maneuver as **the advanced version of the rank they played** — even where the cards tied and the [basic card](#when-an-advanced-effect-fires) would otherwise resolve. That is an upgrade nearly every time: a skill test means the cards tied, and a tie does not resolve advanced on its own, so even a player who *did* play the advanced card gets it resolving as advanced for the first time. A card already resolving at advanced gains nothing more.
+- **A surge that wins** resolves that side's maneuver as **the advanced version of the rank they played** — even where the [cards would have resolved the basic one](#when-an-advanced-effect-fires). That is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve advanced on its own, so even a player who *did* play the advanced card gets it resolving as advanced for the first time. A card already resolving at advanced gains nothing more.
 - **A surge that loses** upgrades nothing — and **that player pays no [advanced cost](#when-an-advanced-effect-fires)**, even where the cards would otherwise have charged them one.
 - **A backfire that loses** resolves the *opponent's* maneuver as its advanced version, **and that player pays their own advanced card's cost** — a backfire is the one thing that puts a cost in force where the cards alone would not.
 - **A backfire that wins** changes nothing but the number. They won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.

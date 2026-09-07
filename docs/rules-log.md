@@ -102,6 +102,39 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-07 (later the same day) -- author, an advanced effect follows *its own* card's result
+
+**Supersedes the 2026-08-19 wording**, which the author called imprecise on review:
+
+> *"It wasn't correct to say that just because it's not a tie on the cards, the cost/benefit
+> would trigger. The more accurate ruling is that a benefit only triggers when the advanced
+> maneuver wins on the cards, and the cost only triggers when the advanced maneuver loses on the
+> cards. A tie on the cards is the most common case where the cost/benefit isn't triggered but
+> it wasn't accurate of me to define it as the decisive factor."*
+
+So the rule is about **each card**, not about the matchup:
+
+| An advanced card | Carries |
+|---|---|
+| Won on the cards | its benefit, when it is the card that resolves |
+| Lost on the cards | its cost, paid by the side that played it |
+| Tied | neither |
+
+**The case that separates the two readings** is an injury-forced skill test that the
+card-*loser* wins. The cards were decisive, so the old predicate said both effects were in
+force -- but the card now resolving is the one that lost on the cards (it must not carry a
+benefit), and the card that lost the test is the one that won on them (it must not pay a cost).
+Worked through with the author from the concrete pairing: offense **High Pass** against defense
+**Clear**, the defence injured, the offense winning the forced test -- under the old reading
+Clear paid its cost having won the matchup on rank.
+
+`RulesEngine.advanced_effects_apply` is retired for `advanced_benefit_applies` and
+`advanced_cost_applies`, one question per card. Nothing else about the advanced maneuvers
+changed, and every other case answers as it did.
+
+**Volatile's overrides sit on top of this unchanged**: a surge that loses still suppresses a
+cost, and a backfire that loses still forces one, whatever the cards said.
+
 ### 2026-09-07 -- author, Charge-up is about moving, and an ignite decides the loser's cost
 
 Three readings the build made were put to the author. **Two were corrected and one confirmed.**
