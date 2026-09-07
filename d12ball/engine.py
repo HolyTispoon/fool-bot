@@ -38,6 +38,7 @@ side is only ever "insert `.engine`" at each call site.
 """
 
 import random
+from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Optional
 
@@ -49,7 +50,11 @@ from d12ball.components import (
     SKILLED_PASS_REACH,
     MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
+    CYBORG_DRAINED_AT,
+    OVERDRIVE_BONUS,
+    OVERDRIVE_DRAIN_COST,
     SETUP_AREAS,
+    SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
     BasicRuleset,
     CoachingOccasion,
@@ -320,6 +325,48 @@ class RulesEngine:
             second=second,
             surge=surge,
         )
+
+    def overdrive_candidates(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_ids: Collection[Optional[str]],
+    ) -> list[str]:
+        """
+        Which of the players about to roll may still declare Overdrive
+        -- the Cyborgs among them who have not already declared and are
+        not injured.
+
+        Every roll prompt asks this with whoever is rolling on it, and
+        builds a button per answer. Passing the rollers in rather than
+        deriving them here is what lets one method serve six prompts
+        that each know their own rollers and nothing else: a score
+        attempt has a shooter, a contest has two sides, a shootout test
+        has one a side.
+
+        `None` is allowed in and filtered out, since a score attempt's
+        second die belongs to no player.
+        """
+        if not self.species_abilities_apply(game):
+            return []
+        return [
+            player_id
+            for player_id in player_ids
+            if player_id is not None
+            and player_id not in match.pending_overdrive
+            and player_id not in match.injured
+            and self.has_species_ability(game, player_id, SPECIES_CYBORG)
+        ]
+
+    def overdrive_detail(self, match: MatchState, player_id: str) -> str:
+        """
+        The line a declared Overdrive adds to the dice image's modifier
+        list, or "" -- the twin of `IgnitedRoll.detail`, and worded the
+        same way so a coach reads one list of modifiers however they
+        were earned.
+        """
+        modifier = match.overdrive_modifier(player_id)
+        return f"+{modifier} Overdrive" if modifier else ""
 
     def volatile_raises_tier(
         self,
@@ -1593,7 +1640,57 @@ class RulesEngine:
             + self.run_back_crowded(match, side)
         )
 
-    def apply_forced_run_backs(self, match: MatchState) -> None:
+    def charge_up_players(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        Every Cyborg on the field this run back does **not** move --
+        Lithium Powered's Charge-up, one drain token off each.
+
+        "A Cyborg who is not moved by it -- one already in their own
+        zone, or the carrier who never runs back" is the rule, and
+        those two examples are exactly the complement of
+        `run_back_displaced`: displaced players are the ones outside
+        their own zone, and the carrier is already struck out of that
+        list by the exemption. So this is "on the field, and not
+        someone the run back is about to send home".
+
+        **A stacked player counts as staying**, which is the one
+        reading here that the rules do not spell out. A stack sits
+        *inside* a zone, so its players are "already in their own
+        zone" -- the rule's own first example -- even though a coach
+        may then send one of them to a different space in it. Moving
+        within the zone you are already in is not running back. Raised
+        in the rules log for the author.
+
+        It answers with the ids rather than charging them, so the
+        caller can word the result and save in its own breath; the
+        removal itself is `MatchState.remove_exhaustion`.
+        """
+        if not self.species_abilities_apply(game):
+            return []
+
+        charged: list[str] = []
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            running_back = set(self.run_back_displaced(match, side))
+            for player_id in match.setup_for_side(side).field_players:
+                if player_id in running_back:
+                    continue
+                if not self.has_species_ability(
+                    game, player_id, SPECIES_CYBORG,
+                ):
+                    continue
+                # Never below zero, and nothing to say for a Cyborg
+                # carrying none -- see "A move that costs nothing says
+                # nothing" in CLAUDE.md.
+                if match.exhaustion.get(player_id, 0) <= 0:
+                    continue
+                charged.append(player_id)
+        return charged
+
+    def apply_forced_run_backs(
+        self, game: D12BallGame, match: MatchState,
+    ) -> None:
         """
         Place every run-back that isn't a choice: a zone whose open
         spaces exactly match the players who need one has only one
@@ -1649,7 +1746,7 @@ class RulesEngine:
                         # threshold test the way apply_exhaustion's
                         # does -- but the flag still has to be set
                         # before the caller's save.
-                        self.retest_exhausted(match, player_id)
+                        self.retest_exhausted(game, match, player_id)
                     applied_forced = True
 
     def next_run_back_step(
@@ -1765,21 +1862,54 @@ class RulesEngine:
             f"{self.shootout_running_score(match)}"
         )
 
-    def retest_exhausted(self, match: MatchState, player_id: str) -> bool:
+    def exhaustion_threshold(
+        self, game: D12BallGame, player_id: str,
+    ) -> int:
         """
-        Re-test a player's Exhausted flag against their own defensive
-        skill. True only on the transition, so callers can announce it
-        once.
+        The token count a player's own must **exceed** to be
+        Exhausted -- their defensive skill, or a Cyborg's flat Drained
+        line.
+
+        **A Cyborg's tokens are drain**, gained and spent exactly as
+        exhaustion tokens, and the only thing that differs is where the
+        line sits: Drained at 7 or more, whatever their defensive
+        skill. `mark_exhausted_if_needed` marks on *greater than*, so
+        the threshold that produces "7 or more" is 6 -- which is why
+        this returns `CYBORG_DRAINED_AT - 1` rather than the constant
+        itself, and why the arithmetic is done here once instead of at
+        the two call sites.
+
+        It is a large durability gain for the low-defence roles: a
+        Cyborg striker is Exhausted at 2 normally and is fine until 7.
+        That is the author's, and the reason the ability is worth a
+        module.
+        """
+        if self.has_species_ability(game, player_id, SPECIES_CYBORG):
+            return CYBORG_DRAINED_AT - 1
+        player = self.get_player_definition(player_id)
+        return self.player_catalog.effective_profile(player).defense
+
+    def retest_exhausted(
+        self, game: D12BallGame, match: MatchState, player_id: str,
+    ) -> bool:
+        """
+        Re-test a player's Exhausted flag against their own threshold.
+        True only on the transition, so callers can announce it once.
 
         `MatchState` deliberately does not carry the skill the
         threshold is measured against, so this test can only happen up
         here -- which is exactly why it has to run before the state is
         written out. See `apply_exhaustion`.
+
+        It takes the `game` since the threshold is a Cyborg's own in a
+        game playing the species abilities. Passing the *game* rather
+        than reading a flag off the match is deliberate: the modules a
+        game is playing are the game record's, and a copy of them on
+        the match would be a second thing that can disagree.
         """
-        player = self.get_player_definition(player_id)
         return match.mark_exhausted_if_needed(
             player_id,
-            self.player_catalog.effective_profile(player).defense,
+            self.exhaustion_threshold(game, player_id),
         )
 
     def roster_setups_for_user(

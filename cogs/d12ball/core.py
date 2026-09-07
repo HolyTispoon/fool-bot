@@ -695,7 +695,7 @@ class CoreMixin:
         # Exhausted threshold, and that flag is set while the
         # description is put together. See apply_exhaustion.
         walk_in_text = self.describe_challenger_walk_in(
-            match, challenger_id, distance,
+            game, match, challenger_id, distance,
         )
         self.persist(game, match)
 
@@ -1012,9 +1012,9 @@ class CoreMixin:
         and put the roll behind a button -- every roll is a coach's.
         """
         exhaustion_text = (
-            self.apply_exhaustion(match, match.active_player_id, 1)
+            self.apply_exhaustion(game, match, match.active_player_id, 1)
             + "\n"
-            + self.apply_exhaustion(match, match.challenger_id, 1)
+            + self.apply_exhaustion(game, match, match.challenger_id, 1)
         )
         self.persist(game, match)
 
@@ -1309,13 +1309,21 @@ class CoreMixin:
         # the Fire Demon who rolled it, which the living rules say
         # outright rather than leaving to be inferred.
         ignite = self.engine.ignite(game, player.player_id, roll)
-        check = roll + ignite.modifier
+        overdrive = match.overdrive_modifier(player.player_id)
+        match.consume_overdrive()
+        check = roll + ignite.modifier + overdrive
         current_tokens = match.exhaustion.get(player.player_id, 0)
         safe = check > current_tokens
         # The die image draws the natural face, so an ignite has to be
         # said in words or the number a coach reads and the verdict
         # they are given would not add up.
-        ignite_note = f" ({ignite.detail}, {check})" if ignite.detail else ""
+        modifiers = ", ".join(
+            part for part in (
+                ignite.detail,
+                f"+{overdrive} Overdrive" if overdrive else "",
+            ) if part
+        )
+        ignite_note = f" ({modifiers}, {check})" if modifiers else ""
         player_team = match.team_for_player(player.player_id)
         dice_file = discord.File(
             await asyncio.to_thread(

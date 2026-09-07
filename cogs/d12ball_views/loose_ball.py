@@ -368,6 +368,18 @@ class LooseBallSkillTestView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
+        # Overdrive, for whichever contestant is a Cyborg.
+        game, match = self.load_match()
+        if game is not None and match is not None:
+            self.add_overdrive_buttons(
+                game,
+                match,
+                [
+                    match.loose_ball_offense_player,
+                    match.loose_ball_defense_player,
+                ],
+            )
+
     def score_loose_ball(
         self,
         game: D12BallGame,
@@ -427,8 +439,20 @@ class LooseBallSkillTestView(SafeView):
             game, defense_player.player_id, defense_roll,
         )
 
-        offense_total = offense_roll + offense_skill + offense_ignite.modifier
-        defense_total = defense_roll + defense_skill + defense_ignite.modifier
+        offense_overdrive = match.overdrive_modifier(
+            offense_player.player_id,
+        )
+        defense_overdrive = match.overdrive_modifier(
+            defense_player.player_id,
+        )
+        offense_total = (
+            offense_roll + offense_skill + offense_ignite.modifier
+            + offense_overdrive
+        )
+        defense_total = (
+            defense_roll + defense_skill + defense_ignite.modifier
+            + defense_overdrive
+        )
 
         offense_detail = contestant_detail(
             offense_player, "Offensive", offense_skill,
@@ -438,10 +462,18 @@ class LooseBallSkillTestView(SafeView):
             defense_player, "Defensive", defense_skill,
             injured=defense_injured,
         )
-        if offense_ignite.detail:
-            offense_detail.append(offense_ignite.detail)
-        if defense_ignite.detail:
-            defense_detail.append(defense_ignite.detail)
+        for detail, line in (
+            (offense_detail, offense_ignite.detail),
+            (offense_detail, self.cog.engine.overdrive_detail(
+                match, offense_player.player_id,
+            )),
+            (defense_detail, defense_ignite.detail),
+            (defense_detail, self.cog.engine.overdrive_detail(
+                match, defense_player.player_id,
+            )),
+        ):
+            if line:
+                detail.append(line)
 
         # A High Pass's receiver adds the ball speed modifier to keep
         # what the pass delivered (2026-08-07). A genuine loose ball is
@@ -595,6 +627,7 @@ class LooseBallSkillTestView(SafeView):
         contestants, offense_total, defense_total = self.score_loose_ball(
             game, match, offense_player, defense_player,
         )
+        match.consume_overdrive()
         dice_file = await render_contest_dice(
             contestants, filename="loose_ball_dice.png",
         )

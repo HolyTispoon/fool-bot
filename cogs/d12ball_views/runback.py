@@ -223,7 +223,7 @@ class RunBackChoiceView(SafeView):
             return
 
         exhaustion_text = self.cog.apply_exhaustion(
-            match, self.player_id, distance,
+            game, match, self.player_id, distance,
         )
         self.cog.persist(game, match)
 

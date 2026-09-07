@@ -430,7 +430,7 @@ class ManeuverEffectsMixin:
                 f"{self.player_label(match, handler)} and the "
                 f"ball move forward {actual_distance} {space_word}"
                 f"{ability_note}."
-                + self.pay_clear_cost(match, "dribble_advance")
+                + self.pay_clear_cost(game, match, "dribble_advance")
             ),
         )
 
@@ -532,7 +532,7 @@ class ManeuverEffectsMixin:
         # cannot turn a run into a token back.
         tokens = max(0, actual_distance - (1 if playmaker_bonus else 0))
         exhaustion_text = self.apply_exhaustion(
-            match, match.active_player_id, tokens,
+            game, match, match.active_player_id, tokens,
         )
         self.persist(game, match)
 
@@ -566,7 +566,7 @@ class ManeuverEffectsMixin:
         # played it gains 2 exhaustion. It is a flat 2 rather than 2 on
         # top of a maneuver's own charge, because a maneuver charges
         # none -- only a skill test, a walk, a shot and a run back do.
-        lead_in += self.pay_clear_cost(match, "dribble_burst")
+        lead_in += self.pay_clear_cost(game, match, "dribble_burst")
 
         await self.offer_speed_choice(
             interaction,
@@ -616,7 +616,9 @@ class ManeuverEffectsMixin:
             + " are each shoved a space forward, away from their own goal."
         )
 
-    def pay_clear_cost(self, match: MatchState, winner_key: str) -> str:
+    def pay_clear_cost(
+        self, game: D12BallGame, match: MatchState, winner_key: str,
+    ) -> str:
         """
         Clear's cost, charged where it is due -- inside the dribble
         that beat it -- and worded for the message that dribble is
@@ -628,7 +630,7 @@ class ManeuverEffectsMixin:
         defender_id = match.challenger_id
         if defender_id is None:
             return ""
-        text = self.apply_exhaustion(match, defender_id, 2)
+        text = self.apply_exhaustion(game, match, defender_id, 2)
         return f"\n\n**Clear** was beaten -- 2 exhaustion.\n{text}"
 
     # -- High Pass -----------------------------------------------------
@@ -1651,7 +1653,7 @@ class ManeuverEffectsMixin:
             player_id, match.ball.zone, match.ball.space_index,
         )
         exhaustion_text = self.apply_exhaustion(
-            match, player_id, recovery_distance,
+            game, match, player_id, recovery_distance,
         )
         if turnover:
             match.ball.possession = match.defending_side()
@@ -1730,10 +1732,16 @@ class ManeuverEffectsMixin:
                 None,
                 [
                     self.apply_exhaustion(
-                        match, offense_player_id, offense_recovery_distance,
+                        game,
+                        match,
+                        offense_player_id,
+                        offense_recovery_distance,
                     ),
                     self.apply_exhaustion(
-                        match, defense_player_id, defense_recovery_distance,
+                        game,
+                        match,
+                        defense_player_id,
+                        defense_recovery_distance,
                     ),
                 ],
             )
@@ -2871,6 +2879,7 @@ class ManeuverEffectsMixin:
         offense_skill: int,
         safe: bool,
         ignite: Optional[IgnitedRoll] = None,
+        overdrive: int = 0,
     ) -> tuple[discord.File, str]:
         """
         The dice image and the arithmetic that produced it, which is
@@ -2901,7 +2910,9 @@ class ManeuverEffectsMixin:
         )
         if ignite and ignite.detail:
             breakdown += f", {ignite.detail}"
-        breakdown += f" = {taken + offense_skill + modifier}"
+        if overdrive:
+            breakdown += f", +{overdrive} Overdrive"
+        breakdown += f" = {taken + offense_skill + modifier + overdrive}"
 
         return dice_file, breakdown
 
@@ -2986,7 +2997,11 @@ class ManeuverEffectsMixin:
         ignite = self.engine.ignite(
             game, offense_player.player_id, max(rolls),
         )
-        safe = max(rolls) + offense_skill + ignite.modifier >= 7
+        overdrive = match.overdrive_modifier(offense_player.player_id)
+        match.consume_overdrive()
+        safe = (
+            max(rolls) + offense_skill + ignite.modifier + overdrive >= 7
+        )
 
         # Logged ahead of `apply_own_goal_outcome`, which is what
         # concedes the goal, so the risk sits above the goal it
@@ -3007,11 +3022,12 @@ class ManeuverEffectsMixin:
         # and any Exhausted flag it sets are written out with the rest
         # of the roll's outcome -- see apply_exhaustion.
         exhaustion_text = self.apply_exhaustion(
-            match, offense_player.player_id, 1,
+            game, match, offense_player.player_id, 1,
         )
 
         dice_file, breakdown = await self.own_goal_roll_message(
             match, offense_player, rolls, offense_skill, safe, ignite,
+            overdrive,
         )
         verdict = self.apply_own_goal_outcome(
             game, match, offense_player, distance_moved, safe,

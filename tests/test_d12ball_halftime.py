@@ -662,7 +662,7 @@ class HalftimeEngineTests(unittest.TestCase):
         player_id = match.home.field_players[0]
         match.exhaustion[player_id] = 1
 
-        removed = match.recover_exhaustion(player_id, 5, defense_skill=3)
+        removed = match.recover_exhaustion(player_id, 5, threshold=3)
 
         self.assertEqual(removed, 1)
         self.assertNotIn(player_id, match.exhaustion)
@@ -676,11 +676,11 @@ class HalftimeEngineTests(unittest.TestCase):
         match.exhausted.add(player_id)
 
         # 5 - 1 = 4, still over a defense skill of 3 -- still exhausted.
-        match.recover_exhaustion(player_id, 1, defense_skill=3)
+        match.recover_exhaustion(player_id, 1, threshold=3)
         self.assertIn(player_id, match.exhausted)
 
         # 4 - 1 = 3, no longer over the threshold -- clears.
-        match.recover_exhaustion(player_id, 1, defense_skill=3)
+        match.recover_exhaustion(player_id, 1, threshold=3)
         self.assertNotIn(player_id, match.exhausted)
 
     def test_recover_exhaustion_is_a_no_op_for_injured_players(self) -> None:
@@ -688,7 +688,7 @@ class HalftimeEngineTests(unittest.TestCase):
         player_id = match.home.field_players[0]
         match.injured.add(player_id)
 
-        removed = match.recover_exhaustion(player_id, 1, defense_skill=3)
+        removed = match.recover_exhaustion(player_id, 1, threshold=3)
 
         self.assertEqual(removed, 0)
 

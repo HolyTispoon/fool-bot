@@ -864,6 +864,80 @@ losing side raises "the opponent's" -- and the opponent of the losing side
   and it only ever raises -- a card already resolving at advanced gains
   nothing, which falls out of an advanced card's counterpart being itself.
 
+### Lithium Powered
+
+Three things sharing one ability, and they touch three different parts of the
+codebase.
+
+**The Drained line made the Exhausted threshold a question.** It used to be
+"the player's defensive skill" and was read straight off the profile at each
+site; a Cyborg's is a flat 7, so `RulesEngine.exhaustion_threshold` is now the
+one answer and `retest_exhausted`, `apply_exhaustion`,
+`describe_exhaustion_gain`, `recover_exhaustion` and `apply_substitution` all
+ask it.
+
+- **That is why so many methods grew a `game`.** The threshold depends on which
+  modules the game is playing, and the modules are the *game record's* -- so
+  the game had to reach every site that charges or removes a token. Seventeen
+  call sites took it; almost all already had one in scope.
+- **A copy of the modules on `MatchState` would have avoided that and was not
+  worth it.** It is a second thing that can disagree with the game record,
+  which is the failure this codebase keeps writing down (see the team colours,
+  and the formations living in two places *checked against each other*).
+- **`recover_exhaustion`'s parameter is `threshold`, not `defense_skill`.**
+  Renamed rather than left: it is now sometimes a Cyborg's 7, and a parameter
+  named for one of its two meanings is how the next reader gets it wrong.
+- **`mark_exhausted_if_needed` marks on *greater than*, so "Drained at 7 or
+  more" is a threshold of 6.** The arithmetic is done once, inside
+  `exhaustion_threshold`, rather than at the sites -- `CYBORG_DRAINED_AT - 1`
+  appears exactly once.
+- **A Cyborg's tokens are called drain wherever a coach reads them**, which is
+  `describe_exhaustion_gain` branching on the same predicate. The mechanic is
+  identical and the word is the ability.
+
+**Overdrive is the only thing in the game declared before a roll**, which is
+what it cost to build. Every roll already sits behind a button any coach may
+press, so the declaration is a **second button on that same prompt** rather
+than a step of its own -- `SafeView.add_overdrive_buttons` builds it and
+`SafeView.declare_overdrive` answers it, shared by all six roll prompts so a
+seventh gets it in one line.
+
+- **`MatchState.pending_overdrive` is a list, not a flag**, because a contest
+  has two rollers and both may be Cyborgs -- and because the ids are what say
+  whose total the +5 goes on. Membership is also the "once per roll" check.
+- **It is persisted**, since declaring and rolling are two clicks with a save
+  between them. That *is* declaring blind: a coach commits, and only then does
+  somebody press Roll.
+- **Every roll site clears it**, win, lose or tie. A tie that is re-rolled is a
+  fresh roll and has to be Overdriven again, which the rules say outright and
+  which falls out of consuming rather than being special-cased.
+- **The declaration is the Cyborg's own coach's, unlike the roll.** Either
+  coach may throw a die (see "Every roll is a coach's"); nobody else may spend
+  another coach's tokens. The button carries the player in its custom_id for
+  the reason the injury test's does -- an older prompt in the channel must not
+  declare for somebody else's roll.
+- **A Drained Cyborg may still Overdrive, and an injured one may not.** The
+  first is the rules ("the drain stacks"); the second is not a rule about
+  Overdrive at all -- an injured player carries no tokens and cannot gain any,
+  so the price cannot be paid. Overdrive itself survives injury, being a flat
+  bonus rather than the withheld skill modifier.
+
+**Charge-up is settled in `begin_run_back`, not at the end of the cascade.**
+That is the one moment that knows who the run back is about to move:
+`run_back_displaced` reads the position before anybody has come home, and the
+carrier exemption was recorded two lines above.
+
+- **Only on a real run back.** "A new-play reset is not a run back and triggers
+  no Charge-up", so it sits in the `else` of the `new_play` branch.
+- **A stacked player counts as staying**, which is the one reading here the
+  rules do not spell out: a stack sits *inside* a zone, so its players are
+  "already in their own zone" -- the rule's own first example -- even though a
+  coach may then send one of them to another space in it. Raised in the rules
+  log for the author.
+- **It goes through `recover_exhaustion` rather than decrementing.** A Cyborg
+  on exactly 7 is Drained and dropping to 6 clears it, so the removal has to
+  re-test.
+
 ## Who wins a maneuver
 
 **`D12Ball.settled_maneuver_winner` is the only answer to that**, and it

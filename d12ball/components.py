@@ -204,6 +204,17 @@ SPECIES_ORDER: tuple[str, ...] = (
     SPECIES_OOZE,
 )
 
+# Lithium Powered's three numbers -- see "Lithium Powered (Cyborg)" in
+# docs/living-rules.md. All three are the author's and none is
+# derivable, so they are named here rather than written into the
+# predicates that read them. The Drained line was simplified from
+# "offensive + defensive skill" (which is 7 for every current player
+# anyway) to a flat 7 on 2026-09-06, and the Overdrive price was raised
+# from 2-for-+3 to 3-for-+5 the same day.
+CYBORG_DRAINED_AT = 7
+OVERDRIVE_DRAIN_COST = 3
+OVERDRIVE_BONUS = 5
+
 # What each ability is called, for the messages the bot posts when one
 # fires. The names are the author's and are on the printed cards, so a
 # coach reading "Volatile" in the channel and one holding the reference
@@ -1457,6 +1468,9 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("challenger_id"),
     SavedField("maneuver_uncontested", default=False),
     SavedField("volatile_tier_upgrade", default=False),
+    SavedField(
+        "pending_overdrive", factory=list, write=list, read=list,
+    ),
     SavedField("pending_run_back", default=False),
     SavedField("pending_run_back_distance", default=1),
     SavedField("pending_run_back_turnover", default=True),
@@ -1624,6 +1638,24 @@ class MatchState:
     # tier the dice decided, and nothing else on the match records it.
     # `reset_maneuver` clears it with the rest of the turn.
     volatile_tier_upgrade: bool = False
+    # **Overdrive declared, and not yet spent**: the Cyborgs who have
+    # taken 3 drain to add +5 to the roll that is about to happen. See
+    # "Lithium Powered (Cyborg)" in docs/living-rules.md.
+    #
+    # A list rather than a flag because a contest has two rollers and
+    # both may be Cyborgs, and because the ids are what say *whose*
+    # total the +5 goes on. Membership is also the "once per roll"
+    # check -- `declare_overdrive` refuses a second declaration.
+    #
+    # It is **declared and paid before the die is thrown** and cleared
+    # by the roll that reads it (`consume_overdrive`), which is what
+    # makes a tie's re-roll a fresh roll: the +5 does not carry, and
+    # the re-roll may be Overdriven again for another 3 drain.
+    #
+    # Persisted, because the declaration and the roll are two separate
+    # clicks with a save between them -- the whole point of declaring
+    # blind is that a coach commits and *then* somebody presses Roll.
+    pending_overdrive: list[str] = field(default_factory=list)
     exhaustion: dict[str, int] = field(default_factory=dict)
     exhausted: set[str] = field(default_factory=set)
     injured: set[str] = field(default_factory=set)
@@ -2759,6 +2791,49 @@ class MatchState:
             charged = turn.details.setdefault("exhaustion", {})
             charged[player_id] = charged.get(player_id, 0) + amount
 
+    def declare_overdrive(self, player_id: str, threshold: int) -> None:
+        """
+        Take Overdrive's 3 drain tokens and record the declaration, so
+        the next roll this player makes adds its +5.
+
+        Refuses a second declaration for the same roll -- "once per
+        roll" -- rather than charging twice for a bonus that does not
+        stack. It goes through `add_exhaustion` like every other
+        charge, so the tokens are attributed to the open turn, and it
+        re-tests Drained afterwards because 3 at once is enough to
+        cross the line on its own. **A Drained Cyborg may still
+        Overdrive**, which is why nothing here refuses on the flag: the
+        drain stacks, and the cost of being past 7 is the injury check,
+        not a ban on spending.
+        """
+        if player_id in self.pending_overdrive:
+            raise ValueError("Overdrive has already been declared.")
+        if player_id in self.injured:
+            # An injured player carries no tokens and cannot gain any,
+            # so there is nothing to spend. Overdrive itself is not
+            # withheld by injury -- it is a flat bonus, not the skill
+            # modifier -- but the price cannot be paid.
+            raise ValueError("An injured player cannot Overdrive.")
+        self.add_exhaustion(player_id, OVERDRIVE_DRAIN_COST)
+        self.mark_exhausted_if_needed(player_id, threshold)
+        self.pending_overdrive.append(player_id)
+
+    def overdrive_modifier(self, player_id: str) -> int:
+        """What a declared Overdrive adds to this player's roll."""
+        return (
+            OVERDRIVE_BONUS if player_id in self.pending_overdrive else 0
+        )
+
+    def consume_overdrive(self) -> None:
+        """
+        Spend every declaration -- called by the roll that read them.
+
+        Every roll site clears this, win or lose, so a declaration
+        cannot leak onto the next roll: a tie that is re-rolled is a
+        fresh roll and has to be Overdriven again.
+        """
+        self.pending_overdrive = []
+
     def mark_exhausted_if_needed(
         self,
         player_id: str,
@@ -2793,16 +2868,27 @@ class MatchState:
         self,
         player_id: str,
         amount: int,
-        defense_skill: int,
+        threshold: int,
     ) -> int:
         """
-        Remove up to `amount` exhaustion tokens (floored at 0) from a
-        player during halftime recovery, re-testing Exhausted against
-        the given defense skill rather than assuming it clears --
-        mirrors add_exhaustion/mark_exhausted_if_needed's split, since
-        recovery can drop a player back under the threshold that put
-        them there. A no-op for an injured player, who never carries
-        exhaustion. Returns the number of tokens actually removed.
+        Remove up to `amount` exhaustion tokens (floored at 0),
+        re-testing Exhausted against `threshold` rather than assuming
+        it clears -- mirrors add_exhaustion/mark_exhausted_if_needed's
+        split, since taking tokens off can drop a player back under
+        the threshold that put them there. A no-op for an injured
+        player, who never carries exhaustion. Returns the number of
+        tokens actually removed.
+
+        `threshold` is what the count has to stay **at or below** to
+        clear the flag -- a player's defensive skill, or a Cyborg's
+        flat Drained line. It is `RulesEngine.exhaustion_threshold`'s
+        answer, and is a plain number here for the reason
+        `mark_exhausted_if_needed` takes one: `MatchState` does not
+        know a player's skills, let alone which modules the game is
+        playing.
+
+        Two callers: halftime recovery, and Lithium Powered's
+        Charge-up.
         """
         if amount <= 0 or player_id in self.injured:
             return 0
@@ -2815,7 +2901,7 @@ class MatchState:
             self.exhaustion[player_id] = remaining
         else:
             self.exhaustion.pop(player_id, None)
-        if remaining <= defense_skill:
+        if remaining <= threshold:
             self.exhausted.discard(player_id)
         return removed
 
@@ -3018,6 +3104,7 @@ class MatchState:
         self.offense_maneuver = None
         self.defense_maneuver = None
         self.volatile_tier_upgrade = False
+        self.pending_overdrive = []
         self.pending_run_back = False
         self.pending_run_back_distance = 1
         self.pending_run_back_turnover = True

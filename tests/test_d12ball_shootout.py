@@ -616,6 +616,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
             )
 
             cog.apply_substitution(
+                game,
                 match,
                 TeamSide.HOME,
                 match.home.field_players[0],
@@ -716,7 +717,7 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
             outgoing = match.home.field_players[0]
             incoming = match.home.team_board.bench[0]
             cog.apply_substitution(
-                match, TeamSide.HOME, outgoing, incoming,
+                game, match, TeamSide.HOME, outgoing, incoming,
             )
             await cog.finish_substitution_window(
                 build_interaction(), game, match,

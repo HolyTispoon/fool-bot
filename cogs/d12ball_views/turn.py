@@ -693,6 +693,7 @@ class ManeuverChallengeView(SafeView):
         # Built before the save: a walk-in's tokens can cross the
         # Exhausted threshold, and this description is what tests it.
         walk_in_text = self.cog.describe_challenger_walk_in(
+            game,
             match,
             player_id,
             distance,

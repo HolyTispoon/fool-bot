@@ -61,6 +61,15 @@ class SkillTestView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
+        # Overdrive, for whichever of the two rollers is a Cyborg --
+        # declared before the die and on this same message. Both sides
+        # may be, and each is their own coach's to press.
+        game, match = self.load_match()
+        if game is not None and match is not None:
+            self.add_overdrive_buttons(
+                game, match, [match.active_player_id, match.challenger_id],
+            )
+
     def score_skill_test(
         self,
         game: D12BallGame,
@@ -120,8 +129,24 @@ class SkillTestView(SafeView):
             game, defense_player.player_id, defense_roll,
         )
 
-        offense_total = offense_roll + offense_skill + offense_ignite.modifier
-        defense_total = defense_roll + defense_skill + defense_ignite.modifier
+        # Overdrive was declared and paid before this button was
+        # pressed; what is left is to add it and clear the declaration,
+        # which `roll` does once both sides have been read.
+        offense_overdrive = match.overdrive_modifier(
+            offense_player.player_id,
+        )
+        defense_overdrive = match.overdrive_modifier(
+            defense_player.player_id,
+        )
+
+        offense_total = (
+            offense_roll + offense_skill + offense_ignite.modifier
+            + offense_overdrive
+        )
+        defense_total = (
+            defense_roll + defense_skill + defense_ignite.modifier
+            + defense_overdrive
+        )
 
         offense_detail = contestant_detail(
             offense_player, "Offensive", offense_skill,
@@ -129,10 +154,18 @@ class SkillTestView(SafeView):
         defense_detail = contestant_detail(
             defense_player, "Defensive", defense_skill,
         )
-        if offense_ignite.detail:
-            offense_detail.append(offense_ignite.detail)
-        if defense_ignite.detail:
-            defense_detail.append(defense_ignite.detail)
+        for detail, line in (
+            (offense_detail, offense_ignite.detail),
+            (offense_detail, self.cog.engine.overdrive_detail(
+                match, offense_player.player_id,
+            )),
+            (defense_detail, defense_ignite.detail),
+            (defense_detail, self.cog.engine.overdrive_detail(
+                match, defense_player.player_id,
+            )),
+        ):
+            if line:
+                detail.append(line)
 
         # Role ability -- Midfielder: +3 on a skill test when
         # attempting Low Pass (offense) or Pressure (defense).
@@ -253,6 +286,9 @@ class SkillTestView(SafeView):
         ) = self.score_skill_test(
             game, match, offense_player, defense_player,
         )
+        # Spent, win, lose or tie: a tie that is re-rolled is a fresh
+        # roll and has to be Overdriven again.
+        match.consume_overdrive()
         # Logged before either branch, so a tie that re-rolls is in the
         # record as well as the roll that settles it -- a maneuver
         # decided on the third attempt cost three rolls and six
@@ -395,6 +431,14 @@ class InjuryTestView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
+        # Overdrive is legal on an injury check -- "any d12 the Cyborg
+        # themselves rolls" -- which is the one roll where spending
+        # drain to pass is also three more drain to have passed with.
+        # That trade is the coach's to make.
+        game, match = self.load_match()
+        if game is not None and match is not None:
+            self.add_overdrive_buttons(game, match, [player_id])
+
     async def roll(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -452,6 +496,13 @@ class OwnGoalRollView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
+        # Overdrive, for the handler who has to survive the roll.
+        game, match = self.load_match()
+        if game is not None and match is not None:
+            self.add_overdrive_buttons(
+                game, match, [match.active_player_id],
+            )
+
     async def roll(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -497,13 +548,21 @@ class ScoreAttemptView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
+        # Overdrive, for the shooter alone. A score attempt's second
+        # die is the defensive wall's and belongs to no card, so there
+        # is nobody on that side to declare it.
+        game, match = self.load_match()
+        if game is not None and match is not None:
+            self.add_overdrive_buttons(
+                game, match, [match.active_player_id],
+            )
+
         # A shot not yet rolled always has somewhere to walk back to --
         # see `MatchState.may_cancel_pending_shot` -- and only the side
         # that chose it may reconsider. No `possession_user_id` means
         # Dinky is the one shooting, which is not a choice a human
         # standing in for its rolls gets to undo either (see "Every
         # roll is a coach's" in CLAUDE.md).
-        game, match = self.load_match()
         if (
             game is not None
             and match is not None
@@ -574,8 +633,10 @@ class ScoreAttemptView(SafeView):
         attack_ignite = self.cog.engine.ignite(
             game, shooter.player_id, attack_roll,
         )
+        overdrive = match.overdrive_modifier(shooter.player_id)
         attack_total = (
-            attack_roll + offense_skill + speed_modifier + attack_ignite.modifier
+            attack_roll + offense_skill + speed_modifier
+            + attack_ignite.modifier + overdrive
         )
         defense_total = defense_roll + defense_skill_total
 
@@ -584,6 +645,11 @@ class ScoreAttemptView(SafeView):
             attack_detail.append(f"{speed_modifier:+d} ball speed modifier")
         if attack_ignite.detail:
             attack_detail.append(attack_ignite.detail)
+        overdrive_detail = self.cog.engine.overdrive_detail(
+            match, shooter.player_id,
+        )
+        if overdrive_detail:
+            attack_detail.append(overdrive_detail)
 
         # Role ability -- Striker: +3 on any scoring attempt off a
         # set-up. Injury does not withhold this one, deliberately: an
@@ -670,7 +736,7 @@ class ScoreAttemptView(SafeView):
         # exclusive to skill tests either way.
         if match.pending_shot_is_set_up:
             verdict += "\n\n" + self.cog.apply_exhaustion(
-                match, shooter.player_id, 1,
+                game, match, shooter.player_id, 1,
             )
 
         # Every score attempt is a turnover, win or miss: the clock
@@ -745,6 +811,7 @@ class ScoreAttemptView(SafeView):
         contestants, attack_total, defense_total = self.score_score_attempt(
             game, match, shooter, attacking_setup, defending_setup,
         )
+        match.consume_overdrive()
         dice_file = await render_contest_dice(
             contestants, filename="score_attempt_dice.png",
         )

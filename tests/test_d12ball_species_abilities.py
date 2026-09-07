@@ -1,7 +1,8 @@
 """
-Species abilities: the module switch they ride on, and Volatile.
+Species abilities: the module switch they ride on, Volatile, and
+Lithium Powered.
 
-Three layers, and they fail for different reasons:
+Four layers, and they fail for different reasons:
 
 - **The switch.** Advanced mode is one setting over two modules, and
   `advanced_maneuvers_apply` / `species_abilities_apply` are the only
@@ -14,6 +15,11 @@ Three layers, and they fail for different reasons:
 - **Volatile.** `ignite` is the funnel every d12 in the game comes
   through, and `volatile_raises_tier` plus `resolving_maneuver` are the
   tier rider on top of it.
+- **Lithium Powered.** Three separate things sharing one ability: the
+  Drained line (`exhaustion_threshold`, which every exhaustion charge
+  and every recovery now asks), Overdrive (declared and paid before a
+  roll, spent by it), and Charge-up (`charge_up_players`, read off who
+  the run back is about to move).
 
 The rules are "Species abilities" in docs/living-rules.md. Nothing here
 asserts the wording of a message -- that is prose and will be revised;
@@ -31,12 +37,16 @@ from unittest import mock
 
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
+    CYBORG_DRAINED_AT,
+    OVERDRIVE_BONUS,
+    OVERDRIVE_DRAIN_COST,
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
     SPECIES_OOZE,
     SPECIES_TELEKINETIC,
     MatchState,
     TeamSide,
+    Zone,
     duplicate_card_id,
     load_basic_ruleset,
     load_maneuver_catalog,
@@ -55,7 +65,7 @@ from d12ball.game import (
     Team,
 )
 
-from roster import fielded_of_species
+from roster import field_players, fielded_of_species
 
 
 def build_engine() -> RulesEngine:
@@ -505,6 +515,292 @@ class ResolvingManeuverTests(unittest.TestCase):
         self.match.volatile_tier_upgrade = True
         self.match.reset_maneuver()
         self.assertFalse(self.match.volatile_tier_upgrade)
+
+
+class DrainThresholdTests(unittest.TestCase):
+    """
+    "A Cyborg carrying 7 or more drain is Drained ... Below 7 a Cyborg
+    is never Exhausted, however low their defensive skill."
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        # Nine Cyborgs a side is the cleanest fixture for a threshold
+        # that is about the species and not about the role.
+        self.game = build_game(player_1_team=Team.CYBORGS)
+        self.match = build_match(self.engine, self.game)
+        self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
+
+    def defense_of(self, player_id: str) -> int:
+        return self.engine.player_catalog.effective_profile(
+            self.engine.get_player_definition(player_id),
+        ).defense
+
+    def test_a_cyborg_is_drained_at_seven_not_at_their_defence(self):
+        self.assertEqual(
+            self.engine.exhaustion_threshold(self.game, self.cyborg),
+            CYBORG_DRAINED_AT - 1,
+        )
+        # The threshold is what the count must *exceed*, so 6 tokens is
+        # still fine and the 7th is what does it.
+        self.match.add_exhaustion(self.cyborg, CYBORG_DRAINED_AT - 1)
+        self.assertFalse(
+            self.engine.retest_exhausted(self.game, self.match, self.cyborg)
+        )
+        self.match.add_exhaustion(self.cyborg, 1)
+        self.assertTrue(
+            self.engine.retest_exhausted(self.game, self.match, self.cyborg)
+        )
+
+    def test_a_low_defence_cyborg_survives_well_past_their_skill(self):
+        # The whole point of the ability, and the author's reason for
+        # simplifying the line to a flat 7. Read off the *lowest*
+        # defence on the field rather than whoever comes first: which
+        # role that is belongs to the roster, and every side fields a
+        # spread.
+        weakest = min(
+            field_players(self.match), key=self.defense_of,
+        )
+        skill = self.defense_of(weakest)
+        self.assertLess(skill, CYBORG_DRAINED_AT - 1)
+
+        self.match.add_exhaustion(weakest, skill + 1)
+        self.assertFalse(
+            self.engine.retest_exhausted(self.game, self.match, weakest)
+        )
+        self.assertNotIn(weakest, self.match.exhausted)
+
+    def test_a_basic_game_gives_a_cyborg_no_such_thing(self):
+        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+        self.assertEqual(
+            self.engine.exhaustion_threshold(basic, self.cyborg),
+            self.defense_of(self.cyborg),
+        )
+
+    def test_a_non_cyborg_is_exhausted_on_their_defensive_skill(self):
+        other = fielded_of_species(
+            self.match, SPECIES_FIRE_DEMON, TeamSide.VISITING,
+        )
+        self.assertEqual(
+            self.engine.exhaustion_threshold(self.game, other),
+            self.defense_of(other),
+        )
+
+
+class OverdriveTests(unittest.TestCase):
+    """
+    "Once per roll, before the die is thrown, a Cyborg may take 3 drain
+    tokens to add +5 to that roll."
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game(player_1_team=Team.CYBORGS)
+        self.match = build_match(self.engine, self.game)
+        self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
+
+    def declare(self, player_id=None):
+        player_id = player_id or self.cyborg
+        self.match.declare_overdrive(
+            player_id,
+            self.engine.exhaustion_threshold(self.game, player_id),
+        )
+
+    def test_declaring_costs_three_drain_and_adds_five(self):
+        self.declare()
+        self.assertEqual(
+            self.match.exhaustion[self.cyborg], OVERDRIVE_DRAIN_COST,
+        )
+        self.assertEqual(
+            self.match.overdrive_modifier(self.cyborg), OVERDRIVE_BONUS,
+        )
+
+    def test_once_per_roll(self):
+        self.declare()
+        with self.assertRaises(ValueError):
+            self.declare()
+        # And the refusal charged nothing extra.
+        self.assertEqual(
+            self.match.exhaustion[self.cyborg], OVERDRIVE_DRAIN_COST,
+        )
+
+    def test_the_bonus_does_not_carry_to_the_next_roll(self):
+        # "A tie that is rolled again is a fresh roll: the +5 does not
+        # carry, and the re-roll may be Overdriven for another 3 drain."
+        self.declare()
+        self.match.consume_overdrive()
+        self.assertEqual(self.match.overdrive_modifier(self.cyborg), 0)
+        self.declare()
+        self.assertEqual(
+            self.match.exhaustion[self.cyborg], OVERDRIVE_DRAIN_COST * 2,
+        )
+
+    def test_a_drained_cyborg_may_still_overdrive(self):
+        # "A Drained Cyborg may still Overdrive -- the drain stacks."
+        self.match.add_exhaustion(self.cyborg, CYBORG_DRAINED_AT)
+        self.engine.retest_exhausted(self.game, self.match, self.cyborg)
+        self.assertIn(self.cyborg, self.match.exhausted)
+
+        self.declare()
+        self.assertEqual(
+            self.match.exhaustion[self.cyborg],
+            CYBORG_DRAINED_AT + OVERDRIVE_DRAIN_COST,
+        )
+        self.assertEqual(
+            self.match.overdrive_modifier(self.cyborg), OVERDRIVE_BONUS,
+        )
+
+    def test_declaring_can_be_what_drains_them(self):
+        self.match.add_exhaustion(self.cyborg, CYBORG_DRAINED_AT - 3)
+        self.declare()
+        self.assertIn(self.cyborg, self.match.exhausted)
+
+    def test_an_injured_cyborg_cannot_pay_for_it(self):
+        self.match.mark_injured(self.cyborg)
+        with self.assertRaises(ValueError):
+            self.declare()
+
+    def test_only_cyborgs_are_offered_it(self):
+        others = [
+            fielded_of_species(self.match, species, TeamSide.VISITING)
+            for species in (SPECIES_FIRE_DEMON, SPECIES_OOZE)
+            if self.engine.species_of(
+                fielded_of_species(self.match, species, TeamSide.VISITING)
+            )
+        ]
+        offered = self.engine.overdrive_candidates(
+            self.game, self.match, [self.cyborg] + others,
+        )
+        self.assertEqual(offered, [self.cyborg])
+
+    def test_nobody_is_offered_it_in_a_basic_game(self):
+        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+        self.assertEqual(
+            self.engine.overdrive_candidates(
+                basic, self.match, [self.cyborg],
+            ),
+            [],
+        )
+
+    def test_a_cyborg_who_has_declared_is_not_offered_it_again(self):
+        self.declare()
+        self.assertEqual(
+            self.engine.overdrive_candidates(
+                self.game, self.match, [self.cyborg],
+            ),
+            [],
+        )
+
+    def test_a_die_belonging_to_nobody_is_filtered_out(self):
+        # A score attempt passes its second roller as None.
+        self.assertEqual(
+            self.engine.overdrive_candidates(self.game, self.match, [None]),
+            [],
+        )
+
+    def test_the_declaration_survives_a_save(self):
+        # Declaring and rolling are two clicks with a save between
+        # them -- that is the whole of declaring blind.
+        self.declare()
+        restored = MatchState.from_dict(
+            self.match.to_dict(), self.engine.basic_ruleset,
+        )
+        self.assertEqual(
+            restored.overdrive_modifier(self.cyborg), OVERDRIVE_BONUS,
+        )
+
+    def test_a_save_written_before_the_field_declares_nothing(self):
+        saved = self.match.to_dict()
+        saved.pop("pending_overdrive", None)
+        restored = MatchState.from_dict(saved, self.engine.basic_ruleset)
+        self.assertEqual(restored.pending_overdrive, [])
+
+    def test_the_turn_reset_clears_it(self):
+        self.declare()
+        self.match.reset_maneuver()
+        self.assertEqual(self.match.pending_overdrive, [])
+
+
+class ChargeUpTests(unittest.TestCase):
+    """
+    "Whenever players run back, a Cyborg who is not moved by it ...
+    removes 1 drain token. Once per run back, never below zero."
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game(player_1_team=Team.CYBORGS)
+        self.match = build_match(self.engine, self.game)
+
+    def test_a_cyborg_left_in_place_charges_up(self):
+        cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
+        self.match.add_exhaustion(cyborg, 4)
+        self.assertIn(
+            cyborg, self.engine.charge_up_players(self.game, self.match),
+        )
+
+    def test_a_cyborg_the_run_back_moves_does_not(self):
+        # Drag one out of their own zone: they are displaced, so the
+        # run back is about to send them home and they charge nothing.
+        cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
+        self.match.add_exhaustion(cyborg, 4)
+        self.match.board.place_meeple(cyborg, Zone.VISITORS_GOAL, 0)
+        self.assertNotIn(
+            cyborg, self.engine.charge_up_players(self.game, self.match),
+        )
+
+    def test_the_carrier_who_never_runs_back_charges_up(self):
+        # The rule names them explicitly: they are displaced but exempt,
+        # so `run_back_displaced` already strikes them out.
+        cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
+        self.match.add_exhaustion(cyborg, 4)
+        self.match.board.place_meeple(cyborg, Zone.VISITORS_GOAL, 0)
+        self.match.pending_run_back_stays_player_id = cyborg
+        self.assertIn(
+            cyborg, self.engine.charge_up_players(self.game, self.match),
+        )
+
+    def test_never_below_zero(self):
+        # A Cyborg carrying nothing has nothing to take off, and says
+        # nothing about it either.
+        cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
+        self.assertEqual(self.match.exhaustion.get(cyborg, 0), 0)
+        self.assertNotIn(
+            cyborg, self.engine.charge_up_players(self.game, self.match),
+        )
+
+    def test_a_basic_game_charges_nobody_up(self):
+        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+        cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
+        self.match.add_exhaustion(cyborg, 4)
+        self.assertEqual(
+            self.engine.charge_up_players(basic, self.match), [],
+        )
+
+    def test_a_non_cyborg_never_charges_up(self):
+        for player_id in self.match.visiting.field_players:
+            if self.engine.species_of(player_id) == SPECIES_CYBORG:
+                continue
+            self.match.add_exhaustion(player_id, 4)
+        charged = self.engine.charge_up_players(self.game, self.match)
+        for player_id in charged:
+            self.assertEqual(
+                self.engine.species_of(player_id), SPECIES_CYBORG,
+            )
+
+    def test_charging_up_can_clear_drained(self):
+        # A Cyborg sitting on exactly 7 is Drained; dropping to 6
+        # clears it, which is why the removal re-tests rather than
+        # decrementing the count by hand.
+        cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
+        self.match.add_exhaustion(cyborg, CYBORG_DRAINED_AT)
+        self.engine.retest_exhausted(self.game, self.match, cyborg)
+        self.assertIn(cyborg, self.match.exhausted)
+
+        self.match.recover_exhaustion(
+            cyborg, 1, self.engine.exhaustion_threshold(self.game, cyborg),
+        )
+        self.assertNotIn(cyborg, self.match.exhausted)
 
 
 if __name__ == "__main__":

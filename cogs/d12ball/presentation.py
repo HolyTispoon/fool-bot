@@ -18,6 +18,8 @@ from typing import Awaitable, Callable, Optional
 
 from discord.ext import commands
 from d12ball.components import (
+    CYBORG_DRAINED_AT,
+    SPECIES_CYBORG,
     MatchState,
     PlayerRole,
     TeamSetup,
@@ -112,6 +114,7 @@ class PresentationMixin:
 
     def apply_exhaustion(
         self,
+        game: D12BallGame,
         match: MatchState,
         player_id: str,
         amount: int,
@@ -129,12 +132,19 @@ class PresentationMixin:
         injury check for anyone the test's own tokens pushed over.
         Anything that charges exhaustion should call this and save
         afterwards.
+
+        It takes the `game` because the threshold is not always the
+        player's defensive skill: a Cyborg's tokens are **drain** and
+        the line is a flat 7 -- see `RulesEngine.exhaustion_threshold`.
+        Nothing else about charging a token differs by species, which
+        is why this stayed one method rather than growing a branch.
         """
         match.add_exhaustion(player_id, amount)
-        return self.describe_exhaustion_gain(match, player_id, amount)
+        return self.describe_exhaustion_gain(game, match, player_id, amount)
 
     def describe_exhaustion_gain(
         self,
+        game: D12BallGame,
         match: MatchState,
         player_id: str,
         amount: int,
@@ -142,7 +152,7 @@ class PresentationMixin:
         """
         Text describing an exhaustion-token gain that has already been
         applied to `match` — the running total, plus a line the moment
-        it pushes the player's token count past their defense skill.
+        it pushes the player's token count past their own threshold.
 
         Testing the threshold is a state change, so this has to be
         called before `match` is saved -- prefer `apply_exhaustion`,
@@ -171,23 +181,42 @@ class PresentationMixin:
         exhaust_emoji = get_exhaust_emoji(self.condition_emojis)
         total = match.exhaustion.get(player_id, 0)
         token_word = "token" if amount == 1 else "tokens"
+        # A Cyborg's tokens are drain, and are called that everywhere a
+        # coach reads them -- the mechanic is the same and the word is
+        # the ability. See "Lithium Powered" in docs/living-rules.md.
+        drain = self.engine.has_species_ability(
+            game, player_id, SPECIES_CYBORG,
+        )
+        noun = "drain" if drain else "exhaustion"
         text = (
-            f"{self.player_label(match, player)} gains {amount} exhaustion "
+            f"{self.player_label(match, player)} gains {amount} {noun} "
             f"{token_word} {exhaust_emoji * amount} (now {total} total)."
         )
 
-        defense_skill = self.player_catalog.effective_profile(player).defense
-        if self.engine.retest_exhausted(match, player_id):
+        if self.engine.retest_exhausted(game, match, player_id):
             exhausted_emoji = get_exhausted_emoji(self.condition_emojis)
-            text += (
-                f"\n{self.player_label(match, player)} now has the condition "
-                f"**exhausted** {exhausted_emoji} — {total} exhaustion "
-                f"tokens exceeds their defense skill of {defense_skill}."
-            )
+            if drain:
+                text += (
+                    f"\n{self.player_label(match, player)} is now "
+                    f"**Drained** {exhausted_emoji} — {total} drain "
+                    f"tokens reaches {CYBORG_DRAINED_AT}. Drained counts "
+                    "as Exhausted everywhere the rules use the word."
+                )
+            else:
+                defense_skill = self.player_catalog.effective_profile(
+                    player,
+                ).defense
+                text += (
+                    f"\n{self.player_label(match, player)} now has the "
+                    f"condition **exhausted** {exhausted_emoji} — {total} "
+                    "exhaustion tokens exceeds their defense skill of "
+                    f"{defense_skill}."
+                )
         return text
 
     def describe_challenger_walk_in(
         self,
+        game: D12BallGame,
         match: MatchState,
         defender_id: str,
         distance: int,
@@ -207,7 +236,7 @@ class PresentationMixin:
         space_word = "space" if distance == 1 else "spaces"
         return (
             f"{defender.name} has moved {distance} {space_word}."
-            f"\n{self.describe_exhaustion_gain(match, defender_id, distance)}"
+            f"\n{self.describe_exhaustion_gain(game, match, defender_id, distance)}"
         )
 
 

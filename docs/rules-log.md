@@ -63,9 +63,27 @@ a bot game still gets six cards a side and the plain roster; the abilities are p
 printed cards for now.
 
 **Advanced mode turns both modules on, and a game may take just one of them** (the author, PR
-review). The bot's `GameMode` is a single BASIC/ADVANCED switch, which covers the default; the
-per-module opt-out has nowhere to live yet. That, and actually reading `species.json`, is the
-code change that remains.
+review). `GameMode` is still a single BASIC/ADVANCED switch and the opt-out is two bools on the
+game record beside it (`advanced_maneuvers`, `species_abilities`), both defaulting on -- so
+turning advanced mode on brings both, and a game may drop either.
+
+**Volatile and Lithium Powered are built** (2026-09-07); Mind Pull and Slimey are not yet.
+
+Two readings the build had to make that the rules do not spell out, **for the author to confirm
+or overrule**:
+
+- **A stacked player counts as staying, for Charge-up.** The rule gives a Cyborg a drain token
+  back when a run back does not move them, and names "one already in their own zone" as the
+  case. A stack sits *inside* a zone, so its players are already home -- but a coach may then
+  send one of them to a different space in that zone. The build reads moving within your own
+  zone as not running back, so both stack candidates charge up. The alternative is that
+  whichever one the coach moves does not.
+- **Volatile's tier rider raises the winner's card and switches on no cost.** "A surge on the
+  winning side resolves that side's maneuver as its advanced version" says what *resolves*; it
+  does not say the loser now pays their card's advanced cost. So a tie raised to advanced by a
+  surge carries the benefit and no cost -- `advanced_cost` still asks whether the *cards* were
+  decisive. The alternative is that an ignited tie behaves as a decisive matchup in both
+  directions.
 
 The three role-ability-vs-advanced-card contradictions below are unchanged.
 
