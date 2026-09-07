@@ -1,6 +1,6 @@
 # D12 Ball — Living Rules
 
-This is the whole of the game as it currently stands — **basic mode**, and the [advanced maneuvers](#advanced-maneuvers) a game may be played with instead. It states each rule once and settled: history, open questions and the places upstream has not caught up yet all belong in [rules-log.md](rules-log.md).
+This is the whole of the game as it currently stands — **basic mode**, and the [advanced maneuvers](#advanced-maneuvers) and [species abilities](#species-abilities) a game may be played with instead. It states each rule once and settled: history, open questions and the places upstream has not caught up yet all belong in [rules-log.md](rules-log.md).
 
 ## Contents
 
@@ -11,6 +11,7 @@ This is the whole of the game as it currently stands — **basic mode**, and the
 - [Score attempt](#score-attempt)
 - [Maneuvers](#maneuvers)
 - [Advanced maneuvers](#advanced-maneuvers)
+- [Species abilities](#species-abilities)
 - [Ball speed](#ball-speed)
 - [Scoring opportunities](#scoring-opportunities)
 - [Sending a player](#sending-a-player)
@@ -296,7 +297,7 @@ Where the handler is already standing on the space closest to their own goal the
 
 ## Advanced maneuvers
 
-A game may be played with a second set of six maneuvers. Each sits on the rank of a basic card and does what that card does, plus something more — and costs the coach who plays it something when it is beaten.
+A game may be played with a second set of six maneuvers, and a game played that way also gives every player their [species ability](#species-abilities). Each advanced card sits on the rank of a basic card and does what that card does, plus something more — and costs the coach who plays it something when it is beaten.
 
 | Advanced | Rank | Replaces |
 | --- | --- | --- |
@@ -398,6 +399,49 @@ Possession does not change and the ball is left with the handler. Where the hand
 **On the defending side's next maneuver both of those players challenge**, and the skill test adds **both** of their defensive skills. It lasts until a [new play](#resetting-after-a-new-play), which is the only thing that ends it.
 
 *Beaten:* the challenger and that same nearest teammate each move 1 space forward, away from their own goal. Neither pays a token for it.
+
+## Species abilities
+
+**Advanced mode only.** A game played with [advanced maneuvers](#advanced-maneuvers) also gives every player the ability of their species. In a basic game species is only a name on the card, and every player follows the standard rules.
+
+There is one ability per species, and every player of that species has it whichever team is fielding them. A player fielded on both sides of one game — the same person in two kits — carries it on both cards.
+
+### Volatile (Fire Demon)
+
+**Every d12 a Fire Demon rolls can ignite.** When the die's own face — before any skill or modifier — comes up a natural **6 or 7**, the Fire Demon immediately rolls a second d12:
+
+- **5–12: a surge.** Add the second die to the Fire Demon's total for that roll.
+- **1–4: a backfire.** Subtract it.
+
+Ignite is not a choice, and the second die never ignites in turn — one reroll, however it falls.
+
+Every roll a Fire Demon makes is covered: their die in a [skill test](#the-skill-test) or a [contest for the ball](#where-the-ball-comes-to-rest) — and if both players rolling are Fire Demons, each checks their own — the shooter's die in a [score attempt](#score-attempt), the die kept in an [own-goal roll](#own-goal), an [injury check](#the-injury-check), and a [shootout test](#extreme-shootout). A backfire that drops an injury check below the token count injures the Fire Demon as any failed check does.
+
+**In a maneuver skill test the surge or backfire also decides a tier.** A **surge on the winning side** resolves that side's maneuver as its [advanced version](#advanced-maneuvers) — even where the cards tied and the [basic card](#when-an-advanced-effect-fires) would otherwise resolve. A **backfire on the losing side** resolves the *opponent's* maneuver as its advanced version. It only ever raises a maneuver to advanced; one already resolving at advanced gains nothing. Outside a maneuver skill test there is no tier to change, and the surge or backfire is only the number.
+
+### Lithium Powered (Cyborg)
+
+**A Cyborg's tokens are drain.** They are gained and spent exactly as exhaustion tokens — wherever a rule gives or removes an exhaustion token, a Cyborg gains or loses a drain token instead — but a Cyborg does not become [Exhausted](#becoming-exhausted) on the ordinary threshold. A Cyborg carrying **7 or more** drain is **Drained**, which counts as Exhausted everywhere the rules use that word: the [injury check](#the-injury-check) after a skill test, the halftime [recovery](#recovery) re-test, and anywhere else. Below 7 a Cyborg is never Exhausted, however low their defensive skill.
+
+**Overdrive.** Once per roll, *before* the die is thrown, a Cyborg may take **3 drain tokens** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls — a [skill test](#the-skill-test), a [score attempt](#score-attempt), an [own-goal roll](#own-goal), an [injury check](#the-injury-check), a [contest](#where-the-ball-comes-to-rest) or a [shootout test](#extreme-shootout). A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven for another 3 drain. A Drained Cyborg may still Overdrive — the drain stacks. Overdrive is a flat bonus rather than a skill modifier, so an [injured](#playing-injured) Cyborg keeps it.
+
+**Charge-up.** When a [steal runs players back](#running-back-after-a-steal), a Cyborg who is not moved — one already in their own zone, or the [carrier who never runs back](#running-back-after-a-steal) — removes **1 drain token**. Once per run back, never below zero. A Cyborg who does run back removes nothing.
+
+### Mind Pull (Telekinetic)
+
+**When the opponent's ball moves to or through a Telekinetic's space** — it passes over the space on its way somewhere, or comes to rest on it — the Telekinetic may take **1 exhaustion token** and roll one d12. On **1–2** they pull the ball in: it stops on their space, their side takes possession, and the Telekinetic holds it.
+
+The token is paid whether or not the pull lands, and Mind Pull is a choice. The roll is not a skill test and owes no [injury check](#the-injury-check). The ball's own starting space does not count as "moved to" — only a ball changing spaces can be pulled, and only the opposing team's ball.
+
+**One roll per Telekinetic per ball movement.** Where the ball's path crosses two Telekinetics, each may try in the order the ball reaches them; the first to succeed stops the ball there and the rest get no roll.
+
+Mind Pull resolves **before** the ball settles [where it comes to rest](#where-the-ball-comes-to-rest): a pull that lands pre-empts whatever the movement would have led to — a reception, a scoring opportunity, a contest, a loose ball. A pull that misses or is declined leaves all of that to resolve as normal, the Telekinetic included if the ball comes down where they stand. A successful pull is a [steal](#turnovers): ball speed resets to 1, players run back, and the Telekinetic is the carrier who does not. The maneuver that moved the ball still costs its space minute.
+
+### Slimey (Ooze)
+
+**Any Ooze on the ball may take the handler's place.** Where a resolution leaves the ball with a particular player and an Ooze **of the same side** is standing on that space, the coach may hand the ball to the Ooze instead — the Ooze becomes the [carrier](#choosing-the-handler) and takes the turn. Where several Oozes are there, the coach picks one. This only arises where possession stays with the side that had it — a [Dribble Advance or Burst](#dribble-advance) onto a teammate, a handler [shoved back](#pressure) onto one, a [Setup Pass](#setup-pass) received into a group; a turnover [runs the others back](#running-back-after-a-steal) and leaves the carrier alone.
+
+**A bystanding Ooze backs the fight.** In a [skill test or contest](#where-the-ball-comes-to-rest) fought **on the ball's space**, one Ooze of a side who is standing there but is **not** one of the two players rolling adds their **defensive skill** to that side's total — the coach's pick where there is more than one. Each side that has such an Ooze adds one. An [injured](#playing-injured) Ooze adds nothing. A [score attempt](#score-attempt) is not a contest and carries no such bonus.
 
 ## Ball speed
 
@@ -629,9 +673,13 @@ The positions a coach finishes on become that side's **arrangement**, and that i
 
 Nothing else costs anything. An ordinary score attempt, a maneuver won outright, a reset, a Coaching Choice and a shootout test are all free. An injured player never gains tokens.
 
+In [advanced mode](#species-abilities) two species abilities also cost their own player: [Mind Pull](#mind-pull-telekinetic) 1 token, [Overdrive](#lithium-powered-cyborg) 3 — and a Cyborg's tokens are [drain](#lithium-powered-cyborg).
+
 ### Becoming Exhausted
 
 A player is **Exhausted** the moment their tokens exceed their defensive skill. So a Fullback can carry six and be fine, while a Striker is Exhausted on their second.
+
+In [advanced mode](#species-abilities) a [Cyborg](#lithium-powered-cyborg) is the exception: they are Exhausted — **Drained** — only at 7 tokens or more, whatever their defensive skill.
 
 ### The injury check
 
@@ -734,6 +782,15 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 | Own goal | 2d12, keep the higher | Add offensive skill. 7 or more avoids it. |
 | Injury check | 1d12 | Higher than the player's token count is safe. |
 | Shootout test | 1d12 each | Both add offensive skill. Higher scores; a tie stands. |
+
+**Species abilities (advanced mode only):**
+
+| Species | Ability |
+| --- | --- |
+| Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test, a surge that wins — or a backfire that loses — resolves that maneuver at its advanced tier. |
+| Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: −1 drain for not moving on a run back. |
+| Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 1–2 pull it in and take possession. |
+| Ooze | **Slimey.** An Ooze on the ball may take the handler's turn. A bystanding Ooze on the ball's space adds their defensive skill to that side's skill test or contest there. |
 
 **A turn:** choose the player → choose the action → resolve it → settle the ball → turnover → clock → last-possession check.
 
