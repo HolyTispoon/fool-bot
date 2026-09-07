@@ -854,15 +854,34 @@ losing side raises "the opponent's" -- and the opponent of the losing side
   sets it and the effect that reads it: a restart in that window has to
   resolve the maneuver at the tier the dice decided, and nothing else on the
   match records it. `reset_maneuver` clears it with the rest of the turn.
-- **It raises the winner's card and nothing else.** The loser's cost is
-  `advanced_cost`'s, which asks whether the *cards* were decisive -- an
-  ignite decides a tier, not who won -- so a tie raised to advanced by a
-  surge still carries no cost. That is the rules read literally: the rider
-  speaks only to the card that resolves.
 - **It beats the tie downgrade**, which is the case the rules call out
   ("even where the cards tied and the basic card would otherwise resolve"),
   and it only ever raises -- a card already resolving at advanced gains
   nothing, which falls out of an advanced card's counterpart being itself.
+
+**The rider has a second half: the losing side's own ignite decides their
+advanced cost** (the author, 2026-09-07). `MatchState.volatile_loser_cost`
+is that, and `RulesEngine.volatile_loser_cost` is the reading.
+
+- **It is a nullable bool because there are three states.** `False` is a
+  **surge that lost** -- they pay no cost even where the cards would have
+  charged one. `True` is a **backfire that lost** -- they pay theirs even
+  where the cards alone would not, which makes a backfire the one thing in
+  the game that puts a cost in force off the dice. `None` is every other
+  roll, leaving `advanced_effects_apply` the whole answer it always was.
+- **It is read off the loser's own die, not the matchup**, which is why it
+  is a separate field rather than derivable from `volatile_tier_upgrade`.
+  A surge that loses suppresses a cost *and* raises nothing; a backfire
+  that loses charges one *and* raises the opponent's card. The two halves
+  agree only by coincidence.
+- **`advanced_cost` asks it before `advanced_effects_apply`**, because that
+  is precisely what it overrides -- in both directions. The card checks
+  stay above both: the override decides *whether* an advanced cost applies,
+  not whether there is one to apply, and a basic losing card has none.
+- **The first build had the tier half and not this one.** It read "resolves
+  that side's maneuver as its advanced version" as a sentence about the
+  card that resolves and nothing else, and left `advanced_cost` asking only
+  the cards.
 
 ### Lithium Powered
 
@@ -922,18 +941,32 @@ seventh gets it in one line.
   so the price cannot be paid. Overdrive itself survives injury, being a flat
   bonus rather than the withheld skill modifier.
 
-**Charge-up is settled in `begin_run_back`, not at the end of the cascade.**
-That is the one moment that knows who the run back is about to move:
-`run_back_displaced` reads the position before anybody has come home, and the
-carrier exemption was recorded two lines above.
+**Charge-up is about movement, not about being obliged to move** (the author,
+2026-09-07): *"any player that moves is running back. Charging up only occurs
+when a player does not move during run-back."* So it reads
+`MatchState.run_back_moved`, which `run_back_player` fills in as it places
+people, and **not** who was displaced.
 
-- **Only on a real run back.** "A new-play reset is not a run back and triggers
-  no Charge-up", so it sits in the `else` of the `new_play` branch.
-- **A stacked player counts as staying**, which is the one reading here the
-  rules do not spell out: a stack sits *inside* a zone, so its players are
-  "already in their own zone" -- the rule's own first example -- even though a
-  coach may then send one of them to another space in it. Raised in the rules
-  log for the author.
+- **That is why it is settled at the *end* of the run back**, in
+  `finish_run_back`, rather than at `begin_run_back` where it was first
+  built. Who actually moved is only known once the cascade has run, because
+  **a stack is a real decision**: where several share a space and one must
+  go, the one the coach sends loses their token and the one left keeps
+  theirs. Holding a Cyborg still is a reason to send somebody else. The
+  first build read "not moved by it" as "not *required* to move" and charged
+  up both.
+- **`run_back_player` is where the move is recorded**, not the three callers
+  (the forced pass, the AI's placement, the coach's click), because it is
+  the one method a run back moves anybody through -- the same reasoning as
+  `add_exhaustion` owning attribution.
+- **`pending_run_back_charge_up` is what keeps a new play out of it.** "A
+  new-play reset is not a run back and triggers no Charge-up", and by the
+  time the cascade finds nothing to do it can no longer tell a reset from a
+  steal that scattered nobody -- `new_play` is not persisted. So
+  `begin_run_back` arms the flag and `finish_run_back` spends it.
+- **The line rides on `lead_in`** rather than being sent on its own: this is
+  the tail of a cascade that has been batching its messages all the way
+  down, and drain tokens do not earn a message. See "Discord's rate limits".
 - **It goes through `recover_exhaustion` rather than decrementing.** A Cyborg
   on exactly 7 is Drained and dropping to 6 clears it, so the removal has to
   re-test.

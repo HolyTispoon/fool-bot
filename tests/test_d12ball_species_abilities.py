@@ -13,13 +13,17 @@ Layers, and they fail for different reasons:
   and it folds the module and the species together so a site cannot
   check one and forget the other.
 - **Volatile.** `ignite` is the funnel every d12 in the game comes
-  through, and `volatile_raises_tier` plus `resolving_maneuver` are the
-  tier rider on top of it.
+  through. On top of it the rider has two halves, both read off the
+  igniting player's own die: `volatile_raises_tier` plus
+  `resolving_maneuver` for the winner's tier, and
+  `volatile_loser_cost` plus `advanced_cost` for whether the loser
+  pays their advanced card's price.
 - **Lithium Powered.** Three separate things sharing one ability: the
   Drained line (`exhaustion_threshold`, which every exhaustion charge
   and every recovery now asks), Overdrive (declared and paid before a
   roll, spent by it), and Charge-up (`charge_up_players`, read off who
-  the run back is about to move).
+  actually *moved* during the run back -- which is what makes a stack
+  a decision).
 - **Slimey.** Slip in widens `turn_handler_candidates` rather than
   adding to it -- an Ooze on the ball is already an eligible handler --
   and Merge is a sum over the bystanders, not a pick.
@@ -427,6 +431,34 @@ class VolatileTierRiderTests(unittest.TestCase):
             )
         )
 
+    def test_a_surge_that_loses_pays_no_advanced_cost(self):
+        # "If a player loses a skill test on the surge, they do not
+        # resolve the advanced maneuver cost." A surge protects its
+        # player even where the cards would have charged them.
+        self.assertIs(
+            self.engine.volatile_loser_cost(self.game, self.surge), False,
+        )
+
+    def test_a_backfire_that_loses_pays_it(self):
+        # "However, if a volatile player loses on a backfire, they
+        # resolve the cost of the advanced maneuver" -- the one thing
+        # in the game that puts a cost in force off the dice.
+        self.assertIs(
+            self.engine.volatile_loser_cost(self.game, self.backfire), True,
+        )
+
+    def test_a_loser_who_did_not_ignite_falls_back_to_the_cards(self):
+        self.assertIsNone(
+            self.engine.volatile_loser_cost(self.game, self.plain),
+        )
+
+    def test_no_cost_to_change_without_the_advanced_maneuvers(self):
+        without = build_game(advanced_maneuvers=False)
+        for ignite in (self.surge, self.backfire, self.plain):
+            self.assertIsNone(
+                self.engine.volatile_loser_cost(without, ignite),
+            )
+
     def test_no_tier_to_change_without_the_advanced_maneuvers(self):
         # "in a game that took the species abilities without the
         # advanced maneuvers -- there is no tier to change, and the
@@ -511,6 +543,71 @@ class ResolvingManeuverTests(unittest.TestCase):
         self.assertEqual(
             self.engine.resolving_maneuver(self.match, advanced), advanced,
         )
+
+    def test_a_surge_that_lost_suppresses_a_cost_the_cards_would_charge(self):
+        # The cards were decisive and the loser played an advanced
+        # card, so `advanced_effects_apply` would charge them -- the
+        # surge is what takes it off.
+        self.match.offense_maneuver = "dribble_advance"
+        self.match.defense_maneuver = "clear"
+        self.assertTrue(self.engine.advanced_effects_apply(self.match))
+        self.assertEqual(
+            self.engine.advanced_cost(self.match, "dribble_advance"), "clear",
+        )
+
+        self.match.volatile_loser_cost = False
+        self.assertIsNone(
+            self.engine.advanced_cost(self.match, "dribble_advance"),
+        )
+
+    def test_a_backfire_that_lost_pays_where_the_cards_would_not(self):
+        # A tie carries no advanced effect at all, so nothing here is
+        # chargeable off the cards -- the backfire is the whole reason
+        # a cost applies.
+        self.match.offense_maneuver = "low_pass"
+        self.match.defense_maneuver = "clear"
+        if self.engine.maneuver_catalog.resolve(
+            "low_pass", "clear",
+        ) != "tie":
+            self.skipTest("that pairing is no longer a tie")
+        self.assertFalse(self.engine.advanced_effects_apply(self.match))
+        self.assertIsNone(self.engine.advanced_cost(self.match, "low_pass"))
+
+        self.match.volatile_loser_cost = True
+        self.assertEqual(
+            self.engine.advanced_cost(self.match, "low_pass"), "clear",
+        )
+
+    def test_a_basic_losing_card_carries_no_cost_either_way(self):
+        # The override decides *whether* an advanced cost applies, not
+        # whether there is one: a basic card has none to pay.
+        self.match.offense_maneuver = "dribble_advance"
+        self.match.defense_maneuver = "deflect"
+        for override in (True, False, None):
+            self.match.volatile_loser_cost = override
+            self.assertIsNone(
+                self.engine.advanced_cost(self.match, "dribble_advance"),
+                override,
+            )
+
+    def test_the_cost_override_survives_a_save(self):
+        for override in (True, False, None):
+            self.match.volatile_loser_cost = override
+            restored = MatchState.from_dict(
+                self.match.to_dict(), self.engine.basic_ruleset,
+            )
+            self.assertIs(restored.volatile_loser_cost, override)
+
+    def test_a_save_written_before_the_cost_field_falls_back_to_the_cards(self):
+        saved = self.match.to_dict()
+        saved.pop("volatile_loser_cost", None)
+        restored = MatchState.from_dict(saved, self.engine.basic_ruleset)
+        self.assertIsNone(restored.volatile_loser_cost)
+
+    def test_the_turn_reset_clears_the_cost_override(self):
+        self.match.volatile_loser_cost = True
+        self.match.reset_maneuver()
+        self.assertIsNone(self.match.volatile_loser_cost)
 
     def test_the_flag_survives_a_save(self):
         # The injury tests run between the roll that sets it and the
@@ -740,8 +837,15 @@ class OverdriveTests(unittest.TestCase):
 
 class ChargeUpTests(unittest.TestCase):
     """
-    "Whenever players run back, a Cyborg who is not moved by it ...
-    removes 1 drain token. Once per run back, never below zero."
+    "Whenever players run back, a Cyborg who **does not move** removes
+    1 drain token. Once per run back, never below zero."
+
+    **It is about movement, not about being obliged to move** (the
+    author, 2026-09-07). The first build read it as the complement of
+    `run_back_displaced` -- who *had* to return -- which charged up
+    both players of a stack whichever one the coach then sent. What it
+    reads now is `run_back_moved`, which `run_back_player` fills in as
+    it places people.
     """
 
     def setUp(self) -> None:
@@ -749,42 +853,81 @@ class ChargeUpTests(unittest.TestCase):
         self.game = build_game(player_1_team=Team.CYBORGS)
         self.match = build_match(self.engine, self.game)
 
-    def test_a_cyborg_left_in_place_charges_up(self):
+    def charged(self) -> list[str]:
+        return self.engine.charge_up_players(self.game, self.match)
+
+    def test_a_cyborg_who_did_not_move_charges_up(self):
         cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
         self.match.add_exhaustion(cyborg, 4)
-        self.assertIn(
-            cyborg, self.engine.charge_up_players(self.game, self.match),
-        )
+        self.assertIn(cyborg, self.charged())
 
-    def test_a_cyborg_the_run_back_moves_does_not(self):
-        # Drag one out of their own zone: they are displaced, so the
-        # run back is about to send them home and they charge nothing.
+    def test_a_cyborg_who_moved_does_not(self):
+        cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
+        self.match.add_exhaustion(cyborg, 4)
+        self.match.run_back_moved = [cyborg]
+        self.assertNotIn(cyborg, self.charged())
+
+    def test_being_displaced_is_not_what_decides_it(self):
+        # The correction, stated as a test: a player standing outside
+        # their own zone has not charged anything up *yet* -- they have
+        # to return, and it is the returning that costs them. Until
+        # they actually move, they are simply someone who has not
+        # moved.
         cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
         self.match.add_exhaustion(cyborg, 4)
         self.match.board.place_meeple(cyborg, Zone.VISITORS_GOAL, 0)
-        self.assertNotIn(
-            cyborg, self.engine.charge_up_players(self.game, self.match),
-        )
+        self.assertIn(cyborg, self.charged())
+
+        self.match.run_back_moved = [cyborg]
+        self.assertNotIn(cyborg, self.charged())
+
+    def test_a_stack_is_the_coach_s_decision(self):
+        # "In the case of a stacked player, charging up may be a
+        # consideration for the coach." Two Cyborgs on one space, one
+        # of whom must go: the one sent loses their token, the one left
+        # keeps theirs -- so holding a Cyborg still is a real reason to
+        # send somebody else.
+        first, second = field_players(self.match)[:2]
+        for player_id in (first, second):
+            self.match.add_exhaustion(player_id, 4)
+
+        # Nobody has moved yet, so both would charge up.
+        charged = self.charged()
+        self.assertIn(first, charged)
+        self.assertIn(second, charged)
+
+        # The coach sends the first; only the second still charges up.
+        self.match.run_back_moved = [first]
+        charged = self.charged()
+        self.assertNotIn(first, charged)
+        self.assertIn(second, charged)
 
     def test_the_carrier_who_never_runs_back_charges_up(self):
-        # The rule names them explicitly: they are displaced but exempt,
-        # so `run_back_displaced` already strikes them out.
+        # They are named in the rules, and they fall out for free:
+        # nothing moves them, so they are not in `run_back_moved`.
         cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
         self.match.add_exhaustion(cyborg, 4)
         self.match.board.place_meeple(cyborg, Zone.VISITORS_GOAL, 0)
         self.match.pending_run_back_stays_player_id = cyborg
-        self.assertIn(
-            cyborg, self.engine.charge_up_players(self.game, self.match),
-        )
+        self.assertIn(cyborg, self.charged())
+
+    def test_run_back_player_records_the_move(self):
+        # The recording is what the whole rule now rests on, so it is
+        # asserted on the model rather than only through the cog.
+        mover = field_players(self.match)[0]
+        zone = self.match.home.assigned_zone(mover)
+        space = self.match.placement_spaces_in_zone(
+            TeamSide.HOME, zone, mover,
+        )[0]
+        self.match.run_back_player(mover, zone, space)
+        self.assertIn(mover, self.match.run_back_moved)
 
     def test_never_below_zero(self):
         # A Cyborg carrying nothing has nothing to take off, and says
         # nothing about it either.
         cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
         self.assertEqual(self.match.exhaustion.get(cyborg, 0), 0)
-        self.assertNotIn(
-            cyborg, self.engine.charge_up_players(self.game, self.match),
-        )
+        self.assertNotIn(cyborg, self.charged())
 
     def test_a_basic_game_charges_nobody_up(self):
         basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
@@ -799,8 +942,7 @@ class ChargeUpTests(unittest.TestCase):
             if self.engine.species_of(player_id) == SPECIES_CYBORG:
                 continue
             self.match.add_exhaustion(player_id, 4)
-        charged = self.engine.charge_up_players(self.game, self.match)
-        for player_id in charged:
+        for player_id in self.charged():
             self.assertEqual(
                 self.engine.species_of(player_id), SPECIES_CYBORG,
             )
@@ -818,6 +960,22 @@ class ChargeUpTests(unittest.TestCase):
             cyborg, 1, self.engine.exhaustion_threshold(self.game, cyborg),
         )
         self.assertNotIn(cyborg, self.match.exhausted)
+
+    def test_the_record_survives_a_save_and_the_turn_reset_clears_it(self):
+        # A run back spans interactions, so who moved has to outlive
+        # them.
+        mover = field_players(self.match)[0]
+        self.match.run_back_moved = [mover]
+        self.match.pending_run_back_charge_up = True
+        restored = MatchState.from_dict(
+            self.match.to_dict(), self.engine.basic_ruleset,
+        )
+        self.assertEqual(restored.run_back_moved, [mover])
+        self.assertTrue(restored.pending_run_back_charge_up)
+
+        restored.reset_maneuver()
+        self.assertEqual(restored.run_back_moved, [])
+        self.assertFalse(restored.pending_run_back_charge_up)
 
 
 class SlipInTests(unittest.TestCase):

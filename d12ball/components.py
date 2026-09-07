@@ -1476,6 +1476,7 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("challenger_id"),
     SavedField("maneuver_uncontested", default=False),
     SavedField("volatile_tier_upgrade", default=False),
+    SavedField("volatile_loser_cost"),
     SavedField(
         "pending_overdrive", factory=list, write=list, read=list,
     ),
@@ -1497,6 +1498,8 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("pending_run_back_turnover", default=True),
     SavedField("pending_run_back_stays_player_id"),
     SavedField("pending_run_back_speed_choice", default=False),
+    SavedField("run_back_moved", factory=list, write=list, read=list),
+    SavedField("pending_run_back_charge_up", default=False),
     SavedField("pending_effect_continuation"),
     SavedField("pending_double_team", factory=list, write=list, read=list),
     # The event log. Empty for a game saved before it existed, which
@@ -1659,6 +1662,27 @@ class MatchState:
     # tier the dice decided, and nothing else on the match records it.
     # `reset_maneuver` clears it with the rest of the turn.
     volatile_tier_upgrade: bool = False
+    # **Volatile's other half**: what the *losing* side's own ignite
+    # does to the advanced cost they would otherwise pay (the author,
+    # 2026-09-07).
+    #
+    # Three states, which is why it is a nullable bool rather than a
+    # flag: `False` is a **surge that lost** and pays no cost even
+    # where the cards would have charged one; `True` is a **backfire
+    # that lost** and pays theirs even where the cards alone would not;
+    # `None` is every other roll, where `advanced_effects_apply` is the
+    # whole answer as it always was.
+    #
+    # It is the loser's own ignite that decides it, not the matchup's
+    # -- which is what makes it separate from `volatile_tier_upgrade`
+    # rather than derivable from it. A surge that loses suppresses a
+    # cost *and* raises nothing; a backfire that loses charges one
+    # *and* raises the opponent's card.
+    #
+    # Persisted and cleared with the rest of the turn, for the reason
+    # the tier flag is: the injury tests run between the roll and the
+    # effect that reads it.
+    volatile_loser_cost: Optional[bool] = None
     # **Overdrive declared, and not yet spent**: the Cyborgs who have
     # taken 3 drain to add +5 to the roll that is about to happen. See
     # "Lithium Powered (Cyborg)" in docs/living-rules.md.
@@ -1707,6 +1731,23 @@ class MatchState:
     pending_run_back_turnover: bool = True
     pending_run_back_stays_player_id: Optional[str] = None
     pending_run_back_speed_choice: bool = False
+    # **Charge-up's two fields.** A Cyborg removes a drain token when
+    # they do not move during a run back -- "any player that moves is
+    # running back" (the author, 2026-09-07) -- so what matters is who
+    # actually moved, not who was obliged to.
+    #
+    # That is why this cannot be settled when the run back *begins*,
+    # the way it was first built: a stack is a real decision, and which
+    # of its players the coach sends is only known once the cascade has
+    # run. `run_back_moved` collects them as `run_back_player` places
+    # them, and `finish_run_back` is where the tokens come off.
+    #
+    # `pending_run_back_charge_up` is what keeps a new play out of it:
+    # a reset is not a run back and triggers no Charge-up, and by the
+    # time the cascade finds nothing to do it can no longer tell the
+    # two apart -- `new_play` is not persisted.
+    run_back_moved: list[str] = field(default_factory=list)
+    pending_run_back_charge_up: bool = False
     # **What a maneuver's effect still owes once its last prompt has
     # been answered**, as `{"kind": ..., ...}` -- or None, which is
     # nearly always.
@@ -3194,6 +3235,7 @@ class MatchState:
         self.offense_maneuver = None
         self.defense_maneuver = None
         self.volatile_tier_upgrade = False
+        self.volatile_loser_cost = None
         self.pending_overdrive = []
         self.last_ball_path = []
         self.pending_mind_pull = []
@@ -3203,6 +3245,8 @@ class MatchState:
         self.pending_run_back_turnover = True
         self.pending_run_back_stays_player_id = None
         self.pending_run_back_speed_choice = False
+        self.run_back_moved = []
+        self.pending_run_back_charge_up = False
         self.pending_effect_continuation = None
         self.pending_kickoff_fill = False
         self.pending_shot_is_set_up = False
@@ -3653,6 +3697,13 @@ class MatchState:
 
         distance = self.run_back_distance(player_id, zone, space_index)
         self.board.place_meeple(player_id, zone, space_index)
+        # **They moved, so they are running back** -- which is the whole
+        # of what Charge-up asks. Recorded here rather than at the three
+        # callers (the forced pass, the AI's placement and the coach's
+        # own click) because this is the one method a run back moves
+        # anybody through.
+        if player_id not in self.run_back_moved:
+            self.run_back_moved.append(player_id)
         return distance
 
     # -- The arrangement a coach set --------------------------------

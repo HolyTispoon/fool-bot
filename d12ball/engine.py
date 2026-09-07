@@ -539,6 +539,39 @@ class RulesEngine:
             return False
         return winner.surge or loser.backfire
 
+    def volatile_loser_cost(
+        self, game: D12BallGame, loser: IgnitedRoll,
+    ) -> Optional[bool]:
+        """
+        What the losing side's own ignite does to the advanced cost
+        they would otherwise pay -- the other half of Volatile's rider
+        (the author, 2026-09-07).
+
+        `False` where they **surged and lost**: they pay no cost even
+        where the cards would have charged one. `True` where they
+        **backfired and lost**: they pay theirs even where the cards
+        alone would not, which makes a backfire the one thing in the
+        game that puts a cost in force off the dice. `None` otherwise,
+        leaving `advanced_effects_apply` the whole answer.
+
+        Read from the losing player's own die rather than from the
+        matchup, which is why this is separate from
+        `volatile_raises_tier` rather than derivable from it: a surge
+        that loses suppresses a cost *and* raises nothing, and a
+        backfire that loses charges one *and* raises the opponent's
+        card.
+
+        Gated on the advanced maneuvers for the same reason the tier
+        is: with no advanced cards in play there is no cost to change.
+        """
+        if not self.advanced_maneuvers_apply(game):
+            return None
+        if loser.surge:
+            return False
+        if loser.backfire:
+            return True
+        return None
+
     def maneuver_tiers(
         self,
         game: D12BallGame,
@@ -730,8 +763,6 @@ class RulesEngine:
         card it just beat was, which is also the only place that knows
         where the cost belongs.
         """
-        if not self.advanced_effects_apply(match):
-            return None
         loser_key = match.opposing_maneuver(winner_key)
         loser = (
             self.maneuver_catalog.get(loser_key)
@@ -739,6 +770,19 @@ class RulesEngine:
             else None
         )
         if loser is None or not loser.is_advanced:
+            return None
+
+        # **Volatile overrides the cards, both ways.** A surge that
+        # lost pays nothing even where the cards were decisive; a
+        # backfire that lost pays even where they tied. Asked before
+        # `advanced_effects_apply` because that is exactly what it
+        # overrides -- see `volatile_loser_cost`.
+        if match.volatile_loser_cost is False:
+            return None
+        if match.volatile_loser_cost is True:
+            return loser.key
+
+        if not self.advanced_effects_apply(match):
             return None
         return loser.key
 
@@ -1787,37 +1831,42 @@ class RulesEngine:
         self, game: D12BallGame, match: MatchState,
     ) -> list[str]:
         """
-        Every Cyborg on the field this run back does **not** move --
-        Lithium Powered's Charge-up, one drain token off each.
+        Every Cyborg on the field who **did not move** during the run
+        back that has just finished -- Lithium Powered's Charge-up, one
+        drain token off each.
 
-        "A Cyborg who is not moved by it -- one already in their own
-        zone, or the carrier who never runs back" is the rule, and
-        those two examples are exactly the complement of
-        `run_back_displaced`: displaced players are the ones outside
-        their own zone, and the carrier is already struck out of that
-        list by the exemption. So this is "on the field, and not
-        someone the run back is about to send home".
+        **It is about movement, not about being obliged to move** (the
+        author, 2026-09-07): *"any player that moves is running back.
+        Charging up only occurs when a player does not move during
+        run-back."* So this reads `match.run_back_moved`, which
+        `run_back_player` fills in as it places people, rather than
+        asking who was displaced.
 
-        **A stacked player counts as staying**, which is the one
-        reading here that the rules do not spell out. A stack sits
-        *inside* a zone, so its players are "already in their own
-        zone" -- the rule's own first example -- even though a coach
-        may then send one of them to a different space in it. Moving
-        within the zone you are already in is not running back. Raised
-        in the rules log for the author.
+        That distinction is the whole of what a stack decides. A player
+        outside their own zone has to return and can never charge up; a
+        player already in their own zone charges up unless something
+        moved them anyway -- and where several share a space and one of
+        them must go, **the one the coach sends loses their token and
+        the one left keeps theirs**. Holding a Cyborg still is a real
+        reason to send somebody else.
+
+        This is also why it can only be asked once the run back is
+        over. It was first built at `begin_run_back`, off
+        `run_back_displaced`, which charged up both players of a stack
+        whichever one the coach then sent.
 
         It answers with the ids rather than charging them, so the
         caller can word the result and save in its own breath; the
-        removal itself is `MatchState.remove_exhaustion`.
+        removal itself is `MatchState.recover_exhaustion`.
         """
         if not self.species_abilities_apply(game):
             return []
 
+        moved = set(match.run_back_moved)
         charged: list[str] = []
         for side in (TeamSide.HOME, TeamSide.VISITING):
-            running_back = set(self.run_back_displaced(match, side))
             for player_id in match.setup_for_side(side).field_players:
-                if player_id in running_back:
+                if player_id in moved:
                     continue
                 if not self.has_species_ability(
                     game, player_id, SPECIES_CYBORG,
