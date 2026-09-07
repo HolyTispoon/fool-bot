@@ -41,7 +41,7 @@ python3 -m unittest discover -s tests
 | `d12ball/stats.py` | Every statistic `/d12ball stats` reports, as a fold over `MatchState.events`, plus the plain-text tables it renders. No Discord and no game flow: a statistic is a reading of what happened, and a reading that could change what happens is a bug waiting to be written -- see "The event log" below |
 | `d12ball/tutorial.py` | The scripted opening a tutorial game plays -- the five beats as data, and the rails -- see below |
 | `d12ball/data/` | `players.json`, `basic_rules.json`, `maneuvers.json`, `species.json` |
-| `d12ball/images/` | Card art and emoji |
+| `d12ball/images/` | Card art, emoji, and the four species icons (ink and coloured) -- see "The species icons" below |
 | `d12ball/fonts/` | Bundled DejaVu — see "Fonts" below |
 | `gamesaves/d12ball/storage.py` | Persistence to `data/d12ball_games.json` |
 | `gamesaves/d12ball/archive_export.py` | Writing one finished game's export (record, final board, channel transcript) to disk for `/debug export_archived_games` -- see "Freeing up the PBD Archive" below |
@@ -2886,6 +2886,19 @@ player is in is the whole of who may come on -- so without them the flow would
 be asking a coach to remember numbers off a board they cannot see while the
 menu is up.
 
+**A card carries its player's species icon, on the stats row to the right of
+the role initials** -- the pairing the printed card makes across its header
+band, so a coach reading one is reading the other. Two things follow from
+where it sits. It is drawn in ink rather than in a colour, which is what keeps
+`rendered_player_card`'s cache key honest: that key is the player and their
+two skills, and a colour would be a third thing in it -- the shape is the
+identity anyway, and the Oozes' green is the one colour a white card could not
+carry. And it shares the row with the Exhausted and Injured badges, which are
+drawn over the card afterwards at its right edge and cover it while either is
+showing. That is the right way round: a condition is what has just changed and
+what a coach has to act on, where a species is the same every turn of the
+game. See "The species icons".
+
 **The ball token hangs off the possessing side's meeples, except when they have
 none there.** `ball_token_x` is the whole of the placement: normally it tucks
 against that side's group on the open end of the row, which keeps it next to
@@ -3254,6 +3267,7 @@ and `print_sheet`.
 ```bash
 python3 scripts/render_player_cards.py --out cards/players --sheet
 python3 scripts/render_player_cards.py --team orange --bleed
+python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
 ```
 
 - **It follows the bot's own card, not a design of its own.** Name, the two
@@ -3309,16 +3323,82 @@ python3 scripts/render_player_cards.py --team orange --bleed
   players, and nine poker cards in a 3x3 come out at about 8 x 11 inches --
   a page. Print it at 100% on A4, or borderless on letter, or the cards come
   off the printer undersized.
-- **The back is the player's advanced version, and it is the one thing here
-  waiting on the rules.** Not a shared back like a maneuver's: player cards are
-  dealt face up and sit on the field and team boards all game, so there is
+- **The species icon answers the role badge across the header band.** The two
+  things about a player that are not their name are the job they do and what
+  they are, and a card should give up both in one glance -- so the role's
+  initials sit in a badge at the left of the band and the species icon at the
+  right, with the name and the team stacked between them. The team used to
+  have that right-hand spot; stacking it under the name is what paid for the
+  icon, and it is also what lets the back say `ORANGE · ADVANCED` on the same
+  line. Both the icon and the badge are drawn in `high_contrast_ink`, which is
+  the whole reason the art is one flat silhouette -- see "The species icons".
+
+- **The back is the player's advanced version**, drawn by
+  `render_player_card_back`. Not a shared back like a maneuver's: player cards
+  are dealt face up and sit on the field and team boards all game, so there is
   nothing to hide -- the other side of the card is the same player in advanced
-  mode. Advanced mode is unspecified and the sheet's `Advanced` ability column
-  is empty for all thirty-six, so `render_player_card` draws a face and the
-  script prints one-sided; see "Blocked or deferred" in the rules log. What
-  that costs when the column fills is the ability band read from the advanced
-  ability, a side marker in the header, and a duplex-mirrored back sheet --
-  the front is already the whole of the rest of the card.
+  mode.
+  - **What makes it the advanced one is the species keyword**, in a pill on
+    the right of the ability band's heading row -- literally beside the role
+    ability. A species ability is only ever in play in an advanced game (see
+    "Species abilities in the bot"), so the keyword is the one thing that has
+    to be on this face and cannot be on the other. The pill is *filled* with
+    the species' colour rather than the keyword being set in it, for the
+    reason the header band is filled: Slime green on a white face cannot be
+    read, and a filled pill plus `high_contrast_ink` answers all four species
+    at once instead of three of them.
+  - **The band starts at a fixed height on this face, where the front's
+    floats** (`ADVANCED_BAND_TOP`). The badge rides the band's heading row and
+    it has to be in the same place on every card in the set -- a marker a
+    coach finds by looking at one spot cannot be a marker that moves with how
+    long the player's role ability happens to run (the author, 2026-09-07).
+    That gives up the thing the front's design is built on: on the front the
+    portrait takes whatever the ability leaves, so a short ability buys a
+    bigger picture, and here it cannot, because the picture's bottom edge *is*
+    the badge's position. Every back gets the same portrait slot and the same
+    band, and a card whose text does not fill the band leaves white under it.
+    `test_the_advanced_badge_sits_in_one_place_on_every_card` is the guard,
+    and the way it breaks is somebody laying the band out from the bottom edge
+    up again, the way the front still does.
+  - **The species' short form goes under it where the band has room, and the
+    question is asked of the species rather than of the card.** How much of
+    the band a card has left depends on how long its *role* ability runs, so
+    asked per card the answer differs between a Fire Demon fullback and a Fire
+    Demon striker -- and a set where two cards carrying the same species line
+    disagree about whether it is on there reads as a misprint, not as a layout
+    that scaled. `species_short_fits` walks the species and lets the longest
+    role ability decide for all of them. **This is the one place a printed
+    card carries an abbreviation**, and it is not the role's --
+    `ability_short` in `species.json` exists for exactly "anywhere the
+    sentence does not fit".
+  - **Nothing can overflow the fixed band, so nothing has to be kept ahead of
+    the data.** A species whose short form stops fitting simply stops carrying
+    one and the cards go on printing. What has to fit unconditionally is the
+    role ability on its own, which is 153 units against 340 -- an import that
+    doubled one fails
+    `test_a_role_ability_alone_always_fits_the_advanced_band` rather than
+    printing off the bottom of a card.
+  - **`MIN_BACK_PORTRAIT_HEIGHT` is 360 against the front's 380, and the
+    20 units are what buy the fixed band.** The front is the picture face and
+    the back is the rules face -- it carries a second ability where the front
+    carries one -- so the back's portrait is the thing that pays for a badge
+    that does not move, and at 340 the band holds every species' short form
+    including Volatile's, which is the longest by half again. Neither floor is
+    a number tuned to today's data: they are the line at which a player card
+    has stopped being a picture, and lowering one to fit a paragraph is the
+    move to resist.
+  - **What the back is still waiting on is an advanced *role* ability.** The
+    sheet's `Advanced` column is empty for all thirty-six, so the band repeats
+    the basic sentence; see "Blocked or deferred" in the rules log. The role
+    half of the band is the only thing that changes when it fills.
+  - **`duplex_order` reverses every row of the back sheet.** A duplex print
+    comes out flipped about the paper's long edge, so the leftmost cell of a
+    row on the front is the rightmost on the back. A maneuver deck never
+    needed this because all thirteen of its backs are the same picture; every
+    one of these is a different player, and a run that lands the wrong back
+    behind a front is not one you recover from. `print_sheet` pads a short row
+    at its *end*, which is why reversing the row as it stands keeps the
+    columns.
 
 ### The species cards
 
@@ -3343,11 +3423,14 @@ python3 scripts/render_species_cards.py --out cards/species --sheet
   coach gets the whole set.
 - **Two abilities to a face, stacked**, each in a fixed-height panel: a
   header band in the species' own colour (the paired colour team's hex, via
-  `TEAM_COLORS[SPECIES_TEAM[...]]`, so a card and the board agree), the name
-  in the display face, and the full sentence at the largest size that fits
-  the panel (`_fitted_body`). Slime green takes `high_contrast_ink`'s black
-  like everywhere else. The edge is `INK`, not a species colour -- a card
-  carries two.
+  `TEAM_COLORS[SPECIES_TEAM[...]]`, so a card and the board agree), the
+  species icon at the head of the band, the name in the display face, and the
+  full sentence at the largest size that fits the panel (`_fitted_body`).
+  Slime green takes `high_contrast_ink`'s black like everywhere else, icon
+  included. The edge is `INK`, not a species colour -- a card carries two.
+  The icon is the same silhouette the player cards and the board carry, which
+  is the point of it being here: a coach matches this panel to the cards in
+  front of them without reading either.
 - **The full sentence only, not `ability_short` as well.** A card on a table
   is the whole of what its coach has, and the short form sitting under it in
   the same panel is the same words a size smaller (the author, and the same
@@ -3373,6 +3456,89 @@ python3 scripts/render_species_cards.py --out cards/species --sheet
   `SPECIES_ORDER` and `load_species_abilities` moved to
   `d12ball/components.py` for that reason and are re-exported here, the
   arrangement `cogs/d12ball_helpers.py` has with `d12ball/formatting.py`.
+
+### The species icons
+
+One silhouette a species -- a flame for the Fire Demons' Volatile, a cell
+with a bolt cut out of it for the Cyborgs' Lithium Powered, an inward
+tapering spiral for the Telekinetics' Mind Pull, and a wobbling bubbled blob
+for the Oozes' Slimey. `scripts/render_species_icons.py` draws them and
+`d12ball/images/species/` holds them.
+
+```bash
+python3 scripts/render_species_icons.py                    # dry run
+python3 scripts/render_species_icons.py --out /tmp --sheet # look first
+python3 scripts/render_species_icons.py --in-place
+```
+
+- **Two files a species.** `<species>.png` is the ink silhouette every render
+  reads; `<species>_color.png` is the same shape painted in that species' own
+  colour -- the paired colour team's hex out of `TEAM_COLORS`, so it is the
+  colour the board already draws those meeples in and there is still exactly
+  one hex per colour in the codebase (see "Team colors").
+  - **Nothing in the bot reads the coloured copy, and it is not a second
+    source of truth.** It is written from the same shape in the same pass,
+    through the same `render.tint_silhouette` the renderer tints with, so the
+    two cannot come to disagree by being generated separately. It is there for
+    the places a file has to arrive *already* coloured -- a Developer Portal
+    emoji upload, a document, a slide -- where the bot's own drawing tints at
+    the moment it draws. **Anything drawing an icon in code still asks
+    `species_icon`**; reaching for the coloured file instead is how the Oozes'
+    icon ends up invisible on the Oozes' own band.
+  - **The way the pair comes apart is somebody regenerating the art and
+    shipping half of it**, which nothing would otherwise notice --
+    `test_the_coloured_copy_cannot_drift_from_the_silhouette` compares the two
+    alpha channels, since the alpha *is* the shape.
+  - Read the Oozes' coloured one on something dark. Slime green is the one of
+    the four that all but disappears on white, which is the fact
+    `high_contrast_ink` exists for and the reason a card never uses this file.
+    The script's `--sheet` draws on a dark ground for the same reason.
+- **They are one flat ink on transparency, not coloured art**, and that is
+  what lets one file serve every place an icon appears. A species icon sits
+  on three grounds -- a team-coloured header band on a printed player card,
+  the same band on a species reference card, and the white face of the card
+  the bot draws on the board -- and no single colour reads on all three.
+  `render.species_icon` tints a copy at draw time, keeping the alpha and
+  replacing the ink, which is only possible because there is one ink to
+  replace. **Nothing may paste `load_species_icon`'s answer straight.**
+  `tint_silhouette` is the repaint itself, its own function because the icon
+  script calls it too -- two implementations of that is how the coloured
+  copies on disk come to disagree with what the bot draws.
+- **The tint is cached per (species, colour, size)**, because the board draws
+  up to a dozen cards a render and each wants the same few pixels. Asking for
+  no size gets the icon as drawn, which is what a caller at print resolution
+  wants: `cards.Pen.paste` scales onto the supersampled canvas, so handing it
+  something already cut down to the card's units throws most of the icon away.
+- **The shapes are drawn from cubic segments in the script, not pasted from
+  files**, the same call `render_condition_tokens.py` makes: art nobody has to
+  own cannot go missing, and a silhouette regenerates at whatever canvas the
+  next use wants. Every measurement is a fraction of the canvas, so changing
+  `CANVAS` moves nothing.
+- **They are drawn to survive 18px**, which is roughly where the bot's own
+  card shows one. That is what settled two of the four. Slimey went through
+  four drafts -- a ledge with drips, a ball with a highlight, a splat, and the
+  blob that won: the ledge is top-heavy where every other icon in the set is
+  centred, the highlight reads as an eye by 26px and turns the icon into a
+  creature, and the splat reads as a star. The Ooze's blob and the Fire
+  Demon's flame are the pair most at risk of reading alike, which is why the
+  flame carries a second tongue and a real valley rather than being a tapered
+  teardrop.
+- **A missing icon is silent**, like every other bundled image: the loader
+  swallows the `OSError` so a render can go on, and what a coach sees is a
+  card with nothing beside the role initials. `D12BallFontTests`'
+  `test_bundled_art_is_named_exactly_as_the_code_asks_for_it` covers these
+  along with the condition tokens, comparing against the directory's own
+  listing rather than asking `Path.exists` -- see "A bundled file's name is
+  case-sensitive on one developer's machine and not on the other's".
+- **They are not Discord emoji.** The four `team_*.png` in
+  `d12ball/images/emoji/` are uploaded through the Developer Portal and are a
+  second copy of the team colours (see "Team colors"); these are card art,
+  read off disk at render time, and nothing has to be uploaded for a change
+  here to take. `d12ball/images/species/` is its own directory for that
+  reason.
+- **`scripts/render_species_icons.py` is a dry run unless told otherwise**,
+  because what `--in-place` overwrites is tracked art -- the same reason
+  `render_condition_tokens.py` and `recut_player_portraits.py` are.
 
 ### The printed boards
 

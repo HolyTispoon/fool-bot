@@ -30,6 +30,7 @@ from d12ball.cards import (
 )
 from d12ball.components import (
     MANEUVER_TIER_ADVANCED,
+    SPECIES_ORDER,
     MANEUVER_TIER_BASIC,
     MATCH_EXPLICIT_FIELDS,
     MATCH_SAVED_FIELDS,
@@ -68,6 +69,7 @@ from d12ball.render import (
     EXHAUSTED_ICON_PATH,
     EXHAUST_ICON_PATH,
     INJURED_ICON_PATH,
+    SPECIES_ICON_DIR,
     BOARD_LEFT,
     BOARD_RIGHT,
     BOARD_TOP,
@@ -4018,11 +4020,21 @@ class D12BallFontTests(unittest.TestCase):
         repo against an `exhaust.png` in the code. Comparing against the
         directory's own listing is what fails on both.
         """
-        for path in (
+        paths = [
             EXHAUST_ICON_PATH,
             EXHAUSTED_ICON_PATH,
             INJURED_ICON_PATH,
-        ):
+        ]
+        # The species icons load the same silent way, and a missing one
+        # is quieter still: a card simply comes out with no icon beside
+        # the role initials, which reads as a design rather than as a
+        # fault.
+        paths.extend(
+            SPECIES_ICON_DIR / f"{species}.png"
+            for species in SPECIES_ORDER
+        )
+
+        for path in paths:
             with self.subTest(icon=path.name):
                 self.assertIn(
                     path.name,

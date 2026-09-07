@@ -316,6 +316,13 @@ FONT_CARD_STAT = load_font(46, bold=True)
 FONT_CARD_ROLE = load_font(46, bold=True)
 CARD_NAME_MIN_SIZE = 28
 CARD_NAME_MAX_SIZE = 60
+
+# The species icon on the stats row, in CARD_INTERNAL_SIZE units --
+# about 18px once the card is scaled down to CARD_SIZE, which is the
+# size the condition badges are drawn at and as small as one of these
+# reads. See `build_player_card` for why it is ink and not a colour.
+CARD_SPECIES_ICON_SIZE = 54
+CARD_SPECIES_ICON_INK = "#111111"
 _CARD_NAME_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
 # Meeple names are sized per space, not once for the board: see
 # fit_meeple_labels.
@@ -352,6 +359,20 @@ INJURED_ICON_SIZE = 26
 
 PLAYER_IMAGES_DIR = Path(__file__).resolve().parent / "images" / "player_images"
 _PLAYER_PORTRAIT_CACHE: dict[str, Optional[Image.Image]] = {}
+
+# The four species icons, drawn by `scripts/render_species_icons.py`.
+# They are one flat ink on transparency rather than coloured art,
+# because the same file has to sit on three different grounds -- the
+# team-coloured header band of a printed player card, the same band on
+# a species reference card, and the white face of the card drawn on the
+# board -- and no one colour reads on all three. `species_icon` below
+# is what supplies the colour, so nothing else may paste one of these
+# straight.
+SPECIES_ICON_DIR = Path(__file__).resolve().parent / "images" / "species"
+_SPECIES_ICON_CACHE: dict[str, Optional[Image.Image]] = {}
+_SPECIES_ICON_TINTS: dict[
+    tuple[str, str, Optional[int]], Optional[Image.Image]
+] = {}
 
 # One cache for the three condition-token icons below, keyed by name.
 # A key present means the load was already attempted -- including a
@@ -423,6 +444,83 @@ def load_player_portrait(name: str) -> Optional[Image.Image]:
 
     _PLAYER_PORTRAIT_CACHE[name] = portrait
     return portrait
+
+
+def load_species_icon(species: str) -> Optional[Image.Image]:
+    """
+    Load (and cache) a species' silhouette at the size it was drawn.
+    Returns None -- and caches that -- when the file is missing, so a
+    render skips the icon rather than failing, exactly as the condition
+    tokens and the portraits do; see "A bundled file's name is
+    case-sensitive..." in CLAUDE.md for why this stays silent.
+
+    Callers want `species_icon`, which colours it. This is the raw ink
+    and is only useful to something about to tint it itself.
+    """
+    if species in _SPECIES_ICON_CACHE:
+        return _SPECIES_ICON_CACHE[species]
+
+    try:
+        with Image.open(SPECIES_ICON_DIR / f"{species}.png") as source:
+            icon = source.convert("RGBA")
+            icon.load()
+    except OSError:
+        icon = None
+
+    _SPECIES_ICON_CACHE[species] = icon
+    return icon
+
+
+def species_icon(
+    species: str, color: str, size: Optional[int] = None
+) -> Optional[Image.Image]:
+    """
+    A species' icon drawn in `color`, `size` pixels across -- or at the
+    size it was drawn, when no size is asked for.
+
+    The tint keeps the silhouette's own alpha and replaces everything
+    under it, which is the whole reason the art is one flat ink. It is
+    resized before it is tinted and the answer is cached per
+    (species, colour, size): the board draws up to a dozen cards a
+    render, and each of them wants the same few pixels.
+
+    A caller drawing at print resolution asks for no size and lets its
+    own pen do the resizing -- `cards.Pen.paste` scales onto the
+    supersampled canvas, so handing it something already cut down to
+    the card's units would throw away most of the icon.
+    """
+    key = (species, color, size)
+    if key in _SPECIES_ICON_TINTS:
+        return _SPECIES_ICON_TINTS[key]
+
+    source = load_species_icon(species)
+    if source is None:
+        _SPECIES_ICON_TINTS[key] = None
+        return None
+
+    shape = (
+        source
+        if size is None
+        else source.resize((size, size), Image.Resampling.LANCZOS)
+    )
+    tinted = tint_silhouette(shape, color)
+    _SPECIES_ICON_TINTS[key] = tinted
+    return tinted
+
+
+def tint_silhouette(shape: Image.Image, color: str) -> Image.Image:
+    """
+    A flat-ink silhouette repainted in `color`, keeping its own alpha.
+
+    Its own function because it has two callers that must not drift:
+    `species_icon` above, and `scripts/render_species_icons.py`, which
+    writes the coloured copy of each icon that sits beside the ink one
+    on disk. Two implementations of this is how a coloured file comes
+    to disagree with what the bot draws.
+    """
+    tinted = Image.new("RGBA", shape.size, color)
+    tinted.putalpha(shape.getchannel("A"))
+    return tinted
 
 
 PORTRAIT_IMAGE_SIZE = 320
@@ -638,6 +736,41 @@ def build_player_card(
         font=FONT_CARD_ROLE,
         fill="#111111",
     )
+
+    # The species icon answers the role initials across the stats row,
+    # in the space to their right -- the same pairing the printed card
+    # makes across its header band, so a coach reading one is reading
+    # the other.
+    #
+    # **It is drawn in ink rather than in a colour**, which is what
+    # keeps `rendered_player_card`'s cache key honest: that key is the
+    # player and their two skills, and a colour would have to be a
+    # third thing in it. The shape is the identity here anyway -- and
+    # the Oozes' green on a white card is the one colour that could not
+    # be read.
+    #
+    # It shares the row with the Exhausted and Injured badges, which
+    # are drawn over the card afterwards at its right edge and will
+    # cover this when either is showing. That is the right way round:
+    # a condition is what has just changed and what a coach has to act
+    # on, where a species is the same every turn of the game.
+    icon = species_icon(
+        player.species, CARD_SPECIES_ICON_INK, CARD_SPECIES_ICON_SIZE
+    )
+    if icon is not None:
+        role_right = (width + role_width) / 2
+        card.alpha_composite(
+            icon,
+            (
+                round(
+                    (role_right + width - CARD_SPECIES_ICON_SIZE) / 2
+                ),
+                round(
+                    name_zone_height
+                    + (stats_row_height - CARD_SPECIES_ICON_SIZE) / 2
+                ),
+            ),
+        )
 
     portrait_zone_top = name_zone_height + stats_row_height
     portrait = load_player_portrait(player.name)
