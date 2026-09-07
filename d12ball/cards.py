@@ -420,11 +420,11 @@ def role_abilities(
     ]
     rows.extend(EXTRA_NOTES.get(maneuver.key, ()))
     if maneuver.is_advanced and maneuvers is not None:
-        rows.append(tie_note(maneuvers, maneuver))
+        rows.append(cards_note(maneuvers, maneuver))
     return rows
 
 
-def tie_note(
+def cards_note(
     catalog: ManeuverCatalog, maneuver: ManeuverDefinition
 ) -> tuple[str, str]:
     """
@@ -445,7 +445,7 @@ def tie_note(
     """
     counterpart = catalog.counterpart(maneuver)
     return (
-        "TIE",
+        "CARDS",
         f"Resolves as {counterpart.name} unless it won on the cards. "
         "Its cost is paid only when it lost on the cards.",
     )
