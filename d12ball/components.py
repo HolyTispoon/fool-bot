@@ -1670,7 +1670,7 @@ class MatchState:
     # flag: `False` is a **surge that lost** and pays no cost even
     # where the cards would have charged one; `True` is a **backfire
     # that lost** and pays theirs even where the cards alone would not;
-    # `None` is every other roll, where `advanced_effects_apply` is the
+    # `None` is every other roll, where `advanced_cost_applies` is the
     # whole answer as it always was.
     #
     # It is the loser's own ignite that decides it, not the matchup's

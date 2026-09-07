@@ -8,11 +8,13 @@ Three layers, and they fail for different reasons:
   may play what, and the buttons, the card image and the click that
   answers all read it. A basic game is three cards; an advanced one is
   six, except where the maneuver went unchallenged.
-- **The outright rule.** `advanced_effects_apply` decides whether the
-  cards' benefit and cost are in force at all. It is asserted against
-  the four ways a maneuver lands rather than against a list of
-  matchups -- the injury cases are exactly the ones a list would get
-  wrong.
+- **The outright rule.** `advanced_benefit_applies` and
+  `advanced_cost_applies` are two questions about two cards -- did
+  *this* card win on the cards, did *this* one lose on them -- rather
+  than one question about the matchup. They are asserted against the
+  ways a maneuver lands rather than against a list of matchups: the
+  injury cases are exactly the ones a list would get wrong, and one of
+  them is what retired the single predicate.
 - **The six effects.** Each is asserted on what it *does to the
   board*, since the wording is prose and will be revised. What is
   checked is every claim the card makes that the data could
@@ -385,18 +387,46 @@ class DinkyAdvancedManeuverPickTests(AdvancedHarness, unittest.TestCase):
 
 class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
     """
-    **An advanced effect follows the cards, not the dice.** Asserted
-    against the four ways a maneuver lands rather than a table of
-    matchups, because the two injury cases are exactly what a table
-    gets wrong.
+    **A benefit fires where the advanced card won on the cards, and a
+    cost where it lost on them** (the author, 2026-09-07).
+
+    It used to be one predicate over the whole matchup -- "the cards
+    were decisive" -- which is right in every case but one: a decisive
+    matchup whose card-winner is injured is settled by a skill test,
+    and the *other* side can win it. Then the card that lost on the
+    cards is the one resolving, and the card that won on them is the
+    one that lost the test. Asking about the matchup gave that pair a
+    benefit and a cost neither had earned.
+
+    A tie is still the common case where nothing fires; it is no
+    longer the test.
     """
 
     def test_a_decisive_matchup_carries_the_effects(self) -> None:
         cog, game, match = self.build("skilled_pass", "double_team")
 
-        self.assertTrue(cog.engine.advanced_effects_apply(match))
+        self.assertTrue(
+            cog.engine.advanced_benefit_applies(match, "skilled_pass"),
+        )
+        self.assertTrue(
+            cog.engine.advanced_cost_applies(match, "double_team"),
+        )
         self.assertEqual(
             cog.engine.advanced_cost(match, "skilled_pass"), "double_team",
+        )
+
+    def test_the_winning_card_owes_no_cost_and_the_loser_gains_nothing(
+        self,
+    ) -> None:
+        # The two halves are mirrors, so each is only ever true of one
+        # of the two cards.
+        cog, game, match = self.build("skilled_pass", "double_team")
+
+        self.assertFalse(
+            cog.engine.advanced_cost_applies(match, "skilled_pass"),
+        )
+        self.assertFalse(
+            cog.engine.advanced_benefit_applies(match, "double_team"),
         )
 
     def test_a_tie_carries_nothing_and_resolves_as_the_basic_card(
@@ -404,7 +434,12 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
     ) -> None:
         cog, game, match = self.build("skilled_pass", "clear")
 
-        self.assertFalse(cog.engine.advanced_effects_apply(match))
+        self.assertFalse(
+            cog.engine.advanced_benefit_applies(match, "skilled_pass"),
+        )
+        self.assertFalse(
+            cog.engine.advanced_cost_applies(match, "clear"),
+        )
         self.assertIsNone(cog.engine.advanced_cost(match, "skilled_pass"))
         self.assertEqual(
             cog.engine.resolving_maneuver(match, "skilled_pass"), "low_pass",
@@ -413,7 +448,7 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
     def test_an_injured_auto_loss_of_a_tie_carries_nothing(self) -> None:
         """
         It was a tie on the cards; the injury only settled it without a
-        roll. Same reading that makes the downgrade below carry them.
+        roll. Nobody won on the cards, so nobody carries anything.
         """
         cog, game, match = self.build("skilled_pass", "clear")
         match.injured.add(match.challenger_id)
@@ -421,33 +456,56 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         self.assertEqual(
             cog.engine.settled_maneuver_winner(match), "skilled_pass",
         )
-        self.assertFalse(cog.engine.advanced_effects_apply(match))
+        self.assertFalse(
+            cog.engine.advanced_benefit_applies(match, "skilled_pass"),
+        )
         self.assertEqual(
             cog.engine.resolving_maneuver(match, "skilled_pass"), "low_pass",
         )
 
-    def test_an_injury_downgrade_still_carries_them(self) -> None:
+    def test_an_injury_forced_test_the_card_winner_wins_carries_them(
+        self,
+    ) -> None:
         """
-        The author, 2026-08-19: "It wasn't a tie on the cards, so it can
-        trigger the benefit/cost depending on the results of the skill
-        test." The cards were decisive; the roll only decides which way
-        the effects point, which is why the winner is still None here
-        and the effects are still in force.
+        The cards were decisive and the card-winner also won the roll,
+        so both effects land exactly where the cards put them.
         """
         cog, game, match = self.build("skilled_pass", "double_team")
         match.injured.add(match.active_player_id)
 
+        # Injury turns the decisive win into a test they have to win.
         self.assertIsNone(cog.engine.settled_maneuver_winner(match))
-        self.assertTrue(cog.engine.advanced_effects_apply(match))
+
         self.assertEqual(
             cog.engine.resolving_maneuver(match, "skilled_pass"),
             "skilled_pass",
         )
+        self.assertEqual(
+            cog.engine.advanced_cost(match, "skilled_pass"), "double_team",
+        )
+
+    def test_an_injury_forced_test_the_card_loser_wins_carries_neither(
+        self,
+    ) -> None:
+        """
+        **The case the old reading got wrong.** The cards went to the
+        offense, the injury forced a test, and the *defense* won it.
+        Double Team never won on the cards, so it resolves basic; and
+        Skilled Pass never lost on them, so it owes nothing -- where
+        "the cards were decisive" charged the side that had actually
+        won the matchup.
+        """
+        cog, game, match = self.build("skilled_pass", "double_team")
+        match.injured.add(match.active_player_id)
+
+        self.assertEqual(
+            cog.engine.resolving_maneuver(match, "double_team"), "pressure",
+        )
+        self.assertIsNone(cog.engine.advanced_cost(match, "double_team"))
 
     def test_a_basic_winner_over_a_basic_loser_owes_no_cost(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
 
-        self.assertTrue(cog.engine.advanced_effects_apply(match))
         self.assertIsNone(cog.engine.advanced_cost(match, "low_pass"))
 
     def test_an_unchallenged_maneuver_carries_nothing(self) -> None:
@@ -457,7 +515,13 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         match.challenger_id = None
         match.begin_uncontested_maneuver()
 
-        self.assertFalse(cog.engine.advanced_effects_apply(match))
+        self.assertIsNone(cog.engine.cards_outcome(match))
+        self.assertFalse(
+            cog.engine.advanced_benefit_applies(match, "low_pass"),
+        )
+        self.assertFalse(
+            cog.engine.advanced_cost_applies(match, "low_pass"),
+        )
 
 
 class EveryMatchupResolvesTests(

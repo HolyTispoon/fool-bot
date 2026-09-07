@@ -546,11 +546,13 @@ class ResolvingManeuverTests(unittest.TestCase):
 
     def test_a_surge_that_lost_suppresses_a_cost_the_cards_would_charge(self):
         # The cards were decisive and the loser played an advanced
-        # card, so `advanced_effects_apply` would charge them -- the
+        # card, so `advanced_cost_applies` would charge them -- the
         # surge is what takes it off.
         self.match.offense_maneuver = "dribble_advance"
         self.match.defense_maneuver = "clear"
-        self.assertTrue(self.engine.advanced_effects_apply(self.match))
+        self.assertTrue(
+            self.engine.advanced_cost_applies(self.match, "clear"),
+        )
         self.assertEqual(
             self.engine.advanced_cost(self.match, "dribble_advance"), "clear",
         )
@@ -570,7 +572,9 @@ class ResolvingManeuverTests(unittest.TestCase):
             "low_pass", "clear",
         ) != "tie":
             self.skipTest("that pairing is no longer a tie")
-        self.assertFalse(self.engine.advanced_effects_apply(self.match))
+        self.assertFalse(
+            self.engine.advanced_cost_applies(self.match, "clear"),
+        )
         self.assertIsNone(self.engine.advanced_cost(self.match, "low_pass"))
 
         self.match.volatile_loser_cost = True

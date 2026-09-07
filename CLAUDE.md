@@ -633,17 +633,29 @@ all three routes into the unopposed branch settle it before the
 offense is prompted. That also makes declining a challenge a defensive
 weapon rather than only a saving.
 
-- **`advanced_effects_apply` is the whole of the outright rule**, and
-  it is one condition: **the cards decided, not the dice.** A matchup
-  the cards decided carries the winner's benefit and the loser's cost;
-  a matchup the cards **tied** carries neither, and `resolving_maneuver`
-  substitutes the basic counterpart so the skill test's winner
-  resolves that instead. The two injury cases fall out of the same
-  reading rather than being exceptions to it: an automatic loss of a
-  tie carries nothing (it *was* a tie), and a skill test forced by the
-  disadvantage still carries them (it was not) -- the author,
-  2026-08-19. **Nothing is persisted for this**; it is read off the
-  two stored keys, so a restart mid-effect answers the same way.
+- **The outright rule is two questions about two cards**, not one
+  about the matchup: `advanced_benefit_applies` (this card **won on
+  the cards**) and `advanced_cost_applies` (this card **lost on
+  them**) -- the author, 2026-09-07. `resolving_maneuver` asks the
+  first and substitutes the basic counterpart when it answers no;
+  `advanced_cost` asks the second.
+  - **It replaced a single `advanced_effects_apply`**, which asked
+    only whether the cards were decisive. That is right in every case
+    but one, and the one is real: a decisive matchup whose card-winner
+    is injured is settled by a skill test, and the *other* side can
+    win it. Then the card resolving is the one that lost on the cards
+    (it must not carry a benefit) and the card that lost the test is
+    the one that won on them (it must not pay a cost). Asking about
+    the matchup gave that pair both.
+  - **A tie is the commonest case where nothing fires and is no longer
+    the test**, which is the whole of the correction: the author's
+    2026-08-19 wording made "not a tie" the decisive factor, and it
+    was imprecise rather than wrong.
+  - **`maneuver_side` reads the side off the match**, not off the
+    card: a `ManeuverDefinition` carries no side, the catalog splits
+    them, and the question is about this matchup anyway.
+  - **Nothing is persisted for this**; it is read off the two stored
+    keys, so a restart mid-effect answers the same way.
 - **Each benefit is its basic counterpart parameterised, not a second
   function.** `apply_deflection`, `apply_steal`, `apply_pressure` and
   `apply_low_pass` each take a key and serve both cards on their rank.
@@ -868,13 +880,13 @@ is that, and `RulesEngine.volatile_loser_cost` is the reading.
   charged one. `True` is a **backfire that lost** -- they pay theirs even
   where the cards alone would not, which makes a backfire the one thing in
   the game that puts a cost in force off the dice. `None` is every other
-  roll, leaving `advanced_effects_apply` the whole answer it always was.
+  roll, leaving `advanced_cost_applies` the whole answer it always was.
 - **It is read off the loser's own die, not the matchup**, which is why it
   is a separate field rather than derivable from `volatile_tier_upgrade`.
   A surge that loses suppresses a cost *and* raises nothing; a backfire
   that loses charges one *and* raises the opponent's card. The two halves
   agree only by coincidence.
-- **`advanced_cost` asks it before `advanced_effects_apply`**, because that
+- **`advanced_cost` asks it before `advanced_cost_applies`**, because that
   is precisely what it overrides -- in both directions. The card checks
   stay above both: the override decides *whether* an advanced cost applies,
   not whether there is one to apply, and a basic losing card has none.

@@ -552,7 +552,7 @@ class RulesEngine:
         **backfired and lost**: they pay theirs even where the cards
         alone would not, which makes a backfire the one thing in the
         game that puts a cost in force off the dice. `None` otherwise,
-        leaving `advanced_effects_apply` the whole answer.
+        leaving `advanced_cost_applies` the whole answer.
 
         Read from the losing player's own die rather than from the
         matchup, which is why this is separate from
@@ -667,53 +667,98 @@ class RulesEngine:
             )
         )
 
-    def advanced_effects_apply(self, match: MatchState) -> bool:
+    def cards_outcome(self, match: MatchState) -> Optional[str]:
         """
-        Whether this maneuver carries its cards' advanced benefit and
-        cost -- **the whole of the outright rule**, in one predicate.
+        What the **cards** said, before any die was thrown:
+        `"offense"`, `"defense"`, `"tie"` -- or None where there was no
+        contest to decide.
 
-        An advanced effect follows the **cards**, not the dice. A
-        matchup the cards decided carries the winner's benefit and the
-        loser's cost; a matchup the cards **tied** carries neither, and
-        resolves as the basic cards on those ranks instead.
-
-        Two consequences worth stating, because they look like
-        exceptions and are not:
-
-        - **An injured player's automatic loss of a tie carries
-          nothing.** It was a tie on the cards; the injury only settled
-          it without a roll.
-        - **A skill test forced by an injury downgrade still carries
-          them.** The cards were decisive, so the effects are in force
-          and the roll only decides which way they point -- the winner
-          of the test takes their card's benefit and the loser pays
-          their card's cost. The author, 2026-08-19: *"It wasn't a tie
-          on the cards, so it can trigger the benefit/cost depending on
-          the results of the skill test."* The two readings above are
-          the same reading: what matters is the tie on the cards.
-
-        An unchallenged maneuver is always basic (there is no advanced
-        card in that hand), so it answers False without having to know
-        that.
+        An unchallenged maneuver has no opposing card, so it answers
+        None and every advanced effect falls away with it.
         """
         if match.maneuver_uncontested:
-            return False
+            return None
         if match.offense_maneuver is None or match.defense_maneuver is None:
-            return False
-        return (
-            self.maneuver_catalog.resolve(
-                match.offense_maneuver, match.defense_maneuver,
-            )
-            != "tie"
+            return None
+        return self.maneuver_catalog.resolve(
+            match.offense_maneuver, match.defense_maneuver,
         )
+
+    def maneuver_side(
+        self, match: MatchState, key: Optional[str],
+    ) -> Optional[str]:
+        """
+        Which side played this card **in this match** -- `"offense"`,
+        `"defense"`, or None where it is neither.
+
+        Read off the match rather than off the card, because a
+        `ManeuverDefinition` carries no side of its own: the catalog
+        splits them by side, and the two questions below are about this
+        matchup rather than about the card in general.
+        """
+        if key is None:
+            return None
+        if key == match.offense_maneuver:
+            return "offense"
+        if key == match.defense_maneuver:
+            return "defense"
+        return None
+
+    def advanced_benefit_applies(
+        self, match: MatchState, key: Optional[str],
+    ) -> bool:
+        """
+        Whether this card carries its advanced **benefit** -- which is
+        exactly "it won on the cards" (the author, 2026-09-07).
+
+        **Not "the cards were decisive".** That was the shape this took
+        until 2026-09-07, off the author's own 2026-08-19 wording, and
+        it was imprecise in one case: a decisive matchup whose
+        card-winner is injured is settled by a skill test, and the
+        *other* side can win it. Their card lost on the cards, so it
+        resolves basic -- where "the cards were decisive" would have
+        handed it an advanced benefit it never earned.
+
+        A tie is still the common case where nothing fires, but it is
+        no longer the test.
+        """
+        side = self.maneuver_side(match, key)
+        return side is not None and self.cards_outcome(match) == side
+
+    def advanced_cost_applies(
+        self, match: MatchState, key: Optional[str],
+    ) -> bool:
+        """
+        Whether this card owes its advanced **cost** -- which is
+        exactly "it lost on the cards" (the author, 2026-09-07), and
+        the mirror of `advanced_benefit_applies`.
+
+        The case this corrects: a player who **won** on the cards, was
+        injured, and lost the forced skill test. Their card never lost
+        on the cards, so it owes nothing -- where the old "the cards
+        were decisive" reading charged them for a matchup they had
+        actually won.
+
+        Both readings the rules used to call out fall straight out of
+        this and are not exceptions to it: an injured player's
+        automatic loss of a tie carries nothing (nobody lost on the
+        cards), and a skill test the cards did not tie carries whatever
+        the cards themselves settled.
+        """
+        side = self.maneuver_side(match, key)
+        if side is None:
+            return False
+        outcome = self.cards_outcome(match)
+        return outcome in ("offense", "defense") and outcome != side
 
     def resolving_maneuver(self, match: MatchState, winner_key: str) -> str:
         """
-        Which card's effect actually runs. It is the winner's own
-        except where a **tie** was settled by a skill test: an advanced
-        card that wins a tie resolves as the basic card on its rank,
-        since a tie carries no advanced effect (see
-        `advanced_effects_apply`).
+        Which card's effect actually runs. It is the winner's own,
+        except that an advanced card resolves at its own tier only
+        where it **won on the cards** -- see
+        `advanced_benefit_applies`. An advanced card that wins a tie,
+        or that wins an injury-forced skill test the cards had gone
+        against it, resolves as the basic card on its rank.
 
         **Volatile's tier rider is the one thing that raises a card
         here**, and it is read off `match.volatile_tier_upgrade`, which
@@ -743,7 +788,9 @@ class RulesEngine:
 
         if not maneuver.is_advanced:
             return winner_key
-        if match.volatile_tier_upgrade or self.advanced_effects_apply(match):
+        if match.volatile_tier_upgrade or self.advanced_benefit_applies(
+            match, winner_key,
+        ):
             return winner_key
         return self.maneuver_catalog.counterpart(maneuver).key
 
@@ -773,16 +820,16 @@ class RulesEngine:
             return None
 
         # **Volatile overrides the cards, both ways.** A surge that
-        # lost pays nothing even where the cards were decisive; a
-        # backfire that lost pays even where they tied. Asked before
-        # `advanced_effects_apply` because that is exactly what it
+        # lost pays nothing even where the card lost on the cards; a
+        # backfire that lost pays even where it did not. Asked before
+        # `advanced_cost_applies` because that is exactly what it
         # overrides -- see `volatile_loser_cost`.
         if match.volatile_loser_cost is False:
             return None
         if match.volatile_loser_cost is True:
             return loser.key
 
-        if not self.advanced_effects_apply(match):
+        if not self.advanced_cost_applies(match, loser.key):
             return None
         return loser.key
 

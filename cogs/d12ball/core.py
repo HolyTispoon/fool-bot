@@ -1932,7 +1932,7 @@ class CoreMixin:
         # **A tie settled by a skill test resolves as the basic card.**
         # An advanced effect follows the cards, so a winner that only
         # won on the dice runs its counterpart's effect and the loser
-        # pays nothing -- see `RulesEngine.advanced_effects_apply`.
+        # pays nothing -- see `RulesEngine.advanced_cost_applies`.
         # Substituting the key here rather than branching inside six
         # handlers is what keeps that one rule in one place.
         handler = handlers.get(
