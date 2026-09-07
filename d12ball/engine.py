@@ -57,6 +57,7 @@ from d12ball.components import (
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
     SPECIES_OOZE,
+    SPECIES_TELEKINETIC,
     BasicRuleset,
     CoachingOccasion,
     FormationShape,
@@ -413,6 +414,56 @@ class RulesEngine:
             self.slip_in_candidates(game, match),
         )
 
+    def mind_pull_candidates(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        The Telekinetics the ball just crossed who may try to pull it
+        in, **in the order the ball reached them** -- which is the
+        whole of "each may try in the order the ball reaches them; the
+        first to succeed stops the ball there and the rest get no
+        roll".
+
+        Read off `match.last_ball_path`, which `set_ball_space`
+        recorded, so this needs no argument beyond the match and
+        answers the same way after a restart.
+
+        Three things narrow it, and each is a sentence of the rule:
+
+        - **The opposing side only.** "Only the opposing team's ball"
+          -- a Telekinetic never pulls their own side's ball in, so
+          this is the side *not* in possession at the moment the ball
+          moved.
+        - **Injured players are out**, because a pull costs an
+          exhaustion token and an injured player cannot gain one. That
+          is the ordinary rule reaching here rather than an exception:
+          `add_exhaustion` would silently refuse, leaving a coach
+          paying nothing for a free roll.
+        - **One roll per Telekinetic per movement.** A player standing
+          on two spaces of the path is impossible, but a path that
+          doubles back is not worth relying on being impossible, so
+          the list is de-duplicated.
+        """
+        if not self.species_abilities_apply(game):
+            return []
+
+        defending = match.defending_side()
+        theirs = set(match.setup_for_side(defending).field_players)
+
+        candidates: list[str] = []
+        for zone_value, space_index in match.last_ball_path:
+            for player_id in match.board.spaces[Zone(zone_value)][space_index]:
+                if player_id not in theirs or player_id in candidates:
+                    continue
+                if player_id in match.injured:
+                    continue
+                if not self.has_species_ability(
+                    game, player_id, SPECIES_TELEKINETIC,
+                ):
+                    continue
+                candidates.append(player_id)
+        return candidates
+
     def merge_bonus(
         self,
         game: D12BallGame,
@@ -487,6 +538,39 @@ class RulesEngine:
         if not self.advanced_maneuvers_apply(game):
             return False
         return winner.surge or loser.backfire
+
+    def volatile_loser_cost(
+        self, game: D12BallGame, loser: IgnitedRoll,
+    ) -> Optional[bool]:
+        """
+        What the losing side's own ignite does to the advanced cost
+        they would otherwise pay -- the other half of Volatile's rider
+        (the author, 2026-09-07).
+
+        `False` where they **surged and lost**: they pay no cost even
+        where the cards would have charged one. `True` where they
+        **backfired and lost**: they pay theirs even where the cards
+        alone would not, which makes a backfire the one thing in the
+        game that puts a cost in force off the dice. `None` otherwise,
+        leaving `advanced_cost_applies` the whole answer.
+
+        Read from the losing player's own die rather than from the
+        matchup, which is why this is separate from
+        `volatile_raises_tier` rather than derivable from it: a surge
+        that loses suppresses a cost *and* raises nothing, and a
+        backfire that loses charges one *and* raises the opponent's
+        card.
+
+        Gated on the advanced maneuvers for the same reason the tier
+        is: with no advanced cards in play there is no cost to change.
+        """
+        if not self.advanced_maneuvers_apply(game):
+            return None
+        if loser.surge:
+            return False
+        if loser.backfire:
+            return True
+        return None
 
     def maneuver_tiers(
         self,
@@ -583,53 +667,98 @@ class RulesEngine:
             )
         )
 
-    def advanced_effects_apply(self, match: MatchState) -> bool:
+    def cards_outcome(self, match: MatchState) -> Optional[str]:
         """
-        Whether this maneuver carries its cards' advanced benefit and
-        cost -- **the whole of the outright rule**, in one predicate.
+        What the **cards** said, before any die was thrown:
+        `"offense"`, `"defense"`, `"tie"` -- or None where there was no
+        contest to decide.
 
-        An advanced effect follows the **cards**, not the dice. A
-        matchup the cards decided carries the winner's benefit and the
-        loser's cost; a matchup the cards **tied** carries neither, and
-        resolves as the basic cards on those ranks instead.
-
-        Two consequences worth stating, because they look like
-        exceptions and are not:
-
-        - **An injured player's automatic loss of a tie carries
-          nothing.** It was a tie on the cards; the injury only settled
-          it without a roll.
-        - **A skill test forced by an injury downgrade still carries
-          them.** The cards were decisive, so the effects are in force
-          and the roll only decides which way they point -- the winner
-          of the test takes their card's benefit and the loser pays
-          their card's cost. The author, 2026-08-19: *"It wasn't a tie
-          on the cards, so it can trigger the benefit/cost depending on
-          the results of the skill test."* The two readings above are
-          the same reading: what matters is the tie on the cards.
-
-        An unchallenged maneuver is always basic (there is no advanced
-        card in that hand), so it answers False without having to know
-        that.
+        An unchallenged maneuver has no opposing card, so it answers
+        None and every advanced effect falls away with it.
         """
         if match.maneuver_uncontested:
-            return False
+            return None
         if match.offense_maneuver is None or match.defense_maneuver is None:
-            return False
-        return (
-            self.maneuver_catalog.resolve(
-                match.offense_maneuver, match.defense_maneuver,
-            )
-            != "tie"
+            return None
+        return self.maneuver_catalog.resolve(
+            match.offense_maneuver, match.defense_maneuver,
         )
+
+    def maneuver_side(
+        self, match: MatchState, key: Optional[str],
+    ) -> Optional[str]:
+        """
+        Which side played this card **in this match** -- `"offense"`,
+        `"defense"`, or None where it is neither.
+
+        Read off the match rather than off the card, because a
+        `ManeuverDefinition` carries no side of its own: the catalog
+        splits them by side, and the two questions below are about this
+        matchup rather than about the card in general.
+        """
+        if key is None:
+            return None
+        if key == match.offense_maneuver:
+            return "offense"
+        if key == match.defense_maneuver:
+            return "defense"
+        return None
+
+    def advanced_benefit_applies(
+        self, match: MatchState, key: Optional[str],
+    ) -> bool:
+        """
+        Whether this card carries its advanced **benefit** -- which is
+        exactly "it won on the cards" (the author, 2026-09-07).
+
+        **Not "the cards were decisive".** That was the shape this took
+        until 2026-09-07, off the author's own 2026-08-19 wording, and
+        it was imprecise in one case: a decisive matchup whose
+        card-winner is injured is settled by a skill test, and the
+        *other* side can win it. Their card lost on the cards, so it
+        resolves basic -- where "the cards were decisive" would have
+        handed it an advanced benefit it never earned.
+
+        A tie is still the common case where nothing fires, but it is
+        no longer the test.
+        """
+        side = self.maneuver_side(match, key)
+        return side is not None and self.cards_outcome(match) == side
+
+    def advanced_cost_applies(
+        self, match: MatchState, key: Optional[str],
+    ) -> bool:
+        """
+        Whether this card owes its advanced **cost** -- which is
+        exactly "it lost on the cards" (the author, 2026-09-07), and
+        the mirror of `advanced_benefit_applies`.
+
+        The case this corrects: a player who **won** on the cards, was
+        injured, and lost the forced skill test. Their card never lost
+        on the cards, so it owes nothing -- where the old "the cards
+        were decisive" reading charged them for a matchup they had
+        actually won.
+
+        Both readings the rules used to call out fall straight out of
+        this and are not exceptions to it: an injured player's
+        automatic loss of a tie carries nothing (nobody lost on the
+        cards), and a skill test the cards did not tie carries whatever
+        the cards themselves settled.
+        """
+        side = self.maneuver_side(match, key)
+        if side is None:
+            return False
+        outcome = self.cards_outcome(match)
+        return outcome in ("offense", "defense") and outcome != side
 
     def resolving_maneuver(self, match: MatchState, winner_key: str) -> str:
         """
-        Which card's effect actually runs. It is the winner's own
-        except where a **tie** was settled by a skill test: an advanced
-        card that wins a tie resolves as the basic card on its rank,
-        since a tie carries no advanced effect (see
-        `advanced_effects_apply`).
+        Which card's effect actually runs. It is the winner's own,
+        except that an advanced card resolves at its own tier only
+        where it **won on the cards** -- see
+        `advanced_benefit_applies`. An advanced card that wins a tie,
+        or that wins an injury-forced skill test the cards had gone
+        against it, resolves as the basic card on its rank.
 
         **Volatile's tier rider is the one thing that raises a card
         here**, and it is read off `match.volatile_tier_upgrade`, which
@@ -659,7 +788,9 @@ class RulesEngine:
 
         if not maneuver.is_advanced:
             return winner_key
-        if match.volatile_tier_upgrade or self.advanced_effects_apply(match):
+        if match.volatile_tier_upgrade or self.advanced_benefit_applies(
+            match, winner_key,
+        ):
             return winner_key
         return self.maneuver_catalog.counterpart(maneuver).key
 
@@ -679,8 +810,6 @@ class RulesEngine:
         card it just beat was, which is also the only place that knows
         where the cost belongs.
         """
-        if not self.advanced_effects_apply(match):
-            return None
         loser_key = match.opposing_maneuver(winner_key)
         loser = (
             self.maneuver_catalog.get(loser_key)
@@ -688,6 +817,19 @@ class RulesEngine:
             else None
         )
         if loser is None or not loser.is_advanced:
+            return None
+
+        # **Volatile overrides the cards, both ways.** A surge that
+        # lost pays nothing even where the card lost on the cards; a
+        # backfire that lost pays even where it did not. Asked before
+        # `advanced_cost_applies` because that is exactly what it
+        # overrides -- see `volatile_loser_cost`.
+        if match.volatile_loser_cost is False:
+            return None
+        if match.volatile_loser_cost is True:
+            return loser.key
+
+        if not self.advanced_cost_applies(match, loser.key):
             return None
         return loser.key
 
@@ -1736,37 +1878,42 @@ class RulesEngine:
         self, game: D12BallGame, match: MatchState,
     ) -> list[str]:
         """
-        Every Cyborg on the field this run back does **not** move --
-        Lithium Powered's Charge-up, one drain token off each.
+        Every Cyborg on the field who **did not move** during the run
+        back that has just finished -- Lithium Powered's Charge-up, one
+        drain token off each.
 
-        "A Cyborg who is not moved by it -- one already in their own
-        zone, or the carrier who never runs back" is the rule, and
-        those two examples are exactly the complement of
-        `run_back_displaced`: displaced players are the ones outside
-        their own zone, and the carrier is already struck out of that
-        list by the exemption. So this is "on the field, and not
-        someone the run back is about to send home".
+        **It is about movement, not about being obliged to move** (the
+        author, 2026-09-07): *"any player that moves is running back.
+        Charging up only occurs when a player does not move during
+        run-back."* So this reads `match.run_back_moved`, which
+        `run_back_player` fills in as it places people, rather than
+        asking who was displaced.
 
-        **A stacked player counts as staying**, which is the one
-        reading here that the rules do not spell out. A stack sits
-        *inside* a zone, so its players are "already in their own
-        zone" -- the rule's own first example -- even though a coach
-        may then send one of them to a different space in it. Moving
-        within the zone you are already in is not running back. Raised
-        in the rules log for the author.
+        That distinction is the whole of what a stack decides. A player
+        outside their own zone has to return and can never charge up; a
+        player already in their own zone charges up unless something
+        moved them anyway -- and where several share a space and one of
+        them must go, **the one the coach sends loses their token and
+        the one left keeps theirs**. Holding a Cyborg still is a real
+        reason to send somebody else.
+
+        This is also why it can only be asked once the run back is
+        over. It was first built at `begin_run_back`, off
+        `run_back_displaced`, which charged up both players of a stack
+        whichever one the coach then sent.
 
         It answers with the ids rather than charging them, so the
         caller can word the result and save in its own breath; the
-        removal itself is `MatchState.remove_exhaustion`.
+        removal itself is `MatchState.recover_exhaustion`.
         """
         if not self.species_abilities_apply(game):
             return []
 
+        moved = set(match.run_back_moved)
         charged: list[str] = []
         for side in (TeamSide.HOME, TeamSide.VISITING):
-            running_back = set(self.run_back_displaced(match, side))
             for player_id in match.setup_for_side(side).field_players:
-                if player_id in running_back:
+                if player_id in moved:
                     continue
                 if not self.has_species_ability(
                     game, player_id, SPECIES_CYBORG,

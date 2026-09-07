@@ -1090,3 +1090,116 @@ class ShooterChoiceView(SafeView):
             view=None,
         )
         await self.cog.start_set_up_shot(interaction, game, match, shooter_id)
+
+
+class MindPullView(SafeView):
+    """
+    Whether a Telekinetic the ball has just crossed reaches out for it
+    -- Slimey's opposite number, and the one ability that interrupts a
+    maneuver rather than modifying it. See "Mind Pull (Telekinetic)" in
+    docs/living-rules.md.
+
+    **Only that player's own coach may answer**, unlike the roll
+    buttons either coach may press: the token is theirs to spend and
+    the pull is theirs to decline. Same reasoning as Overdrive's
+    declaration.
+
+    The player is in both custom_ids as well as in
+    `match.pending_mind_pull`, so a coach who scrolls back to an
+    earlier offer in the same turn cannot answer it for somebody else.
+    A restart while one of these is up leaves the queue on the match,
+    which `pending_turn_view` puts back -- unlike
+    `SetUpAttemptChoiceView`, this one *is* reconstructible.
+    """
+
+    def __init__(
+        self,
+        cog: "D12Ball",
+        game_id: str,
+        player_id: str,
+    ):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.player_id = player_id
+
+        player = cog.engine.get_player_definition(player_id)
+        pull = discord.ui.Button(
+            label=f"{player.name} reaches for it",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:mind_pull:{game_id}:{player_id}",
+        )
+        pull.callback = self.pull
+        self.add_item(pull)
+
+        let_go = discord.ui.Button(
+            label="Let it go",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:mind_pull_decline:{game_id}:{player_id}",
+        )
+        let_go.callback = self.decline
+        self.add_item(let_go)
+
+    async def claim(self, interaction: discord.Interaction):
+        """
+        The game and match if this click may answer this offer, or
+        `(None, None)` after replying with why it may not.
+        """
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return None, None
+
+        # The queue is the whole of "is this offer still live" -- a
+        # restart re-arms the prompt off it, and answering removes the
+        # player from it, so a second click on the same message finds
+        # them gone.
+        if self.player_id not in match.pending_mind_pull:
+            await interaction.response.send_message(
+                "That Mind Pull has already been answered.",
+                ephemeral=True,
+            )
+            return None, None
+
+        if self.cog.engine.controlling_user_id(
+            game, match, self.player_id,
+        ) != interaction.user.id:
+            await interaction.response.send_message(
+                "Only the coach whose player that is can answer this.",
+                ephemeral=True,
+            )
+            return None, None
+        return game, match
+
+    async def pull(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None:
+            return
+
+        # Deferred before the roll for the reason SkillTestView.roll
+        # spells out: what follows can be a whole turnover, and the
+        # three-second window is not enough for it.
+        await interaction.response.edit_message(view=None)
+        await self.cog.run_mind_pull(
+            interaction, game, match, self.player_id,
+        )
+
+    async def decline(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None:
+            return
+
+        player = self.cog.engine.get_player_definition(self.player_id)
+        match.pending_mind_pull.remove(self.player_id)
+        self.cog.persist(game, match)
+
+        # Nothing is charged for letting it go -- the token is the
+        # price of *trying* -- so this says only that they did, and
+        # hands the queue on.
+        await interaction.response.edit_message(
+            content=(
+                f"{self.cog.player_label(match, player)} lets the ball "
+                "go past."
+            ),
+            view=None,
+        )
+        await self.cog.continue_mind_pull(interaction, game, match)

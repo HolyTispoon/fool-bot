@@ -1055,6 +1055,15 @@ class TurnoverMixin:
         match.pending_run_back_turnover = turnover_occurred
         match.pending_run_back_stays_player_id = match.ball_carrier_id
         match.pending_run_back_speed_choice = speed_choice_after
+        # **Charge-up is armed here and awarded at the end**, because
+        # who actually moved is only known once the cascade has run --
+        # a stack is a real decision (see `charge_up_players`). A new
+        # play is not a run back and triggers none, and this flag is
+        # what remembers that: `new_play` is not persisted, and by the
+        # time the reset leaves nobody displaced the cascade can no
+        # longer tell the two apart.
+        match.run_back_moved = []
+        match.pending_run_back_charge_up = not new_play
         self.persist(game, match)
 
         # A new play resets both sides to the shape their coaches set,
@@ -1078,19 +1087,6 @@ class TurnoverMixin:
                     interaction, game, match, winning_side,
                 )
                 return
-        else:
-            # **Charge-up**, and only on a real run back: "a new-play
-            # reset is not a run back and triggers no Charge-up". It is
-            # settled here rather than at the end of the cascade
-            # because this is the one moment that knows who the run
-            # back is about to move -- `run_back_displaced` reads the
-            # position before anybody has come home, and the carrier
-            # exemption was recorded two lines up.
-            charge_up = self.apply_charge_up(game, match)
-            if charge_up:
-                lead_in = "\n\n".join(filter(None, (lead_in, charge_up)))
-            self.persist(game, match)
-
         await self.announce_run_back(
             interaction, game, match, lead_in, speed_reset=speed_reset,
         )
@@ -1453,6 +1449,18 @@ class TurnoverMixin:
         speed_choice_after = match.pending_run_back_speed_choice
         stays_player_id = match.pending_run_back_stays_player_id
         match.pending_run_back_speed_choice = False
+
+        # **Charge-up, now that everybody who was going to move has.**
+        # It rides on `lead_in` rather than being sent on its own: this
+        # is the tail of a cascade that has been batching its messages
+        # all the way down, and a line about drain tokens does not earn
+        # a message of its own -- see "Discord's rate limits".
+        if match.pending_run_back_charge_up:
+            match.pending_run_back_charge_up = False
+            charge_up = self.apply_charge_up(game, match)
+            if charge_up:
+                lead_in = "\n\n".join(filter(None, (lead_in, charge_up)))
+        match.run_back_moved = []
         self.persist(game, match)
 
         if match.pending_ball_recovery:

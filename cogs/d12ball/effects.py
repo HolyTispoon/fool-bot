@@ -15,6 +15,8 @@ from typing import Optional
 from d12ball.engine import IgnitedRoll, RulesEngine
 from d12ball.components import (
     EVENT_OWN_GOAL_ROLL,
+    MIND_PULL_SUCCESS_FACES,
+    MIND_PULL_TOKEN_COST,
     MIN_HIGH_PASS_DISTANCE,
     MatchState,
     PlayerDefinition,
@@ -43,6 +45,7 @@ from cogs.d12ball_helpers import (
 )
 from cogs.d12ball_views import (
     DribbleAdvanceChoiceView,
+    MindPullView,
     DribbleBurstChoiceView,
     HighPassChoiceView,
     LooseBallChoiceView,
@@ -1333,6 +1336,23 @@ class ManeuverEffectsMixin:
         derived because by the time this runs, an overshot pass and an
         ordinary 2-space one have left the match in the same state.
         """
+        # **A scoring opportunity is an arrival too**, and one the
+        # rules name outright among what a pull pre-empts -- so the
+        # offer goes out before the shot is put to anybody.
+        if await self.check_for_mind_pull(
+            interaction,
+            game,
+            match,
+            {
+                "kind": "scoring_attempt",
+                "shooter_id": shooter_id,
+                "distance_moved": distance_moved,
+                "lead_in": lead_in,
+                "contest_on_decline": contest_on_decline,
+            },
+        ):
+            return
+
         if self.engine.side_controlled_by_ai(game, match, "offense"):
             attempt = self.engine.get_ai_strategy(
                 game
@@ -1445,6 +1465,253 @@ class ManeuverEffectsMixin:
 
 
 
+    async def check_for_mind_pull(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        resume: dict,
+    ) -> bool:
+        """
+        **The gate every ball arrival runs through**: did the ball just
+        cross an opposing Telekinetic who may pull it in? Returns True
+        when it did and the offer has been put, so the caller stops --
+        exactly the shape `check_for_loose_ball` has, and for the same
+        reason.
+
+        Mind Pull "resolves before the ball settles", so this sits at
+        the top of the three functions that settle an arrival:
+        `finish_maneuver_resolution` (the tail of every ordinary path,
+        receptions included), `begin_loose_ball` (a Deflect, which
+        calls it directly, and the High Pass contest, which comes
+        through it), and `offer_scoring_attempt_choice` (a set-up).
+        Between them they are every one of "a reception, a scoring
+        opportunity, a contest, a loose ball".
+
+        **The path is consumed whether or not anybody may pull.** That
+        is what stops the same movement being offered twice when two
+        gates run in a row -- `finish_maneuver_resolution` gates and
+        then calls `check_for_loose_ball`, which reaches the second
+        gate with the path already spent.
+
+        `resume` is the arrival this interrupted, as
+        `{"kind": ..., ...}` -- the same shape `pending_injury_resume`
+        uses, and for the same reason: a coach may take minutes over
+        the offer, and between the interrupt and the answer nothing
+        else on the match says what the ball was about to do.
+        """
+        candidates = self.engine.mind_pull_candidates(game, match)
+        # Spent either way, and before the early return: a movement
+        # that offered nobody a pull must not offer one at the next
+        # arrival point either.
+        match.last_ball_path = []
+        if not candidates:
+            return False
+
+        match.pending_mind_pull = candidates
+        match.pending_mind_pull_resume = resume
+        self.persist(game, match)
+
+        await self.continue_mind_pull(interaction, game, match)
+        return True
+
+    async def continue_mind_pull(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Put the offer to the next Telekinetic the ball crossed, or --
+        when none are left -- do what the arrival this interrupted was
+        going to do. **The one exit from the queue**, so a coach who
+        declines and a Telekinetic who was never asked leave by the
+        same door; this can never be where a turn stops for good.
+
+        **Dinky never pulls**, so an AI side's Telekinetics are skipped
+        rather than prompted. Paying a token for a one-in-six steal is
+        a judgement call, and Dinky makes none -- the same call as
+        never ceding, never declining a challenge and never slipping
+        in. In a solo game the ability is the human's alone, which is
+        also what keeps this flow free of an AI branch.
+        """
+        while match.pending_mind_pull:
+            player_id = match.pending_mind_pull[0]
+            controller = self.engine.controlling_user_id(
+                game, match, player_id,
+            )
+            # Skipped rather than refused: a player who has been
+            # injured since the offer was queued cannot pay the token,
+            # and an AI's never wanted it.
+            if controller is None or player_id in match.injured:
+                match.pending_mind_pull.pop(0)
+                self.persist(game, match)
+                continue
+
+            player = self.engine.get_player_definition(player_id)
+            await interaction.followup.send(
+                f"🔮 **Mind Pull** — the ball crossed "
+                f"{self.player_label(match, player)}, who may reach out "
+                f"for it: {MIND_PULL_TOKEN_COST} exhaustion token and a "
+                f"d12, pulling it in on a "
+                f"{'-'.join(str(face) for face in MIND_PULL_SUCCESS_FACES)}.",
+                view=MindPullView(self, game.game_id, player_id),
+            )
+            return
+
+        resume = match.pending_mind_pull_resume
+        match.pending_mind_pull_resume = None
+        self.persist(game, match)
+        await self.dispatch_mind_pull_resume(
+            interaction, game, match, resume,
+        )
+
+    async def dispatch_mind_pull_resume(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        resume: Optional[dict],
+    ) -> None:
+        """
+        Put the turn back where the pull interrupted it -- the twin of
+        `dispatch_injury_resume`, and read the same way: the kind names
+        the arrival, and the rest of the dict is the arguments that
+        arrival needs.
+
+        An unrecognised kind (or none at all) falls through to the
+        ordinary end of a maneuver rather than stranding the turn, the
+        same as `continue_effect`'s own fallback.
+        """
+        resume = resume or {}
+        kind = resume.get("kind")
+
+        if kind == "loose_ball":
+            await self.begin_loose_ball(
+                interaction,
+                game,
+                match,
+                resume.get("distance_moved", 1),
+                lead_in=resume.get("lead_in", ""),
+                headline=resume.get("headline"),
+                is_high_pass=resume.get("is_high_pass", False),
+            )
+            return
+
+        if kind == "scoring_attempt":
+            await self.offer_scoring_attempt_choice(
+                interaction,
+                game,
+                match,
+                shooter_id=resume["shooter_id"],
+                distance_moved=resume.get("distance_moved", 1),
+                lead_in=resume.get("lead_in", ""),
+                contest_on_decline=resume.get("contest_on_decline", False),
+            )
+            return
+
+        await self.finish_maneuver_resolution(
+            interaction,
+            game,
+            match,
+            distance_moved=resume.get("distance_moved", 1),
+            turnover_occurred=resume.get("turnover_occurred", False),
+            lead_in=resume.get("lead_in", ""),
+        )
+
+    async def run_mind_pull(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+    ) -> None:
+        """
+        One Telekinetic's attempt, off the button they were offered:
+        pay the token, roll a d12, and either take the ball or hand the
+        queue on.
+
+        **The token is paid whether or not the pull lands**, which is
+        the rule and is why the charge is above the roll rather than in
+        the winning branch.
+
+        **It is not a skill test and owes no injury check** (the
+        rules say so outright), so nothing here goes through
+        `begin_injury_tests` -- a Telekinetic the token pushes over
+        their threshold is Exhausted and simply carries it.
+        """
+        player = self.engine.get_player_definition(player_id)
+        if player_id in match.pending_mind_pull:
+            match.pending_mind_pull.remove(player_id)
+
+        # Injured between being queued and answering: they cannot pay
+        # the token, and `add_exhaustion` would refuse it silently and
+        # hand them a free roll. Skipped rather than refused, the same
+        # way `continue_mind_pull` skips them -- this can never be
+        # where a turn stops.
+        if player_id in match.injured:
+            self.persist(game, match)
+            await self.continue_mind_pull(interaction, game, match)
+            return
+
+        exhaustion_text = self.apply_exhaustion(
+            game, match, player_id, MIND_PULL_TOKEN_COST,
+        )
+        roll = random.randint(1, 12)
+        # Volatile is a Fire Demon's and this is a Telekinetic's roll,
+        # so nothing ignites here -- asked anyway, through the one
+        # funnel, rather than assuming the two can never meet.
+        ignite = self.engine.ignite(game, player_id, roll)
+        total = roll + ignite.modifier
+        pulled = total in MIND_PULL_SUCCESS_FACES
+
+        note = "\n".join(filter(None, (
+            f"🔮 **Mind Pull** — {self.player_label(match, player)} "
+            f"reaches for the ball and rolls {roll}"
+            + (f" ({ignite.detail})" if ignite.detail else "")
+            + ".",
+            exhaustion_text,
+        )))
+
+        if not pulled:
+            # The resume is left exactly as it was: the next
+            # Telekinetic in the queue is owed the same offer, and the
+            # arrival behind them is still the one to fall back to.
+            self.persist(game, match)
+            await interaction.followup.send(
+                f"{note}\nThe ball slips past them."
+            )
+            await self.continue_mind_pull(interaction, game, match)
+            return
+
+        # A pull is a **steal**: possession flips, the ball stops here,
+        # and this player is the carrier who does not run back.
+        resume = match.pending_mind_pull_resume
+        match.pending_mind_pull_resume = None
+        match.apply_mind_pull(player_id)
+        match.ball.speed = 1
+        self.persist(game, match)
+
+        await self.refresh_match_image(interaction, game)
+        # The arrival this pre-empted never happens -- "a pull that
+        # lands pre-empts whatever the movement would have led to" --
+        # so the resume is dropped rather than dispatched. Its clock
+        # cost is not: the maneuver that moved the ball still charges
+        # its space minute, which is what `distance_moved` carries into
+        # the run back.
+        await self.begin_run_back(
+            interaction,
+            game,
+            match,
+            distance_moved=(resume or {}).get("distance_moved", 1),
+            turnover_occurred=True,
+            lead_in=(
+                f"{note}\n**They pull it in!** "
+                f"{self.player_label(match, player)} takes the ball on "
+                f"{ball_location_line(match)}."
+            ),
+        )
+
     def build_loose_ball_view(
         self,
         game_id: str,
@@ -1517,6 +1784,25 @@ class ManeuverEffectsMixin:
         why it rides on the same flag that carries the ball speed
         modifier.
         """
+        # **Mind Pull pre-empts a contest and a loose ball alike**, so
+        # the offer goes out before any of this side's state is set.
+        # `finish_maneuver_resolution` has usually gated already and
+        # spent the path; the callers that reach here directly -- a
+        # Deflect, and the High Pass contest -- have not.
+        if await self.check_for_mind_pull(
+            interaction,
+            game,
+            match,
+            {
+                "kind": "loose_ball",
+                "distance_moved": distance_moved,
+                "lead_in": lead_in,
+                "headline": headline,
+                "is_high_pass": is_high_pass,
+            },
+        ):
+            return
+
         match.begin_loose_ball(distance_moved, is_high_pass=is_high_pass)
         # The ball is free and about to be contested, so nobody is
         # carrying it -- including the long High Pass, where a receiver

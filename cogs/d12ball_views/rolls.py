@@ -365,21 +365,43 @@ class SkillTestView(SafeView):
         match.volatile_tier_upgrade = self.cog.engine.volatile_raises_tier(
             game, winner_ignite, loser_ignite,
         )
+        # The other half: the losing side's own ignite decides whether
+        # they pay their advanced card's cost, whatever the cards said.
+        match.volatile_loser_cost = self.cog.engine.volatile_loser_cost(
+            game, loser_ignite,
+        )
+        volatile_lines = []
         if match.volatile_tier_upgrade:
             raised = self.cog.engine.maneuver_name(
                 self.cog.engine.resolving_maneuver(match, winner_key),
             )
-            volatile_note = (
-                f"\n🔥 **Volatile** — "
-                + (
-                    "the surge"
-                    if winner_ignite.surge
-                    else "the backfire"
-                )
+            volatile_lines.append(
+                "🔥 **Volatile** — "
+                + ("the surge" if winner_ignite.surge else "the backfire")
                 + f" raises it to **{raised}**."
             )
-        else:
-            volatile_note = ""
+        # Said only where there is an advanced cost for it to have
+        # changed: a coach told "the surge spares them the cost" of a
+        # card that carried none is being answered a question nobody
+        # asked (see "What a message says" in CLAUDE.md).
+        loser_card = self.cog.engine.maneuver_catalog.get(
+            match.opposing_maneuver(winner_key) or "",
+        )
+        if (
+            match.volatile_loser_cost is not None
+            and loser_card is not None
+            and loser_card.is_advanced
+        ):
+            volatile_lines.append(
+                "🔥 **Volatile** — the backfire also costs them their "
+                "advanced card's price."
+                if match.volatile_loser_cost
+                else "🔥 **Volatile** — the surge spares them their "
+                "advanced card's cost."
+            )
+        volatile_note = (
+            "\n" + "\n".join(volatile_lines) if volatile_lines else ""
+        )
 
         exhausted_participants = [
             player

@@ -420,24 +420,24 @@ def role_abilities(
     ]
     rows.extend(EXTRA_NOTES.get(maneuver.key, ()))
     if maneuver.is_advanced and maneuvers is not None:
-        rows.append(tie_note(maneuvers, maneuver))
+        rows.append(cards_note(maneuvers, maneuver))
     return rows
 
 
-def tie_note(
+def cards_note(
     catalog: ManeuverCatalog, maneuver: ManeuverDefinition
 ) -> tuple[str, str]:
     """
     The line every advanced card carries: **an advanced effect follows
     the cards, not the dice.**
 
-    A tie on the cards carries no advanced effect either way and
-    resolves as the basic card on the same rank instead. A skill test
-    the cards did *not* tie -- one an injured player's disadvantage
-    forced -- is still an outright result, so it carries the effects
-    and the roll only decides which way (the author, 2026-08-19). That
-    is the same reading that makes an injured player's automatic loss
-    of a tie carry nothing: what matters is the tie on the cards.
+    A card carries its benefit where it **won on the cards** and its
+    cost where it **lost on them** (the author, 2026-09-07). A tie is
+    the commonest case where neither fires -- it resolves as the basic
+    card on the same rank instead -- but it is not the test: a card
+    that wins an injury-forced skill test the cards had gone against
+    also resolves basic, and a card that loses one it had won on the
+    cards pays nothing.
 
     The counterpart is looked up by rank rather than written down,
     because rank is what pairs the two cards -- see
@@ -445,10 +445,9 @@ def tie_note(
     """
     counterpart = catalog.counterpart(maneuver)
     return (
-        "TIE",
-        f"A tie resolves as {counterpart.name}, with no advanced "
-        "effect either way. A skill test forced by injury still carries "
-        "them.",
+        "CARDS",
+        f"Resolves as {counterpart.name} unless it won on the cards. "
+        "Its cost is paid only when it lost on the cards.",
     )
 
 

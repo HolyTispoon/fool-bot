@@ -633,17 +633,29 @@ all three routes into the unopposed branch settle it before the
 offense is prompted. That also makes declining a challenge a defensive
 weapon rather than only a saving.
 
-- **`advanced_effects_apply` is the whole of the outright rule**, and
-  it is one condition: **the cards decided, not the dice.** A matchup
-  the cards decided carries the winner's benefit and the loser's cost;
-  a matchup the cards **tied** carries neither, and `resolving_maneuver`
-  substitutes the basic counterpart so the skill test's winner
-  resolves that instead. The two injury cases fall out of the same
-  reading rather than being exceptions to it: an automatic loss of a
-  tie carries nothing (it *was* a tie), and a skill test forced by the
-  disadvantage still carries them (it was not) -- the author,
-  2026-08-19. **Nothing is persisted for this**; it is read off the
-  two stored keys, so a restart mid-effect answers the same way.
+- **The outright rule is two questions about two cards**, not one
+  about the matchup: `advanced_benefit_applies` (this card **won on
+  the cards**) and `advanced_cost_applies` (this card **lost on
+  them**) -- the author, 2026-09-07. `resolving_maneuver` asks the
+  first and substitutes the basic counterpart when it answers no;
+  `advanced_cost` asks the second.
+  - **It replaced a single `advanced_effects_apply`**, which asked
+    only whether the cards were decisive. That is right in every case
+    but one, and the one is real: a decisive matchup whose card-winner
+    is injured is settled by a skill test, and the *other* side can
+    win it. Then the card resolving is the one that lost on the cards
+    (it must not carry a benefit) and the card that lost the test is
+    the one that won on them (it must not pay a cost). Asking about
+    the matchup gave that pair both.
+  - **A tie is the commonest case where nothing fires and is no longer
+    the test**, which is the whole of the correction: the author's
+    2026-08-19 wording made "not a tie" the decisive factor, and it
+    was imprecise rather than wrong.
+  - **`maneuver_side` reads the side off the match**, not off the
+    card: a `ManeuverDefinition` carries no side, the catalog splits
+    them, and the question is about this matchup anyway.
+  - **Nothing is persisted for this**; it is read off the two stored
+    keys, so a restart mid-effect answers the same way.
 - **Each benefit is its basic counterpart parameterised, not a second
   function.** `apply_deflection`, `apply_steal`, `apply_pressure` and
   `apply_low_pass` each take a key and serve both cards on their rank.
@@ -854,15 +866,34 @@ losing side raises "the opponent's" -- and the opponent of the losing side
   sets it and the effect that reads it: a restart in that window has to
   resolve the maneuver at the tier the dice decided, and nothing else on the
   match records it. `reset_maneuver` clears it with the rest of the turn.
-- **It raises the winner's card and nothing else.** The loser's cost is
-  `advanced_cost`'s, which asks whether the *cards* were decisive -- an
-  ignite decides a tier, not who won -- so a tie raised to advanced by a
-  surge still carries no cost. That is the rules read literally: the rider
-  speaks only to the card that resolves.
 - **It beats the tie downgrade**, which is the case the rules call out
   ("even where the cards tied and the basic card would otherwise resolve"),
   and it only ever raises -- a card already resolving at advanced gains
   nothing, which falls out of an advanced card's counterpart being itself.
+
+**The rider has a second half: the losing side's own ignite decides their
+advanced cost** (the author, 2026-09-07). `MatchState.volatile_loser_cost`
+is that, and `RulesEngine.volatile_loser_cost` is the reading.
+
+- **It is a nullable bool because there are three states.** `False` is a
+  **surge that lost** -- they pay no cost even where the cards would have
+  charged one. `True` is a **backfire that lost** -- they pay theirs even
+  where the cards alone would not, which makes a backfire the one thing in
+  the game that puts a cost in force off the dice. `None` is every other
+  roll, leaving `advanced_cost_applies` the whole answer it always was.
+- **It is read off the loser's own die, not the matchup**, which is why it
+  is a separate field rather than derivable from `volatile_tier_upgrade`.
+  A surge that loses suppresses a cost *and* raises nothing; a backfire
+  that loses charges one *and* raises the opponent's card. The two halves
+  agree only by coincidence.
+- **`advanced_cost` asks it before `advanced_cost_applies`**, because that
+  is precisely what it overrides -- in both directions. The card checks
+  stay above both: the override decides *whether* an advanced cost applies,
+  not whether there is one to apply, and a basic losing card has none.
+- **The first build had the tier half and not this one.** It read "resolves
+  that side's maneuver as its advanced version" as a sentence about the
+  card that resolves and nothing else, and left `advanced_cost` asking only
+  the cards.
 
 ### Lithium Powered
 
@@ -922,18 +953,32 @@ seventh gets it in one line.
   so the price cannot be paid. Overdrive itself survives injury, being a flat
   bonus rather than the withheld skill modifier.
 
-**Charge-up is settled in `begin_run_back`, not at the end of the cascade.**
-That is the one moment that knows who the run back is about to move:
-`run_back_displaced` reads the position before anybody has come home, and the
-carrier exemption was recorded two lines above.
+**Charge-up is about movement, not about being obliged to move** (the author,
+2026-09-07): *"any player that moves is running back. Charging up only occurs
+when a player does not move during run-back."* So it reads
+`MatchState.run_back_moved`, which `run_back_player` fills in as it places
+people, and **not** who was displaced.
 
-- **Only on a real run back.** "A new-play reset is not a run back and triggers
-  no Charge-up", so it sits in the `else` of the `new_play` branch.
-- **A stacked player counts as staying**, which is the one reading here the
-  rules do not spell out: a stack sits *inside* a zone, so its players are
-  "already in their own zone" -- the rule's own first example -- even though a
-  coach may then send one of them to another space in it. Raised in the rules
-  log for the author.
+- **That is why it is settled at the *end* of the run back**, in
+  `finish_run_back`, rather than at `begin_run_back` where it was first
+  built. Who actually moved is only known once the cascade has run, because
+  **a stack is a real decision**: where several share a space and one must
+  go, the one the coach sends loses their token and the one left keeps
+  theirs. Holding a Cyborg still is a reason to send somebody else. The
+  first build read "not moved by it" as "not *required* to move" and charged
+  up both.
+- **`run_back_player` is where the move is recorded**, not the three callers
+  (the forced pass, the AI's placement, the coach's click), because it is
+  the one method a run back moves anybody through -- the same reasoning as
+  `add_exhaustion` owning attribution.
+- **`pending_run_back_charge_up` is what keeps a new play out of it.** "A
+  new-play reset is not a run back and triggers no Charge-up", and by the
+  time the cascade finds nothing to do it can no longer tell a reset from a
+  steal that scattered nobody -- `new_play` is not persisted. So
+  `begin_run_back` arms the flag and `finish_run_back` spends it.
+- **The line rides on `lead_in`** rather than being sent on its own: this is
+  the tail of a cascade that has been batching its messages all the way
+  down, and drain tokens do not earn a message. See "Discord's rate limits".
 - **It goes through `recover_exhaustion` rather than decrementing.** A Cyborg
   on exactly 7 is Drained and dropping to 6 clears it, so the removal has to
   re-test.
@@ -984,6 +1029,82 @@ with it.
   players in a skill test or a contest, one shooter in a score attempt. Their
   own skill is already in the total, so they are struck out rather than
   double-counted.
+
+### Mind Pull, and the arrival gate
+
+**The only ability that interrupts a maneuver rather than modifying one.**
+"Mind Pull resolves before the ball settles: a pull that lands pre-empts
+whatever the movement would have led to -- a reception, a scoring
+opportunity, a contest, a loose ball." So the ball has to be able to stop
+mid-flight, which is a change to the spine of a turn and not an addition
+beside one.
+
+**`set_ball_space` records the path; three arrival points read it.** That
+split is the whole design.
+
+- **Recording is one place** because `set_ball_space` is the funnel every
+  maneuver's ball movement comes through, `move_ball_relative` included --
+  eleven effect sites, one method. `MatchState.ball_path_to` is the geometry:
+  **excluding where the ball starts and including where it lands**, which is
+  exactly "to or through" plus "the ball's own starting space does not count
+  as moved to". A move that goes nowhere is an empty path, so a clamped pass
+  offers nobody a pull.
+- **Reading is three places**, and they are the functions that settle an
+  arrival: `finish_maneuver_resolution` (the tail of every ordinary path,
+  receptions included), `begin_loose_ball` (a Deflect, which calls it
+  directly, and the High Pass contest, which comes through it), and
+  `offer_scoring_attempt_choice` (a set-up). Between them they are every one
+  of the four things the rules say a pull pre-empts.
+- **`check_for_mind_pull` returns True when it took over**, exactly the shape
+  `check_for_loose_ball` has, so a gate is one `if ...: return` at the top of
+  each. It sits *above* the loose-ball check in
+  `finish_maneuver_resolution`: whether the possessing side has anybody where
+  the maneuver would have left the ball is a question that must not be asked
+  while a pull could still move it somewhere else.
+- **The path is spent whether or not anybody may pull**, before the early
+  return. That is what stops one movement being offered twice when two gates
+  run in a row -- `finish_maneuver_resolution` gates and then calls
+  `check_for_loose_ball`, which reaches the second gate with the path already
+  empty.
+
+**Recording unconditionally and reading selectively is deliberate.** A
+kickoff and a period restart come through `set_ball_space` too and are not a
+ball moving through play; making the *readers* decide when a pull may be
+offered is what keeps the recorder free of a list of exceptions.
+
+**The queue and the resume are `pending_injury_tests`' shape**, and for the
+same reasons. `pending_mind_pull` is ordered because "each may try in the
+order the ball reaches them; the first to succeed stops the ball there and
+the rest get no roll"; `pending_mind_pull_resume` is the arrival that was
+interrupted, because between the interrupt and the answer nothing else on the
+match says what the ball was about to do. `continue_mind_pull` is the one
+exit, so a coach who declines and a Telekinetic who was never asked leave by
+the same door.
+
+- **A pull that lands drops the resume rather than dispatching it** -- the
+  arrival it pre-empted never happens. What it does not drop is that
+  maneuver's clock cost, which rides into `begin_run_back` as
+  `distance_moved`: "the maneuver that moved the ball still costs its space
+  minute".
+- **A pull is a steal**, so `apply_mind_pull` sets `ball_carrier_id` and the
+  caller runs an ordinary turnover. Setting the carrier *is* the whole of
+  arranging the exemption, since `begin_run_back` reads it off there -- see
+  "The ball carrier".
+- **Dinky never pulls**, so an AI side's Telekinetics are skipped rather than
+  prompted. Paying a token for a one-in-six steal is a judgement call and
+  Dinky makes none; it is also what keeps this flow free of an AI branch.
+- **The token is paid whether or not the pull lands**, so the charge is above
+  the roll rather than in the winning branch. It is **not a skill test and
+  owes no injury check**, which the rules state outright -- nothing here goes
+  through `begin_injury_tests`.
+- **An injured Telekinetic is skipped, not refused**, in both
+  `mind_pull_candidates` and `run_mind_pull`. They cannot pay the token, and
+  `add_exhaustion` would refuse it silently and hand them a free roll.
+- **`pending_mind_pull` is checked first in `pending_turn_view`**, ahead even
+  of the injury tests, for a stronger version of their reason: a pull
+  interrupts an arrival that has *not happened yet*, so the maneuver's state
+  is still exactly as it was and every branch below would resolve the arrival
+  this is holding back.
 
 ## Who wins a maneuver
 
