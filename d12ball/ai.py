@@ -262,6 +262,14 @@ class DinkyAI(AIStrategy):
         pick the one with the higher offensive skill. A ball carrier
         leaves nothing to pick -- turn_handler_candidates narrows to
         them, so this is a one-element list and the skill sort is moot.
+
+        **Dinky never slips in**, which is why this asks the match
+        rather than the engine: Slimey lets an Ooze on the ball take
+        the carrier's turn, and weighing that is a judgement call --
+        the same call as never ceding, never declining a challenge and
+        never leaving a loose ball uncontested. So a carrier still
+        narrows this to one, and in a solo game the option is the
+        human's alone.
         """
         candidates = match.turn_handler_candidates()
         if not candidates:

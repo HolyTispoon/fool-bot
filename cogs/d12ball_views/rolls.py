@@ -198,6 +198,22 @@ class SkillTestView(SafeView):
             defense_total += modifier
             defense_detail.append(f"+{modifier} ball speed modifier")
 
+        # **Merge**: an Ooze standing on the ball who is not one of the
+        # two rolling adds to their own side -- offensive skill on the
+        # attack, defensive on the defence. A maneuver's skill test is
+        # always fought on the ball's space, so it always qualifies.
+        rolling = (offense_player.player_id, defense_player.player_id)
+        offense_merge, offense_merge_lines = self.cog.engine.merge_bonus(
+            game, match, match.ball.possession, rolling, "offense",
+        )
+        defense_merge, defense_merge_lines = self.cog.engine.merge_bonus(
+            game, match, match.defending_side(), rolling, "defense",
+        )
+        offense_total += offense_merge
+        defense_total += defense_merge
+        offense_detail.extend(offense_merge_lines)
+        defense_detail.extend(defense_merge_lines)
+
         # **A won Double Team lands on the *next* maneuver**: both
         # defenders challenge the ball holder, and both add their
         # defensive skill. `double_team_defenders` is challenger-first
@@ -650,6 +666,21 @@ class ScoreAttemptView(SafeView):
         )
         if overdrive_detail:
             attack_detail.append(overdrive_detail)
+
+        # **Merge in a score attempt is the attack alone.** An Ooze on
+        # the ball while a teammate shoots adds their offensive skill;
+        # the defence gains nothing from it, because defenders on and
+        # beyond the ball are already counted by what the defense adds
+        # and an Ooze among them must not be counted twice.
+        merge, merge_lines = self.cog.engine.merge_bonus(
+            game,
+            match,
+            match.ball.possession,
+            (shooter.player_id,),
+            "offense",
+        )
+        attack_total += merge
+        attack_detail.extend(merge_lines)
 
         # Role ability -- Striker: +3 on any scoring attempt off a
         # set-up. Injury does not withhold this one, deliberately: an

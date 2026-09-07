@@ -1963,7 +1963,9 @@ class MatchState:
             if player_id in possessing_players
         ]
 
-    def turn_handler_candidates(self) -> list[str]:
+    def turn_handler_candidates(
+        self, slip_in_ids: Collection[str] = (),
+    ) -> list[str]:
         """
         Who may take this turn: the ball carrier alone when the last
         resolution left the ball in somebody's hands, otherwise every
@@ -1974,10 +1976,30 @@ class MatchState:
         a value left over from a period that has since ended, or from a
         state saved before this field existed, from narrowing the
         choice to a player who cannot take the turn.
+
+        **`slip_in_ids` is Slimey**, and it widens the narrow case: an
+        Ooze standing on the ball may take the handler's turn from
+        whoever the resolution left it with (see "Slimey (Ooze)" in
+        docs/living-rules.md). They are already eligible handlers --
+        an Ooze on the ball's space for the side in possession is one
+        by definition -- so this does not add anybody, it declines to
+        narrow past them. Which ids those are is
+        `RulesEngine.slip_in_candidates`; passing them in rather than
+        asking is what keeps `MatchState` from having to know what a
+        species is, the same way `mark_exhausted_if_needed` takes a
+        threshold rather than a player's skills.
+
+        The carrier stays **first**, so a coach reading the prompt sees
+        who actually won the ball ahead of who may take it off them.
         """
         candidates = self.eligible_ball_handlers()
         if self.ball_carrier_id in candidates:
-            return [self.ball_carrier_id]
+            return [self.ball_carrier_id] + [
+                player_id
+                for player_id in candidates
+                if player_id != self.ball_carrier_id
+                and player_id in slip_in_ids
+            ]
         return candidates
 
     def set_ball_carrier(self, player_id: Optional[str]) -> None:
@@ -1991,8 +2013,10 @@ class MatchState:
         """
         self.ball_carrier_id = None
 
-    def select_ball_handler(self, player_id: str) -> None:
-        if player_id not in self.turn_handler_candidates():
+    def select_ball_handler(
+        self, player_id: str, slip_in_ids: Collection[str] = (),
+    ) -> None:
+        if player_id not in self.turn_handler_candidates(slip_in_ids):
             raise ValueError(
                 "The selected player is not an eligible ball handler."
             )

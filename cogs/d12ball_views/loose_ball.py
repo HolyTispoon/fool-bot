@@ -488,6 +488,25 @@ class LooseBallSkillTestView(SafeView):
             offense_total += modifier
             offense_detail.append(f"{modifier:+d} ball speed modifier")
 
+        # **Merge**, for a contest fought on the ball's space -- which
+        # this always is: both contestants have been walked onto it by
+        # the time the roll happens. An Ooze of either side standing
+        # there who is not one of the two rolling adds to their own.
+        rolling = (
+            match.loose_ball_offense_player,
+            match.loose_ball_defense_player,
+        )
+        offense_merge, offense_lines = self.cog.engine.merge_bonus(
+            game, match, match.ball.possession, rolling, "offense",
+        )
+        defense_merge, defense_lines = self.cog.engine.merge_bonus(
+            game, match, match.defending_side(), rolling, "defense",
+        )
+        offense_total += offense_merge
+        defense_total += defense_merge
+        offense_detail.extend(offense_lines)
+        defense_detail.extend(defense_lines)
+
         return (
             [
                 (

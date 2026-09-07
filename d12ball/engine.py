@@ -56,6 +56,7 @@ from d12ball.components import (
     SETUP_AREAS,
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
+    SPECIES_OOZE,
     BasicRuleset,
     CoachingOccasion,
     FormationShape,
@@ -367,6 +368,97 @@ class RulesEngine:
         """
         modifier = match.overdrive_modifier(player_id)
         return f"+{modifier} Overdrive" if modifier else ""
+
+    def slip_in_candidates(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        **Slip in**: the Oozes standing on the ball who may take the
+        handler's turn from whoever the resolution left it with.
+
+        Every one of them is already an eligible ball handler -- an
+        Ooze on the ball's space, for the side in possession, is one by
+        definition -- so this narrows that list rather than adding to
+        it. `MatchState.turn_handler_candidates` is where it is spent.
+
+        **"Of the same side" is `eligible_ball_handlers`' own
+        answer**, which is what makes this safe on a space both sides
+        are standing on: that helper is already "everyone of the
+        possessing team on the ball", so an opponent's Ooze is never
+        in it. The rules say the same thing twice for the same reason.
+
+        It answers `[]` for the common case -- a resolution that named
+        no carrier at all leaves the coach the whole choice already,
+        and there is nothing to widen.
+        """
+        if not self.species_abilities_apply(game):
+            return []
+        if match.ball_carrier_id is None:
+            return []
+        return [
+            player_id
+            for player_id in match.eligible_ball_handlers()
+            if self.has_species_ability(game, player_id, SPECIES_OOZE)
+        ]
+
+    def turn_handler_candidates(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        Who may take this turn, Slimey included -- the answer every
+        prompt, the AI and the click that answers should ask, so none
+        of them can offer a different list from the others.
+        """
+        return match.turn_handler_candidates(
+            self.slip_in_candidates(game, match),
+        )
+
+    def merge_bonus(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        rolling: Collection[Optional[str]],
+        skill: str,
+    ) -> tuple[int, list[str]]:
+        """
+        **Merge**: what the Oozes standing on the ball who are *not*
+        rolling add to their own side's total, and the lines saying so.
+
+        `skill` is "offense" or "defense" -- the rules split it by
+        which side of the contest this is, not by anything about the
+        Ooze: "their **offensive** skill on the attacking side, their
+        **defensive** skill on the defending side". A score attempt
+        asks for the attack alone, and passes "offense".
+
+        **Every such Ooze adds** -- "two of them add twice" -- so this
+        is a sum rather than a pick. An **injured** Ooze adds nothing,
+        which is the ordinary rule about an injured player's skill
+        modifier applying here rather than an exception to it.
+
+        `rolling` is whoever is actually contesting, struck out because
+        their own skill is already in the total; it is a collection so
+        a score attempt can pass its shooter and a contest its two.
+        """
+        if not self.species_abilities_apply(game):
+            return 0, []
+
+        contesting = {player_id for player_id in rolling if player_id}
+        total = 0
+        lines: list[str] = []
+        for player_id in match.contest_occupants(side):
+            if player_id in contesting or player_id in match.injured:
+                continue
+            if not self.has_species_ability(game, player_id, SPECIES_OOZE):
+                continue
+            player = self.get_player_definition(player_id)
+            profile = self.player_catalog.effective_profile(player)
+            value = profile.offense if skill == "offense" else profile.defense
+            if not value:
+                continue
+            total += value
+            lines.append(f"+{value} {player.name} (Merge)")
+        return total, lines
 
     def volatile_raises_tier(
         self,

@@ -1,8 +1,8 @@
 """
-Species abilities: the module switch they ride on, Volatile, and
-Lithium Powered.
+Species abilities: the module switch they ride on, and the abilities
+themselves.
 
-Four layers, and they fail for different reasons:
+Layers, and they fail for different reasons:
 
 - **The switch.** Advanced mode is one setting over two modules, and
   `advanced_maneuvers_apply` / `species_abilities_apply` are the only
@@ -20,6 +20,9 @@ Four layers, and they fail for different reasons:
   and every recovery now asks), Overdrive (declared and paid before a
   roll, spent by it), and Charge-up (`charge_up_players`, read off who
   the run back is about to move).
+- **Slimey.** Slip in widens `turn_handler_candidates` rather than
+  adding to it -- an Ooze on the ball is already an eligible handler --
+  and Merge is a sum over the bystanders, not a pick.
 
 The rules are "Species abilities" in docs/living-rules.md. Nothing here
 asserts the wording of a message -- that is prose and will be revised;
@@ -801,6 +804,264 @@ class ChargeUpTests(unittest.TestCase):
             cyborg, 1, self.engine.exhaustion_threshold(self.game, cyborg),
         )
         self.assertNotIn(cyborg, self.match.exhausted)
+
+
+class SlipInTests(unittest.TestCase):
+    """
+    "Where a resolution leaves the ball with a particular player and an
+    Ooze of the same side is standing on that space, the coach may hand
+    the ball to the Ooze instead."
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game(player_1_team=Team.OOZES)
+        self.match = build_match(self.engine, self.game)
+
+    def put_two_on_the_ball(self) -> tuple[str, str]:
+        """A carrier and a teammate sharing the ball's space."""
+        carrier = self.match.eligible_ball_handlers()[0]
+        teammate = next(
+            player_id
+            for player_id in field_players(self.match)
+            if player_id != carrier
+        )
+        self.match.board.place_meeple(
+            teammate, self.match.ball.zone, self.match.ball.space_index,
+        )
+        self.match.set_ball_carrier(carrier)
+        return carrier, teammate
+
+    def test_an_ooze_on_the_ball_may_take_the_carrier_s_turn(self):
+        carrier, teammate = self.put_two_on_the_ball()
+        candidates = self.engine.turn_handler_candidates(
+            self.game, self.match,
+        )
+        self.assertIn(carrier, candidates)
+        self.assertIn(teammate, candidates)
+
+    def test_the_carrier_is_named_first(self):
+        # They won the ball; the slip-in is the option beside them.
+        carrier, _ = self.put_two_on_the_ball()
+        self.assertEqual(
+            self.engine.turn_handler_candidates(self.game, self.match)[0],
+            carrier,
+        )
+
+    def test_without_the_module_the_carrier_takes_the_turn_alone(self):
+        carrier, _ = self.put_two_on_the_ball()
+        basic = build_game(player_1_team=Team.OOZES, mode=GameMode.BASIC)
+        self.assertEqual(
+            self.engine.turn_handler_candidates(basic, self.match),
+            [carrier],
+        )
+
+    def test_a_non_ooze_teammate_may_not_slip_in(self):
+        # A colour side fields two of each other species, so this is a
+        # real case rather than a hypothetical.
+        game = build_game(player_1_team=Team.PURPLE)
+        match = build_match(self.engine, game)
+        carrier = match.eligible_ball_handlers()[0]
+        teammate = next(
+            (
+                player_id
+                for player_id in field_players(match)
+                if player_id != carrier
+                and self.engine.species_of(player_id) != SPECIES_OOZE
+            ),
+            None,
+        )
+        self.assertIsNotNone(teammate)
+        match.board.place_meeple(
+            teammate, match.ball.zone, match.ball.space_index,
+        )
+        match.set_ball_carrier(carrier)
+        self.assertEqual(
+            self.engine.turn_handler_candidates(game, match), [carrier],
+        )
+
+    def test_an_opposing_ooze_may_not_slip_in(self):
+        # "Of the same side" -- and `eligible_ball_handlers` is already
+        # only the possessing team, which is what makes it safe on a
+        # space both sides are standing on.
+        carrier, _ = self.put_two_on_the_ball()
+        opponent = self.match.visiting.field_players[0]
+        self.match.board.place_meeple(
+            opponent, self.match.ball.zone, self.match.ball.space_index,
+        )
+        self.assertNotIn(
+            opponent,
+            self.engine.turn_handler_candidates(self.game, self.match),
+        )
+
+    def test_nothing_to_widen_when_no_carrier_was_named(self):
+        # A resolution that named nobody leaves the coach the whole
+        # choice already.
+        self.match.clear_ball_carrier()
+        self.assertEqual(
+            self.engine.slip_in_candidates(self.game, self.match), [],
+        )
+
+    def test_the_click_accepts_the_slip_in(self):
+        # `select_ball_handler` validates against the same list the
+        # prompt was built from, or the button would be refused.
+        carrier, teammate = self.put_two_on_the_ball()
+        self.match.select_ball_handler(
+            teammate, self.engine.slip_in_candidates(self.game, self.match),
+        )
+        self.assertEqual(self.match.active_player_id, teammate)
+
+    def test_the_click_still_refuses_somebody_off_the_ball(self):
+        self.put_two_on_the_ball()
+        away = next(
+            player_id
+            for player_id in field_players(self.match)
+            if player_id not in self.match.eligible_ball_handlers()
+        )
+        with self.assertRaises(ValueError):
+            self.match.select_ball_handler(
+                away,
+                self.engine.slip_in_candidates(self.game, self.match),
+            )
+
+
+class MergeTests(unittest.TestCase):
+    """
+    "An Ooze standing there who is **not** one of the two players
+    rolling adds to their own side's total ... Every such Ooze adds --
+    two of them add twice. An injured Ooze adds nothing."
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game(player_1_team=Team.OOZES)
+        self.match = build_match(self.engine, self.game)
+        self.side = self.match.ball.possession
+        self.clear_the_ball_space()
+
+    def clear_the_ball_space(self) -> None:
+        """
+        Empty the ball's space, so a test puts exactly who it means
+        there.
+
+        The standard deal already stands somebody on it -- that is
+        where the handler comes from -- and Merge sums *every*
+        qualifying Ooze, so a fixture that only adds is a fixture
+        counting a player it never mentioned.
+        """
+        for player_id in list(
+            self.match.board.spaces[self.match.ball.zone][
+                self.match.ball.space_index
+            ]
+        ):
+            self.match.board.place_meeple(
+                player_id, Zone.HOME_GOAL, 0,
+            )
+
+    def stand_on_the_ball(self, player_id: str) -> None:
+        self.match.board.place_meeple(
+            player_id, self.match.ball.zone, self.match.ball.space_index,
+        )
+
+    def offense_of(self, player_id: str) -> int:
+        return self.engine.player_catalog.effective_profile(
+            self.engine.get_player_definition(player_id),
+        ).offense
+
+    def test_a_bystanding_ooze_adds_their_skill(self):
+        roller, bystander = field_players(self.match)[:2]
+        self.stand_on_the_ball(roller)
+        self.stand_on_the_ball(bystander)
+        bonus, lines = self.engine.merge_bonus(
+            self.game, self.match, self.side, (roller,), "offense",
+        )
+        self.assertEqual(bonus, self.offense_of(bystander))
+        self.assertEqual(len(lines), 1)
+
+    def test_the_roller_does_not_add_to_themselves(self):
+        roller = field_players(self.match)[0]
+        self.stand_on_the_ball(roller)
+        bonus, lines = self.engine.merge_bonus(
+            self.game, self.match, self.side, (roller,), "offense",
+        )
+        self.assertEqual(bonus, 0)
+        self.assertEqual(lines, [])
+
+    def test_two_of_them_add_twice(self):
+        roller, first, second = field_players(self.match)[:3]
+        for player_id in (roller, first, second):
+            self.stand_on_the_ball(player_id)
+        bonus, lines = self.engine.merge_bonus(
+            self.game, self.match, self.side, (roller,), "offense",
+        )
+        self.assertEqual(
+            bonus, self.offense_of(first) + self.offense_of(second),
+        )
+        self.assertEqual(len(lines), 2)
+
+    def test_an_injured_ooze_adds_nothing(self):
+        roller, bystander = field_players(self.match)[:2]
+        self.stand_on_the_ball(roller)
+        self.stand_on_the_ball(bystander)
+        self.match.mark_injured(bystander)
+        bonus, _ = self.engine.merge_bonus(
+            self.game, self.match, self.side, (roller,), "offense",
+        )
+        self.assertEqual(bonus, 0)
+
+    def test_the_skill_asked_for_is_the_side_of_the_contest(self):
+        roller, bystander = field_players(self.match)[:2]
+        self.stand_on_the_ball(roller)
+        self.stand_on_the_ball(bystander)
+        attacking, _ = self.engine.merge_bonus(
+            self.game, self.match, self.side, (roller,), "offense",
+        )
+        defending, _ = self.engine.merge_bonus(
+            self.game, self.match, self.side, (roller,), "defense",
+        )
+        profile = self.engine.player_catalog.effective_profile(
+            self.engine.get_player_definition(bystander),
+        )
+        self.assertEqual(attacking, profile.offense)
+        self.assertEqual(defending, profile.defense)
+
+    def test_an_ooze_off_the_ball_s_space_adds_nothing(self):
+        roller = field_players(self.match)[0]
+        self.stand_on_the_ball(roller)
+        bonus, _ = self.engine.merge_bonus(
+            self.game, self.match, self.side, (roller,), "offense",
+        )
+        self.assertEqual(bonus, 0)
+
+    def test_a_basic_game_merges_nobody(self):
+        roller, bystander = field_players(self.match)[:2]
+        self.stand_on_the_ball(roller)
+        self.stand_on_the_ball(bystander)
+        basic = build_game(player_1_team=Team.OOZES, mode=GameMode.BASIC)
+        bonus, lines = self.engine.merge_bonus(
+            basic, self.match, self.side, (roller,), "offense",
+        )
+        self.assertEqual((bonus, lines), (0, []))
+
+    def test_a_non_ooze_bystander_adds_nothing(self):
+        game = build_game(player_1_team=Team.PURPLE)
+        match = build_match(self.engine, game)
+        side = match.ball.possession
+        roller = match.setup_for_side(side).field_players[0]
+        bystander = next(
+            player_id
+            for player_id in match.setup_for_side(side).field_players
+            if player_id != roller
+            and self.engine.species_of(player_id) != SPECIES_OOZE
+        )
+        for player_id in (roller, bystander):
+            match.board.place_meeple(
+                player_id, match.ball.zone, match.ball.space_index,
+            )
+        bonus, _ = self.engine.merge_bonus(
+            game, match, side, (roller,), "offense",
+        )
+        self.assertEqual(bonus, 0)
 
 
 if __name__ == "__main__":

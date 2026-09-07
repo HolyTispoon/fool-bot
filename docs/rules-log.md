@@ -67,7 +67,7 @@ review). `GameMode` is still a single BASIC/ADVANCED switch and the opt-out is t
 game record beside it (`advanced_maneuvers`, `species_abilities`), both defaulting on -- so
 turning advanced mode on brings both, and a game may drop either.
 
-**Volatile and Lithium Powered are built** (2026-09-07); Mind Pull and Slimey are not yet.
+**Volatile, Lithium Powered and Slimey are built** (2026-09-07); Mind Pull is not yet.
 
 Two readings the build had to make that the rules do not spell out, **for the author to confirm
 or overrule**:

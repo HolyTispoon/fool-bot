@@ -773,7 +773,14 @@ class PresentationMixin:
             # somebody; everyone on the ball's space otherwise. Either
             # way a single candidate is selected below without asking,
             # so the rule costs a coach a click rather than adding one.
-            eligible_handlers = match.turn_handler_candidates()
+            #
+            # Through the engine, so **Slimey** is in it: an Ooze on
+            # the ball may take the handler's turn, which turns the
+            # one-candidate case back into a real choice and is
+            # therefore the one thing that can add a click here.
+            eligible_handlers = self.engine.turn_handler_candidates(
+                game, match,
+            )
             if not eligible_handlers:
                 raise ValueError(
                     "The team in possession has no player in the ball's "
@@ -787,7 +794,10 @@ class PresentationMixin:
                 return
 
             if len(eligible_handlers) == 1:
-                match.select_ball_handler(eligible_handlers[0])
+                match.select_ball_handler(
+                    eligible_handlers[0],
+                    self.engine.slip_in_candidates(game, match),
+                )
                 game.match_state = match.to_dict()
                 view: discord.ui.View = PlayerActionView(
                     self,

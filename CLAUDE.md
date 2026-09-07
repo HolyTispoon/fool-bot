@@ -938,6 +938,53 @@ carrier exemption was recorded two lines above.
   on exactly 7 is Drained and dropping to 6 clears it, so the removal has to
   re-test.
 
+### Slimey
+
+**Slip in declines to narrow; it adds nobody.** An Ooze standing on the ball
+for the side in possession is *already* an eligible ball handler -- what
+`turn_handler_candidates` does is cut that list down to the carrier when a
+resolution named one, and Slimey is the rule that keeps the Oozes in it.
+
+- **`MatchState.turn_handler_candidates` takes the ids rather than asking.**
+  `slip_in_ids` is a parameter for the reason `mark_exhausted_if_needed` takes
+  a threshold: `MatchState` does not know what a species is, let alone which
+  modules the game is playing. `RulesEngine.slip_in_candidates` computes them
+  and `RulesEngine.turn_handler_candidates` is the wrapper every prompt, the
+  click and the AI should ask.
+- **"Of the same side" is `eligible_ball_handlers`' own answer**, which is what
+  makes this safe on a space both sides are standing on -- that helper is
+  already "everyone of the possessing team on the ball", so an opponent's Ooze
+  is never in the list to be filtered out.
+- **The carrier stays first**, so a coach reads who actually won the ball ahead
+  of who may take it off them.
+- **Dinky never slips in**, which is why `DinkyAI.choose_ball_handler` still
+  asks the *match* rather than the engine. Weighing whether to hand the ball to
+  a different player is a judgement call, and Dinky makes none -- the same call
+  as never ceding, never declining a challenge and never leaving a loose ball
+  uncontested. In a solo game the option is the human's alone.
+- **It is the one thing that can add a click to a turn.** Everywhere else a
+  single candidate is selected without asking; a carrier with an Ooze beside
+  them is two buttons where there was none.
+
+**Merge is a sum, not a pick.** "Every such Ooze adds -- two of them add
+twice", so `RulesEngine.merge_bonus` totals them and returns the detail lines
+with it.
+
+- **The skill is the side of the contest, not anything about the Ooze** --
+  offensive on the attacking side, defensive on the defending one -- so the
+  caller passes which it wants. That is also what lets the score attempt ask
+  for the attack alone.
+- **A score attempt gets the attack and nothing else**, because defenders on
+  and beyond the ball are already counted by [what the defense
+  adds](#what-a-shot-is-up-against) and an Ooze among them must not be counted
+  twice.
+- **An injured Ooze adds nothing**, which is the ordinary rule about an injured
+  player's skill modifier reaching here rather than an exception to it.
+- **`rolling` is passed in** because who is contesting differs by site: two
+  players in a skill test or a contest, one shooter in a score attempt. Their
+  own skill is already in the total, so they are struck out rather than
+  double-counted.
+
 ## Who wins a maneuver
 
 **`D12Ball.settled_maneuver_winner` is the only answer to that**, and it
