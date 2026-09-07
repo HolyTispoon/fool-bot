@@ -439,11 +439,11 @@ Mind Pull resolves **before** the ball settles [where it comes to rest](#where-t
 
 ### Slimey (Ooze)
 
-**Any Ooze on the ball may take the handler's place.** Where a resolution leaves the ball with a particular player and an Ooze **of the same side** is standing on that space, the coach may hand the ball to the Ooze instead — the Ooze becomes the [carrier](#choosing-the-handler) and takes the turn. Where several Oozes are there, the coach picks one. This only arises where possession stays with the side that had it — a [Dribble Advance or Burst](#dribble-advance) onto a teammate, a handler [shoved back](#pressure) onto one, a [Setup Pass](#setup-pass) received into a group; a turnover [runs the others back](#running-back-after-a-steal) and leaves the carrier alone.
+**Slip in.** Where a resolution leaves the ball with a particular player and an Ooze **of the same side** is standing on that space, the coach may hand the ball to the Ooze instead — the Ooze becomes the [carrier](#choosing-the-handler) and takes the turn. Where several Oozes are there, the coach picks one. This only arises where possession stays with the side that had it — a [Dribble Advance or Burst](#dribble-advance) onto a teammate, a handler [shoved back](#pressure) onto one, a [Setup Pass](#setup-pass) received into a group; a turnover [runs the others back](#running-back-after-a-steal) and leaves the carrier alone.
 
-**A bystanding Ooze backs the roll.** In a [maneuver skill test](#the-skill-test), a [contest for the ball](#where-the-ball-comes-to-rest) or a [High Pass contest](#the-high-pass-contest) fought out on the ball's space, an Ooze standing there who is **not** one of the two players rolling adds to their own side's total: their **offensive** skill on the attacking side, their **defensive** skill on the defending side. Every such Ooze adds — two of them add twice. An [injured](#playing-injured) Ooze adds nothing.
+**Merge.** In a [maneuver skill test](#the-skill-test), a [contest for the ball](#where-the-ball-comes-to-rest) or a [High Pass contest](#the-high-pass-contest) fought out on the ball's space, an Ooze standing there who is **not** one of the two players rolling adds to their own side's total: their **offensive** skill on the attacking side, their **defensive** skill on the defending side. Every such Ooze adds — two of them add twice. An [injured](#playing-injured) Ooze adds nothing.
 
-**In a [score attempt](#score-attempt) it is the attack alone.** An Ooze standing on the ball while a teammate shoots adds their **offensive** skill to the attack. The defence gains nothing from Slimey there: defending players on and beyond the ball are already counted by [what the defense adds](#what-the-defense-adds), and an Ooze among them is not counted twice.
+**Merge in a [score attempt](#score-attempt) is the attack alone.** An Ooze standing on the ball while a teammate shoots adds their **offensive** skill to the attack. The defence gains nothing from it: defending players on and beyond the ball are already counted by [what the defense adds](#what-the-defense-adds), and an Ooze among them is not counted twice.
 
 ## Ball speed
 
@@ -792,7 +792,7 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 | Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test, a surge that wins — or a backfire that loses — resolves that maneuver at its advanced tier. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: −1 drain for not moving on a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 1–2 pull it in and take possession. |
-| Ooze | **Slimey.** An Ooze on the ball may take the handler's turn. A bystanding Ooze on the ball's space adds their skill to a skill test or contest there — offensive on the attack, defensive on the defence — and their offensive skill to a teammate's score attempt. |
+| Ooze | **Slimey.** Slip in: an Ooze on the ball may take the handler's turn. Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there — offensive on the attack, defensive on the defence — and their offensive skill to a teammate's score attempt. |
 
 **A turn:** choose the player → choose the action → resolve it → settle the ball → turnover → clock → last-possession check.
 
