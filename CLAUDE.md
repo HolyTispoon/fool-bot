@@ -35,11 +35,12 @@ python3 -m unittest discover -s tests
 | `d12ball/render.py` | Board image rendering (Pillow) |
 | `d12ball/cards.py` | The twelve maneuvers as cards — the printed face, the one shared back, and the hand the bot shows |
 | `d12ball/player_cards.py` | The roster as cards, print-only, over `cards.py`'s print machinery |
+| `d12ball/species_cards.py` | The four species abilities as a three-card reference set, print-only, over `cards.py`'s machinery -- see "The species cards" below |
 | `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
 | `d12ball/stats.py` | Every statistic `/d12ball stats` reports, as a fold over `MatchState.events`, plus the plain-text tables it renders. No Discord and no game flow: a statistic is a reading of what happened, and a reading that could change what happens is a bug waiting to be written -- see "The event log" below |
 | `d12ball/tutorial.py` | The scripted opening a tutorial game plays -- the five beats as data, and the rails -- see below |
-| `d12ball/data/` | `players.json`, `basic_rules.json`, `maneuvers.json` |
+| `d12ball/data/` | `players.json`, `basic_rules.json`, `maneuvers.json`, `species.json` |
 | `d12ball/images/` | Card art and emoji |
 | `d12ball/fonts/` | Bundled DejaVu — see "Fonts" below |
 | `gamesaves/d12ball/storage.py` | Persistence to `data/d12ball_games.json` |
@@ -2961,6 +2962,57 @@ python3 scripts/render_player_cards.py --team orange --bleed
   that costs when the column fills is the ability band read from the advanced
   ability, a side marker in the header, and a duplex-mirrored back sheet --
   the front is already the whole of the rest of the card.
+
+### The species cards
+
+`d12ball/species_cards.py` draws the four species abilities -- Volatile
+(Fire Demon), Lithium powered (Cyborg), Mind Pull (Telekinetic), Slimey
+(Ooze) -- as a **three-card reference set**, poker size, out of the same
+`Pen`, palette and `print_sheet` as the maneuver and player cards.
+
+```bash
+python3 scripts/import_d12ball_species.py                     # -> d12ball/data/species.json
+python3 scripts/render_species_cards.py --out cards/species --sheet
+```
+
+- **One card per *pairing*, not per player.** Every player of a species
+  carries that species' ability, so a species-vs-species game only needs the
+  two abilities in play. `CARD_FACES` is the three ways to split the four
+  abilities into two disjoint pairs -- the perfect matchings of K4 -- so the
+  three double-sided cards carry all six pairings, **each face exactly one**
+  (`test_every_pairing_appears_on_exactly_one_face`). Lay the card whose face
+  matches the two teams between the coaches; its back holds the other two,
+  which is harmless. A mixed colour team fields all four species, so that
+  coach gets the whole set.
+- **Two abilities to a face, stacked**, each in a fixed-height panel: a
+  header band in the species' own colour (the paired colour team's hex, via
+  `TEAM_COLORS[SPECIES_TEAM[...]]`, so a card and the board agree), the name
+  in the display face, and the full sentence at the largest size that fits
+  the panel (`_fitted_body`). Slime green takes `high_contrast_ink`'s black
+  like everywhere else. The edge is `INK`, not a species colour -- a card
+  carries two.
+- **The full sentence only, not `ability_short` as well.** A card on a table
+  is the whole of what its coach has, and the short form sitting under it in
+  the same panel is the same words a size smaller (the author, and the same
+  call `player_cards.py` makes). `ability_short` stays in `species.json` for
+  wherever the sentence will not fit -- a Discord caption, a later `/ref`.
+- **Nothing is written in the module.** `scripts/import_d12ball_species.py`
+  regenerates `d12ball/data/species.json` whole from the sheet's
+  `spec_abilities` tab (columns `Spec`, `Name`, `Ability`, `Abbreviated`),
+  the species counterpart of `import_d12ball_players.py` and following the
+  same rules -- revisions are made upstream in the sheet, and the
+  formula-guard backtick is stripped on the way in. A revision reaches the
+  cards by re-importing and re-running the render.
+- **`spec_abilities` is not `basic_abilities`.** `basic_abilities`
+  (`gid=1822486506`) is the six *role* abilities the player import reads;
+  `spec_abilities` (`gid=123199571`) is these four. The `player cards` tab
+  also has a `SpecAbility` column naming each player's species ability, which
+  nothing imports -- the species is enough to look it up.
+- **Not wired into the bot yet.** These are print-only, like the player
+  cards. Surfacing a species ability in `/ref` or the matchup caption (keyed
+  by `PlayerDefinition.species`) is a later step, and the mechanics
+  themselves are unimplemented -- `species.json` is data for the cards, not a
+  ruleset the engine reads.
 
 ### The printed boards
 

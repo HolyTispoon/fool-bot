@@ -1,0 +1,26 @@
+{
+  "data_version": 1,
+  "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=123199571",
+  "species": {
+    "fire_demon": {
+      "name": "Volatile",
+      "ability": "When a Fire Demon rolls a natural 6 or 7, the ball ignites — roll again: on 5–12 add it (surge), on 1–4 subtract it (backfire).\nIn a skill test, a surge that wins resolves your maneuver as its advanced version; a backfire that loses resolves your opponent's maneuver as its advanced version.",
+      "ability_short": "Natural 6–7: ignite. Roll again — 5–12 add (surge), 1–4 subtract (backfire). In a skill test: a surge that wins upgrades your maneuver to advanced; a backfire that loses upgrades your opponent's."
+    },
+    "cyborg": {
+      "name": "Lithium Powered",
+      "ability": "Your exhaustion tokens are drain. You are Drained (treated as Exhausted) at 7 drain. \nOverdrive: before any dice roll can gain 3 drain tokens to add +5. \nCharge-up: remove one token if cyborg doesn't move during run back.",
+      "ability_short": "Exhaustion = drain. 3 drain → +5 before a roll. Drained at 7. −1 drain for holding still on a run back."
+    },
+    "telekinetic": {
+      "name": "Mind Pull",
+      "ability": "When the ball moves to or through your space, you may take 1 exhaustion and roll a d12 — on 1–2 you pull it in and take possession.",
+      "ability_short": "Ball passes you: take 1 exhaustion, roll d12; 1–2 = you take the ball."
+    },
+    "ooze": {
+      "name": "Slimey",
+      "ability": "Any Ooze sharing the ball's space may play the handler's turn. An Ooze on the ball who isn't a contestant adds their defensive skill to your skill tests and contests there.",
+      "ability_short": "Any Ooze on the ball can receive/handle it. A non-contesting Ooze on the ball adds D-skill to tests & contests there."
+    }
+  }
+}
