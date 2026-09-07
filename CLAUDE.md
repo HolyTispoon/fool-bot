@@ -3012,7 +3012,13 @@ python3 scripts/render_species_cards.py --out cards/species --sheet
   cards. Surfacing a species ability in `/ref` or the matchup caption (keyed
   by `PlayerDefinition.species`) is a later step, and the mechanics
   themselves are unimplemented -- `species.json` is data for the cards, not a
-  ruleset the engine reads.
+  ruleset the engine reads. The rules are written up in
+  [docs/living-rules.md](docs/living-rules.md#species-abilities) (2026-09-06).
+- **Advanced mode is one switch over two modules**, the advanced maneuvers
+  and these (the author, PR #177 review). Turning it on brings both; a game
+  may take just one of the two. `GameMode`'s BASIC/ADVANCED covers the
+  default, and the per-module opt-out has nowhere to live yet -- that plus
+  reading `species.json` is what building this needs.
 
 ### The printed boards
 

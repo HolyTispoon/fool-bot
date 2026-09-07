@@ -19,8 +19,9 @@ living rules in places** -- see [Where upstream is behind](#where-upstream-is-be
 what a fresh pull should be diffed against.
 
 The sheet's tabs are `Sheet1` (gid 0, player cards), `basic_abilities` (1822486506),
-`Benches` (884760728), `older Field` (1743933596), `maneuvers` (1487033386),
-`Coins` (36115124). The code imports `Sheet1`, `basic_abilities` and `maneuvers`.
+`spec_abilities` (123199571), `Benches` (884760728), `older Field` (1743933596),
+`maneuvers` (1487033386), `Coins` (36115124). The code imports `Sheet1`,
+`basic_abilities`, `spec_abilities` and `maneuvers`.
 
 **Working practice.** Take rules questions to the author rather than inferring them from the
 code -- several mechanics exist only in the code, so there a bug and a deliberate decision look
@@ -45,18 +46,28 @@ renders them with an emoji, but does **not** add the Exhausted threshold, the in
 injured state, or any use of `back_bench`. Worth confirming that accrual was the intended scope
 and the Exhausted / Injured layer is a later piece, rather than assuming it done.
 
-### Advanced mode -- the maneuvers are built; the player abilities are not
+### Advanced mode -- the abilities are specified but not built into the engine
 
 The author asked for advanced mode on 2026-08-17: **advanced maneuvers** (each of the six has
 a version that is more impactful when it succeeds and carries an extra cost when it is
-defeated) and, alongside them, **a unique ability per player**, with a game free to take one,
-both or neither.
+defeated) and, alongside them, a per-player ability, with a game free to take one, both or
+neither.
 
 **The six advanced maneuvers are in the living rules and in the bot as of 2026-08-19** -- see
-the dated entry below. What is left of advanced mode is the abilities, and they have no data:
-the sheet's `Advanced` ability column is still empty for all thirty-six players. Nothing can be
-imported and nothing can be built until it is filled, so a coach playing advanced mode today
-gets six cards a side and the roster they already know.
+the dated entry below. **The abilities became four species abilities**, one per species
+(Fire Demon, Cyborg, Telekinetic, Ooze), rather than one per player, and are in the living
+rules as of 2026-09-06 -- see that entry. Their text is on the sheet's `spec_abilities` tab and
+`scripts/import_d12ball_species.py` pulls it into `d12ball/data/species.json`, which feeds the
+printed reference cards (`d12ball/species_cards.py`). **Nothing in the engine reads it yet** --
+a bot game still gets six cards a side and the plain roster; the abilities are played off the
+printed cards for now.
+
+**Advanced mode turns both modules on, and a game may take just one of them** (the author, PR
+review). The bot's `GameMode` is a single BASIC/ADVANCED switch, which covers the default; the
+per-module opt-out has nowhere to live yet. That, and actually reading `species.json`, is the
+code change that remains.
+
+The three role-ability-vs-advanced-card contradictions below are unchanged.
 
 Three details inside the cards are still the author's to settle, and all three are the same
 shape -- a role ability the sheet lists against an advanced row that contradicts what that row
@@ -87,6 +98,71 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-06 -- author, the four species abilities, written into the rules
+
+*"Write the full detailed abilities into the rules doc, ensuring that all edge cases are
+covered. Note that species abilities only apply in Advanced mode."* The four abilities'
+own text is the author's, on the sheet's new `spec_abilities` tab (`Spec`, `Name`, `Ability`,
+`Abbreviated`), and had been iterated over several turns first:
+
+| Species | Name | The rule as given |
+|---|---|---|
+| Fire Demon | **Volatile** | A natural 6 or 7 on any d12 ignites: reroll, and 5-12 adds it to the roll (surge), 1-4 subtracts it (backfire). In a skill test, a surge that wins resolves your maneuver as its advanced version; a backfire that loses resolves your opponent's. |
+| Cyborg | **Lithium Powered** | Exhaustion tokens are drain; Drained (as Exhausted) at 7. Overdrive: before any dice roll, take 3 drain to add +5, once per roll. Charge-up: remove 1 token for not moving during a run back. Cost started at 2 drain for +3 (2026-09-05), raised to 3 for +5 after playtest reasoning; "more testing will decide if I raise the cost to 3" -- it was raised the same day. |
+| Telekinetic | **Mind Pull** | When the ball moves to or through your space, take 1 exhaustion and roll a d12 -- on 1-2 pull it in and take possession. Broadened from "through only" (a strict fly-over, which a 1-space pass can never do) to "to or through" on 2026-09-06, steal number kept at 1-2. |
+| Ooze | **Slimey** | *Slip in:* any Ooze sharing the ball's space may play the handler's turn. *Merge:* an Ooze on the ball's space who isn't one of the two players rolling adds their skill to their own side -- oSkill attacking, dSkill defending; every such Ooze adds. In a score attempt it is the attack only, and their oSkill. Named and rewritten on the sheet 2026-09-07, after the review below settled it. |
+
+**These are the author's ask turned into settled rules.** The section is
+[Species abilities](living-rules.md#species-abilities).
+
+**Advanced mode is one switch over two modules.** The author, in PR review: *"Advanced mode
+does exist. What turning advanced mode does is enabling the two modules: advanced maneuvers and
+species abilities"*, and *"It's possible to choose only one module in advanced mode. Turning
+advanced mode enables both modules."* So advanced mode is real, it brings both on, and a game
+may take just one of the two. A first pass read the earlier *"advanced mode is simply one or
+both of the two modules"* as meaning the mode itself had gone away and the two were free-standing
+options; it had not. The only cross-tie between the modules is Volatile's tier change, which
+needs the advanced maneuvers to have anything to change.
+
+**The edge cases the author's four sentences did not spell out were settled by extension** and
+then confirmed or corrected in PR review:
+
+- **Volatile fires on *every* d12 a Fire Demon rolls**, injury checks included -- *"injury
+  tests are not exempt"* (author) -- so a backfire can injure the Fire Demon who rolled it.
+  Score attempts: only the *shooter's* die, and only if the shooter is a Fire Demon; the
+  defending coach's die belongs to no player. Own-goal roll: the die kept. The ignite reroll
+  itself does not re-ignite.
+- **Volatile's tier rider is a maneuver-skill-test thing only** -- the two states that produce
+  a skill test, a cards tie and an injury-forced test. "As its advanced version" always means
+  the advanced card on that rank; a maneuver already resolving at advanced gains nothing.
+  Everywhere else, only the number -- including a game that took the species abilities without
+  the advanced maneuvers, where there is no tier to raise.
+- **A Cyborg's drain replaces exhaustion wholesale**, and the Drained line is a flat 7 (the
+  author simplified it from "offensive + defensive skill", which is 7 for every current player
+  anyway). This is a large durability gain for the low-defence roles -- a Cyborg striker,
+  Exhausted at 2 normally, is fine until 7. Overdrive is legal on any of the Cyborg's own d12s
+  including an injury check, does not carry across a tie re-roll, stacks past Drained, and an
+  injured Cyborg keeps it.
+- **Charge-up is the run-back only, not a new-play reset** -- *"only run back, not in a new
+  play. if they don't run back, they charge up"* (author). Once per run back, never below zero.
+- **Mind Pull is the opponent's ball only** and **a successful pull is a full steal** -- both
+  *"confirmed"* (author). It triggers on any movement whose path includes the Telekinetic's
+  space, resolves before "where the ball comes to rest", and a miss leaves the Telekinetic free
+  to contest the arrival. Its roll is not a skill test, so no injury check.
+- **Slimey's bystander bonus is not capped** -- *"In that rare case they both add their
+  skills"* (author). Every non-rolling Ooze on the ball's space adds: offensive skill on the
+  attacking side, defensive on the defending side, in a maneuver skill test, a contest for the
+  ball or a High Pass contest. An injured Ooze adds nothing.
+- **In a score attempt Slimey is the attack alone** -- *"slimey doesn't double the defense in a
+  scoring attempt. The relevance of slimey to scoring attempts is only on offensive -- when an
+  ooze is on the ball when another player attempts a scoring, they add their oSkill"* (author).
+  So an Ooze standing on the ball while a teammate shoots adds their offensive skill, and the
+  defence gains nothing there: defenders on and beyond the ball are already in the total by
+  [what the defense adds](living-rules.md#what-the-defense-adds).
+
+**Nothing is built in the engine.** `species.json` is data for the printed cards; the mechanics
+are played off the table for now. See "Advanced mode" under [Still open](#still-open).
 
 ### 2026-08-26 (later the same day) -- author, a ball is loose only on an empty space, and a High Pass is the one exemption
 

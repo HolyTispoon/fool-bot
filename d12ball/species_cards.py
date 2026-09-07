@@ -99,21 +99,45 @@ def _fitted_display(
     return load_goal_zone_font(24 * 2)
 
 
+def _paragraphs(ability: str) -> list[str]:
+    """
+    The ability split into the paragraphs the sheet wrote it in.
+
+    Two of the four abilities name their sub-actions -- the Cyborg's
+    Overdrive and Charge-up, the Ooze's Slip in and Merge -- and put
+    each on its own line in `spec_abilities`. Run together into one
+    block they stop scanning as separate things, so the line breaks are
+    kept and only the wrapping inside a paragraph is the card's to
+    decide.
+    """
+    return [
+        " ".join(line.split())
+        for line in ability.splitlines()
+        if line.strip()
+    ]
+
+
 def _fitted_body(
-    pen: Pen, lines_text: str, max_width: float, max_height: float
-) -> tuple[ImageFont.ImageFont, list[str], float]:
-    """The largest body size whose wrapped sentence fits the panel."""
-    for size in range(40, 17, -1):
+    pen: Pen,
+    paragraphs: list[str],
+    max_width: float,
+    max_height: float,
+) -> tuple[ImageFont.ImageFont, list[list[str]], float, float]:
+    """The largest body size at which every paragraph fits the panel."""
+    def measure(size: int):
         face = font(size)
-        lines = pen.wrapped(lines_text, face, max_width)
+        blocks = [pen.wrapped(text, face, max_width) for text in paragraphs]
         step = pen.text_size("Hg", face)[1] * 1.5
-        block = step * len(lines)
-        if block <= max_height:
-            return face, lines, step
-    face = font(18)
-    return face, pen.wrapped(lines_text, face, max_width), (
-        pen.text_size("Hg", face)[1] * 1.5
-    )
+        gap = step * 0.45
+        height = step * sum(len(b) for b in blocks) + gap * (len(blocks) - 1)
+        return face, blocks, step, gap, height
+
+    for size in range(40, 17, -1):
+        face, blocks, step, gap, height = measure(size)
+        if height <= max_height:
+            return face, blocks, step, gap
+    face, blocks, step, gap, _ = measure(18)
+    return face, blocks, step, gap
 
 
 def _draw_panel(
@@ -156,15 +180,18 @@ def _draw_panel(
     # panel is the same words a size smaller. It stays in species.json
     # for anywhere the sentence does not fit.
     body_top = top + BAND_HEIGHT + 24
-    sentence = " ".join(ability["ability"].split())
-    body_face, body_lines, body_step = _fitted_body(
-        pen, sentence, right - left, bottom - body_top
+    body_face, blocks, body_step, para_gap = _fitted_body(
+        pen, _paragraphs(ability["ability"]), right - left,
+        bottom - body_top,
     )
 
     y = body_top
-    for line in body_lines:
-        pen.text((left, y), line, body_face, INK, anchor="la")
-        y += body_step
+    for index, lines in enumerate(blocks):
+        if index:
+            y += para_gap
+        for line in lines:
+            pen.text((left, y), line, body_face, INK, anchor="la")
+            y += body_step
 
 
 def render_species_card(
