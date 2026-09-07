@@ -62,9 +62,10 @@ printed reference cards (`d12ball/species_cards.py`). **Nothing in the engine re
 a bot game still gets six cards a side and the plain roster; the abilities are played off the
 printed cards for now.
 
-**The two are independent modules** -- a game takes either, both, or neither (the author, PR
-review). The bot's `GameMode` is still a single BASIC/ADVANCED switch, so splitting it into two
-toggles is the code change that remains, alongside actually reading `species.json`.
+**Advanced mode turns both modules on, and a game may take just one of them** (the author, PR
+review). The bot's `GameMode` is a single BASIC/ADVANCED switch, which covers the default; the
+per-module opt-out has nowhere to live yet. That, and actually reading `species.json`, is the
+code change that remains.
 
 The three role-ability-vs-advanced-card contradictions below are unchanged.
 
@@ -113,11 +114,16 @@ own text is the author's, on the sheet's new `spec_abilities` tab (`Spec`, `Name
 | Ooze | **Slimey** | Any Ooze sharing the ball-holder's space may play the handler's turn. An Ooze on the ball who isn't a contestant adds their defensive skill to your skill tests and contests there. |
 
 **These are the author's ask turned into settled rules.** The section is
-[Species abilities](living-rules.md#species-abilities). The abilities and the advanced maneuvers
-are **two independent optional modules** -- a game takes either, both, or neither (the author,
-in PR review: *"Advanced mode is simply one or both of the two modules"*). "Advanced mode" as a
-single switch is gone from the rules; the two are named separately, and the only cross-tie is
-Volatile's tier change, which needs the advanced maneuvers to have anything to change.
+[Species abilities](living-rules.md#species-abilities).
+
+**Advanced mode is one switch over two modules.** The author, in PR review: *"Advanced mode
+does exist. What turning advanced mode does is enabling the two modules: advanced maneuvers and
+species abilities"*, and *"It's possible to choose only one module in advanced mode. Turning
+advanced mode enables both modules."* So advanced mode is real, it brings both on, and a game
+may take just one of the two. A first pass read the earlier *"advanced mode is simply one or
+both of the two modules"* as meaning the mode itself had gone away and the two were free-standing
+options; it had not. The only cross-tie between the modules is Volatile's tier change, which
+needs the advanced maneuvers to have anything to change.
 
 **The edge cases the author's four sentences did not spell out were settled by extension** and
 then confirmed or corrected in PR review:
@@ -127,10 +133,11 @@ then confirmed or corrected in PR review:
   Score attempts: only the *shooter's* die, and only if the shooter is a Fire Demon; the
   defending coach's die belongs to no player. Own-goal roll: the die kept. The ignite reroll
   itself does not re-ignite.
-- **Volatile's tier rider needs the advanced maneuvers module and is a maneuver-skill-test
-  thing only** -- the two states that produce a skill test, a cards tie and an injury-forced
-  test. "As its advanced version" always means the advanced card on that rank; a maneuver
-  already resolving at advanced gains nothing. Everywhere else, only the number.
+- **Volatile's tier rider is a maneuver-skill-test thing only** -- the two states that produce
+  a skill test, a cards tie and an injury-forced test. "As its advanced version" always means
+  the advanced card on that rank; a maneuver already resolving at advanced gains nothing.
+  Everywhere else, only the number -- including a game that took the species abilities without
+  the advanced maneuvers, where there is no tier to raise.
 - **A Cyborg's drain replaces exhaustion wholesale**, and the Drained line is a flat 7 (the
   author simplified it from "offensive + defensive skill", which is 7 for every current player
   anyway). This is a large durability gain for the low-defence roles -- a Cyborg striker,
@@ -143,12 +150,16 @@ then confirmed or corrected in PR review:
   *"confirmed"* (author). It triggers on any movement whose path includes the Telekinetic's
   space, resolves before "where the ball comes to rest", and a miss leaves the Telekinetic free
   to contest the arrival. Its roll is not a skill test, so no injury check.
-- **Slimey's bystander bonus is not capped and does apply to a score attempt** -- *"In that
-  rare case they both add their skills. Revise it so it applies to score attempts and it varies
-  with the situation: oSkill on the offense, dSkill on the defense"* (author). Every
-  non-rolling Ooze on the ball's space adds -- offensive skill on the attack, defensive on the
-  defence. An injured Ooze adds nothing, and a defender already counted for standing on the
-  ball in a score attempt is not doubled (this last is by extension, flagged on the PR).
+- **Slimey's bystander bonus is not capped** -- *"In that rare case they both add their
+  skills"* (author). Every non-rolling Ooze on the ball's space adds: offensive skill on the
+  attacking side, defensive on the defending side, in a maneuver skill test, a contest for the
+  ball or a High Pass contest. An injured Ooze adds nothing.
+- **In a score attempt Slimey is the attack alone** -- *"slimey doesn't double the defense in a
+  scoring attempt. The relevance of slimey to scoring attempts is only on offensive -- when an
+  ooze is on the ball when another player attempts a scoring, they add their oSkill"* (author).
+  So an Ooze standing on the ball while a teammate shoots adds their offensive skill, and the
+  defence gains nothing there: defenders on and beyond the ball are already in the total by
+  [what the defense adds](living-rules.md#what-the-defense-adds).
 
 **Nothing is built in the engine.** `species.json` is data for the printed cards; the mechanics
 are played off the table for now. See "Advanced mode" under [Still open](#still-open).
