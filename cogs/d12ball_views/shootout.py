@@ -483,6 +483,22 @@ class ShootoutTestView(ShootoutView):
         review.callback = self.review
         self.add_item(review)
 
+        # Overdrive, for whichever of the two shooters is a Cyborg. A
+        # shootout test costs no exhaustion and owes no injury check,
+        # but Overdrive is a Cyborg spending their own drain rather
+        # than the test charging it -- so it is offered here like
+        # anywhere else.
+        game, match = self.load_match()
+        if game is not None and match is not None:
+            self.add_overdrive_buttons(
+                game,
+                match,
+                [
+                    match.shootout_shooter(side)
+                    for side in (TeamSide.HOME, TeamSide.VISITING)
+                ],
+            )
+
     def owes(self, match: MatchState, side: TeamSide) -> bool:
         # Nothing is owed here -- both coaches may look at their own,
         # so whichever side is theirs is the answer.
@@ -522,6 +538,7 @@ class ShootoutTestView(ShootoutView):
 
     def score_shootout_test(
         self,
+        game: D12BallGame,
         match: MatchState,
     ) -> tuple[list, dict, dict]:
         """
@@ -533,6 +550,11 @@ class ShootoutTestView(ShootoutView):
         defender -- and an injured player adds none at all, the same
         withholding the loose ball and the long High Pass make. See
         "Extreme shootout" in docs/living-rules.md.
+
+        **Volatile fires here too**, on each shooter's own die: the
+        rules list a shootout test among the rolls it covers. A
+        shootout owes no injury check, which the ignite does not
+        change -- what a backfire costs here is the goal, not a card.
         """
         totals: dict[TeamSide, int] = {}
         players = {}
@@ -550,14 +572,23 @@ class ShootoutTestView(ShootoutView):
                 else self.cog.player_catalog.effective_profile(player).offense
             )
             roll = random.randint(1, 12)
-            totals[side] = roll + skill
+            ignite = self.cog.engine.ignite(game, player.player_id, roll)
+            overdrive = match.overdrive_modifier(player.player_id)
+            totals[side] = roll + skill + ignite.modifier + overdrive
+            detail = contestant_detail(
+                player, "Offensive", skill, injured=injured,
+            )
+            for line in (
+                ignite.detail,
+                self.cog.engine.overdrive_detail(match, player.player_id),
+            ):
+                if line:
+                    detail.append(line)
             dice.append(
                 (
                     roll,
                     match.setup_for_side(side).team,
-                    contestant_detail(
-                        player, "Offensive", skill, injured=injured,
-                    ),
+                    detail,
                     totals[side],
                 )
             )
@@ -622,7 +653,8 @@ class ShootoutTestView(ShootoutView):
         # out in SkillTestView.roll.
         await interaction.response.defer()
 
-        dice, totals, players = self.score_shootout_test(match)
+        dice, totals, players = self.score_shootout_test(game, match)
+        match.consume_overdrive()
         dice_file = await render_contest_dice(
             dice, filename="shootout_dice.png",
         )

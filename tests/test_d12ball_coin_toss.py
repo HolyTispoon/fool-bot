@@ -584,7 +584,13 @@ class D12BallRunBackAnnouncementTests(
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock())
         )
-        game = SimpleNamespace(match_state=None, game_id="g")
+        game = SimpleNamespace(
+            match_state=None,
+            game_id="g",
+            mode=GameMode.BASIC,
+            advanced_maneuvers=True,
+            species_abilities=True,
+        )
         match = MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
@@ -825,6 +831,8 @@ class D12BallNewPlayKickoffTests(
             match_state=None, game_id="g", turn_message_id=None,
             home_player_number=1, visiting_player_number=2,
             player_1_id=1, player_2_id=2, is_solo_game=False,
+            mode=GameMode.BASIC,
+            advanced_maneuvers=True, species_abilities=True,
         )
         # Both sides out of declarations, so no window interrupts the
         # flow and the reset runs straight into the kickoff fill.

@@ -27,7 +27,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
-from d12ball.game import AIOpponent, Team
+from d12ball.game import AIOpponent, GameMode, Team
 from roster import fielded
 from save_patches import suppressed_cog_saves, suppressed_full_image_links, suppressed_view_saves
 
@@ -95,6 +95,13 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
             player_1_id=11,
             player_2_id=None,
             turn_message_id=None,
+            # A run back charges exhaustion, and the Exhausted
+            # threshold is now a question about which modules the game
+            # is playing -- basic here, so it is every player's own
+            # defensive skill.
+            mode=GameMode.BASIC,
+            advanced_maneuvers=True,
+            species_abilities=True,
         )
 
     def scatter_visiting_side(self, match: MatchState) -> list[str]:
@@ -429,6 +436,9 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
             match_state=match.to_dict(),
             game_id="g",
             is_solo_game=True,
+            mode=GameMode.BASIC,
+            advanced_maneuvers=True,
+            species_abilities=True,
         )
         interaction = build_interaction()
 
@@ -483,6 +493,9 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
             game_number=1,
             home_player_number=1,
             visiting_player_number=2,
+            mode=GameMode.BASIC,
+            advanced_maneuvers=True,
+            species_abilities=True,
         )
         interaction = SimpleNamespace(
             followup=SimpleNamespace(

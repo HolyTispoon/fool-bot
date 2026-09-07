@@ -196,12 +196,12 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         player_id = match.home.field_players[0]
         skill = self.defense_skill(cog, player_id)
 
-        text = cog.apply_exhaustion(match, player_id, skill)
+        text = cog.apply_exhaustion(build_game(), match, player_id, skill)
         self.assertEqual(match.exhaustion[player_id], skill)
         self.assertNotIn(player_id, match.exhausted)
         self.assertNotIn("exhausted", text)
 
-        text = cog.apply_exhaustion(match, player_id, 1)
+        text = cog.apply_exhaustion(build_game(), match, player_id, 1)
         self.assertEqual(match.exhaustion[player_id], skill + 1)
         self.assertIn(player_id, match.exhausted)
         self.assertIn("exhausted", text)
@@ -247,11 +247,12 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
         player_id = match.home.field_players[0]
         skill = self.defense_skill(cog, player_id)
 
+        game = build_game()
         match.add_exhaustion(player_id, skill + 1)
-        self.assertTrue(cog.engine.retest_exhausted(match, player_id))
+        self.assertTrue(cog.engine.retest_exhausted(game, match, player_id))
         self.assertIn(player_id, match.exhausted)
         # Only on the transition, so it can be announced once.
-        self.assertFalse(cog.engine.retest_exhausted(match, player_id))
+        self.assertFalse(cog.engine.retest_exhausted(game, match, player_id))
 
 
 if __name__ == "__main__":

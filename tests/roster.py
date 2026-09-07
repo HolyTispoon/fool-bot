@@ -140,6 +140,34 @@ def field_players(
     ]
 
 
+def fielded_of_species(
+    match: MatchState,
+    species: str,
+    side: TeamSide = TeamSide.HOME,
+) -> str:
+    """
+    A card this side has **on the field** of that species, for a test
+    about a species ability rather than about a role.
+
+    It reads the board rather than the catalog, unlike `fielded` and
+    `benched`: which species a colour team fields is the roster's
+    business (three of its own plus two of each other), so "somebody of
+    this species on this side" is a question about the deal that
+    actually happened. A species team fields nine of one, so any of the
+    six answers there.
+
+    Raises rather than returning None -- a test that asks for a Fire
+    Demon on a side holding none is a fixture that has gone wrong, and
+    the ability under test would silently never fire.
+    """
+    for player_id in field_players(match, side):
+        if catalog().player_by_id(player_id).species == species:
+            return player_id
+    raise LookupError(
+        f"No {species} on this match's {side.value} side."
+    )
+
+
 def roles(player_ids: Iterable[str]) -> tuple[PlayerRole, ...]:
     """
     The roles of `player_ids`, in the order given.

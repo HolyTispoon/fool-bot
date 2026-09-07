@@ -11,6 +11,8 @@ import discord
 from typing import Optional
 
 from d12ball.components import (
+    OVERDRIVE_BONUS,
+    OVERDRIVE_DRAIN_COST,
     MatchState,
     PlayerDefinition,
 )
@@ -163,6 +165,105 @@ class SafeView(discord.ui.View):
             participant_ids.add(game.player_2_id)
         return user_id in participant_ids
 
+    def add_overdrive_buttons(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_ids,
+    ) -> None:
+        """
+        Put an Overdrive button on this roll prompt for every Cyborg
+        about to roll on it -- **the one way Lithium Powered's
+        declaration reaches a coach**, shared by all six roll prompts
+        so a seventh gets it with one line.
+
+        Overdrive is the only thing in the game declared *before* a
+        roll, and every roll already sits behind a button any coach may
+        press (see "Every roll is a coach's"). So it is a second button
+        on the same message rather than a step of its own: the coach
+        whose Cyborg it is presses it, the message says so, and
+        whoever was going to press Roll still does. `player_ids` is
+        whoever is rolling here, which only the prompt knows.
+
+        The button is **not** built for a Cyborg who has already
+        declared -- "once per roll" -- so a message that has been
+        clicked comes back with one fewer button, which is also how a
+        coach can see the declaration took.
+        """
+        for player_id in self.cog.engine.overdrive_candidates(
+            game, match, player_ids,
+        ):
+            player = self.cog.engine.get_player_definition(player_id)
+            button = discord.ui.Button(
+                label=(
+                    f"⚡ Overdrive: {player.name} "
+                    f"({OVERDRIVE_DRAIN_COST} drain, +{OVERDRIVE_BONUS})"
+                )[:80],
+                style=discord.ButtonStyle.secondary,
+                # The player is in the custom_id as well as the match's
+                # own list, so a coach who scrolls back to an older
+                # prompt cannot declare for somebody else's roll -- the
+                # same reason the injury test's button carries one.
+                custom_id=(
+                    f"d12ball:overdrive:{self.game_id}:{player_id}"
+                ),
+            )
+            button.callback = self.declare_overdrive
+            self.add_item(button)
+
+    async def declare_overdrive(
+        self, interaction: discord.Interaction,
+    ) -> None:
+        """
+        Answer an Overdrive button: charge the 3 drain, record the
+        declaration, and edit the prompt so it says so.
+
+        Only the coach whose side that Cyborg is on may press it --
+        unlike the roll itself, which either coach may throw. A
+        declaration is a decision about someone's own player and a
+        commitment of their tokens, so it is theirs alone.
+        """
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+
+        player_id = interaction.data["custom_id"].rsplit(":", 1)[-1]
+        if self.cog.engine.controlling_user_id(
+            game, match, player_id,
+        ) != interaction.user.id:
+            await interaction.response.send_message(
+                "Only the coach whose player that is can declare "
+                "Overdrive for them.",
+                ephemeral=True,
+            )
+            return
+
+        # Re-checked rather than trusted: this prompt may have been
+        # sitting in the channel since before the roll it was built
+        # for, and the candidate list is what says the declaration is
+        # still available.
+        if not self.cog.engine.overdrive_candidates(
+            game, match, [player_id],
+        ):
+            await interaction.response.send_message(
+                "That Overdrive is no longer available.",
+                ephemeral=True,
+            )
+            return
+
+        match.declare_overdrive(
+            player_id,
+            self.cog.engine.exhaustion_threshold(game, player_id),
+        )
+        self.cog.persist(game, match)
+
+        player = self.cog.engine.get_player_definition(player_id)
+        await interaction.response.send_message(
+            f"⚡ **Overdrive** — {self.cog.player_label(match, player)} "
+            f"takes {OVERDRIVE_DRAIN_COST} drain for "
+            f"+{OVERDRIVE_BONUS} on this roll.",
+        )
+
 
     def pay_skill_test_tie(
         self,
@@ -189,8 +290,8 @@ class SafeView(discord.ui.View):
         """
         exhaustion_text = "\n".join(
             [
-                self.cog.apply_exhaustion(match, first_player_id, 1),
-                self.cog.apply_exhaustion(match, second_player_id, 1),
+                self.cog.apply_exhaustion(game, match, first_player_id, 1),
+                self.cog.apply_exhaustion(game, match, second_player_id, 1),
             ]
         )
         self.cog.persist(game, match)

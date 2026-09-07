@@ -17,6 +17,7 @@ from d12ball.components import (
     PlayerRole,
     TeamSetup,
 )
+from d12ball.engine import IgnitedRoll
 from d12ball.game import (
     D12BallGame,
     Team,
@@ -60,13 +61,28 @@ class SkillTestView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
+        # Overdrive, for whichever of the two rollers is a Cyborg --
+        # declared before the die and on this same message. Both sides
+        # may be, and each is their own coach's to press.
+        game, match = self.load_match()
+        if game is not None and match is not None:
+            self.add_overdrive_buttons(
+                game, match, [match.active_player_id, match.challenger_id],
+            )
+
     def score_skill_test(
         self,
         game: D12BallGame,
         match: MatchState,
         offense_player: PlayerDefinition,
         defense_player: PlayerDefinition,
-    ) -> tuple[list[tuple[int, Team, list[str], int]], int, int]:
+    ) -> tuple[
+        list[tuple[int, Team, list[str], int]],
+        int,
+        int,
+        IgnitedRoll,
+        IgnitedRoll,
+    ]:
         """
         Roll the maneuver skill test and add everything that counts
         towards it, as the two sides `render_contest_dice` draws plus
@@ -81,6 +97,12 @@ class SkillTestView(SafeView):
         contest, which is the loose ball and the shootout; a maneuver's
         skill test pays every modifier to an injured player. See
         "Injured players" in docs/living-rules.md.
+
+        **Both ignites come back with the totals**, because this is the
+        one roll site where Volatile does something besides arithmetic:
+        the caller needs to know which side surged or backfired to set
+        the tier rider once it knows who won. See
+        `RulesEngine.volatile_raises_tier`.
         """
         offense_skill = self.cog.player_catalog.effective_profile(
             offense_player,
@@ -94,8 +116,37 @@ class SkillTestView(SafeView):
             scripted if scripted else
             (random.randint(1, 12), random.randint(1, 12))
         )
-        offense_total = offense_roll + offense_skill
-        defense_total = defense_roll + defense_skill
+
+        # Volatile, on each side's own die and before any skill is
+        # added -- the ignite reads the natural face. Both are asked
+        # even in a basic game, where they come back as the face and
+        # nothing else. "If both players rolling are Fire Demons, each
+        # checks their own" falls out of asking per side.
+        offense_ignite = self.cog.engine.ignite(
+            game, offense_player.player_id, offense_roll,
+        )
+        defense_ignite = self.cog.engine.ignite(
+            game, defense_player.player_id, defense_roll,
+        )
+
+        # Overdrive was declared and paid before this button was
+        # pressed; what is left is to add it and clear the declaration,
+        # which `roll` does once both sides have been read.
+        offense_overdrive = match.overdrive_modifier(
+            offense_player.player_id,
+        )
+        defense_overdrive = match.overdrive_modifier(
+            defense_player.player_id,
+        )
+
+        offense_total = (
+            offense_roll + offense_skill + offense_ignite.modifier
+            + offense_overdrive
+        )
+        defense_total = (
+            defense_roll + defense_skill + defense_ignite.modifier
+            + defense_overdrive
+        )
 
         offense_detail = contestant_detail(
             offense_player, "Offensive", offense_skill,
@@ -103,6 +154,18 @@ class SkillTestView(SafeView):
         defense_detail = contestant_detail(
             defense_player, "Defensive", defense_skill,
         )
+        for detail, line in (
+            (offense_detail, offense_ignite.detail),
+            (offense_detail, self.cog.engine.overdrive_detail(
+                match, offense_player.player_id,
+            )),
+            (defense_detail, defense_ignite.detail),
+            (defense_detail, self.cog.engine.overdrive_detail(
+                match, defense_player.player_id,
+            )),
+        ):
+            if line:
+                detail.append(line)
 
         # Role ability -- Midfielder: +3 on a skill test when
         # attempting Low Pass (offense) or Pressure (defense).
@@ -134,6 +197,22 @@ class SkillTestView(SafeView):
             modifier = match.ball.speed // 2
             defense_total += modifier
             defense_detail.append(f"+{modifier} ball speed modifier")
+
+        # **Merge**: an Ooze standing on the ball who is not one of the
+        # two rolling adds to their own side -- offensive skill on the
+        # attack, defensive on the defence. A maneuver's skill test is
+        # always fought on the ball's space, so it always qualifies.
+        rolling = (offense_player.player_id, defense_player.player_id)
+        offense_merge, offense_merge_lines = self.cog.engine.merge_bonus(
+            game, match, match.ball.possession, rolling, "offense",
+        )
+        defense_merge, defense_merge_lines = self.cog.engine.merge_bonus(
+            game, match, match.defending_side(), rolling, "defense",
+        )
+        offense_total += offense_merge
+        defense_total += defense_merge
+        offense_detail.extend(offense_merge_lines)
+        defense_detail.extend(defense_merge_lines)
 
         # **A won Double Team lands on the *next* maneuver**: both
         # defenders challenge the ball holder, and both add their
@@ -176,6 +255,8 @@ class SkillTestView(SafeView):
             ],
             offense_total,
             defense_total,
+            offense_ignite,
+            defense_ignite,
         )
 
     async def roll(self, interaction: discord.Interaction) -> None:
@@ -212,9 +293,18 @@ class SkillTestView(SafeView):
             match.challenger_id,
         )
 
-        contestants, offense_total, defense_total = self.score_skill_test(
+        (
+            contestants,
+            offense_total,
+            defense_total,
+            offense_ignite,
+            defense_ignite,
+        ) = self.score_skill_test(
             game, match, offense_player, defense_player,
         )
+        # Spent, win, lose or tie: a tie that is re-rolled is a fresh
+        # roll and has to be Overdriven again.
+        match.consume_overdrive()
         # Logged before either branch, so a tie that re-rolls is in the
         # record as well as the roll that settles it -- a maneuver
         # decided on the third attempt cost three rolls and six
@@ -260,6 +350,37 @@ class SkillTestView(SafeView):
         )
         winner_name = self.cog.engine.maneuver_name(winner_key)
 
+        # **Volatile's tier rider**, settled here because this is the
+        # first point that knows who won. Both of the rules' two cases
+        # raise the winner's card, so this is one flag -- see
+        # `RulesEngine.volatile_raises_tier`. It is written onto the
+        # match rather than passed down to the effect because the
+        # injury tests run in between: `resolving_maneuver` is asked on
+        # the far side of them, possibly after a restart.
+        winner_ignite, loser_ignite = (
+            (offense_ignite, defense_ignite)
+            if outcome == "offense"
+            else (defense_ignite, offense_ignite)
+        )
+        match.volatile_tier_upgrade = self.cog.engine.volatile_raises_tier(
+            game, winner_ignite, loser_ignite,
+        )
+        if match.volatile_tier_upgrade:
+            raised = self.cog.engine.maneuver_name(
+                self.cog.engine.resolving_maneuver(match, winner_key),
+            )
+            volatile_note = (
+                f"\n🔥 **Volatile** — "
+                + (
+                    "the surge"
+                    if winner_ignite.surge
+                    else "the backfire"
+                )
+                + f" raises it to **{raised}**."
+            )
+        else:
+            volatile_note = ""
+
         exhausted_participants = [
             player
             for player in (offense_player, defense_player)
@@ -277,7 +398,7 @@ class SkillTestView(SafeView):
             view=None,
         )
         await interaction.followup.send(
-            f"## **{winner_name}** wins the skill test!"
+            f"## **{winner_name}** wins the skill test!{volatile_note}"
         )
         await self.cog.refresh_match_image(interaction, game)
 
@@ -325,6 +446,14 @@ class InjuryTestView(SafeView):
         )
         button.callback = self.roll
         self.add_item(button)
+
+        # Overdrive is legal on an injury check -- "any d12 the Cyborg
+        # themselves rolls" -- which is the one roll where spending
+        # drain to pass is also three more drain to have passed with.
+        # That trade is the coach's to make.
+        game, match = self.load_match()
+        if game is not None and match is not None:
+            self.add_overdrive_buttons(game, match, [player_id])
 
     async def roll(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
@@ -383,6 +512,13 @@ class OwnGoalRollView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
+        # Overdrive, for the handler who has to survive the roll.
+        game, match = self.load_match()
+        if game is not None and match is not None:
+            self.add_overdrive_buttons(
+                game, match, [match.active_player_id],
+            )
+
     async def roll(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -428,13 +564,21 @@ class ScoreAttemptView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
+        # Overdrive, for the shooter alone. A score attempt's second
+        # die is the defensive wall's and belongs to no card, so there
+        # is nobody on that side to declare it.
+        game, match = self.load_match()
+        if game is not None and match is not None:
+            self.add_overdrive_buttons(
+                game, match, [match.active_player_id],
+            )
+
         # A shot not yet rolled always has somewhere to walk back to --
         # see `MatchState.may_cancel_pending_shot` -- and only the side
         # that chose it may reconsider. No `possession_user_id` means
         # Dinky is the one shooting, which is not a choice a human
         # standing in for its rolls gets to undo either (see "Every
         # roll is a coach's" in CLAUDE.md).
-        game, match = self.load_match()
         if (
             game is not None
             and match is not None
@@ -463,6 +607,7 @@ class ScoreAttemptView(SafeView):
 
     def score_score_attempt(
         self,
+        game: D12BallGame,
         match: MatchState,
         shooter: PlayerDefinition,
         attacking_setup: TeamSetup,
@@ -476,6 +621,13 @@ class ScoreAttemptView(SafeView):
         Everything that built the two totals is drawn on the dice
         image, which is why no message that posts one repeats it in
         text.
+
+        **Only the shooter's die can ignite.** A score attempt's second
+        die is the defence's, and the defence here is a wall of
+        meeples rather than a player rolling -- it belongs to no card,
+        so there is no species behind it. See "Volatile" in
+        docs/living-rules.md, which names "the shooter's die" and no
+        other.
         """
         offense_skill = self.cog.player_catalog.effective_profile(
             shooter,
@@ -494,12 +646,41 @@ class ScoreAttemptView(SafeView):
         # against the shot -- so it is added, never abs()'d.
         attack_roll = random.randint(1, 12)
         defense_roll = random.randint(1, 12)
-        attack_total = attack_roll + offense_skill + speed_modifier
+        attack_ignite = self.cog.engine.ignite(
+            game, shooter.player_id, attack_roll,
+        )
+        overdrive = match.overdrive_modifier(shooter.player_id)
+        attack_total = (
+            attack_roll + offense_skill + speed_modifier
+            + attack_ignite.modifier + overdrive
+        )
         defense_total = defense_roll + defense_skill_total
 
         attack_detail = contestant_detail(shooter, "Offensive", offense_skill)
         if speed_modifier:
             attack_detail.append(f"{speed_modifier:+d} ball speed modifier")
+        if attack_ignite.detail:
+            attack_detail.append(attack_ignite.detail)
+        overdrive_detail = self.cog.engine.overdrive_detail(
+            match, shooter.player_id,
+        )
+        if overdrive_detail:
+            attack_detail.append(overdrive_detail)
+
+        # **Merge in a score attempt is the attack alone.** An Ooze on
+        # the ball while a teammate shoots adds their offensive skill;
+        # the defence gains nothing from it, because defenders on and
+        # beyond the ball are already counted by what the defense adds
+        # and an Ooze among them must not be counted twice.
+        merge, merge_lines = self.cog.engine.merge_bonus(
+            game,
+            match,
+            match.ball.possession,
+            (shooter.player_id,),
+            "offense",
+        )
+        attack_total += merge
+        attack_detail.extend(merge_lines)
 
         # Role ability -- Striker: +3 on any scoring attempt off a
         # set-up. Injury does not withhold this one, deliberately: an
@@ -586,7 +767,7 @@ class ScoreAttemptView(SafeView):
         # exclusive to skill tests either way.
         if match.pending_shot_is_set_up:
             verdict += "\n\n" + self.cog.apply_exhaustion(
-                match, shooter.player_id, 1,
+                game, match, shooter.player_id, 1,
             )
 
         # Every score attempt is a turnover, win or miss: the clock
@@ -659,8 +840,9 @@ class ScoreAttemptView(SafeView):
         defending_setup = match.setup_for_side(match.defending_side())
 
         contestants, attack_total, defense_total = self.score_score_attempt(
-            match, shooter, attacking_setup, defending_setup,
+            game, match, shooter, attacking_setup, defending_setup,
         )
+        match.consume_overdrive()
         dice_file = await render_contest_dice(
             contestants, filename="score_attempt_dice.png",
         )

@@ -460,7 +460,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
 
         outgoing = match.home.field_players[0]
         incoming = match.home.team_board.bench[0]
-        cog.apply_substitution(match, TeamSide.HOME, outgoing, incoming)
+        cog.apply_substitution(game, match, TeamSide.HOME, outgoing, incoming)
 
         # Straight back to the bench, so they can be brought on again,
         # and the half's own two are untouched.
@@ -579,13 +579,17 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cog.coaching_summary(match, TeamSide.HOME), [])
 
     def test_every_swap_is_named(self) -> None:
-        cog, _, match = self.build()
+        cog, game, match = self.build()
         first_off = match.home.field_players[0]
         first_on = match.home.team_board.bench[0]
-        cog.apply_substitution(match, TeamSide.HOME, first_off, first_on)
+        cog.apply_substitution(
+            game, match, TeamSide.HOME, first_off, first_on,
+        )
         second_off = match.home.field_players[1]
         second_on = match.home.team_board.bench[0]
-        cog.apply_substitution(match, TeamSide.HOME, second_off, second_on)
+        cog.apply_substitution(
+            game, match, TeamSide.HOME, second_off, second_on,
+        )
 
         summary = cog.coaching_summary(match, TeamSide.HOME)
 
@@ -606,7 +610,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
         cog.finish_substitution_window = mock.AsyncMock()
         outgoing = match.home.field_players[0]
         incoming = match.home.team_board.bench[0]
-        cog.apply_substitution(match, TeamSide.HOME, outgoing, incoming)
+        cog.apply_substitution(game, match, TeamSide.HOME, outgoing, incoming)
         game.match_state = match.to_dict()
 
         click = build_click()
@@ -639,11 +643,11 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
     def test_the_record_survives_a_save_and_reload(self) -> None:
         # A restart mid-window resumes the same Coaching Choice, so it
         # has to close with what the coach did before the restart.
-        cog, _, match = self.build()
+        cog, game, match = self.build()
         cog.engine.apply_formation(match, TeamSide.HOME, Formation.TWO_THREE_ONE)
         outgoing = match.home.field_players[0]
         incoming = match.home.team_board.bench[0]
-        cog.apply_substitution(match, TeamSide.HOME, outgoing, incoming)
+        cog.apply_substitution(game, match, TeamSide.HOME, outgoing, incoming)
 
         reloaded = MatchState.from_dict(
             match.to_dict(), load_basic_ruleset(),

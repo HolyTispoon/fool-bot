@@ -56,6 +56,7 @@ class TurnoverMixin:
 
     def apply_substitution(
         self,
+        game: D12BallGame,
         match: MatchState,
         side: TeamSide,
         outgoing_player_id: str,
@@ -92,9 +93,15 @@ class TurnoverMixin:
             # Half the tokens, rounded up, come off a returning
             # player -- but Exhausted is whatever the remainder says,
             # so it has to be re-tested rather than assumed cleared.
-            defense_skill = self.player_catalog.effective_profile(
-                incoming
-            ).defense
+            #
+            # Against their own threshold, which for a Cyborg is the
+            # flat Drained line rather than their defensive skill: a
+            # Cyborg is exactly the player this re-test would get
+            # wrong, since half of a big drain total is still well
+            # over a striker's defence of 2 and nowhere near 7.
+            threshold = self.engine.exhaustion_threshold(
+                game, incoming_player_id,
+            )
             remaining = match.exhaustion.get(incoming_player_id, 0)
             exhaust_emoji = get_exhaust_emoji(self.condition_emojis)
             text += (
@@ -103,11 +110,11 @@ class TurnoverMixin:
                 f"{exhaust_emoji * remaining}."
             )
             if match.mark_exhausted_if_needed(
-                incoming_player_id, defense_skill,
+                incoming_player_id, threshold,
             ):
                 text += (
-                    f" Still **Exhausted** -- {remaining} is over a "
-                    f"defensive skill of {defense_skill}."
+                    f" Still **Exhausted** -- {remaining} is over "
+                    f"{threshold}."
                 )
 
         text += f"\n{self.engine.substitution_allowance_label(match)}."
@@ -615,7 +622,11 @@ class TurnoverMixin:
             try:
                 lines.append(
                     self.apply_substitution(
-                        match, side, outgoing_player_id, incoming_player_id,
+                        game,
+                        match,
+                        side,
+                        outgoing_player_id,
+                        incoming_player_id,
                     )
                 )
             except ValueError as error:
@@ -1067,10 +1078,59 @@ class TurnoverMixin:
                     interaction, game, match, winning_side,
                 )
                 return
+        else:
+            # **Charge-up**, and only on a real run back: "a new-play
+            # reset is not a run back and triggers no Charge-up". It is
+            # settled here rather than at the end of the cascade
+            # because this is the one moment that knows who the run
+            # back is about to move -- `run_back_displaced` reads the
+            # position before anybody has come home, and the carrier
+            # exemption was recorded two lines up.
+            charge_up = self.apply_charge_up(game, match)
+            if charge_up:
+                lead_in = "\n\n".join(filter(None, (lead_in, charge_up)))
+            self.persist(game, match)
 
         await self.announce_run_back(
             interaction, game, match, lead_in, speed_reset=speed_reset,
         )
+
+    def apply_charge_up(
+        self, game: D12BallGame, match: MatchState,
+    ) -> str:
+        """
+        Take a drain token off every Cyborg this run back leaves where
+        they are, and word it -- or "" when there is nobody to charge
+        up, which is every game not playing the species abilities and
+        most turns of the ones that are.
+
+        Who qualifies is `RulesEngine.charge_up_players`; this is the
+        removal and the sentence. The re-test matters: a Cyborg sitting
+        on exactly 7 is Drained, and dropping to 6 clears it, so this
+        goes through `recover_exhaustion` rather than decrementing the
+        count by hand.
+        """
+        charged = self.engine.charge_up_players(game, match)
+        if not charged:
+            return ""
+
+        lines = []
+        for player_id in charged:
+            player = self.engine.get_player_definition(player_id)
+            removed = match.recover_exhaustion(
+                player_id, 1, self.engine.exhaustion_threshold(
+                    game, player_id,
+                ),
+            )
+            if not removed:
+                continue
+            remaining = match.exhaustion.get(player_id, 0)
+            lines.append(
+                f"{self.player_label(match, player)} holds position — "
+                f"**Charge-up** removes 1 drain "
+                f"(now {remaining})."
+            )
+        return "\n".join(lines)
 
     async def announce_new_play_reset(
         self,
@@ -1258,7 +1318,9 @@ class TurnoverMixin:
             match.placement_spaces_in_zone(side, zone, player_id)
         )
         distance = match.run_back_player(player_id, zone, space_index)
-        exhaustion_text = self.apply_exhaustion(match, player_id, distance)
+        exhaustion_text = self.apply_exhaustion(
+            game, match, player_id, distance,
+        )
         self.persist(game, match)
 
         return (
@@ -1300,7 +1362,7 @@ class TurnoverMixin:
             player = self.engine.get_player_definition(player_id)
             distance = match.fill_kickoff(player_id)
             exhaustion_text = self.apply_exhaustion(
-                match, player_id, distance,
+                game, match, player_id, distance,
             )
             self.persist(game, match)
 
@@ -1507,7 +1569,7 @@ class TurnoverMixin:
                 )
                 break
 
-            self.engine.apply_forced_run_backs(match)
+            self.engine.apply_forced_run_backs(game, match)
             self.persist(game, match)
 
             step = self.engine.next_run_back_step(match)
@@ -1656,7 +1718,9 @@ class TurnoverMixin:
         # span a restart, can still read it back.
         distance_moved = match.pending_run_back_distance
         distance = match.recover_out_of_bounds_ball(player_id)
-        exhaustion_text = self.apply_exhaustion(match, player_id, distance)
+        exhaustion_text = self.apply_exhaustion(
+            game, match, player_id, distance,
+        )
         self.persist(game, match)
 
         prefix = f"{lead_in}\n\n" if lead_in else ""

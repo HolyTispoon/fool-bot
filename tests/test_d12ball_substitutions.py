@@ -23,7 +23,7 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
-from d12ball.game import Team
+from d12ball.game import D12BallGame, GameMode, Team
 from roster import benched, fielded
 from save_patches import suppressed_cog_saves
 
@@ -42,6 +42,30 @@ def build_cog() -> D12Ball:
     cog.announce_run_back = mock.AsyncMock()
     cog.begin_substitution_window = mock.AsyncMock()
     return cog
+
+
+def build_basic_game() -> D12BallGame:
+    """
+    A plain basic-mode game, for the calls that now take one.
+
+    Charging exhaustion needs a game because the Exhausted threshold is
+    a Cyborg's own in a game playing the species abilities -- see
+    `RulesEngine.exhaustion_threshold`. Nothing in this file is about
+    that, so a basic game is exactly right: every player there is
+    Exhausted on their own defensive skill, which is what these tests
+    assert.
+    """
+    return D12BallGame(
+        game_id="g1",
+        game_number=1,
+        guild_id=1,
+        channel_id=2,
+        message_id=None,
+        player_1_id=111,
+        player_2_id=222,
+        player_1_team=Team.ORANGE,
+        player_2_team=Team.PURPLE,
+    )
 
 
 class SubstitutionHandoffTests(unittest.IsolatedAsyncioTestCase):
@@ -135,6 +159,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.declare_coaching()
 
         text = cog.apply_substitution(
+            build_basic_game(),
             match,
             TeamSide.HOME,
             fielded(match, PlayerRole.DEFENDER),
@@ -154,6 +179,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
         text = cog.apply_substitution(
+            build_basic_game(),
             match,
             TeamSide.HOME,
             fielded(match, PlayerRole.STRIKER),
@@ -181,6 +207,7 @@ class SubstitutionSummaryTests(unittest.TestCase):
         match.mark_injured(fielded(match, PlayerRole.STRIKER))
 
         text = cog.apply_substitution(
+            build_basic_game(),
             match,
             TeamSide.HOME,
             fielded(match, PlayerRole.STRIKER),
@@ -470,7 +497,13 @@ class ContinueRunBackKickoffFillTests(unittest.IsolatedAsyncioTestCase):
         match.pending_run_back_distance = 3
         match.pending_run_back_turnover = True
 
-        game = SimpleNamespace(match_state=match.to_dict(), game_id="g")
+        game = SimpleNamespace(
+            match_state=match.to_dict(),
+            game_id="g",
+            mode=GameMode.BASIC,
+            advanced_maneuvers=True,
+            species_abilities=True,
+        )
         interaction = SimpleNamespace(
             followup=SimpleNamespace(send=mock.AsyncMock())
         )

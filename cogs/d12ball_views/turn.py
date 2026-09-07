@@ -50,7 +50,11 @@ class BallHandlerSelectionView(SafeView):
         # one button, which is the rule showing up as a menu with no
         # choice in it. send_turn_prompt normally skips the view
         # entirely in that case; this is the restore path.
-        for player_id in match.turn_handler_candidates():
+        #
+        # Through the engine, so an Ooze standing on the ball gets a
+        # button of their own -- see "Slimey (Ooze)" in the living
+        # rules.
+        for player_id in cog.engine.turn_handler_candidates(game, match):
             player = self.cog.engine.get_player_definition(player_id)
             initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
@@ -106,7 +110,10 @@ class BallHandlerSelectionView(SafeView):
             return
 
         try:
-            match.select_ball_handler(player_id)
+            match.select_ball_handler(
+                player_id,
+                self.cog.engine.slip_in_candidates(game, match),
+            )
         except ValueError as error:
             await interaction.response.send_message(
                 str(error),
@@ -693,6 +700,7 @@ class ManeuverChallengeView(SafeView):
         # Built before the save: a walk-in's tokens can cross the
         # Exhausted threshold, and this description is what tests it.
         walk_in_text = self.cog.describe_challenger_walk_in(
+            game,
             match,
             player_id,
             distance,

@@ -661,6 +661,7 @@ class CoachingSubstitutionInView(CoachingView):
 
         try:
             note = self.cog.apply_substitution(
+                game,
                 match,
                 self.side(match),
                 self.outgoing_player_id,

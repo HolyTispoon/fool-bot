@@ -763,6 +763,228 @@ weapon rather than only a saving.
   directions apiece is a lot of branches nobody would think to build a
   fixture for; it caught two real bugs the day it was written.
 
+## Species abilities in the bot
+
+The four abilities as the engine plays them. The rules are
+[Species abilities](docs/living-rules.md#species-abilities) and are settled;
+what is here is how they are wired, and the reasoning the rules do not carry.
+
+**Advanced mode is one switch over two modules** -- the advanced maneuvers
+and these (the author, PR #177 review). Turning it on brings both, and a game
+may then take just one.
+
+- **`GameMode` stays BASIC/ADVANCED and the opt-out is two bools on the game
+  record**, `advanced_maneuvers` and `species_abilities`, both defaulting
+  True. They are opt-*outs*, not opt-ins: a game is basic or advanced (one
+  switch, which is what a coach picks and what every existing save carries)
+  and these two say what an advanced game left behind. Defaulting True is
+  what makes every advanced game played before them read as both modules on,
+  which is what those games were. A third `GameMode` value would have made
+  "advanced" three things a coach has to tell apart.
+- **Nothing may read either bool to decide a rule.**
+  `RulesEngine.advanced_maneuvers_apply` and `species_abilities_apply` are
+  the two answers, and each folds `mode` in so a caller cannot check the
+  opt-out and forget the mode. `maneuver_tiers` reads the first -- it used to
+  ask `game.mode` directly, which would have dealt six cards to a game that
+  opted the maneuvers out.
+- **`RulesEngine.has_species_ability` is the one question every ability site
+  asks**: this card, this game, this species. It folds the module gate and
+  the species check together for the reason `settled_maneuver_winner` is one
+  predicate over three call sites -- the two are always asked in the same
+  breath, and a site that checks the species and forgets the module plays a
+  basic game by advanced rules. **Don't read `PlayerDefinition.species` to
+  decide a rule anywhere else.**
+  - **A player fielded on both sides carries it on both cards**, and that is
+    free rather than handled: `species_of` goes through
+    `PlayerCatalog.player_by_id`, which resolves a duplicate card id to the
+    same person. See "One player, both sides".
+  - It is tolerant of an id the catalog does not know (`species_of` answers
+    `""`), because every caller is a predicate asking whether an ability
+    fires -- the same tolerance `turn_handler_candidates` shows a stale
+    carrier.
+
+### Volatile, and the roll funnel
+
+**`RulesEngine.ignite` is the funnel every d12 in the game comes through**,
+and it is what stops the next ability that reads a die being written at six
+call sites. Volatile is the only one that reads one today.
+
+- **It takes the face rather than rolling it.** Each site already knows how
+  to get its own dice -- `random.randint(1, 12)`, or the tutorial's scripted
+  faces through `tutorial_dice` -- and taking that over would have meant
+  threading the script through the engine for nothing. What the funnel owns
+  is the *reading*, which is the part that was going to be duplicated.
+- **An ignite is reported as a modifier, not as a new total.**
+  `IgnitedRoll.modifier` and `.detail` are added to what each site was
+  already building, exactly like the Midfielder's +3 or the ball speed
+  modifier -- which is why all six sites took this without changing how they
+  roll, display or total anything, and why the dice image explains itself
+  with no new drawing code.
+- **The six sites, and what each passes**: the maneuver skill test and the
+  loose-ball/High-Pass contest pass each side's own player (so two Fire
+  Demons each check their own); the score attempt passes **only the
+  shooter** -- its second die is the defensive wall's and belongs to no card,
+  which is why `ignite` takes an optional player and answers "no ignite" for
+  None; the own goal passes **the die that is kept**, since it is rolled at
+  an advantage and the rules name "the die kept"; the injury check and the
+  shootout test pass their one roller.
+- **Injury does not withhold it.** What an injured contestant loses is their
+  own skill modifier and only that; an ignite is the die, not a modifier the
+  player brings -- the same reading that leaves the ball speed modifier
+  alone.
+- **A backfire on an injury check injures the Fire Demon**, which falls out
+  of applying the modifier to the check rather than being special-cased. The
+  die image draws the natural face, so `run_injury_test` says the ignite in
+  words -- otherwise the number a coach reads and the verdict they are given
+  would not add up.
+
+**The tier rider is one flag, not a side.** The rules name two cases -- a
+surge on the winning side raises that side's maneuver, a backfire on the
+losing side raises "the opponent's" -- and the opponent of the losing side
+*is* the winning side, so both raise the winner's card.
+`MatchState.volatile_tier_upgrade` is that, and
+`RulesEngine.volatile_raises_tier` is the reading.
+
+- **It is gated where it is set, not where it is read.**
+  `volatile_raises_tier` asks `advanced_maneuvers_apply` (a game with the
+  abilities but not the maneuvers has no tier to change), so
+  `resolving_maneuver` needs no `game` and stays a question about the match
+  alone.
+- **It is persisted**, because the injury tests run between the roll that
+  sets it and the effect that reads it: a restart in that window has to
+  resolve the maneuver at the tier the dice decided, and nothing else on the
+  match records it. `reset_maneuver` clears it with the rest of the turn.
+- **It raises the winner's card and nothing else.** The loser's cost is
+  `advanced_cost`'s, which asks whether the *cards* were decisive -- an
+  ignite decides a tier, not who won -- so a tie raised to advanced by a
+  surge still carries no cost. That is the rules read literally: the rider
+  speaks only to the card that resolves.
+- **It beats the tie downgrade**, which is the case the rules call out
+  ("even where the cards tied and the basic card would otherwise resolve"),
+  and it only ever raises -- a card already resolving at advanced gains
+  nothing, which falls out of an advanced card's counterpart being itself.
+
+### Lithium Powered
+
+Three things sharing one ability, and they touch three different parts of the
+codebase.
+
+**The Drained line made the Exhausted threshold a question.** It used to be
+"the player's defensive skill" and was read straight off the profile at each
+site; a Cyborg's is a flat 7, so `RulesEngine.exhaustion_threshold` is now the
+one answer and `retest_exhausted`, `apply_exhaustion`,
+`describe_exhaustion_gain`, `recover_exhaustion` and `apply_substitution` all
+ask it.
+
+- **That is why so many methods grew a `game`.** The threshold depends on which
+  modules the game is playing, and the modules are the *game record's* -- so
+  the game had to reach every site that charges or removes a token. Seventeen
+  call sites took it; almost all already had one in scope.
+- **A copy of the modules on `MatchState` would have avoided that and was not
+  worth it.** It is a second thing that can disagree with the game record,
+  which is the failure this codebase keeps writing down (see the team colours,
+  and the formations living in two places *checked against each other*).
+- **`recover_exhaustion`'s parameter is `threshold`, not `defense_skill`.**
+  Renamed rather than left: it is now sometimes a Cyborg's 7, and a parameter
+  named for one of its two meanings is how the next reader gets it wrong.
+- **`mark_exhausted_if_needed` marks on *greater than*, so "Drained at 7 or
+  more" is a threshold of 6.** The arithmetic is done once, inside
+  `exhaustion_threshold`, rather than at the sites -- `CYBORG_DRAINED_AT - 1`
+  appears exactly once.
+- **A Cyborg's tokens are called drain wherever a coach reads them**, which is
+  `describe_exhaustion_gain` branching on the same predicate. The mechanic is
+  identical and the word is the ability.
+
+**Overdrive is the only thing in the game declared before a roll**, which is
+what it cost to build. Every roll already sits behind a button any coach may
+press, so the declaration is a **second button on that same prompt** rather
+than a step of its own -- `SafeView.add_overdrive_buttons` builds it and
+`SafeView.declare_overdrive` answers it, shared by all six roll prompts so a
+seventh gets it in one line.
+
+- **`MatchState.pending_overdrive` is a list, not a flag**, because a contest
+  has two rollers and both may be Cyborgs -- and because the ids are what say
+  whose total the +5 goes on. Membership is also the "once per roll" check.
+- **It is persisted**, since declaring and rolling are two clicks with a save
+  between them. That *is* declaring blind: a coach commits, and only then does
+  somebody press Roll.
+- **Every roll site clears it**, win, lose or tie. A tie that is re-rolled is a
+  fresh roll and has to be Overdriven again, which the rules say outright and
+  which falls out of consuming rather than being special-cased.
+- **The declaration is the Cyborg's own coach's, unlike the roll.** Either
+  coach may throw a die (see "Every roll is a coach's"); nobody else may spend
+  another coach's tokens. The button carries the player in its custom_id for
+  the reason the injury test's does -- an older prompt in the channel must not
+  declare for somebody else's roll.
+- **A Drained Cyborg may still Overdrive, and an injured one may not.** The
+  first is the rules ("the drain stacks"); the second is not a rule about
+  Overdrive at all -- an injured player carries no tokens and cannot gain any,
+  so the price cannot be paid. Overdrive itself survives injury, being a flat
+  bonus rather than the withheld skill modifier.
+
+**Charge-up is settled in `begin_run_back`, not at the end of the cascade.**
+That is the one moment that knows who the run back is about to move:
+`run_back_displaced` reads the position before anybody has come home, and the
+carrier exemption was recorded two lines above.
+
+- **Only on a real run back.** "A new-play reset is not a run back and triggers
+  no Charge-up", so it sits in the `else` of the `new_play` branch.
+- **A stacked player counts as staying**, which is the one reading here the
+  rules do not spell out: a stack sits *inside* a zone, so its players are
+  "already in their own zone" -- the rule's own first example -- even though a
+  coach may then send one of them to another space in it. Raised in the rules
+  log for the author.
+- **It goes through `recover_exhaustion` rather than decrementing.** A Cyborg
+  on exactly 7 is Drained and dropping to 6 clears it, so the removal has to
+  re-test.
+
+### Slimey
+
+**Slip in declines to narrow; it adds nobody.** An Ooze standing on the ball
+for the side in possession is *already* an eligible ball handler -- what
+`turn_handler_candidates` does is cut that list down to the carrier when a
+resolution named one, and Slimey is the rule that keeps the Oozes in it.
+
+- **`MatchState.turn_handler_candidates` takes the ids rather than asking.**
+  `slip_in_ids` is a parameter for the reason `mark_exhausted_if_needed` takes
+  a threshold: `MatchState` does not know what a species is, let alone which
+  modules the game is playing. `RulesEngine.slip_in_candidates` computes them
+  and `RulesEngine.turn_handler_candidates` is the wrapper every prompt, the
+  click and the AI should ask.
+- **"Of the same side" is `eligible_ball_handlers`' own answer**, which is what
+  makes this safe on a space both sides are standing on -- that helper is
+  already "everyone of the possessing team on the ball", so an opponent's Ooze
+  is never in the list to be filtered out.
+- **The carrier stays first**, so a coach reads who actually won the ball ahead
+  of who may take it off them.
+- **Dinky never slips in**, which is why `DinkyAI.choose_ball_handler` still
+  asks the *match* rather than the engine. Weighing whether to hand the ball to
+  a different player is a judgement call, and Dinky makes none -- the same call
+  as never ceding, never declining a challenge and never leaving a loose ball
+  uncontested. In a solo game the option is the human's alone.
+- **It is the one thing that can add a click to a turn.** Everywhere else a
+  single candidate is selected without asking; a carrier with an Ooze beside
+  them is two buttons where there was none.
+
+**Merge is a sum, not a pick.** "Every such Ooze adds -- two of them add
+twice", so `RulesEngine.merge_bonus` totals them and returns the detail lines
+with it.
+
+- **The skill is the side of the contest, not anything about the Ooze** --
+  offensive on the attacking side, defensive on the defending one -- so the
+  caller passes which it wants. That is also what lets the score attempt ask
+  for the attack alone.
+- **A score attempt gets the attack and nothing else**, because defenders on
+  and beyond the ball are already counted by [what the defense
+  adds](#what-a-shot-is-up-against) and an Ooze among them must not be counted
+  twice.
+- **An injured Ooze adds nothing**, which is the ordinary rule about an injured
+  player's skill modifier reaching here rather than an exception to it.
+- **`rolling` is passed in** because who is contesting differs by site: two
+  players in a skill test or a contest, one shooter in a score attempt. Their
+  own skill is already in the total, so they are struck out rather than
+  double-counted.
+
 ## Who wins a maneuver
 
 **`D12Ball.settled_maneuver_winner` is the only answer to that**, and it
@@ -3008,17 +3230,14 @@ python3 scripts/render_species_cards.py --out cards/species --sheet
   `spec_abilities` (`gid=123199571`) is these four. The `player cards` tab
   also has a `SpecAbility` column naming each player's species ability, which
   nothing imports -- the species is enough to look it up.
-- **Not wired into the bot yet.** These are print-only, like the player
-  cards. Surfacing a species ability in `/ref` or the matchup caption (keyed
-  by `PlayerDefinition.species`) is a later step, and the mechanics
-  themselves are unimplemented -- `species.json` is data for the cards, not a
-  ruleset the engine reads. The rules are written up in
-  [docs/living-rules.md](docs/living-rules.md#species-abilities) (2026-09-06).
-- **Advanced mode is one switch over two modules**, the advanced maneuvers
-  and these (the author, PR #177 review). Turning it on brings both; a game
-  may take just one of the two. `GameMode`'s BASIC/ADVANCED covers the
-  default, and the per-module opt-out has nowhere to live yet -- that plus
-  reading `species.json` is what building this needs.
+- **The cards are print-only; the abilities themselves are the engine's** --
+  see "Species abilities in the bot" above. This module still only draws the
+  three reference cards, and `species.json` still only feeds them; what the
+  bot plays is read through `RulesEngine`, which cannot import a Pillow
+  module and so does not import this one.
+  `SPECIES_ORDER` and `load_species_abilities` moved to
+  `d12ball/components.py` for that reason and are re-exported here, the
+  arrangement `cogs/d12ball_helpers.py` has with `d12ball/formatting.py`.
 
 ### The printed boards
 

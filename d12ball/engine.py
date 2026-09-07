@@ -38,6 +38,8 @@ side is only ever "insert `.engine`" at each call site.
 """
 
 import random
+from collections.abc import Collection
+from dataclasses import dataclass
 from typing import Optional
 
 from d12ball.ai import AIStrategy
@@ -48,7 +50,13 @@ from d12ball.components import (
     SKILLED_PASS_REACH,
     MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
+    CYBORG_DRAINED_AT,
+    OVERDRIVE_BONUS,
+    OVERDRIVE_DRAIN_COST,
     SETUP_AREAS,
+    SPECIES_CYBORG,
+    SPECIES_FIRE_DEMON,
+    SPECIES_OOZE,
     BasicRuleset,
     CoachingOccasion,
     FormationShape,
@@ -84,6 +92,60 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball.render import TEAM_COLORS, ChallengeSide
+
+
+@dataclass(frozen=True)
+class IgnitedRoll:
+    """
+    What a species ability did to one d12 -- Volatile's ignite, today,
+    and the shape anything else that reads a die will report through.
+
+    It deliberately does **not** carry the total. The die's own face is
+    what the dice image draws and what every roll site already has in
+    hand; an ignite is arithmetic on top of it, exactly like the
+    Midfielder's +3 or the ball speed modifier, so it is reported as a
+    `modifier` and a `detail` line the caller adds to what it was
+    already building. That is what let all six roll sites take this
+    without changing how they roll, display or total anything.
+
+    `second` is the ignite's own die, `surge` says which way it went,
+    and `modifier` is 0 for every roll that did not ignite -- which is
+    every roll in a basic game, and most rolls in an advanced one.
+    """
+
+    face: int
+    modifier: int = 0
+    second: Optional[int] = None
+    surge: bool = False
+
+    @property
+    def ignited(self) -> bool:
+        return self.second is not None
+
+    @property
+    def backfire(self) -> bool:
+        return self.ignited and not self.surge
+
+    @property
+    def detail(self) -> Optional[str]:
+        """
+        The line this adds to the dice image's modifier list, or None
+        when nothing happened. Worded so a coach can see the second die
+        that produced it -- "+9 Volatile surge (9)" rather than a bare
+        number nothing on the image explains.
+        """
+        if not self.ignited:
+            return None
+        word = "surge" if self.surge else "backfire"
+        return f"{self.modifier:+d} Volatile {word} ({self.second})"
+
+
+# The faces that ignite a Fire Demon's die, and the lowest second roll
+# that surges rather than backfires -- see "Volatile (Fire Demon)" in
+# docs/living-rules.md. Named rather than written into the predicate
+# because both numbers are the author's and neither is derivable.
+VOLATILE_IGNITE_FACES = (6, 7)
+VOLATILE_SURGE_MINIMUM = 5
 
 
 # The halftime sequence's stages, in order -- see
@@ -148,6 +210,284 @@ class RulesEngine:
         self.maneuver_catalog = maneuver_catalog
         self.ai_strategies = ai_strategies
 
+    def advanced_maneuvers_apply(self, game: D12BallGame) -> bool:
+        """
+        Whether this game is playing the **advanced maneuvers** -- the
+        first of the two modules advanced mode turns on.
+
+        Advanced mode is one switch and brings both modules with it; a
+        game may then take just one of the two (the author, PR #177
+        review), which is what `game.advanced_maneuvers` says. Both
+        halves are asked here so no call site can check the mode and
+        forget the opt-out, or the other way round.
+        """
+        return game.mode == GameMode.ADVANCED and game.advanced_maneuvers
+
+    def species_abilities_apply(self, game: D12BallGame) -> bool:
+        """
+        Whether this game is playing the **species abilities** -- the
+        second module, and the twin of `advanced_maneuvers_apply`.
+
+        In a basic game species is only a name on the card and every
+        player follows the standard rules; see "Species abilities" in
+        docs/living-rules.md.
+        """
+        return game.mode == GameMode.ADVANCED and game.species_abilities
+
+    def species_of(self, player_id: str) -> str:
+        """
+        The species a card belongs to, or `""` when the id names nobody
+        the catalog knows or a roster written before the column existed.
+
+        Tolerant rather than raising, because every caller is a
+        predicate asking whether an ability fires: a stale id left on a
+        match by a period reset should answer "no ability", the same
+        way `turn_handler_candidates` treats a stale carrier as
+        harmless. A caller that genuinely needs the definition should
+        ask `player_catalog.player_by_id` and let it raise.
+        """
+        try:
+            return self.player_catalog.player_by_id(player_id).species
+        except ValueError:
+            return ""
+
+    def has_species_ability(
+        self,
+        game: D12BallGame,
+        player_id: str,
+        species: str,
+    ) -> bool:
+        """
+        **The one question every species-ability site asks**: does this
+        card, in this game, right now, have that species' ability?
+
+        It folds the module gate and the species check together for the
+        reason `settled_maneuver_winner` is one predicate over three
+        call sites -- the two are always asked in the same breath, and
+        a site that checks the species and forgets the module plays a
+        basic game by advanced rules. Nothing may read
+        `PlayerDefinition.species` to decide a rule without coming
+        through here.
+
+        A player fielded on both sides of one game carries the ability
+        on both cards, which falls out for free: `species_of` resolves
+        a duplicate card id to the same person (see
+        `PlayerCatalog.player_by_id`).
+        """
+        if not self.species_abilities_apply(game):
+            return False
+        return self.species_of(player_id) == species
+
+    def ignite(
+        self,
+        game: D12BallGame,
+        player_id: Optional[str],
+        face: int,
+    ) -> IgnitedRoll:
+        """
+        **Every d12 a player rolls comes through here**, and comes back
+        saying what -- if anything -- their species did to it. Volatile
+        is the only ability that reads a die today; the funnel is what
+        stops the next one being written at six call sites.
+
+        It takes the face rather than rolling it. Each site already
+        knows how to get its own dice -- `random.randint(1, 12)`, or
+        the tutorial's scripted faces through `tutorial_dice` -- and
+        taking that over would have meant threading the tutorial's
+        script through here for no gain. What it owns is the *reading*:
+        a natural 6 or 7 on a Fire Demon's die ignites, a second d12 is
+        rolled, and 5-12 adds it while 1-4 subtracts it.
+
+        Three things the rules say that fall out of the shape:
+
+        - **The face is the natural die, before any skill or
+          modifier.** Callers add their skill to the total afterwards,
+          so what arrives here is always the bare roll -- which is what
+          the ignite condition is written against.
+        - **The second die never ignites in turn.** It is rolled here
+          and returned as a number, never passed back through.
+        - **A die belonging to no player never ignites**, which is why
+          `player_id` is optional: the defending coach's die in a score
+          attempt is the board's, not a card's, and a roll with no
+          Fire Demon behind it comes back as the face and nothing else.
+        """
+        if face not in VOLATILE_IGNITE_FACES:
+            return IgnitedRoll(face=face)
+        if player_id is None:
+            return IgnitedRoll(face=face)
+        if not self.has_species_ability(game, player_id, SPECIES_FIRE_DEMON):
+            return IgnitedRoll(face=face)
+
+        second = random.randint(1, 12)
+        surge = second >= VOLATILE_SURGE_MINIMUM
+        return IgnitedRoll(
+            face=face,
+            modifier=second if surge else -second,
+            second=second,
+            surge=surge,
+        )
+
+    def overdrive_candidates(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_ids: Collection[Optional[str]],
+    ) -> list[str]:
+        """
+        Which of the players about to roll may still declare Overdrive
+        -- the Cyborgs among them who have not already declared and are
+        not injured.
+
+        Every roll prompt asks this with whoever is rolling on it, and
+        builds a button per answer. Passing the rollers in rather than
+        deriving them here is what lets one method serve six prompts
+        that each know their own rollers and nothing else: a score
+        attempt has a shooter, a contest has two sides, a shootout test
+        has one a side.
+
+        `None` is allowed in and filtered out, since a score attempt's
+        second die belongs to no player.
+        """
+        if not self.species_abilities_apply(game):
+            return []
+        return [
+            player_id
+            for player_id in player_ids
+            if player_id is not None
+            and player_id not in match.pending_overdrive
+            and player_id not in match.injured
+            and self.has_species_ability(game, player_id, SPECIES_CYBORG)
+        ]
+
+    def overdrive_detail(self, match: MatchState, player_id: str) -> str:
+        """
+        The line a declared Overdrive adds to the dice image's modifier
+        list, or "" -- the twin of `IgnitedRoll.detail`, and worded the
+        same way so a coach reads one list of modifiers however they
+        were earned.
+        """
+        modifier = match.overdrive_modifier(player_id)
+        return f"+{modifier} Overdrive" if modifier else ""
+
+    def slip_in_candidates(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        **Slip in**: the Oozes standing on the ball who may take the
+        handler's turn from whoever the resolution left it with.
+
+        Every one of them is already an eligible ball handler -- an
+        Ooze on the ball's space, for the side in possession, is one by
+        definition -- so this narrows that list rather than adding to
+        it. `MatchState.turn_handler_candidates` is where it is spent.
+
+        **"Of the same side" is `eligible_ball_handlers`' own
+        answer**, which is what makes this safe on a space both sides
+        are standing on: that helper is already "everyone of the
+        possessing team on the ball", so an opponent's Ooze is never
+        in it. The rules say the same thing twice for the same reason.
+
+        It answers `[]` for the common case -- a resolution that named
+        no carrier at all leaves the coach the whole choice already,
+        and there is nothing to widen.
+        """
+        if not self.species_abilities_apply(game):
+            return []
+        if match.ball_carrier_id is None:
+            return []
+        return [
+            player_id
+            for player_id in match.eligible_ball_handlers()
+            if self.has_species_ability(game, player_id, SPECIES_OOZE)
+        ]
+
+    def turn_handler_candidates(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        Who may take this turn, Slimey included -- the answer every
+        prompt, the AI and the click that answers should ask, so none
+        of them can offer a different list from the others.
+        """
+        return match.turn_handler_candidates(
+            self.slip_in_candidates(game, match),
+        )
+
+    def merge_bonus(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        rolling: Collection[Optional[str]],
+        skill: str,
+    ) -> tuple[int, list[str]]:
+        """
+        **Merge**: what the Oozes standing on the ball who are *not*
+        rolling add to their own side's total, and the lines saying so.
+
+        `skill` is "offense" or "defense" -- the rules split it by
+        which side of the contest this is, not by anything about the
+        Ooze: "their **offensive** skill on the attacking side, their
+        **defensive** skill on the defending side". A score attempt
+        asks for the attack alone, and passes "offense".
+
+        **Every such Ooze adds** -- "two of them add twice" -- so this
+        is a sum rather than a pick. An **injured** Ooze adds nothing,
+        which is the ordinary rule about an injured player's skill
+        modifier applying here rather than an exception to it.
+
+        `rolling` is whoever is actually contesting, struck out because
+        their own skill is already in the total; it is a collection so
+        a score attempt can pass its shooter and a contest its two.
+        """
+        if not self.species_abilities_apply(game):
+            return 0, []
+
+        contesting = {player_id for player_id in rolling if player_id}
+        total = 0
+        lines: list[str] = []
+        for player_id in match.contest_occupants(side):
+            if player_id in contesting or player_id in match.injured:
+                continue
+            if not self.has_species_ability(game, player_id, SPECIES_OOZE):
+                continue
+            player = self.get_player_definition(player_id)
+            profile = self.player_catalog.effective_profile(player)
+            value = profile.offense if skill == "offense" else profile.defense
+            if not value:
+                continue
+            total += value
+            lines.append(f"+{value} {player.name} (Merge)")
+        return total, lines
+
+    def volatile_raises_tier(
+        self,
+        game: D12BallGame,
+        winner: IgnitedRoll,
+        loser: IgnitedRoll,
+    ) -> bool:
+        """
+        Whether Volatile's tier rider fires on a settled maneuver skill
+        test -- **the winner's maneuver resolves at its advanced
+        version**.
+
+        The rules name two cases and they are the same case. "A surge
+        on the winning side resolves *that side's* maneuver as its
+        advanced version"; "a backfire on the losing side resolves *the
+        opponent's*" -- and the opponent of the losing side is the
+        winning side. So both raise the winner's card, which is why
+        `MatchState.volatile_tier_upgrade` is one flag and not a side.
+
+        Gated on the advanced maneuvers as well as the species
+        abilities: in a game that took one module without the other
+        there is no tier to change and the ignite is only the number.
+        Asking here rather than at the read is what lets
+        `resolving_maneuver` stay a question about the match alone.
+        """
+        if not self.advanced_maneuvers_apply(game):
+            return False
+        return winner.surge or loser.backfire
+
     def maneuver_tiers(
         self,
         game: D12BallGame,
@@ -161,8 +501,9 @@ class RulesEngine:
 
         Two things narrow it, and both are rules rather than settings:
 
-        - **A basic game is the basic three.** Advanced maneuvers are
-          what `GameMode.ADVANCED` turns on.
+        - **A basic game is the basic three**, and so is an advanced
+          game that took the species abilities without this module --
+          `advanced_maneuvers_apply` is both halves of that.
         - **An unchallenged maneuver is always basic** (the author):
           *"Advanced maneuver can only be played when a maneuver is
           challenged."* That is answerable here because all three
@@ -172,7 +513,7 @@ class RulesEngine:
           defensive weapon rather than only a saving -- sending nobody
           denies the offense their advanced cards.
         """
-        if game.mode != GameMode.ADVANCED or match.maneuver_uncontested:
+        if not self.advanced_maneuvers_apply(game) or match.maneuver_uncontested:
             return (MANEUVER_TIER_BASIC,)
         return (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
 
@@ -289,11 +630,36 @@ class RulesEngine:
         card that wins a tie resolves as the basic card on its rank,
         since a tie carries no advanced effect (see
         `advanced_effects_apply`).
+
+        **Volatile's tier rider is the one thing that raises a card
+        here**, and it is read off `match.volatile_tier_upgrade`, which
+        the skill test sets when the winner surged or the loser
+        backfired. It beats the tie downgrade above -- the rules say
+        "even where the cards tied and the basic card would otherwise
+        resolve" -- and it only ever raises: a card already resolving
+        at advanced gains nothing, which falls out of the counterpart
+        of an advanced card being itself.
+
+        The flag is already gated on both modules being in play (see
+        `volatile_raises_tier`), so nothing here needs the game.
+
+        **It raises the winner's card and nothing else.** The loser's
+        cost is `advanced_cost`'s, which asks whether the *cards* were
+        decisive -- an ignite decides a tier, not who won -- so a tie
+        raised to advanced by a surge still carries no cost. That is
+        the rules read literally: the rider speaks only to the card
+        that resolves.
         """
         maneuver = self.maneuver_catalog.get(winner_key)
-        if maneuver is None or not maneuver.is_advanced:
+        if maneuver is None:
             return winner_key
-        if self.advanced_effects_apply(match):
+
+        if match.volatile_tier_upgrade and not maneuver.is_advanced:
+            return self.maneuver_catalog.counterpart(maneuver).key
+
+        if not maneuver.is_advanced:
+            return winner_key
+        if match.volatile_tier_upgrade or self.advanced_effects_apply(match):
             return winner_key
         return self.maneuver_catalog.counterpart(maneuver).key
 
@@ -1366,7 +1732,57 @@ class RulesEngine:
             + self.run_back_crowded(match, side)
         )
 
-    def apply_forced_run_backs(self, match: MatchState) -> None:
+    def charge_up_players(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        Every Cyborg on the field this run back does **not** move --
+        Lithium Powered's Charge-up, one drain token off each.
+
+        "A Cyborg who is not moved by it -- one already in their own
+        zone, or the carrier who never runs back" is the rule, and
+        those two examples are exactly the complement of
+        `run_back_displaced`: displaced players are the ones outside
+        their own zone, and the carrier is already struck out of that
+        list by the exemption. So this is "on the field, and not
+        someone the run back is about to send home".
+
+        **A stacked player counts as staying**, which is the one
+        reading here that the rules do not spell out. A stack sits
+        *inside* a zone, so its players are "already in their own
+        zone" -- the rule's own first example -- even though a coach
+        may then send one of them to a different space in it. Moving
+        within the zone you are already in is not running back. Raised
+        in the rules log for the author.
+
+        It answers with the ids rather than charging them, so the
+        caller can word the result and save in its own breath; the
+        removal itself is `MatchState.remove_exhaustion`.
+        """
+        if not self.species_abilities_apply(game):
+            return []
+
+        charged: list[str] = []
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            running_back = set(self.run_back_displaced(match, side))
+            for player_id in match.setup_for_side(side).field_players:
+                if player_id in running_back:
+                    continue
+                if not self.has_species_ability(
+                    game, player_id, SPECIES_CYBORG,
+                ):
+                    continue
+                # Never below zero, and nothing to say for a Cyborg
+                # carrying none -- see "A move that costs nothing says
+                # nothing" in CLAUDE.md.
+                if match.exhaustion.get(player_id, 0) <= 0:
+                    continue
+                charged.append(player_id)
+        return charged
+
+    def apply_forced_run_backs(
+        self, game: D12BallGame, match: MatchState,
+    ) -> None:
         """
         Place every run-back that isn't a choice: a zone whose open
         spaces exactly match the players who need one has only one
@@ -1422,7 +1838,7 @@ class RulesEngine:
                         # threshold test the way apply_exhaustion's
                         # does -- but the flag still has to be set
                         # before the caller's save.
-                        self.retest_exhausted(match, player_id)
+                        self.retest_exhausted(game, match, player_id)
                     applied_forced = True
 
     def next_run_back_step(
@@ -1538,21 +1954,54 @@ class RulesEngine:
             f"{self.shootout_running_score(match)}"
         )
 
-    def retest_exhausted(self, match: MatchState, player_id: str) -> bool:
+    def exhaustion_threshold(
+        self, game: D12BallGame, player_id: str,
+    ) -> int:
         """
-        Re-test a player's Exhausted flag against their own defensive
-        skill. True only on the transition, so callers can announce it
-        once.
+        The token count a player's own must **exceed** to be
+        Exhausted -- their defensive skill, or a Cyborg's flat Drained
+        line.
+
+        **A Cyborg's tokens are drain**, gained and spent exactly as
+        exhaustion tokens, and the only thing that differs is where the
+        line sits: Drained at 7 or more, whatever their defensive
+        skill. `mark_exhausted_if_needed` marks on *greater than*, so
+        the threshold that produces "7 or more" is 6 -- which is why
+        this returns `CYBORG_DRAINED_AT - 1` rather than the constant
+        itself, and why the arithmetic is done here once instead of at
+        the two call sites.
+
+        It is a large durability gain for the low-defence roles: a
+        Cyborg striker is Exhausted at 2 normally and is fine until 7.
+        That is the author's, and the reason the ability is worth a
+        module.
+        """
+        if self.has_species_ability(game, player_id, SPECIES_CYBORG):
+            return CYBORG_DRAINED_AT - 1
+        player = self.get_player_definition(player_id)
+        return self.player_catalog.effective_profile(player).defense
+
+    def retest_exhausted(
+        self, game: D12BallGame, match: MatchState, player_id: str,
+    ) -> bool:
+        """
+        Re-test a player's Exhausted flag against their own threshold.
+        True only on the transition, so callers can announce it once.
 
         `MatchState` deliberately does not carry the skill the
         threshold is measured against, so this test can only happen up
         here -- which is exactly why it has to run before the state is
         written out. See `apply_exhaustion`.
+
+        It takes the `game` since the threshold is a Cyborg's own in a
+        game playing the species abilities. Passing the *game* rather
+        than reading a flag off the match is deliberate: the modules a
+        game is playing are the game record's, and a copy of them on
+        the match would be a second thing that can disagree.
         """
-        player = self.get_player_definition(player_id)
         return match.mark_exhausted_if_needed(
             player_id,
-            self.player_catalog.effective_profile(player).defense,
+            self.exhaustion_threshold(game, player_id),
         )
 
     def roster_setups_for_user(

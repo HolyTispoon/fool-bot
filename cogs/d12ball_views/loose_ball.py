@@ -368,6 +368,18 @@ class LooseBallSkillTestView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
+        # Overdrive, for whichever contestant is a Cyborg.
+        game, match = self.load_match()
+        if game is not None and match is not None:
+            self.add_overdrive_buttons(
+                game,
+                match,
+                [
+                    match.loose_ball_offense_player,
+                    match.loose_ball_defense_player,
+                ],
+            )
+
     def score_loose_ball(
         self,
         game: D12BallGame,
@@ -414,13 +426,54 @@ class LooseBallSkillTestView(SafeView):
             scripted if scripted else
             (random.randint(1, 12), random.randint(1, 12))
         )
-        offense_total = offense_roll + offense_skill
-        defense_total = defense_roll + defense_skill
+
+        # Volatile, per side and on the natural face. **Injury does not
+        # withhold it**: what an injured contestant loses here is their
+        # own skill modifier and only that, and an ignite is the die
+        # rather than a modifier the player brings -- the same reading
+        # that leaves the ball speed modifier below alone.
+        offense_ignite = self.cog.engine.ignite(
+            game, offense_player.player_id, offense_roll,
+        )
+        defense_ignite = self.cog.engine.ignite(
+            game, defense_player.player_id, defense_roll,
+        )
+
+        offense_overdrive = match.overdrive_modifier(
+            offense_player.player_id,
+        )
+        defense_overdrive = match.overdrive_modifier(
+            defense_player.player_id,
+        )
+        offense_total = (
+            offense_roll + offense_skill + offense_ignite.modifier
+            + offense_overdrive
+        )
+        defense_total = (
+            defense_roll + defense_skill + defense_ignite.modifier
+            + defense_overdrive
+        )
 
         offense_detail = contestant_detail(
             offense_player, "Offensive", offense_skill,
             injured=offense_injured,
         )
+        defense_detail = contestant_detail(
+            defense_player, "Defensive", defense_skill,
+            injured=defense_injured,
+        )
+        for detail, line in (
+            (offense_detail, offense_ignite.detail),
+            (offense_detail, self.cog.engine.overdrive_detail(
+                match, offense_player.player_id,
+            )),
+            (defense_detail, defense_ignite.detail),
+            (defense_detail, self.cog.engine.overdrive_detail(
+                match, defense_player.player_id,
+            )),
+        ):
+            if line:
+                detail.append(line)
 
         # A High Pass's receiver adds the ball speed modifier to keep
         # what the pass delivered (2026-08-07). A genuine loose ball is
@@ -435,6 +488,25 @@ class LooseBallSkillTestView(SafeView):
             offense_total += modifier
             offense_detail.append(f"{modifier:+d} ball speed modifier")
 
+        # **Merge**, for a contest fought on the ball's space -- which
+        # this always is: both contestants have been walked onto it by
+        # the time the roll happens. An Ooze of either side standing
+        # there who is not one of the two rolling adds to their own.
+        rolling = (
+            match.loose_ball_offense_player,
+            match.loose_ball_defense_player,
+        )
+        offense_merge, offense_lines = self.cog.engine.merge_bonus(
+            game, match, match.ball.possession, rolling, "offense",
+        )
+        defense_merge, defense_lines = self.cog.engine.merge_bonus(
+            game, match, match.defending_side(), rolling, "defense",
+        )
+        offense_total += offense_merge
+        defense_total += defense_merge
+        offense_detail.extend(offense_lines)
+        defense_detail.extend(defense_lines)
+
         return (
             [
                 (
@@ -446,12 +518,7 @@ class LooseBallSkillTestView(SafeView):
                 (
                     defense_roll,
                     match.team_for_player(defense_player.player_id),
-                    contestant_detail(
-                        defense_player,
-                        "Defensive",
-                        defense_skill,
-                        injured=defense_injured,
-                    ),
+                    defense_detail,
                     defense_total,
                 ),
             ],
@@ -579,6 +646,7 @@ class LooseBallSkillTestView(SafeView):
         contestants, offense_total, defense_total = self.score_loose_ball(
             game, match, offense_player, defense_player,
         )
+        match.consume_overdrive()
         dice_file = await render_contest_dice(
             contestants, filename="loose_ball_dice.png",
         )

@@ -325,10 +325,11 @@ class PeriodMixin:
         for side in (TeamSide.HOME, TeamSide.VISITING):
             for player_id in match.setup_for_side(side).field_players:
                 player = self.engine.get_player_definition(player_id)
-                defense_skill = self.player_catalog.effective_profile(
-                    player
-                ).defense
-                removed = match.recover_exhaustion(player_id, 1, defense_skill)
+                # A Cyborg's own line, not their defensive skill --
+                # "Drained counts as Exhausted everywhere the rules use
+                # that word", the halftime re-test included.
+                threshold = self.engine.exhaustion_threshold(game, player_id)
+                removed = match.recover_exhaustion(player_id, 1, threshold)
                 if removed:
                     remaining = match.exhaustion.get(player_id, 0)
                     recovery_lines.append(
@@ -545,10 +546,8 @@ class PeriodMixin:
             player_id = max(
                 eligible, key=lambda pid: match.exhaustion.get(pid, 0),
             )
-            defense_skill = self.player_catalog.effective_profile(
-                self.engine.get_player_definition(player_id)
-            ).defense
-            removed = match.recover_exhaustion(player_id, 1, defense_skill)
+            threshold = self.engine.exhaustion_threshold(game, player_id)
+            removed = match.recover_exhaustion(player_id, 1, threshold)
             self.engine.next_halftime_stage(match)
             self.persist(game, match)
 

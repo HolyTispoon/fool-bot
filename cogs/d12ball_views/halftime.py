@@ -113,10 +113,8 @@ class HalftimeExtraTokenView(HalftimeView):
             return
 
         player = self.cog.engine.get_player_definition(player_id)
-        defense_skill = self.cog.player_catalog.effective_profile(
-            player
-        ).defense
-        removed = match.recover_exhaustion(player_id, 1, defense_skill)
+        threshold = self.cog.engine.exhaustion_threshold(game, player_id)
+        removed = match.recover_exhaustion(player_id, 1, threshold)
         self.cog.engine.next_halftime_stage(match)
         self.cog.persist(game, match)
 
