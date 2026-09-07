@@ -12,7 +12,7 @@ import random
 import time
 from typing import Optional
 
-from d12ball.engine import RulesEngine
+from d12ball.engine import IgnitedRoll, RulesEngine
 from d12ball.components import (
     EVENT_OWN_GOAL_ROLL,
     MIN_HIGH_PASS_DISTANCE,
@@ -2870,10 +2870,15 @@ class ManeuverEffectsMixin:
         rolls: tuple[int, int],
         offense_skill: int,
         safe: bool,
+        ignite: Optional[IgnitedRoll] = None,
     ) -> tuple[discord.File, str]:
         """
         The dice image and the arithmetic that produced it, which is
         posted above it because it is what built it.
+
+        `ignite` is Volatile on the **kept** die -- an own goal is
+        rolled at an advantage and the rules name "the die kept", so
+        the discarded one never ignites even when it is a 6 or a 7.
         """
         offense_setup = match.setup_for_side(match.ball.possession)
         dice_file = discord.File(
@@ -2887,13 +2892,16 @@ class ManeuverEffectsMixin:
         )
 
         taken = max(rolls)
+        modifier = ignite.modifier if ignite else 0
         breakdown = (
             f"**Own goal risk!** "
             f"{self.player_label(match, offense_player)} "
             f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
-            f"is {taken}, + {offense_skill} (offensive skill) "
-            f"= {taken + offense_skill}"
+            f"is {taken}, + {offense_skill} (offensive skill)"
         )
+        if ignite and ignite.detail:
+            breakdown += f", {ignite.detail}"
+        breakdown += f" = {taken + offense_skill + modifier}"
 
         return dice_file, breakdown
 
@@ -2972,7 +2980,13 @@ class ManeuverEffectsMixin:
         ).offense
 
         rolls = (random.randint(1, 12), random.randint(1, 12))
-        safe = max(rolls) + offense_skill >= 7
+        # Volatile reads the die that is **kept**, not both: an own
+        # goal is rolled at an advantage, and the rules name "the die
+        # kept in an own-goal roll".
+        ignite = self.engine.ignite(
+            game, offense_player.player_id, max(rolls),
+        )
+        safe = max(rolls) + offense_skill + ignite.modifier >= 7
 
         # Logged ahead of `apply_own_goal_outcome`, which is what
         # concedes the goal, so the risk sits above the goal it
@@ -2997,7 +3011,7 @@ class ManeuverEffectsMixin:
         )
 
         dice_file, breakdown = await self.own_goal_roll_message(
-            match, offense_player, rolls, offense_skill, safe,
+            match, offense_player, rolls, offense_skill, safe, ignite,
         )
         verdict = self.apply_own_goal_outcome(
             game, match, offense_player, distance_moved, safe,

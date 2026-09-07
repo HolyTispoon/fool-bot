@@ -17,6 +17,7 @@ from d12ball.components import (
     PlayerRole,
     TeamSetup,
 )
+from d12ball.engine import IgnitedRoll
 from d12ball.game import (
     D12BallGame,
     Team,
@@ -66,7 +67,13 @@ class SkillTestView(SafeView):
         match: MatchState,
         offense_player: PlayerDefinition,
         defense_player: PlayerDefinition,
-    ) -> tuple[list[tuple[int, Team, list[str], int]], int, int]:
+    ) -> tuple[
+        list[tuple[int, Team, list[str], int]],
+        int,
+        int,
+        IgnitedRoll,
+        IgnitedRoll,
+    ]:
         """
         Roll the maneuver skill test and add everything that counts
         towards it, as the two sides `render_contest_dice` draws plus
@@ -81,6 +88,12 @@ class SkillTestView(SafeView):
         contest, which is the loose ball and the shootout; a maneuver's
         skill test pays every modifier to an injured player. See
         "Injured players" in docs/living-rules.md.
+
+        **Both ignites come back with the totals**, because this is the
+        one roll site where Volatile does something besides arithmetic:
+        the caller needs to know which side surged or backfired to set
+        the tier rider once it knows who won. See
+        `RulesEngine.volatile_raises_tier`.
         """
         offense_skill = self.cog.player_catalog.effective_profile(
             offense_player,
@@ -94,8 +107,21 @@ class SkillTestView(SafeView):
             scripted if scripted else
             (random.randint(1, 12), random.randint(1, 12))
         )
-        offense_total = offense_roll + offense_skill
-        defense_total = defense_roll + defense_skill
+
+        # Volatile, on each side's own die and before any skill is
+        # added -- the ignite reads the natural face. Both are asked
+        # even in a basic game, where they come back as the face and
+        # nothing else. "If both players rolling are Fire Demons, each
+        # checks their own" falls out of asking per side.
+        offense_ignite = self.cog.engine.ignite(
+            game, offense_player.player_id, offense_roll,
+        )
+        defense_ignite = self.cog.engine.ignite(
+            game, defense_player.player_id, defense_roll,
+        )
+
+        offense_total = offense_roll + offense_skill + offense_ignite.modifier
+        defense_total = defense_roll + defense_skill + defense_ignite.modifier
 
         offense_detail = contestant_detail(
             offense_player, "Offensive", offense_skill,
@@ -103,6 +129,10 @@ class SkillTestView(SafeView):
         defense_detail = contestant_detail(
             defense_player, "Defensive", defense_skill,
         )
+        if offense_ignite.detail:
+            offense_detail.append(offense_ignite.detail)
+        if defense_ignite.detail:
+            defense_detail.append(defense_ignite.detail)
 
         # Role ability -- Midfielder: +3 on a skill test when
         # attempting Low Pass (offense) or Pressure (defense).
@@ -176,6 +206,8 @@ class SkillTestView(SafeView):
             ],
             offense_total,
             defense_total,
+            offense_ignite,
+            defense_ignite,
         )
 
     async def roll(self, interaction: discord.Interaction) -> None:
@@ -212,7 +244,13 @@ class SkillTestView(SafeView):
             match.challenger_id,
         )
 
-        contestants, offense_total, defense_total = self.score_skill_test(
+        (
+            contestants,
+            offense_total,
+            defense_total,
+            offense_ignite,
+            defense_ignite,
+        ) = self.score_skill_test(
             game, match, offense_player, defense_player,
         )
         # Logged before either branch, so a tie that re-rolls is in the
@@ -260,6 +298,37 @@ class SkillTestView(SafeView):
         )
         winner_name = self.cog.engine.maneuver_name(winner_key)
 
+        # **Volatile's tier rider**, settled here because this is the
+        # first point that knows who won. Both of the rules' two cases
+        # raise the winner's card, so this is one flag -- see
+        # `RulesEngine.volatile_raises_tier`. It is written onto the
+        # match rather than passed down to the effect because the
+        # injury tests run in between: `resolving_maneuver` is asked on
+        # the far side of them, possibly after a restart.
+        winner_ignite, loser_ignite = (
+            (offense_ignite, defense_ignite)
+            if outcome == "offense"
+            else (defense_ignite, offense_ignite)
+        )
+        match.volatile_tier_upgrade = self.cog.engine.volatile_raises_tier(
+            game, winner_ignite, loser_ignite,
+        )
+        if match.volatile_tier_upgrade:
+            raised = self.cog.engine.maneuver_name(
+                self.cog.engine.resolving_maneuver(match, winner_key),
+            )
+            volatile_note = (
+                f"\n🔥 **Volatile** — "
+                + (
+                    "the surge"
+                    if winner_ignite.surge
+                    else "the backfire"
+                )
+                + f" raises it to **{raised}**."
+            )
+        else:
+            volatile_note = ""
+
         exhausted_participants = [
             player
             for player in (offense_player, defense_player)
@@ -277,7 +346,7 @@ class SkillTestView(SafeView):
             view=None,
         )
         await interaction.followup.send(
-            f"## **{winner_name}** wins the skill test!"
+            f"## **{winner_name}** wins the skill test!{volatile_note}"
         )
         await self.cog.refresh_match_image(interaction, game)
 
@@ -463,6 +532,7 @@ class ScoreAttemptView(SafeView):
 
     def score_score_attempt(
         self,
+        game: D12BallGame,
         match: MatchState,
         shooter: PlayerDefinition,
         attacking_setup: TeamSetup,
@@ -476,6 +546,13 @@ class ScoreAttemptView(SafeView):
         Everything that built the two totals is drawn on the dice
         image, which is why no message that posts one repeats it in
         text.
+
+        **Only the shooter's die can ignite.** A score attempt's second
+        die is the defence's, and the defence here is a wall of
+        meeples rather than a player rolling -- it belongs to no card,
+        so there is no species behind it. See "Volatile" in
+        docs/living-rules.md, which names "the shooter's die" and no
+        other.
         """
         offense_skill = self.cog.player_catalog.effective_profile(
             shooter,
@@ -494,12 +571,19 @@ class ScoreAttemptView(SafeView):
         # against the shot -- so it is added, never abs()'d.
         attack_roll = random.randint(1, 12)
         defense_roll = random.randint(1, 12)
-        attack_total = attack_roll + offense_skill + speed_modifier
+        attack_ignite = self.cog.engine.ignite(
+            game, shooter.player_id, attack_roll,
+        )
+        attack_total = (
+            attack_roll + offense_skill + speed_modifier + attack_ignite.modifier
+        )
         defense_total = defense_roll + defense_skill_total
 
         attack_detail = contestant_detail(shooter, "Offensive", offense_skill)
         if speed_modifier:
             attack_detail.append(f"{speed_modifier:+d} ball speed modifier")
+        if attack_ignite.detail:
+            attack_detail.append(attack_ignite.detail)
 
         # Role ability -- Striker: +3 on any scoring attempt off a
         # set-up. Injury does not withhold this one, deliberately: an
@@ -659,7 +743,7 @@ class ScoreAttemptView(SafeView):
         defending_setup = match.setup_for_side(match.defending_side())
 
         contestants, attack_total, defense_total = self.score_score_attempt(
-            match, shooter, attacking_setup, defending_setup,
+            game, match, shooter, attacking_setup, defending_setup,
         )
         dice_file = await render_contest_dice(
             contestants, filename="score_attempt_dice.png",

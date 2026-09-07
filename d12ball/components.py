@@ -15,6 +15,7 @@ DATA_FOLDER = Path(__file__).resolve().parent / "data"
 PLAYERS_FILE = DATA_FOLDER / "players.json"
 BASIC_RULES_FILE = DATA_FOLDER / "basic_rules.json"
 MANEUVERS_FILE = DATA_FOLDER / "maneuvers.json"
+SPECIES_FILE = DATA_FOLDER / "species.json"
 
 
 class Zone(str, Enum):
@@ -181,6 +182,52 @@ class RoleProfile:
     @property
     def short_ability(self) -> str:
         return self.ability_short or self.ability
+
+
+# The four species, as the keys `players.json` and `species.json` both
+# store them. They live here rather than in `d12ball/species_cards.py`,
+# which defined them while they were only a print concern: the engine
+# reads them now (see "Species abilities" in docs/living-rules.md) and
+# must not import a Pillow module to ask what a species is called.
+# `species_cards.py` re-exports `SPECIES_ORDER` from here, so there is
+# still exactly one list -- the arrangement `cogs/d12ball_helpers.py`
+# has with `d12ball/formatting.py`.
+SPECIES_FIRE_DEMON = "fire_demon"
+SPECIES_CYBORG = "cyborg"
+SPECIES_TELEKINETIC = "telekinetic"
+SPECIES_OOZE = "ooze"
+
+SPECIES_ORDER: tuple[str, ...] = (
+    SPECIES_FIRE_DEMON,
+    SPECIES_CYBORG,
+    SPECIES_TELEKINETIC,
+    SPECIES_OOZE,
+)
+
+# What each ability is called, for the messages the bot posts when one
+# fires. The names are the author's and are on the printed cards, so a
+# coach reading "Volatile" in the channel and one holding the reference
+# card are reading the same word.
+SPECIES_ABILITY_NAMES: dict[str, str] = {
+    SPECIES_FIRE_DEMON: "Volatile",
+    SPECIES_CYBORG: "Lithium Powered",
+    SPECIES_TELEKINETIC: "Mind Pull",
+    SPECIES_OOZE: "Slimey",
+}
+
+
+def load_species_abilities() -> dict[str, dict[str, str]]:
+    """
+    The four species abilities as `species.json` holds them, keyed
+    `fire_demon` / `cyborg` / `telekinetic` / `ooze`.
+
+    Here rather than in `d12ball/species_cards.py`, which had it while
+    the abilities were print-only: the bot plays them now and cannot
+    import a Pillow module to read a JSON file. `species_cards.py`
+    re-exports it.
+    """
+    data = json.loads(SPECIES_FILE.read_text(encoding="utf-8"))
+    return data["species"]
 
 
 @dataclass(frozen=True)
@@ -1409,6 +1456,7 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("pending_action"),
     SavedField("challenger_id"),
     SavedField("maneuver_uncontested", default=False),
+    SavedField("volatile_tier_upgrade", default=False),
     SavedField("pending_run_back", default=False),
     SavedField("pending_run_back_distance", default=1),
     SavedField("pending_run_back_turnover", default=True),
@@ -1554,6 +1602,28 @@ class MatchState:
     # load.
     offense_maneuver: Optional[str] = None
     defense_maneuver: Optional[str] = None
+    # **Volatile's tier rider**: the skill test that just resolved was
+    # ignited in a way that raises the *winner's* maneuver to its
+    # advanced version -- see "Volatile (Fire Demon)" in
+    # docs/living-rules.md.
+    #
+    # The rules name two cases and both come to the same one: a surge
+    # on the winning side raises that side's maneuver, and a backfire
+    # on the losing side raises "the opponent's", who is the winner.
+    # So this is one flag rather than a side, and `resolving_maneuver`
+    # is the only thing that reads it.
+    #
+    # **It is already gated when it is set.** `SkillTestView.roll` only
+    # raises it in a game playing both modules, so a game that took the
+    # species abilities without the advanced maneuvers -- where there
+    # is no tier to change and the ignite is only the number -- never
+    # sets it, and the reader needs no `game` to ask.
+    #
+    # Persisted, because the injury tests run between the roll and the
+    # effect: a restart in that window has to resolve the maneuver the
+    # tier the dice decided, and nothing else on the match records it.
+    # `reset_maneuver` clears it with the rest of the turn.
+    volatile_tier_upgrade: bool = False
     exhaustion: dict[str, int] = field(default_factory=dict)
     exhausted: set[str] = field(default_factory=set)
     injured: set[str] = field(default_factory=set)
@@ -2947,6 +3017,7 @@ class MatchState:
         self.maneuver_uncontested = False
         self.offense_maneuver = None
         self.defense_maneuver = None
+        self.volatile_tier_upgrade = False
         self.pending_run_back = False
         self.pending_run_back_distance = 1
         self.pending_run_back_turnover = True

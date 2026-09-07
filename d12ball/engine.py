@@ -38,6 +38,7 @@ side is only ever "insert `.engine`" at each call site.
 """
 
 import random
+from dataclasses import dataclass
 from typing import Optional
 
 from d12ball.ai import AIStrategy
@@ -49,6 +50,7 @@ from d12ball.components import (
     MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
     SETUP_AREAS,
+    SPECIES_FIRE_DEMON,
     BasicRuleset,
     CoachingOccasion,
     FormationShape,
@@ -84,6 +86,60 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball.render import TEAM_COLORS, ChallengeSide
+
+
+@dataclass(frozen=True)
+class IgnitedRoll:
+    """
+    What a species ability did to one d12 -- Volatile's ignite, today,
+    and the shape anything else that reads a die will report through.
+
+    It deliberately does **not** carry the total. The die's own face is
+    what the dice image draws and what every roll site already has in
+    hand; an ignite is arithmetic on top of it, exactly like the
+    Midfielder's +3 or the ball speed modifier, so it is reported as a
+    `modifier` and a `detail` line the caller adds to what it was
+    already building. That is what let all six roll sites take this
+    without changing how they roll, display or total anything.
+
+    `second` is the ignite's own die, `surge` says which way it went,
+    and `modifier` is 0 for every roll that did not ignite -- which is
+    every roll in a basic game, and most rolls in an advanced one.
+    """
+
+    face: int
+    modifier: int = 0
+    second: Optional[int] = None
+    surge: bool = False
+
+    @property
+    def ignited(self) -> bool:
+        return self.second is not None
+
+    @property
+    def backfire(self) -> bool:
+        return self.ignited and not self.surge
+
+    @property
+    def detail(self) -> Optional[str]:
+        """
+        The line this adds to the dice image's modifier list, or None
+        when nothing happened. Worded so a coach can see the second die
+        that produced it -- "+9 Volatile surge (9)" rather than a bare
+        number nothing on the image explains.
+        """
+        if not self.ignited:
+            return None
+        word = "surge" if self.surge else "backfire"
+        return f"{self.modifier:+d} Volatile {word} ({self.second})"
+
+
+# The faces that ignite a Fire Demon's die, and the lowest second roll
+# that surges rather than backfires -- see "Volatile (Fire Demon)" in
+# docs/living-rules.md. Named rather than written into the predicate
+# because both numbers are the author's and neither is derivable.
+VOLATILE_IGNITE_FACES = (6, 7)
+VOLATILE_SURGE_MINIMUM = 5
 
 
 # The halftime sequence's stages, in order -- see
@@ -148,6 +204,151 @@ class RulesEngine:
         self.maneuver_catalog = maneuver_catalog
         self.ai_strategies = ai_strategies
 
+    def advanced_maneuvers_apply(self, game: D12BallGame) -> bool:
+        """
+        Whether this game is playing the **advanced maneuvers** -- the
+        first of the two modules advanced mode turns on.
+
+        Advanced mode is one switch and brings both modules with it; a
+        game may then take just one of the two (the author, PR #177
+        review), which is what `game.advanced_maneuvers` says. Both
+        halves are asked here so no call site can check the mode and
+        forget the opt-out, or the other way round.
+        """
+        return game.mode == GameMode.ADVANCED and game.advanced_maneuvers
+
+    def species_abilities_apply(self, game: D12BallGame) -> bool:
+        """
+        Whether this game is playing the **species abilities** -- the
+        second module, and the twin of `advanced_maneuvers_apply`.
+
+        In a basic game species is only a name on the card and every
+        player follows the standard rules; see "Species abilities" in
+        docs/living-rules.md.
+        """
+        return game.mode == GameMode.ADVANCED and game.species_abilities
+
+    def species_of(self, player_id: str) -> str:
+        """
+        The species a card belongs to, or `""` when the id names nobody
+        the catalog knows or a roster written before the column existed.
+
+        Tolerant rather than raising, because every caller is a
+        predicate asking whether an ability fires: a stale id left on a
+        match by a period reset should answer "no ability", the same
+        way `turn_handler_candidates` treats a stale carrier as
+        harmless. A caller that genuinely needs the definition should
+        ask `player_catalog.player_by_id` and let it raise.
+        """
+        try:
+            return self.player_catalog.player_by_id(player_id).species
+        except ValueError:
+            return ""
+
+    def has_species_ability(
+        self,
+        game: D12BallGame,
+        player_id: str,
+        species: str,
+    ) -> bool:
+        """
+        **The one question every species-ability site asks**: does this
+        card, in this game, right now, have that species' ability?
+
+        It folds the module gate and the species check together for the
+        reason `settled_maneuver_winner` is one predicate over three
+        call sites -- the two are always asked in the same breath, and
+        a site that checks the species and forgets the module plays a
+        basic game by advanced rules. Nothing may read
+        `PlayerDefinition.species` to decide a rule without coming
+        through here.
+
+        A player fielded on both sides of one game carries the ability
+        on both cards, which falls out for free: `species_of` resolves
+        a duplicate card id to the same person (see
+        `PlayerCatalog.player_by_id`).
+        """
+        if not self.species_abilities_apply(game):
+            return False
+        return self.species_of(player_id) == species
+
+    def ignite(
+        self,
+        game: D12BallGame,
+        player_id: Optional[str],
+        face: int,
+    ) -> IgnitedRoll:
+        """
+        **Every d12 a player rolls comes through here**, and comes back
+        saying what -- if anything -- their species did to it. Volatile
+        is the only ability that reads a die today; the funnel is what
+        stops the next one being written at six call sites.
+
+        It takes the face rather than rolling it. Each site already
+        knows how to get its own dice -- `random.randint(1, 12)`, or
+        the tutorial's scripted faces through `tutorial_dice` -- and
+        taking that over would have meant threading the tutorial's
+        script through here for no gain. What it owns is the *reading*:
+        a natural 6 or 7 on a Fire Demon's die ignites, a second d12 is
+        rolled, and 5-12 adds it while 1-4 subtracts it.
+
+        Three things the rules say that fall out of the shape:
+
+        - **The face is the natural die, before any skill or
+          modifier.** Callers add their skill to the total afterwards,
+          so what arrives here is always the bare roll -- which is what
+          the ignite condition is written against.
+        - **The second die never ignites in turn.** It is rolled here
+          and returned as a number, never passed back through.
+        - **A die belonging to no player never ignites**, which is why
+          `player_id` is optional: the defending coach's die in a score
+          attempt is the board's, not a card's, and a roll with no
+          Fire Demon behind it comes back as the face and nothing else.
+        """
+        if face not in VOLATILE_IGNITE_FACES:
+            return IgnitedRoll(face=face)
+        if player_id is None:
+            return IgnitedRoll(face=face)
+        if not self.has_species_ability(game, player_id, SPECIES_FIRE_DEMON):
+            return IgnitedRoll(face=face)
+
+        second = random.randint(1, 12)
+        surge = second >= VOLATILE_SURGE_MINIMUM
+        return IgnitedRoll(
+            face=face,
+            modifier=second if surge else -second,
+            second=second,
+            surge=surge,
+        )
+
+    def volatile_raises_tier(
+        self,
+        game: D12BallGame,
+        winner: IgnitedRoll,
+        loser: IgnitedRoll,
+    ) -> bool:
+        """
+        Whether Volatile's tier rider fires on a settled maneuver skill
+        test -- **the winner's maneuver resolves at its advanced
+        version**.
+
+        The rules name two cases and they are the same case. "A surge
+        on the winning side resolves *that side's* maneuver as its
+        advanced version"; "a backfire on the losing side resolves *the
+        opponent's*" -- and the opponent of the losing side is the
+        winning side. So both raise the winner's card, which is why
+        `MatchState.volatile_tier_upgrade` is one flag and not a side.
+
+        Gated on the advanced maneuvers as well as the species
+        abilities: in a game that took one module without the other
+        there is no tier to change and the ignite is only the number.
+        Asking here rather than at the read is what lets
+        `resolving_maneuver` stay a question about the match alone.
+        """
+        if not self.advanced_maneuvers_apply(game):
+            return False
+        return winner.surge or loser.backfire
+
     def maneuver_tiers(
         self,
         game: D12BallGame,
@@ -161,8 +362,9 @@ class RulesEngine:
 
         Two things narrow it, and both are rules rather than settings:
 
-        - **A basic game is the basic three.** Advanced maneuvers are
-          what `GameMode.ADVANCED` turns on.
+        - **A basic game is the basic three**, and so is an advanced
+          game that took the species abilities without this module --
+          `advanced_maneuvers_apply` is both halves of that.
         - **An unchallenged maneuver is always basic** (the author):
           *"Advanced maneuver can only be played when a maneuver is
           challenged."* That is answerable here because all three
@@ -172,7 +374,7 @@ class RulesEngine:
           defensive weapon rather than only a saving -- sending nobody
           denies the offense their advanced cards.
         """
-        if game.mode != GameMode.ADVANCED or match.maneuver_uncontested:
+        if not self.advanced_maneuvers_apply(game) or match.maneuver_uncontested:
             return (MANEUVER_TIER_BASIC,)
         return (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
 
@@ -289,11 +491,36 @@ class RulesEngine:
         card that wins a tie resolves as the basic card on its rank,
         since a tie carries no advanced effect (see
         `advanced_effects_apply`).
+
+        **Volatile's tier rider is the one thing that raises a card
+        here**, and it is read off `match.volatile_tier_upgrade`, which
+        the skill test sets when the winner surged or the loser
+        backfired. It beats the tie downgrade above -- the rules say
+        "even where the cards tied and the basic card would otherwise
+        resolve" -- and it only ever raises: a card already resolving
+        at advanced gains nothing, which falls out of the counterpart
+        of an advanced card being itself.
+
+        The flag is already gated on both modules being in play (see
+        `volatile_raises_tier`), so nothing here needs the game.
+
+        **It raises the winner's card and nothing else.** The loser's
+        cost is `advanced_cost`'s, which asks whether the *cards* were
+        decisive -- an ignite decides a tier, not who won -- so a tie
+        raised to advanced by a surge still carries no cost. That is
+        the rules read literally: the rider speaks only to the card
+        that resolves.
         """
         maneuver = self.maneuver_catalog.get(winner_key)
-        if maneuver is None or not maneuver.is_advanced:
+        if maneuver is None:
             return winner_key
-        if self.advanced_effects_apply(match):
+
+        if match.volatile_tier_upgrade and not maneuver.is_advanced:
+            return self.maneuver_catalog.counterpart(maneuver).key
+
+        if not maneuver.is_advanced:
+            return winner_key
+        if match.volatile_tier_upgrade or self.advanced_effects_apply(match):
             return winner_key
         return self.maneuver_catalog.counterpart(maneuver).key
 

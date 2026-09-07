@@ -199,6 +199,27 @@ class D12BallGame:
     status: GameStatus = GameStatus.SETUP
     board_size: int = 7
 
+    # The two modules advanced mode turns on -- the advanced maneuvers
+    # and the species abilities. "Turning it on brings both; a game may
+    # take just one of the two" (the author, PR #177 review), so these
+    # are opt-*outs* rather than opt-ins: both default True and mean
+    # nothing at all in a basic game, where `mode` is the whole answer.
+    #
+    # That is why they are two bools rather than a third GameMode value
+    # or a set of enabled modules. A game is basic or advanced -- one
+    # switch, which is what a coach picks in the lobby and what every
+    # existing save carries -- and these two say what an advanced game
+    # left behind. Defaulting True is what makes a game saved before
+    # them (and every advanced game played so far) read as both modules
+    # on, which is what those games actually were.
+    #
+    # Nothing may read either of these directly to decide a rule:
+    # `RulesEngine.advanced_maneuvers_apply` and
+    # `RulesEngine.species_abilities_apply` are the two answers, and
+    # they fold `mode` in so a caller cannot forget it.
+    advanced_maneuvers: bool = True
+    species_abilities: bool = True
+
     # Whether the game record exists but is still sitting in its
     # pre-game lobby -- players joining or leaving, settings being
     # picked, nobody having pressed Start Game yet. See "The

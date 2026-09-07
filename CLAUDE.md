@@ -763,6 +763,107 @@ weapon rather than only a saving.
   directions apiece is a lot of branches nobody would think to build a
   fixture for; it caught two real bugs the day it was written.
 
+## Species abilities in the bot
+
+The four abilities as the engine plays them. The rules are
+[Species abilities](docs/living-rules.md#species-abilities) and are settled;
+what is here is how they are wired, and the reasoning the rules do not carry.
+
+**Advanced mode is one switch over two modules** -- the advanced maneuvers
+and these (the author, PR #177 review). Turning it on brings both, and a game
+may then take just one.
+
+- **`GameMode` stays BASIC/ADVANCED and the opt-out is two bools on the game
+  record**, `advanced_maneuvers` and `species_abilities`, both defaulting
+  True. They are opt-*outs*, not opt-ins: a game is basic or advanced (one
+  switch, which is what a coach picks and what every existing save carries)
+  and these two say what an advanced game left behind. Defaulting True is
+  what makes every advanced game played before them read as both modules on,
+  which is what those games were. A third `GameMode` value would have made
+  "advanced" three things a coach has to tell apart.
+- **Nothing may read either bool to decide a rule.**
+  `RulesEngine.advanced_maneuvers_apply` and `species_abilities_apply` are
+  the two answers, and each folds `mode` in so a caller cannot check the
+  opt-out and forget the mode. `maneuver_tiers` reads the first -- it used to
+  ask `game.mode` directly, which would have dealt six cards to a game that
+  opted the maneuvers out.
+- **`RulesEngine.has_species_ability` is the one question every ability site
+  asks**: this card, this game, this species. It folds the module gate and
+  the species check together for the reason `settled_maneuver_winner` is one
+  predicate over three call sites -- the two are always asked in the same
+  breath, and a site that checks the species and forgets the module plays a
+  basic game by advanced rules. **Don't read `PlayerDefinition.species` to
+  decide a rule anywhere else.**
+  - **A player fielded on both sides carries it on both cards**, and that is
+    free rather than handled: `species_of` goes through
+    `PlayerCatalog.player_by_id`, which resolves a duplicate card id to the
+    same person. See "One player, both sides".
+  - It is tolerant of an id the catalog does not know (`species_of` answers
+    `""`), because every caller is a predicate asking whether an ability
+    fires -- the same tolerance `turn_handler_candidates` shows a stale
+    carrier.
+
+### Volatile, and the roll funnel
+
+**`RulesEngine.ignite` is the funnel every d12 in the game comes through**,
+and it is what stops the next ability that reads a die being written at six
+call sites. Volatile is the only one that reads one today.
+
+- **It takes the face rather than rolling it.** Each site already knows how
+  to get its own dice -- `random.randint(1, 12)`, or the tutorial's scripted
+  faces through `tutorial_dice` -- and taking that over would have meant
+  threading the script through the engine for nothing. What the funnel owns
+  is the *reading*, which is the part that was going to be duplicated.
+- **An ignite is reported as a modifier, not as a new total.**
+  `IgnitedRoll.modifier` and `.detail` are added to what each site was
+  already building, exactly like the Midfielder's +3 or the ball speed
+  modifier -- which is why all six sites took this without changing how they
+  roll, display or total anything, and why the dice image explains itself
+  with no new drawing code.
+- **The six sites, and what each passes**: the maneuver skill test and the
+  loose-ball/High-Pass contest pass each side's own player (so two Fire
+  Demons each check their own); the score attempt passes **only the
+  shooter** -- its second die is the defensive wall's and belongs to no card,
+  which is why `ignite` takes an optional player and answers "no ignite" for
+  None; the own goal passes **the die that is kept**, since it is rolled at
+  an advantage and the rules name "the die kept"; the injury check and the
+  shootout test pass their one roller.
+- **Injury does not withhold it.** What an injured contestant loses is their
+  own skill modifier and only that; an ignite is the die, not a modifier the
+  player brings -- the same reading that leaves the ball speed modifier
+  alone.
+- **A backfire on an injury check injures the Fire Demon**, which falls out
+  of applying the modifier to the check rather than being special-cased. The
+  die image draws the natural face, so `run_injury_test` says the ignite in
+  words -- otherwise the number a coach reads and the verdict they are given
+  would not add up.
+
+**The tier rider is one flag, not a side.** The rules name two cases -- a
+surge on the winning side raises that side's maneuver, a backfire on the
+losing side raises "the opponent's" -- and the opponent of the losing side
+*is* the winning side, so both raise the winner's card.
+`MatchState.volatile_tier_upgrade` is that, and
+`RulesEngine.volatile_raises_tier` is the reading.
+
+- **It is gated where it is set, not where it is read.**
+  `volatile_raises_tier` asks `advanced_maneuvers_apply` (a game with the
+  abilities but not the maneuvers has no tier to change), so
+  `resolving_maneuver` needs no `game` and stays a question about the match
+  alone.
+- **It is persisted**, because the injury tests run between the roll that
+  sets it and the effect that reads it: a restart in that window has to
+  resolve the maneuver at the tier the dice decided, and nothing else on the
+  match records it. `reset_maneuver` clears it with the rest of the turn.
+- **It raises the winner's card and nothing else.** The loser's cost is
+  `advanced_cost`'s, which asks whether the *cards* were decisive -- an
+  ignite decides a tier, not who won -- so a tie raised to advanced by a
+  surge still carries no cost. That is the rules read literally: the rider
+  speaks only to the card that resolves.
+- **It beats the tie downgrade**, which is the case the rules call out
+  ("even where the cards tied and the basic card would otherwise resolve"),
+  and it only ever raises -- a card already resolving at advanced gains
+  nothing, which falls out of an advanced card's counterpart being itself.
+
 ## Who wins a maneuver
 
 **`D12Ball.settled_maneuver_winner` is the only answer to that**, and it
@@ -3008,17 +3109,14 @@ python3 scripts/render_species_cards.py --out cards/species --sheet
   `spec_abilities` (`gid=123199571`) is these four. The `player cards` tab
   also has a `SpecAbility` column naming each player's species ability, which
   nothing imports -- the species is enough to look it up.
-- **Not wired into the bot yet.** These are print-only, like the player
-  cards. Surfacing a species ability in `/ref` or the matchup caption (keyed
-  by `PlayerDefinition.species`) is a later step, and the mechanics
-  themselves are unimplemented -- `species.json` is data for the cards, not a
-  ruleset the engine reads. The rules are written up in
-  [docs/living-rules.md](docs/living-rules.md#species-abilities) (2026-09-06).
-- **Advanced mode is one switch over two modules**, the advanced maneuvers
-  and these (the author, PR #177 review). Turning it on brings both; a game
-  may take just one of the two. `GameMode`'s BASIC/ADVANCED covers the
-  default, and the per-module opt-out has nowhere to live yet -- that plus
-  reading `species.json` is what building this needs.
+- **The cards are print-only; the abilities themselves are the engine's** --
+  see "Species abilities in the bot" above. This module still only draws the
+  three reference cards, and `species.json` still only feeds them; what the
+  bot plays is read through `RulesEngine`, which cannot import a Pillow
+  module and so does not import this one.
+  `SPECIES_ORDER` and `load_species_abilities` moved to
+  `d12ball/components.py` for that reason and are re-exported here, the
+  arrangement `cogs/d12ball_helpers.py` has with `d12ball/formatting.py`.
 
 ### The printed boards
 

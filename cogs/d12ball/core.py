@@ -1304,8 +1304,18 @@ class CoreMixin:
         # coach still watches it.
         scripted = self.tutorial_dice(game, "injury", 1)
         roll = scripted[0] if scripted else random.randint(1, 12)
+        # Volatile fires on an injury check like any other d12 -- so a
+        # backfire that drops the check below the token count injures
+        # the Fire Demon who rolled it, which the living rules say
+        # outright rather than leaving to be inferred.
+        ignite = self.engine.ignite(game, player.player_id, roll)
+        check = roll + ignite.modifier
         current_tokens = match.exhaustion.get(player.player_id, 0)
-        safe = roll > current_tokens
+        safe = check > current_tokens
+        # The die image draws the natural face, so an ignite has to be
+        # said in words or the number a coach reads and the verdict
+        # they are given would not add up.
+        ignite_note = f" ({ignite.detail}, {check})" if ignite.detail else ""
         player_team = match.team_for_player(player.player_id)
         dice_file = discord.File(
             await asyncio.to_thread(
@@ -1341,8 +1351,8 @@ class CoreMixin:
 
             content = (
                 f"{self.player_label(match, player)} is exhausted and rolls "
-                f"an injury test: {roll} beats their {current_tokens} "
-                "exhaustion tokens — safe."
+                f"an injury test: {roll}{ignite_note} beats their "
+                f"{current_tokens} exhaustion tokens — safe."
             )
         else:
             match.mark_injured(player.player_id)
@@ -1350,7 +1360,7 @@ class CoreMixin:
 
             content = (
                 f"{self.player_label(match, player)} is exhausted and rolls "
-                f"an injury test: {roll} does not beat their "
+                f"an injury test: {roll}{ignite_note} does not beat their "
                 f"{current_tokens} exhaustion tokens — injury! "
                 f"{self.player_label(match, player)} now has the condition "
                 f"**injured** {get_injured_emoji(self.condition_emojis)}. "

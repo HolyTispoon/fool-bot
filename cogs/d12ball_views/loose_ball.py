@@ -414,13 +414,34 @@ class LooseBallSkillTestView(SafeView):
             scripted if scripted else
             (random.randint(1, 12), random.randint(1, 12))
         )
-        offense_total = offense_roll + offense_skill
-        defense_total = defense_roll + defense_skill
+
+        # Volatile, per side and on the natural face. **Injury does not
+        # withhold it**: what an injured contestant loses here is their
+        # own skill modifier and only that, and an ignite is the die
+        # rather than a modifier the player brings -- the same reading
+        # that leaves the ball speed modifier below alone.
+        offense_ignite = self.cog.engine.ignite(
+            game, offense_player.player_id, offense_roll,
+        )
+        defense_ignite = self.cog.engine.ignite(
+            game, defense_player.player_id, defense_roll,
+        )
+
+        offense_total = offense_roll + offense_skill + offense_ignite.modifier
+        defense_total = defense_roll + defense_skill + defense_ignite.modifier
 
         offense_detail = contestant_detail(
             offense_player, "Offensive", offense_skill,
             injured=offense_injured,
         )
+        defense_detail = contestant_detail(
+            defense_player, "Defensive", defense_skill,
+            injured=defense_injured,
+        )
+        if offense_ignite.detail:
+            offense_detail.append(offense_ignite.detail)
+        if defense_ignite.detail:
+            defense_detail.append(defense_ignite.detail)
 
         # A High Pass's receiver adds the ball speed modifier to keep
         # what the pass delivered (2026-08-07). A genuine loose ball is
@@ -446,12 +467,7 @@ class LooseBallSkillTestView(SafeView):
                 (
                     defense_roll,
                     match.team_for_player(defense_player.player_id),
-                    contestant_detail(
-                        defense_player,
-                        "Defensive",
-                        defense_skill,
-                        injured=defense_injured,
-                    ),
+                    defense_detail,
                     defense_total,
                 ),
             ],

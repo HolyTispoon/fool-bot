@@ -33,7 +33,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.engine import RulesEngine
+from d12ball.engine import IgnitedRoll, RulesEngine
 from d12ball.game import D12BallGame, Team
 from save_patches import suppressed_cog_saves, suppressed_view_saves
 
@@ -267,7 +267,12 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
 
         view = SkillTestView(cog, game.game_id)
         with suppressed_view_saves(), suppressed_cog_saves(), mock.patch.object(
-            SkillTestView, "score_skill_test", return_value=([], 7, 7),
+            SkillTestView,
+            "score_skill_test",
+            # The two trailing IgnitedRolls are what Volatile did to
+            # each side's die; a tie that never ignited is two bare
+            # faces, which is what every roll in a basic game is.
+            return_value=([], 7, 7, IgnitedRoll(face=7), IgnitedRoll(face=7)),
         ), mock.patch(
             "cogs.d12ball_views.base.render_skill_test_dice",
         ), mock.patch("discord.File"):

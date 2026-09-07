@@ -24,9 +24,6 @@ the names and text come from `d12ball/data/species.json`, which
 `spec_abilities` tab -- so a revision reaches the cards by re-importing
 and re-running `scripts/render_species_cards.py`.
 """
-import json
-from pathlib import Path
-
 from PIL import Image, ImageFont
 
 from d12ball.cards import (
@@ -42,6 +39,7 @@ from d12ball.cards import (
     Pen,
     font,
 )
+from d12ball.components import SPECIES_ORDER, load_species_abilities
 from d12ball.game import Team
 from d12ball.render import (
     TEAM_COLORS,
@@ -49,13 +47,15 @@ from d12ball.render import (
     load_goal_zone_font,
 )
 
-DATA_FILE = Path(__file__).resolve().parent / "data" / "species.json"
-
 # The species order the card set is built in, and the colour each
 # panel's header band is drawn in -- the paired colour team's hex, the
 # same one the board draws that species' meeples in. See "Team colors"
 # in CLAUDE.md.
-SPECIES_ORDER = ("fire_demon", "cyborg", "telekinetic", "ooze")
+#
+# `SPECIES_ORDER` is `d12ball/components.py`'s now, since the engine
+# reads species to play the abilities and cannot import this module.
+# It is re-exported here so `from d12ball.species_cards import
+# SPECIES_ORDER` keeps working.
 SPECIES_LABEL = {
     "fire_demon": "Fire Demon",
     "cyborg": "Cyborg",
@@ -81,12 +81,6 @@ CARD_FACES: tuple[tuple[tuple[str, str], tuple[str, str]], ...] = (
 HEADER_HEIGHT = 44
 BAND_HEIGHT = 96
 PANEL_GAP = 22
-
-
-def load_species_abilities() -> dict[str, dict[str, str]]:
-    """The four species abilities, keyed `fire_demon` / `cyborg` / ..."""
-    data = json.loads(DATA_FILE.read_text(encoding="utf-8"))
-    return data["species"]
 
 
 def _fitted_display(
