@@ -1914,7 +1914,18 @@ def render_maneuver_hands(
 
 # A cell is a card plus this much white on every side, so cards are
 # evenly spaced and there is something to cut through.
-SHEET_MARGIN = 24
+# The gutter round a card in its own cell. The two are not the same:
+# four columns of poker cards is 10in of card before any gutter at
+# all, and a letter page turned landscape has about 10.5in of
+# printable width, so every horizontal pixel here comes off what a
+# home printer can fit. `SHEET_MARGIN_X` is therefore as small as a
+# visible white gutter allows -- the card's own rounded outline is
+# what a cut is lined up on (see `render_maneuver_card`), not the
+# space around it. Height is under no such pressure: a sheet runs off
+# the bottom of a page whatever the gutter, and gets tiled or printed
+# a page at a time.
+SHEET_MARGIN_X = 8
+SHEET_MARGIN_Y = 24
 SHEET_COLUMNS = 4
 
 
@@ -1936,10 +1947,13 @@ def print_sheet(
 
     A short last row is padded with blank cells rather than a narrower
     row, for the same reason.
+
+    The cell is tighter across than it is tall, and deliberately: see
+    `SHEET_MARGIN_X`.
     """
     width = max(card.width for card in cards)
     height = max(card.height for card in cards)
-    cell = (width + SHEET_MARGIN * 2, height + SHEET_MARGIN * 2)
+    cell = (width + SHEET_MARGIN_X * 2, height + SHEET_MARGIN_Y * 2)
     rows = -(-len(cards) // columns)
 
     sheet = Image.new(

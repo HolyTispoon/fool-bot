@@ -3211,14 +3211,28 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     is a property of a six-node cycle, so a seventh would move the lines
     without moving what they mean.
 - **`print_sheet` is an exact grid, because splitters cut by dividing.**
-  Every cell is one card plus `SHEET_MARGIN` on all four sides, the sheet is
-  `SHEET_COLUMNS` cells wide and whole rows deep, and a short last row is
-  padded with spare backs. So dividing the image into quarters across gives a
-  card dead centre in each piece. The old `contact_sheet` put a gutter
-  between the cards *and* around the outside, which made a quarter of its
-  width a card plus a quarter of a gutter -- every cut but the first came out
-  off-centre. `D12BallManeuverTests` divides a rendered sheet and checks the
-  pieces, since nothing else would notice.
+  Every cell is one card plus `SHEET_MARGIN_X` either side and
+  `SHEET_MARGIN_Y` above and below, the sheet is `SHEET_COLUMNS` cells wide
+  and whole rows deep, and a short last row is padded with spare backs. So
+  dividing the image into quarters across gives a card dead centre in each
+  piece. The old `contact_sheet` put a gutter between the cards *and* around
+  the outside, which made a quarter of its width a card plus a quarter of a
+  gutter -- every cut but the first came out off-centre.
+  `D12BallManeuverTests` divides a rendered sheet and checks the pieces,
+  since nothing else would notice.
+  - **The two margins are different numbers because only one of them is
+    under pressure.** Four poker cards across is 10in of card before any
+    gutter at all, and a letter page turned landscape has about 10.5in of
+    printable width -- so every horizontal pixel comes off what a home
+    printer can fit, and at the old shared 24 the sheet was 10.64in and lost
+    its outside columns at 100%. The cut is lined up on the card's own
+    rounded outline rather than on the space around it, so the gutter can go
+    narrow without costing anything. Height is under no such pressure: a
+    thirteen-card sheet is 14.6in whatever the gutter, and is tiled or
+    printed a page at a time either way.
+    `test_a_print_sheet_fits_a_letter_page_across` is the guard -- nothing
+    about the image says how wide it is meant to be, so the arithmetic is
+    asserted rather than looked at.
 - **The header's corner names the tier, not the die faces.** It printed
   "die 1-2" while the cards and the selection die had to coexist, then "BASIC
   MANEUVER" while there was only one set; it now reads the card's own tier,

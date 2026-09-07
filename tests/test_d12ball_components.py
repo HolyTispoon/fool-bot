@@ -17,7 +17,8 @@ from d12ball.cards import (
     HAND_HEADING_SIZE,
     HAND_MARGIN,
     SHEET_COLUMNS,
-    SHEET_MARGIN,
+    SHEET_MARGIN_X,
+    SHEET_MARGIN_Y,
     CARD_HEIGHT,
     CARD_WIDTH,
     print_sheet,
@@ -2681,10 +2682,26 @@ class D12BallManeuverTests(unittest.TestCase):
                 self.assertEqual(
                     piece.size,
                     (
-                        cards[index].width + SHEET_MARGIN * 2,
-                        cards[index].height + SHEET_MARGIN * 2,
+                        cards[index].width + SHEET_MARGIN_X * 2,
+                        cards[index].height + SHEET_MARGIN_Y * 2,
                     ),
                 )
+
+    def test_a_print_sheet_fits_a_letter_page_across(self) -> None:
+        """
+        Four poker cards across is 10in of card, and a letter page
+        turned landscape has about 10.5in of printable width -- so the
+        gutter is the whole of what decides whether a sheet printed at
+        100% keeps its outside columns or loses them. Nothing about
+        the image says how wide it is meant to be, so the arithmetic
+        is asserted rather than looked at.
+        """
+        card = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), "white")
+        sheet = print_sheet([card] * SHEET_COLUMNS)
+        # The cards are drawn at 300dpi, and a letter page turned
+        # landscape is 11in less the quarter-inch a printer cannot
+        # reach on each side.
+        self.assertLessEqual(sheet.width / 300, 11.0 - 0.25 * 2)
 
     def test_a_card_names_every_ability_that_touches_its_maneuver(
         self,
