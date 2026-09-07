@@ -103,14 +103,14 @@ def _fitted_body(
     pen: Pen, lines_text: str, max_width: float, max_height: float
 ) -> tuple[ImageFont.ImageFont, list[str], float]:
     """The largest body size whose wrapped sentence fits the panel."""
-    for size in range(30, 15, -1):
+    for size in range(40, 17, -1):
         face = font(size)
         lines = pen.wrapped(lines_text, face, max_width)
         step = pen.text_size("Hg", face)[1] * 1.5
         block = step * len(lines)
         if block <= max_height:
             return face, lines, step
-    face = font(16)
+    face = font(18)
     return face, pen.wrapped(lines_text, face, max_width), (
         pen.text_size("Hg", face)[1] * 1.5
     )
@@ -151,28 +151,20 @@ def _draw_panel(
         anchor="rm",
     )
 
-    body_top = top + BAND_HEIGHT + 20
-    short_face = font(16)
-    short_lines = pen.wrapped(
-        ability["ability_short"], short_face, right - left
-    )
-    short_step = pen.text_size("Hg", short_face)[1] * 1.5
-    short_block = short_step * len(short_lines) + 14
+    # Only the full sentence -- a card on a table is the whole of what
+    # its coach has, and `ability_short` sitting under it in the same
+    # panel is the same words a size smaller. It stays in species.json
+    # for anywhere the sentence does not fit.
+    body_top = top + BAND_HEIGHT + 24
     sentence = " ".join(ability["ability"].split())
     body_face, body_lines, body_step = _fitted_body(
-        pen, sentence, right - left, bottom - body_top - short_block
+        pen, sentence, right - left, bottom - body_top
     )
 
     y = body_top
     for line in body_lines:
         pen.text((left, y), line, body_face, INK, anchor="la")
         y += body_step
-
-    y = bottom - short_step * len(short_lines)
-    pen.line([(left, y - 12), (right, y - 12)], fill=MUTED, width=1)
-    for line in short_lines:
-        pen.text((left, y), line, short_face, MUTED, anchor="la")
-        y += short_step
 
 
 def render_species_card(
@@ -198,7 +190,7 @@ def render_species_card(
     )
 
     top = FRAME + HEADER_HEIGHT + 14
-    usable = CARD_HEIGHT - FRAME - 24 - top
+    usable = CARD_HEIGHT - FRAME - 40 - top
     panel_height = (usable - PANEL_GAP) / 2
     for index, species in enumerate(pair):
         panel_top = top + index * (panel_height + PANEL_GAP)

@@ -2987,9 +2987,15 @@ python3 scripts/render_species_cards.py --out cards/species --sheet
 - **Two abilities to a face, stacked**, each in a fixed-height panel: a
   header band in the species' own colour (the paired colour team's hex, via
   `TEAM_COLORS[SPECIES_TEAM[...]]`, so a card and the board agree), the name
-  in the display face, the full sentence, and `ability_short` under a rule at
-  the foot. Slime green takes `high_contrast_ink`'s black like everywhere
-  else. The edge is `INK`, not a species colour -- a card carries two.
+  in the display face, and the full sentence at the largest size that fits
+  the panel (`_fitted_body`). Slime green takes `high_contrast_ink`'s black
+  like everywhere else. The edge is `INK`, not a species colour -- a card
+  carries two.
+- **The full sentence only, not `ability_short` as well.** A card on a table
+  is the whole of what its coach has, and the short form sitting under it in
+  the same panel is the same words a size smaller (the author, and the same
+  call `player_cards.py` makes). `ability_short` stays in `species.json` for
+  wherever the sentence will not fit -- a Discord caption, a later `/ref`.
 - **Nothing is written in the module.** `scripts/import_d12ball_species.py`
   regenerates `d12ball/data/species.json` whole from the sheet's
   `spec_abilities` tab (columns `Spec`, `Name`, `Ability`, `Abbreviated`),
