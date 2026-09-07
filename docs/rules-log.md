@@ -69,30 +69,8 @@ turning advanced mode on brings both, and a game may drop either.
 
 **All four abilities are built** (2026-09-07).
 
-Two readings the build had to make that the rules do not spell out, **for the author to confirm
-or overrule**:
-
-- **A stacked player counts as staying, for Charge-up.** The rule gives a Cyborg a drain token
-  back when a run back does not move them, and names "one already in their own zone" as the
-  case. A stack sits *inside* a zone, so its players are already home -- but a coach may then
-  send one of them to a different space in that zone. The build reads moving within your own
-  zone as not running back, so both stack candidates charge up. The alternative is that
-  whichever one the coach moves does not.
-- **A pull is offered at the arrival, not at the moment the ball crosses the space.** The
-  rules say Mind Pull resolves before the ball settles, and the build reads that as "before the
-  arrival is resolved" -- the offer goes out once the movement is complete, in the order the
-  ball reached each Telekinetic, and a pull that lands overrides where the ball had landed.
-  Offering it strictly mid-flight would mean a pass being interrupted before its own distance
-  is known, which no other rule in the game does. The outcome is the same in every case the
-  author has described; it is the *timing of the question* that is a reading.
-- **Volatile's tier rider raises the winner's card and switches on no cost.** "A surge on the
-  winning side resolves that side's maneuver as its advanced version" says what *resolves*; it
-  does not say the loser now pays their card's advanced cost. So a tie raised to advanced by a
-  surge carries the benefit and no cost -- `advanced_cost` still asks whether the *cards* were
-  decisive. The alternative is that an ignited tie behaves as a decisive matchup in both
-  directions.
-
-The three role-ability-vs-advanced-card contradictions below are unchanged.
+All three readings the build had to make were put to the author and answered on 2026-09-07 --
+see that entry. The three role-ability-vs-advanced-card contradictions below are unchanged.
 
 Three details inside the cards are still the author's to settle, and all three are the same
 shape -- a role ability the sheet lists against an advanced row that contradicts what that row
@@ -123,6 +101,49 @@ Everything else has been answered. What remains unbuilt is in
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-07 -- author, Charge-up is about moving, and an ignite decides the loser's cost
+
+Three readings the build made were put to the author. **Two were corrected and one confirmed.**
+
+**Charge-up is about movement, not about being displaced.** *"Any player that moves is running
+back. Charging up only occurs when a player does not move during run-back. So in the case of a
+stacked player, charging up may be a consideration for the coach. In the case that a player is
+outside of their zone, they have to run back and so they cannot charge up."*
+
+The build had read "not moved by it" as "not *required* to move" and charged up both players of
+a stack, whichever one the coach then sent. It is the plain reading: a Cyborg who moves at all
+removes nothing. That makes a stack a real decision -- holding a Cyborg still is a reason to
+send somebody else -- and it is why Charge-up can no longer be settled when the run back
+*begins*: who actually moved is only known when it ends.
+
+**An ignite decides the loser's advanced cost as well as the winner's tier.** *"When a player
+with volatile wins on a surge, their card is resolved as the advanced version of the maneuver of
+the rank they played. This will always be an upgrade because even if they originally played an
+advanced maneuver, it doesn't usually resolve as advanced when there's a skill test, so the
+ignite upgrades it. If the player with volatile wins on a surge, there is no advanced maneuver
+cost that's relevant. If a player loses a skill test on the surge, they do not resolve the
+advanced maneuver cost. However, if a volatile player loses on a backfire, they resolve the cost
+of the advanced maneuver."*
+
+So the ignite is read from the **igniting player's own** end, in four cases:
+
+| Their ignite | Outcome | Their maneuver | Their advanced cost |
+|---|---|---|---|
+| Surge | Wins | resolves as the advanced card on its rank | not applicable -- a winner pays none |
+| Surge | Loses | nothing upgraded | **none**, even where the cards would have charged one |
+| Backfire | Loses | the *opponent's* maneuver upgrades | **paid**, even where the cards alone would not |
+| Backfire | Wins | nothing -- only the number | not applicable |
+
+The build had the tier half right and the cost half missing: it left `advanced_cost` asking
+only whether the cards were decisive. A **backfire is now the one thing that puts a cost in
+force where the cards did not**, and a **surge protects its player from a cost the cards would
+have charged**.
+
+**Mind Pull's timing was confirmed as built**: the pull is offered once the movement is
+complete and before the arrival resolves, in the order the ball reached each Telekinetic --
+not strictly mid-flight. The practical difference is what the coach knows when they spend the
+token: under this reading they can see where the ball actually landed.
 
 ### 2026-09-06 -- author, the four species abilities, written into the rules
 

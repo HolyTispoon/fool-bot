@@ -417,7 +417,14 @@ Ignite is not a choice, and the second die never ignites in turn — one reroll,
 
 Every roll a Fire Demon makes is covered: their die in a [skill test](#the-skill-test) or a [contest for the ball](#where-the-ball-comes-to-rest) — and if both players rolling are Fire Demons, each checks their own — the shooter's die in a [score attempt](#score-attempt), the die kept in an [own-goal roll](#own-goal), an [injury check](#the-injury-check), and a [shootout test](#extreme-shootout). A backfire that drops an injury check below the token count injures the Fire Demon as any failed check does.
 
-**In a maneuver skill test the surge or backfire also decides a tier.** A **surge on the winning side** resolves that side's maneuver as its [advanced version](#advanced-maneuvers) — even where the cards tied and the [basic card](#when-an-advanced-effect-fires) would otherwise resolve. A **backfire on the losing side** resolves the *opponent's* maneuver as its advanced version. It only ever raises a maneuver to advanced; one already resolving at advanced gains nothing. Outside a maneuver skill test — or in a game that took the species abilities without the [advanced maneuvers](#advanced-maneuvers) — there is no tier to change, and the surge or backfire is only the number.
+**In a maneuver skill test the surge or backfire decides a tier, and what the loser pays.** Four cases, one for each way an ignite can land:
+
+- **A surge that wins** resolves that side's maneuver as **the advanced version of the rank they played** — even where the cards tied and the [basic card](#when-an-advanced-effect-fires) would otherwise resolve. That is an upgrade nearly every time: a skill test means the cards tied, and a tie does not resolve advanced on its own, so even a player who *did* play the advanced card gets it resolving as advanced for the first time. A card already resolving at advanced gains nothing more.
+- **A surge that loses** upgrades nothing — and **that player pays no [advanced cost](#when-an-advanced-effect-fires)**, even where the cards would otherwise have charged them one.
+- **A backfire that loses** resolves the *opponent's* maneuver as its advanced version, **and that player pays their own advanced card's cost** — a backfire is the one thing that puts a cost in force where the cards alone would not.
+- **A backfire that wins** changes nothing but the number. They won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.
+
+Outside a maneuver skill test — or in a game that took the species abilities without the [advanced maneuvers](#advanced-maneuvers) — there is no tier to change, and the surge or backfire is only the number.
 
 ### Lithium Powered (Cyborg)
 
@@ -425,7 +432,13 @@ Every roll a Fire Demon makes is covered: their die in a [skill test](#the-skill
 
 **Overdrive.** Once per roll, *before* the die is thrown, a Cyborg may take **3 drain tokens** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls — a [skill test](#the-skill-test), a [score attempt](#score-attempt), an [own-goal roll](#own-goal), an [injury check](#the-injury-check), a [contest](#where-the-ball-comes-to-rest) or a [shootout test](#extreme-shootout). A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven for another 3 drain. A Drained Cyborg may still Overdrive — the drain stacks. Overdrive is a flat bonus rather than a skill modifier, so an [injured](#playing-injured) Cyborg keeps it.
 
-**Charge-up.** Whenever players [run back](#running-back-after-a-steal), a Cyborg who is not moved by it — one already in their own zone, or the [carrier who never runs back](#running-back-after-a-steal) — removes **1 drain token**. Once per run back, never below zero. A Cyborg who does run back removes nothing, and a [new-play reset](#resetting-after-a-new-play) is not a run back and triggers no Charge-up.
+**Charge-up.** Whenever players [run back](#running-back-after-a-steal), a Cyborg who **does not move** removes **1 drain token**. Once per run back, never below zero.
+
+**Any player who moves is running back**, whatever moved them and however far, so any Cyborg who moves removes nothing. A player standing outside their own zone has to return and therefore can never charge up; a player already in their own zone charges up unless something moves them anyway, and the [carrier who never runs back](#running-back-after-a-steal) charges up like anyone else standing still.
+
+**A stack is where this becomes a decision.** Where several of a side's players share a space and one of them must go to an uncovered space in that zone, the coach chooses which — and a Cyborg among them charges up only if they are not the one sent. Holding a Cyborg still is a real reason to send somebody else.
+
+A [new-play reset](#resetting-after-a-new-play) is not a run back and triggers no Charge-up.
 
 ### Mind Pull (Telekinetic)
 
@@ -789,8 +802,8 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 
 | Species | Ability |
 | --- | --- |
-| Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test, a surge that wins — or a backfire that loses — resolves that maneuver at its advanced tier. |
-| Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: −1 drain for not moving on a run back. |
+| Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test: a surge that wins resolves that maneuver at its advanced tier, a backfire that loses upgrades the opponent's and pays its own advanced cost, and a surge that loses pays none. |
+| Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: −1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 1–2 pull it in and take possession. |
 | Ooze | **Slimey.** Slip in: an Ooze on the ball may take the handler's turn. Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there — offensive on the attack, defensive on the defence — and their offensive skill to a teammate's score attempt. |
 
