@@ -99,7 +99,10 @@ from d12ball.render import (
     player_index,
     render_coaching_image,
     render_field_image,
+    MIND_PULL_DIE_RADIUS,
+    mind_pull_target_label,
     render_injury_test_die,
+    render_mind_pull_die,
     render_own_goal_dice,
     render_skill_test_dice,
     render_maneuver_reference_image,
@@ -2800,6 +2803,24 @@ class D12BallManeuverTests(unittest.TestCase):
             self.assertLessEqual(
                 image.height, self.reference_skill_test_height(),
             )
+
+    def test_a_mind_pull_die_is_wider_than_the_die_it_draws(self) -> None:
+        # The aura is drawn larger than the polygon, so the die column
+        # has to be sized to the halo -- measured rather than looked
+        # at, since nothing in the suite can see the image.
+        image_data = render_mind_pull_die(
+            2, TEAM_COLORS[Team.TEAL], "Teal", "Defender A", pulled=True,
+        )
+
+        with Image.open(image_data) as image:
+            self.assertEqual(image.format, "PNG")
+            self.assertGreater(image.height, MIND_PULL_DIE_RADIUS * 2)
+            self.assertGreater(image.width, image.height)
+
+    def test_a_mind_pull_die_says_what_it_was_chasing(self) -> None:
+        # Read off the rule, so a face added upstream reaches the image
+        # with the roll rather than leaving the caption behind.
+        self.assertEqual(mind_pull_target_label(), "pulls on 1-2")
 
     def test_a_player_portrait_renders_on_its_own(self) -> None:
         # Any player will do -- every one of them has art, which

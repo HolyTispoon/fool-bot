@@ -1876,6 +1876,54 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         # And the arrival it was holding back goes ahead.
         self.cog.finish_maneuver_resolution.assert_awaited()
 
+    async def test_the_offer_becomes_the_die(self):
+        # The roll is shown, not summarised: the offer message is
+        # edited into the die image, the same way every other roll in
+        # the game reports itself.
+        self.match.pending_mind_pull = [self.puller]
+        self.match.pending_mind_pull_resume = {
+            "kind": "finish_maneuver", "distance_moved": 1,
+        }
+        self.cog.finish_maneuver_resolution = mock.AsyncMock()
+        with suppressed_cog_saves(), mock.patch(
+            "random.randint", return_value=12,
+        ):
+            await self.cog.run_mind_pull(
+                self.interaction, self.game, self.match, self.puller,
+            )
+        edit = self.interaction.edit_original_response
+        edit.assert_awaited()
+        attachments = edit.await_args.kwargs["attachments"]
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0].filename, "mind_pull_die.png")
+        # The image carries the face, so the message must not also be
+        # the place a coach reads it.
+        self.assertIsNone(edit.await_args.kwargs["content"])
+
+    async def test_a_pull_that_lands_reads_as_a_turnover(self):
+        # The author's own wording, and at the skill test's own size:
+        # a roll that has just taken the ball off the other side is
+        # not something to find in the middle of a paragraph.
+        self.match.pending_mind_pull = [self.puller]
+        self.match.pending_mind_pull_resume = {
+            "kind": "finish_maneuver", "distance_moved": 1,
+        }
+        with suppressed_cog_saves(), mock.patch(
+            "random.randint", return_value=MIND_PULL_SUCCESS_FACES[0],
+        ):
+            await self.cog.run_mind_pull(
+                self.interaction, self.game, self.match, self.puller,
+            )
+        lead_in = self.cog.begin_run_back.await_args.kwargs["lead_in"]
+        player = self.cog.engine.get_player_definition(self.puller)
+        self.assertIn(
+            f"## {self.cog.player_label(self.match, player)} grabs the "
+            "ball with their telekinetic powers!",
+            lead_in,
+        )
+        self.assertIn("Turnover!", lead_in)
+        self.assertNotIn("pull it in", lead_in)
+
     async def test_a_restart_mid_offer_puts_the_same_question_back(self):
         self.match.pending_mind_pull = [self.puller]
         view, prompt = self.cog.pending_turn_view(

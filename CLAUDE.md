@@ -1113,6 +1113,30 @@ the same door.
   caller runs an ordinary turnover. Setting the carrier *is* the whole of
   arranging the exemption, since `begin_run_back` reads it off there -- see
   "The ball carrier".
+- **The roll is shown, on a die of its own.** `render_mind_pull_die` is the
+  image, and the offer message is edited into it exactly as an injury test's
+  prompt becomes its die -- same three-column row (die, portrait, verdict), so
+  a coach reads it without learning a second layout. **What makes it distinct
+  is the aura, not a different shape**: the Telekinetics' own spiral drawn
+  faint behind the face and a ring of the same purple around it. The face
+  stays the *roller's team* colour, because a Telekinetic plays for any of the
+  eight teams (see "One player, both sides") and whose roll it is still has to
+  be legible.
+  - **The target band is on the image** -- "pulls on 1-2", off
+    `MIND_PULL_SUCCESS_FACES` rather than written down -- for the reason the
+    injury test draws the token count: a bare face means nothing until you
+    know what it was chasing, and two in twelve is the whole of why a coach
+    might let the ball go instead.
+  - **The face drawn is the natural one**, so an ignite is said in words
+    beside it, the same as `run_injury_test`.
+- **A landed pull is announced as a turnover, at the skill test's own size.**
+  `## {player} grabs the ball with their telekinetic powers!` and
+  **Turnover!** under it -- the author's wording, 2026-09-07. It replaced
+  "**They pull it in!**", which named the mechanic rather than what happened
+  and buried a change of possession mid-paragraph. The heading rides in
+  `begin_run_back`'s `lead_in`, so it lands *after* the die: a message's
+  attachments render below its content, and a result written above the roll
+  would be read before it.
 - **Dinky never pulls**, so an AI side's Telekinetics are skipped rather than
   prompted. Paying a token for a one-in-six steal is a judgement call and
   Dinky makes none; it is also what keeps this flow free of an AI branch.

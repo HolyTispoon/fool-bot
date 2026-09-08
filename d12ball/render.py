@@ -10,6 +10,8 @@ from PIL import Image, ImageDraw, ImageFont
 from d12ball.components import (
     duplicate_card_id,
     MANEUVER_TIER_ADVANCED,
+    MIND_PULL_SUCCESS_FACES,
+    SPECIES_TELEKINETIC,
     MANEUVER_TIER_BASIC,
     ManeuverCatalog,
     ManeuverDefinition,
@@ -1904,6 +1906,241 @@ def render_injury_test_die(
         + die_column
         + portrait_column
         + INJURY_TEST_COLUMN_GAP * 2
+        + verdict_column / 2
+    )
+    draw.text(
+        (
+            verdict_center_x - verdict_column / 2 - verdict_bbox[0],
+            content_center_y
+            - (verdict_bbox[3] - verdict_bbox[1]) / 2
+            - verdict_bbox[1],
+        ),
+        verdict,
+        font=FONT_DICE_TOTAL,
+        fill=verdict_color,
+    )
+
+    output = BytesIO()
+    canvas.convert("RGB").save(output, format="PNG")
+    output.seek(0)
+    return output
+
+
+MIND_PULL_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
+MIND_PULL_TITLE = "MIND PULL"
+MIND_PULL_TITLE_TOP = 14
+MIND_PULL_ROW_TOP = 58
+MIND_PULL_PORTRAIT_SIZE = INJURY_TEST_PORTRAIT_SIZE
+MIND_PULL_LABEL_GAP = 8
+# Two lines under the die where the injury test has one: the team, and
+# the faces the pull lands on. A d12 showing 9 says nothing until you
+# know what it was chasing.
+MIND_PULL_LABEL_HEIGHT = 44
+MIND_PULL_COLUMN_GAP = 26
+MIND_PULL_SIDE_PADDING = 22
+MIND_PULL_BOTTOM_PADDING = 14
+# The psychic purple every part of this image that is *not* the team's
+# is drawn in -- the aura, the title and a landed pull. It is the
+# Telekinetics' own team colour, which is what makes the image read as
+# this ability rather than as a d12 with a caption.
+MIND_PULL_AURA_COLOR = TEAM_COLORS[Team.TELEKINETICS]
+# The halo behind the die, and the ring around it. Dim enough that the
+# face stays the brightest thing in the column.
+MIND_PULL_HALO_ALPHA = 70
+MIND_PULL_HALO_SCALE = 2.9
+MIND_PULL_RING_GAP = 8
+MIND_PULL_RING_WIDTH = 3
+MIND_PULL_LANDED_TEXT = "PULLED IN"
+MIND_PULL_MISSED_TEXT = "MISSED"
+MIND_PULL_MISSED_COLOR = "#98a3af"
+
+
+def mind_pull_target_label() -> str:
+    """
+    "pulls on 1-2" -- read off the rule rather than written down, so a
+    face added upstream reaches the image with the roll.
+    """
+    faces = "-".join(str(face) for face in MIND_PULL_SUCCESS_FACES)
+    return f"pulls on {faces}"
+
+
+def render_mind_pull_die(
+    value: int,
+    color: str,
+    team_label: str,
+    player_name: str,
+    pulled: bool,
+) -> BytesIO:
+    """
+    A Mind Pull attempt as one die, the Telekinetic taking it, and the
+    verdict -- the same three-column row `render_injury_test_die`
+    draws, so a coach reads it without learning a second layout.
+
+    **What makes it a distinct die is the aura, not a different
+    shape.** The Telekinetics' own spiral is drawn faint behind the
+    face and a ring of the same purple around it, so the one d12 in
+    the game that is nobody's skill test is recognisable before a word
+    of it is read. The face itself stays the roller's team colour,
+    because a Telekinetic plays for any of the eight teams (see "One
+    player, both sides") and whose roll it is still has to be legible.
+
+    The target band is on the image for the reason the injury test's
+    token count is: a bare face means nothing until you know what it
+    was chasing, and 1-2 out of 12 is the whole of why a coach might
+    let the ball go instead.
+    """
+    verdict = MIND_PULL_LANDED_TEXT if pulled else MIND_PULL_MISSED_TEXT
+    verdict_color = (
+        MIND_PULL_AURA_COLOR if pulled else MIND_PULL_MISSED_COLOR
+    )
+    target_label = mind_pull_target_label()
+
+    # Measured on a throwaway canvas: the real one cannot be created
+    # until these widths have decided how big it needs to be.
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    portrait = load_player_portrait(player_name)
+    portrait_width = MIND_PULL_PORTRAIT_SIZE
+    portrait_height = MIND_PULL_PORTRAIT_SIZE
+    if portrait is not None:
+        sized = portrait.copy()
+        sized.thumbnail(
+            (MIND_PULL_PORTRAIT_SIZE, MIND_PULL_PORTRAIT_SIZE),
+            Image.Resampling.LANCZOS,
+        )
+        portrait_width, portrait_height = sized.size
+    else:
+        sized = None
+
+    # The halo is wider than the die, so it -- not the polygon -- is
+    # what the die column has to hold.
+    halo_size = round(2 * MIND_PULL_DIE_RADIUS * MIND_PULL_HALO_SCALE)
+    die_column = max(
+        halo_size,
+        measure.textlength(team_label, font=FONT_SMALL),
+        measure.textlength(target_label, font=FONT_SMALL),
+    )
+    portrait_column = max(
+        portrait_width,
+        measure.textlength(player_name, font=FONT_SMALL),
+    )
+    verdict_bbox = measure.textbbox((0, 0), verdict, font=FONT_DICE_TOTAL)
+    verdict_column = verdict_bbox[2] - verdict_bbox[0]
+
+    row_height = max(
+        halo_size,
+        portrait_height,
+    ) + MIND_PULL_LABEL_GAP + MIND_PULL_LABEL_HEIGHT
+    width = round(
+        MIND_PULL_SIDE_PADDING * 2
+        + die_column
+        + portrait_column
+        + verdict_column
+        + MIND_PULL_COLUMN_GAP * 2
+    )
+    height = MIND_PULL_ROW_TOP + row_height + MIND_PULL_BOTTOM_PADDING
+
+    canvas = Image.new("RGBA", (width, height), "#111820")
+    draw = ImageDraw.Draw(canvas)
+
+    title_width = draw.textlength(MIND_PULL_TITLE, font=FONT_DICE_TOTAL)
+    draw.text(
+        ((width - title_width) / 2, MIND_PULL_TITLE_TOP),
+        MIND_PULL_TITLE,
+        font=FONT_DICE_TOTAL,
+        fill=MIND_PULL_AURA_COLOR,
+    )
+
+    label_y = MIND_PULL_ROW_TOP + row_height - MIND_PULL_LABEL_HEIGHT
+    content_center_y = (
+        MIND_PULL_ROW_TOP
+        + (row_height - MIND_PULL_LABEL_GAP - MIND_PULL_LABEL_HEIGHT) / 2
+    )
+
+    die_center_x = MIND_PULL_SIDE_PADDING + die_column / 2
+    # The spiral goes down first and the die over it, so the face is
+    # never competing with the art behind it. A missing icon file
+    # leaves the die plain rather than failing the render, the same as
+    # everywhere else a bundled image is read.
+    halo = species_icon(
+        SPECIES_TELEKINETIC, MIND_PULL_AURA_COLOR, halo_size,
+    )
+    if halo is not None:
+        faded = halo.copy()
+        faded.putalpha(
+            faded.getchannel("A").point(
+                lambda level: level * MIND_PULL_HALO_ALPHA // 255
+            )
+        )
+        canvas.alpha_composite(
+            faded,
+            (
+                round(die_center_x - halo_size / 2),
+                round(content_center_y - halo_size / 2),
+            ),
+        )
+    ring_radius = MIND_PULL_DIE_RADIUS + MIND_PULL_RING_GAP
+    draw.ellipse(
+        (
+            die_center_x - ring_radius,
+            content_center_y - ring_radius,
+            die_center_x + ring_radius,
+            content_center_y + ring_radius,
+        ),
+        outline=MIND_PULL_AURA_COLOR,
+        width=MIND_PULL_RING_WIDTH,
+    )
+    draw_d12_polygon(
+        draw,
+        round(die_center_x),
+        round(content_center_y),
+        MIND_PULL_DIE_RADIUS,
+        color,
+        str(value),
+        font=FONT_DICE_VALUE,
+        text_color=high_contrast_ink(color),
+    )
+    team_width = draw.textlength(team_label, font=FONT_SMALL)
+    draw.text(
+        (die_center_x - team_width / 2, label_y),
+        team_label,
+        font=FONT_SMALL,
+        fill="#c7ced6",
+    )
+    target_width = draw.textlength(target_label, font=FONT_SMALL)
+    draw.text(
+        (die_center_x - target_width / 2, label_y + 22),
+        target_label,
+        font=FONT_SMALL,
+        fill=MIND_PULL_AURA_COLOR,
+    )
+
+    portrait_center_x = (
+        MIND_PULL_SIDE_PADDING
+        + die_column
+        + MIND_PULL_COLUMN_GAP
+        + portrait_column / 2
+    )
+    if sized is not None:
+        canvas.alpha_composite(
+            sized,
+            (
+                round(portrait_center_x - sized.width / 2),
+                round(content_center_y - sized.height / 2),
+            ),
+        )
+    name_width = draw.textlength(player_name, font=FONT_SMALL)
+    draw.text(
+        (portrait_center_x - name_width / 2, label_y),
+        player_name,
+        font=FONT_SMALL,
+        fill="#ffffff",
+    )
+
+    verdict_center_x = (
+        MIND_PULL_SIDE_PADDING
+        + die_column
+        + portrait_column
+        + MIND_PULL_COLUMN_GAP * 2
         + verdict_column / 2
     )
     draw.text(
