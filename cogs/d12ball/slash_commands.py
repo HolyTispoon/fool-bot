@@ -957,6 +957,8 @@ class CommandsMixin:
         test_game: bool = False,
         created_by: Optional[discord.abc.User] = None,
         mode: GameMode = GameMode.BASIC,
+        advanced_maneuvers: bool = True,
+        species_abilities: bool = True,
         board_size: int = 7,
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,
@@ -1026,6 +1028,12 @@ class CommandsMixin:
             test_game=test_game,
             game_name=game_name,
             mode=mode,
+            # Which halves of advanced mode this game plays. They mean
+            # nothing in a basic game and are carried anyway, so a
+            # rematch of a maneuvers-only game that flips to Advanced
+            # in setup comes back as the game it is a rematch of.
+            advanced_maneuvers=advanced_maneuvers,
+            species_abilities=species_abilities,
             status=GameStatus.SETUP,
             board_size=board_size,
             ai_opponent=resolved_ai_opponent,
@@ -1525,6 +1533,8 @@ class CommandsMixin:
             test_game=game.test_game,
             created_by=requested_by,
             mode=game.mode,
+            advanced_maneuvers=game.advanced_maneuvers,
+            species_abilities=game.species_abilities,
             board_size=game.board_size,
             ai_opponent=game.ai_opponent,
             game_name=game.game_name,
