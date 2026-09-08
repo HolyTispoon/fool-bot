@@ -452,6 +452,8 @@ The token is paid whether or not the pull lands, and Mind Pull is a choice. The 
 
 **One roll per Telekinetic per ball movement.** Where the ball's path crosses two Telekinetics, each may try in the order the ball reaches them; the first to succeed stops the ball there and the rest get no roll.
 
+**Only a live ball can be pulled.** A ball being brought back into play after it has gone dead — the kickoff after a [goal](#score-attempt), the restart after a shot that missed, a [second-half kickoff](#halftime) — is carried to where play starts again rather than travelling over the spaces between, so it crosses nobody and offers nobody a pull however far it goes.
+
 Mind Pull resolves **before** the ball settles [where it comes to rest](#where-the-ball-comes-to-rest): a pull that lands pre-empts whatever the movement would have led to — a reception, a scoring opportunity, a contest, a loose ball. A pull that misses or is declined leaves all of that to resolve as normal, the Telekinetic included if the ball comes down where they stand. A successful pull is a [steal](#turnovers): ball speed resets to 1, players run back, and the Telekinetic is the carrier who does not. The maneuver that moved the ball still costs its space minute.
 
 ### Slimey (Ooze)
