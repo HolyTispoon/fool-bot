@@ -5,9 +5,9 @@ The game-creation hub and the pre-game lobby.
 message; clicking it asks the cog to open a lobby. `LobbyView` is the
 lobby channel's message -- Join / Observe / Leave / Start Game, the Test
 game and Tutorial toggles, a Name button (opening `LobbyNameModal`), and
-the mode, board-size and opponent settings -- and hands each click back
-to the cog so the game-record and channel-permission changes live next
-to `open_new_game`.
+the mode (with its two module toggles), board-size and opponent
+settings -- and hands each click back to the cog so the game-record and
+channel-permission changes live next to `open_new_game`.
 
 Imports from `base` only, which is what keeps `cogs/d12ball_views` a DAG
 (see `tests/test_d12ball_package_shape.py`). It binds `save_games`
@@ -21,8 +21,11 @@ from typing import TYPE_CHECKING
 from d12ball.game import AIOpponent, GameMode
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
+    ADVANCED_MODULES,
     AI_OPPONENT_NAMES,
+    advanced_module_label,
     build_lobby_message,
+    toggle_advanced_module,
 )
 
 from cogs.d12ball_views.base import SafeView
@@ -218,6 +221,25 @@ class LobbyView(SafeView):
                 disabled=started or tutorial or mode == selected_mode,
             )
 
+        # The two halves of advanced mode, on the mode row and only
+        # while it is on -- the same offer the setup settings block
+        # makes, out of the same table. See "Species abilities in the
+        # bot"; a coach who wants neither picks Basic.
+        if selected_mode == GameMode.ADVANCED:
+            for module_key in ADVANCED_MODULES:
+                field, _ = ADVANCED_MODULES[module_key]
+                self._add_button(
+                    advanced_module_label(game, module_key),
+                    (
+                        discord.ButtonStyle.success
+                        if getattr(game, field)
+                        else discord.ButtonStyle.secondary
+                    ),
+                    f"module:{module_key}",
+                    row=2,
+                    disabled=started,
+                )
+
         selected_board = game.board_size if game else 7
         for board_size in (6, 7, 9):
             self._add_button(
@@ -368,6 +390,14 @@ class LobbyView(SafeView):
             # 6 or 7. Same choice CoinFlipView's settings make.
             if game.mode == GameMode.ADVANCED:
                 game.board_size = 9
+        elif setting == "module":
+            refusal = toggle_advanced_module(game, value)
+            if refusal is not None:
+                await interaction.response.send_message(
+                    refusal,
+                    ephemeral=True,
+                )
+                return
         elif setting == "board":
             if game.tutorial:
                 await interaction.response.send_message(

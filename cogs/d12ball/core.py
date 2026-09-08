@@ -42,7 +42,6 @@ from d12ball.components import (
 from d12ball.game import (
     CoinFace,
     D12BallGame,
-    GameMode,
     GameStatus,
     Team,
     team_display_name,
@@ -612,11 +611,14 @@ class CoreMixin:
 
     def reference_tier(self, game: Optional[D12BallGame]) -> str:
         """
-        Which hexagon to post: the advanced one for an advanced game,
-        the basic one everywhere else -- including outside a game's
-        channel, where there is nothing to ask.
+        Which hexagon to post: the advanced one for a game actually
+        playing the advanced maneuvers, the basic one everywhere else
+        -- including outside a game's channel, where there is nothing
+        to ask. Through `advanced_maneuvers_apply` rather than off
+        `game.mode`, or an advanced game that opted the maneuvers out
+        would be handed a reference to six cards it will never hold.
         """
-        if game is not None and game.mode == GameMode.ADVANCED:
+        if game is not None and self.engine.advanced_maneuvers_apply(game):
             return MANEUVER_TIER_ADVANCED
         return MANEUVER_TIER_BASIC
 

@@ -26,8 +26,10 @@ from d12ball.game import (
 from d12ball.render import TEAM_COLORS
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
+    ADVANCED_MODULES,
     AI_OPPONENT_NAMES,
     LOGGER,
+    advanced_module_label,
     build_full_image_button,
     build_home_choice_message,
     build_setup_message,
@@ -35,6 +37,7 @@ from cogs.d12ball_helpers import (
     format_player,
     format_player_with_team,
     refresh_player_names,
+    toggle_advanced_module,
 )
 
 from cogs.d12ball_views.base import SafeView
@@ -90,6 +93,37 @@ class GameConfigurationView(SafeView):
 
             button.callback = mode_callback
             self.add_item(button)
+
+        # The two halves of advanced mode ride on the mode row, since
+        # they are what narrows the switch beside them -- and only when
+        # it is switched on, because a basic game plays neither and a
+        # pair of dead buttons says nothing a coach can act on. Four
+        # buttons of Discord's five, so the row still has room.
+        if selected_mode == GameMode.ADVANCED:
+            for module_key in ADVANCED_MODULES:
+                field, _ = ADVANCED_MODULES[module_key]
+                button = discord.ui.Button(
+                    label=advanced_module_label(game, module_key),
+                    style=(
+                        discord.ButtonStyle.success
+                        if getattr(game, field)
+                        else discord.ButtonStyle.secondary
+                    ),
+                    custom_id=(
+                        f"d12ball:module:{self.game_id}:{module_key}"
+                    ),
+                    disabled=configuration_closed,
+                    row=first_row,
+                )
+
+                async def module_callback(
+                    interaction: discord.Interaction,
+                    module_key: str = module_key,
+                ) -> None:
+                    await self.select_module(interaction, module_key)
+
+                button.callback = module_callback
+                self.add_item(button)
 
         for board_size in (6, 7, 9):
             button = discord.ui.Button(
@@ -192,12 +226,13 @@ class GameConfigurationView(SafeView):
         if game is None:
             return
 
-        # **Advanced mode is the second set of maneuvers, and only
-        # that.** Its other half -- a unique ability per player -- is
-        # not built: the sheet's advanced ability column is empty for
-        # all thirty-six, so there is nothing to import. A coach
-        # picking it here gets six cards a side instead of three and
-        # the roster they already know.
+        # **Advanced mode is one switch over two modules** -- the
+        # second set of maneuvers and the species abilities -- and
+        # picking it here brings both. Which of them a game actually
+        # plays is the pair of toggles beside these buttons; a coach
+        # who wants neither picks Basic. The two are deliberately left
+        # as they are when the mode goes back to Basic, so a mis-click
+        # on the mode does not undo them.
         game.mode = selected_mode
 
         # Advanced mode's extra maneuvers need the room a nine-space
@@ -207,6 +242,37 @@ class GameConfigurationView(SafeView):
         # build_setup_message).
         if selected_mode == GameMode.ADVANCED:
             game.board_size = 9
+        save_games(self.cog.games)
+
+        refreshed_view = type(self)(
+            cog=self.cog,
+            game_id=self.game_id,
+        )
+        await interaction.response.edit_message(
+            content=build_setup_message(game),
+            view=refreshed_view,
+        )
+
+    async def select_module(
+        self,
+        interaction: discord.Interaction,
+        module_key: str,
+    ) -> None:
+        """
+        Turn one half of advanced mode off, or back on. The rule about
+        the last one still on is `toggle_advanced_module`'s, shared
+        with the lobby's own settings -- see "Species abilities in the
+        bot".
+        """
+        game = await self.validate_configuration_change(interaction)
+        if game is None:
+            return
+
+        refusal = toggle_advanced_module(game, module_key)
+        if refusal is not None:
+            await interaction.response.send_message(refusal, ephemeral=True)
+            return
+
         save_games(self.cog.games)
 
         refreshed_view = type(self)(

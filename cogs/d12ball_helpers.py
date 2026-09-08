@@ -625,6 +625,84 @@ def build_full_time_summary(
     )
 
 
+# -- The two halves of advanced mode -------------------------------
+#
+# Advanced mode is one switch over two modules -- the advanced
+# maneuvers and the species abilities -- and a game may take just one
+# of them (see "Species abilities in the bot"). The switch is what a
+# coach picks; these are what an advanced game leaves behind, which is
+# why they are opt-*outs* on the game record and why nothing here is
+# offered in a basic game.
+#
+# The table is keyed by the word a button carries in its custom_id, and
+# names the field it toggles and what a coach reads on the button. Both
+# the setup settings block and the lobby build their buttons out of it
+# and toggle through `toggle_advanced_module`, so the two screens
+# cannot come to offer different modules or disagree about which of
+# them may be turned off.
+ADVANCED_MODULES: dict[str, tuple[str, str]] = {
+    "maneuvers": ("advanced_maneuvers", "Maneuvers"),
+    "species": ("species_abilities", "Species"),
+}
+# What each module is, for the setup and lobby messages -- a button
+# reading "Maneuvers: on" says which half is on and nothing about what
+# it does.
+ADVANCED_MODULE_DESCRIPTIONS: dict[str, str] = {
+    "maneuvers": "six maneuvers a side",
+    "species": "species abilities",
+}
+
+
+def advanced_module_label(game: D12BallGame, key: str) -> str:
+    field, name = ADVANCED_MODULES[key]
+    return f"{name}: {'on' if getattr(game, field) else 'off'}"
+
+
+def toggle_advanced_module(game: D12BallGame, key: str) -> Optional[str]:
+    """
+    Turn one half of advanced mode off or back on, or say why not.
+
+    Both halves off is a basic game reached the long way round, and the
+    mode buttons are right there -- so the last one still on is refused
+    rather than quietly leaving a coach in an advanced game with
+    nothing advanced in it.
+    """
+    field, _ = ADVANCED_MODULES[key]
+
+    turning_off = getattr(game, field)
+    others_on = any(
+        getattr(game, other)
+        for other_key, (other, _) in ADVANCED_MODULES.items()
+        if other_key != key
+    )
+    if turning_off and not others_on:
+        return (
+            "An advanced game plays at least one of its two modules. "
+            "Pick Basic if you want neither."
+        )
+
+    setattr(game, field, not turning_off)
+    return None
+
+
+def describe_game_mode(game: D12BallGame) -> str:
+    """
+    What this game's mode means, in the coach's own terms: the cards a
+    basic game deals, and for an advanced one the modules it is
+    actually playing. Read off the modules rather than off the mode
+    alone, or a game that opted the maneuvers out would still be
+    advertised as six cards a side.
+    """
+    if game.mode == GameMode.BASIC:
+        return "three maneuvers a side"
+
+    return ", ".join(
+        description
+        for key, description in ADVANCED_MODULE_DESCRIPTIONS.items()
+        if getattr(game, ADVANCED_MODULES[key][0])
+    )
+
+
 def build_setup_message(
     game: D12BallGame,
     mention_players: bool = True,
@@ -646,7 +724,8 @@ def build_setup_message(
         f"**Player 1:** {player_1}\n\n"
         f"**Player 2:** {player_2}\n\n"
         "### Game settings\n\n"
-        f"Game Mode: {game.mode.value.title()}\n"
+        f"Game Mode: {game.mode.value.title()} "
+        f"-- {describe_game_mode(game)}\n"
         f"Board size: {game.board_size}\n\n"
     )
 
@@ -806,12 +885,7 @@ def build_lobby_message(
     text += (
         "\n### Settings\n\n"
         f"Mode: **{game.mode.value.title()}** "
-        + (
-            "-- three maneuvers a side"
-            if game.mode == GameMode.BASIC
-            else "-- six maneuvers a side"
-        )
-        + "\n"
+        f"-- {describe_game_mode(game)}\n"
         f"Board size: **{game.board_size}** spaces\n"
     )
 

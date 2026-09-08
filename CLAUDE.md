@@ -793,12 +793,42 @@ may then take just one.
   what makes every advanced game played before them read as both modules on,
   which is what those games were. A third `GameMode` value would have made
   "advanced" three things a coach has to tell apart.
+- **A coach picks them in setup, as two toggles beside the mode buttons**,
+  and both screens build them out of one table: `ADVANCED_MODULES` in
+  `cogs/d12ball_helpers.py`, keyed by the word the button carries in its
+  custom_id and naming the field it toggles. `toggle_advanced_module` is the
+  click, shared by `GameConfigurationView.select_module` (the settings block
+  on `CoinFlipView`) and the lobby's `change_setting`, so the two screens
+  cannot come to offer different modules or disagree about which may be
+  turned off.
+  - **They are offered only while Advanced is on**, on the mode row itself --
+    four buttons of Discord's five -- because they are what narrows the
+    switch beside them. A basic game plays neither, and two dead buttons say
+    nothing a coach can act on.
+  - **The last module still on is refused, not silently ignored.** Both off
+    is a basic game reached the long way round, and the mode buttons are
+    right there. That refusal is the reason the two bools need no third
+    state.
+  - **Picking Basic leaves them as they are.** They mean nothing in a basic
+    game (`advanced_maneuvers_apply` folds the mode in), so undoing them
+    would only cost a coach their pick to a mis-click on the mode.
+  - **A rematch carries them**, alongside the mode and board size, which is
+    why `open_new_game` takes them at all -- `/d12ball create_game` settles
+    everything else in setup and settles these there too.
 - **Nothing may read either bool to decide a rule.**
   `RulesEngine.advanced_maneuvers_apply` and `species_abilities_apply` are
   the two answers, and each folds `mode` in so a caller cannot check the
   opt-out and forget the mode. `maneuver_tiers` reads the first -- it used to
   ask `game.mode` directly, which would have dealt six cards to a game that
-  opted the maneuvers out.
+  opted the maneuvers out, and `D12Ball.reference_tier` was the same reading
+  one step removed: the hexagon a coach is posted is the six-card one only
+  when the game is actually playing those six.
+- **What a coach reads about the mode is read off the modules too.**
+  `describe_game_mode` words both the setup and the lobby message -- "six
+  maneuvers a side, species abilities", or one of them alone -- where the
+  lobby used to say "six maneuvers a side" for every advanced game. A screen
+  that advertises a module the game left behind is the same bug as a rule
+  site that plays it.
 - **`RulesEngine.has_species_ability` is the one question every ability site
   asks**: this card, this game, this species. It folds the module gate and
   the species check together for the reason `settled_maneuver_winner` is one
@@ -4392,7 +4422,10 @@ does bar naming specific opponents up front). Two pieces:
   the game with `player_2_id`/`ai_opponent` **both None**, and posts a
   `LobbyView` -- Join / Observe / Leave / Start Game, the Test game and Tutorial
   toggles, a **Name** button (opening `LobbyNameModal`, the one text field in
-  the flow), and the mode / board-size / opponent settings. **Nothing may read
+  the flow), and the mode / board-size / opponent settings -- plus, while
+  Advanced is on, the two module toggles beside the mode buttons (see
+  [Species abilities in the bot](#species-abilities-in-the-bot)).
+  **Nothing may read
   `is_solo_game` off a lobby**: a two-human game also starts with `player_2_id`
   None, and who the opponent is (a second human, Dinky, the creator on both
   sides, or the tutorial's Dinky) is only settled when Start Game is pressed.
