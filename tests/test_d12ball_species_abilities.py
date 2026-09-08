@@ -1327,6 +1327,73 @@ class BallPathTests(unittest.TestCase):
         self.assertNotEqual(saved["last_ball_path"][0][1], 99)
 
 
+class DeadBallPathTests(unittest.TestCase):
+    """
+    A restart is the ball being carried back into play, not travelling
+    through it, so it crosses nobody -- the author, 2026-09-07.
+
+    Every one of these went through `set_ball_space` before that
+    ruling, and the path each recorded outlived the arrival gate that
+    would have spent it: a goal reached `finish_maneuver_resolution` at
+    the tail of the new play still carrying the ball's journey back to
+    the middle of the field, and offered the **scoring** side's
+    Telekinetics a pull on it.
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game()
+        self.match = build_match(self.engine, self.game)
+
+    def send_the_ball_downfield(self) -> None:
+        """Put the ball at the visitors' end, so a restart is a long trip."""
+        self.match.set_ball_space(
+            Zone.VISITORS_GOAL,
+            len(self.match.board.spaces[Zone.VISITORS_GOAL]) - 1,
+        )
+        self.assertTrue(self.match.last_ball_path)
+
+    def test_the_kickoff_after_a_goal_crosses_nobody(self):
+        self.send_the_ball_downfield()
+        self.match.restart_after_goal(TeamSide.VISITING)
+        self.assertEqual(self.match.last_ball_path, [])
+
+    def test_the_restart_after_a_missed_shot_crosses_nobody(self):
+        # From where the deal leaves the ball, not from downfield: a
+        # shot that missed restarts beside the goal it was aimed at,
+        # so a ball already sitting there would travel nowhere and the
+        # test would pass on the geometry rather than on the rule.
+        self.assertTrue(
+            self.match.ball_path_to(
+                *self.match.own_goal_restart_space(TeamSide.VISITING)
+            )
+        )
+        self.match.restart_after_missed_score(TeamSide.VISITING)
+        self.assertEqual(self.match.last_ball_path, [])
+
+    def test_a_dead_ball_still_lands_where_it_was_put(self):
+        # The placement is the whole of what a restart still does.
+        self.send_the_ball_downfield()
+        self.match.restart_ball_at(Zone.MIDFIELD, 0)
+        self.assertEqual(
+            (self.match.ball.zone, self.match.ball.space_index),
+            (Zone.MIDFIELD, 0),
+        )
+
+    def test_a_dead_ball_drops_the_movement_before_it(self):
+        # Cleared rather than merely unrecorded: a restart must not
+        # hand the last live movement on to the next arrival gate.
+        self.send_the_ball_downfield()
+        self.match.restart_ball_at(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        self.assertEqual(self.match.last_ball_path, [])
+
+    def test_a_dead_ball_is_still_refused_a_space_off_the_board(self):
+        with self.assertRaises(ValueError):
+            self.match.restart_ball_at(Zone.MIDFIELD, 99)
+
+
 class MindPullCandidateTests(unittest.TestCase):
     """
     Who is offered a pull, and in what order.

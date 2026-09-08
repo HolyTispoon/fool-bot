@@ -219,7 +219,7 @@ class PeriodMixin:
                 len(match.board.spaces[Zone.MIDFIELD]),
                 TeamSide.VISITING,
             )
-            match.set_ball_space(Zone.MIDFIELD, kickoff_index)
+            match.restart_ball_at(Zone.MIDFIELD, kickoff_index)
             match.ball.possession = TeamSide.VISITING
             match.ball.speed = 1
             match.reset_maneuver()
