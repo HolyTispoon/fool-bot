@@ -2497,23 +2497,23 @@ class D12BallManeuverTests(unittest.TestCase):
         with Image.open(image_data) as image:
             self.assertEqual(image.format, "PNG")
 
-    def test_each_side_gets_a_hand_of_its_cards_and_the_back(self) -> None:
+    def test_an_advanced_hand_is_a_row_a_tier(self) -> None:
         """
-        The suite cannot see the picture, so what it can check is that
-        the hand is as wide as the cards it holds plus the shared back
-        and no wider -- a card added to a side, or a back that stopped
-        being drawn with the hand, would otherwise reach a coach's pick
-        silently. The back is what replaced the "Maneuver Reference"
-        button on the pick menu, so it is the whole of the reference a
-        coach has while choosing.
+        The basic three above their advanced counterparts, three
+        columns wide either way, so every advanced card sits under the
+        basic card it shares a rank with (the author). The suite cannot
+        see the picture, so the claim is checked as the shape of the
+        canvas: three columns and two card rows, where a hand wrapped
+        at `HAND_MAX_COLUMNS` would be four columns and a ragged
+        second row -- which is the layout this replaced.
 
-        **The advanced hand is two rows**, which is the point of
-        checking the width rather than the card count: seven across
-        arrives in Discord at about 75px a card, and a layout that
-        quietly went back to one row would be unreadable rather than
-        broken.
+        A basic hand is the other half of the same reading: one row,
+        and four columns because the shared back is on the end of it.
         """
         players = load_player_catalog()
+        scale = HAND_CARD_WIDTH / CARD_WIDTH
+        card_height = round(CARD_HEIGHT * scale)
+        band = HAND_HEADING_SIZE + HAND_HEADING_GAP
 
         def width(columns: int) -> int:
             return (
@@ -2522,33 +2522,44 @@ class D12BallManeuverTests(unittest.TestCase):
                 + HAND_GAP * (columns - 1)
             )
 
+        def height(card_rows: int) -> int:
+            return (
+                HAND_MARGIN * 2
+                + card_height * card_rows
+                + HAND_GAP * (card_rows - 1)
+                + band
+            )
+
+        # tiers, columns, card rows -- one side, so one caption band.
         cases = (
-            ((MANEUVER_TIER_BASIC,), 4, width(4)),
-            ((MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED), 7, width(4)),
+            ((MANEUVER_TIER_BASIC,), 4, 1),
+            ((MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED), 3, 2),
         )
         for side in ("offense", "defense"):
-            for tiers, cards, expected in cases:
+            for tiers, columns, card_rows in cases:
                 with self.subTest(side=side, tiers=tiers):
                     hand = render_maneuver_hands(
                         self.catalog, players, (side,), tiers,
                     )
                     with Image.open(hand) as image:
                         self.assertEqual(image.format, "PNG")
-                        self.assertEqual(image.width, expected)
+                        self.assertEqual(image.width, width(columns))
+                        self.assertEqual(image.height, height(card_rows))
 
-    def test_a_basic_contested_prompt_drops_the_back(self) -> None:
+    def test_only_a_lone_basic_hand_carries_the_back(self) -> None:
         """
         Both basic hands together are the whole game -- all six cards,
         each carrying its own beats/ties/loses row -- so the back's
         hexagon is those same six relations drawn a second time, for
-        the width of a card (the author). Every other case keeps it:
-        one hand shows half the cycle, and an advanced back is the
-        two-tier hexagon that says the twelve cards resolve as six
-        ranks.
+        the width of a card (the author). An advanced hand drops it for
+        a second reason: it is what lets the two tiers line up three
+        columns wide instead of being squeezed to fit a fourth.
 
-        Checked as a width again rather than a card count, for the
-        reason above: three across is the readable shape, and a back
-        creeping back in would make it four and three.
+        So the back belongs to a lone basic hand and nothing else --
+        half a cycle, and the one hand that cannot read the relations
+        off the cards in front of it. Checked as a width rather than a
+        card count: a back creeping back in is a column, and a column
+        is what makes every card on the image smaller.
         """
         players = load_player_catalog()
 
@@ -2560,10 +2571,12 @@ class D12BallManeuverTests(unittest.TestCase):
             )
 
         both = ("offense", "defense")
+        advanced = (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
         cases = (
             # sides, tiers, columns -- the widest row of the image
             (both, (MANEUVER_TIER_BASIC,), 3),
-            (both, (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED), 4),
+            (both, advanced, 3),
+            (("offense",), advanced, 3),
             (("offense",), (MANEUVER_TIER_BASIC,), 4),
         )
         for sides, tiers, columns in cases:

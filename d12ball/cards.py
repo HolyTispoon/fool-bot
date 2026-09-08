@@ -1698,11 +1698,12 @@ def render_maneuver_card_back(
 HAND_CARD_WIDTH = 520
 HAND_GAP = 22
 HAND_MARGIN = 22
-# Four across is the basic hand -- three cards and the back -- and it
-# is also the widest row this draws. An advanced hand is seven, which
-# on one row arrives in Discord at about 75px a card against 131px
-# today; two rows of four and three keep every card the size a coach
-# already reads.
+# Four across is the widest row this draws -- a basic hand and the
+# back beside it. Nothing else reaches it: a hand is laid out a tier to
+# a row (see `hand_card_rows`), and a tier is three cards. It stays as
+# the wrap, so a seventh card added to a rank lands on a row of its own
+# rather than shrinking every card on the image -- six across arrives
+# in Discord at about 85px a card against 131px today.
 HAND_MAX_COLUMNS = 4
 # Each side's block is captioned with whose hand it is -- "OFFENSE" over
 # the top rows, "DEFENSE" over the bottom -- in that side's own colour,
@@ -1716,17 +1717,25 @@ HAND_HEADING_GAP = 12
 HAND_HEADINGS = {"offense": "OFFENSE HAND", "defense": "DEFENSE HAND"}
 
 
-def hand_card_images(
+def hand_card_rows(
     catalog: ManeuverCatalog,
     players: PlayerCatalog,
     side: str,
     tiers: Sequence[str],
-) -> list[Image.Image]:
+) -> list[list[Image.Image]]:
     """
-    One side's playable cards, in rank order and basic before advanced
-    -- the hand itself, without the shared back that is drawn beside
-    it. Split out because `render_maneuver_hands` lays two sides out
-    on one image and needs each side's cards as a block of its own.
+    One side's playable cards as the rows they are laid out in -- the
+    hand itself, without the shared back that may be drawn beside it.
+    Split out because `render_maneuver_hands` lays two sides out on one
+    image and needs each side's rows as a block of its own.
+
+    **A tier is a row: the basic three above their advanced
+    counterparts** (the author). The six of an advanced hand wrapped at
+    `HAND_MAX_COLUMNS` came out four and three, which splits a rank's
+    pair across two rows and reads as seven unrelated cards; a row a
+    tier puts every advanced card directly under the basic one it
+    shares a rank with, which is the relation that decides the matchup.
+    Each row is in rank order, so the columns line up.
 
     **`tiers` is what a coach may actually play, not a display
     option.** A basic game is the three basic cards; an advanced game
@@ -1735,81 +1744,87 @@ def hand_card_images(
     played when a maneuver is challenged (the author). So the caller
     passes the hand, and this draws it.
     """
-    maneuvers = [
-        maneuver
-        for maneuver in catalog.side(side)
-        if maneuver.tier in tiers
-    ]
-    return [
-        render_maneuver_card(
-            catalog, players, maneuver, side == "offense", bleed=False
-        )
-        for maneuver in sorted(
-            maneuvers,
-            key=lambda item: (item.rank, item.tier != MANEUVER_TIER_BASIC),
-        )
-    ]
+    rows: list[list[Image.Image]] = []
+    for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED):
+        if tier not in tiers:
+            continue
+        maneuvers = [
+            maneuver
+            for maneuver in catalog.side(side)
+            if maneuver.tier == tier
+        ]
+        rows.append([
+            render_maneuver_card(
+                catalog, players, maneuver, side == "offense", bleed=False
+            )
+            for maneuver in sorted(maneuvers, key=lambda item: item.rank)
+        ])
+    return rows
 
 
-def hand_back_image(
-    catalog: ManeuverCatalog,
-    tiers: Sequence[str],
-) -> Image.Image:
+def hand_back_image(catalog: ManeuverCatalog) -> Image.Image:
     """
-    The shared back that closes out a hand, matching what the hand
-    actually mixes: a basic game's hand is never anything but the three
-    basic cards, so its back can show one name a node rather than the
-    two-tier hairline design an advanced hand's ambiguity calls for.
+    The shared back that closes out a hand.
+
+    **It is the basic back, because a hand is the only thing that
+    carries a back and an advanced hand no longer carries one** (the
+    author) -- see `render_maneuver_hands`. A basic-mode coach's hand
+    is never anything but the three basic cards, so there is no tier to
+    hide and the hexagon shows one name a node rather than the two-tier
+    hairline design a mixed deck calls for. The advanced back is still
+    what the print run deals out; `render_maneuver_card_back` is where
+    the pair lives.
     """
     return render_maneuver_card_back(
-        catalog,
-        bleed=False,
-        tier=(
-            MANEUVER_TIER_ADVANCED
-            if MANEUVER_TIER_ADVANCED in tiers
-            else MANEUVER_TIER_BASIC
-        ),
+        catalog, bleed=False, tier=MANEUVER_TIER_BASIC,
     )
 
 
 def lay_out_hand(
-    blocks: Sequence[Sequence[Image.Image]],
+    blocks: Sequence[Sequence[Sequence[Image.Image]]],
     headings: Sequence[Optional[tuple[str, str]]] = (),
 ) -> BytesIO:
     """
     Paste one or more blocks of cards onto a single canvas, each block
-    starting on a row of its own and wrapping at `HAND_MAX_COLUMNS`.
+    starting on a row of its own.
 
-    A block is a side's hand (or the lone card back), and starting each
-    on a fresh row is what keeps the two sides legible as two hands
-    rather than as one run of cards -- the coach has to find their own
-    three at a glance. Every card is the same width whatever the block
-    count, so a row never gets narrower because there is more on the
+    A block is a side's hand and **carries its own rows** -- a tier
+    apiece, see `hand_card_rows` -- rather than one flat run of cards
+    this chops up: which cards belong on a row together is a fact about
+    the hand, and wrapping at a column count instead split a rank's
+    pair down the middle. `HAND_MAX_COLUMNS` is still the ceiling, so a
+    row longer than that wraps rather than shrinking every card on the
     image.
 
+    Starting each block on a fresh row is what keeps the two sides
+    legible as two hands rather than as one run of cards -- the coach
+    has to find their own three at a glance. Every card is the same
+    width whatever the block count, so a row never gets narrower
+    because there is more on the image.
+
     `headings` is one `(label, colour)` per block, or `None` for a block
-    that gets no caption -- the lone card back, which rides on the last
-    side's block rather than starting one of its own, is the case with
-    fewer headings than blocks. A captioned block reserves a band above
-    its first row for the label; an uncaptioned one does not.
+    that gets no caption. A captioned block reserves a band above its
+    first row for the label; an uncaptioned one does not.
     """
     scale = HAND_CARD_WIDTH / CARD_WIDTH
     height = round(CARD_HEIGHT * scale)
     heading_font = load_font(HAND_HEADING_SIZE, bold=True)
     band = HAND_HEADING_SIZE + HAND_HEADING_GAP
 
-    # Each block becomes one or more rows; the first row of a block
-    # carries that block's heading, if it has one.
+    # Each block is already rows; the first of them carries that
+    # block's heading, if it has one.
     groups: list[tuple[Optional[tuple[str, str]], list[list[Image.Image]]]] = []
     for index, block in enumerate(blocks):
-        sized = [
-            card.resize((HAND_CARD_WIDTH, height), Image.Resampling.LANCZOS)
-            for card in block
-        ]
-        rows = [
-            sized[start:start + HAND_MAX_COLUMNS]
-            for start in range(0, len(sized), HAND_MAX_COLUMNS)
-        ]
+        rows: list[list[Image.Image]] = []
+        for row in block:
+            sized = [
+                card.resize((HAND_CARD_WIDTH, height), Image.Resampling.LANCZOS)
+                for card in row
+            ]
+            rows.extend(
+                sized[start:start + HAND_MAX_COLUMNS]
+                for start in range(0, len(sized), HAND_MAX_COLUMNS)
+            )
         heading = headings[index] if index < len(headings) else None
         groups.append((heading, rows))
 
@@ -1870,45 +1885,38 @@ def render_maneuver_hands(
     which is hidden by the ephemeral reply to the click rather than by
     the menu being private. See "The maneuver cards" in CLAUDE.md.
 
-    **The back is the last card, and it replaced a button.** The pick
-    menu carried a "Maneuver Reference" button that posted the defeat
-    cycle as a second ephemeral message: a click, a round trip and an
-    upload to see the one thing a coach needs *while* they are
-    choosing. The back carries that same cycle, it is public
-    information either coach may look at whenever they like, and at
-    the table it is face up on the deck in front of them -- so it
-    belongs in the hand rather than behind a button. (The button came
-    back anyway, for a reason of its own -- see "The maneuver cards"
-    in CLAUDE.md.)
+    **An advanced hand is two rows -- the basic three, and the advanced
+    card of each rank under it -- and carries no back at all** (the
+    author). The rows are `hand_card_rows`' doing; what is decided here
+    is the back, and dropping it is what makes those rows line up:
+    riding on the last row it made an image four columns wide to hold
+    six cards, so every card was drawn narrower than the pairing it is
+    there to show. The hexagon it carried is a click away on the
+    prompt's own "Maneuver Reference" button.
 
-    **Except on a basic contested prompt, which drops it** (the
-    author). Both basic hands together *are* the whole game -- all six
-    cards, each carrying its own beats/ties/loses row -- so the hexagon
-    is the same six relations drawn a second time, for the width of a
-    card. Every other case still earns it: one hand shows half the
-    cycle, and an advanced prompt's back is the two-tier hexagon, which
-    is what says the twelve cards resolve as six ranks rather than as
-    two unrelated cycles. Dropping it also leaves basic's two hands as
-    two clean rows of three instead of a ragged four and three.
+    **A basic contested prompt drops it too** (the author). Both basic
+    hands together *are* the whole game -- all six cards, each carrying
+    its own beats/ties/loses row -- so the hexagon is the same six
+    relations drawn a second time, for the width of a card.
 
-    One side alone is what an unchallenged maneuver and a solo game
-    against Dinky get, and it is the layout this drew before the prompt
-    went public: three cards and the back, one row of four.
+    **So the back is the lone basic hand's alone**: an unchallenged
+    maneuver, or a solo game against Dinky in basic mode, which is half
+    a cycle and the one hand that cannot read the relations off the
+    cards in front of it. That is also the layout this drew before the
+    prompt went public -- three cards and the back, one row of four.
     """
     blocks = [
-        hand_card_images(catalog, players, side, tiers) for side in sides
+        hand_card_rows(catalog, players, side, tiers) for side in sides
     ]
     colours = {"offense": OFFENSE_COLOR, "defense": DEFENSE_COLOR}
     headings: list[Optional[tuple[str, str]]] = [
         (HAND_HEADINGS[side], colours[side]) for side in sides
     ]
-    if len(sides) < 2 or MANEUVER_TIER_ADVANCED in tiers:
-        # The back rides on the last side's block rather than starting
-        # a row of its own: alone it is a row one card wide, which
-        # pushes the whole image to three columns and a phone shows it
-        # as a tall ribbon. It shares the last side's heading band --
-        # there is nothing to caption a lone back with.
-        blocks[-1] = blocks[-1] + [hand_back_image(catalog, tiers)]
+    if len(sides) < 2 and MANEUVER_TIER_ADVANCED not in tiers:
+        # The back rides on the end of the hand's own row rather than
+        # starting one of its own: alone it is a row one card wide,
+        # which pushes the whole image to a second row for one card.
+        blocks[-1][-1] = list(blocks[-1][-1]) + [hand_back_image(catalog)]
     return lay_out_hand(blocks, headings)
 
 

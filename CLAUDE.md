@@ -3048,16 +3048,20 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   it is on a card and in the same place on each one, so a coach now compares
   three cards instead of reading three sentences. It went with the change --
   don't reintroduce it alongside the image.
-- **The hand is a side's three cards *and the shared back*, and the "Maneuver
-  Reference" button is back beside them.** The back carries the defeat cycle,
-  it is public information either coach may look at whenever they like, and at
-  the table it is face up on the deck in front of them -- so
-  `render_maneuver_hands` draws it as the last card. That was taken as reason
-  enough to drop the button, and it was not: the back is one card among four at
-  a third of print size, where the hexagon is the picture a coach actually
-  reads a matchup off. `ManeuverActionPromptView.show_reference` posts it
-  ephemerally, so the cost is a click and an upload only when somebody wants
-  one. Both it and `/d12ball maneuver_reference`, which posts the same image to
+- **The hand is a side's cards, laid out a tier to a row**, and the "Maneuver
+  Reference" button is beside them. A basic hand is one row of three; an
+  advanced hand is two, the basic three above the advanced card of each rank
+  (the author), so every advanced card sits under the basic one it shares a
+  rank with -- which is the relation that decides the matchup, and the thing a
+  hand wrapped at four and three split down the middle. `hand_card_rows` is the
+  split and `lay_out_hand` takes each block's rows as given rather than
+  chopping a flat run of cards up; `HAND_MAX_COLUMNS` stays as the ceiling, so
+  a seventh card on a rank lands on a row of its own instead of shrinking every
+  card on the image. The hexagon is what the shared back
+  carries, and since the hand only carries a back in one case (below) the
+  button is how most prompts reach it at all.
+  `ManeuverActionPromptView.show_reference` posts it ephemerally, so the cost
+  is a click and an upload only when somebody wants one. Both it and `/d12ball maneuver_reference`, which posts the same image to
   the channel, go through `build_maneuver_reference_file`.
   - **Ephemeral for the pick's reason, not its own.** The hexagon hides
     nothing -- answering in the channel would just tell the other side that
@@ -3076,40 +3080,46 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     `RulesEngine.maneuver_pick_sides` and which tiers is
     `RulesEngine.maneuver_tiers`, the same two questions the buttons under the
     image ask. **The reference hexagon is keyed by tier the same way** (see
-    below): a hand's own `tiers` says which back it needs,
-    `MANEUVER_TIER_ADVANCED` in it or not, so a hand and its back agree without
-    a second question being asked.
+    below): the button posts the hexagon for the tiers the game is actually
+    playing, so what a coach reads a matchup off cannot show cards their hand
+    does not hold.
   - **Both hands on one image, not one per side.** Discord lays two attachments
     on a message out side by side, which would halve the width of both. Nothing
     is given away: the twelve cards and the defeat cycle are public information
     either coach may ask for at any time. Where the back is drawn it rides on
-    the last side's block rather than starting a row of its own, or it would be
-    a row one card wide and the image would arrive as a tall ribbon.
+    the end of that hand's own row rather than starting one of its own, or it
+    would be a second row holding one card.
   - **Each side's block is captioned -- "OFFENSE HAND" / "DEFENSE HAND", in that
     side's own colour** (`HAND_HEADINGS`, `OFFENSE_COLOR`/`DEFENSE_COLOR`). The
     two rows sitting one above the other read as one grid of cards otherwise,
     and a coach has to find *their* row before reading a label. `lay_out_hand`
     takes a `headings` list parallel to `blocks` and reserves a band above each
-    captioned block's first row; a block with no heading (the lone card back,
-    which has fewer headings than blocks because it shares the last side's
-    block) reserves nothing. The player's name and team are deliberately *not*
+    captioned block's first row; a block with no heading reserves nothing. An
+    advanced hand is two rows under one caption, which is the other half of why
+    the tier split lives in `hand_card_rows` rather than in the layout: a
+    block is a side, however many rows it takes. The player's name and team are deliberately *not*
     on the image -- the mention line right above the prompt already names both
     coaches, and putting names on the cards would make the hand depend on the
     match, which is exactly what the `__init__`-time render avoids.
-  - **A basic contested prompt drops the back** (the author). Both basic hands
-    together *are* the whole game -- all six cards, each carrying its own
-    beats/ties/loses row -- so the hexagon is the same six relations drawn a
-    second time, for the width of a card. Every other case still earns it: one
-    hand (an unchallenged maneuver, or a solo game against Dinky) shows half the
-    cycle, and an advanced prompt's back is the two-tier hexagon, which is what
-    says the twelve cards resolve as six ranks rather than as two unrelated
-    cycles. It also leaves basic's two hands as two clean rows of three instead
-    of a ragged four and three. The "Maneuver Reference" button is still there
-    for anyone who wants the hexagon, which is why dropping it costs nothing.
-  - **Seven cards do not fit one row.** Discord scales an inline image to the
+  - **The back is a lone basic hand's alone** (the author). Two things drop
+    it. A basic *contested* prompt: both basic hands together *are* the whole
+    game -- all six cards, each carrying its own beats/ties/loses row -- so the
+    hexagon is the same six relations drawn a second time, for the width of a
+    card, and dropping it leaves two clean rows of three instead of a ragged
+    four and three. An **advanced** prompt, either one hand or two: a back on
+    the end of the basic row makes the image four columns wide to hold rows of
+    three, so every card is drawn narrower for a card that is not part of the
+    pairing the layout exists to show. What is left is the unchallenged
+    maneuver and the solo basic game against Dinky -- half a cycle, and the one
+    hand that cannot read the relations off the cards in front of it. The
+    "Maneuver Reference" button is still there for anyone who wants the
+    hexagon, which is why dropping it costs nothing.
+  - **Four across is still the ceiling.** Discord scales an inline image to the
     message's width, so a row of seven arrives at about 75px a card against
-    131px for a row of four. `HAND_MAX_COLUMNS` is 4, and anything past it
-    wraps -- which keeps every card the width a coach already reads.
+    131px for a row of four. Nothing reaches `HAND_MAX_COLUMNS` today -- a tier
+    is three cards, and only the back makes a fourth -- but it stays as the
+    wrap, so a card added to a rank costs a row rather than every card's
+    width.
 - **The hand is drawn at a third of the print card's width.** Discord scales an
   inline image down whatever it is sent, so the extra pixels would only be
   payload -- and this send is once per maneuver, not once per coach. The
