@@ -2776,7 +2776,10 @@ class MatchState:
         their own game files.
         """
         conceding_side = TeamSide(conceding_side)
-        self.set_ball_space(
+        # `restart_ball_at`, not `set_ball_space`: the ball is dead
+        # while it is carried back to the middle of the field, so it
+        # crosses nobody and offers no Mind Pull on the way.
+        self.restart_ball_at(
             Zone.MIDFIELD, self.kickoff_space_for(conceding_side),
         )
         self.ball.possession = conceding_side
@@ -2840,7 +2843,9 @@ class MatchState:
         restart_zone, restart_index = self.own_goal_restart_space(
             defending_side
         )
-        self.set_ball_space(restart_zone, restart_index)
+        # Dead the same way the kickoff after a goal is -- see
+        # restart_ball_at.
+        self.restart_ball_at(restart_zone, restart_index)
         self.ball.possession = defending_side
         self.ball.speed = 1
 
@@ -3345,11 +3350,18 @@ class MatchState:
         (`move_ball_relative` included), which is what makes the path
         recordable in one place rather than at eleven effect sites.
 
-        Recording is unconditional and reading is not: a kickoff and a
-        period restart come through here too and are not a ball moving
-        through play, so the three arrival points that *consult* the
-        path are what decide when a pull may be offered, and each
-        clears it as it goes.
+        **This is the ball in play, and only that.** A restart -- the
+        kickoff after a goal, the ball brought back out after a shot
+        that missed, a period kickoff -- is the ball being *placed*
+        while it is dead, and goes through `restart_ball_at` instead.
+        The distinction has to be made here, by the caller that knows
+        which of the two it is doing: the arrival points that consult
+        the path cannot tell them apart, because a restart's own
+        movement outlives the gate that would have spent it and reaches
+        `finish_maneuver_resolution` at the tail of the new play. It
+        used to come through here, and a goal offered the *scoring*
+        side's Telekinetics a pull on the ball's way back to the middle
+        of the field.
         """
         zone = Zone(zone)
         if space_index not in range(len(self.board.spaces[zone])):
@@ -3357,6 +3369,22 @@ class MatchState:
         self.last_ball_path = self.ball_path_to(zone, space_index)
         self.ball.zone = zone
         self.ball.space_index = space_index
+
+    def restart_ball_at(self, zone: Zone, space_index: int) -> None:
+        """
+        Put the ball down on `(zone, space_index)` **out of play** --
+        the dead-ball twin of `set_ball_space`, and the way every
+        restart repositions it.
+
+        A dead ball crosses nobody: it is carried back to where play
+        starts again rather than travelling over the spaces in
+        between, so there is no path and nothing to offer a Mind Pull
+        on (the author, 2026-09-07). The path is *cleared* rather than
+        merely left unrecorded, so a restart cannot hand the movement
+        before it on to the next arrival gate either.
+        """
+        self.set_ball_space(zone, space_index)
+        self.last_ball_path = []
 
     def ball_path_to(
         self, zone: Zone, space_index: int,

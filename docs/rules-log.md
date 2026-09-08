@@ -102,6 +102,23 @@ Everything else has been answered. What remains unbuilt is in
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-07 (later still) -- author, a dead ball crosses nobody
+
+Reported off a real game: after a goal, a Telekinetic was being offered a Mind Pull on the
+ball's journey back to the middle of the field.
+
+> *"After a goal is scored, it 'travels' to the middle of the field for a new play. In the bot
+> right now a telekinetic can try to steal it on the way but that shouldn't be, because the ball
+> is not in play when it travels back to the middle of the field."*
+
+So **a restart is not a ball movement**. The ball is dead while it is being brought back into
+play, and being carried to where play starts again is not passing over the spaces in between --
+which settles the two other restarts the same way: a shot that missed, and a period kickoff.
+
+Everything a maneuver does to the ball is unchanged; nothing narrows about who may pull or when.
+What was wrong was which movements counted as one, and the answer is now stated in the rule
+rather than left to the arrival that reads it.
+
 ### 2026-09-07 (later the same day) -- author, an advanced effect follows *its own* card's result
 
 **Supersedes the 2026-08-19 wording**, which the author called imprecise on review:

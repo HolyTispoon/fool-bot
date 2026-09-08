@@ -1067,10 +1067,33 @@ split is the whole design.
   `check_for_loose_ball`, which reaches the second gate with the path already
   empty.
 
-**Recording unconditionally and reading selectively is deliberate.** A
-kickoff and a period restart come through `set_ball_space` too and are not a
-ball moving through play; making the *readers* decide when a pull may be
-offered is what keeps the recorder free of a list of exceptions.
+**A restart goes through `restart_ball_at`, not `set_ball_space`, and that
+distinction is the caller's to make.** A dead ball being brought back into
+play -- the kickoff after a goal, the ball put out again after a shot that
+missed, a second-half kickoff -- is carried to where play starts again rather
+than travelling over the spaces in between, so it crosses nobody (the author,
+2026-09-07). `restart_ball_at` is `set_ball_space` with the path *cleared*,
+which is both halves of that: no pull is offered on the restart, and the
+restart cannot hand the last live movement on to the next arrival gate
+either.
+
+- **The readers cannot make this call, which is why the recorder no longer
+  tries to let them.** The three arrival points spend the path as they pass
+  it, and a restart's movement never reaches one: a goal's leads into
+  `begin_run_back(new_play=True)`, whose reset, coaching window and empty run
+  back all sit between the placement and `finish_maneuver_resolution` at the
+  tail of the new play. Recording it there and reading selectively was the
+  first build, and it offered the **scoring** side's Telekinetics a pull on
+  the ball's way back to the middle of the field.
+- **The halftime kickoff was accidentally safe**, because `end_period` calls
+  `reset_maneuver` immediately after it and that clears the path. It uses
+  `restart_ball_at` too, so the ordering there is no longer load-bearing.
+- **Three placements are restarts and no others.** `restart_after_goal` (an
+  ordinary goal and a conceded own goal), `restart_after_missed_score`, and
+  the second-half kickoff in `end_period`. Every other dead-ball path in the
+  game -- an out-of-bounds Setup Pass or High Pass, an avoided own goal --
+  leaves the ball where it lies and moves it not at all, so there is nothing
+  to record either way.
 
 **The queue and the resume are `pending_injury_tests`' shape**, and for the
 same reasons. `pending_mind_pull` is ordered because "each may try in the
@@ -1090,6 +1113,30 @@ the same door.
   caller runs an ordinary turnover. Setting the carrier *is* the whole of
   arranging the exemption, since `begin_run_back` reads it off there -- see
   "The ball carrier".
+- **The roll is shown, on a die of its own.** `render_mind_pull_die` is the
+  image, and the offer message is edited into it exactly as an injury test's
+  prompt becomes its die -- same three-column row (die, portrait, verdict), so
+  a coach reads it without learning a second layout. **What makes it distinct
+  is the aura, not a different shape**: the Telekinetics' own spiral drawn
+  faint behind the face and a ring of the same purple around it. The face
+  stays the *roller's team* colour, because a Telekinetic plays for any of the
+  eight teams (see "One player, both sides") and whose roll it is still has to
+  be legible.
+  - **The target band is on the image** -- "pulls on 1-2", off
+    `MIND_PULL_SUCCESS_FACES` rather than written down -- for the reason the
+    injury test draws the token count: a bare face means nothing until you
+    know what it was chasing, and two in twelve is the whole of why a coach
+    might let the ball go instead.
+  - **The face drawn is the natural one**, so an ignite is said in words
+    beside it, the same as `run_injury_test`.
+- **A landed pull is announced as a turnover, at the skill test's own size.**
+  `## {player} grabs the ball with their telekinetic powers!` and
+  **Turnover!** under it -- the author's wording, 2026-09-07. It replaced
+  "**They pull it in!**", which named the mechanic rather than what happened
+  and buried a change of possession mid-paragraph. The heading rides in
+  `begin_run_back`'s `lead_in`, so it lands *after* the die: a message's
+  attachments render below its content, and a result written above the roll
+  would be read before it.
 - **Dinky never pulls**, so an AI side's Telekinetics are skipped rather than
   prompted. Paying a token for a one-in-six steal is a judgement call and
   Dinky makes none; it is also what keeps this flow free of an AI branch.

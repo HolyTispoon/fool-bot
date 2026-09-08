@@ -31,6 +31,7 @@ from d12ball.game import (
 )
 from d12ball.render import (
     TEAM_COLORS,
+    render_mind_pull_die,
     render_own_goal_dice,
 )
 from gamesaves.d12ball.storage import save_games
@@ -1665,11 +1666,37 @@ class ManeuverEffectsMixin:
         total = roll + ignite.modifier
         pulled = total in MIND_PULL_SUCCESS_FACES
 
+        # The die image draws the natural face, exactly as the injury
+        # test's does, so an ignite has to be said in words or the
+        # number a coach reads and the verdict they are given would not
+        # add up.
+        ignite_note = f" ({ignite.detail}, {total})" if ignite.detail else ""
+        player_team = match.team_for_player(player_id)
+        dice_file = discord.File(
+            await asyncio.to_thread(
+                render_mind_pull_die,
+                roll,
+                TEAM_COLORS[player_team],
+                team_display_name(player_team),
+                player.name,
+                pulled,
+            ),
+            filename="mind_pull_die.png",
+        )
+        # The offer becomes the die, and what it came to is said in the
+        # message after it -- a message's attachments render below its
+        # content, so a result written here would be read before the
+        # roll that decided it. Same way round as every other roll in
+        # the game; see SkillTestView.roll.
+        await interaction.edit_original_response(
+            content=None,
+            attachments=[dice_file],
+            view=None,
+        )
+
         note = "\n".join(filter(None, (
             f"🔮 **Mind Pull** — {self.player_label(match, player)} "
-            f"reaches for the ball and rolls {roll}"
-            + (f" ({ignite.detail})" if ignite.detail else "")
-            + ".",
+            f"reaches for the ball{ignite_note}.",
             exhaustion_text,
         )))
 
@@ -1705,9 +1732,17 @@ class ManeuverEffectsMixin:
             match,
             distance_moved=(resume or {}).get("distance_moved", 1),
             turnover_occurred=True,
+            # A landed pull is a turnover and reads like one: the
+            # heading is the skill test's own size, because this is a
+            # roll that has just taken the ball off the other side and
+            # a coach should not have to read a paragraph to find that
+            # out. The wording is the author's (2026-09-07) -- what
+            # happened is that a player took the ball, not that a
+            # mechanic fired.
             lead_in=(
-                f"{note}\n**They pull it in!** "
-                f"{self.player_label(match, player)} takes the ball on "
+                f"{note}\n\n## {self.player_label(match, player)} grabs "
+                "the ball with their telekinetic powers!\n"
+                f"**Turnover!** They take it on "
                 f"{ball_location_line(match)}."
             ),
         )
