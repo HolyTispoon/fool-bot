@@ -60,8 +60,16 @@ def main() -> None:
 
     if args.sheet:
         cards = [card for _, card in faces]
+        # Padded to a full grid by cycling back through the set, a
+        # whole card at a time: six faces leave a 4-wide sheet two
+        # cells short, and a splitter cutting it into equal cells
+        # would otherwise hand back a blank. Repeating `cards[0]`
+        # filled those cells with card 1's *front*, twice -- three
+        # fronts on the sheet and no second back to glue them to.
+        # These cards have no shared back to spare (each face carries
+        # its own pairing), so the pad has to be front-then-back.
         while len(cards) % SHEET_COLUMNS:
-            cards.append(cards[0])
+            cards.append(cards[len(cards) % len(faces)])
         sheet_path = args.out / "print-sheet.png"
         print_sheet(cards).save(sheet_path, dpi=(300, 300))
         print(f"wrote {sheet_path}")
