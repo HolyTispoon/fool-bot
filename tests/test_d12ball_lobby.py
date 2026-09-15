@@ -533,6 +533,18 @@ class HubRolesTests(unittest.TestCase):
                 f"{HUB_ROLE_CUSTOM_ID_PREFIX}{hub_role.key}",
             )
             self.assertEqual(button.label, hub_role.label)
+            self.assertEqual(button.style, discord.ButtonStyle.success)
+
+    def test_a_d12_role_button_carries_the_emoji(self) -> None:
+        cog = build_cog()
+        cog.d12_emoji = "<:d12dice:123456789012345678>"
+        cog.d12_button_emoji = "<:d12dicecream:876543210987654321>"
+        for button, hub_role in zip(HubRolesView(cog).children, HUB_ROLES):
+            if hub_role.d12_emoji:
+                self.assertEqual(button.emoji.name, "d12dicecream")
+            else:
+                self.assertIsNone(button.emoji)
+        self.assertTrue(HUB_ROLES[0].d12_emoji)
 
     def test_the_playtester_role_is_on_offer(self) -> None:
         self.assertIn("playtester", [role.key for role in HUB_ROLES])
@@ -761,6 +773,7 @@ class LobbyMessageTests(unittest.TestCase):
         cog.d12_emoji = "<:d12dice:123456789012345678>"
         button = NewGameHubView(cog).children[0]
         self.assertEqual(button.emoji.name, "d12dice")
+        self.assertEqual(button.style, discord.ButtonStyle.success)
 
     def test_hub_button_prefers_the_cream_emoji(self) -> None:
         cog = build_cog()

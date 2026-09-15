@@ -40,6 +40,7 @@ from cogs.d12ball_views.lobby import (
     LobbyNameModal,
     LobbyView,
     NewGameHubView,
+    hub_button_emoji,
 )
 from cogs.d12ball_views.turn import (
     BallHandlerSelectionView,
@@ -119,6 +120,7 @@ __all__ = [
     "LobbyNameModal",
     "LobbyView",
     "NewGameHubView",
+    "hub_button_emoji",
     "BallHandlerSelectionView",
     "CedeConfirmView",
     "MAX_BUTTONS_PER_ROW",

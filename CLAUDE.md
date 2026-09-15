@@ -4505,8 +4505,8 @@ does bar naming specific opponents up front). Two pieces:
   that ever accompanies "D12 Ball"** is a d12, and there are **two cuts of it**,
   both uploaded through the Developer Portal: `d12dice` (light blue ink) rides
   `build_hub_message(...)` and the lobby heading -- message text on the channel
-  background -- and `d12dicecream` (cream ink) rides the **hub button alone**,
-  because the button's blue fill swallowed the blue die. `load_d12_emoji(name=)`
+  background -- and `d12dicecream` (cream ink) rides the **hub buttons alone**,
+  because a button's coloured fill swallowed the blue die. `load_d12_emoji(name=)`
   resolves either to a `<:name:id>` string; `load_d12_button_emoji` is the
   button's, `d12dicecream` **falling back to `d12dice` and then to nothing**.
   Both load in `cog_load` onto `self.d12_emoji` / `self.d12_button_emoji` and are
