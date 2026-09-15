@@ -17,6 +17,11 @@ Second, the sink may never log its own failures. A send that failed and
 then logged would feed itself the record it just failed to send, and the
 handler would spin. Failures print to stderr instead.
 
+Not everything at ERROR belongs here, which is the other thing the
+sink decides: botlog.gateway's filter is attached to this handler and
+to nothing else, so discord.py's routine reconnect noise stays on the
+console. See that module for why.
+
 Flood control lives in _admit: a run of the same record (a render bug
 throwing the same traceback on every board update) collapses to the
 first post plus an occasional heartbeat, and a fixed-window cap stops a
@@ -30,6 +35,8 @@ import sys
 from typing import Optional
 
 import discord
+
+from botlog.gateway import OUTAGE_NOTE_ATTRIBUTE
 
 
 # Discord's message limit is 2000; the rest is headroom for the code
@@ -145,6 +152,23 @@ class DiscordLogChannelHandler(logging.Handler):
         self._queue = asyncio.Queue(maxsize=self.QUEUE_SIZE)
         self._worker_task = self._loop.create_task(self._worker())
         self.started = True
+
+    def format(self, record: logging.LogRecord) -> str:
+        """
+        The record as the channel should read it, which is the console's
+        text plus whatever context only a reader of #logs needs.
+
+        Today that is the gateway filter's outage note: it lets one
+        record of a long run of reconnects through, and without a line
+        saying so that record is indistinguishable from the ones it held
+        back. The note rides on an attribute rather than on the message
+        because the record is shared with the console handler, whose
+        formatter neither knows nor asks about it.
+        """
+        formatted = super().format(record)
+        note = getattr(record, OUTAGE_NOTE_ATTRIBUTE, None)
+
+        return f"{note}\n{formatted}" if note else formatted
 
     def emit(self, record: logging.LogRecord) -> None:
         loop, queue = self._loop, self._queue

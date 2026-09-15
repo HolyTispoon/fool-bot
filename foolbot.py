@@ -154,10 +154,23 @@ async def on_ready():
         bot.user,
         getattr(bot.user, "id", "unknown"),
     )
-    # Both of these are guarded internally and run on every reconnect:
-    # binding is idempotent, and a build announces itself once.
+    # All three are guarded internally and run on every reconnect:
+    # binding is idempotent, a recovery is only announced when the
+    # outage was, and a build announces itself once.
     await botlog.start_mirror(bot, log_mirror)
+    await botlog.announce_gateway_recovery(bot)
     await botlog.announce_startup(bot)
+
+@bot.event
+async def on_resumed():
+    """
+    The other way back from a dropped connection, and the common one:
+    discord.py resumes the session where it can and only re-identifies
+    (which is what fires on_ready) when the gateway refuses. So an
+    outage announced in #logs would go unresolved there if this event
+    were left out. See botlog/gateway.py.
+    """
+    await botlog.announce_gateway_recovery(bot)
 
 @bot.tree.command(name="roll", description="Roll dice, e.g. 2d6")
 async def roll(interaction: discord.Interaction, dice: str):
