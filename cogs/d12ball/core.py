@@ -84,6 +84,7 @@ from cogs.d12ball_views import (
     BallHandlerSelectionView,
     BallRecoveryView,
     CoachingHubView,
+    HubRolesView,
     CoachingOfferView,
     CoinFlipView,
     DribbleAdvanceChoiceView,
@@ -236,14 +237,23 @@ class CoreMixin:
         restored_views = 0
 
         for entry in self.hubs.values():
-            # The hub button has no game to lose and stays live for the
-            # life of the message. A stale entry (the message deleted by
+            # The hub buttons have no game to lose and stay live for the
+            # life of their messages. A stale entry (a message deleted by
             # hand) just registers a view nothing will ever dispatch to.
             self.bot.add_view(
                 NewGameHubView(self),
                 message_id=entry["message_id"],
             )
             restored_views += 1
+            # Absent from an entry written before the roles message
+            # existed; `/d12ball setup_hub` fills it in.
+            roles_message_id = entry.get("roles_message_id")
+            if roles_message_id is not None:
+                self.bot.add_view(
+                    HubRolesView(self),
+                    message_id=roles_message_id,
+                )
+                restored_views += 1
 
         for game in self.games.values():
             if game.in_lobby:

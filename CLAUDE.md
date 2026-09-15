@@ -4399,16 +4399,42 @@ The friendly front door to a new game, alongside `/d12ball create_game` (which
 stays, for anyone who prefers the command; the lobby now covers everything it
 does bar naming specific opponents up front). Two pieces:
 
-- **The hub** is one locked channel per server carrying a single persistent
-  message with a **D12 Ball** button (`NewGameHubView`, in
-  `cogs/d12ball_views/lobby.py`). An admin registers it by running
-  `/d12ball setup_hub` **in the channel** -- the command sets
-  `@everyone send_messages=False` (keeping the bot's own send), posts or edits
-  the message, and records `{channel_id, message_id}` per guild in
+- **The hub** is one locked channel per server carrying two persistent
+  messages: the **games message**, with a **D12 Ball** button
+  (`NewGameHubView`, in `cogs/d12ball_views/lobby.py`), and under it the
+  **roles message**, with a toggle button per role (`HubRolesView`, same
+  module). An admin registers both by running `/d12ball setup_hub` **in the
+  channel** -- the command sets `@everyone send_messages=False` (keeping the
+  bot's own send), posts or edits each message, and records
+  `{channel_id, message_id, roles_message_id}` per guild in
   `data/d12ball_hubs.json` via `gamesaves/d12ball/hub.py`. Re-runnable to move
-  the hub or repair a deleted message. The button's custom_id names no game and
-  no guild (the interaction carries the guild, and there is no lobby yet), which
-  leaves room for the planned role-self-assign buttons on the same message.
+  the hub or repair either deleted message; `post_or_edit_hub_message` is the
+  one edit-or-send for both. The games button's custom_id names no game and
+  no guild (the interaction carries the guild, and there is no lobby yet).
+  - **The roles are a table, `HUB_ROLES` in `cogs/d12ball_helpers.py`**, one
+    `HubRole` per button: a `key` (what the custom_id carries,
+    `d12ball:hub:role:<key>` -- the one field that cannot change once a
+    message is posted), the server role's `role_name`, the button `label` and
+    a `description` for the message. One entry today, the **D12ball
+    playtester** role. Adding a role is adding an entry: the view builds a
+    button per entry, `build_hub_roles_message` lists a line per entry, and
+    `D12Ball.toggle_hub_role` looks a click up by key -- add, or remove if
+    the member already has it, answered ephemerally. A click from an entry
+    since removed is refused rather than crashing.
+  - **The bot finds a role by name and creates none.** `find_guild_role`
+    matches `role_name` case-insensitively against `guild.roles`, so an admin
+    makes the role in the server settings with whatever colour and position
+    they want; `setup_hub`'s reply names any role the server is missing, and
+    that role's button says so until it exists. A `Forbidden` on the change
+    (no Manage Roles, or the role above the bot's own) is explained to the
+    clicker rather than raised.
+  - **Two messages rather than one so a change to either leaves the other
+    alone**, and because the games message already carries a button and
+    a paragraph per game -- a row of role buttons under it would read as
+    part of D12 Ball. `roles_message_id` is optional on load: a hub file
+    written before the roles message re-arms its games button alone until
+    `setup_hub` is run again, which is what an admin does to get the second
+    message anyway.
   `build_hub_message` is a welcome plus one titled block per game -- name,
   button, and **the game's own description, which is the author's copy and kept
   verbatim** (D12 Ball's came back in review as the one to use). The **only image
@@ -4478,8 +4504,9 @@ does bar naming specific opponents up front). Two pieces:
     `game.message_id` is re-pointed at it, as `CoinFlipView` does for the
     home/visiting message.
 
-- **`restore_saved_views` re-arms both.** A hub message per stored guild
-  (`NewGameHubView`), and `LobbyView` on an `in_lobby` game's `message_id`
+- **`restore_saved_views` re-arms all three.** The two hub messages per
+  stored guild (`NewGameHubView`, and `HubRolesView` when the entry has a
+  `roles_message_id`), and `LobbyView` on an `in_lobby` game's `message_id`
   ahead of the team-picker branch -- without that a lobby would come back as
   the team picker. `LobbyNameModal` is opened fresh per click and needs no
   persistence.
