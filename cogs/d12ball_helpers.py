@@ -850,6 +850,10 @@ class HubRole:
     role_name: str
     label: str
     description: str
+    # Whether the button carries the d12 emoji beside its label -- for a
+    # role that is about D12 Ball, so its button reads as the games
+    # button's sibling. A role for something else leaves it off.
+    d12_emoji: bool = False
 
 
 # The roles the hub offers, in the order their buttons appear. Adding a
@@ -862,6 +866,7 @@ HUB_ROLES: tuple[HubRole, ...] = (
         key="playtester",
         role_name="D12ball playtester",
         label="D12ball playtester",
+        d12_emoji=True,
         description=(
             "Get pinged when a D12 Ball playtest is being organised, and "
             "for news about the game."

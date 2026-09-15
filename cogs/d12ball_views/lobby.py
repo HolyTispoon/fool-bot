@@ -38,6 +38,22 @@ if TYPE_CHECKING:
     from cogs.d12ball import D12Ball
 
 
+def hub_button_emoji(cog: "D12Ball"):
+    """
+    The d12 for a hub button: the lighter `d12dicecream` cut -- a
+    button's coloured fill swallowed the plain `d12dice` -- falling back
+    to `d12dice` and then to nothing when neither is uploaded. Loaded in
+    `cog_load`, refreshed by `/d12ball setup_hub`. The rendered message
+    keeps whatever emoji it was last posted/edited with, so a restart
+    before `cog_load` does not blank it.
+    """
+    return (
+        getattr(cog, "d12_button_emoji", None)
+        or getattr(cog, "d12_emoji", None)
+        or None
+    )
+
+
 class NewGameHubView(SafeView):
     """
     The persistent view on the hub channel's games message. One button
@@ -51,20 +67,10 @@ class NewGameHubView(SafeView):
         super().__init__(timeout=None)
         self.cog = cog
 
-        # The lighter d12 application emoji (`d12dicecream`) -- the button
-        # fill is blue and swallowed the plain `d12dice` -- falling back
-        # to `d12dice` and then to nothing when neither is uploaded.
-        # Loaded in `cog_load`, refreshed by `/d12ball setup_hub`. The
-        # rendered message keeps whatever emoji it was last posted/edited
-        # with, so a restart before `cog_load` does not blank it.
         button = discord.ui.Button(
             label="D12 Ball",
-            emoji=(
-                getattr(cog, "d12_button_emoji", None)
-                or getattr(cog, "d12_emoji", None)
-                or None
-            ),
-            style=discord.ButtonStyle.primary,
+            emoji=hub_button_emoji(cog),
+            style=discord.ButtonStyle.success,
             custom_id="d12ball:hub:new_game",
         )
         button.callback = self.open_lobby
@@ -90,7 +96,8 @@ class HubRolesView(SafeView):
         for hub_role in HUB_ROLES:
             button = discord.ui.Button(
                 label=hub_role.label,
-                style=discord.ButtonStyle.secondary,
+                emoji=hub_button_emoji(cog) if hub_role.d12_emoji else None,
+                style=discord.ButtonStyle.success,
                 custom_id=f"{HUB_ROLE_CUSTOM_ID_PREFIX}{hub_role.key}",
             )
             button.callback = self.make_toggle(hub_role.key)
