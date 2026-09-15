@@ -18,8 +18,18 @@ from unittest import mock
 import discord
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_helpers import build_lobby_message
-from cogs.d12ball_views import LobbyNameModal, LobbyView, NewGameHubView
+from cogs.d12ball_helpers import (
+    HUB_ROLE_CUSTOM_ID_PREFIX,
+    HUB_ROLES,
+    build_hub_roles_message,
+    build_lobby_message,
+)
+from cogs.d12ball_views import (
+    HubRolesView,
+    LobbyNameModal,
+    LobbyView,
+    NewGameHubView,
+)
 from d12ball.game import AIOpponent, D12BallGame, GameMode, GameStatus
 from gamesaves.d12ball import hub as hub_storage
 from save_patches import suppressed_cog_saves, suppressed_view_saves
@@ -100,6 +110,29 @@ class HubStorageTests(unittest.TestCase):
                 self.assertEqual(
                     hub_storage.get_hub(42),
                     {"channel_id": 100, "message_id": 200},
+                )
+                entry = hub_storage.set_hub(42, 100, 200, 300)
+                self.assertEqual(
+                    entry,
+                    {
+                        "channel_id": 100,
+                        "message_id": 200,
+                        "roles_message_id": 300,
+                    },
+                )
+                self.assertEqual(hub_storage.get_hub(42), entry)
+
+    def test_an_entry_without_a_roles_message_still_loads(self) -> None:
+        # A hub file written before the roles message existed.
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "d12ball_hubs.json"
+            path.write_text(
+                json.dumps({"42": {"channel_id": 100, "message_id": 200}})
+            )
+            with mock.patch.object(hub_storage, "HUBS_FILE", path):
+                self.assertEqual(
+                    hub_storage.load_hubs(),
+                    {42: {"channel_id": 100, "message_id": 200}},
                 )
 
     def test_missing_and_corrupt_read_as_empty(self) -> None:
@@ -465,20 +498,241 @@ class LobbyViewTests(unittest.TestCase):
         interaction.response.send_message.assert_awaited_once()
 
 
+def fake_role(role_id: int, name: str) -> mock.MagicMock:
+    role = mock.MagicMock(spec=discord.Role)
+    role.id = role_id
+    role.name = name
+    return role
+
+
+def role_interaction(
+    guild_roles: list, member_roles: list,
+) -> SimpleNamespace:
+    """
+    A click on the roles message: a member carrying `member_roles` in a
+    guild whose roles are `guild_roles`.
+    """
+    interaction = fake_interaction(111)
+    interaction.guild.roles = guild_roles
+    member = interaction.user
+    member.get_role = lambda role_id: next(
+        (role for role in member_roles if role.id == role_id), None,
+    )
+    member.add_roles = mock.AsyncMock()
+    member.remove_roles = mock.AsyncMock()
+    return interaction
+
+
+class HubRolesTests(unittest.TestCase):
+    def test_the_view_carries_one_button_per_role(self) -> None:
+        view = HubRolesView(build_cog())
+        self.assertEqual(len(view.children), len(HUB_ROLES))
+        for button, hub_role in zip(view.children, HUB_ROLES):
+            self.assertEqual(
+                button.custom_id,
+                f"{HUB_ROLE_CUSTOM_ID_PREFIX}{hub_role.key}",
+            )
+            self.assertEqual(button.label, hub_role.label)
+
+    def test_the_playtester_role_is_on_offer(self) -> None:
+        self.assertIn("playtester", [role.key for role in HUB_ROLES])
+        text = build_hub_roles_message()
+        for hub_role in HUB_ROLES:
+            self.assertIn(hub_role.role_name, text)
+            self.assertIn(hub_role.description, text)
+
+    def test_a_click_adds_the_role_a_member_lacks(self) -> None:
+        hub_role = HUB_ROLES[0]
+        role = fake_role(7, hub_role.role_name.upper())  # case-insensitive
+        interaction = role_interaction([role], [])
+
+        asyncio.run(build_cog().toggle_hub_role(interaction, hub_role.key))
+
+        interaction.user.add_roles.assert_awaited_once()
+        self.assertIs(interaction.user.add_roles.await_args.args[0], role)
+        interaction.user.remove_roles.assert_not_awaited()
+        self.assertTrue(
+            interaction.response.send_message.await_args.kwargs["ephemeral"]
+        )
+
+    def test_a_click_removes_the_role_a_member_has(self) -> None:
+        hub_role = HUB_ROLES[0]
+        role = fake_role(7, hub_role.role_name)
+        interaction = role_interaction([role], [role])
+
+        asyncio.run(build_cog().toggle_hub_role(interaction, hub_role.key))
+
+        interaction.user.remove_roles.assert_awaited_once()
+        interaction.user.add_roles.assert_not_awaited()
+
+    def test_a_missing_role_is_reported_not_created(self) -> None:
+        hub_role = HUB_ROLES[0]
+        interaction = role_interaction([fake_role(8, "Something else")], [])
+
+        asyncio.run(build_cog().toggle_hub_role(interaction, hub_role.key))
+
+        interaction.user.add_roles.assert_not_awaited()
+        interaction.guild.create_role.assert_not_called()
+        reply = interaction.response.send_message.await_args.args[0]
+        self.assertIn(hub_role.role_name, reply)
+
+    def test_a_forbidden_change_is_explained(self) -> None:
+        hub_role = HUB_ROLES[0]
+        role = fake_role(7, hub_role.role_name)
+        interaction = role_interaction([role], [])
+        interaction.user.add_roles.side_effect = discord.Forbidden(
+            mock.MagicMock(status=403), "no",
+        )
+
+        asyncio.run(build_cog().toggle_hub_role(interaction, hub_role.key))
+
+        reply = interaction.response.send_message.await_args.args[0]
+        self.assertIn("Manage Roles", reply)
+
+    def test_an_unknown_key_is_refused(self) -> None:
+        interaction = role_interaction([], [])
+        asyncio.run(build_cog().toggle_hub_role(interaction, "retired"))
+        interaction.user.add_roles.assert_not_awaited()
+        interaction.response.send_message.assert_awaited_once()
+
+
+class SetupHubTests(unittest.TestCase):
+    def build_cog_for_setup(self) -> D12Ball:
+        cog = build_cog()
+        cog.bot = SimpleNamespace(add_view=mock.Mock(), emojis=[])
+        return cog
+
+    def setup_interaction(self, channel) -> SimpleNamespace:
+        interaction = fake_interaction(111, channel)
+        interaction.user.guild_permissions = SimpleNamespace(
+            manage_channels=True,
+        )
+        interaction.guild.roles = [fake_role(7, HUB_ROLES[0].role_name)]
+        return interaction
+
+    def test_setup_posts_both_messages_and_records_both(self) -> None:
+        cog = self.build_cog_for_setup()
+        channel = fake_channel()
+        sent_ids = iter([500, 501])
+        channel.send = mock.AsyncMock(
+            side_effect=lambda *a, **k: SimpleNamespace(id=next(sent_ids)),
+        )
+        interaction = self.setup_interaction(channel)
+
+        with mock.patch(
+            "cogs.d12ball.slash_commands.load_d12_emoji",
+            mock.AsyncMock(return_value=None),
+        ), mock.patch(
+            "cogs.d12ball.slash_commands.load_d12_button_emoji",
+            mock.AsyncMock(return_value=None),
+        ), mock.patch(
+            "cogs.d12ball.slash_commands.get_hub", return_value=None,
+        ), mock.patch(
+            "cogs.d12ball.slash_commands.set_hub",
+            side_effect=lambda g, c, m, r=None: {
+                "channel_id": c, "message_id": m, "roles_message_id": r,
+            },
+        ) as set_hub:
+            asyncio.run(cog.setup_hub.callback(cog, interaction))
+
+        self.assertEqual(channel.send.await_count, 2)
+        views = [call.kwargs["view"] for call in channel.send.await_args_list]
+        self.assertIsInstance(views[0], NewGameHubView)
+        self.assertIsInstance(views[1], HubRolesView)
+        set_hub.assert_called_once_with(1, 2, 500, 501)
+        self.assertEqual(cog.hubs[1]["roles_message_id"], 501)
+        report = interaction.followup.send.await_args.args[0]
+        self.assertNotIn("no role named", report)
+
+    def test_setup_names_a_role_the_server_is_missing(self) -> None:
+        cog = self.build_cog_for_setup()
+        channel = fake_channel()
+        interaction = self.setup_interaction(channel)
+        interaction.guild.roles = []
+
+        with mock.patch(
+            "cogs.d12ball.slash_commands.load_d12_emoji",
+            mock.AsyncMock(return_value=None),
+        ), mock.patch(
+            "cogs.d12ball.slash_commands.load_d12_button_emoji",
+            mock.AsyncMock(return_value=None),
+        ), mock.patch(
+            "cogs.d12ball.slash_commands.get_hub", return_value=None,
+        ), mock.patch(
+            "cogs.d12ball.slash_commands.set_hub",
+            return_value={"channel_id": 2, "message_id": 500},
+        ):
+            asyncio.run(cog.setup_hub.callback(cog, interaction))
+
+        report = interaction.followup.send.await_args.args[0]
+        self.assertIn(HUB_ROLES[0].role_name, report)
+
+    def test_setup_edits_a_recorded_message_and_sends_the_other(self) -> None:
+        # A hub registered before the roles message existed: the games
+        # message is edited in place, the roles message sent under it.
+        cog = self.build_cog_for_setup()
+        channel = fake_channel()
+        existing = SimpleNamespace(id=400, edit=mock.AsyncMock())
+        channel.fetch_message = mock.AsyncMock(return_value=existing)
+        interaction = self.setup_interaction(channel)
+
+        with mock.patch(
+            "cogs.d12ball.slash_commands.load_d12_emoji",
+            mock.AsyncMock(return_value=None),
+        ), mock.patch(
+            "cogs.d12ball.slash_commands.load_d12_button_emoji",
+            mock.AsyncMock(return_value=None),
+        ), mock.patch(
+            "cogs.d12ball.slash_commands.get_hub",
+            return_value={"channel_id": 2, "message_id": 400},
+        ), mock.patch(
+            "cogs.d12ball.slash_commands.set_hub",
+            return_value={},
+        ) as set_hub:
+            asyncio.run(cog.setup_hub.callback(cog, interaction))
+
+        existing.edit.assert_awaited_once()
+        self.assertIsInstance(
+            existing.edit.await_args.kwargs["view"], NewGameHubView,
+        )
+        channel.send.assert_awaited_once()
+        self.assertIsInstance(
+            channel.send.await_args.kwargs["view"], HubRolesView,
+        )
+        set_hub.assert_called_once_with(1, 2, 400, 500)
+
+
 class RestoreTests(unittest.TestCase):
     def test_restore_rearms_lobby_and_hub_views(self) -> None:
         cog = build_cog()
         cog.games = {"lob1": build_lobby_game()}
+        cog.hubs = {
+            1: {"channel_id": 10, "message_id": 20, "roles_message_id": 21},
+        }
+
+        cog.restore_saved_views()
+
+        restored = {
+            type(call.args[0] if call.args else call.kwargs.get("view")):
+            call.kwargs.get("message_id")
+            for call in cog.bot.add_view.call_args_list
+        }
+        self.assertIn(LobbyView, restored)
+        self.assertEqual(restored[NewGameHubView], 20)
+        self.assertEqual(restored[HubRolesView], 21)
+
+    def test_a_hub_without_a_roles_message_rearms_the_games_button(self) -> None:
+        cog = build_cog()
         cog.hubs = {1: {"channel_id": 10, "message_id": 20}}
 
         cog.restore_saved_views()
 
         restored = [
-            call.args[0] if call.args else call.kwargs.get("view")
+            type(call.args[0] if call.args else call.kwargs.get("view"))
             for call in cog.bot.add_view.call_args_list
         ]
-        self.assertTrue(any(isinstance(v, LobbyView) for v in restored))
-        self.assertTrue(any(isinstance(v, NewGameHubView) for v in restored))
+        self.assertIn(NewGameHubView, restored)
+        self.assertNotIn(HubRolesView, restored)
 
 
 class LobbyMessageTests(unittest.TestCase):

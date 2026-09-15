@@ -37,13 +37,17 @@ from gamesaves.d12ball.storage import save_games
 from gamesaves.d12ball.hub import get_hub, set_hub
 from cogs.d12ball_helpers import (
     BENCH_DESTINATIONS,
+    HUB_ROLES,
     LOGGER,
     PBD_GAMES_CATEGORY_NAME,
     add_full_image_button,
     add_full_image_button_to_response,
     build_game_channel_name,
     build_hub_message,
+    build_hub_roles_message,
     build_lobby_message,
+    find_guild_role,
+    hub_role_by_key,
     load_d12_emoji,
     load_d12_button_emoji,
     destination_display_name,
@@ -56,7 +60,12 @@ from cogs.d12ball_helpers import (
     space_choices,
     space_label,
 )
-from cogs.d12ball_views import LobbyView, NewGameHubView, TeamSelectionView
+from cogs.d12ball_views import (
+    HubRolesView,
+    LobbyView,
+    NewGameHubView,
+    TeamSelectionView,
+)
 
 from cogs.d12ball.constants import MAX_DEBUG_CLOCK
 
@@ -1072,19 +1081,24 @@ class CommandsMixin:
     @app_commands.command(
         name="setup_hub",
         description=(
-            "Post (or repair) the 'want to play?' message in this "
-            "channel and lock it."
+            "Post (or repair) the 'want to play?' and roles messages in "
+            "this channel and lock it."
         ),
     )
     @app_commands.guild_only()
     async def setup_hub(self, interaction: discord.Interaction) -> None:
         """
         Register the current channel as this server's game-creation
-        hub: lock it so only the bot can post, then send or edit the
-        single message carrying the D12 Ball button.
+        hub: lock it so only the bot can post, then send or edit its two
+        messages -- the games message carrying the D12 Ball button, and
+        the roles message carrying a toggle button per `HUB_ROLES`
+        entry.
 
         Re-runnable -- run it again to move the hub to another channel
-        or to put the message back if it was deleted.
+        or to put either message back if it was deleted. The roles
+        themselves are not created here: the reply names any the server
+        is missing, and the button for one answers with the same until
+        somebody makes it.
         """
         permissions = getattr(interaction.user, "guild_permissions", None)
         if permissions is None or not permissions.manage_channels:
@@ -1132,24 +1146,20 @@ class CommandsMixin:
         hub_message = build_hub_message(self.d12_emoji)
 
         existing = get_hub(guild.id)
-        message = None
-        if existing is not None and existing["channel_id"] == channel.id:
-            try:
-                message = await channel.fetch_message(existing["message_id"])
-            except discord.HTTPException:
-                message = None
+        if existing is None or existing["channel_id"] != channel.id:
+            existing = {}
 
+        # The games message first, then the roles message under it. Each
+        # is edited in place when the recorded one is still there and
+        # sent afresh otherwise, so a deleted roles message comes back
+        # under a games message that is left alone.
         try:
-            if message is not None:
-                await message.edit(
-                    content=hub_message,
-                    view=NewGameHubView(self),
-                )
-            else:
-                message = await channel.send(
-                    hub_message,
-                    view=NewGameHubView(self),
-                )
+            message = await self.post_or_edit_hub_message(
+                channel,
+                existing.get("message_id"),
+                hub_message,
+                NewGameHubView(self),
+            )
         except discord.HTTPException as error:
             await interaction.followup.send(
                 f"I could not post the hub message: {error}",
@@ -1157,17 +1167,122 @@ class CommandsMixin:
             )
             return
 
-        set_hub(guild.id, channel.id, message.id)
-        self.hubs[guild.id] = {
-            "channel_id": channel.id,
-            "message_id": message.id,
-        }
+        try:
+            roles_message = await self.post_or_edit_hub_message(
+                channel,
+                existing.get("roles_message_id"),
+                build_hub_roles_message(),
+                HubRolesView(self),
+            )
+        except discord.HTTPException as error:
+            # The games message landed, so record it: a hub with a live
+            # D12 Ball button and no roles message is the pre-roles hub,
+            # which is better than one nothing is re-armed against.
+            self.hubs[guild.id] = set_hub(guild.id, channel.id, message.id)
+            await interaction.followup.send(
+                f"I could not post the roles message: {error}",
+                ephemeral=True,
+            )
+            return
 
-        await interaction.followup.send(
-            "This channel is now the D12 Ball game-creation hub. It is "
-            "locked, and its message is live.",
-            ephemeral=True,
+        self.hubs[guild.id] = set_hub(
+            guild.id, channel.id, message.id, roles_message.id,
         )
+
+        missing_roles = [
+            hub_role.role_name for hub_role in HUB_ROLES
+            if find_guild_role(guild, hub_role) is None
+        ]
+        report = (
+            "This channel is now the D12 Ball game-creation hub. It is "
+            "locked, and its two messages are live."
+        )
+        if missing_roles:
+            report += (
+                "\n\nThe server has no role named "
+                + ", ".join(f"**{name}**" for name in missing_roles)
+                + " -- that button will say so until somebody creates "
+                "the role. Its name is what I look it up by."
+            )
+        await interaction.followup.send(report, ephemeral=True)
+
+    async def post_or_edit_hub_message(
+        self,
+        channel: discord.TextChannel,
+        message_id: Optional[int],
+        content: str,
+        view: discord.ui.View,
+    ) -> discord.Message:
+        """
+        Edit the hub message `message_id` names into `content` and
+        `view`, or send a fresh one when there is no id or the message
+        it names is gone. Raises `discord.HTTPException` from the send
+        or edit; a failed *fetch* is just "send a new one".
+        """
+        if message_id is not None:
+            try:
+                message = await channel.fetch_message(message_id)
+            except discord.HTTPException:
+                message = None
+            if message is not None:
+                await message.edit(content=content, view=view)
+                return message
+        return await channel.send(content, view=view)
+
+    async def toggle_hub_role(
+        self, interaction: discord.Interaction, key: str,
+    ) -> None:
+        """
+        A click on the roles message: give the member the role the
+        button names, or take it off them if they already have it, and
+        say which ephemerally. Nothing here touches a game or a save.
+        """
+        hub_role = hub_role_by_key(key)
+        if hub_role is None:
+            # A button from a table entry that has since been removed.
+            await interaction.response.send_message(
+                "That role is no longer on offer.", ephemeral=True,
+            )
+            return
+
+        guild = interaction.guild
+        member = interaction.user
+        if guild is None or not isinstance(member, discord.Member):
+            await interaction.response.send_message(
+                "This button only works inside the server.", ephemeral=True,
+            )
+            return
+
+        role = find_guild_role(guild, hub_role)
+        if role is None:
+            await interaction.response.send_message(
+                f"This server has no role named **{hub_role.role_name}** "
+                "yet -- ask an admin to create it.",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            if member.get_role(role.id) is not None:
+                await member.remove_roles(
+                    role, reason="Removed via the D12 Ball hub.",
+                )
+                reply = f"Took **{role.name}** off you."
+            else:
+                await member.add_roles(
+                    role, reason="Added via the D12 Ball hub.",
+                )
+                reply = f"You now have **{role.name}**."
+        except discord.Forbidden:
+            # Manage Roles missing, or the role sits above the bot's own.
+            reply = (
+                f"I'm not allowed to give out **{role.name}**. It needs "
+                "to sit below my own role, and I need Manage Roles."
+            )
+        except discord.HTTPException as error:
+            reply = f"Discord refused to change your roles: {error}"
+
+        await interaction.response.send_message(reply, ephemeral=True)
 
     async def open_lobby(self, interaction: discord.Interaction) -> None:
         """

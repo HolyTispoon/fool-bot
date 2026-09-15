@@ -6,6 +6,7 @@ the misc board/interaction helpers that don't need cog state.
 
 import logging
 import re
+from dataclasses import dataclass
 from typing import Optional
 
 import aiohttp
@@ -832,6 +833,87 @@ def build_hub_message(d12_emoji: Optional[str] = None) -> str:
         "manipulating the ball and outwitting the other team on their way "
         "to score epic goals."
     )
+
+
+@dataclass(frozen=True)
+class HubRole:
+    """
+    One role the hub's roles message offers a button for. `key` is what
+    the button's custom_id carries (`d12ball:hub:role:<key>`), so it is
+    the one field that must never change once a message is posted;
+    `role_name` is how the role is found on the server (by name,
+    case-insensitively -- the bot creates nothing); `label` is the
+    button, and `description` is the line under the role in the message.
+    """
+
+    key: str
+    role_name: str
+    label: str
+    description: str
+
+
+# The roles the hub offers, in the order their buttons appear. Adding a
+# role is one entry here: the view builds a button per entry, the
+# message lists one line per entry, and `toggle_hub_role` looks the
+# click up by key. The role itself has to exist on the server --
+# `/d12ball setup_hub` says which it could not find.
+HUB_ROLES: tuple[HubRole, ...] = (
+    HubRole(
+        key="playtester",
+        role_name="D12ball playtester",
+        label="D12ball playtester",
+        description=(
+            "Get pinged when a D12 Ball playtest is being organised, and "
+            "for news about the game."
+        ),
+    ),
+)
+
+HUB_ROLE_CUSTOM_ID_PREFIX = "d12ball:hub:role:"
+
+
+def hub_role_by_key(key: str) -> Optional[HubRole]:
+    """The `HUB_ROLES` entry a button's key names, or None."""
+    return next((role for role in HUB_ROLES if role.key == key), None)
+
+
+def find_guild_role(
+    guild: discord.Guild, hub_role: HubRole,
+) -> Optional[discord.Role]:
+    """
+    The server's role for a `HubRole`, matched on name with case and
+    surrounding whitespace ignored -- a role is typed by hand in the
+    server settings, and "d12ball Playtester" is the same role.
+    """
+    wanted = hub_role.role_name.strip().casefold()
+    return next(
+        (
+            role for role in guild.roles
+            if role.name.strip().casefold() == wanted
+        ),
+        None,
+    )
+
+
+def build_hub_roles_message(
+    hub_roles: tuple[HubRole, ...] = HUB_ROLES,
+) -> str:
+    """
+    The hub channel's second message, carrying a `HubRolesView`: what
+    the buttons do, then one line per role. Kept apart from
+    `build_hub_message` so the games message can change without the
+    roles message being re-edited, and the other way round.
+    """
+    lines = [
+        "### Roles",
+        "",
+        "Press a button to give yourself that role, and press it again "
+        "to take it off.",
+        "",
+    ]
+    for hub_role in hub_roles:
+        lines.append(f"- **{hub_role.role_name}** -- {hub_role.description}")
+    return "\n".join(lines)
 
 
 def build_lobby_message(

@@ -1,8 +1,10 @@
 """
 The game-creation hub and the pre-game lobby.
 
-`NewGameHubView` is the one button on the locked hub channel's single
-message; clicking it asks the cog to open a lobby. `LobbyView` is the
+`NewGameHubView` is the one button on the locked hub channel's games
+message; clicking it asks the cog to open a lobby. `HubRolesView` is
+the toggle button per role on the hub's second message, built off
+`HUB_ROLES`. `LobbyView` is the
 lobby channel's message -- Join / Observe / Leave / Start Game, the Test
 game and Tutorial toggles, a Name button (opening `LobbyNameModal`), and
 the mode (with its two module toggles), board-size and opponent
@@ -23,6 +25,8 @@ from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     ADVANCED_MODULES,
     AI_OPPONENT_NAMES,
+    HUB_ROLE_CUSTOM_ID_PREFIX,
+    HUB_ROLES,
     advanced_module_label,
     build_lobby_message,
     toggle_advanced_module,
@@ -36,10 +40,11 @@ if TYPE_CHECKING:
 
 class NewGameHubView(SafeView):
     """
-    The persistent view on the hub channel's message. One button today
-    -- "D12 Ball" -- with room for more (a role picker is a planned
-    follow-up), so its custom_id names no game and no guild: the
-    interaction carries the guild, and a lobby does not exist yet.
+    The persistent view on the hub channel's games message. One button
+    today -- "D12 Ball" -- with room for more games, so its custom_id
+    names no game and no guild: the interaction carries the guild, and
+    a lobby does not exist yet. The roles live on a message of their own
+    (`HubRolesView`), so a game added here never reflows the roles.
     """
 
     def __init__(self, cog: "D12Ball"):
@@ -67,6 +72,34 @@ class NewGameHubView(SafeView):
 
     async def open_lobby(self, interaction: discord.Interaction) -> None:
         await self.cog.open_lobby(interaction)
+
+
+class HubRolesView(SafeView):
+    """
+    The persistent view on the hub channel's roles message: one toggle
+    button per `HUB_ROLES` entry, each carrying its role's key in the
+    custom_id and nothing else -- the interaction carries the guild and
+    the member, which is everything `toggle_hub_role` needs. Built off
+    the table rather than by hand so a role added there gets its button
+    without this class changing.
+    """
+
+    def __init__(self, cog: "D12Ball"):
+        super().__init__(timeout=None)
+        self.cog = cog
+        for hub_role in HUB_ROLES:
+            button = discord.ui.Button(
+                label=hub_role.label,
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"{HUB_ROLE_CUSTOM_ID_PREFIX}{hub_role.key}",
+            )
+            button.callback = self.make_toggle(hub_role.key)
+            self.add_item(button)
+
+    def make_toggle(self, key: str):
+        async def toggle(interaction: discord.Interaction) -> None:
+            await self.cog.toggle_hub_role(interaction, key)
+        return toggle
 
 
 class LobbyNameModal(discord.ui.Modal, title="Name this game"):

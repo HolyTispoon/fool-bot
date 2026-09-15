@@ -2,12 +2,15 @@
 Where each server's D12 Ball game-creation hub lives, in
 `data/d12ball_hubs.json`.
 
-The hub is one locked channel carrying a single persistent message with
-a "D12 Ball" button (see "The game-creation hub and the lobby" in
-CLAUDE.md). `/d12ball setup_hub` registers it; this file is the only
-thing that survives a restart, so the button can be re-armed against the
-right message. The map is `{guild_id: {"channel_id": int,
-"message_id": int}}`.
+The hub is one locked channel carrying two persistent messages: the
+games message with its "D12 Ball" button, and the roles message with a
+toggle button per role (see "The game-creation hub and the lobby" in
+CLAUDE.md). `/d12ball setup_hub` registers both; this file is the only
+thing that survives a restart, so the buttons can be re-armed against
+the right messages. The map is `{guild_id: {"channel_id": int,
+"message_id": int, "roles_message_id": int}}`, with `roles_message_id`
+absent from an entry written before the roles message existed -- such
+a hub re-arms its games button alone until `setup_hub` is run again.
 
 Untracked runtime state, beside `data/d12ball_games.json` and for the
 same reason: the message lives in Discord, this is only a local pointer
@@ -32,9 +35,11 @@ HUBS_FILE = DATA_FOLDER / "d12ball_hubs.json"
 
 def load_hubs() -> dict[int, dict[str, int]]:
     """
-    `{guild_id: {"channel_id": ..., "message_id": ...}}` for every hub
-    registered on this machine, or `{}` when there is nothing usable to
-    read. Guild ids come back as ints (JSON object keys are strings).
+    `{guild_id: {"channel_id": ..., "message_id": ...,
+    "roles_message_id": ...}}` for every hub registered on this machine,
+    or `{}` when there is nothing usable to read. Guild ids come back as
+    ints (JSON object keys are strings). `roles_message_id` is carried
+    only when the entry has one that is an int.
     """
     try:
         with HUBS_FILE.open("r", encoding="utf-8") as file:
@@ -59,10 +64,13 @@ def load_hubs() -> dict[int, dict[str, int]]:
             and isinstance(entry.get("channel_id"), int)
             and isinstance(entry.get("message_id"), int)
         ):
-            hubs[key] = {
+            hub = {
                 "channel_id": entry["channel_id"],
                 "message_id": entry["message_id"],
             }
+            if isinstance(entry.get("roles_message_id"), int):
+                hub["roles_message_id"] = entry["roles_message_id"]
+            hubs[key] = hub
     return hubs
 
 
@@ -88,11 +96,23 @@ def save_hubs(hubs: dict[int, dict[str, int]]) -> None:
         LOGGER.error("Could not save D12 Ball hubs: %s", error)
 
 
-def set_hub(guild_id: int, channel_id: int, message_id: int) -> None:
-    """Register (or move) a guild's hub and write the map back."""
+def set_hub(
+    guild_id: int,
+    channel_id: int,
+    message_id: int,
+    roles_message_id: Optional[int] = None,
+) -> dict[str, int]:
+    """
+    Register (or move) a guild's hub, write the map back, and return
+    the entry as written -- the same dict the cog keeps in `self.hubs`.
+    """
     hubs = load_hubs()
-    hubs[guild_id] = {"channel_id": channel_id, "message_id": message_id}
+    entry = {"channel_id": channel_id, "message_id": message_id}
+    if roles_message_id is not None:
+        entry["roles_message_id"] = roles_message_id
+    hubs[guild_id] = entry
     save_hubs(hubs)
+    return entry
 
 
 def get_hub(guild_id: int) -> Optional[dict[str, int]]:
