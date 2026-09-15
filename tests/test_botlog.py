@@ -3,16 +3,18 @@ import json
 import logging
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
 
+import aiohttp
 import discord
 
 import botlog
-from botlog import deploy_notice
+from botlog import deploy_notice, gateway
 from botlog.channel import (
     ensure_log_channel,
     log_channel_gaps,
@@ -1154,6 +1156,368 @@ class StartupWiringTests(unittest.TestCase):
                 asyncio.run(botlog.start_mirror(FakeClient(), handler))
 
         self.assertFalse(handler.started)
+
+
+def reconnect_record(
+    delay: float = 14.13,
+    name: str = "discord.client",
+) -> logging.LogRecord:
+    """
+    The record discord.py logs when a connection has dropped, built the
+    way client.py builds it -- the raw format string, the delay as an
+    argument, and the failure attached.
+
+    The 503 is the one this was written for: a handshake refused by a
+    gateway node, which discord.py retried its way out of without
+    anybody doing anything.
+    """
+    try:
+        raise aiohttp.WSServerHandshakeError(
+            request_info=None,
+            history=(),
+            status=503,
+            message="Invalid response status",
+        )
+    except aiohttp.WSServerHandshakeError:
+        exc_info = sys.exc_info()
+
+    return logging.LogRecord(
+        name=name,
+        level=logging.ERROR,
+        pathname="discord/client.py",
+        lineno=781,
+        msg="Attempting a reconnect in %.2fs",
+        args=(delay,),
+        exc_info=exc_info,
+    )
+
+
+class GatewayReconnectRecognitionTests(unittest.TestCase):
+    def test_the_503_that_started_this_is_recognised(self) -> None:
+        self.assertTrue(gateway.is_gateway_reconnect(reconnect_record()))
+
+    def test_a_shard_reconnect_is_the_same_record(self) -> None:
+        record = logging.LogRecord(
+            name="discord.shard",
+            level=logging.ERROR,
+            pathname="discord/shard.py",
+            lineno=166,
+            msg="Attempting a reconnect for shard ID %s in %.2fs",
+            args=(0, 4.0),
+            exc_info=None,
+        )
+
+        self.assertTrue(gateway.is_gateway_reconnect(record))
+
+    def test_the_bots_own_errors_are_not_touched(self) -> None:
+        record = logging.LogRecord(
+            name="cogs.d12ball.core",
+            level=logging.ERROR,
+            pathname="cogs/d12ball/core.py",
+            lineno=1,
+            msg="Could not move the game channel.",
+            args=(),
+            exc_info=None,
+        )
+
+        self.assertFalse(gateway.is_gateway_reconnect(record))
+
+    def test_another_librarys_reconnect_is_not_ours_to_judge(self) -> None:
+        record = logging.LogRecord(
+            name="aiohttp.client",
+            level=logging.ERROR,
+            pathname="x",
+            lineno=1,
+            msg="Attempting a reconnect in %.2fs",
+            args=(1.0,),
+            exc_info=None,
+        )
+
+        self.assertFalse(gateway.is_gateway_reconnect(record))
+
+    def test_a_message_that_is_not_a_string_is_not_read(self) -> None:
+        # logging allows any object with a __str__ as the message, and
+        # a filter that assumed a string would raise inside handle().
+        record = logging.LogRecord(
+            name="discord.client",
+            level=logging.ERROR,
+            pathname="x",
+            lineno=1,
+            msg=object(),
+            args=(),
+            exc_info=None,
+        )
+
+        self.assertFalse(gateway.is_gateway_reconnect(record))
+
+
+class GatewayReconnectFilterTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.now = 1_000.0
+        self.filter = gateway.GatewayReconnectFilter(
+            clock=lambda: self.now,
+        )
+
+    def reconnect(self) -> bool:
+        return self.filter.filter(reconnect_record())
+
+    def test_an_ordinary_record_passes_straight_through(self) -> None:
+        record = logging.LogRecord(
+            name="cogs.debug",
+            level=logging.ERROR,
+            pathname="x",
+            lineno=1,
+            msg="boom",
+            args=(),
+            exc_info=None,
+        )
+
+        self.assertTrue(self.filter.filter(record))
+
+    def test_a_blip_never_reaches_the_channel(self) -> None:
+        # The case from the log that prompted all this: a handful of
+        # retries over half a minute, and then the bot was back.
+        for offset in (0, 1, 3, 7, 15, 31):
+            self.now = 1_000.0 + offset
+            self.assertFalse(self.reconnect())
+
+    def test_an_outage_is_escalated_once_it_is_one(self) -> None:
+        self.assertFalse(self.reconnect())
+
+        self.now += gateway.ESCALATE_AFTER_SECONDS
+
+        self.assertTrue(self.reconnect())
+
+    def test_the_escalated_record_says_what_it_is(self) -> None:
+        self.reconnect()
+        self.now += gateway.ESCALATE_AFTER_SECONDS
+        record = reconnect_record()
+
+        self.assertTrue(self.filter.filter(record))
+
+        note = getattr(record, gateway.OUTAGE_NOTE_ATTRIBUTE)
+
+        self.assertIn("5 minutes", note)
+        self.assertIn("2 attempts", note)
+
+    def test_an_outage_says_so_once_and_then_goes_quiet(self) -> None:
+        self.reconnect()
+        self.now += gateway.ESCALATE_AFTER_SECONDS
+        self.reconnect()
+
+        self.now += gateway.ESCALATION_INTERVAL_SECONDS / 2
+
+        self.assertFalse(self.reconnect())
+
+    def test_an_outage_nobody_has_fixed_says_so_again(self) -> None:
+        self.reconnect()
+        self.now += gateway.ESCALATE_AFTER_SECONDS
+        self.reconnect()
+
+        self.now += gateway.ESCALATION_INTERVAL_SECONDS
+
+        self.assertTrue(self.reconnect())
+
+    def test_a_quiet_spell_starts_a_fresh_run(self) -> None:
+        # Nothing is obliged to call note_recovery, so a run has to be
+        # able to end on its own: two blips a month apart must not read
+        # as a month-long outage.
+        self.assertFalse(self.reconnect())
+
+        self.now += gateway.RUN_RESET_AFTER_SECONDS
+
+        self.assertFalse(self.reconnect())
+
+    def test_nothing_is_announced_for_a_recovery_nobody_heard_about(
+        self,
+    ) -> None:
+        self.reconnect()
+        self.now += 30
+
+        self.assertIsNone(self.filter.note_recovery())
+
+    def test_an_announced_outage_is_told_it_ended(self) -> None:
+        self.reconnect()
+        self.now += gateway.ESCALATE_AFTER_SECONDS
+        self.reconnect()
+        self.now += 60
+
+        recovery = self.filter.note_recovery()
+
+        self.assertIsNotNone(recovery)
+        self.assertIn("6 minutes", recovery)
+        self.assertIn("2 attempts", recovery)
+
+    def test_a_recovery_clears_the_run(self) -> None:
+        self.reconnect()
+        self.now += gateway.ESCALATE_AFTER_SECONDS
+        self.reconnect()
+        self.filter.note_recovery()
+
+        self.assertIsNone(self.filter.note_recovery())
+        # And the next blip is a blip again, not the tail of the last
+        # outage.
+        self.assertFalse(self.reconnect())
+
+    def test_a_recovery_before_anything_dropped_is_silent(self) -> None:
+        self.assertIsNone(self.filter.note_recovery())
+
+
+class GatewayOutageNoteTests(unittest.TestCase):
+    def test_the_note_reaches_the_channel_and_not_the_console(
+        self,
+    ) -> None:
+        # The console handler and the sink share one record, so the note
+        # rides on an attribute rather than on the message. discord.py's
+        # own formatter reads the message and nothing else.
+        record = reconnect_record()
+        setattr(record, gateway.OUTAGE_NOTE_ATTRIBUTE, "OUTAGE")
+
+        mirrored = DiscordLogChannelHandler().format(record)
+        console = logging.Formatter("%(message)s").format(record)
+
+        self.assertTrue(mirrored.startswith("OUTAGE\n"))
+        self.assertIn("Attempting a reconnect in 14.13s", mirrored)
+        self.assertNotIn("OUTAGE", console)
+
+    def test_a_record_with_no_note_is_formatted_as_before(self) -> None:
+        record = logging.LogRecord(
+            name="cogs.debug",
+            level=logging.ERROR,
+            pathname="x",
+            lineno=1,
+            msg="boom",
+            args=(),
+            exc_info=None,
+        )
+
+        self.assertTrue(
+            DiscordLogChannelHandler().format(record).endswith("boom"),
+        )
+
+
+class GatewayWiringTests(unittest.TestCase):
+    def test_the_filter_is_on_the_sink_and_nowhere_else(self) -> None:
+        # On the root logger it would take the record off the console
+        # too, which is the one place a dropped connection is worth
+        # reading about.
+        root = logging.getLogger()
+        saved_level = root.level
+        saved_filters = list(root.filters)
+        saved_filter = botlog._gateway_filter
+        root.setLevel(logging.CRITICAL)
+        self.addCleanup(root.setLevel, saved_level)
+        self.addCleanup(setattr, botlog, "_gateway_filter", saved_filter)
+
+        with environment(
+            FOOLBOT_LOG_MIRROR="on", FOOLBOT_LOG_CHANNEL_LEVEL="ERROR",
+        ):
+            handler = botlog.install_mirror()
+
+        self.addCleanup(root.removeHandler, handler)
+
+        self.assertEqual(root.filters, saved_filters)
+        self.assertTrue(
+            any(
+                isinstance(entry, gateway.GatewayReconnectFilter)
+                for entry in handler.filters
+            ),
+        )
+
+    def test_the_sink_drops_a_routine_reconnect(self) -> None:
+        # End to end through logging.Handler.handle, which is what
+        # actually consults a handler's filters.
+        handler = DiscordLogChannelHandler()
+        handler.addFilter(gateway.GatewayReconnectFilter())
+
+        with mock.patch.object(handler, "emit") as emit:
+            handler.handle(reconnect_record())
+
+        emit.assert_not_called()
+
+    def install(self, outage: bool) -> FakeTextChannel:
+        """
+        The package as install_mirror leaves it, with a run of
+        reconnects behind it -- escalated or not -- and a channel the
+        recovery notice can reach.
+        """
+        saved = botlog._gateway_filter
+        self.addCleanup(setattr, botlog, "_gateway_filter", saved)
+
+        now = [1_000.0]
+        reconnects = gateway.GatewayReconnectFilter(clock=lambda: now[0])
+        reconnects.filter(reconnect_record())
+
+        if outage:
+            now[0] += gateway.ESCALATE_AFTER_SECONDS
+            reconnects.filter(reconnect_record())
+
+        botlog._gateway_filter = reconnects
+        channel = FakeTextChannel()
+        FakeGuild([channel])
+
+        return channel
+
+    def announce(self, channel: FakeTextChannel, **env) -> None:
+        client = FakeClient([channel.guild], {channel.id: channel})
+
+        with environment(**env):
+            with mock.patch.object(discord, "TextChannel", FakeTextChannel):
+                asyncio.run(botlog.announce_gateway_recovery(client))
+
+    def test_no_recovery_notice_without_the_opt_in(self) -> None:
+        channel = self.install(outage=True)
+
+        self.announce(channel, FOOLBOT_LOG_CHANNEL_ID=str(channel.id))
+
+        self.assertEqual(channel.sent, [])
+
+    def test_an_announced_outage_is_followed_up_in_the_channel(
+        self,
+    ) -> None:
+        channel = self.install(outage=True)
+
+        self.announce(
+            channel,
+            FOOLBOT_LOG_MIRROR="on",
+            FOOLBOT_LOG_CHANNEL_ID=str(channel.id),
+        )
+
+        self.assertEqual(len(channel.sent), 1)
+        self.assertIn("Back on Discord's gateway", channel.sent[0])
+
+    def test_an_ordinary_reconnect_says_nothing_in_the_channel(
+        self,
+    ) -> None:
+        channel = self.install(outage=False)
+
+        self.announce(
+            channel,
+            FOOLBOT_LOG_MIRROR="on",
+            FOOLBOT_LOG_CHANNEL_ID=str(channel.id),
+        )
+
+        self.assertEqual(channel.sent, [])
+
+    def test_a_bot_that_is_not_posting_holds_no_filter(self) -> None:
+        # install_mirror stops before it builds one, the same way it
+        # attaches no sink -- see test_no_sink_is_attached_without_the
+        # _opt_in above.
+        saved = botlog._gateway_filter
+        self.addCleanup(setattr, botlog, "_gateway_filter", saved)
+        botlog._gateway_filter = None
+
+        with environment(FOOLBOT_LOG_CHANNEL_LEVEL="ERROR"):
+            self.assertIsNone(botlog.install_mirror())
+
+        self.assertIsNone(botlog._gateway_filter)
+
+    def test_a_bot_with_no_mirror_has_nothing_to_follow_up(self) -> None:
+        saved = botlog._gateway_filter
+        self.addCleanup(setattr, botlog, "_gateway_filter", saved)
+        botlog._gateway_filter = None
+
+        asyncio.run(botlog.announce_gateway_recovery(FakeClient()))
 
 
 if __name__ == "__main__":

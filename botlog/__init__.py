@@ -7,20 +7,25 @@ Discord could only be diagnosed by whoever was sitting at the host. This
 package puts errors where the people using the bot already are: a #logs
 channel in the server.
 
-Three pieces, one per module:
+Four pieces, one per module:
 
 - handler.py resolves nothing and decides nothing; it is the sink that
   gets a formatted record onto a channel without blocking whoever
   logged it.
 - channel.py answers which channel that is, and refuses to bind one the
   bot cannot post in.
+- gateway.py answers which records are worth a person's attention at
+  all, which today is one question: whether discord.py reconnecting is
+  weather or an outage.
 - deploy_notice.py is the other thing worth posting: which build is
   running, once per build.
 
-The four functions below are the seam foolbot.py calls, in this order:
+The five functions below are the seam foolbot.py calls, in this order:
 configure_logging() at import, install_mirror() right after, then
-start_mirror() and announce_startup() from on_ready, which is the first
-point at which the client knows what servers it is in.
+start_mirror(), announce_gateway_recovery() and announce_startup() from
+on_ready, which is the first point at which the client knows what
+servers it is in. announce_gateway_recovery() is also called from
+on_resumed, which is how most reconnects come back.
 
 Everything is driven by environment variables, all optional, all read
 from .env like DISCORD_TOKEN:
@@ -46,7 +51,7 @@ from typing import Optional
 
 import discord
 
-from botlog import deploy_notice
+from botlog import deploy_notice, gateway
 from botlog.channel import (
     DEFAULT_LOG_CHANNEL_NAME,
     ensure_log_channel,
@@ -55,18 +60,22 @@ from botlog.channel import (
     log_target_guild,
     mirror_enabled,
 )
+from botlog.gateway import GatewayReconnectFilter
 from botlog.handler import DiscordLogChannelHandler, chunk_log_message
 
 
 __all__ = [
     "DEFAULT_LOG_CHANNEL_NAME",
     "DiscordLogChannelHandler",
+    "GatewayReconnectFilter",
+    "announce_gateway_recovery",
     "announce_startup",
     "chunk_log_message",
     "configure_logging",
     "console_level",
     "deploy_notice",
     "ensure_log_channel",
+    "gateway",
     "install_mirror",
     "log_channel_level",
     "log_channel_name",
@@ -87,6 +96,10 @@ NOTICE_LENGTH_LIMIT = 2000
 LOGGER = logging.getLogger(__name__)
 
 _console_handler: Optional[logging.Handler] = None
+# The mirror's gateway filter, kept here for the same reason the
+# console handler is: announce_gateway_recovery needs it back, and
+# foolbot.py holds the handler rather than the pieces bolted to it.
+_gateway_filter: Optional[GatewayReconnectFilter] = None
 
 
 def console_level() -> int:
@@ -147,6 +160,8 @@ def install_mirror() -> Optional[DiscordLogChannelHandler]:
     a sink at all, and so from lowering the root level below the
     console's for records nothing will read.
     """
+    global _gateway_filter
+
     if not mirror_enabled():
         # Console-only is the default, so say why: the alternative is a
         # developer reading the silence as the mirror being broken.
@@ -163,6 +178,12 @@ def install_mirror() -> Optional[DiscordLogChannelHandler]:
         return None
 
     handler = DiscordLogChannelHandler(level=level)
+    # On the sink, not on the root logger: the console is where a
+    # dropped connection is worth reading about, and the point of the
+    # filter is that those records go there and stop there. See
+    # botlog/gateway.py.
+    _gateway_filter = GatewayReconnectFilter()
+    handler.addFilter(_gateway_filter)
     root = logging.getLogger()
     root.addHandler(handler)
 
@@ -253,6 +274,35 @@ async def post_notice(client: discord.Client, message: str) -> bool:
     except Exception:
         LOGGER.exception("Could not post a notice to the log channel.")
         return False
+
+
+async def announce_gateway_recovery(client: discord.Client) -> None:
+    """
+    Say that the bot is back on the gateway, if its absence was ever
+    announced. Call from on_ready and on_resumed -- the two events that
+    fire when a connection is re-established, one per way of doing it.
+
+    Almost always a no-op, and deliberately so: a reconnect nobody was
+    told about needs no follow-up, and the filter answers None for one.
+    What it is for is the outage that *was* escalated, which is a
+    message in #logs describing a state somebody may be acting on --
+    leaving that standing after it has cleared is the one thing worse
+    than never having posted it.
+
+    Goes out as a notice rather than a log record, for the reason
+    post_notice exists: this is not an error, and an ERROR in that
+    channel means somebody has to fix something.
+    """
+    if _gateway_filter is None:
+        return
+
+    recovery = _gateway_filter.note_recovery()
+
+    if recovery is None:
+        return
+
+    LOGGER.info("%s", recovery)
+    await post_notice(client, recovery)
 
 
 async def announce_startup(client: discord.Client) -> None:
