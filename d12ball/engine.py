@@ -82,7 +82,7 @@ from d12ball.formatting import (
     format_player_with_team,
     format_team_side_label,
     space_label,
-    travel_space_label,
+    travel_space_phrase,
 )
 from d12ball.game import (
     AIOpponent,
@@ -2404,21 +2404,37 @@ class RulesEngine:
         side: TeamSide,
         player_id: str,
     ) -> str:
-        """The spaces `player_id` may run back to in their own zone,
-        with what each costs -- so the coach sees every option up
-        front, alongside the buttons that offer the same choice and
-        carry the same labels."""
+        """
+        The spaces `player_id` may run back to in their own zone, and
+        how far off each one is -- the question the buttons underneath
+        ask, said once as a sentence.
+
+        It reads as the offer it is ("M2 (1 space away) or M3 (2 spaces
+        away)") rather than as a list with a rule under it. The
+        "Options:" heading labelled something already sitting in front
+        of the coach, and the token-a-space clause restated a price the
+        distances are already quoting: every one of these buttons
+        charges a token a space, so a coach comparing 1 against 2 is
+        comparing the cost whether or not the sentence says so.
+        """
         zone = match.setup_for_side(side).assigned_zone(player_id)
         spaces = match.placement_spaces_in_zone(side, zone, player_id)
         if not spaces:
             return "No space in their zone."
-        options = ", ".join(
-            travel_space_label(
+        options = [
+            travel_space_phrase(
                 zone, index, match.run_back_distance(player_id, zone, index),
             )
             for index in spaces
-        )
-        return f"Options: {options} — one exhaustion token per space."
+        ]
+        # "A or B", "A, B or C" -- the last one joined with the word
+        # that says these are alternatives, since exactly one of them
+        # is going to be pressed.
+        if len(options) == 1:
+            offer = options[0]
+        else:
+            offer = f"{', '.join(options[:-1])} or {options[-1]}"
+        return f"{offer}."
 
     def shootout_mentions(
         self,

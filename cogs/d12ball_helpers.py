@@ -36,6 +36,7 @@ from d12ball.formatting import (
     format_team_side_label,
     space_label,
     travel_space_label,
+    travel_space_phrase,
 )
 from d12ball.game import (
     AIOpponent,
@@ -365,8 +366,8 @@ def format_role_bracket(
 
 
 # destination_display_name, format_team_side_label, space_label,
-# travel_space_label and ball_space_label are imported above, from
-# d12ball.formatting.
+# travel_space_label, travel_space_phrase and ball_space_label are
+# imported above, from d12ball.formatting.
 
 
 def ball_location_line(match: MatchState) -> str:
