@@ -40,18 +40,14 @@ if TYPE_CHECKING:
 
 def hub_button_emoji(cog: "D12Ball"):
     """
-    The d12 for a hub button: the lighter `d12dicecream` cut -- a
-    button's coloured fill swallowed the plain `d12dice` -- falling back
-    to `d12dice` and then to nothing when neither is uploaded. Loaded in
-    `cog_load`, refreshed by `/d12ball setup_hub`. The rendered message
-    keeps whatever emoji it was last posted/edited with, so a restart
-    before `cog_load` does not blank it.
+    The d12 for a hub button: the lighter `d12dicecream` cut, or nothing
+    -- never the plain `d12dice`, which a button's coloured fill
+    swallows (see `load_d12_button_emoji`). Loaded in `cog_load`,
+    refreshed by `/d12ball setup_hub`. The rendered message keeps
+    whatever emoji it was last posted/edited with, so a restart before
+    `cog_load` does not blank it.
     """
-    return (
-        getattr(cog, "d12_button_emoji", None)
-        or getattr(cog, "d12_emoji", None)
-        or None
-    )
+    return getattr(cog, "d12_button_emoji", None) or None
 
 
 class NewGameHubView(SafeView):
