@@ -271,7 +271,7 @@ class SkillTestView(SafeView):
             )
             return
 
-        if not self.is_game_participant(game, interaction.user.id):
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the skill test.",
                 ephemeral=True,
@@ -489,7 +489,7 @@ class InjuryTestView(SafeView):
             )
             return
 
-        if not self.is_game_participant(game, interaction.user.id):
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the injury test.",
                 ephemeral=True,
@@ -553,7 +553,7 @@ class OwnGoalRollView(SafeView):
             )
             return
 
-        if not self.is_game_participant(game, interaction.user.id):
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll for the own goal.",
                 ephemeral=True,
@@ -850,7 +850,7 @@ class ScoreAttemptView(SafeView):
             )
             return
 
-        if not self.is_game_participant(game, interaction.user.id):
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the score attempt.",
                 ephemeral=True,
@@ -972,9 +972,7 @@ class ScoreAttemptView(SafeView):
             )
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player who chose to shoot can change their "
                 "mind.",

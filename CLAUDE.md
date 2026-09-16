@@ -2344,7 +2344,13 @@ A save written before them defaults them; nothing migrates.
   `tutorial and tutorial_step is not None`. Clearing the step is the
   whole of turning the rails off, which is all `/d12ball skip_tutorial`
   does; `tutorial` stays True so the record and the channel name still
-  say what the game was created as.
+  say what the game was created as. The command is open to the coach
+  being taught **or a game helper**: it was the coach alone, on the
+  reasoning that a tutorial is one human against Dinky and nobody
+  else's business, which is right about who it matters to and wrong
+  about who is standing next to them -- whoever turned the tutorial on
+  in the lobby is the one they will ask to turn it off. See
+  [Who may act on a game](#who-may-act-on-a-game).
 - **`stage_tutorial_beat` gates the top of `send_turn_prompt`**, which
   is called once a turn -- so the advance is what counts the beats. It
   **moves nothing**; it posts the lesson (or `HANDOVER`, once the
@@ -4240,9 +4246,11 @@ and reused by the rematch button), or the two sides otherwise —
   are not playing again saying so. That button is why the sweep is no longer
   the only way a finished game reaches the archive without someone abandoning
   a game that had already ended. Its gate is `may_administer_game` -- either
-  player, or anyone with `manage_channels` -- deliberately wider than the
-  rematch's players-only gate, since filing a channel away commits nobody to
-  playing anything.
+  player, or a game helper. The Rematch button beside it now shares that gate
+  rather than being players-only: it used to be narrower on the grounds that
+  a rematch opens a game two people have to play, and getting two people back
+  into a game is exactly what a helper is for. See
+  [Who may act on a game](#who-may-act-on-a-game).
   - **A view rebuilt straight after a move must be *told* it was archived.**
     `RematchView` takes an `archived` override for exactly this:
     discord.py's `TextChannel.edit` returns a **new** channel object and
@@ -4557,9 +4565,17 @@ does bar naming specific opponents up front). Two pieces:
     `d12ball/tutorial.py`'s script is written for -- greying the mode and board
     rows; `tutorial_step` stays None and the kickoff arms it, exactly as the
     `create_game` path does.
-  - **Name** sets `game.game_name` through a modal (players only). It decides
+  - **Name** sets `game.game_name` through a modal (players, or a game
+    helper -- as with every other setting on this message). It decides
     only the channel name at Start -- `game_name` beats the test/tutorial/
     players-derived name.
+  - **Every setting on the lobby message, Start Game included, is open to a
+    game helper as well as to the two players**, which is the case the gate
+    was built for: somebody walking a new player through their first game
+    turns Tutorial on in a lobby they are not playing in. Join, Observe and
+    Leave are deliberately not widened -- those are about the clicker
+    themselves, and a helper joining would make them a player. See
+    [Who may act on a game](#who-may-act-on-a-game).
   - **Start Game** (`lobby_start`, any player) finalises the record, does the
     **one-time best-effort** `channel.edit` (rename + lockdown -- the deliberate
     exception to "Archiving ... never renames it" under "Game channels"), then
@@ -4575,14 +4591,89 @@ does bar naming specific opponents up front). Two pieces:
   the team picker. `LobbyNameModal` is opened fresh per click and needs no
   persistence.
 
+## Who may act on a game
+
+**The coach a button belongs to, or a game helper** -- and a game helper is
+anyone the server trusts with `manage_channels`. That is the whole rule, and
+it is answered in one place: `is_game_helper`, `may_act_for_coach` and
+`may_act_in_game` in `cogs/d12ball_helpers.py`, with `SafeView.may_act_in_game`
+/ `may_act_for` / `may_act_for_possession` / `may_act_for_defense` as the
+interaction-shaped front door every view uses.
+
+It exists because somebody organising playtests is not playing in the games
+they are helping people into: a lobby's Tutorial toggle refused them for not
+being a player, while `/d12ball abandon_game` -- gated on `manage_channels`
+since long before -- would happily let the same person end the game outright.
+Two readings of "may this person touch this game" is how that happens, so
+there is now one.
+
+- **`manage_channels`, and no second kind of helper.** It is the permission
+  `/d12ball resume`, `/d12ball abandon_game`, the full-time Archive button
+  and `/debug reset_channels` were already gated on, so nothing new has to be
+  set up on a server and nobody gains anything they could not already reach
+  the long way round. A role of its own was the alternative and would have to
+  be created per server and found by name -- and self-assignable from the hub
+  it would be no gate at all.
+- **`may_administer_game` is that predicate under its old name**, kept
+  because that is what the recovery commands read as. **Don't re-inline the
+  permission check into it**: it was the first gate to let somebody act on a
+  game they are not in, and the whole point is that it is no longer the only
+  one.
+- **`is_game_participant` is a fact about the game, not the authorization
+  check.** It still answers "is this one of the two coaches", which is what
+  `game_participant_ids` is for and what a display or a mention wants. A
+  helper is not a participant and may still press the button, so a *gate*
+  that asks it is a gate that has stopped being the rule.
+- **A helper holds no side, which is the only thing that needed deciding
+  anywhere.** Almost every gate names the coach it belongs to
+  (`side_controller_id`, `controlling_user_id`, `possession_user_id`,
+  `defending_user_id`) and `may_act_for` simply widens it, so a helper acts
+  for either side and the flow is untouched. Three places had to answer
+  *which* side instead, because they read it off the clicker:
+  - **The team picker.** A normal game's two sides share one row, so
+    `select_team` fills the side that has not chosen yet, Player 1 first --
+    the same order `picking_player_number` puts a test game's sequential
+    screens in. The `else` branch would otherwise have given every helper's
+    pick to Player 2, silently.
+  - **The coin flip.** The coin is read from the flipping player's point of
+    view, so it has to be flipped *as* somebody; a helper flips on Player 1's
+    behalf. The coin is fair either way, so this changes the wording and
+    nothing else.
+  - **The shootout's order menus.** A coach gets their own side and a helper
+    gets both, so `owes` picks whichever still needs one. That does show a
+    helper both coaches' orders, which is the price of being able to set one
+    for somebody.
+- **`is True`, not truthiness, is what reads the permission**, and that is
+  about the suite rather than about Discord. Nearly every person in `tests/`
+  is a `MagicMock(spec=discord.Member)`, whose
+  `guild_permissions.manage_channels` is a Mock and so truthy -- under a plain
+  `bool(...)` every mocked click in the game would read as a helper's, which
+  turns every gate here into a no-op **and does it silently**, since a gate
+  that lets everyone through fails no test about refusing somebody. A test
+  that means to grant it says `SimpleNamespace(manage_channels=True)`.
+  `tests/test_d12ball_game_helpers.py` asserts the mock case directly.
+- **A helper's click is attributed to the coach, never to them.** Every
+  message about a pick, a toss or a choice is worded from the *side*
+  (`format_player_with_team` off the side's own player number), so nothing
+  had to change for this and nothing should: the pick is that side's however
+  it was entered. What a helper gets of their own is the ephemeral reply.
+- **What is deliberately not widened**: Join, Observe and Leave, which are
+  about the clicker themselves rather than authority over somebody's game --
+  a helper joining would make them a player, which is the opposite of the
+  point; and `/d12ball coach` and the score adjuster, which derive a side
+  from `side_for_user` and already send anyone without one to `/d12ball ref`,
+  where the team is an argument. A helper is a person with no side, so that
+  is the command that already fits them.
+
 ## Recovering a stuck game
 
 A restart re-arms exactly **one** message per game — the one recorded in
 `turn_message_id` — so a game can come back with no working button anywhere in
 its channel. `/d12ball resume` puts the question back up and
 `/d12ball abandon_game` ends the ones nobody is going to finish. Both are open
-to either player in the game, or to anyone with `manage_channels`
-(`may_administer_game`).
+to either player in the game, or to any game helper (`may_administer_game`,
+which is `may_act_in_game` under the name these two read as) -- see
+[Who may act on a game](#who-may-act-on-a-game).
 
 **So that is what a crash tells the coach to do.** The two catch-alls for an
 unexpected exception -- `SafeView.on_error` for a click and

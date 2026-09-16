@@ -347,6 +347,91 @@ def build_game_channel_name(
     return f"{prefix}-{suffix}"[:CHANNEL_NAME_MAX_LENGTH].rstrip("-")
 
 
+# --- Who may act on a game -------------------------------------------
+#
+# Every gate in the flow -- a lobby setting, a roll button, a maneuver
+# pick, a coaching menu -- comes through one of the three predicates
+# below, so "who may press this" is answered in one place rather than at
+# the eighty-odd sites that ask it.
+#
+# The rule is: **the coach it belongs to, or a game helper.** A game
+# helper is anyone the server trusts with `manage_channels` -- the same
+# permission `/d12ball resume`, `/d12ball abandon_game` and the
+# full-time Archive button were already gated on, and the same one
+# `/debug reset_channels` uses. It is the permission a playtest
+# organiser has and an ordinary coach does not, which is exactly the
+# line wanted here: somebody helping a new player into a game can flip
+# Tutorial on in their lobby, press the buttons they are stuck on, and
+# start the game for them, without being a player in it.
+#
+# There is deliberately no second gate anywhere. A check written at a
+# call site is a check that drifts from this one, which is how the
+# lobby came to refuse a helper the tutorial toggle while letting them
+# abandon the whole game with a slash command.
+
+
+def game_participant_ids(game: D12BallGame) -> set[int]:
+    """
+    The Discord ids of the game's coaches -- never the AI, which has no
+    user id to be. A test game has both sides set to the same person, so
+    this is a one-element set for it.
+    """
+    participant_ids = {game.player_1_id}
+    if game.player_2_id is not None:
+        participant_ids.add(game.player_2_id)
+    return participant_ids
+
+
+def is_game_helper(user) -> bool:
+    """
+    Whether this person may act on a game they are not playing in:
+    anyone the server trusts with `manage_channels`.
+
+    Read off `guild_permissions`, so a `discord.User` (a DM, or a member
+    Discord handed us uncached) answers False rather than raising -- the
+    same tolerant shape every other optional lookup in this file has.
+    Deliberately a permission and not a role: a role would have to be
+    created per server and found by name, where every server already
+    has somebody holding this.
+
+    **`is True`, not a truthiness test**, and that is about the suite
+    rather than about Discord: a permission is a bool, and nearly every
+    person in `tests/` is a `MagicMock(spec=discord.Member)`, whose
+    `guild_permissions.manage_channels` is a Mock and therefore truthy.
+    Under a plain `bool(...)` every mocked click in the game would read
+    as a helper's, which turns every gate in this file into a no-op and
+    does it silently -- the tests still pass, because a gate that lets
+    everyone through refuses nobody. A test that means to grant this
+    says so, with `SimpleNamespace(manage_channels=True)`.
+    """
+    permissions = getattr(user, "guild_permissions", None)
+    return getattr(permissions, "manage_channels", False) is True
+
+
+def may_act_for_coach(user, coach_id: Optional[int]) -> bool:
+    """
+    Whether this person may press a button that belongs to the coach
+    `coach_id` -- that coach, or a game helper.
+
+    `coach_id` is None for a side the AI is playing, and a helper may
+    act there too: nothing ever puts a prompt to Dinky, so the only way
+    to reach one is a game that has gone wrong, which is precisely when
+    somebody has to be able to answer it. A coach who is not a helper
+    still matches on their own id alone, so this is exactly the old
+    check for everybody it was already about.
+    """
+    return user.id == coach_id or is_game_helper(user)
+
+
+def may_act_in_game(user, game: D12BallGame) -> bool:
+    """
+    Whether this person may press a button either coach may press -- a
+    roll, the maneuver reference -- which is either coach, or a game
+    helper. See "Every roll is a coach's" in CLAUDE.md.
+    """
+    return user.id in game_participant_ids(game) or is_game_helper(user)
+
+
 def format_role_bracket(
     player: PlayerDefinition,
     team_emojis: dict[Team, str],

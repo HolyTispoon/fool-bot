@@ -75,10 +75,18 @@ class ShootoutView(SafeView):
             )
             return None
 
+        # A coach gets their own side; a game helper gets both, and
+        # `owes` below picks whichever still has an order to set. That
+        # does show a helper both coaches' picks, which the secrecy of
+        # an order otherwise turns on -- it is the price of being able
+        # to set one for somebody, and the same price the maneuver pick
+        # and every other prompt pays.
         theirs = [
             side
             for side in (TeamSide.HOME, TeamSide.VISITING)
-            if self.cog.engine.side_controller_id(game, side) == interaction.user.id
+            if self.may_act_for(
+                interaction, self.cog.engine.side_controller_id(game, side),
+            )
         ]
         if not theirs:
             await interaction.response.send_message(
@@ -213,10 +221,8 @@ class ShootoutOrderSelectView(SafeView):
         if game is None:
             return None
 
-        if (
-            not match.pending_shootout
-            or self.cog.engine.side_controller_id(game, self.side)
-            != interaction.user.id
+        if not match.pending_shootout or not self.may_act_for(
+            interaction, self.cog.engine.side_controller_id(game, self.side),
         ):
             await interaction.response.edit_message(
                 content="That order is no longer being asked for.",
@@ -405,10 +411,8 @@ class ShootoutPickSelectView(SafeView):
         if game is None:
             return
 
-        if (
-            not match.pending_shootout
-            or self.cog.engine.side_controller_id(game, self.side)
-            != interaction.user.id
+        if not match.pending_shootout or not self.may_act_for(
+            interaction, self.cog.engine.side_controller_id(game, self.side),
         ):
             await interaction.response.edit_message(
                 content="That pick is no longer being asked for.",
@@ -642,7 +646,7 @@ class ShootoutTestView(ShootoutView):
             )
             return
 
-        if not self.is_game_participant(game, interaction.user.id):
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the skill test.",
                 ephemeral=True,

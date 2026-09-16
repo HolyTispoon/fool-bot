@@ -153,13 +153,9 @@ class LooseBallChoiceView(SafeView):
             return None, None
 
         authorized = (
-            self.cog.engine.user_controls_possession(
-                interaction.user.id, game, match,
-            )
+            self.may_act_for_possession(interaction, game, match)
             if self.side == "offense"
-            else self.cog.engine.user_controls_defense(
-                interaction.user.id, game, match,
-            )
+            else self.may_act_for_defense(interaction, game, match)
         )
         if not authorized:
             await interaction.response.send_message(
@@ -323,9 +319,7 @@ class BallRecoveryView(SafeView):
                 ephemeral=True,
             )
             return
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the side that won the ball can choose.",
                 ephemeral=True,
@@ -628,7 +622,7 @@ class LooseBallSkillTestView(SafeView):
             )
             return
 
-        if not self.is_game_participant(game, interaction.user.id):
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll for the "
                 f"{contest_noun(match)}.",

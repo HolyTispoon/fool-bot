@@ -57,7 +57,9 @@ class HalftimeView(SafeView):
                 ephemeral=True,
             )
             return None, None
-        if interaction.user.id != self.cog.engine.side_controller_id(game, self.side):
+        if not self.may_act_for(
+            interaction, self.cog.engine.side_controller_id(game, self.side),
+        ):
             await interaction.response.send_message(
                 "Only that team's coach can choose this.",
                 ephemeral=True,
