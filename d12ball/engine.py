@@ -2372,27 +2372,37 @@ class RulesEngine:
         What the coach is agreeing to, in place of the turn prompt --
         see CedeConfirmView. Everything it names is a cost or a
         consequence the button label has no room for: who gets the
-        ball, where, that the window is free, that the declaration goes
+        ball, where, what the window is for, that the declaration goes
         with it, and that the other coach is handed a window of their
         own on the back of it.
 
-        It no longer lists the four actions the window offers. Those
-        are the buttons on the very next screen, and naming them here
-        made the sentence a menu ahead of the menu. That the window
-        costs no exhaustion stays, because it is not on the hub at all
-        and it is part of what the coach is weighing the ball against.
+        **Two sentences, one subject each** (the author). What the ball
+        does and what the coach gets are two facts, and they were run
+        together into one -- "{team} take possession at M2, where it
+        stands, and you open a Coaching Choice, free of exhaustion" --
+        which changes subject mid-clause and leaves the exhaustion note
+        hanging off the end with nothing to attach to.
+
+        What the window is for is named in a **purpose clause rather
+        than as a list**. The four actions were spelled out in full
+        here, which is the hub's own menu written out one screen early;
+        naming the two a coach cedes the ball *for* says why the button
+        is worth pressing without standing in for the buttons.
         """
         receiving = format_team_side_label(
             match.setup_for_side(match.defending_side())
         )
         lines = [
             "# Cede the ball?",
-            f"{receiving} take possession at "
-            f"{space_label(match.ball.zone, match.ball.space_index)}, where "
-            "it stands, and you open a Coaching Choice, free of "
-            "exhaustion.",
+            f"{receiving} takes possession of the ball at "
+            f"{space_label(match.ball.zone, match.ball.space_index)}. "
+            "You may open a Coaching Choice to substitute players or "
+            "change formation/assignment.",
+            # "takes" above, so "gets" here: the team is one thing in
+            # this message, and a side that takes and then get reads
+            # as a typo.
             "It uses up your Coaching Choice for this half, and "
-            f"{receiving} get one of their own to answer it.",
+            f"{receiving} gets one of their own to answer it.",
         ]
         if match.scoreboard.last_possession:
             # The one case where the coaching never happens: a turnover
