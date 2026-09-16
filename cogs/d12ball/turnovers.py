@@ -1172,8 +1172,7 @@ class TurnoverMixin:
             "Both teams reset to the positions their coaches last "
             "set:\n" + "\n".join(moved)
             if moved
-            else "Both teams are already standing where their coaches "
-            "last set them."
+            else "Players return to positions assigned by the coach."
         )
         await self.post_new_play_board(
             interaction, game, f"{prefix}# New play\n{body}",
@@ -1218,10 +1217,8 @@ class TurnoverMixin:
             await interaction.followup.send(
                 f"{prefix}# Players run back!\n"
                 "Players return to an open space in their assigned zone and "
-                "gain 1 exhaustion token for every space traveled. Forced "
-                "moves are handled automatically; where there is a choice — "
-                "which space, or which of two teammates sharing one — the "
-                f"coach is asked. {speed_note}"
+                "gain 1 exhaustion token for every space traveled. "
+                f"{speed_note}".rstrip()
             )
         elif prefix or speed_note:
             await interaction.followup.send(f"{prefix}{speed_note}".strip())

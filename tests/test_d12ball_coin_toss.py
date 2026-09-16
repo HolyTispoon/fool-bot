@@ -607,7 +607,7 @@ class D12BallRunBackAnnouncementTests(
             match.declared_substitution.add(TeamSide.HOME.value)
         return cog, interaction, game, match
 
-    async def test_a_steal_explains_choices_cost_and_speed(self) -> None:
+    async def test_a_steal_explains_cost_and_speed(self) -> None:
         # The run-back explainer belongs to steals: that is the only
         # turnover that still sends players scrambling back at a token
         # a space.
@@ -626,10 +626,10 @@ class D12BallRunBackAnnouncementTests(
         self.assertIn("# Players run back!", announcement)
         self.assertIn("assigned zone", announcement)
         self.assertIn("1 exhaustion token for every space", announcement)
-        # Both the choices a run back can put to a coach: which space,
-        # and -- for a stack -- which of the players sharing one.
-        self.assertIn("which space", announcement)
-        self.assertIn("which of two teammates sharing one", announcement)
+        # What a coach is asked is asked by the prompts themselves, so
+        # the announcement no longer explains the two choices ahead of
+        # them -- see "What a message says".
+        self.assertNotIn("which of two teammates sharing one", announcement)
         self.assertIn("ball speed goes down to **1**", announcement)
         cog.continue_run_back.assert_awaited_once_with(
             interaction, game, match,
