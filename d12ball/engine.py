@@ -567,6 +567,27 @@ class RulesEngine:
             lines.append(f"+{value} {player.name} (Merge)")
         return total, lines
 
+    def spreadable_candidates(
+        self, game: D12BallGame, match: MatchState, side: TeamSide,
+    ) -> list[str]:
+        """
+        **Spreadable**: which of `side`'s fielded Oozes may be linked
+        to a second, adjacent space in their own zone -- gated the same
+        way as every other species ability. The link itself is
+        `MatchState.set_spread_link`; this only answers who is eligible
+        to be offered it, which is the Coaching Choice's own question
+        and not the match's (see `slip_in_candidates` for the same
+        split).
+        """
+        if not self.species_abilities_apply(game):
+            return []
+        setup = match.setup_for_side(side)
+        return [
+            player_id
+            for player_id in setup.field_players
+            if self.has_species_ability(game, player_id, SPECIES_OOZE)
+        ]
+
     def volatile_raises_tier(
         self,
         game: D12BallGame,

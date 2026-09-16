@@ -187,6 +187,37 @@ class TurnoverMixin:
             "place. No exhaustion cost."
         )
 
+    def apply_spread(
+        self,
+        match: MatchState,
+        side: TeamSide,
+        player_id: str,
+        space_index: int,
+    ) -> str:
+        """
+        The Coaching Choice's Spreadable action: link an Ooze's own
+        space to a second, adjacent one and describe what happened.
+        The meeple does not move -- see MatchState.set_spread_link.
+        """
+        setup = match.setup_for_side(side)
+        zone = setup.assigned_zone(player_id)
+        match.set_spread_link(side, player_id, space_index)
+        player = self.engine.get_player_definition(player_id)
+        return (
+            f"{self.player_label(match, player)} spreads to also hold "
+            f"{space_label(zone, space_index)}. Neither space counts "
+            "toward that zone's coverage while they do."
+        )
+
+    def clear_spread(
+        self,
+        match: MatchState,
+        player_id: str,
+    ) -> str:
+        """The Coaching Choice's Spreadable action, undone."""
+        match.forget_spread_link(player_id)
+        player = self.engine.get_player_definition(player_id)
+        return f"{self.player_label(match, player)} pulls back to one space."
 
     async def coaching_file(
         self,

@@ -310,6 +310,13 @@ class CoachingHubView(CoachingView):
                 self.open_space_positioning,
                 row=1,
             )
+            if cog.engine.spreadable_candidates(game, match, side):
+                self.add_action(
+                    "Spread",
+                    f"d12ball:coach_spread:{game_id}",
+                    self.open_spread,
+                    row=1,
+                )
         self.add_action(
             "Team roster",
             f"d12ball:coach_roster:{game_id}",
@@ -407,6 +414,26 @@ class CoachingHubView(CoachingView):
             match,
             CoachingPlaceView(self.cog, self.game_id),
             note="Whose meeple moves?",
+        )
+
+    async def open_spread(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingSpreadView(self.cog, self.game_id),
+            note=(
+                "Spreadable: which Ooze holds a second, adjacent space "
+                "in their own zone? Their meeple stays where it is -- "
+                "both spaces just stop counting toward that zone's "
+                "coverage."
+            ),
         )
 
     async def show_roster(self, interaction: discord.Interaction) -> None:
@@ -999,3 +1026,152 @@ class CoachingPlaceSwapView(CoachingView):
             self.space_index,
             swap_with=other_player_id,
         )
+
+
+class CoachingSpreadView(CoachingView):
+    """
+    Spreadable: which of this side's fielded Oozes holds a second,
+    adjacent space in their own zone. Only offered on the hub at all
+    when `RulesEngine.spreadable_candidates` is non-empty (an Ooze on
+    the field, in a game playing species abilities), so every button
+    here is a real choice.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str):
+        super().__init__(cog, game_id)
+
+        game, match = self.load()
+        if match is None or match.pending_coaching_side is None:
+            return
+        side = self.side(match)
+
+        for player_id in cog.engine.spreadable_candidates(game, match, side):
+            label = self.player_button_label(match, player_id, with_space=True)
+            if match.is_spread(player_id):
+                zone = match.setup_for_side(side).assigned_zone(player_id)
+                partner = match.spread_partner_space(player_id)
+                label = f"{label} (+ {space_label(zone, partner)})"
+            button = discord.ui.Button(
+                label=label[:80],
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"d12ball:coach_spread_pick:{game_id}:{player_id}",
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                picked: str = player_id,
+            ) -> None:
+                await self.choose(interaction, picked)
+
+            button.callback = callback
+            self.add_item(button)
+
+        self.add_back_button(row=4)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        player_id: str,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+
+        player = self.cog.engine.get_player_definition(player_id)
+        await self.show(
+            interaction,
+            game,
+            match,
+            CoachingSpreadSpaceView(self.cog, self.game_id, player_id),
+            note=(
+                "Which adjacent space does "
+                f"{self.cog.player_label(match, player)} also hold? "
+                "Already spread, and this replaces it -- or pick Clear "
+                "spread to drop it."
+            ),
+        )
+
+
+class CoachingSpreadSpaceView(CoachingView):
+    """
+    The adjacent space an Ooze also holds, or Clear to drop one already
+    set. Only the two neighbours of their real space are ever offered
+    -- Spreadable reaches one space over, not the whole zone (see
+    MatchState.set_spread_link).
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, player_id: str):
+        super().__init__(cog, game_id)
+        self.player_id = player_id
+
+        game, match = self.load()
+        if match is None or match.pending_coaching_side is None:
+            return
+        side = self.side(match)
+        zone = match.setup_for_side(side).assigned_zone(player_id)
+        position = match.board.meeple_position(player_id)
+        if position is None:
+            self.add_back_button(row=4)
+            return
+        _, own_index = position
+        zone_size = len(match.board.spaces[zone])
+
+        for space_index in (own_index - 1, own_index + 1):
+            if not 0 <= space_index < zone_size:
+                continue
+            button = discord.ui.Button(
+                label=space_label(zone, space_index),
+                style=discord.ButtonStyle.primary,
+                custom_id=(
+                    f"d12ball:coach_spread_space:{game_id}:"
+                    f"{player_id}:{space_index}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction,
+                chosen: int = space_index,
+            ) -> None:
+                await self.choose(interaction, chosen)
+
+            button.callback = callback
+            self.add_item(button)
+
+        if match.is_spread(player_id):
+            clear = discord.ui.Button(
+                label="Clear spread",
+                style=discord.ButtonStyle.danger,
+                custom_id=f"d12ball:coach_spread_clear:{game_id}:{player_id}",
+            )
+            clear.callback = self.clear
+            self.add_item(clear)
+
+        self.add_back_button(row=4)
+
+    async def choose(
+        self,
+        interaction: discord.Interaction,
+        space_index: int,
+    ) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        try:
+            note = self.cog.apply_spread(
+                match, self.side(match), self.player_id, space_index,
+            )
+        except ValueError as error:
+            await interaction.response.send_message(
+                str(error), ephemeral=True,
+            )
+            return
+        self.cog.persist(game, match)
+        await self.back_to_hub(interaction, note=note, moved=False)
+
+    async def clear(self, interaction: discord.Interaction) -> None:
+        game, match = await self.claim(interaction)
+        if game is None or match is None:
+            return
+        note = self.cog.clear_spread(match, self.player_id)
+        self.cog.persist(game, match)
+        await self.back_to_hub(interaction, note=note, moved=False)

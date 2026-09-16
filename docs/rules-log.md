@@ -124,6 +124,38 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-16 (later still) -- author, Spreadable joins Slimey
+
+A third Ooze ability, alongside slip in and merge: *"Spreadable. Can be assigned to two
+adjacent zones. Can stack with other players in assignments. It means than when a coach
+assigns ooze players to zones they can assign them to 1 or 2 zones but it counts as 0 in both
+of them."* The author corrected "zones" to **spaces** in the same conversation: an Ooze holds
+two adjacent spaces **in its own zone**, not two zones, and for occupancy alone -- the meeple
+still stands on exactly one of them, formation headcount and the kickoff-space and run-back
+rules are untouched, and the coach picks the second space through the same Coaching Choice
+that does ordinary space positioning.
+
+The three narrowing questions below were answered in chat rather than as sheet or Notion data,
+which is the exception this log exists to flag rather than the rule: they came from the author
+directly, but not versioned as inline comments on a docs PR the way "Working practice" above
+asks for. Worth confirming on the next docs pass rather than trusting this entry's read of them
+indefinitely.
+
+- **Occupancy only.** Of the three things "counts as 0" could plausibly mean --
+  coverage, the formation's zone headcount, or both -- the author picked coverage alone.
+  A Spreadable Ooze still counts once toward its zone's 2-2-2 (or whichever shape), so
+  `current_formation` and the setup-time formation counts read it as an ordinary card.
+- **Set at Space Positioning, not a separate zone-assignment step.** The coach declares
+  the second space the same way they move a card to a different one -- see
+  `CoachingSpreadView` in CLAUDE.md's "Slimey" section.
+- **The meeple has one real position.** The second space is bookkeeping only: nothing
+  about a challenge, a run back, or a pickup reads it as a place the Ooze might actually
+  be standing.
+
+Implemented as `MatchState.spread_link` -- see "Slimey" in CLAUDE.md for the whole of it,
+including the two functions ("Occupancy is a coverage rule, not a limit" already names as the
+whole of occupancy) it touches and the three it deliberately does not.
+
 ### 2026-09-16 -- author, ceding the ball becomes a time out, and a new play's Coaching Choice is free
 
 **Ceding is gone.** There is no longer any way to hand the ball to the other team on

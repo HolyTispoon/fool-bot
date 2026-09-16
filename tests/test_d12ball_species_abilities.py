@@ -1476,6 +1476,188 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(bonus, 0)
 
 
+class SpreadableTests(unittest.TestCase):
+    """
+    "Spreadable: can be assigned to two adjacent spaces, and can stack
+    with other players in assignments. It counts as 0 in both of them
+    for occupancy." The meeple keeps its one real position -- this is
+    a coverage fiction only.
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game(player_1_team=Team.OOZES)
+        self.match = build_match(self.engine, self.game)
+
+    def test_every_fielded_ooze_is_eligible(self):
+        self.assertEqual(
+            set(self.engine.spreadable_candidates(
+                self.game, self.match, TeamSide.HOME,
+            )),
+            set(field_players(self.match)),
+        )
+
+    def test_a_non_ooze_side_offers_only_its_oozes(self):
+        game = build_game(player_1_team=Team.PURPLE)
+        match = build_match(self.engine, game)
+        ooze = fielded_of_species(match, SPECIES_OOZE)
+        candidates = self.engine.spreadable_candidates(
+            game, match, TeamSide.HOME,
+        )
+        self.assertIn(ooze, candidates)
+        self.assertTrue(
+            all(
+                self.engine.species_of(player_id) == SPECIES_OOZE
+                for player_id in candidates
+            )
+        )
+
+    def test_without_the_module_nobody_is_eligible(self):
+        basic = build_game(player_1_team=Team.OOZES, mode=GameMode.BASIC)
+        self.assertEqual(
+            self.engine.spreadable_candidates(basic, self.match, TeamSide.HOME),
+            [],
+        )
+
+    def adjacent_space(self, player_id: str) -> tuple[Zone, int, int]:
+        zone, own_index = self.match.board.meeple_position(player_id)
+        zone_size = len(self.match.board.spaces[zone])
+        partner = own_index + 1 if own_index + 1 < zone_size else own_index - 1
+        return zone, own_index, partner
+
+    def test_set_spread_link_refuses_its_own_space(self):
+        ooze = field_players(self.match)[0]
+        _, own_index, _ = self.adjacent_space(ooze)
+        with self.assertRaises(ValueError):
+            self.match.set_spread_link(TeamSide.HOME, ooze, own_index)
+
+    def test_set_spread_link_refuses_a_non_adjacent_space(self):
+        # Needs a zone with a real non-neighbour, i.e. three spaces --
+        # the standard deal's midfield on every board.
+        ooze = next(
+            player_id
+            for player_id in field_players(self.match)
+            if len(self.match.board.spaces[
+                self.match.board.meeple_position(player_id)[0]
+            ]) > 2
+        )
+        zone, own_index = self.match.board.meeple_position(ooze)
+        zone_size = len(self.match.board.spaces[zone])
+        far = next(
+            index
+            for index in range(zone_size)
+            if abs(index - own_index) > 1
+        )
+        with self.assertRaises(ValueError):
+            self.match.set_spread_link(TeamSide.HOME, ooze, far)
+
+    def test_set_spread_link_records_the_partner_space(self):
+        ooze = field_players(self.match)[0]
+        _, _, partner = self.adjacent_space(ooze)
+        self.match.set_spread_link(TeamSide.HOME, ooze, partner)
+        self.assertTrue(self.match.is_spread(ooze))
+        self.assertEqual(self.match.spread_partner_space(ooze), partner)
+
+    def test_the_meeple_does_not_move(self):
+        ooze = field_players(self.match)[0]
+        zone, own_index, partner = self.adjacent_space(ooze)
+        self.match.set_spread_link(TeamSide.HOME, ooze, partner)
+        self.assertEqual(
+            self.match.board.meeple_position(ooze), (zone, own_index),
+        )
+
+    def test_a_spread_ooze_counts_as_zero_in_open_spaces_in_zone(self):
+        ooze = field_players(self.match)[0]
+        zone, own_index, partner = self.adjacent_space(ooze)
+        # Clear the zone down to the Ooze alone, so its own space is
+        # the only thing standing between the zone and full coverage.
+        for player_id in list(self.match.board.spaces[zone][own_index]):
+            if player_id != ooze:
+                self.match.board.remove_meeple(player_id)
+        self.assertNotIn(
+            own_index,
+            self.match.open_spaces_in_zone(TeamSide.HOME, zone),
+        )
+        self.match.set_spread_link(TeamSide.HOME, ooze, partner)
+        self.assertIn(
+            own_index,
+            self.match.open_spaces_in_zone(TeamSide.HOME, zone),
+        )
+
+    def test_a_spread_ooze_counts_as_zero_in_placement_spaces_in_zone(self):
+        ooze = field_players(self.match)[0]
+        zone, own_index, partner = self.adjacent_space(ooze)
+        mover = next(
+            player_id
+            for player_id in field_players(self.match)
+            if self.match.setup_for_side(
+                TeamSide.HOME,
+            ).assigned_zone(player_id) == zone
+            and player_id != ooze
+        )
+        for player_id in list(self.match.board.spaces[zone][own_index]):
+            if player_id not in (ooze, mover):
+                self.match.board.remove_meeple(player_id)
+        self.match.board.remove_meeple(mover)
+        self.assertNotIn(
+            own_index,
+            self.match.placement_spaces_in_zone(TeamSide.HOME, zone, mover),
+        )
+        self.match.set_spread_link(TeamSide.HOME, ooze, partner)
+        self.assertIn(
+            own_index,
+            self.match.placement_spaces_in_zone(TeamSide.HOME, zone, mover),
+        )
+
+    def test_a_spread_ooze_may_be_stacked_onto_without_a_trade(self):
+        ooze = field_players(self.match)[0]
+        zone, own_index, partner = self.adjacent_space(ooze)
+        for player_id in list(self.match.board.spaces[zone][own_index]):
+            if player_id != ooze:
+                self.match.board.remove_meeple(player_id)
+        setup = self.match.setup_for_side(TeamSide.HOME)
+        mover = next(
+            player_id
+            for player_id in field_players(self.match)
+            if player_id != ooze and setup.assigned_zone(player_id) == zone
+        )
+        self.match.board.remove_meeple(mover)
+        # Before spreading, moving in on the Ooze alone forces a trade.
+        self.assertEqual(
+            self.match.positioning_swap_candidates(
+                TeamSide.HOME, mover, own_index,
+            ),
+            [ooze],
+        )
+        self.match.set_spread_link(TeamSide.HOME, ooze, partner)
+        self.assertEqual(
+            self.match.positioning_swap_candidates(
+                TeamSide.HOME, mover, own_index,
+            ),
+            [],
+        )
+
+    def test_moving_the_ooze_forgets_the_link(self):
+        ooze = field_players(self.match)[0]
+        zone, own_index, partner = self.adjacent_space(ooze)
+        self.match.set_spread_link(TeamSide.HOME, ooze, partner)
+        self.match.position_meeple(TeamSide.HOME, ooze, partner)
+        self.assertFalse(self.match.is_spread(ooze))
+
+    def test_a_formation_change_forgets_every_link(self):
+        ooze = field_players(self.match)[0]
+        _, _, partner = self.adjacent_space(ooze)
+        self.match.set_spread_link(TeamSide.HOME, ooze, partner)
+        setup = self.match.setup_for_side(TeamSide.HOME)
+        placement = [
+            (player_id, zone, index)
+            for zone, players in setup.zones.items()
+            for index, player_id in enumerate(players)
+        ]
+        self.match.deploy_side(TeamSide.HOME, placement)
+        self.assertFalse(self.match.is_spread(ooze))
+
+
 class BallPathTests(unittest.TestCase):
     """
     "It passes over the space on its way somewhere, or comes to rest on
