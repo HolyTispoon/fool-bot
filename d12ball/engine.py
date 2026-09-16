@@ -2262,6 +2262,7 @@ class RulesEngine:
         self,
         game: D12BallGame,
         match: MatchState,
+        team_emojis: dict[Team, str],
     ) -> str:
         """
         Who is being asked, and for what.
@@ -2270,6 +2271,11 @@ class RulesEngine:
         outlives the message that announced it: `/d12ball resume` puts
         it back up on its own, and a restart re-arms it wherever it is
         in the channel.
+
+        `team_emojis` is the cog's, passed in rather than held: the
+        coach is named with their side's emoji (see
+        `format_player_with_team`), and the engine is built before
+        cog_load has fetched them and is read-only from there on.
         """
         skill_type = self.loose_ball_side_on_the_clock(match)
         number = (
@@ -2277,7 +2283,9 @@ class RulesEngine:
             if skill_type == "offense"
             else self.defending_player_number(game, match)
         )
-        mention = format_player_with_team(game, number, mention=True)
+        mention = format_player_with_team(
+            game, number, team_emojis, mention=True,
+        )
         noun = contest_noun(match)
         where = ball_space_label(match)
         side = self.loose_ball_prompt_side(match)
@@ -2673,12 +2681,15 @@ class RulesEngine:
         self,
         game: D12BallGame,
         match: MatchState,
+        team_emojis: dict[Team, str],
         carrying: bool = False,
     ) -> str:
+        # `team_emojis` is the cog's -- see build_loose_ball_prompt.
         player_number = self.possession_player_number(game, match)
         controller = format_player_with_team(
             game,
             player_number,
+            team_emojis,
             mention=player_number is not None,
         )
 

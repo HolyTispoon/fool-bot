@@ -10,9 +10,9 @@ from typing import Awaitable, Callable, TYPE_CHECKING
 
 from d12ball import tutorial
 from d12ball.components import PlayerRole
-from d12ball.game import team_display_name
 from cogs.d12ball_helpers import (
     build_full_image_button,
+    get_team_emoji,
     player_with_role,
     space_label,
 )
@@ -137,7 +137,12 @@ class LowPassChoiceView(SafeView):
             origin_flat, offense_side, distance,
         )
         zone, space_index = match.board.position_at_flat_index(target_flat)
-        team_name = team_display_name(match.setup_for_side(offense_side).team)
+        # The clicking coach, named as every message names one: their
+        # side's emoji in front (see format_player_with_team).
+        team_emoji = get_team_emoji(
+            self.cog.team_emojis, match.setup_for_side(offense_side).team,
+        )
+        coach = f"{team_emoji} {interaction.user.display_name}"
 
         if len(receivers) > 1:
             # Which of them takes it is read off the same field the
@@ -157,7 +162,7 @@ class LowPassChoiceView(SafeView):
                 receiver_view.add_item(link)
             await interaction.response.edit_message(
                 content=(
-                    f"**{interaction.user.display_name} ({team_name})** is "
+                    f"**{coach}** is "
                     f"passing to {space_label(zone, space_index)}. Which "
                     "player receives it?"
                 ),
@@ -168,7 +173,7 @@ class LowPassChoiceView(SafeView):
         teammate = self.cog.engine.get_player_definition(receivers[0])
         await interaction.response.edit_message(
             content=(
-                f"**{interaction.user.display_name} ({team_name})** chose "
+                f"**{coach}** chose "
                 "to pass the ball to "
                 f"{self.cog.player_label(match, teammate)} at "
                 f"{space_label(zone, space_index)}."
@@ -272,11 +277,16 @@ class LowPassReceiverView(SafeView):
         zone, space_index = match.board.position_at_flat_index(
             match.relative_flat_index(origin_flat, offense_side, self.distance)
         )
-        team_name = team_display_name(match.setup_for_side(offense_side).team)
+        # The clicking coach, named as every message names one: their
+        # side's emoji in front (see format_player_with_team).
+        team_emoji = get_team_emoji(
+            self.cog.team_emojis, match.setup_for_side(offense_side).team,
+        )
+        coach = f"{team_emoji} {interaction.user.display_name}"
 
         await interaction.response.edit_message(
             content=(
-                f"**{interaction.user.display_name} ({team_name})** chose "
+                f"**{coach}** chose "
                 "to pass the ball to "
                 f"{self.cog.player_label(match, receiver)} at "
                 f"{space_label(zone, space_index)}."
@@ -378,15 +388,17 @@ class SetupPassChoiceView(SafeView):
             )
             return
 
-        team_name = team_display_name(
-            match.setup_for_side(match.ball.possession).team
+        team_emoji = get_team_emoji(
+            self.cog.team_emojis,
+            match.setup_for_side(match.ball.possession).team,
         )
+        coach = f"{team_emoji} {interaction.user.display_name}"
         # The strip goes with the question: it shows the ball where
         # it was before the pass, so leaving it under the answer would
         # put a stale position in the channel.
         await interaction.response.edit_message(
             content=(
-                f"**{interaction.user.display_name} ({team_name})** picks "
+                f"**{coach}** picks "
                 f"out a **Setup Pass** of {distance}."
             ),
             view=None,

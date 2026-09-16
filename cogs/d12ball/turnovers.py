@@ -1720,7 +1720,9 @@ class TurnoverMixin:
             if side == TeamSide.HOME
             else game.visiting_player_number
         )
-        mention = format_player_with_team(game, number, mention=True)
+        mention = format_player_with_team(
+            game, number, self.team_emojis, mention=True,
+        )
         prefix = f"{lead_in}\n\n" if lead_in else ""
         prompt_message = await interaction.followup.send(
             f"{prefix}{mention}, everyone is back in position -- send "
