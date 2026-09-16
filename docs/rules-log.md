@@ -97,10 +97,75 @@ Everything else has been answered. What remains unbuilt is in
 
 ---
 
+## Rules that may need to be added later
+
+Questions nobody has asked yet that the rules will probably have to answer, kept
+apart from [Still open](#still-open) because nothing is blocked on them: the game
+plays today without an answer, and each of these is a rule that could be added
+rather than a gap somebody is standing in.
+
+### Should an injury allow an extra substitution?
+
+A side gets two substitutions a half however the half goes. A side that loses a
+player to injury spends one of those two putting the injury right, where a side
+that does not gets both for shape -- so the same allowance buys less the worse
+your luck is, and an injury is already its own punishment.
+
+Nothing forces a coach to take an injured player off (see the 2026-08-09 ruling
+on the disadvantage), so this is not about compelling a substitution. It is about
+whether an injury should hand the side a substitution outside the two, the way
+halftime and the shootout window hand them their own.
+
+Left alone until asked: it is a real change to how many players can pass through
+a game, and the current number was settled deliberately.
+
 ## Change log
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-16 -- author, ceding the ball becomes a time out, and a new play's Coaching Choice is free
+
+**Ceding is gone.** There is no longer any way to hand the ball to the other team on
+purpose. What replaces it is a **time out**: the same button in the same place on the
+turn prompt, bought with a minute rather than with the ball.
+
+| | Ceding (until now) | Time out |
+| --- | --- | --- |
+| Possession | Crosses to the other side | **Unchanged** |
+| Cost | 1 minute, and the ball | 1 minute |
+| Who coaches | Both, ceding side first | Both, the caller first |
+| How often | Once a half, shared with a new play's declaration | **Once a half, its own** |
+| Out of shooting range | Required | Required |
+| Under last possession | Ended the period | **Refused outright** |
+| The walk back to the ball | 1 token a space | **Free** |
+
+**A new play's Coaching Choice is now free and unlimited.** It used to share a
+once-a-half declaration with ceding, so a coach who ceded in the first half was
+offered nothing at any new play for the rest of it. Every new play now offers the
+restarting coach a window whatever they have had already, and their taking it up
+still hands the other coach one in reply. The once-a-half gate did not disappear --
+it moved onto the time out, which is now the only Coaching Choice a side pays for.
+
+**The substitutions did not move.** Two a half across every Coaching Choice in it,
+two more at halftime, one before the shootout: seven in a game, exactly as before.
+What changed is that the second of those two counts is now the *only* limit on
+coaching in open play, where it used to be the looser of two.
+
+Three details the author settled while this was being built:
+
+- **Last possession refuses a time out rather than ending the period.** Ceding was
+  a turnover, so it ended the half like any other; a time out turns nothing over, so
+  there was nothing for the old rule to bite on. *"You cannot take a timeout when
+  last possession has been declared! you can do it on minute 29 but not on 30. You
+  can do it on minute 14 but not 15."*
+- **The ball is the team's, and a rearrangement cannot lose it.** A Coaching Choice
+  can re-deal a formation, so a time out can leave the side that called it with
+  nobody standing on their own ball. Possession stays theirs regardless and they send
+  a player to it afterwards -- **free of exhaustion**, which makes it the one walk to
+  the ball in the game that charges nothing.
+- **A time out is not a turnover.** Nobody runs back, nothing resets, and the side
+  that called it plays on.
 
 ### 2026-09-07 (later still) -- author, a dead ball crosses nobody
 
@@ -1926,8 +1991,8 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | The ball speed modifier is always added | An overshot High Pass subtracts it, on the shot it sets up and on the contest behind that shot |
 | A High Pass is a free choice of 2 or 3 (or 4) | Only distances that fit on the field are offered, and none is offered at all with the ball 0 or 1 spaces from the end |
 | A turnover says nothing about ball speed | Every turnover resets it to 1 |
-| Substitutions "when they win possession", with no split between kinds of turnover | Only a new play (goal, own goal, missed attempt, out of bounds) opens a window; a steal opens none |
-| Nothing about giving the ball up on purpose | A side out of shooting range may cede it to coach, spending their once-a-half declaration; both coaches then get a window |
+| Substitutions "when they win possession", with no split between kinds of turnover | Only a new play (goal, own goal, missed attempt, out of bounds) opens a window; a steal opens none. A new play's is free and unlimited; two substitutions a half are the limit |
+| Nothing about stopping play on purpose | A side out of shooting range may call a time out, once a half, and both coaches then get a window. Possession does not change |
 | The defense must challenge a maneuver whenever it has anyone in the ball's zone | Only a defender already on the ball must; anyone who would have to walk in may be kept back, and the maneuver goes unchallenged |
 | Nothing about two defenders standing on the ball at once | The defending coach picks which of them challenges, and nobody may be walked in past them |
 | A challenger, and a loose ball's contestant, come from the ball's zone | Zone does not come into it: a coach sends the nearest player in front of the space or the nearest behind it, from anywhere on the field |
