@@ -4417,13 +4417,24 @@ anywhere in the code.
   recoloring the matching PNGs, or the ring-and-letter emoji a coach
   sees stops agreeing with the color the board draws them in. The four
   species emoji share their paired color's ring for the same reason the
-  boards do, so their letters were picked to stay distinct from all
-  eight teams' initials: **F**ire Demons, **C**yborgs, **K** for
-  Telekinetics (Teal already has T), **Z** for Oozes (Orange already has
-  O). `TEAM_EMOJI_FALLBACKS` gives each a themed unicode emoji (🔥🤖🔮🫧)
-  distinct from the four plain colored circles, so the bot reads
-  correctly before the four new PNGs are uploaded -- which, like the
-  original four, is a manual Developer Portal step nothing here can do.
+  boards do. They carried a letter at first -- **F**ire Demons,
+  **C**yborgs, **K** for Telekinetics (Teal already has T), **Z** for
+  Oozes (Orange already has O) -- picked to stay distinct from all
+  eight teams' initials. `scripts/render_team_emoji.py` now draws that
+  species' own silhouette into the ring instead (see "The species
+  icons"), tinted to the ring's own colour with `species_icon` -- the
+  same shape the player and species cards already carry, so a coach
+  reads one icon for "this species" everywhere it appears rather than a
+  letter here and a shape everywhere else. The ring's own geometry
+  (the margin, the edge width, the face) is measured off the four
+  color teams' shipped PNGs rather than invented, so a species emoji
+  sits in an identical ring to `team_orange.png`; the four color teams'
+  own letters are untouched, and the script only ever writes the four
+  species names. `TEAM_EMOJI_FALLBACKS` gives each species team a
+  themed unicode emoji (🔥🤖🔮🫧) distinct from the four plain colored
+  circles, so the bot reads correctly before a PNG is uploaded --
+  which, like the original four, is a manual Developer Portal step
+  nothing here can do.
 - **Changing a team's color is `TEAM_COLORS` plus its emoji, and nothing
   else.** No other module should hold a team's hex value of its own --
   that duplication is exactly what let the two drift apart before. A
