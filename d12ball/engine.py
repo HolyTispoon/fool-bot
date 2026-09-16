@@ -2604,7 +2604,7 @@ class RulesEngine:
         safe default: the same markup in a button label or an
         autocomplete choice shows as the raw `<:...:>`, and every
         caller of `format_roster_player` outside this module is one of
-        those. The two message builders here (`describe_formation_change`
+        those. The two message builders here (`apply_formation`
         and `build_turn_prompt`) are the ones that ask for this.
         """
         return player_with_role(

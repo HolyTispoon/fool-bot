@@ -713,7 +713,7 @@ position, which is what the choice usually turns on.
     is the old look, where a `<:...:>` in a button is a visible bug -- which
     is why the engine has two methods rather than a flag:
     `format_roster_player` for a label and `format_roster_player_for_message`
-    for the turn prompt and the formation-change summary, the only two
+    for the turn prompt and `apply_formation`'s summary, the only two
     messages the engine words itself.
   - **The dict lives on the engine** (`RulesEngine.role_emojis`, empty until
     `cog_load`) and `D12Ball.role_emojis` is a property over it, not a second
