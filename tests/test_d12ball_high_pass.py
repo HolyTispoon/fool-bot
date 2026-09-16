@@ -549,8 +549,9 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_the_prompt_carries_the_field_strip(self) -> None:
-        # How far to throw is a question about where the end of the
-        # field is, and the board has scrolled away by this point in a
+        # How far to throw is a question about which teammate the pass
+        # reaches, how much field is left, and who is waiting where it
+        # lands -- and the board has scrolled away by this point in a
         # turn. It rides on the prompt rather than on a message of its
         # own so the click can take it away again.
         cog, game, match = self.build(
@@ -567,7 +568,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
         cog.build_field_file.assert_awaited_once_with(game)
 
     async def test_choosing_takes_the_field_strip_away(self) -> None:
-        # The strip shows the ball where it was *before* the pass, so
+        # It shows the ball where it was *before* the pass, so
         # leaving it under the answer would put a stale position in the
         # channel for the rest of the game.
         cog, game, _ = self.build(Zone.MIDFIELD, 0, PlayerRole.FULLBACK)

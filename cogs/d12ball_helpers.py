@@ -24,7 +24,6 @@ from d12ball.components import (
 from d12ball.formatting import (
     AI_OPPONENT_NAMES,
     BENCH_DESTINATIONS,
-    ROLE_INITIALS,
     ZONE_LETTERS,
     ball_space_label,
     challenger_prompt_ask,
@@ -34,6 +33,7 @@ from d12ball.formatting import (
     format_player,
     format_player_with_team,
     format_team_side_label,
+    player_with_role,
     space_label,
     travel_space_label,
     travel_space_phrase,
@@ -61,9 +61,12 @@ CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)(?:-.*)?$")
 CHANNEL_NAME_MAX_LENGTH = 100
 PBD_GAMES_CATEGORY_NAME = "PBD Games"
 PBD_ARCHIVE_CATEGORY_NAME = "PBD Archive"
-# ROLE_INITIALS, ZONE_LETTERS and BENCH_DESTINATIONS are imported above
-# from d12ball.formatting, which is also where space_label -- the
-# reader of ZONE_LETTERS -- now lives.
+# ZONE_LETTERS and BENCH_DESTINATIONS are imported above from
+# d12ball.formatting, which is also where space_label -- the reader
+# of ZONE_LETTERS -- now lives. ROLE_INITIALS is not re-exported:
+# `role_initials` is its one reader outside the drawing modules,
+# and `player_with_role` is the only thing that should be building
+# a name out of it -- see "Naming a player" in CLAUDE.md.
 COIN_EMOJI_NAMES = {
     CoinFace.FORTUNE: "3_gold_fortune",
     CoinFace.DOOM: "3_gold_doom",
@@ -439,15 +442,20 @@ def format_role_bracket(
     team: Team,
 ) -> str:
     """
-    "🟠 Hellguard [FB]" -- the emoji names which of a player's two
-    rosters this card is being shown as, since `PlayerDefinition` no
-    longer carries a team of its own. Every caller already has a match
-    or a setup in scope to read it off (`match.team_for_player(...)`,
-    or `setup.team` when the player is known to be on that side).
+    "🟠 Hellguard [FB]" -- `player_with_role` with the team emoji in
+    front, which is the form every *message* names a player in. The
+    emoji says which of a player's two rosters this card is being shown
+    as, since `PlayerDefinition` no longer carries a team of its own;
+    every caller already has a match or a setup in scope to read it off
+    (`match.team_for_player(...)`, or `setup.team` when the player is
+    known to be on that side).
+
+    **A button gets the position instead of the emoji**, which is the
+    only place the two forms differ -- see `player_with_role` and
+    "Naming a player" in CLAUDE.md.
     """
-    initials = ROLE_INITIALS[player.role.value]
     team_emoji = get_team_emoji(team_emojis, team)
-    return f"{team_emoji} {player.name} [{initials}]"
+    return f"{team_emoji} {player_with_role(player)}"
 
 
 # destination_display_name, format_team_side_label, space_label,
@@ -578,7 +586,7 @@ def format_goal_scorer(goal: GoalRecord, catalog: PlayerCatalog) -> str:
     thing on the line contradicting it.
     """
     player = catalog.player_by_id(goal.player_id)
-    name = f"{player.name} [{ROLE_INITIALS[player.role.value]}]"
+    name = player_with_role(player)
     return f"{name} (OG)" if goal.own_goal else name
 
 

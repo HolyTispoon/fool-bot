@@ -73,14 +73,30 @@ def suppressed_cog_saves():
         yield
 
 
-# `add_full_image_button` is imported by all six mixins too. Tests mock
-# it for the same reason they mock the saves: it is an extra Discord
-# edit that no assertion in them is about.
+# The cog mixins that call `add_full_image_button`. Tests mock it for
+# the same reason they mock the saves: it is an extra Discord edit that
+# no assertion in them is about.
+#
+# It was every mixin until the five distance prompts moved onto one
+# `send_field_prompt`, which took `cogs.d12ball.effects`' only
+# call with them -- and a `mock.patch` of a name a module no longer
+# binds is an AttributeError, not a no-op, so this is its own list
+# rather than `SAVING_COG_MODULES`.
+# `tests/test_d12ball_package_shape.py` fails if the two come apart.
+LINKING_COG_MODULES = (
+    "cogs.d12ball.core",
+    "cogs.d12ball.turnovers",
+    "cogs.d12ball.periods",
+    "cogs.d12ball.presentation",
+    "cogs.d12ball.slash_commands",
+)
+
+
 @contextlib.contextmanager
 def suppressed_full_image_links():
     """Keep every cog mixin's `add_full_image_button` off the wire."""
     with contextlib.ExitStack() as stack:
-        for module in SAVING_COG_MODULES:
+        for module in LINKING_COG_MODULES:
             stack.enter_context(
                 mock.patch(f"{module}.add_full_image_button", mock.AsyncMock())
             )

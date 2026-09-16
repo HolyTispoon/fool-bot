@@ -63,11 +63,16 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         )
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
-        # A coach's prompt carries a board of its own. It is the same
-        # render the persistent message settles on, which is what the
-        # counts below are asserting -- see continue_run_back.
+        # The cascade settles the persistent message with a board, and
+        # a coach's prompt draws its own field strip beside it -- two
+        # renders, two uploads, which is what the counts below assert.
+        # See continue_run_back and send_run_back_prompt.
         cog.render_match_png = mock.AsyncMock(return_value=b"board")
         cog.match_file_from_png = mock.Mock(return_value=mock.Mock())
+        cog.build_field_file = mock.AsyncMock(
+            return_value=mock.sentinel.field,
+        )
+        cog.coaching_file = mock.AsyncMock()
         return cog
 
     def build_match(self) -> MatchState:
@@ -88,6 +93,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         return SimpleNamespace(
             match_state=None,
             game_id="g",
+            game_number=1,
             is_solo_game=True,
             ai_opponent=AIOpponent.DINKY,
             home_player_number=1,
@@ -289,11 +295,12 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(self.catalog.player_by_id(midfield[1]).name, prompt)
         self.assertNotIn(self.catalog.player_by_id(midfield[0]).name, prompt)
 
-    async def test_the_prompt_carries_the_board_it_asks_about(self) -> None:
+    async def test_the_prompt_carries_the_field_it_asks_about(self) -> None:
         # A coach choosing a space is choosing a distance, so the
-        # question goes out with the position under it. The board is
-        # drawn once and uploaded twice -- onto the prompt, and onto
-        # the persistent message, which is handed the same bytes.
+        # question goes out with the position under it -- the field
+        # strip, which is the same board cropped out of the jumbotron,
+        # the cards and the benches none of the question turns on. The
+        # whole match image still settles the persistent message.
         cog = self.build_cog()
         game = self.build_game()
         match = self.build_match()
@@ -305,7 +312,12 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.run_back(cog, game, match)
 
         prompt_call = interaction.followup.send.await_args_list[-1]
-        self.assertIsNotNone(prompt_call.kwargs.get("file"))
+        self.assertEqual(
+            prompt_call.kwargs.get("file"), mock.sentinel.field,
+        )
+        # Not the Coaching Choice's half-field: that shows one side's
+        # row with play stopped, and this is a live position.
+        cog.coaching_file.assert_not_awaited()
         self.assertEqual(cog.render_match_png.await_count, 1)
         self.assertEqual(
             cog.refresh_match_image.await_args.kwargs["png"], b"board",

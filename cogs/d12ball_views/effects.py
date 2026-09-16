@@ -12,7 +12,8 @@ from d12ball import tutorial
 from d12ball.components import PlayerRole
 from d12ball.game import team_display_name
 from cogs.d12ball_helpers import (
-    ROLE_INITIALS,
+    build_full_image_button,
+    player_with_role,
     space_label,
 )
 
@@ -33,6 +34,17 @@ class LowPassChoiceView(SafeView):
     under a formation that stacks -- LowPassReceiverView asks which of
     them takes it. A handler with nobody in reach never sees either
     view: resolve_low_pass settles that case without a prompt.
+
+    **The prompt carries the field strip** -- every destination here
+    is counted from where the ball is standing, and who is standing on
+    the space it lands on decides how the pass is won; the persistent
+    board has usually scrolled away by the time a maneuver resolves.
+    Both views edit that one message, so the picture is uploaded once
+    and taken away by whichever of them answers the question
+    (`attachments=[]`); a restart re-posts the prompt without it, the
+    same as every other image a resume loses. See
+    `D12Ball.send_field_prompt`.
+
     Reconstructible on restart purely from match state (see
     D12Ball.build_effect_choice_view), the same pattern every other
     persistent view in this cog follows.
@@ -72,7 +84,6 @@ class LowPassChoiceView(SafeView):
                 target_flat,
             )
             receivers = cog.engine.low_pass_receivers(match, distance)
-            role_initial = ROLE_INITIALS[teammate.role.value]
             if len(receivers) > 1:
                 # Naming one of several would misread the choice: the
                 # space is what is being picked here, and who receives
@@ -83,7 +94,7 @@ class LowPassChoiceView(SafeView):
                 )
             else:
                 label = (
-                    f"{teammate.name} [{role_initial}] -- "
+                    f"{player_with_role(teammate)} -- "
                     f"{space_label(zone, space_index)}"
                 )
             button = discord.ui.Button(
@@ -129,16 +140,28 @@ class LowPassChoiceView(SafeView):
         team_name = team_display_name(match.setup_for_side(offense_side).team)
 
         if len(receivers) > 1:
+            # Which of them takes it is read off the same field the
+            # space was picked off, so the attachment stays put --
+            # this edit passes no `attachments`, which leaves the one
+            # already on the message alone. Editing a view replaces it
+            # wholesale, though, so the full-image link has to be
+            # rebuilt onto the new one by hand (see
+            # RunBackPlayerChoiceView, which shares a board the same
+            # way).
+            receiver_view = LowPassReceiverView(
+                self.cog, self.game_id, distance,
+                key=self.key, free=self.free,
+            )
+            link = build_full_image_button(interaction.message)
+            if link is not None:
+                receiver_view.add_item(link)
             await interaction.response.edit_message(
                 content=(
                     f"**{interaction.user.display_name} ({team_name})** is "
                     f"passing to {space_label(zone, space_index)}. Which "
                     "player receives it?"
                 ),
-                view=LowPassReceiverView(
-                    self.cog, self.game_id, distance,
-                    key=self.key, free=self.free,
-                ),
+                view=receiver_view,
             )
             return
 
@@ -151,6 +174,11 @@ class LowPassChoiceView(SafeView):
                 f"{space_label(zone, space_index)}."
             ),
             view=None,
+            # The strip this was asked over shows the ball where it
+            # was *before* the pass, so it goes with the question rather
+            # than standing under the answer -- the same call the run
+            # back's own makes.
+            attachments=[],
         )
         await self.cog.apply_low_pass(
             interaction, game, match, distance, receiver_id=receivers[0],
@@ -194,9 +222,7 @@ class LowPassReceiverView(SafeView):
         for player_id in cog.engine.low_pass_receivers(match, distance):
             player = cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
-                label=(
-                    f"{player.name} [{ROLE_INITIALS[player.role.value]}]"
-                )[:80],
+                label=player_with_role(player)[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:low_pass_receiver:{game_id}:"
@@ -256,6 +282,9 @@ class LowPassReceiverView(SafeView):
                 f"{space_label(zone, space_index)}."
             ),
             view=None,
+            # The ball on it has not moved yet, so the picture goes
+            # with the question -- see LowPassChoiceView.choose.
+            attachments=[],
         )
         await self.cog.apply_low_pass(
             interaction, game, match, self.distance, receiver_id=receiver_id,
@@ -352,9 +381,9 @@ class SetupPassChoiceView(SafeView):
         team_name = team_display_name(
             match.setup_for_side(match.ball.possession).team
         )
-        # The field strip goes with the question: it shows the ball
-        # where it was before the pass, so leaving it under the answer
-        # would put a stale position in the channel.
+        # The strip goes with the question: it shows the ball where
+        # it was before the pass, so leaving it under the answer would
+        # put a stale position in the channel.
         await interaction.response.edit_message(
             content=(
                 f"**{interaction.user.display_name} ({team_name})** picks "
@@ -457,15 +486,17 @@ class HighPassChoiceView(SafeView):
     not shown at all -- resolve_high_pass sends the pass straight to
     its overshoot rather than putting up one answer three times.
 
-    **The prompt carries the field strip**, for the reason the maneuver
-    cards do: which distance to throw is a question about where
-    everybody is standing and how far the end of the field is, and the
+    **The prompt carries the field strip**, for the reason the
+    maneuver cards do: which distance to throw is a question about
+    which teammate the pass reaches, how much field is left, and who is
+    waiting where it lands -- a long pass is contested there -- and the
     persistent board has scrolled away by this point in a turn. It is
     an attachment on the prompt rather than a message of its own --
     unlike the field under the cards, which shares its message with the
     hand and would be laid out beside it -- so `choose` can strip it
     with `attachments=[]` in the edit it was already making. Leaving it
     under the answer would show the ball where it was before the pass.
+    See `D12Ball.send_field_prompt`.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -542,7 +573,7 @@ class HighPassChoiceView(SafeView):
             )
             return
 
-        # `attachments=[]` takes the field strip with the question it
+        # `attachments=[]` takes the strip with the question it
         # answered. It shows the ball where it was *before* the pass, so
         # leaving it under the answer would put a stale position in the
         # channel for the rest of the game -- the same reason the run
@@ -591,7 +622,7 @@ class SetUpAttemptChoiceView(SafeView):
 
         shooter = cog.engine.get_player_definition(shooter_id)
         attempt_button = discord.ui.Button(
-            label=f"{shooter.name} takes the shot",
+            label=f"{player_with_role(shooter)} takes the shot"[:80],
             style=discord.ButtonStyle.danger,
             custom_id=f"d12ball:setup_attempt:{game_id}:attempt",
         )
@@ -755,6 +786,11 @@ class DribbleAdvanceChoiceView(SafeView):
         await interaction.response.edit_message(
             content=f"Chose **{distance} {space_word}**.",
             view=None,
+            # The strip goes with the question: it shows the handler
+            # where they were *before* the dribble, so leaving it under
+            # the answer would put a stale position in the channel --
+            # see D12Ball.send_field_prompt.
+            attachments=[],
         )
         await self.cog.apply_dribble_advance(interaction, game, match, distance)
 
@@ -856,6 +892,9 @@ class DribbleBurstChoiceView(SafeView):
         await interaction.response.edit_message(
             content=f"Chose **{distance} {space_word}**.",
             view=None,
+            # It shows the position the run was priced against, which
+            # the run has just moved -- see DribbleAdvanceChoiceView.
+            attachments=[],
         )
         await self.cog.apply_dribble_burst(interaction, game, match, distance)
 
@@ -1027,9 +1066,8 @@ class ShooterChoiceView(SafeView):
 
         for player_id in candidates:
             player = cog.engine.get_player_definition(player_id)
-            initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
-                label=f"{player.name} [{initials}]",
+                label=player_with_role(player)[:80],
                 style=discord.ButtonStyle.danger,
                 custom_id=f"d12ball:shooter:{game_id}:{player_id}",
             )
@@ -1103,7 +1141,7 @@ class MindPullView(SafeView):
 
         player = cog.engine.get_player_definition(player_id)
         pull = discord.ui.Button(
-            label=f"{player.name} reaches for it",
+            label=f"{player_with_role(player)} reaches for it"[:80],
             style=discord.ButtonStyle.primary,
             custom_id=f"d12ball:mind_pull:{game_id}:{player_id}",
         )

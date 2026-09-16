@@ -28,7 +28,6 @@ from d12ball.render import (
 from cogs.d12ball_helpers import (
     ERROR_RECOVERY_ADVICE,
     LOGGER,
-    ROLE_INITIALS,
     game_participant_ids,
     # Aliased because `SafeView` carries methods of these two names --
     # the interaction-shaped front door onto the same two functions.
@@ -36,6 +35,7 @@ from cogs.d12ball_helpers import (
     # read as a recursive call.
     may_act_for_coach as user_may_act_for_coach,
     may_act_in_game as user_may_act_in_game,
+    player_with_role,
     send_error_fallback,
 )
 
@@ -58,7 +58,7 @@ def contestant_detail(
     "Injured players" in docs/living-rules.md.
     """
     return [
-        f"{player.name} [{ROLE_INITIALS[player.role.value]}]",
+        player_with_role(player),
         "Injured — no skill modifier"
         if injured
         else f"{skill_word} skill +{skill}",
@@ -265,7 +265,7 @@ class SafeView(discord.ui.View):
             player = self.cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
                 label=(
-                    f"⚡ Overdrive: {player.name} "
+                    f"⚡ Overdrive: {player_with_role(player)} "
                     f"({OVERDRIVE_DRAIN_COST} drain, +{OVERDRIVE_BONUS})"
                 )[:80],
                 style=discord.ButtonStyle.secondary,

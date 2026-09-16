@@ -19,10 +19,10 @@ from d12ball.game import (
 )
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
-    ROLE_INITIALS,
     add_full_image_button_to_response,
     challenger_prompt_ask,
     format_player_with_team,
+    player_with_role,
     refresh_player_names,
 )
 
@@ -56,9 +56,8 @@ class BallHandlerSelectionView(SafeView):
         # rules.
         for player_id in cog.engine.turn_handler_candidates(game, match):
             player = self.cog.engine.get_player_definition(player_id)
-            initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
-                label=f"{player.name} [{initials}]",
+                label=player_with_role(player)[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:ball_handler:{game_id}:{player_id}"
@@ -583,9 +582,8 @@ class ManeuverChallengeView(SafeView):
         for player_id in match.challenge_candidates():
             player = self.cog.engine.get_player_definition(player_id)
             distance = match.distance_to_ball(player_id)
-            initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
-                label=f"{player.name} [{initials}] ({distance})",
+                label=f"{player_with_role(player)} ({distance})"[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:challenger:{game_id}:{player_id}"

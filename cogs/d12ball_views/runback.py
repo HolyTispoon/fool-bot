@@ -10,6 +10,7 @@ from d12ball.components import TeamSide
 from cogs.d12ball_helpers import (
     add_full_image_button,
     build_full_image_button,
+    player_with_role,
     space_label,
     travel_space_label,
 )
@@ -67,16 +68,19 @@ class RunBackPlayerChoiceView(SafeView):
                 if match is not None
                 else None
             )
+            # The role is on the label because every label naming a
+            # card in this game carries it -- this was the one that did
+            # not. The space is there because a stack can span more
+            # than one of them: two pairs in a three-space zone with
+            # one space free is four candidates, and which pair they
+            # come from is the whole difference.
+            name = player_with_role(player)
             button = discord.ui.Button(
-                # The space is on the label because a stack can span
-                # more than one of them: two pairs in a three-space
-                # zone with one space free is four candidates, and
-                # which pair they come from is the whole difference.
                 label=(
-                    f"{player.name} — {space_label(*position)}"
+                    f"{name} — {space_label(*position)}"
                     if position is not None
-                    else player.name
-                ),
+                    else name
+                )[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:run_back_who:{game_id}:{player_id}"

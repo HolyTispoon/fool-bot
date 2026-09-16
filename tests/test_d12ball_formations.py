@@ -47,7 +47,11 @@ from d12ball.game import (
     GameStatus,
     Team,
 )
-from save_patches import suppressed_cog_saves, suppressed_view_saves
+from save_patches import (
+    suppressed_cog_saves,
+    suppressed_full_image_links,
+    suppressed_view_saves,
+)
 
 
 def build_cog() -> D12Ball:
@@ -94,7 +98,13 @@ def build_interaction(user_id: int = 111) -> SimpleNamespace:
             send_message=mock.AsyncMock(),
         ),
         followup=SimpleNamespace(send=mock.AsyncMock()),
-        message=SimpleNamespace(content="", edit=mock.AsyncMock()),
+        # A component interaction always carries its message, and a
+        # real one always has an attachment list -- the Low Pass prompt
+        # posts its field strip there and the receiver pick reads the
+        # full-image link back off it.
+        message=SimpleNamespace(
+            content="", edit=mock.AsyncMock(), attachments=[],
+        ),
     )
 
 
@@ -880,6 +890,31 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         # Naming one of three would misread what is being picked.
         self.assertIn(f"{len(others)} players -- M3", labels)
 
+    async def test_the_destination_prompt_carries_the_field_strip(
+        self,
+    ) -> None:
+        # Every destination on the menu is counted from where the ball
+        # is standing, and who is standing on the space it lands on
+        # decides how the pass is won -- so the prompt is posted over
+        # the field, which the persistent board has usually scrolled
+        # away from by the time a maneuver resolves.
+        cog, game, match, _ = self.build()
+        cog.build_field_file = mock.AsyncMock(
+            return_value=mock.sentinel.field,
+        )
+        cog.engine.side_controlled_by_ai = mock.Mock(return_value=False)
+        interaction = build_interaction()
+        interaction.followup.send.return_value = SimpleNamespace(id=7)
+
+        with suppressed_cog_saves(), suppressed_full_image_links():
+            await cog.resolve_low_pass(interaction, game, match)
+
+        self.assertEqual(
+            interaction.followup.send.call_args.kwargs["file"],
+            mock.sentinel.field,
+        )
+        cog.build_field_file.assert_awaited_once_with(game)
+
     async def test_the_passer_is_asked_which_teammate_receives(
         self,
     ) -> None:
@@ -892,6 +927,46 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         view = interaction.response.edit_message.call_args.kwargs["view"]
         self.assertIsInstance(view, LowPassReceiverView)
         self.assertEqual(len(view.children), len(others))
+
+    async def test_the_receiver_pick_is_read_off_the_same_field(
+        self,
+    ) -> None:
+        # The ball has not moved between the two questions, so the
+        # picture stays put -- the edit passes no `attachments`, which
+        # leaves the upload alone. Editing a view replaces it whole,
+        # though, so the full-image link has to be carried across by
+        # hand or the message keeps an image nothing links to.
+        cog, game, _, others = self.build()
+        interaction = build_interaction()
+        interaction.message.attachments = [
+            SimpleNamespace(url="https://cdn.example/half-field.png"),
+        ]
+
+        with suppressed_view_saves():
+            await LowPassChoiceView(cog, game.game_id).choose(interaction, 0)
+
+        kwargs = interaction.response.edit_message.call_args.kwargs
+        self.assertNotIn("attachments", kwargs)
+        self.assertEqual(
+            len(kwargs["view"].children), len(others) + 1,
+        )
+
+    async def test_the_answer_takes_the_field_strip_away(self) -> None:
+        # It shows the ball where it was *before* the pass, so it goes
+        # with the question rather than standing under the answer --
+        # the same call the run back's board makes.
+        cog, game, _, others = self.build()
+        interaction = build_interaction()
+
+        with suppressed_view_saves(), suppressed_cog_saves():
+            await LowPassReceiverView(cog, game.game_id, 0).choose(
+                interaction, others[-1],
+            )
+
+        self.assertEqual(
+            interaction.response.edit_message.call_args.kwargs["attachments"],
+            [],
+        )
 
     async def test_the_chosen_receiver_takes_the_winger_s_set_up(
         self,

@@ -180,6 +180,46 @@ def ball_space_label(match: MatchState) -> str:
     return space_label(match.ball.zone, match.ball.space_index)
 
 
+def role_initials(player) -> str:
+    """
+    A role's two letters -- the `FB` in "Hellguard [FB]".
+
+    The one reader of `ROLE_INITIALS` outside the modules that *draw*
+    it (the meeple tokens, the card header badges, the printed cards),
+    which index it for a glyph rather than for a name. Everything that
+    puts a role into text comes through here, so the two spellings
+    below cannot come to disagree about what a Fullback is called.
+    """
+    return ROLE_INITIALS[player.role.value]
+
+
+def player_with_role(player) -> str:
+    """
+    A card named the way every card in this game is named -- "Hellguard
+    [FB]".
+
+    **A player is never named without their role.** Nine of them are on
+    the field at once and a coach is choosing between them on what they
+    do, so a bare name is the one thing a label can say that does not
+    help: the role initials are what the meeple, the card on the board
+    and the printed card all carry, so this is the name a coach can
+    match to what they are looking at. See "Naming a player" in
+    CLAUDE.md.
+
+    This is the whole of the spelling, and the two things that add to
+    it build on it: `format_role_bracket` puts the team emoji in front
+    for a *message*, and a button adds the position instead. Nothing
+    may spell the brackets out for itself -- that is how the run back's
+    own buttons came to be the one place in the game that named a
+    player and left the role off.
+
+    It takes a `PlayerDefinition` rather than an id because the caller
+    that has an id has a catalog to resolve it with, and this module
+    has neither.
+    """
+    return f"{player.name} [{role_initials(player)}]"
+
+
 def format_player(
     game: D12BallGame,
     player_number: Optional[int],
