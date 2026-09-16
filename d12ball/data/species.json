@@ -19,8 +19,8 @@
     },
     "ooze": {
       "name": "Slimey",
-      "ability": "Slip in: any Ooze sharing the ball's space may play the handler's turn.\nMerge: an Ooze on the ball's space who isn't one of the two players rolling adds their skill to their own side in skill tests and contests — oSkill attacking, dSkill defending. Every such Ooze adds. In a score attempt it's the attack only, and their oSkill.",
-      "ability_short": "Any Ooze on the ball can handle it. A non-rolling Ooze on the ball adds oSkill (attack) or dSkill (defence) to tests & contests — oSkill only on a score attempt."
+      "ability": "Slip in: any Ooze sharing the ball's space may play the handler's turn.\nMerge: an Ooze on the ball's space who isn't one of the two players rolling adds their skill to their own side in skill tests and contests — oSkill attacking, dSkill defending. Every such Ooze adds. In a score attempt it's the attack only, and their oSkill.\nSpreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space.",
+      "ability_short": "Any Ooze on the ball can handle it. A non-rolling Ooze on the ball adds oSkill (attack) or dSkill (defence) to tests & contests — oSkill only on a score attempt. Always counts as 0 toward its zone's occupancy, and is never split out of a stack."
     }
   }
 }

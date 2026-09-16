@@ -120,6 +120,7 @@ class PendingTurnViewTests(unittest.TestCase):
 
     def build(self) -> tuple[D12Ball, MatchState]:
         cog = build_cog()
+        cog.games["g1"] = build_game()
         match = MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,

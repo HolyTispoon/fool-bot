@@ -1483,6 +1483,182 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(bonus, 0)
 
 
+class SpreadableTests(unittest.TestCase):
+    """
+    "Spreadable ... it counts as 0 [[toward occupancy]]" -- fully
+    passive: every fielded Ooze, always, with nothing for a coach to
+    declare. `RulesEngine.spread_exempt_ids` is the whole of who is
+    exempt; `open_spaces_in_zone`, `placement_spaces_in_zone` and
+    `crowded_candidates` are the three readings that take it.
+
+    A stack sharing a space with an exempt Ooze is a stack of one (or
+    zero) once the Ooze is disregarded, so `crowded_candidates` never
+    offers it -- neither the Ooze nor whoever it is stacked with runs
+    back for it, and that is the only place the exemption reaches
+    beyond occupancy.
+    """
+
+    def setUp(self) -> None:
+        self.engine = build_engine()
+        self.game = build_game(player_1_team=Team.OOZES)
+        self.match = build_match(self.engine, self.game)
+
+    def test_every_fielded_ooze_is_exempt(self):
+        self.assertEqual(
+            self.engine.spread_exempt_ids(
+                self.game, self.match, TeamSide.HOME,
+            ),
+            set(field_players(self.match)),
+        )
+
+    def test_a_non_ooze_side_exempts_only_its_oozes(self):
+        game = build_game(player_1_team=Team.PURPLE)
+        match = build_match(self.engine, game)
+        ooze = fielded_of_species(match, SPECIES_OOZE)
+        exempt = self.engine.spread_exempt_ids(game, match, TeamSide.HOME)
+        self.assertIn(ooze, exempt)
+        self.assertTrue(
+            all(
+                self.engine.species_of(player_id) == SPECIES_OOZE
+                for player_id in exempt
+            )
+        )
+
+    def test_without_the_module_nobody_is_exempt(self):
+        basic = build_game(player_1_team=Team.OOZES, mode=GameMode.BASIC)
+        self.assertEqual(
+            self.engine.spread_exempt_ids(basic, self.match, TeamSide.HOME),
+            set(),
+        )
+
+    def test_a_fielded_ooze_counts_as_zero_in_open_spaces_in_zone(self):
+        ooze = field_players(self.match)[0]
+        zone, own_index = self.match.board.meeple_position(ooze)
+        # Clear the space down to the Ooze alone, so its own presence
+        # is the only thing standing between this space and reading as
+        # uncovered.
+        for player_id in list(self.match.board.spaces[zone][own_index]):
+            if player_id != ooze:
+                self.match.board.remove_meeple(player_id)
+        self.assertNotIn(
+            own_index,
+            self.match.open_spaces_in_zone(TeamSide.HOME, zone),
+        )
+        self.assertIn(
+            own_index,
+            self.engine.open_spaces_in_zone(
+                self.game, self.match, TeamSide.HOME, zone,
+            ),
+        )
+
+    def test_a_fielded_ooze_counts_as_zero_in_placement_spaces_in_zone(self):
+        ooze = field_players(self.match)[0]
+        setup = self.match.setup_for_side(TeamSide.HOME)
+        zone = setup.assigned_zone(ooze)
+        own_index = self.match.board.meeple_position(ooze)[1]
+        mover = next(
+            player_id
+            for player_id in field_players(self.match)
+            if player_id != ooze and setup.assigned_zone(player_id) == zone
+        )
+        for player_id in list(self.match.board.spaces[zone][own_index]):
+            if player_id not in (ooze, mover):
+                self.match.board.remove_meeple(player_id)
+        self.match.board.remove_meeple(mover)
+        self.assertNotIn(
+            own_index,
+            self.match.placement_spaces_in_zone(TeamSide.HOME, zone, mover),
+        )
+        self.assertIn(
+            own_index,
+            self.engine.placement_spaces_in_zone(
+                self.game, self.match, TeamSide.HOME, zone, mover,
+            ),
+        )
+
+    def stack_onto(self, match: MatchState, mover: str, target: str) -> None:
+        """Force `mover` to physically share `target`'s space."""
+        position = match.board.meeple_position(target)
+        match.board.remove_meeple(mover)
+        match.board.place_meeple(mover, *position)
+
+    def test_an_ooze_and_its_stacked_teammate_are_never_offered_to_run_back(self):
+        # A mixed side, so the stack is a real Ooze plus a real
+        # non-Ooze rather than two Oozes disappearing together.
+        game = build_game(player_1_team=Team.PURPLE)
+        match = build_match(self.engine, game)
+        setup = match.setup_for_side(TeamSide.HOME)
+        ooze = fielded_of_species(match, SPECIES_OOZE)
+        zone = setup.assigned_zone(ooze)
+        teammate = next(
+            player_id
+            for player_id in field_players(match)
+            if player_id != ooze
+            and self.engine.species_of(player_id) != SPECIES_OOZE
+        )
+        # Force the teammate into the Ooze's own zone and onto its
+        # space, whatever the deal actually gave them -- the scenario
+        # under test is the stack, not how it arose.
+        for zone_players in setup.zones.values():
+            if teammate in zone_players:
+                zone_players.remove(teammate)
+        setup.zones[zone].append(teammate)
+        self.stack_onto(match, teammate, ooze)
+
+        self.assertEqual(
+            self.engine.run_back_crowded(game, match, TeamSide.HOME), [],
+        )
+
+    def test_a_stack_of_two_non_oozes_is_still_offered_normally(self):
+        # A species side with no Oozes at all, so nothing here is
+        # exempt and the ordinary stack-breaking rule is unaffected.
+        game = build_game(player_1_team=Team.FIRE_DEMONS)
+        match = build_match(self.engine, game)
+        setup = match.setup_for_side(TeamSide.HOME)
+        one, other = field_players(match)[:2]
+        zone = setup.assigned_zone(one)
+        for zone_players in setup.zones.values():
+            if other in zone_players:
+                zone_players.remove(other)
+        setup.zones[zone].append(other)
+        self.stack_onto(match, other, one)
+
+        candidates = self.engine.run_back_crowded(game, match, TeamSide.HOME)
+        self.assertIn(one, candidates)
+        self.assertIn(other, candidates)
+
+    def test_run_back_player_accepts_the_same_exempt_ids_the_prompt_used(self):
+        # placement_spaces_in_zone's exempt-widened result has to be
+        # what run_back_player itself re-validates against, or a
+        # legitimately offered space is refused on the click.
+        ooze = field_players(self.match)[0]
+        setup = self.match.setup_for_side(TeamSide.HOME)
+        zone = setup.assigned_zone(ooze)
+        own_index = self.match.board.meeple_position(ooze)[1]
+        mover = next(
+            player_id
+            for player_id in field_players(self.match)
+            if player_id != ooze and setup.assigned_zone(player_id) == zone
+        )
+        for player_id in list(self.match.board.spaces[zone][own_index]):
+            if player_id not in (ooze, mover):
+                self.match.board.remove_meeple(player_id)
+        self.match.board.remove_meeple(mover)
+        exempt_ids = self.engine.spread_exempt_ids(
+            self.game, self.match, TeamSide.HOME,
+        )
+        self.assertIn(
+            own_index,
+            self.match.placement_spaces_in_zone(
+                TeamSide.HOME, zone, mover, exempt_ids,
+            ),
+        )
+        self.match.run_back_player(mover, zone, own_index, exempt_ids)
+        self.assertEqual(
+            self.match.board.meeple_position(mover), (zone, own_index),
+        )
+
+
 class BallPathTests(unittest.TestCase):
     """
     "It passes over the space on its way somewhere, or comes to rest on

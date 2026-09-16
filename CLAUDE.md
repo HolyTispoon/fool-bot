@@ -1312,6 +1312,63 @@ with it.
   own skill is already in the total, so they are struck out rather than
   double-counted.
 
+**Spreadable is fully passive -- every fielded Ooze, always, nothing to
+declare.** "It counts as 0 [toward occupancy]" (the author, 2026-09-16) is not
+something a coach turns on: `RulesEngine.spread_exempt_ids(game, match, side)`
+is every one of that side's fielded Oozes whenever the game plays species
+abilities, full stop. There is no second space, no per-card state, and no
+Coaching Choice action for it -- the two earlier readings (an Ooze holding a
+second declared space; a coach picking one from a "Spread" button) were both
+tried and dropped in the same conversation that settled this one, which is
+why there is no `spread_link` on `MatchState` and no `CoachingSpreadView`.
+
+- **The exemption is an id set threaded through three readings, never a fact
+  `MatchState` looks up itself.** Same split as `slip_in_candidates` and
+  `merge_bonus`: this module does not know what a species is, so
+  `open_spaces_in_zone`, `placement_spaces_in_zone` and `crowded_candidates`
+  each take a `spread_exempt_ids` collection and simply subtract it from the
+  team-membership set before intersecting it against a space's occupants --
+  the same shape the moved player's own exclusion already had in
+  `placement_spaces_in_zone`. `RulesEngine` supplies the set at every call
+  site that has a `game` in scope; nothing calls the bare `MatchState` methods
+  without it except `move_card` (the `/coach`/`/ref` manual override, which is
+  deliberately left asking no rules question at all).
+- **An exempt Ooze's own space reads as uncovered, even standing on it.**
+  That is the whole of "counts as 0" -- there is no second space to also
+  exempt, so this is the entire effect on `open_spaces_in_zone` and
+  `placement_spaces_in_zone`.
+- **The one place the exemption reaches past occupancy is `crowded_candidates`
+  (run-back-out-of-a-stack).** It takes the same `spread_exempt_ids` and
+  applies it to the same `team_players` set it already builds `zone_native`
+  from: a stack of an exempt Ooze plus one zone-native teammate becomes a
+  stack of one once the Ooze is disregarded, so `len(zone_native) < 2` and
+  neither of them is ever offered. That is a deliberate, narrow reading (the
+  author, confirmed in the same conversation) -- it is *only* the
+  stack-breaking question. `run_back_displaced` (a player genuinely outside
+  their own zone) is untouched, so a displaced Ooze still runs back like
+  anyone else; the exemption never grows into a full run-back exemption the
+  way the ball carrier's does.
+- **`run_back_player` re-validates against the same set the prompt was built
+  from.** It calls `placement_spaces_in_zone` again to check the click, so a
+  caller that built its buttons with `spread_exempt_ids` and then calls
+  `run_back_player` without them would have the re-check reject a space it
+  had just legitimately offered -- see
+  `RunBackChoiceView`/`run_back_ai_placement`/`apply_forced_run_backs` for the
+  three places that thread the same set through both halves.
+- **`positioning_swap_candidates` (Space Positioning's own trade-or-stack
+  question) is deliberately untouched.** "Can stack with other players in
+  assignments" reads as a plausible extension of the same primitive, but it
+  was never reconfirmed once the design turned passive and it needs the
+  furthest plumbing (`position_meeple` has no `game` today) for the least
+  certain payoff -- worth revisiting if the author confirms it, not
+  inferred.
+- **Neither the formation's zone headcount nor kickoff-space coverage reads
+  the exemption.** `current_formation` and `kickoff_space_occupied_by` are
+  untouched: an exempt Ooze still counts once toward its zone's shape, and
+  still has to be the one covering its side's kickoff space if it is the one
+  standing there. Both are named explicitly in
+  `docs/rules-log.md` as scope this landed without, not scope it ruled out.
+
 ### Mind Pull, and the arrival gate
 
 **The only ability that interrupts a maneuver rather than modifying one.**

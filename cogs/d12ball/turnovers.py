@@ -187,7 +187,6 @@ class TurnoverMixin:
             "place. No exhaustion cost."
         )
 
-
     async def coaching_file(
         self,
         game: D12BallGame,
@@ -1232,7 +1231,7 @@ class TurnoverMixin:
             else ""
         )
         displaced = any(
-            self.engine.run_back_movers(match, side)
+            self.engine.run_back_movers(game, match, side)
             for side in (TeamSide.HOME, TeamSide.VISITING)
         )
         if displaced:
@@ -1252,6 +1251,7 @@ class TurnoverMixin:
 
     def run_back_space_prompt(
         self,
+        game: D12BallGame,
         match: MatchState,
         side: TeamSide,
         player_id: str,
@@ -1270,7 +1270,8 @@ class TurnoverMixin:
         return (
             f"{mention}, choose where "
             f"{self.player_label(match, player)} runs back "
-            f"to:\n{self.engine.describe_run_back_options(match, side, player_id)}"
+            "to:\n"
+            f"{self.engine.describe_run_back_options(game, match, side, player_id)}"
         )
 
     def run_back_player_prompt(
@@ -1329,10 +1330,13 @@ class TurnoverMixin:
         )
         zone = match.setup_for_side(side).assigned_zone(player_id)
         player = self.engine.get_player_definition(player_id)
+        exempt_ids = self.engine.spread_exempt_ids(game, match, side)
         space_index = self.engine.get_ai_strategy(game).choose_run_back_space(
-            match.placement_spaces_in_zone(side, zone, player_id)
+            match.placement_spaces_in_zone(side, zone, player_id, exempt_ids)
         )
-        distance = match.run_back_player(player_id, zone, space_index)
+        distance = match.run_back_player(
+            player_id, zone, space_index, exempt_ids,
+        )
         exhaustion_text = self.apply_exhaustion(
             game, match, player_id, distance,
         )
@@ -1441,7 +1445,7 @@ class TurnoverMixin:
         if len(candidates) == 1:
             prompt_view = RunBackChoiceView(self, game.game_id, candidates[0])
             body = self.run_back_space_prompt(
-                match, side, candidates[0], mention,
+                game, match, side, candidates[0], mention,
             )
         else:
             prompt_view = RunBackPlayerChoiceView(self, game.game_id, candidates)
@@ -1613,7 +1617,7 @@ class TurnoverMixin:
             self.engine.apply_forced_run_backs(game, match)
             self.persist(game, match)
 
-            step = self.engine.next_run_back_step(match)
+            step = self.engine.next_run_back_step(game, match)
 
             if step is not None:
                 side, candidates = step

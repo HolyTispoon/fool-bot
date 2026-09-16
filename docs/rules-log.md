@@ -124,6 +124,49 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-16 (later still) -- author, Spreadable joins Slimey
+
+A third Ooze ability, alongside slip in and merge, that went through three readings in one
+conversation before landing. The starting text: *"Spreadable. Can be assigned to two adjacent
+zones. Can stack with other players in assignments. It means than when a coach assigns ooze
+players to zones they can assign them to 1 or 2 zones but it counts as 0 in both of them."*
+
+- **First correction: "zones" to "spaces".** An Ooze holds two adjacent spaces **in its own
+  zone**, not two zones, still for occupancy alone.
+- **Second correction: fully passive, not declared.** The author's own words, asked to settle
+  whether a coach still picks a specific second space: *"Any Ooze is always spreadable"* /
+  *"Fully passive — scrap the declare step."* There is no second space at all any more, and
+  nothing for a coach to click: **every fielded Ooze always counts as 0 toward its own zone's
+  occupancy**, whenever the game plays species abilities.
+- **A new half surfaced alongside the correction: the run back.** *"[Oozes] never run back
+  when they stack with someone assigned to their zone. The other player they are stacked with
+  won't run back if they are in the zone they are assigned to"* -- confirmed narrowly, as
+  *"only the stack-breaking question"* rather than a full run-back exemption like the ball
+  carrier's: an Ooze sharing a space with a zone-native teammate is never offered by
+  `crowded_candidates` to break that stack up, and neither is the teammate, but a genuinely
+  *displaced* Ooze (outside its own zone entirely) still runs back like anyone else.
+
+The questions below were answered in chat rather than as sheet or Notion data, which is the
+exception this log exists to flag rather than the rule: they came from the author directly,
+but not versioned as inline comments on a docs PR the way "Working practice" above asks for.
+Worth confirming on the next docs pass rather than trusting this entry's read of them
+indefinitely.
+
+- **Occupancy and the run-back stack only.** Of everything "counts as 0" could touch, the
+  author confirmed exactly two: `open_spaces_in_zone`/`placement_spaces_in_zone` (coverage)
+  and `crowded_candidates` (never split out of a stack). The formation's zone headcount and
+  kickoff-space coverage were never asked about and are left reading a Spreadable Ooze as an
+  ordinary card -- `current_formation` and `kickoff_space_occupied_by` are untouched.
+- **`positioning_swap_candidates` (Space Positioning's stack-or-trade question) is left
+  alone**, on the same "not reconfirmed" reasoning -- the original ability text's "can stack
+  with other players in assignments" reads as a plausible fourth site, but it was never
+  reconfirmed once the design turned passive, and it is the one of the four that needs the
+  most new plumbing (`position_meeple` has no `game` today) for the least certain payoff.
+
+Implemented as `RulesEngine.spread_exempt_ids` -- see "Slimey" in CLAUDE.md for the whole of
+it, including exactly which three functions it reaches and why a fourth candidate was left
+out.
+
 ### 2026-09-16 -- author, ceding the ball becomes a time out, and a new play's Coaching Choice is free
 
 **Ceding is gone.** There is no longer any way to hand the ball to the other team on

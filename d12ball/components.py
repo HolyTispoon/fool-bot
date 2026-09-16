@@ -3650,7 +3650,11 @@ class MatchState:
                 displaced.append(player_id)
         return displaced
 
-    def crowded_candidates(self, side: TeamSide) -> list[str]:
+    def crowded_candidates(
+        self,
+        side: TeamSide,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> list[str]:
         """
         Who could be the next of `side` to run back out of a stack --
         every one of their zone-native fielded players sharing a space
@@ -3672,6 +3676,15 @@ class MatchState:
         therefore one candidate and no choice, which is the same answer
         the old reading gave.
 
+        `spread_exempt_ids` is Spreadable's own reading of the same
+        rule: excluded from `team_players` here exactly as it is from
+        `open_spaces_in_zone`, so an Ooze sharing a space with one
+        zone-native teammate is a stack of one once the Ooze is
+        disregarded -- `zone_native` comes back under two and the pair
+        is never offered at all. Neither of them runs back for it, and
+        the Ooze is never a candidate in its own right either, since it
+        is never in `zone_native` to begin with.
+
         Only one of them moves per pass and the caller asks again, so
         a zone with two uncovered spaces breaks its stack up twice and
         the coach chooses both times. A zone with none is left alone,
@@ -3683,10 +3696,10 @@ class MatchState:
         """
         stays_player_id = self.pending_run_back_stays_player_id
         setup = self.setup_for_side(side)
-        team_players = set(setup.field_players)
+        team_players = set(setup.field_players) - set(spread_exempt_ids)
         candidates: list[str] = []
         for zone in Zone:
-            if not self.open_spaces_in_zone(side, zone):
+            if not self.open_spaces_in_zone(side, zone, spread_exempt_ids):
                 continue
             for occupants in self.board.spaces[zone]:
                 zone_native = [
@@ -3704,15 +3717,27 @@ class MatchState:
                 )
         return candidates
 
-    def open_spaces_in_zone(self, side: TeamSide, zone: Zone) -> list[int]:
+    def open_spaces_in_zone(
+        self,
+        side: TeamSide,
+        zone: Zone,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> list[int]:
         """
         Space indices in `zone` that `side` has not covered -- no
         meeple of theirs standing there. Coverage is per team, so an
         opposing meeple never blocks a space here.
+
+        `spread_exempt_ids` counts for nothing here -- Spreadable's
+        whole rule (see "Slimey" in CLAUDE.md): a Spreadable Ooze's own
+        space still reads as uncovered even though it is the one
+        standing on it. This module does not know what a species is,
+        so the ids are the caller's to supply -- see
+        `RulesEngine.open_spaces_in_zone`.
         """
         zone = Zone(zone)
         setup = self.setup_for_side(side)
-        team_players = set(setup.field_players)
+        team_players = set(setup.field_players) - set(spread_exempt_ids)
         return [
             index
             for index, occupants in enumerate(self.board.spaces[zone])
@@ -3724,6 +3749,7 @@ class MatchState:
         side: TeamSide,
         zone: Zone,
         player_id: Optional[str] = None,
+        spread_exempt_ids: Collection[str] = (),
     ) -> list[int]:
         """
         Where one of `side`'s meeples may legally be put down in
@@ -3740,11 +3766,15 @@ class MatchState:
         space it is the only one standing on is uncovered the moment
         it leaves, so it stays a legal destination -- and a zone whose
         spaces only *it* fills does not read as covered and let the
-        rest of the team pile up.
+        rest of the team pile up. `spread_exempt_ids` is discounted the
+        same way, permanently rather than only while one of them is the
+        one moving -- see `open_spaces_in_zone`.
         """
         zone = Zone(zone)
         setup = self.setup_for_side(side)
-        others = set(setup.field_players) - {player_id}
+        others = (
+            set(setup.field_players) - {player_id} - set(spread_exempt_ids)
+        )
         uncovered = [
             index
             for index, occupants in enumerate(self.board.spaces[zone])
@@ -3786,12 +3816,18 @@ class MatchState:
         player_id: str,
         zone: Zone,
         space_index: int,
+        spread_exempt_ids: Collection[str] = (),
     ) -> int:
         """
         Move a displaced player's meeple back into their assigned zone,
         at a space the coverage rule allows them (see
         placement_spaces_in_zone). Returns the distance traveled, for
         the exhaust tokens run-back costs.
+
+        `spread_exempt_ids` must be the same set the caller offered
+        their buttons against (see `RulesEngine.placement_spaces_in_zone`),
+        or this re-check can refuse a space the coach was legitimately
+        shown.
         """
         side = (
             TeamSide.HOME
@@ -3806,7 +3842,7 @@ class MatchState:
                 f"{player_id} is not assigned to {zone.value}."
             )
         if space_index not in self.placement_spaces_in_zone(
-            side, zone, player_id,
+            side, zone, player_id, spread_exempt_ids,
         ):
             raise ValueError(
                 "That zone still has a space with nobody on it."
