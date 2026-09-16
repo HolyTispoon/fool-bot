@@ -262,36 +262,51 @@ class TurnoverMixin:
         The line under a coaching prompt: what this window costs, what
         moved on the way in, and who is hurt.
 
-        The three answer separately -- an occasion that is declared
-        says so, a restore is only mentioned when it actually moved
-        somebody, and an injured player is a nudge rather than a
+        The three answer separately -- an occasion that costs
+        something says so, a restore is only mentioned when it actually
+        moved somebody, and an injured player is a nudge rather than a
         requirement. Any of them may have nothing to say, so the parts
         that are there are joined rather than interpolated; see "What a
         message says".
 
         The first has nothing to say at setup, halftime and full time,
-        which are the only occasions reaching that branch. It used to
-        read "Take as long as you like; nothing here costs exhaustion"
-        -- reassurance rather than information, on the three occasions
-        where no clock is running and nothing is being spent in the
-        first place.
+        which are the only occasions reaching neither branch. It used
+        to read "Take as long as you like; nothing here costs
+        exhaustion" -- reassurance rather than information, on the
+        three occasions where no clock is running and nothing is being
+        spent in the first place.
+
+        **All four branches described the rules as they stood before
+        2026-09-16** and were rewritten with them. A new play's window
+        said "calling one is once a half", which is exactly what
+        stopped being true -- it is free and unlimited now, and the
+        once-a-half moved onto the time out. The time out's two said
+        the *ball* had bought the window and that the other team had
+        given it up, which is what a cede did and what a time out
+        pointedly does not.
+
+        What the reassurance is *about* moved with it. Before, a coach
+        answering somebody else's window wanted to know it had not cost
+        them their own once-a-half; now the scarce thing is the time
+        out, so that is what the two reply branches say is untouched.
         """
         lines: list[str] = []
         if occasion.asks_declaration:
             lines.append(
-                "Answering the other team, which leaves your own "
-                "once-a-half Coaching Choice unspent."
+                "Answering the other team's Coaching Choice, which "
+                "costs you nothing. Your time out is untouched."
                 if is_response
-                else "Calling one is once a half. Coach, or pass?"
+                else "A new play's Coaching Choice is free, however "
+                "many you have had this half. Coach, or pass?"
             )
         elif occasion == CoachingOccasion.TIME_OUT:
             lines.append(
-                "The ball bought this, so there is nothing to decide "
-                "-- it is open."
+                "Your time out bought this, so there is nothing to "
+                "decide -- it is open."
                 if not is_response
-                else "The other team gave the ball up to coach. Yours "
-                "is open too, and leaves your own once-a-half Coaching "
-                "Choice unspent."
+                else "The other team called a time out. Your Coaching "
+                "Choice is open too, and it leaves your own time out "
+                "unspent."
             )
 
         # Said only when it actually moved somebody, which is halftime

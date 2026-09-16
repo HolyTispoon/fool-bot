@@ -628,8 +628,8 @@ class PeriodMixin:
             lead_in=(
                 f"## Halftime\n{format_team_side_label(setup)} set up for "
                 "the second half. Halftime is free: it leaves their "
-                "own once-a-half Coaching Choice unspent, and its two "
-                "substitutions are its own rather than either half's."
+                "own time out unspent, and its two substitutions are "
+                "its own rather than either half's."
             ),
         )
 

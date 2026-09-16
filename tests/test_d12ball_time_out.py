@@ -531,6 +531,80 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(EVENT_TURN_ACTION, kinds)
 
 
+class CoachingNoteTests(unittest.TestCase):
+    """
+    What the line under a coaching prompt claims about the rules.
+
+    Every branch of it described the pre-2026-09-16 rules and had to be
+    rewritten with them. These assert the **stale claims are gone**
+    rather than quoting the replacements: the wording is prose and will
+    be revised, where "a new play's window is once a half" and "the
+    ball bought this" are rules that stopped being true, and a message
+    is the one place a retired rule can go on being told to a coach
+    long after the code stopped playing it.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def note(self, occasion, is_response: bool = False) -> str:
+        cog = build_cog()
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        return cog.coaching_window_note(
+            match, TeamSide.HOME, occasion, is_response, False,
+        )
+
+    def test_a_new_play_is_not_described_as_once_a_half(self) -> None:
+        # It is free and unlimited now; the once-a-half moved onto the
+        # time out.
+        offered = self.note(CoachingOccasion.NEW_PLAY)
+
+        self.assertNotIn("once a half", offered)
+        self.assertIn("free", offered)
+        # It is still the coach-or-pass offer, which is the one thing
+        # this branch has to do.
+        self.assertIn("pass", offered)
+
+    def test_no_branch_says_the_ball_bought_the_window(self) -> None:
+        # A cede bought it with possession and a time out pointedly
+        # does not -- see MatchState.call_time_out.
+        for occasion in CoachingOccasion:
+            for is_response in (False, True):
+                with self.subTest(occasion=occasion, response=is_response):
+                    note = self.note(occasion, is_response).lower()
+                    self.assertNotIn("the ball bought", note)
+                    self.assertNotIn("gave the ball up", note)
+
+    def test_the_time_out_branches_name_the_time_out(self) -> None:
+        called = self.note(CoachingOccasion.TIME_OUT)
+        answered = self.note(CoachingOccasion.TIME_OUT, is_response=True)
+
+        self.assertIn("time out", called)
+        # The reply is free, and what it leaves alone is the thing that
+        # is actually scarce.
+        self.assertIn("time out", answered)
+        self.assertIn("unspent", answered)
+
+    def test_the_given_occasions_still_say_nothing(self) -> None:
+        # Setup, halftime and full time reach neither branch: no clock
+        # is running and nothing is being spent.
+        for occasion in (
+            CoachingOccasion.SETUP,
+            CoachingOccasion.HALFTIME,
+            CoachingOccasion.FULL_TIME,
+        ):
+            with self.subTest(occasion=occasion):
+                self.assertEqual(self.note(occasion), "")
+
+
 class LegacyCedeSaveTests(unittest.TestCase):
     """
     A game saved mid-cede comes back mid-time-out.
