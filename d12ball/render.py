@@ -2169,7 +2169,12 @@ VOLATILE_TITLE = "VOLATILE IGNITION"
 VOLATILE_TITLE_TOP = 14
 VOLATILE_EXPLAINER_TOP = 48
 VOLATILE_ROW_TOP = 86
-VOLATILE_PORTRAIT_SIZE = INJURY_TEST_PORTRAIT_SIZE
+# Bigger than the injury test's and the Mind Pull die's 96, because
+# this image has room the others do not: its explainer line is wider
+# than any row of three columns, so a portrait at that size left the
+# middle column a small picture in a lot of black. The portrait is now
+# what sets the row's height, and the flame sits inside it.
+VOLATILE_PORTRAIT_SIZE = 168
 VOLATILE_LABEL_GAP = 8
 # Two lines under the die, as the Mind Pull die has: the team, and the
 # natural face that ignited. The second die on its own says nothing
@@ -2184,8 +2189,15 @@ VOLATILE_BOTTOM_PADDING = 14
 VOLATILE_AURA_COLOR = TEAM_COLORS[Team.FIRE_DEMONS]
 # The flame behind the die, and the ring around it. Dim enough that the
 # face stays the brightest thing in the column.
+#
+# **The scale is tighter than the Mind Pull halo's 2.9**, which is the
+# difference between the two shapes rather than a change of mind: a
+# spiral is mostly the gaps between its arms, so it needs the room to
+# read as one, where the flame is a solid silhouette and at that size
+# was a wide orange blob with a die lost in the middle of it. Close
+# around the ring is where it reads as the die being alight.
 VOLATILE_HALO_ALPHA = 70
-VOLATILE_HALO_SCALE = 2.9
+VOLATILE_HALO_SCALE = 1.85
 VOLATILE_RING_GAP = 8
 VOLATILE_RING_WIDTH = 3
 VOLATILE_SURGE_TEXT = "SURGE"
@@ -2289,19 +2301,25 @@ def render_volatile_die(
         halo_size,
         portrait_height,
     ) + VOLATILE_LABEL_GAP + VOLATILE_LABEL_HEIGHT
-    row_width = (
-        die_column
-        + portrait_column
-        + verdict_column
-        + VOLATILE_COLUMN_GAP * 2
-    )
+    columns_width = die_column + portrait_column + verdict_column
     # The explainer is the widest thing on most of these images, and it
     # is the half a coach reading their first ignite actually needs --
     # so the canvas is sized to whichever of the two is wider rather
     # than the sentence being cut to the row.
     explainer_width = measure.textlength(explainer, font=FONT_SMALL)
-    width = round(
-        VOLATILE_SIDE_PADDING * 2 + max(row_width, explainer_width)
+    content_width = max(
+        columns_width + VOLATILE_COLUMN_GAP * 2, explainer_width,
+    )
+    width = round(VOLATILE_SIDE_PADDING * 2 + content_width)
+    # **The slack the explainer creates goes between the columns, not
+    # around them.** Three columns centred under a wider sentence left
+    # a band of black down each side of the row and the portrait
+    # marooned in the middle of it; spread across the whole content
+    # width they read as the row the sentence is about.
+    # `VOLATILE_COLUMN_GAP` is the floor, for the image narrow enough
+    # that the row is what sets the width.
+    column_gap = max(
+        VOLATILE_COLUMN_GAP, (content_width - columns_width) / 2,
     )
     height = VOLATILE_ROW_TOP + row_height + VOLATILE_BOTTOM_PADDING
 
@@ -2328,11 +2346,7 @@ def render_volatile_die(
         + (row_height - VOLATILE_LABEL_GAP - VOLATILE_LABEL_HEIGHT) / 2
     )
 
-    # The row is centred on the canvas rather than pinned to the left
-    # padding: the explainer above it is often the wider of the two, and
-    # a row hugging one edge under a centred sentence reads as a
-    # rendering fault.
-    row_left = (width - row_width) / 2
+    row_left = VOLATILE_SIDE_PADDING
 
     die_center_x = row_left + die_column / 2
     # The flame goes down first and the die over it, so the face is
@@ -2393,7 +2407,7 @@ def render_volatile_die(
     portrait_center_x = (
         row_left
         + die_column
-        + VOLATILE_COLUMN_GAP
+        + column_gap
         + portrait_column / 2
     )
     if sized is not None:
@@ -2416,7 +2430,7 @@ def render_volatile_die(
         row_left
         + die_column
         + portrait_column
-        + VOLATILE_COLUMN_GAP * 2
+        + column_gap * 2
         + verdict_column / 2
     )
     draw.text(

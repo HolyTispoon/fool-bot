@@ -99,8 +99,12 @@ from d12ball.render import (
     player_index,
     render_coaching_image,
     render_field_image,
+    INJURY_TEST_PORTRAIT_SIZE,
     MIND_PULL_DIE_RADIUS,
+    MIND_PULL_HALO_SCALE,
     VOLATILE_DIE_RADIUS,
+    VOLATILE_HALO_SCALE,
+    VOLATILE_PORTRAIT_SIZE,
     mind_pull_target_label,
     render_injury_test_die,
     render_mind_pull_die,
@@ -2852,6 +2856,28 @@ class D12BallManeuverTests(unittest.TestCase):
             self.assertEqual(image.format, "PNG")
             self.assertGreater(image.height, VOLATILE_DIE_RADIUS * 2)
             self.assertGreater(image.width, image.height)
+
+    def test_the_portrait_is_what_sets_a_volatile_die_s_row(self) -> None:
+        # The author's call (2026-09-16): this image has room the
+        # injury test and the Mind Pull die do not, because its
+        # explainer is wider than any row of three columns -- so the
+        # portrait is the tallest thing in the row and the flame sits
+        # inside it, rather than a 96px picture marooned in a band of
+        # black under a wide sentence. Both halves are asserted
+        # because the way they come undone is somebody making this
+        # image consistent with the two it borrows its layout from.
+        self.assertGreater(VOLATILE_PORTRAIT_SIZE, INJURY_TEST_PORTRAIT_SIZE)
+        self.assertLess(VOLATILE_HALO_SCALE, MIND_PULL_HALO_SCALE)
+        halo_size = 2 * VOLATILE_DIE_RADIUS * VOLATILE_HALO_SCALE
+        self.assertGreater(VOLATILE_PORTRAIT_SIZE, halo_size)
+
+        image_data = render_volatile_die(
+            9, 6, TEAM_COLORS[Team.ORANGE], "Orange", "Defender A",
+            surge=True, modifier=9,
+        )
+
+        with Image.open(image_data) as image:
+            self.assertGreater(image.height, VOLATILE_PORTRAIT_SIZE)
 
     def test_a_volatile_die_draws_a_backfire_too(self) -> None:
         # The other half of the ability, and the one a coach is most

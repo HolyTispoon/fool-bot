@@ -928,6 +928,25 @@ the result.
   subtracts on 1-4", read off the constants like the Mind Pull die's target
   band -- and it is what sizes the canvas, being both the widest thing on
   the image and the half a coach meeting their first ignite needs.
+- **It borrows that layout's shape and not its proportions** (the author,
+  2026-09-16), because the explainer is what makes this image wider than
+  the row under it and the other two have no such line. Three things
+  follow, and all three are the same instruction -- spend the space rather
+  than leave it black. The **portrait is 168** and not the 96 the other two
+  draw, so it is the tallest thing in the row. The **halo is tighter than
+  the Mind Pull's 2.9**, which is the two shapes differing rather than a
+  change of mind: a spiral is mostly the gaps between its arms and needs
+  room to read as one, where the flame is a solid silhouette and at that
+  scale was a wide orange blob with a die lost inside it. And the slack the
+  explainer creates is spread **between** the three columns instead of
+  around them, so the row reads as the sentence's own rather than a narrow
+  thing centred under it.
+- **What ignites is the ball, not the die** (the author, 2026-09-16), in
+  `IgnitedRoll.explain` and nowhere else. The rules state the trigger as a
+  property of the die because that is what a player has to *check*; what a
+  coach watches is a Fire Demon setting the ball alight. The image keeps
+  the mechanic -- "ignited on 6" under the face -- since that band is what
+  ties this die to the roll it came out of.
 - **A roll site may not swallow its die**, which is a claim about all of
   them and so cannot be made by a test that drives one:
   `IgnitionIsShownEverywhereTests` fails any module that calls `ignite`

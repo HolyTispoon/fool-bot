@@ -168,19 +168,25 @@ class IgnitedRoll:
         `label` is the player as the caller already names them, emoji
         and role bracket included, so this reads like every other line
         about them.
+
+        **What ignites is the ball** (the author, 2026-09-16), not the
+        die. The rules state the trigger as a property of the die,
+        which is what a player has to *check*; what a coach is watching
+        is a Fire Demon setting the ball alight, and the message is the
+        place that says so.
         """
         if not self.ignited:
             return None
         if self.surge:
             return (
                 f"🔥 **Volatile** — {label} rolled a natural {self.face}, "
-                f"so their die **ignites**. The second d12 comes up "
+                f"so **the ball ignites**. The second d12 comes up "
                 f"**{self.second}** — {VOLATILE_SURGE_MINIMUM} or more, so "
                 f"it **surges**: **{self.modifier:+d}** to their roll."
             )
         return (
             f"🔥 **Volatile** — {label} rolled a natural {self.face}, so "
-            f"their die **ignites**. The second d12 comes up "
+            f"**the ball ignites**. The second d12 comes up "
             f"**{self.second}** — under {VOLATILE_SURGE_MINIMUM}, so it "
             f"**backfires**: **{self.modifier:+d}** to their roll."
         )
