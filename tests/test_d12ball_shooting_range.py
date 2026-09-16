@@ -249,7 +249,7 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
             [item.label for item in PlayerActionView(
                 cog, game.game_id,
             ).children],
-            ["Maneuver", "Cede ball to coach"],
+            ["Maneuver", "Time out"],
         )
 
     def test_the_prompt_says_why_the_shot_is_missing(self) -> None:

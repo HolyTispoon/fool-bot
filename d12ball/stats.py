@@ -49,6 +49,7 @@ from d12ball.components import (
     EVENT_OWN_GOAL_ROLL,
     EVENT_SHOT,
     EVENT_SKILL_TEST,
+    EVENT_TIME_OUT,
     EVENT_TURN_ACTION,
     ManeuverCatalog,
     MatchEvent,
@@ -61,7 +62,7 @@ from d12ball.game import D12BallGame, GameStatus
 
 # The three kinds of game the statistics are kept apart by, which is
 # how the author asked for them and is also the only split that means
-# anything: Dinky plays one strategy and never cedes, and a test game
+# anything: Dinky plays one strategy, and a test game
 # is one person moving both sides, so folding either into the
 # human-vs-human numbers would report a habit of the bot's as a habit
 # of the players'.
@@ -268,6 +269,12 @@ class ManeuverReport:
     )
     turns: int = 0
     actions: Counter = field(default_factory=Counter)
+    # Time outs are counted apart from the actions, because a time out
+    # is not a turn: it is a pause inside one side's possession, and
+    # the log records it as its own event kind for exactly that reason
+    # (see EVENT_TIME_OUT). Counting it as an action would give it a
+    # share of a denominator it is not part of.
+    time_outs: int = 0
     games_counted: int = 0
 
     def record(self, key: str) -> ManeuverRecord:
@@ -300,6 +307,9 @@ def collect_maneuvers(matches: Iterable[MatchState]) -> ManeuverReport:
         report.turns += len(turns)
         for turn in turns:
             report.actions[turn.action] += 1
+        report.time_outs += sum(
+            1 for event in match.events if event.kind == EVENT_TIME_OUT
+        )
 
         # Goals are attributed to the whole possession, so they are
         # counted once here and shared out to every maneuver played in
@@ -975,10 +985,23 @@ def format_turn_actions(report: ManeuverReport) -> list[str]:
         f"{'TURN ACTIONS':<34}{'count':>10}{'share':>10}",
         _rule(),
     ]
-    for action in ("maneuver", "shoot", "cede"):
+    # The two a coach can pick today, then anything else the log holds
+    # -- which is "cede", in games played before 2026-09-16. Listing
+    # the leftovers rather than naming them keeps a retired action
+    # reported for as long as a game remembers one, and drops it from
+    # the table on its own once none does.
+    actions = ["maneuver", "shoot"]
+    actions += sorted(set(report.actions) - set(actions))
+    for action in actions:
         count = report.actions.get(action, 0)
         lines.append(
             f"{'  ' + action:<34}{count:>10}"
             f"{_percent(count / total if total else None, 10)}"
         )
+    # Below the rule and with no share: a time out is not one of the
+    # turns above and has no claim on their denominator.
+    lines += [
+        _rule(),
+        f"{'  time outs called':<34}{report.time_outs:>10}",
+    ]
     return _ruled(lines)

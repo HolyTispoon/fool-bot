@@ -655,13 +655,13 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
         with nobody standing on it.
         """
         cog, game, match = self.build()
-        match.pending_cede = True
+        match.pending_time_out = True
         game.match_state = match.to_dict()
 
         await self.run_resume(cog, build_interaction(), force=True)
 
         cog.send_turn_prompt.assert_not_awaited()
-        self.assertTrue(cog.engine.load_match_state(game).pending_cede)
+        self.assertTrue(cog.engine.load_match_state(game).pending_time_out)
 
     async def test_a_state_that_will_not_load_says_so(self) -> None:
         cog, _, _ = self.build()

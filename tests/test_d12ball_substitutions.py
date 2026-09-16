@@ -121,7 +121,7 @@ class SubstitutionHandoffTests(unittest.IsolatedAsyncioTestCase):
         # team to answer -- straight on to the run back.
         cog.begin_substitution_window.assert_not_awaited()
         cog.announce_run_back.assert_awaited_once()
-        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
+        self.assertTrue(match.may_take_time_out(TeamSide.HOME))
 
     async def test_a_reply_ends_the_window(self) -> None:
         cog = build_cog()

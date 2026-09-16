@@ -558,16 +558,17 @@ class CoreMixin:
         opened it**, and belongs to it by being logged after it, so
         this has to be called before anything the turn does.
 
-        `action` is the button's own value -- `maneuver`, `shoot`,
-        `cede` -- so the share of each in the statistics is the share
-        of the choice a coach actually made, not of what it led to.
+        `action` is the button's own value -- `maneuver` or `shoot`
+        -- so the share of each in the statistics is the share of the
+        choice a coach actually made, not of what it led to. **A time
+        out is not one of them**: it is a pause inside a possession
+        rather than a turn, and it records its own event kind instead
+        -- see EVENT_TIME_OUT and `begin_time_out`.
 
-        The four callers are `play_ai_turn` and the three turn
+        The three callers are `play_ai_turn` and the two turn
         actions, each at the point the action is **taken**: the shot
         and the maneuver at their button, past its own stale-view
-        guard, and the cede in `begin_cede` rather than at the confirm
-        prompt it asks through -- a coach who backs out of that
-        confirm has not taken a turn.
+        guard.
         """
         match.record_event(
             EVENT_TURN_ACTION,
@@ -1697,8 +1698,8 @@ class CoreMixin:
                 "Either player can roll the shootout skill test:",
             )
 
-        if match.pending_cede:
-            # A ceded ball resets the turn before either window opens,
+        if match.pending_time_out:
+            # A time out resets the turn before either window opens,
             # so active_player_id is None and the kickoff branch below
             # would misread it -- the same reason setup and halftime
             # are checked ahead of that one. Always the hub: ceding is
@@ -1709,11 +1710,11 @@ class CoreMixin:
             if match.pending_coaching_side is not None:
                 return (
                     CoachingHubView(self, game_id),
-                    "Coaching Choice, on the ceded ball:",
+                    "Coaching Choice, on the time out:",
                 )
             return (
                 PlayerActionView(self, game_id),
-                "Settle the ceded ball:",
+                "Settle the time out:",
             )
 
         if match.active_player_id is None:

@@ -263,7 +263,8 @@ class LooseBallChoiceView(SafeView):
 
 class BallRecoveryView(SafeView):
     """
-    Which player goes and picks up an out-of-bounds or ceded ball,
+    Which player goes and picks up an out-of-bounds ball or one a
+    time out left behind,
     offered to the side that won it once everyone is back on their
     arrangement -- the nearest either side of it, from any zone, at one
     exhaustion token per space traveled (see "Sending a player" in

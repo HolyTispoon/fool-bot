@@ -47,10 +47,11 @@ class AIStrategy(ABC):
 
     @abstractmethod
     def choose_action(self, match: MatchState) -> str:
-        """Either "shoot" or "maneuver". A strategy may only return
-        "shoot" where `match.can_attempt_score()` is true -- a shot
-        has to be taken from within shooting range, and a human is
-        offered no button for it outside."""
+        """One of "shoot", "maneuver" or "time_out". A strategy may
+        only return "shoot" where `match.can_attempt_score()` is true
+        and "time_out" where `match.may_call_time_out()` is -- both are
+        gated by the rules, and a human is offered no button for either
+        outside them."""
         ...
 
     @abstractmethod
@@ -238,7 +239,7 @@ class DinkyAI(AIStrategy):
         Dinky always challenges. Sending nobody rather than paying the
         walk-in's exhaustion is legal since 2026-08-12, and it is a
         judgement about a game two turns from now -- the same kind of
-        call Dinky does not make when it declines to cede or to leave a
+        call Dinky does not make when it declines to slip in or to leave a
         loose ball alone.
         """
         candidates = match.challenge_candidates()
@@ -287,13 +288,43 @@ class DinkyAI(AIStrategy):
     def choose_action(self, match: MatchState) -> str:
         """
         Shoot when the ball is already on the space closest to the
-        opponent's goal, otherwise always maneuver to advance it.
+        opponent's goal; call a time out to get an injured player off;
+        otherwise maneuver to advance the ball.
 
-        That space is always within shooting range, so this never picks
-        a shot the range rule forbids.
+        The scoring space is always within shooting range, so this
+        never picks a shot the range rule forbids, and the time out is
+        gated on `may_call_time_out` for the same reason.
+
+        **The time out is the one call Dinky makes that looks like
+        judgement and is not** (the author, 2026-09-16). Everything
+        else Dinky declines to do -- ceding, as this used to be,
+        declining a challenge, slipping in, pulling the ball -- is a
+        weighing-up with no right answer. Getting an injured player off
+        is not: an injured player rolls without their skill modifier
+        for the rest of the game and can never recover, so there is
+        nothing to weigh. The test is a fact about the board, which is
+        the only kind of decision Dinky makes.
+
+        It is checked **after** the shot, because a shot on is worth
+        more than a substitution and the time out will still be there
+        next turn. It is checked **before** the maneuver for the
+        opposite reason: a maneuver is what Dinky does when it has
+        nothing better to do.
+
+        Nothing here asks whether there is anybody to bring on. The
+        rules deliberately do not gate the window on that either (see
+        `may_call_time_out`), and a side with both benches spent is
+        rare enough that asking would cost more than it saved -- Dinky
+        opens the window, finds no swap available, and closes it, one
+        wasted minute in a game that will not see the state twice.
         """
         if match.is_ball_at_scoring_space():
             return "shoot"
+        if (
+            match.may_call_time_out()
+            and match.injured_field_players(match.ball.possession)
+        ):
+            return "time_out"
         return "maneuver"
 
     def choose_maneuver_action(
@@ -313,7 +344,8 @@ class DinkyAI(AIStrategy):
         indifference Dinky brings to every other choice it is not
         maximizing. What it is *not* is a policy: an advanced card
         carries a cost as well as a benefit and weighing the two is
-        judgement, which Dinky does not do -- see "Dinky never cedes".
+        judgement, which Dinky does not do -- see "Dinky never cedes"
+        (it calls a time out, which is a different kind of call).
         The alternative was Dinky never playing an advanced card at
         all, which would leave half of advanced mode unreachable in a
         solo game.

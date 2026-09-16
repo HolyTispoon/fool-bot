@@ -574,8 +574,9 @@ class PresentationMixin:
     ) -> None:
         """
         Play out the AI opponent's turn with possession: pick a ball
-        handler, then shoot if the ball is already on the space
-        closest to the opponent's goal, otherwise always maneuver.
+        handler, then shoot if the ball is already on the space closest
+        to the opponent's goal, call a time out if one of theirs is
+        injured on the field, otherwise maneuver.
         """
         ai_name = format_ai_name(game.ai_opponent)
         ai_strategy = self.engine.get_ai_strategy(game)
@@ -583,6 +584,25 @@ class PresentationMixin:
         match.select_ball_handler(handler_id)
         handler = self.engine.get_player_definition(handler_id)
         action = ai_strategy.choose_action(match)
+
+        # **Ahead of the turn-action record**, because a time out is
+        # not a turn action -- `begin_time_out` logs its own event
+        # instead, and recording one here would open a turn for a pause
+        # and hang the real turn's events off it. See
+        # `MatchState.record_event` and EVENT_TIME_OUT.
+        #
+        # Dinky calls one to get an injured player off (the author,
+        # 2026-09-16); `DinkyAI.choose_action` is the whole of when.
+        # The window it opens runs through `run_ai_substitution_window`
+        # like any other AI window, and the human coach gets theirs in
+        # reply exactly as a human caller's opponent would.
+        if action == "time_out":
+            await interaction.followup.send(
+                f"{ai_name} calls a time out."
+            )
+            await self.begin_time_out(interaction, game, match)
+            return
+
         # Recorded here rather than in the two branches below: the AI
         # has no prompt and no stale click to guard against, so the
         # strategy's answer *is* the turn it takes.

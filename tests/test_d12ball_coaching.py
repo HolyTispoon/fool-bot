@@ -394,7 +394,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         # Given rather than declared, so the hub comes straight up and
         # nothing is charged for it.
         self.assertTrue(match.pending_coaching_declared)
-        self.assertEqual(match.declared_substitution, set())
+        self.assertEqual(match.time_outs_used, set())
         _, kwargs = interaction.followup.send.await_args
         self.assertIsInstance(kwargs["view"], CoachingHubView)
         cog.send_turn_prompt.assert_not_awaited()

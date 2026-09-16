@@ -45,18 +45,35 @@ class CoachingOccasion(str, Enum):
     and differ otherwise only in the properties below. See "Coaching
     Choice" in docs/living-rules.md.
 
-    CEDED is open play's other one: a side out of shooting range may
-    give the ball up to coach (see may_cede_possession), which is the
-    same window a new play offers and is charged the same way. It is
-    its own occasion rather than a flag because the ball was ceded
-    *for* it -- so it is never offered, only opened.
+    TIME_OUT is open play's other one: a side out of shooting range
+    may call a time out (see may_call_time_out), which opens the same
+    window a new play offers to both coaches at once. It is its own
+    occasion rather than a flag because it is never offered, only
+    opened -- the button that called it is the taking-up, and it is
+    the one Coaching Choice in the game a side has to spend something
+    to get.
     """
 
     SETUP = "setup"
     NEW_PLAY = "new_play"
-    CEDED = "ceded"
+    TIME_OUT = "time_out"
     HALFTIME = "halftime"
     FULL_TIME = "full_time"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "Optional[CoachingOccasion]":
+        """
+        A game saved with a ceded ball's window open comes back as a
+        time out's -- the occasion a cede became on 2026-09-16. Both
+        developers run the bot from their own tree against their own
+        saves, so a half-finished game outlives the change that
+        renamed this; the two ran the same window, and what differed
+        (the ball crossing) had already happened by the time the
+        window opened. Nothing writes "ceded" any more, so it dies out
+        on its own -- the same retirement `player_board` and
+        `tie_mode` got.
+        """
+        return cls.TIME_OUT if value == "ceded" else None
 
     @property
     def substitution_allowance(self) -> Optional[int]:
@@ -64,7 +81,7 @@ class CoachingOccasion(str, Enum):
         How many substitutions this occasion allows, or None for no
         limit. Setup is unlimited because nobody has played yet;
         halftime's 2 and full time's 1 are their own, and open play's
-        -- a new play's or a ceded ball's -- come out of the side's 2
+        -- a new play's or a time out's -- come out of the side's 2
         for the half.
         """
         if self == CoachingOccasion.SETUP:
@@ -78,8 +95,14 @@ class CoachingOccasion(str, Enum):
         the half. Only open play's does, which is what lets a side
         substitute seven times in a game -- two a half, plus halftime's
         own two and full time's one.
+
+        **Since 2026-09-16 this is the only limit on coaching in open
+        play.** A new play's window is free and unlimited, so a side
+        that has spent both of these still gets every later new play's
+        rearrangement -- it is the swaps they have run out of, not the
+        pause.
         """
-        return self in (CoachingOccasion.NEW_PLAY, CoachingOccasion.CEDED)
+        return self in (CoachingOccasion.NEW_PLAY, CoachingOccasion.TIME_OUT)
 
     @property
     def offers_positioning(self) -> bool:
@@ -98,30 +121,37 @@ class CoachingOccasion(str, Enum):
         return self != CoachingOccasion.FULL_TIME
 
     @property
-    def spends_declaration(self) -> bool:
+    def spends_time_out(self) -> bool:
         """
-        Whether taking this window up costs the side their once-a-half
-        declaration. Setup, halftime and full time are given rather
-        than declared, so none is charged -- full time has no half left
-        for a declaration to belong to. Ceding is charged like a new
-        play's: it is the same once-a-half, bought with the ball
-        instead of with a turnover.
+        Whether taking this window up costs the side their time out for
+        the half. Only a time out does, and it is the only Coaching
+        Choice in the game a side pays anything for: setup, halftime
+        and full time are given, and **a new play's is free and
+        unlimited since 2026-09-16**.
+
+        It used to be `spends_time_out`, and a new play spent one
+        too -- so a coach who ceded early was offered nothing at any
+        new play for the rest of the half. The once-a-half did not
+        disappear when ceding did; it moved onto the time out alone.
         """
-        return self in (CoachingOccasion.NEW_PLAY, CoachingOccasion.CEDED)
+        return self == CoachingOccasion.TIME_OUT
 
     @property
     def asks_declaration(self) -> bool:
         """
-        Whether the coach is put the declare-or-pass offer, as opposed
-        to being handed the window already declared. Only a new play
-        asks: setup, halftime and full time are given, and a ceded ball
-        was ceded *to* coach -- the button that gave the ball up is the
-        declaration, and a coach offered the chance to pass after
-        paying for it would have paid for nothing.
+        Whether the coach is put the coach-or-pass offer, as opposed to
+        being handed the window already open. Only a new play asks:
+        setup, halftime and full time are given, and a time out was
+        called *to* coach -- the button that called it is the taking
+        up, and a coach offered the chance to pass after spending a
+        minute would have spent it for nothing.
 
-        Kept apart from `spends_declaration`, which the two occasions
-        of open play share, because the charge and the question are
-        different facts: ceding charges without asking.
+        Kept apart from `spends_time_out`, which no occasion now shares
+        with it, because the charge and the question are different
+        facts and always were: the two parted company at the ceded
+        ball, and part company again here from the other end -- a new
+        play asks without charging where a time out charges without
+        asking.
         """
         return self == CoachingOccasion.NEW_PLAY
 
@@ -1208,6 +1238,13 @@ EVENT_SHOT = "shot"
 EVENT_OWN_GOAL_ROLL = "own_goal_roll"
 EVENT_INJURY_TEST = "injury_test"
 EVENT_GOAL = "goal"
+# A time out is deliberately **not** a `turn_action`. A possession is a
+# run of consecutive turn actions by one side (see stats.possessions)
+# and `events_this_turn` reads back to the last one, so logging a
+# pause as a turn would invent a turn nobody played and hang the
+# events it interrupted off it. It is its own kind, counted on its own
+# row.
+EVENT_TIME_OUT = "time_out"
 
 # How a maneuver came to be won -- `details["decision"]` on a
 # `maneuver` event. The four are what `resolve_maneuver` already words
@@ -1443,7 +1480,7 @@ class SavedField:
     into the dict is one the live match can go on mutating between
     `to_dict` and the save landing, and one read straight out is a
     match holding a reference into the loaded JSON. Both directions are
-    usually the same callable; `declared_substitution` is the one that
+    usually the same callable; `time_outs_used` is the one that
     differs, stored `sorted` so a save file is stable and read back as
     a set.
     """
@@ -1550,10 +1587,10 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("loose_ball_offense_declined", default=False),
     SavedField("loose_ball_defense_declined", default=False),
     SavedField("pending_ball_recovery", default=False),
-    SavedField("pending_cede", default=False),
-    SavedField(
-        "declared_substitution", factory=set, write=sorted, read=set,
-    ),
+    # Whether the pickup owed is a time out's. False for every game
+    # saved before 2026-09-16, which is right: a time out did not
+    # exist, so every pickup in one was an out-of-bounds ball's.
+    SavedField("pending_recovery_from_time_out", default=False),
     SavedField(
         "half_substitutions_used", factory=dict, write=dict, read=dict,
     ),
@@ -1618,6 +1655,10 @@ MATCH_EXPLICIT_FIELDS: frozenset[str] = frozenset(
         "pending_coaching_substitutions",
         "pending_coaching_is_response",
         "pending_coaching_declared",
+        # Each carries the key it was saved under before 2026-09-16,
+        # when ceding became a time out.
+        "time_outs_used",
+        "pending_time_out",
         "goals",
     }
 )
@@ -1829,15 +1870,29 @@ class MatchState:
     loose_ball_offense_declined: bool = False
     loose_ball_defense_declined: bool = False
     pending_ball_recovery: bool = False
+    # Whether the pickup `pending_ball_recovery` owes belongs to a time
+    # out rather than to a ball that went dead. Two things read it and
+    # they are the same fact twice: a time out's pickup is **free**,
+    # and it is **not a turnover** -- the side picking the ball up is
+    # the side that had it all along. See `finish_time_out`.
+    pending_recovery_from_time_out: bool = False
     # The ball has been given up to coach and neither side's window has
-    # closed yet -- see cede_possession. Persisted because the whole of
-    # a cede happens either side of two coaching windows, and by the
+    # closed yet -- see call_time_out. Persisted because the whole of
+    # a time out happens either side of two coaching windows, and by the
     # time the second one closes nothing else in the match says how it
     # got there: the turn was reset before the first one opened, so
     # without this the tail reads as a run back nobody owes. Cleared by
     # reset_maneuver with everything else the turn set.
-    pending_cede: bool = False
-    declared_substitution: set[str] = field(default_factory=set)
+    # A time out's two coaching windows, and the tail behind them, all
+    # run off this flag: by the time the second window closes nothing
+    # else on the match says how the game got there.
+    pending_time_out: bool = False
+    # Which sides have spent their time out in the half they are in,
+    # by TeamSide value. It is the once-a-half that used to gate a new
+    # play's declaration as well; since 2026-09-16 a new play's window
+    # is free, so this gates the time out and nothing else.
+    # `end_period` clears it.
+    time_outs_used: set[str] = field(default_factory=set)
     # How many substitutions each side has spent in the half it is in,
     # keyed by TeamSide value. Halftime's own allowance is not counted
     # here -- see substitutions_remaining -- and end_period clears it.
@@ -2208,7 +2263,7 @@ class MatchState:
         `ScoreAttemptView`), so the `turn_action` it logged is still
         the last thing in the event log. Popping it is exactly a coach
         who has not, after all, taken a turn -- see `record_turn_action`
-        and the same reasoning for a cede backed out of its confirm.
+        and the same reasoning for a time out backed out of its confirm.
 
         A set-up's shot never reaches here: it never recorded a
         `turn_action` of its own (the maneuver that earned it already
@@ -2222,21 +2277,28 @@ class MatchState:
         ):
             self.events.pop()
 
-    def may_cede_possession(self) -> bool:
+    def may_call_time_out(self) -> bool:
         """
-        Whether the team in possession may give the ball up to coach --
-        see "Ceding the ball" in docs/living-rules.md. Two conditions
-        and no others:
+        Whether the team in possession may stop play to coach -- see
+        "Time out" in docs/living-rules.md. Three conditions and no
+        others:
 
         - **They are out of shooting range.** A side with a shot on is
           not stuck, and the rule exists for a side that is. It is the
           same read as `can_attempt_score`, from the other end, which
           is why the turn prompt can explain both missing buttons in
           one sentence.
-        - **They still have their once-a-half declaration.** Ceding is
-          charged exactly like declaring at a new play, so a side that
-          has already declared this half has nothing left to buy the
-          window with.
+        - **They still have their time out for the half.** It is once
+          a half per side, and it is the only Coaching Choice a side
+          spends anything to get.
+        - **Last possession has not been declared** (the author,
+          2026-09-16): *"you can do it on minute 29 but not on 30. You
+          can do it on minute 14 but not 15."* Ceding ended the period
+          there, being a turnover; a time out turns nothing over, so
+          there is nothing for that rule to bite on and it is refused
+          outright instead. The flag is the whole of the test -- it is
+          raised by the clock reaching the last minute and stays up
+          through the overrun, so a first half at 17 refuses one too.
 
         Deliberately *not* conditional on having anyone to bring on.
         The window is the whole Coaching Choice -- formation, zones,
@@ -2247,41 +2309,45 @@ class MatchState:
         """
         return (
             not self.can_attempt_score()
-            and self.may_declare_coaching(self.ball.possession)
+            and not self.scoreboard.last_possession
+            and self.may_take_time_out(self.ball.possession)
         )
 
-    def cede_possession(self) -> TeamSide:
+    def call_time_out(self) -> TeamSide:
         """
-        Give the ball up to coach, and report the side that now has it.
+        Stop play to coach, and report the side that called it.
 
-        The ball does not move and play does not stop: possession
-        crosses on the space it was ceded on, at speed 1 like any other
-        turnover, and it costs its flat space minute like any other
-        maneuver (2026-08-16) even though nothing travelled. The turn
-        that was being taken is cleared, carrier included, because the
-        side that has just been handed the ball chooses their own
-        handler when the coaching is over.
+        **Possession does not change and the ball does not move.** That
+        is the whole of what this stopped being when ceding became a
+        time out on 2026-09-16: it used to hand the other team the ball
+        on the space it was given up on, and now it hands them nothing.
+        Ball speed is left alone for the same reason -- a turnover
+        resets it to 1, and this is not one.
 
-        `pending_cede` is set *after* the reset, which clears it: the
-        two coaching windows and the tail behind them all run off this
-        flag, and reset_maneuver is the last thing to happen before
-        they start.
+        The turn being taken *is* cleared, carrier included. The side
+        that called the time out still has the ball, but a Coaching
+        Choice can re-deal the whole side, so who is standing on it is
+        settled again afterwards rather than held over -- see
+        `turn_handler_candidates`, which is what asks.
+
+        `pending_time_out` is set *after* the reset, which clears it:
+        the two coaching windows and the tail behind them all run off
+        this flag, and reset_maneuver is the last thing to happen
+        before they start.
 
         `pending_run_back_distance` is the turn's clock cost, which
         reset_maneuver already leaves at 1 -- restated here explicitly
-        so a cede's cost reads as a deliberate 1, not a leftover
-        default. It is read back by whatever the tail still owes -- an
-        empty ball space sends the receiving side to pick the ball up,
-        and that step spans a restart, so it reads the cost from here
+        so a time out's minute reads as a deliberate 1, not a leftover
+        default. It is read back by whatever the tail still owes: an
+        empty ball space sends this side to pick their own ball up, and
+        that step spans a restart, so it reads the cost from here
         rather than from a parameter.
         """
-        side = self.defending_side()
+        side = self.ball.possession
         self.reset_maneuver()
         self.clear_ball_carrier()
-        self.ball.possession = side
-        self.ball.speed = 1
         self.pending_run_back_distance = 1
-        self.pending_cede = True
+        self.pending_time_out = True
         return side
 
     def high_pass_overshoots(self, side: TeamSide, distance: int) -> bool:
@@ -2459,7 +2525,7 @@ class MatchState:
         a player" in docs/living-rules.md, and the one pool behind all
         four rules that ask for somebody: the maneuver challenge, the
         loose ball, the long High Pass contest, and the pickup after an
-        out-of-bounds or ceded ball.
+        out-of-bounds ball, or one a time out left behind.
 
         **Distance decides it, not zone.** The nearest of that side's
         fielded players on each side of the space, plus every player
@@ -3211,10 +3277,16 @@ class MatchState:
 
         The pool is `contest_candidates` -- the nearest player either
         side of the ball, from any zone -- and not the whole field, as
-        it was until 2026-08-16. It is the same pickup a ceded ball
-        asks for, and both happen after the reset that puts everyone
-        back on their arrangement, so the player placed here is the one
-        who stays on the ball rather than being run back off it.
+        it was until 2026-08-16. It is the same pickup a time out asks
+        for, and both happen after everyone is standing on their own
+        arrangement, so the player placed here is the one who stays on
+        the ball rather than being run back off it.
+
+        **What it costs is the caller's to decide**, off
+        `pending_recovery_from_time_out`: an out-of-bounds ball charges
+        the distance this returns, and a time out's charges nothing.
+        The distance is returned either way, because the caller is what
+        knows which it is.
         """
         if player_id not in self.contest_candidates(self.ball.possession):
             raise ValueError(
@@ -3232,6 +3304,7 @@ class MatchState:
             player_id, self.ball.zone, self.ball.space_index,
         )
         self.pending_ball_recovery = False
+        self.pending_recovery_from_time_out = False
         return distance
 
     def reset_maneuver(self) -> None:
@@ -3285,7 +3358,8 @@ class MatchState:
         self.loose_ball_offense_declined = False
         self.loose_ball_defense_declined = False
         self.pending_ball_recovery = False
-        self.pending_cede = False
+        self.pending_recovery_from_time_out = False
+        self.pending_time_out = False
 
     def move_meeple(
         self,
@@ -3811,22 +3885,27 @@ class MatchState:
             if player_id in self.injured
         ]
 
-    def may_declare_coaching(self, side: TeamSide) -> bool:
+    def may_take_time_out(self, side: TeamSide) -> bool:
         """
-        A side declares at most once per half, and that is the whole
-        gate on being *offered* a new play's window. Nothing ever
-        *forces* a declaration: an injured player used to compel their
-        team to sub them off at the next window, which is no longer a
-        rule -- a coach may leave them on, disadvantaged, for as long
-        as they like.
+        A side takes at most one time out per half, and that is the
+        whole of this. `may_call_time_out` is the rule a coach meets,
+        which folds in the two conditions about the position; this is
+        the half's own count on its own.
 
-        The two substitutions a side has for the half are a separate
-        count (substitutions_remaining), and the two limits do
-        different jobs: a side that spent both substitutions answering
-        someone else's declaration can still declare later in the half
-        and get the rearrangement without the swaps.
+        **It no longer gates a new play's window.** Until 2026-09-16
+        this was `may_take_time_out` and it gated both, so a side
+        that gave the ball up to coach was offered nothing at any new
+        play for the rest of the half. A new play now offers its window
+        however many a side has already had; what is bounded is the
+        substitutions (`substitutions_remaining`), which is a separate
+        count and always was.
+
+        Nothing ever *forces* a coach to take a window: an injured
+        player used to compel their team to sub them off at the next
+        one, which is no longer a rule -- a coach may leave them on,
+        disadvantaged, for as long as they like.
         """
-        return TeamSide(side).value not in self.declared_substitution
+        return TeamSide(side).value not in self.time_outs_used
 
     def open_coaching_window(
         self,
@@ -3843,7 +3922,7 @@ class MatchState:
         `occasion` carries every difference between the five: the
         substitution allowance, whether a declaration is asked for and
         whether it is charged, and where a player taken off goes. Only
-        a new play asks -- setup, halftime, full time and a ceded ball
+        a new play asks -- setup, halftime, full time and a time out
         all open declared.
 
         `formation` is the shape the side is in as the window opens,
@@ -3861,10 +3940,10 @@ class MatchState:
         self.pending_coaching_formation = formation
         self.pending_coaching_swaps = []
         # An occasion that does not ask opens declared. For setup,
-        # halftime and full time that costs nothing; for a ceded ball
-        # it charges the declaration the ball was given up for, which
+        # halftime and full time that costs nothing; for a time out it
+        # charges the half's time out the minute was spent on, which
         # is why this reads `asks_declaration` and not
-        # `spends_declaration` -- the two part company exactly here.
+        # `spends_time_out` -- the two part company exactly here.
         if not occasion.asks_declaration:
             self.declare_coaching()
 
@@ -3876,10 +3955,12 @@ class MatchState:
 
     def declare_coaching(self) -> None:
         """
-        Take up the offered window. Declaring spends that side's
-        once-per-half; answering the other team's declaration does
-        not, and neither do setup and halftime, which is how a side can
-        end up coaching more than once in a half.
+        Take up the offered window.
+
+        Only a time out spends anything, and only for the side that
+        called it -- the other coach's reply is free, as is every new
+        play's window on either side. That is what lets a side coach
+        as often as the play offers it and still hold its time out.
         """
         if self.pending_coaching_side is None:
             raise ValueError("No coaching window is open.")
@@ -3888,9 +3969,9 @@ class MatchState:
         if (
             not self.pending_coaching_is_response
             and occasion is not None
-            and occasion.spends_declaration
+            and occasion.spends_time_out
         ):
-            self.declared_substitution.add(self.pending_coaching_side)
+            self.time_outs_used.add(self.pending_coaching_side)
 
     def close_coaching_window(self) -> None:
         self.pending_coaching_side = None
@@ -4726,6 +4807,12 @@ class MatchState:
                 self.pending_coaching_is_response
             ),
             "pending_coaching_declared": self.pending_coaching_declared,
+            # Both were saved under a ceded ball's name until
+            # 2026-09-16 and are read back under either -- see
+            # from_dict. Written under the new name alone, so the old
+            # one dies out on its own.
+            "time_outs_used": sorted(self.time_outs_used),
+            "pending_time_out": self.pending_time_out,
             "goals": [goal.to_dict() for goal in self.goals],
         }
         for saved_field in MATCH_SAVED_FIELDS:
@@ -4833,6 +4920,28 @@ class MatchState:
             pending_coaching_declared=data.get(
                 "pending_coaching_declared",
                 data.get("pending_substitution_declared", False),
+            ),
+            # `declared_substitution` was the same once-a-half under
+            # the old name: a side in it had spent theirs, whether by
+            # declaring at a new play or by ceding the ball. Read as a
+            # spent time out, which is the conservative half of the
+            # 2026-09-16 change -- a new play's window is free now, so
+            # the worst this does is hold back a time out from a coach
+            # who only ever declared, and the half's end clears it
+            # either way.
+            time_outs_used=set(
+                data.get(
+                    "time_outs_used",
+                    data.get("declared_substitution", []),
+                )
+            ),
+            # A game saved mid-cede comes back mid-time-out. The two
+            # windows and the pickup behind them are the same steps;
+            # what differed was the ball crossing, which had already
+            # happened before the flag was ever read.
+            pending_time_out=data.get(
+                "pending_time_out",
+                data.get("pending_cede", False),
             ),
             # A game saved before the log existed comes back with an
             # empty one and keeps playing: the scoreboard is the score,

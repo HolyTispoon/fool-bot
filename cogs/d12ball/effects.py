@@ -3101,7 +3101,7 @@ class ManeuverEffectsMixin:
         hours over it -- so between dispatching and the click that
         answers, the only thing on the match saying what is owed is
         this field. Clearing it at dispatch (which is what
-        `finish_cede` does with `pending_cede`, for a flow with no
+        `finish_time_out` does with `pending_time_out`, for a flow with no
         prompt left in it) would leave a restart in that window
         reading the maneuver's winner instead and re-offering the
         speed choice a coach had already answered.
