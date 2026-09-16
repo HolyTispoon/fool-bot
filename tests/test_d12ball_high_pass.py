@@ -646,7 +646,7 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
         return entries[0][0]
 
     async def test_an_ordinary_shot_adds_it(self) -> None:
-        _, _, _, detail, total = await self.roll_shot(overshot=False)
+        _, _, _, detail, total, _, _ = await self.roll_shot(overshot=False)
 
         self.assertIn("+3 ball speed modifier", detail)
         self.assertNotIn("-3 ball speed modifier", detail)
@@ -654,7 +654,7 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(total, 7 + skill + 3)
 
     async def test_an_overshot_set_up_subtracts_it(self) -> None:
-        _, _, _, detail, total = await self.roll_shot(overshot=True)
+        _, _, _, detail, total, _, _ = await self.roll_shot(overshot=True)
 
         self.assertIn("-3 ball speed modifier", detail)
         skill = int(detail[1].removeprefix("Offensive skill +"))

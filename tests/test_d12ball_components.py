@@ -2795,6 +2795,8 @@ class D12BallManeuverTests(unittest.TestCase):
                     "Orange",
                     ["Defender A (Fullback)", "Defense 3"],
                     10,
+                    False,
+                    [],
                 ),
                 (
                     4,
@@ -2802,6 +2804,8 @@ class D12BallManeuverTests(unittest.TestCase):
                     "Teal",
                     ["Shooter (Winger)", "Offense 2"],
                     6,
+                    False,
+                    [],
                 ),
             ]
         )
@@ -2873,13 +2877,15 @@ class D12BallManeuverTests(unittest.TestCase):
 
     def test_the_portrait_is_what_sets_a_volatile_die_s_row(self) -> None:
         # The author's call (2026-09-16): this image has room the
-        # injury test and the Mind Pull die do not, because its
-        # explainer is wider than any row of three columns -- so the
-        # portrait is the tallest thing in the row and the flame sits
-        # inside it, rather than a 96px picture marooned in a band of
-        # black under a wide sentence. Both halves are asserted
+        # injury test does not, because its explainer is wider than
+        # any row of three columns -- so the portrait is the tallest
+        # thing in the row and the flame sits inside it, rather than a
+        # 96px picture marooned in a band of black under a wide
+        # sentence. (The Mind Pull die reaches the same 168 by a
+        # different road: its own halo, not an explainer, is what
+        # already reserves the height.) Both halves are asserted
         # because the way they come undone is somebody making this
-        # image consistent with the two it borrows its layout from.
+        # image consistent with the one it borrows its layout from.
         self.assertGreater(VOLATILE_PORTRAIT_SIZE, INJURY_TEST_PORTRAIT_SIZE)
         self.assertLess(VOLATILE_HALO_SCALE, MIND_PULL_HALO_SCALE)
         # The flame fills that row and does not grow it: the ceiling is

@@ -241,7 +241,7 @@ class ShotRollTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
-        _, _, _, detail, total = await self.roll(cog, game, [12, 1])
+        _, _, _, detail, total, _, _ = await self.roll(cog, game, [12, 1])
 
         self.assertEqual(total, 1 + 10)
         self.assertIn("Total defensive skill +10", detail)
@@ -259,7 +259,7 @@ class ShotRollTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
-        _, _, _, detail, total = await self.roll(cog, game, [12, 1])
+        _, _, _, detail, total, _, _ = await self.roll(cog, game, [12, 1])
 
         self.assertIn("Defender A [DD] +6", detail)
         self.assertIn("Defender B [DD] +3 (half of 5)", detail)
