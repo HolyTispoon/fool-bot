@@ -1,18 +1,19 @@
 """
-The half-field under a maneuver's own question.
+The field strip under a maneuver's own question.
 
 Five prompts ask a version of one thing -- how far does the ball or its
 handler go, and who ends up with it -- and every one of them is
-answered by reading where this side's players are standing relative to
-the ball. They share `D12Ball.send_half_field_prompt`, which is what
-these cover: that each resolver reaches it rather than posting a bare
-menu, and that it puts the acting side's half-field on the prompt with
-the ball drawn.
+answered by reading where everybody is standing relative to the ball.
+They share `D12Ball.send_field_prompt`, which is what these cover: that
+each resolver reaches it rather than posting a bare menu, and that it
+puts the field on the prompt.
 
-Two of the five carried the full-width field strip before and three
-carried nothing at all, so the thing worth guarding is the funnel --
-a resolver that goes back to building its own `followup.send` is
-exactly how the five come apart again.
+Two of the five carried the strip already and three carried nothing at
+all, so the thing worth guarding is the funnel -- a resolver that goes
+back to building its own `followup.send` is exactly how the five come
+apart again. The run back asks the same question and carries the same
+picture through `send_run_back_prompt`; its own tests are in
+test_d12ball_run_back_batching.
 """
 
 import unittest
@@ -120,11 +121,11 @@ class HalfFieldPromptTests(unittest.IsolatedAsyncioTestCase):
 
     async def resolve(self, cog, game, match, resolver, **kwargs):
         """Run one resolver with the funnel stubbed, and hand it back."""
-        cog.send_half_field_prompt = mock.AsyncMock()
+        cog.send_field_prompt = mock.AsyncMock()
         interaction = build_interaction()
         with suppressed_cog_saves(), suppressed_full_image_links():
             await getattr(cog, resolver)(interaction, game, match, **kwargs)
-        return cog.send_half_field_prompt
+        return cog.send_field_prompt
 
     async def test_every_distance_prompt_goes_through_the_funnel(
         self,
@@ -167,36 +168,30 @@ class HalfFieldPromptTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(view, LowPassChoiceView)
         self.assertEqual(view.key, "skilled_pass")
 
-    async def test_the_funnel_draws_the_acting_sides_half_with_the_ball(
-        self,
-    ) -> None:
+    async def test_the_funnel_puts_the_field_on_the_prompt(self) -> None:
         """
-        The helper itself. The side is read off possession rather than
-        passed in, because every one of the five is put to whoever has
-        the ball -- including the unopposed Low Pass a beaten Skilled
-        Pass hands the *defense*, by which point possession has already
-        flipped to them.
+        The helper itself. It is the field strip -- a crop of the same
+        board both coaches are already reading -- and not the coaching
+        image's half-field: these questions are about the position, and
+        a position is both sides.
         """
         cog, game, match = self.build()
-        cog.coaching_file = mock.AsyncMock(
-            return_value=mock.sentinel.half_field,
+        cog.build_field_file = mock.AsyncMock(
+            return_value=mock.sentinel.field,
         )
-        match.ball.possession = TeamSide.VISITING
+        cog.coaching_file = mock.AsyncMock()
         view = LowPassChoiceView(cog, game.game_id)
         interaction = build_interaction()
 
         with suppressed_cog_saves(), suppressed_full_image_links():
-            await cog.send_half_field_prompt(
+            await cog.send_field_prompt(
                 interaction, game, match, "pick one:", view,
             )
 
         kwargs = interaction.followup.send.await_args.kwargs
-        self.assertEqual(kwargs["file"], mock.sentinel.half_field)
+        self.assertEqual(kwargs["file"], mock.sentinel.field)
         self.assertIs(kwargs["view"], view)
-        self.assertEqual(
-            cog.coaching_file.await_args.args[2], TeamSide.VISITING,
-        )
-        self.assertTrue(cog.coaching_file.await_args.kwargs["show_ball"])
+        cog.coaching_file.assert_not_awaited()
         # The prompt is what a restart re-arms, so it has to be the
         # recorded turn message.
         self.assertEqual(game.turn_message_id, 999)
@@ -209,7 +204,7 @@ class HalfFieldPromptTests(unittest.IsolatedAsyncioTestCase):
         add_full_image_button.
         """
         cog, game, match = self.build()
-        cog.coaching_file = mock.AsyncMock(return_value=None)
+        cog.build_field_file = mock.AsyncMock(return_value=None)
         view = LowPassChoiceView(cog, game.game_id)
         interaction = build_interaction()
 
@@ -217,7 +212,7 @@ class HalfFieldPromptTests(unittest.IsolatedAsyncioTestCase):
             "cogs.d12ball.presentation.add_full_image_button",
             mock.AsyncMock(),
         ) as link:
-            await cog.send_half_field_prompt(
+            await cog.send_field_prompt(
                 interaction, game, match, "pick one:", view,
             )
 

@@ -932,7 +932,7 @@ class PresentationMixin:
         # more than the cards do.
         await add_full_image_button(message)
 
-    async def send_half_field_prompt(
+    async def send_field_prompt(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
@@ -941,44 +941,43 @@ class PresentationMixin:
         view: discord.ui.View,
     ) -> None:
         """
-        Put an effect's own question up over the acting side's
-        half-field, with the ball on it.
+        Put an effect's own question up over the field strip.
 
-        **Five prompts ask a version of one question** -- how far does
+        **Six prompts ask a version of one question** -- how far does
         the ball or its handler go, and who ends up with it: the Low
         Pass and Skilled Pass destination, the High Pass and Setup Pass
-        distance, and both dribbles' run. Every one of them is answered
-        by reading where this side's players are standing relative to
-        the ball, every one is put to whoever has the ball
-        (`match.ball.possession`), and by the time a maneuver has
+        distance, both dribbles' run, and (through its own sender) the
+        run back. Every one is answered by reading where everybody is
+        standing relative to the ball, and by the time a maneuver has
         resolved the persistent board has scrolled away up the channel.
-        So they share this, rather than five copies of the same four
+        So they share this, rather than six copies of the same four
         lines drifting apart a comment at a time.
 
-        **The half rather than the whole board**, which is what this
-        replaced on the two pass prompts that used to carry the field
-        strip: the players these questions are about are all on one
-        side, and the coaching image's single row of meeples reads at
-        1280 where the match image's two rows do not. It also brings
-        the assignment cards and both benches, which is the only place
-        exhaustion counts and the Exhausted and Injured badges are
-        drawn -- and a dribble's price is counted in tokens.
+        **The strip, not the coaching image's half-field.** These
+        questions are about the position, and a position is both sides:
+        a pass can be contested where it lands, a dribble can run into
+        somebody, and the space a shot would be taken from is priced by
+        who is standing in front of it. `render_field_image` is a crop
+        of the match image's own board, so it is the same pixels both
+        coaches are already reading -- where the coaching image is a
+        second layout showing one side's row, which is right for
+        arranging your own team and wrong for reading a live position.
+        It is also the smallest thing the bot sends inline, which is
+        what the full-image link below is for.
 
         **One attachment, on the prompt rather than beside it.**
         Discord lays two images on a message out side by side and
-        halves both, and riding on the prompt is what lets the click
-        that answers take the picture away with `attachments=[]` -- it
-        shows the ball where it was *before* the effect, so leaving it
-        under the answer would put a stale position in the channel for
-        the rest of the game. Both sends are the webhook route, so
-        neither competes with the board for the channel's edit bucket;
-        see "Discord's rate limits".
+        halves both, which is why the strip under the maneuver *cards*
+        is a message of its own and this is not. Riding on the prompt
+        is what lets the click that answers take the picture away with
+        `attachments=[]` -- it shows the position the effect was chosen
+        against, and that position has just moved. Both sends are the
+        webhook route, so neither competes with the board for the
+        channel's edit bucket; see "Discord's rate limits".
         """
         prompt_message = await interaction.followup.send(
             content,
-            file=await self.coaching_file(
-                game, match, match.ball.possession, show_ball=True,
-            ),
+            file=await self.build_field_file(game),
             view=view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(

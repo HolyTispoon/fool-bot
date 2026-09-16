@@ -35,13 +35,15 @@ class LowPassChoiceView(SafeView):
     them takes it. A handler with nobody in reach never sees either
     view: resolve_low_pass settles that case without a prompt.
 
-    **The prompt carries the passer's own half-field, with the ball on
-    it** -- every destination here is counted from where the ball is
-    standing, and the persistent board has usually scrolled away by
-    the time a maneuver resolves. Both views edit that one message, so
-    the picture is uploaded once and taken away by whichever of them
-    answers the question (`attachments=[]`); a restart re-posts the
-    prompt without it, the same as every other image a resume loses.
+    **The prompt carries the field strip** -- every destination here
+    is counted from where the ball is standing, and who is standing on
+    the space it lands on decides how the pass is won; the persistent
+    board has usually scrolled away by the time a maneuver resolves.
+    Both views edit that one message, so the picture is uploaded once
+    and taken away by whichever of them answers the question
+    (`attachments=[]`); a restart re-posts the prompt without it, the
+    same as every other image a resume loses. See
+    `D12Ball.send_field_prompt`.
 
     Reconstructible on restart purely from match state (see
     D12Ball.build_effect_choice_view), the same pattern every other
@@ -140,8 +142,8 @@ class LowPassChoiceView(SafeView):
         team_name = team_display_name(match.setup_for_side(offense_side).team)
 
         if len(receivers) > 1:
-            # Which of them takes it is read off the same half-field
-            # the space was picked off, so the attachment stays put --
+            # Which of them takes it is read off the same field the
+            # space was picked off, so the attachment stays put --
             # this edit passes no `attachments`, which leaves the one
             # already on the message alone. Editing a view replaces it
             # wholesale, though, so the full-image link has to be
@@ -174,10 +176,10 @@ class LowPassChoiceView(SafeView):
                 f"{space_label(zone, space_index)}."
             ),
             view=None,
-            # The half-field this was asked over shows the ball where
-            # it was *before* the pass, so it goes with the question
-            # rather than standing under the answer -- the same call
-            # the run back's board makes.
+            # The strip this was asked over shows the ball where it
+            # was *before* the pass, so it goes with the question rather
+            # than standing under the answer -- the same call the run
+            # back's own makes.
             attachments=[],
         )
         await self.cog.apply_low_pass(
@@ -385,9 +387,9 @@ class SetupPassChoiceView(SafeView):
         team_name = team_display_name(
             match.setup_for_side(match.ball.possession).team
         )
-        # The half-field goes with the question: it shows the ball
-        # where it was before the pass, so leaving it under the answer
-        # would put a stale position in the channel.
+        # The strip goes with the question: it shows the ball where
+        # it was before the pass, so leaving it under the answer would
+        # put a stale position in the channel.
         await interaction.response.edit_message(
             content=(
                 f"**{interaction.user.display_name} ({team_name})** picks "
@@ -492,20 +494,17 @@ class HighPassChoiceView(SafeView):
     not shown at all -- resolve_high_pass sends the pass straight to
     its overshoot rather than putting up one answer three times.
 
-    **The prompt carries the passer's own half-field**, for the reason
-    the maneuver cards carry the field strip: which distance to throw
-    is a question about which teammate the pass reaches and how much
-    field is left, and the persistent board has scrolled away by this
-    point in a turn. It was the strip until the whole family of
-    distance prompts was put on one picture -- the receivers are all on
-    one side, so the half is the cut that matters, and one row of
-    meeples reads at 1280 where two do not. It is an attachment on the
-    prompt rather than a message of its own -- unlike the field under
-    the cards, which shares its message with the hand and would be laid
-    out beside it -- so `choose` can strip it with `attachments=[]` in
-    the edit it was already making. Leaving it under the answer would
-    show the ball where it was before the pass. See
-    `D12Ball.send_half_field_prompt`.
+    **The prompt carries the field strip**, for the reason the
+    maneuver cards do: which distance to throw is a question about
+    which teammate the pass reaches, how much field is left, and who is
+    waiting where it lands -- a long pass is contested there -- and the
+    persistent board has scrolled away by this point in a turn. It is
+    an attachment on the prompt rather than a message of its own --
+    unlike the field under the cards, which shares its message with the
+    hand and would be laid out beside it -- so `choose` can strip it
+    with `attachments=[]` in the edit it was already making. Leaving it
+    under the answer would show the ball where it was before the pass.
+    See `D12Ball.send_field_prompt`.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -584,7 +583,7 @@ class HighPassChoiceView(SafeView):
             )
             return
 
-        # `attachments=[]` takes the half-field with the question it
+        # `attachments=[]` takes the strip with the question it
         # answered. It shows the ball where it was *before* the pass, so
         # leaving it under the answer would put a stale position in the
         # channel for the rest of the game -- the same reason the run
@@ -803,10 +802,10 @@ class DribbleAdvanceChoiceView(SafeView):
         await interaction.response.edit_message(
             content=f"Chose **{distance} {space_word}**.",
             view=None,
-            # The half-field goes with the question: it shows the
-            # handler where they were *before* the dribble, so leaving
-            # it under the answer would put a stale position in the
-            # channel -- see D12Ball.send_half_field_prompt.
+            # The strip goes with the question: it shows the handler
+            # where they were *before* the dribble, so leaving it under
+            # the answer would put a stale position in the channel --
+            # see D12Ball.send_field_prompt.
             attachments=[],
         )
         await self.cog.apply_dribble_advance(interaction, game, match, distance)

@@ -78,7 +78,7 @@ def suppressed_cog_saves():
 # no assertion in them is about.
 #
 # It was every mixin until the five distance prompts moved onto one
-# `send_half_field_prompt`, which took `cogs.d12ball.effects`' only
+# `send_field_prompt`, which took `cogs.d12ball.effects`' only
 # call with them -- and a `mock.patch` of a name a module no longer
 # binds is an AttributeError, not a no-op, so this is its own list
 # rather than `SAVING_COG_MODULES`.

@@ -192,20 +192,18 @@ class TurnoverMixin:
         game: D12BallGame,
         match: MatchState,
         side: TeamSide,
-        show_ball: bool = False,
     ) -> discord.File:
         """
-        One coach's own half of the field, as an attachment. Three
-        flows want it, and all three are a coach reading their own
-        side: the Coaching Choice it is named for, the five
-        distance prompts behind `send_half_field_prompt`, and the
-        run back. `show_ball` is the only thing that differs between
-        them -- off for the Coaching Choice, which happens with play
-        stopped, and on for the other two, which do not. See
-        `render_coaching_image`.
+        The coach's own half of the field, as an attachment for their
+        Coaching Choice message. Rendered in a worker thread like every
+        other image: Pillow is pure CPU and the event loop is shared by
+        every game at once.
 
-        Rendered in a worker thread like every other image: Pillow is
-        pure CPU and the event loop is shared by every game at once.
+        **This is the Coaching Choice's picture and nothing else's.**
+        It shows one side's row and leaves the ball off, which is right
+        for arranging your own team with play stopped and wrong for
+        reading a live position -- the prompts that ask about one carry
+        the field strip instead, through `send_field_prompt`.
         """
         png = await asyncio.to_thread(
             render_coaching_image,
@@ -213,7 +211,6 @@ class TurnoverMixin:
             self.player_catalog,
             side,
             self.engine.coaching_title(match, side),
-            show_ball,
         )
         return discord.File(
             io.BytesIO(png.getvalue()),
@@ -1396,36 +1393,29 @@ class TurnoverMixin:
         lead_in: str = "",
     ) -> None:
         """
-        Put a coach's run-back choice up, over **this side's own
-        half-field**. Both questions a run back asks -- which of these
-        players goes, and which space they go to -- are questions about
-        where that side's players are standing and which of their
-        spaces are still uncovered, and the persistent message has
-        scrolled away up the channel by the time a turn has resolved.
+        Put a coach's run-back choice up, over **the field strip**.
+        Both questions a run back asks -- which of these players goes,
+        and which space they go to -- are questions about where
+        everybody is standing and how far each space is, and the
+        persistent message has scrolled away up the channel by the time
+        a turn has resolved.
 
-        **The half rather than the whole board**, which is what this
-        carried before: a run back is a side rearranging itself inside
-        its own zones, so the other side's row is not part of the
-        question -- the same cut and the same reasoning the five
-        distance prompts share in `send_half_field_prompt`, and
-        the same picture a Coaching Choice works from, which is the
-        other flow about a coach's own arrangement. One row of meeples
-        reads at 1280 where the match image's two arrive as a sliver,
-        and it brings the assignment cards, which is where a coach
-        reads the exhaustion a run back is about to add to.
-
-        **The ball is on it** (`show_ball`), unlike a Coaching Choice's:
-        play is live, and the ball is the whole reason the scramble
-        happened -- it is also what the one player who is *not* running
-        back is standing on.
+        **The strip rather than the whole match image**, which is what
+        this carried before: the jumbotron, the assignment cards, the
+        team boards and the benches are not what either question turns
+        on, and dropping them is what makes the field itself legible
+        inline. It is a crop of that same board (`render_field_image`),
+        so it cannot show a different position from the one the
+        persistent message settles on -- and it is the same picture the
+        five distance prompts carry, for the same reason.
 
         It costs a second render rather than a second upload: the
         cascade's own board settles the persistent message, and this
-        draws the half-field beside it. Both are `asyncio.to_thread`
-        like every other render, and the request count is unchanged --
-        see "Discord's rate limits". The picture goes with the prompt:
-        the click edits both away together, so the board a coach is
-        reading is never one of a position that has moved on.
+        draws the strip beside it. Both are `asyncio.to_thread` like
+        every other render, and the request count is unchanged -- see
+        "Discord's rate limits". The picture goes with the prompt: the
+        click edits both away together, so the field a coach is reading
+        is never one of a position that has moved on.
         """
         controller_id = self.engine.side_controller_id(game, side)
         mention = f"<@{controller_id}>" if controller_id else "Someone"
@@ -1433,7 +1423,7 @@ class TurnoverMixin:
 
         # A stack asks who before it asks where, and the two share one
         # message: the second question is an edit of the first, which
-        # keeps the board that was uploaded for it rather than paying
+        # keeps the field that was uploaded for it rather than paying
         # for a second one. See RunBackPlayerChoiceView.
         if len(candidates) == 1:
             prompt_view = RunBackChoiceView(self, game.game_id, candidates[0])
@@ -1448,7 +1438,7 @@ class TurnoverMixin:
 
         prompt_message = await interaction.followup.send(
             f"{prefix}{body}",
-            file=await self.coaching_file(game, match, side, show_ball=True),
+            file=await self.build_field_file(game),
             view=prompt_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -1627,7 +1617,7 @@ class TurnoverMixin:
                 # happened so far, settle the board it left, and ask.
                 #
                 # The board goes on the persistent message; the prompt
-                # draws its own half-field (see send_run_back_prompt).
+                # draws its own field strip (see send_run_back_prompt).
                 # Two renders, two uploads -- the requests are what the
                 # gate counts, and they are unchanged. See "Discord's
                 # rate limits" in CLAUDE.md.

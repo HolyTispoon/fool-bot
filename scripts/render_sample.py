@@ -132,19 +132,8 @@ def main() -> None:
         "--coaching",
         choices=[side.value for side in TeamSide],
         help=(
-            "Render that side's half-field image -- their own half "
-            "of the field, their meeples only -- instead of the board. "
-            "This is the Coaching Choice's picture; add --pass-ball for "
-            "the Low Pass prompt's, which is the same image with the "
-            "ball on it."
-        ),
-    )
-    parser.add_argument(
-        "--pass-ball",
-        action="store_true",
-        help=(
-            "Draw the ball on the --coaching half-field, as the Low "
-            "Pass destination prompt does."
+            "Render that side's Coaching Choice image -- their own half "
+            "of the field, their meeples only -- instead of the board."
         ),
     )
     parser.add_argument(
@@ -203,7 +192,6 @@ def main() -> None:
             title=arguments.title or (
                 f"{team_display_name(setup.team)} ({side.value.title()})"
             ),
-            show_ball=arguments.pass_ball,
         )
     else:
         image = render_match_image(

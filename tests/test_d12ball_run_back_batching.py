@@ -64,14 +64,15 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         # The cascade settles the persistent message with a board, and
-        # a coach's prompt draws its own half-field beside it -- two
+        # a coach's prompt draws its own field strip beside it -- two
         # renders, two uploads, which is what the counts below assert.
         # See continue_run_back and send_run_back_prompt.
         cog.render_match_png = mock.AsyncMock(return_value=b"board")
         cog.match_file_from_png = mock.Mock(return_value=mock.Mock())
-        cog.coaching_file = mock.AsyncMock(
-            return_value=mock.sentinel.half_field,
+        cog.build_field_file = mock.AsyncMock(
+            return_value=mock.sentinel.field,
         )
+        cog.coaching_file = mock.AsyncMock()
         return cog
 
     def build_match(self) -> MatchState:
@@ -294,13 +295,12 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(self.catalog.player_by_id(midfield[1]).name, prompt)
         self.assertNotIn(self.catalog.player_by_id(midfield[0]).name, prompt)
 
-    async def test_the_prompt_carries_this_sides_own_half_field(self) -> None:
+    async def test_the_prompt_carries_the_field_it_asks_about(self) -> None:
         # A coach choosing a space is choosing a distance, so the
-        # question goes out with the position under it -- and a run
-        # back is a side rearranging itself inside its own zones, so
-        # the half is the cut that matters. The whole board still
-        # settles the persistent message, which is the one place the
-        # other side's row belongs.
+        # question goes out with the position under it -- the field
+        # strip, which is the same board cropped out of the jumbotron,
+        # the cards and the benches none of the question turns on. The
+        # whole match image still settles the persistent message.
         cog = self.build_cog()
         game = self.build_game()
         match = self.build_match()
@@ -313,13 +313,11 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
 
         prompt_call = interaction.followup.send.await_args_list[-1]
         self.assertEqual(
-            prompt_call.kwargs.get("file"), mock.sentinel.half_field,
+            prompt_call.kwargs.get("file"), mock.sentinel.field,
         )
-        side, _ = cog.engine.next_run_back_step(match)
-        self.assertEqual(cog.coaching_file.await_args.args[2], side)
-        # Play is live and the ball is why the scramble happened, so
-        # unlike a Coaching Choice's this half-field carries it.
-        self.assertTrue(cog.coaching_file.await_args.kwargs["show_ball"])
+        # Not the Coaching Choice's half-field: that shows one side's
+        # row with play stopped, and this is a live position.
+        cog.coaching_file.assert_not_awaited()
         self.assertEqual(cog.render_match_png.await_count, 1)
         self.assertEqual(
             cog.refresh_match_image.await_args.kwargs["png"], b"board",

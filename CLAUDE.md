@@ -229,9 +229,9 @@ that rule for free. **This is the standard deal only**; a formation change re-de
   `LowPassReceiverView` puts the choice to the passer. `low_pass_candidates`
   still names one player per destination -- that is a button label, not the
   receiver.
-- **Both prompts are posted over the passer's own half-field**, which is one
-  upload for the two of them -- see
-  [Choosing a distance, and the half-field under it](#choosing-a-distance-and-the-half-field-under-it).
+- **Both prompts are posted over the field strip**, which is one upload for
+  the two of them -- see
+  [Choosing a distance, and the field under it](#choosing-a-distance-and-the-field-under-it).
 
 ## The Coaching Choice
 
@@ -584,44 +584,50 @@ extra click bought a round trip and nothing else.
   against a hand and a field to each of two coaches. See
   [The maneuver cards](#the-maneuver-cards).
 
-## Choosing a distance, and the half-field under it
+## Choosing a distance, and the field under it
 
-**Five prompts ask a version of one question** -- how far does the ball or its
-handler go, and who ends up with it -- and all five are posted over the acting
-side's own half-field with the ball drawn on it.
-`D12Ball.send_half_field_prompt` is the whole of it: the Low Pass and Skilled
-Pass destination (`LowPassChoiceView`), the High Pass and Setup Pass distance,
-and both dribbles' run.
+**Six prompts ask a version of one question** -- how far does the ball or its
+handler go, and who ends up with it -- and all of them are posted over
+[the field strip](#working-on-the-board-image).
+`D12Ball.send_field_prompt` is the funnel for five of them: the Low Pass and
+Skilled Pass destination (`LowPassChoiceView`), the High Pass and Setup Pass
+distance, and both dribbles' run. The sixth is the run back, which asks the
+same question either side of a turnover and carries the same picture through
+`send_run_back_prompt` -- see
+[Turnovers](#turnovers-steals-and-new-plays).
 
 - **They are one helper because they are one question.** Every one is answered
-  by reading where this side's players are standing relative to the ball, every
-  one is put to whoever has the ball (`match.ball.possession`, read off the
-  match rather than passed in), and by the time a maneuver has resolved the
-  persistent board has scrolled away up the channel -- the same reasoning as
-  [the run back's board](#turnovers-steals-and-new-plays) and the field strip
-  under the maneuver cards. They were five copies of the same four lines, two
-  of them carrying the field strip and three carrying nothing.
-- **The half rather than the whole board.** The players these questions are
-  about are all on one side, and the coaching image's single row of meeples
-  reads at 1280 where the match image's two rows arrive as a sliver. It also
-  brings the assignment cards and both benches, which is the only place
-  exhaustion counts and the Exhausted and Injured badges are drawn -- and a
-  Dribble Burst's price is counted in tokens. What it gives up is the defense,
-  which is real: a High Pass can be contested where it lands, and a dribble can
-  run into somebody. The author's call, and the reason the trade is worth
-  naming rather than assumed.
-- **The ball is on it because a Coaching Choice's reason for leaving it off is
-  exactly what does not hold here** -- see `show_ball` under "Working on the
-  board image". Every destination is counted *from* the ball.
+  by reading where everybody is standing relative to the ball, and by the time
+  a maneuver has resolved the persistent board has scrolled away up the channel
+  -- the same reasoning as the strip under the maneuver cards. They were five
+  copies of the same four lines, two of them already carrying the strip and
+  three carrying nothing at all.
+- **The strip, and deliberately not the coaching image's half-field.** These
+  questions are about the *position*, and a position is both sides: a long pass
+  is contested where it lands, a dribble can run into somebody, and a set-up's
+  shot is priced by who is standing in front of the goal. The coaching image
+  shows one side's row with the ball left off, which is right for arranging
+  your own team with play stopped and wrong for reading a live position --
+  see [The Coaching Choice](#the-coaching-choice). `render_field_image` is a
+  **crop of the match image's own board**, so what a coach reads here cannot
+  differ from the board both of them are already looking at.
+  - This was got backwards once: the first build of these prompts used
+    `render_coaching_image` and gave `render_coaching_image` a `show_ball` to
+    make it fit, which also took the strip *off* the High Pass and Setup Pass
+    prompts that already had it. The half-field is the Coaching Choice's and
+    nothing else's; `coaching_file` says so.
 - **One attachment, on the prompt rather than beside it.** Discord lays two
   images on one message out side by side and halves both, which is why the
-  field under the maneuver cards is a message of its own and these are not.
+  strip under the maneuver *cards* is a message of its own and these are not.
   Riding on the prompt is what lets the click that answers take the picture
   away with `attachments=[]`: it shows the position the effect was chosen
   against, and that position has just moved. The Low Pass's receiver pick is
   the one step that *keeps* it -- the ball has not moved between the two
   questions -- and so has to rebuild the full-image link onto the new view by
   hand, the way `RunBackPlayerChoiceView` does.
+- **Every one carries a full-image link**, for the reason the strip under the
+  cards does: it is the whole width of the board in a strip a fifth as tall,
+  which is the smallest thing the bot sends inline.
 - **Both sends are the webhook route** -- the `followup.send` and the edit that
   cuts the link -- so neither competes with the board for the channel's
   five-in-five edit bucket. The clicks that answer are
@@ -630,10 +636,10 @@ and both dribbles' run.
 - **A restart re-posts these prompts without the picture.**
   `resume_pending_prompt` posts `pending_turn_view`'s view on a bare message,
   the same as every other image a resume loses.
-- **`tests/test_d12ball_half_field_prompts.py` guards the funnel**, which is
-  the thing that can quietly come apart: a resolver that goes back to building
-  its own `followup.send` still works, and still drops the board out from under
-  its own question.
+- **`tests/test_d12ball_field_prompts.py` guards the funnel**, which is the
+  thing that can quietly come apart: a resolver that goes back to building its
+  own `followup.send` still works, and still drops the field out from under its
+  own question.
 
 ## Naming a player
 
@@ -2141,31 +2147,29 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
   `notes` and `continue`, not send. `MAX_RUN_BACK_PASSES` bounds it: as a
   recursion the interpreter did that, and a loop that will not settle would
   hang the event loop for every game at once.
-- **A coach's run-back prompt carries their own half-field, and prices every
-  space it offers.** "Where does this player run back to" is a question about
-  where *this side's* players are standing and how far each space is -- the
-  same reasoning as [a loose ball](#loose-balls-and-the-board), and the
-  persistent board has scrolled away up the channel by the time a turn has
-  resolved. And `RunBackChoiceView`'s buttons read `M2 (4 spaces)` -- a run
-  back costs a token a space, so the distance *is* the price and the two
-  spaces of a zone are rarely the same offer.
-  `MatchState.run_back_distance` is the one reading of it, asked by the labels
-  and spent by `run_back_player`, so what a button promises and what the coach
-  is charged cannot drift; `travel_space_label` is the wording, shared by the
-  buttons and by `describe_run_back_options` beside them.
-  - **The half rather than the whole board**, which is what it carried until
-    the [distance prompts](#choosing-a-distance-and-the-half-field-under-it)
-    moved: a run back is a side rearranging itself inside its own zones, so the
-    other side's row is not part of the question, and one row of meeples reads
-    at 1280 where two do not. It brings the assignment cards, which is where a
-    coach reads the exhaustion this is about to add to. **The ball is on it**,
-    unlike a Coaching Choice's: play is live, the ball is why the scramble
-    happened, and it is what the one player *not* running back is standing on.
-    `D12Ball.coaching_file` is the one builder for all three flows.
+- **A coach's run-back prompt carries the field strip, and prices every space
+  it offers.** Both questions a run back asks -- which of these players goes,
+  and which space they go to -- are questions about where everybody is standing
+  and how far each space is, the same reasoning as
+  [a loose ball](#loose-balls-and-the-board), and the persistent message has
+  scrolled away up the channel by the time a turn has resolved. And
+  `RunBackChoiceView`'s buttons read `M2 (4 spaces)` -- a run back costs a
+  token a space, so the distance *is* the price and the two spaces of a zone
+  are rarely the same offer. `MatchState.run_back_distance` is the one reading
+  of it, asked by the labels and spent by `run_back_player`, so what a button
+  promises and what the coach is charged cannot drift; `travel_space_label` is
+  the wording, shared by the buttons and by `describe_run_back_options` beside
+  them.
+  - **The strip rather than the whole match image**, which is what it carried
+    before: the jumbotron, the assignment cards, the team boards and the
+    benches are not what either question turns on, and dropping them is what
+    makes the field itself legible inline. It is the same picture the five
+    [distance prompts](#choosing-a-distance-and-the-field-under-it) carry and
+    for the same reason.
   - **It costs a second render, not a second upload.** The cascade's own board
-    still settles the persistent message and the prompt draws the half-field
-    beside it, so this is two `asyncio.to_thread` renders where there was one,
-    and the same number of requests -- which is what the gate counts. See
+    still settles the persistent message and the prompt draws the strip beside
+    it, so this is two `asyncio.to_thread` renders where there was one, and
+    the same number of requests -- which is what the gate counts. See
     "Discord's rate limits".
   - **The picture goes when the question does.** The click edits the prompt
     into its answer, and `attachments=[]` takes the snapshot with it -- it
@@ -3066,7 +3070,6 @@ output is a PNG of the expected dimensions.
 python3 scripts/render_sample.py --home purple --visiting teal --out board.png
 python3 scripts/render_sample.py --home-formation 2-3-1 --board-size 6  # stacked meeples
 python3 scripts/render_sample.py --coaching home       # a coach's own half
-python3 scripts/render_sample.py --coaching home --pass-ball  # the Low Pass prompt's
 python3 scripts/render_sample.py --field               # the field on its own
 python3 scripts/render_sample.py --list-games
 python3 scripts/render_sample.py --game <game_id>      # reproduce a real board
@@ -3117,22 +3120,14 @@ deliberately not mirrored for the visiting coach**: the zones keep their real
 names and the spaces their real numbers, so V1 is the same space on both images
 and on the board the coaches are looking at.
 
-**Two kinds of occasion want that half-field, and `show_ball` is the whole
-difference between them.** A Coaching Choice happens with play stopped and none
-of its four actions turns on where the ball is, so it is left off; the five
-[distance prompts](#choosing-a-distance-and-the-half-field-under-it) count
-their destinations *from* the ball, so a half-field with no ball on it is the
-one picture that cannot answer the question it is posted under. The token is
-drawn wherever it stands and whoever has it, since this image carries one
-side's meeples and so says which space rather than which row; it is placed by
-`ball_token_x`, the same helper the match image reads, so the two boards put it
-in the same place. `D12Ball.coaching_file` is the one builder for both, and the
-shooting-range bracket stays off either: a distance prompt is a question about
-who is within reach, and the shot a set-up may buy is asked over the board that
-carries the bracket. The width was already chosen to hold board 6's two-meeple
-stack, and `D12BallComponentTests` now checks that stack plus a ball still
-clears the space border -- the suite cannot see the image, and an overflow here
-is silent.
+**That half-field is the Coaching Choice's and nothing else's.** The ball is
+left off because a Coaching Choice happens with play stopped and none of its
+four actions turns on where the ball is, and only one side's row is drawn
+because the flow is a coach arranging their own team. Both of those are wrong
+for a prompt about a live position, which is why every
+[distance prompt](#choosing-a-distance-and-the-field-under-it) and the run back carry the field strip
+below instead -- a mistake worth naming, since the first build of those
+prompts reached for this image and grew it a `show_ball` to make it fit.
 
 **`render_field_image` is the third, and it is a crop rather than a third
 layout.** The field alone -- both sides' meeples, the ball, the space codes and
@@ -3340,14 +3335,12 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     inline.
   - **Losing it must not lose the pick**, which is already up and clickable by
     then, so the send is wrapped the way `add_full_image_button`'s is.
-  - **The strip is the maneuver prompt's alone now.** The High Pass and Setup
-    Pass distance prompts carried one too, as an attachment rather than a
-    message of their own; both went over to the half-field when the five
-    distance prompts were put on one picture -- see
-    [Choosing a distance, and the half-field under it](#choosing-a-distance-and-the-half-field-under-it).
-    The strip is right *here* because the question the cards are read against
-    is about both sides at once; a distance prompt's is about where this
-    side's players are, and one row of meeples reads where two do not.
+  - **Every distance prompt carries one too**, as an attachment on the prompt
+    rather than a message of its own -- the High Pass, the Setup Pass, both
+    dribbles, the Low Pass and the run back. There is no second image on those
+    messages for Discord to lay it out beside, and riding on the prompt is
+    what lets the click take it away again. See
+    [Choosing a distance, and the field under it](#choosing-a-distance-and-the-field-under-it).
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through

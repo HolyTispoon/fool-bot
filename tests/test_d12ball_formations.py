@@ -100,7 +100,7 @@ def build_interaction(user_id: int = 111) -> SimpleNamespace:
         followup=SimpleNamespace(send=mock.AsyncMock()),
         # A component interaction always carries its message, and a
         # real one always has an attachment list -- the Low Pass prompt
-        # posts its half-field there and the receiver pick reads the
+        # posts its field strip there and the receiver pick reads the
         # full-image link back off it.
         message=SimpleNamespace(
             content="", edit=mock.AsyncMock(), attachments=[],
@@ -890,18 +890,17 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         # Naming one of three would misread what is being picked.
         self.assertIn(f"{len(others)} players -- M3", labels)
 
-    async def test_the_destination_prompt_carries_the_passers_half_field(
+    async def test_the_destination_prompt_carries_the_field_strip(
         self,
     ) -> None:
         # Every destination on the menu is counted from where the ball
-        # is standing, and the persistent board has usually scrolled
-        # away by the time a maneuver resolves -- so the prompt is
-        # posted over the passing side's own half-field, with the ball
-        # on it. The half rather than the whole board because a pass
-        # reaches this side's players and nobody else's.
+        # is standing, and who is standing on the space it lands on
+        # decides how the pass is won -- so the prompt is posted over
+        # the field, which the persistent board has usually scrolled
+        # away from by the time a maneuver resolves.
         cog, game, match, _ = self.build()
-        cog.coaching_file = mock.AsyncMock(
-            return_value=mock.sentinel.half_field,
+        cog.build_field_file = mock.AsyncMock(
+            return_value=mock.sentinel.field,
         )
         cog.engine.side_controlled_by_ai = mock.Mock(return_value=False)
         interaction = build_interaction()
@@ -912,14 +911,9 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             interaction.followup.send.call_args.kwargs["file"],
-            mock.sentinel.half_field,
+            mock.sentinel.field,
         )
-        self.assertEqual(
-            cog.coaching_file.await_args.args[2], match.ball.possession,
-        )
-        self.assertTrue(
-            cog.coaching_file.await_args.kwargs["show_ball"]
-        )
+        cog.build_field_file.assert_awaited_once_with(game)
 
     async def test_the_passer_is_asked_which_teammate_receives(
         self,
@@ -934,7 +928,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(view, LowPassReceiverView)
         self.assertEqual(len(view.children), len(others))
 
-    async def test_the_receiver_pick_is_read_off_the_same_half_field(
+    async def test_the_receiver_pick_is_read_off_the_same_field(
         self,
     ) -> None:
         # The ball has not moved between the two questions, so the
@@ -957,7 +951,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
             len(kwargs["view"].children), len(others) + 1,
         )
 
-    async def test_the_answer_takes_the_half_field_away(self) -> None:
+    async def test_the_answer_takes_the_field_strip_away(self) -> None:
         # It shows the ball where it was *before* the pass, so it goes
         # with the question rather than standing under the answer --
         # the same call the run back's board makes.

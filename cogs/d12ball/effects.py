@@ -178,11 +178,12 @@ class ManeuverEffectsMixin:
             self.engine.possession_player_number(game, match),
             mention=True,
         )
-        # Over the passer's own half-field: every destination on the
-        # menu is counted from where the ball is standing and named by
-        # a space code. See `send_half_field_prompt`, which the other
-        # four distance prompts share.
-        await self.send_half_field_prompt(
+        # Over the field: every destination on the menu is counted
+        # from where the ball is standing and named by a space code,
+        # and who is standing on it decides how it is won. See
+        # `send_field_prompt`, which the other four distance prompts
+        # share.
+        await self.send_field_prompt(
             interaction,
             game,
             match,
@@ -383,8 +384,8 @@ class ManeuverEffectsMixin:
         # 1 or 2 is a question about the two spaces ahead of the
         # handler and who is standing on them, which is why the buttons
         # name the destinations and why the prompt now carries the
-        # board they are read off -- see `send_half_field_prompt`.
-        await self.send_half_field_prompt(
+        # field they are read off -- see `send_field_prompt`.
+        await self.send_field_prompt(
             interaction,
             game,
             match,
@@ -492,10 +493,9 @@ class ManeuverEffectsMixin:
             mention=True,
         )
         # A run of up to four spaces at a token each: how far is worth
-        # paying for depends on where the run ends and what this side
-        # is carrying already, and the half-field is the one picture
-        # with both on it -- see `send_half_field_prompt`.
-        await self.send_half_field_prompt(
+        # paying for depends on where the run ends and who is standing
+        # between here and there -- see `send_field_prompt`.
+        await self.send_field_prompt(
             interaction,
             game,
             match,
@@ -676,12 +676,10 @@ class ManeuverEffectsMixin:
             mention=True,
         )
         # How far to throw is a question about which teammate the pass
-        # reaches and how much field is left, so it goes over the
-        # passer's own half-field. That replaced the field strip this
-        # carried before: the receivers are all on one side, and one
-        # row of meeples reads where two do not -- see
-        # `send_half_field_prompt`.
-        await self.send_half_field_prompt(
+        # reaches, how much field is left, and who is waiting where it
+        # lands -- a long pass is contested there. See
+        # `send_field_prompt`.
+        await self.send_field_prompt(
             interaction,
             game,
             match,
@@ -783,12 +781,12 @@ class ManeuverEffectsMixin:
             mention=True,
         )
         # The same question the High Pass asks and the same picture
-        # under it, the field strip having gone the same way -- see
-        # `send_half_field_prompt`. It matters a little more here: this
-        # card offers every distance that fits whether or not anybody
-        # is standing there, so who *is* standing there is the whole of
-        # what separates a set-up from picking the ball out into space.
-        await self.send_half_field_prompt(
+        # under it -- see `send_field_prompt`. It matters a little more
+        # here: this card offers every distance that fits whether or
+        # not anybody is standing there, so who *is* standing there is
+        # the whole of what separates a set-up from picking the ball
+        # out into space.
+        await self.send_field_prompt(
             interaction,
             game,
             match,
