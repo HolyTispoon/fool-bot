@@ -126,35 +126,46 @@ the author directly.
 
 ### 2026-09-16 (later still) -- author, Spreadable joins Slimey
 
-A third Ooze ability, alongside slip in and merge: *"Spreadable. Can be assigned to two
-adjacent zones. Can stack with other players in assignments. It means than when a coach
-assigns ooze players to zones they can assign them to 1 or 2 zones but it counts as 0 in both
-of them."* The author corrected "zones" to **spaces** in the same conversation: an Ooze holds
-two adjacent spaces **in its own zone**, not two zones, and for occupancy alone -- the meeple
-still stands on exactly one of them, formation headcount and the kickoff-space and run-back
-rules are untouched, and the coach picks the second space through the same Coaching Choice
-that does ordinary space positioning.
+A third Ooze ability, alongside slip in and merge, that went through three readings in one
+conversation before landing. The starting text: *"Spreadable. Can be assigned to two adjacent
+zones. Can stack with other players in assignments. It means than when a coach assigns ooze
+players to zones they can assign them to 1 or 2 zones but it counts as 0 in both of them."*
 
-The three narrowing questions below were answered in chat rather than as sheet or Notion data,
-which is the exception this log exists to flag rather than the rule: they came from the author
-directly, but not versioned as inline comments on a docs PR the way "Working practice" above
-asks for. Worth confirming on the next docs pass rather than trusting this entry's read of them
+- **First correction: "zones" to "spaces".** An Ooze holds two adjacent spaces **in its own
+  zone**, not two zones, still for occupancy alone.
+- **Second correction: fully passive, not declared.** The author's own words, asked to settle
+  whether a coach still picks a specific second space: *"Any Ooze is always spreadable"* /
+  *"Fully passive — scrap the declare step."* There is no second space at all any more, and
+  nothing for a coach to click: **every fielded Ooze always counts as 0 toward its own zone's
+  occupancy**, whenever the game plays species abilities.
+- **A new half surfaced alongside the correction: the run back.** *"[Oozes] never run back
+  when they stack with someone assigned to their zone. The other player they are stacked with
+  won't run back if they are in the zone they are assigned to"* -- confirmed narrowly, as
+  *"only the stack-breaking question"* rather than a full run-back exemption like the ball
+  carrier's: an Ooze sharing a space with a zone-native teammate is never offered by
+  `crowded_candidates` to break that stack up, and neither is the teammate, but a genuinely
+  *displaced* Ooze (outside its own zone entirely) still runs back like anyone else.
+
+The questions below were answered in chat rather than as sheet or Notion data, which is the
+exception this log exists to flag rather than the rule: they came from the author directly,
+but not versioned as inline comments on a docs PR the way "Working practice" above asks for.
+Worth confirming on the next docs pass rather than trusting this entry's read of them
 indefinitely.
 
-- **Occupancy only.** Of the three things "counts as 0" could plausibly mean --
-  coverage, the formation's zone headcount, or both -- the author picked coverage alone.
-  A Spreadable Ooze still counts once toward its zone's 2-2-2 (or whichever shape), so
-  `current_formation` and the setup-time formation counts read it as an ordinary card.
-- **Set at Space Positioning, not a separate zone-assignment step.** The coach declares
-  the second space the same way they move a card to a different one -- see
-  `CoachingSpreadView` in CLAUDE.md's "Slimey" section.
-- **The meeple has one real position.** The second space is bookkeeping only: nothing
-  about a challenge, a run back, or a pickup reads it as a place the Ooze might actually
-  be standing.
+- **Occupancy and the run-back stack only.** Of everything "counts as 0" could touch, the
+  author confirmed exactly two: `open_spaces_in_zone`/`placement_spaces_in_zone` (coverage)
+  and `crowded_candidates` (never split out of a stack). The formation's zone headcount and
+  kickoff-space coverage were never asked about and are left reading a Spreadable Ooze as an
+  ordinary card -- `current_formation` and `kickoff_space_occupied_by` are untouched.
+- **`positioning_swap_candidates` (Space Positioning's stack-or-trade question) is left
+  alone**, on the same "not reconfirmed" reasoning -- the original ability text's "can stack
+  with other players in assignments" reads as a plausible fourth site, but it was never
+  reconfirmed once the design turned passive, and it is the one of the four that needs the
+  most new plumbing (`position_meeple` has no `game` today) for the least certain payoff.
 
-Implemented as `MatchState.spread_link` -- see "Slimey" in CLAUDE.md for the whole of it,
-including the two functions ("Occupancy is a coverage rule, not a limit" already names as the
-whole of occupancy) it touches and the three it deliberately does not.
+Implemented as `RulesEngine.spread_exempt_ids` -- see "Slimey" in CLAUDE.md for the whole of
+it, including exactly which three functions it reaches and why a fourth candidate was left
+out.
 
 ### 2026-09-16 -- author, ceding the ball becomes a time out, and a new play's Coaching Choice is free
 

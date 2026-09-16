@@ -246,7 +246,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("choose where", prompt)
         cog.finish_maneuver_resolution.assert_not_awaited()
         self.assertNotEqual(
-            cog.engine.run_back_movers(match, TeamSide.HOME), [],
+            cog.engine.run_back_movers(game, match, TeamSide.HOME), [],
         )
 
     async def test_a_stack_asks_the_coach_which_of_them_goes(self) -> None:
@@ -339,7 +339,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.run_back(cog, game, match)
 
         prompt = interaction.followup.send.await_args_list[-1].args[0]
-        side, (player_id,) = cog.engine.next_run_back_step(match)
+        side, (player_id,) = cog.engine.next_run_back_step(game, match)
         zone = match.setup_for_side(side).assigned_zone(player_id)
         spaces = match.placement_spaces_in_zone(side, zone, player_id)
         self.assertTrue(spaces)

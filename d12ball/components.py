@@ -1618,9 +1618,6 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField(
         "assigned_positions", factory=dict, write=copy_lists, read=copy_lists,
     ),
-    # A game saved before Spreadable existed has none, which is
-    # exactly an Ooze nobody has spread yet.
-    SavedField("spread_link", factory=dict, write=dict, read=dict),
     SavedField("pending_shootout", default=False),
     SavedField("shootout_round", default=0),
     SavedField(
@@ -1932,11 +1929,6 @@ class MatchState:
     # Where each coach last *put* their meeples, as player_id ->
     # [zone, space_index]. See set_assigned_positions.
     assigned_positions: dict[str, list] = field(default_factory=dict)
-    # Spreadable's whole state: player_id -> the second, adjacent space
-    # index in their own zone an Ooze also holds, for coverage purposes
-    # only -- their meeple keeps its one real position. See
-    # set_spread_link.
-    spread_link: dict[str, int] = field(default_factory=dict)
     # The extreme shootout, which settles a game level at full time.
     # See "Extreme shootout" in docs/living-rules.md and begin_shootout
     # below. Every one of these is keyed by TeamSide *value*, so it
@@ -3416,7 +3408,6 @@ class MatchState:
         if player_id in setup.team_board.back_bench:
             setup.team_board.back_bench.remove(player_id)
         self.board.remove_meeple(player_id, required=False)
-        self.forget_spread_link(player_id)
 
         if destination in ("bench", "back_bench"):
             getattr(setup.team_board, destination).append(player_id)
@@ -3659,7 +3650,11 @@ class MatchState:
                 displaced.append(player_id)
         return displaced
 
-    def crowded_candidates(self, side: TeamSide) -> list[str]:
+    def crowded_candidates(
+        self,
+        side: TeamSide,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> list[str]:
         """
         Who could be the next of `side` to run back out of a stack --
         every one of their zone-native fielded players sharing a space
@@ -3681,6 +3676,15 @@ class MatchState:
         therefore one candidate and no choice, which is the same answer
         the old reading gave.
 
+        `spread_exempt_ids` is Spreadable's own reading of the same
+        rule: excluded from `team_players` here exactly as it is from
+        `open_spaces_in_zone`, so an Ooze sharing a space with one
+        zone-native teammate is a stack of one once the Ooze is
+        disregarded -- `zone_native` comes back under two and the pair
+        is never offered at all. Neither of them runs back for it, and
+        the Ooze is never a candidate in its own right either, since it
+        is never in `zone_native` to begin with.
+
         Only one of them moves per pass and the caller asks again, so
         a zone with two uncovered spaces breaks its stack up twice and
         the coach chooses both times. A zone with none is left alone,
@@ -3692,10 +3696,10 @@ class MatchState:
         """
         stays_player_id = self.pending_run_back_stays_player_id
         setup = self.setup_for_side(side)
-        team_players = set(setup.field_players)
+        team_players = set(setup.field_players) - set(spread_exempt_ids)
         candidates: list[str] = []
         for zone in Zone:
-            if not self.open_spaces_in_zone(side, zone):
+            if not self.open_spaces_in_zone(side, zone, spread_exempt_ids):
                 continue
             for occupants in self.board.spaces[zone]:
                 zone_native = [
@@ -3713,19 +3717,27 @@ class MatchState:
                 )
         return candidates
 
-    def open_spaces_in_zone(self, side: TeamSide, zone: Zone) -> list[int]:
+    def open_spaces_in_zone(
+        self,
+        side: TeamSide,
+        zone: Zone,
+        spread_exempt_ids: Collection[str] = (),
+    ) -> list[int]:
         """
         Space indices in `zone` that `side` has not covered -- no
         meeple of theirs standing there. Coverage is per team, so an
         opposing meeple never blocks a space here.
 
-        A Spreadable Ooze counts for nothing here, on either of the
-        two spaces it holds -- see `spread_link`. It still has a real
-        meeple on one of them; this is only the coverage reading.
+        `spread_exempt_ids` counts for nothing here -- Spreadable's
+        whole rule (see "Slimey" in CLAUDE.md): a Spreadable Ooze's own
+        space still reads as uncovered even though it is the one
+        standing on it. This module does not know what a species is,
+        so the ids are the caller's to supply -- see
+        `RulesEngine.open_spaces_in_zone`.
         """
         zone = Zone(zone)
         setup = self.setup_for_side(side)
-        team_players = set(setup.field_players) - set(self.spread_link)
+        team_players = set(setup.field_players) - set(spread_exempt_ids)
         return [
             index
             for index, occupants in enumerate(self.board.spaces[zone])
@@ -3737,6 +3749,7 @@ class MatchState:
         side: TeamSide,
         zone: Zone,
         player_id: Optional[str] = None,
+        spread_exempt_ids: Collection[str] = (),
     ) -> list[int]:
         """
         Where one of `side`'s meeples may legally be put down in
@@ -3753,13 +3766,15 @@ class MatchState:
         space it is the only one standing on is uncovered the moment
         it leaves, so it stays a legal destination -- and a zone whose
         spaces only *it* fills does not read as covered and let the
-        rest of the team pile up. A Spreadable Ooze is discounted the
-        same way, permanently rather than only while it is the one
-        moving -- see `spread_link` and `open_spaces_in_zone`.
+        rest of the team pile up. `spread_exempt_ids` is discounted the
+        same way, permanently rather than only while one of them is the
+        one moving -- see `open_spaces_in_zone`.
         """
         zone = Zone(zone)
         setup = self.setup_for_side(side)
-        others = set(setup.field_players) - {player_id} - set(self.spread_link)
+        others = (
+            set(setup.field_players) - {player_id} - set(spread_exempt_ids)
+        )
         uncovered = [
             index
             for index, occupants in enumerate(self.board.spaces[zone])
@@ -3801,12 +3816,18 @@ class MatchState:
         player_id: str,
         zone: Zone,
         space_index: int,
+        spread_exempt_ids: Collection[str] = (),
     ) -> int:
         """
         Move a displaced player's meeple back into their assigned zone,
         at a space the coverage rule allows them (see
         placement_spaces_in_zone). Returns the distance traveled, for
         the exhaust tokens run-back costs.
+
+        `spread_exempt_ids` must be the same set the caller offered
+        their buttons against (see `RulesEngine.placement_spaces_in_zone`),
+        or this re-check can refuse a space the coach was legitimately
+        shown.
         """
         side = (
             TeamSide.HOME
@@ -3821,7 +3842,7 @@ class MatchState:
                 f"{player_id} is not assigned to {zone.value}."
             )
         if space_index not in self.placement_spaces_in_zone(
-            side, zone, player_id,
+            side, zone, player_id, spread_exempt_ids,
         ):
             raise ValueError(
                 "That zone still has a space with nobody on it."
@@ -3829,7 +3850,6 @@ class MatchState:
 
         distance = self.run_back_distance(player_id, zone, space_index)
         self.board.place_meeple(player_id, zone, space_index)
-        self.forget_spread_link(player_id)
         # **They moved, so they are running back** -- which is the whole
         # of what Charge-up asks. Recorded here rather than at the three
         # callers (the forced pass, the AI's placement and the coach's
@@ -3892,67 +3912,6 @@ class MatchState:
             self.board.place_meeple(player_id, zone, space_index)
             moved.append((player_id, zone, space_index))
         return moved
-
-    # -- Spreadable ---------------------------------------------------
-
-    def forget_spread_link(self, *player_ids: str) -> None:
-        """
-        Drop a Spreadable link the moment either end of it might no
-        longer hold: the second space was adjacent to *this* meeple's
-        position, so anything that moves the meeple -- a space-
-        positioning move, a run back, a trade, a formation redeal, a
-        substitution -- has to call this, or a stale link keeps
-        discounting a space the Ooze has long since left. Species
-        eligibility is not asked here: a link that exists was already
-        checked when it was set, and there is nothing to protect by
-        checking again on the way out.
-        """
-        for player_id in player_ids:
-            self.spread_link.pop(player_id, None)
-
-    def is_spread(self, player_id: str) -> bool:
-        return player_id in self.spread_link
-
-    def spread_partner_space(self, player_id: str) -> Optional[int]:
-        return self.spread_link.get(player_id)
-
-    def set_spread_link(
-        self,
-        side: TeamSide,
-        player_id: str,
-        space_index: int,
-    ) -> None:
-        """
-        Spreadable: record the second, adjacent space in `player_id`'s
-        own zone that they also hold. Their meeple keeps its one real
-        position -- this is a coverage fiction only (see
-        `open_spaces_in_zone` and `placement_spaces_in_zone`), and
-        nothing about where a challenger reaches them or how far a run
-        back is changes.
-
-        Whether `player_id` is even an Ooze, and whether this game is
-        playing species abilities at all, is the caller's question, not
-        this one's -- the same split `slip_in_ids` and `merge_bonus`
-        make: this module does not know what a species is.
-        """
-        side = TeamSide(side)
-        setup = self.setup_for_side(side)
-        if player_id not in setup.field_players:
-            raise ValueError(f"{player_id} is not on the field.")
-        zone = setup.assigned_zone(player_id)
-        position = self.board.meeple_position(player_id)
-        if position is None:
-            raise ValueError(f"{player_id} has no meeple on the board.")
-        _, own_index = position
-        if not 0 <= space_index < len(self.board.spaces[zone]):
-            raise ValueError("That space is not in that zone.")
-        if space_index == own_index:
-            raise ValueError(
-                "They are already standing there -- pick the other space."
-            )
-        if abs(space_index - own_index) != 1:
-            raise ValueError("Spreadable only reaches an adjacent space.")
-        self.spread_link[player_id] = space_index
 
     def injured_field_players(self, side: TeamSide) -> list[str]:
         setup = self.setup_for_side(side)
@@ -4213,11 +4172,6 @@ class MatchState:
         self.inherit_run_back_exemption(
             fielded_player_id, incoming_player_id,
         )
-        # Spreadable does not inherit the way the run-back exemption
-        # does: it was the outgoing coach's own choice of a second
-        # space, not a fact of the space itself, so whoever comes on
-        # starts unspread even when they are an Ooze too.
-        self.forget_spread_link(fielded_player_id, incoming_player_id)
 
     def inherit_run_back_exemption(
         self,
@@ -4326,17 +4280,11 @@ class MatchState:
         teammates behind and so is free to stack onto it. More than one
         means the coach has to pick which of them comes back -- see
         position_meeple.
-
-        A Spreadable Ooze already on the target is never a trade
-        partner: "can stack with other players in assignments" is the
-        whole of that half of the ability, so it is left out of
-        `team_players` here exactly as it is out of the coverage
-        readings.
         """
         side = TeamSide(side)
         setup = self.setup_for_side(side)
         zone = setup.assigned_zone(player_id)
-        team_players = set(setup.field_players) - set(self.spread_link)
+        team_players = set(setup.field_players)
 
         position = self.board.meeple_position(player_id)
         if position is not None and position == (zone, space_index):
@@ -4397,7 +4345,6 @@ class MatchState:
             if swap_with is not None:
                 raise ValueError("That move does not trade with anybody.")
             self.board.place_meeple(player_id, zone, space_index)
-            self.forget_spread_link(player_id)
             return None
 
         if swap_with is None:
@@ -4453,7 +4400,6 @@ class MatchState:
 
         for player_id, zone, space_index in placement:
             self.board.place_meeple(player_id, Zone(zone), space_index)
-        self.forget_spread_link(*placed)
 
     def kickoff_space_for(self, side: TeamSide) -> int:
         """
@@ -4521,7 +4467,6 @@ class MatchState:
         self.board.remove_meeple(other_player_id)
         self.board.place_meeple(player_id, *other_position)
         self.board.place_meeple(other_player_id, *position)
-        self.forget_spread_link(player_id, other_player_id)
 
         # The exemption and the carry follow the space, not the player
         # -- see inherit_run_back_exemption for why they move together.

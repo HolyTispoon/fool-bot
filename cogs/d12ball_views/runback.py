@@ -121,7 +121,9 @@ class RunBackPlayerChoiceView(SafeView):
         # Nothing is written until the space is picked, so a click on a
         # prompt the board has moved out from under is caught by asking
         # the position again rather than by a saved flag.
-        if player_id not in self.cog.engine.run_back_crowded(match, side):
+        if player_id not in self.cog.engine.run_back_crowded(
+            game, match, side,
+        ):
             await interaction.response.send_message(
                 "They no longer have to run back.", ephemeral=True,
             )
@@ -134,7 +136,7 @@ class RunBackPlayerChoiceView(SafeView):
 
         await interaction.response.edit_message(
             content=self.cog.run_back_space_prompt(
-                match, side, player_id, f"<@{controller_id}>",
+                game, match, side, player_id, f"<@{controller_id}>",
             ),
             view=space_view,
         )
@@ -162,8 +164,8 @@ class RunBackChoiceView(SafeView):
         )
         zone = match.setup_for_side(side).assigned_zone(player_id)
 
-        for space_index in match.placement_spaces_in_zone(
-            side, zone, player_id,
+        for space_index in cog.engine.placement_spaces_in_zone(
+            game, match, side, zone, player_id,
         ):
             button = discord.ui.Button(
                 # The distance is on the label because it is the price:
@@ -218,7 +220,10 @@ class RunBackChoiceView(SafeView):
 
         try:
             distance = match.run_back_player(
-                self.player_id, zone, space_index,
+                self.player_id,
+                zone,
+                space_index,
+                self.cog.engine.spread_exempt_ids(game, match, side),
             )
         except ValueError as error:
             await interaction.response.send_message(

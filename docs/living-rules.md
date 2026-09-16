@@ -465,7 +465,7 @@ Mind Pull resolves **before** the ball settles [where it comes to rest](#where-t
 
 **Merge in a [score attempt](#score-attempt) is the attack alone.** An Ooze standing on the ball while a teammate shoots adds their **offensive** skill to the attack. The defence gains nothing from it: defending players on and beyond the ball are already counted by [what the defense adds](#what-the-defense-adds), and an Ooze among them is not counted twice.
 
-**Spreadable.** An Ooze can be assigned to two adjacent spaces in its own zone, at a [Coaching Choice](#coaching-choice)'s space positioning, and can stack with other players in either assignment — it counts as 0 in both spaces for [occupancy](#occupancy). Its meeple still stands on exactly one of the two; the second is a coverage exemption only, not a second body on the board. Nothing about a challenge, a run back, or where the ball can be sent changes — only whether that zone reads as covered.
+**Spreadable.** Every Ooze counts as 0 toward its own zone's [occupancy](#occupancy), always — nothing for a coach to declare. It still has exactly one meeple on exactly one real space; the rule is a coverage exemption only, not a second body on the board, so nothing about a challenge, where the ball can be sent, or a genuine run back off the space changes. The one place it reaches further is a stack: an Ooze sharing a space with a teammate assigned to the same zone is never made to break that stack up to cover another space in the zone, and neither is the teammate.
 
 ## Ball speed
 
@@ -823,7 +823,7 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 | Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test: a surge that wins resolves that maneuver at its advanced tier, a backfire that loses upgrades the opponent's and pays its own advanced cost, and a surge that loses pays none. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: −1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 1–2 pull it in and take possession. |
-| Ooze | **Slimey.** Slip in: an Ooze on the ball may take the handler's turn. Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there — offensive on the attack, defensive on the defence — and their offensive skill to a teammate's score attempt. Spreadable: an Ooze can hold two adjacent spaces in its own zone, stacking freely, counting as 0 in both for occupancy. |
+| Ooze | **Slimey.** Slip in: an Ooze on the ball may take the handler's turn. Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there — offensive on the attack, defensive on the defence — and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
 
 **A turn:** choose the player → choose the action → resolve it → settle the ball → turnover → clock → last-possession check.
 

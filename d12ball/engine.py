@@ -567,26 +567,47 @@ class RulesEngine:
             lines.append(f"+{value} {player.name} (Merge)")
         return total, lines
 
-    def spreadable_candidates(
+    def spread_exempt_ids(
         self, game: D12BallGame, match: MatchState, side: TeamSide,
-    ) -> list[str]:
+    ) -> set[str]:
         """
-        **Spreadable**: which of `side`'s fielded Oozes may be linked
-        to a second, adjacent space in their own zone -- gated the same
-        way as every other species ability. The link itself is
-        `MatchState.set_spread_link`; this only answers who is eligible
-        to be offered it, which is the Coaching Choice's own question
-        and not the match's (see `slip_in_candidates` for the same
-        split).
+        **Spreadable**: which of `side`'s fielded Oozes count as 0
+        toward their own zone's occupancy -- every one of them,
+        automatically, with nothing for a coach to declare, whenever
+        this game plays species abilities. `MatchState` does not know
+        what a species is, so this is the id set every occupancy
+        reading takes as a parameter (see `open_spaces_in_zone`,
+        `placement_spaces_in_zone` and `crowded_candidates` below,
+        and `slip_in_candidates` for the same split elsewhere).
         """
         if not self.species_abilities_apply(game):
-            return []
+            return set()
         setup = match.setup_for_side(side)
-        return [
+        return {
             player_id
             for player_id in setup.field_players
             if self.has_species_ability(game, player_id, SPECIES_OOZE)
-        ]
+        }
+
+    def open_spaces_in_zone(
+        self, game: D12BallGame, match: MatchState, side: TeamSide, zone: Zone,
+    ) -> list[int]:
+        return match.open_spaces_in_zone(
+            side, zone, self.spread_exempt_ids(game, match, side),
+        )
+
+    def placement_spaces_in_zone(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        zone: Zone,
+        player_id: Optional[str] = None,
+    ) -> list[int]:
+        return match.placement_spaces_in_zone(
+            side, zone, player_id,
+            self.spread_exempt_ids(game, match, side),
+        )
 
     def volatile_raises_tier(
         self,
@@ -1924,6 +1945,7 @@ class RulesEngine:
 
     def run_back_crowded(
         self,
+        game: D12BallGame,
         match: MatchState,
         side: TeamSide,
     ) -> list[str]:
@@ -1932,11 +1954,19 @@ class RulesEngine:
         `match.crowded_candidates(side)`, which offers every teammate
         on a shared space rather than picking one, because which of
         them goes is the coach's call.
+
+        `spread_exempt_ids` rides along (see `spread_exempt_ids`): a
+        Spreadable Ooze sharing a space with one zone-native teammate
+        is a stack of one once the Ooze is disregarded, so the pair is
+        never offered here at all -- see "Slimey" in CLAUDE.md.
         """
-        return match.crowded_candidates(side)
+        return match.crowded_candidates(
+            side, self.spread_exempt_ids(game, match, side),
+        )
 
     def run_back_movers(
         self,
+        game: D12BallGame,
         match: MatchState,
         side: TeamSide,
     ) -> list[str]:
@@ -1948,7 +1978,7 @@ class RulesEngine:
         """
         return (
             self.run_back_displaced(match, side)
-            + self.run_back_crowded(match, side)
+            + self.run_back_crowded(game, match, side)
         )
 
     def charge_up_players(
@@ -2029,6 +2059,7 @@ class RulesEngine:
             applied_forced = False
             for side in (TeamSide.HOME, TeamSide.VISITING):
                 setup = match.setup_for_side(side)
+                exempt_ids = self.spread_exempt_ids(game, match, side)
                 by_zone: dict[Zone, list[str]] = {}
                 for player_id in self.run_back_displaced(match, side):
                     by_zone.setdefault(
@@ -2036,7 +2067,7 @@ class RulesEngine:
                     ).append(player_id)
 
                 settled: dict[Zone, list[str]] = {}
-                for player_id in self.run_back_crowded(match, side):
+                for player_id in self.run_back_crowded(game, match, side):
                     settled.setdefault(
                         setup.assigned_zone(player_id), [],
                     ).append(player_id)
@@ -2049,12 +2080,14 @@ class RulesEngine:
                     if not players:
                         continue
 
-                    open_spaces = match.open_spaces_in_zone(side, zone)
+                    open_spaces = match.open_spaces_in_zone(
+                        side, zone, exempt_ids,
+                    )
                     if len(open_spaces) != len(players):
                         continue
                     for player_id, space_index in zip(players, open_spaces):
                         distance = match.run_back_player(
-                            player_id, zone, space_index,
+                            player_id, zone, space_index, exempt_ids,
                         )
                         match.add_exhaustion(player_id, distance)
                         # A forced run back is applied silently, so
@@ -2067,6 +2100,7 @@ class RulesEngine:
 
     def next_run_back_step(
         self,
+        game: D12BallGame,
         match: MatchState,
     ) -> Optional[tuple[TeamSide, list[str]]]:
         """
@@ -2090,7 +2124,7 @@ class RulesEngine:
             displaced = self.run_back_displaced(match, side)
             if displaced:
                 return side, [displaced[0]]
-            crowded = self.run_back_crowded(match, side)
+            crowded = self.run_back_crowded(game, match, side)
             if crowded:
                 return side, crowded
         return None
@@ -2491,6 +2525,7 @@ class RulesEngine:
 
     def describe_run_back_options(
         self,
+        game: D12BallGame,
         match: MatchState,
         side: TeamSide,
         player_id: str,
@@ -2509,7 +2544,9 @@ class RulesEngine:
         comparing the cost whether or not the sentence says so.
         """
         zone = match.setup_for_side(side).assigned_zone(player_id)
-        spaces = match.placement_spaces_in_zone(side, zone, player_id)
+        spaces = match.placement_spaces_in_zone(
+            side, zone, player_id, self.spread_exempt_ids(game, match, side),
+        )
         if not spaces:
             return "No space in their zone."
         options = [

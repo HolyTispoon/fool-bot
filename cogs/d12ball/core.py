@@ -1770,7 +1770,9 @@ class CoreMixin:
             )
 
         if match.pending_run_back:
-            step = self.engine.next_run_back_step(match)
+            step = self.engine.next_run_back_step(
+                self.games[game_id], match,
+            )
             return (
                 self.build_run_back_view(game_id, match)
                 or PlayerActionView(self, game_id),
@@ -1877,7 +1879,7 @@ class CoreMixin:
         again -- that pick lives on the view and nowhere else, the
         same as a part-made coaching choice.
         """
-        step = self.engine.next_run_back_step(match)
+        step = self.engine.next_run_back_step(self.games[game_id], match)
         if step is None:
             return None
         _, candidates = step
