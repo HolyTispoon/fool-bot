@@ -2423,6 +2423,13 @@ class RulesEngine:
         an earlier draft ran them together into one clause that changed
         subject halfway through.
 
+        **"You open", not "you may open."** There is no second decision
+        here: pressing the button stops play *and* opens the window --
+        the very next screen says "there is nothing to decide -- it is
+        open". "May" read as an offer the coach still had to take up,
+        which is what a confirm screen must not do about the thing it
+        is confirming.
+
         What the window is for is named in a **purpose clause rather
         than as a list**: the four actions are the hub's own menu one
         screen early, where naming the two things a coach stops play
@@ -2438,8 +2445,8 @@ class RulesEngine:
         )
         lines = [
             "# Take a time out?",
-            "Play stops and the clock moves on 1 minute. You may open "
-            "a Coaching Choice to substitute players or change "
+            "Play stops and the clock moves on 1 minute. You open a "
+            "Coaching Choice to substitute players or change "
             "formation/assignment.",
             "It uses up your time out for this half, and "
             f"{other} gets a Coaching Choice of their own. The ball "
