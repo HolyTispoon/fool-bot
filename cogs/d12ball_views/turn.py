@@ -97,11 +97,7 @@ class BallHandlerSelectionView(SafeView):
             )
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id,
-            game,
-            match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player whose team has possession can "
                 "choose the ball handler.",
@@ -233,11 +229,7 @@ class PlayerActionView(SafeView):
             )
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id,
-            game,
-            match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player whose team has possession can "
                 "choose this action.",
@@ -515,9 +507,7 @@ class CedeConfirmView(SafeView):
         if game is None:
             return None, None
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the team with the ball can give it up.",
                 ephemeral=True,
@@ -665,11 +655,7 @@ class ManeuverChallengeView(SafeView):
             )
             return None, None
 
-        if not self.cog.engine.user_controls_defense(
-            interaction.user.id,
-            game,
-            match,
-        ):
+        if not self.may_act_for_defense(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player whose team is defending can make "
                 "this choice.",
@@ -975,7 +961,7 @@ class ManeuverActionPromptView(SafeView):
         match: MatchState,
         side: str,
         maneuver_key: str,
-        user_id: int,
+        interaction: discord.Interaction,
     ) -> Optional[str]:
         """
         Why this click cannot be taken as a pick, or None.
@@ -984,15 +970,19 @@ class ManeuverActionPromptView(SafeView):
         rule rather than a habit: the other coach's row is sitting on
         the same message, so replying "that side has already chosen"
         to a click on it would say whether they had.
+
+        It takes the interaction rather than the clicker's id because a
+        game helper may pick for either side and the permission is on
+        the member -- see "Who may act on a game" in CLAUDE.md.
         """
         if side == "offense":
-            authorized = self.cog.engine.user_controls_possession(
-                user_id, game, match,
+            authorized = self.may_act_for_possession(
+                interaction, game, match,
             )
             already_chosen = match.offense_maneuver is not None
         else:
-            authorized = self.cog.engine.user_controls_defense(
-                user_id, game, match,
+            authorized = self.may_act_for_defense(
+                interaction, game, match,
             )
             already_chosen = match.defense_maneuver is not None
 
@@ -1046,7 +1036,7 @@ class ManeuverActionPromptView(SafeView):
             return
 
         refusal = self.pick_refusal(
-            game, match, side, maneuver_key, interaction.user.id,
+            game, match, side, maneuver_key, interaction,
         )
         if refusal is not None:
             await interaction.response.send_message(refusal, ephemeral=True)

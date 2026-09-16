@@ -55,6 +55,8 @@ from cogs.d12ball_helpers import (
     format_ai_name,
     format_team_side_label,
     get_or_create_category,
+    may_act_for_coach,
+    may_act_in_game,
     parse_space_value,
     resolve_adjustable_value,
     space_choices,
@@ -1495,10 +1497,7 @@ class CommandsMixin:
         interaction: discord.Interaction,
         game: D12BallGame,
     ) -> None:
-        lobby_player_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            lobby_player_ids.add(game.player_2_id)
-        if interaction.user.id not in lobby_player_ids:
+        if not may_act_in_game(interaction.user, game):
             await interaction.response.send_message(
                 "Only a player in this lobby can start the game.",
                 ephemeral=True,
@@ -2005,18 +2004,18 @@ class CommandsMixin:
     ) -> bool:
         """
         Whether this person may run a recovery command on this game:
-        either of its two players, or anyone the server trusts with
-        `manage_channels`.
+        either of its two players, or a game helper.
 
-        A test game has both players set to the same person, so the
-        player check covers it. `manage_channels` is the same
-        permission `/debug reset_channels` is gated on, which is the
-        blunter version of the same job.
+        This is `may_act_in_game` under the name the recovery commands
+        already called it, kept because that is what they read as. It
+        was the first gate in the codebase to let somebody act on a game
+        they are not in, and the rest of the flow now answers the same
+        question the same way -- see "Who may act on a game" in
+        CLAUDE.md. **Don't re-inline the permission check here**: two
+        readings of one rule is how the lobby came to refuse a helper a
+        setting while letting them abandon the game outright.
         """
-        if interaction.user.id in (game.player_1_id, game.player_2_id):
-            return True
-        permissions = getattr(interaction.user, "guild_permissions", None)
-        return bool(permissions is not None and permissions.manage_channels)
+        return may_act_in_game(interaction.user, game)
 
     @app_commands.command(
         name="skip_tutorial",
@@ -2034,10 +2033,13 @@ class CommandsMixin:
         skipping is leaving a lesson, not rewinding the game, and the
         position a beat set is a legal one either way.
 
-        Deliberately **not** gated on `may_administer_game`: a tutorial
-        is one human against Dinky, so its only player is the only
-        person this could mean anything to, and a moderator ending
-        somebody else's lesson is not a thing worth building.
+        Gated on `may_act_for_coach`: the coach being taught, or a game
+        helper. It used to be the coach alone, on the reasoning that a
+        tutorial is one human against Dinky and nobody else's business
+        -- which is right about who it *matters* to and wrong about who
+        is standing next to them. The person who turned the tutorial on
+        in the lobby for a new player is the one they will ask to turn
+        it off again.
         """
         game = self.game_for_channel(interaction.channel_id)
 
@@ -2048,7 +2050,7 @@ class CommandsMixin:
             )
             return
 
-        if interaction.user.id != game.player_1_id:
+        if not may_act_for_coach(interaction.user, game.player_1_id):
             await interaction.response.send_message(
                 "Only the coach being taught can end the tutorial.",
                 ephemeral=True,
