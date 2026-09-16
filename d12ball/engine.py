@@ -2413,47 +2413,40 @@ class RulesEngine:
     ) -> str:
         """
         What the coach is agreeing to, in place of the turn prompt --
-        see TimeOutConfirmView. Everything it names is a cost the
-        button label has no room for: the minute, the side's one time
-        out for the half, and that the other coach gets a window off
-        the back of it.
+        see TimeOutConfirmView. The author's wording, 2026-09-16.
 
-        **Two sentences, one subject each** (the author). What stopping
-        play does and what the coach gets out of it are two facts, and
-        an earlier draft ran them together into one clause that changed
-        subject halfway through.
+        **It names no "Coaching Choice".** A coach reading a confirm
+        screen has not read the rules document, and the term does not
+        tell them what they get; the two things they actually get --
+        substitutions, and moving people about -- are said in the words
+        the buttons on the next screen use. The rules keep the name
+        (see "Coaching Choice" in docs/living-rules.md); this message
+        does not need it.
 
-        **"You open", not "you may open."** There is no second decision
-        here: pressing the button stops play *and* opens the window --
-        the very next screen says "there is nothing to decide -- it is
-        open". "May" read as an offer the coach still had to take up,
-        which is what a confirm screen must not do about the thing it
-        is confirming.
+        **"May" is right here and is not vagueness.** Pressing Time out
+        is itself the choice, and Back is still on this screen, so the
+        coach genuinely may do this or not. What must not be vague is
+        what *follows* from pressing it, which is why everything after
+        the first sentence is flat future tense: play *will* stop, the
+        other coach *would* then be allowed the same.
 
-        What the window is for is named in a **purpose clause rather
-        than as a list**: the four actions are the hub's own menu one
-        screen early, where naming the two things a coach stops play
-        *for* says why the button is worth pressing.
-
-        It no longer says who takes the ball, because nobody does. A
-        time out was a cede until 2026-09-16 and this message's whole
-        first line was the handover; possession does not move now, so
-        the line that is left is about the clock.
+        It says who has the ball afterwards, which a cede's version of
+        this message could not: possession does not move now, and that
+        is the whole of what changed on 2026-09-16.
         """
         other = format_team_side_label(
             match.setup_for_side(match.defending_side())
         )
-        lines = [
+        where = space_label(match.ball.zone, match.ball.space_index)
+        return "\n".join([
             "# Take a time out?",
-            "Play stops and the clock moves on 1 minute. You open a "
-            "Coaching Choice to substitute players or change "
-            "formation/assignment.",
-            "It uses up your time out for this half, and "
-            f"{other} gets a Coaching Choice of their own. The ball "
-            "stays with you at "
-            f"{space_label(match.ball.zone, match.ball.space_index)}.",
-        ]
-        return "\n".join(lines)
+            "You may take a time out once per half. If you do, play "
+            "will stop and you'll be able to substitute players or "
+            f"change formation/assignment. Then, {other} would be "
+            "allowed to do the same. Time outs take 1 minute and play "
+            f"will resume with the ball at {where}, with you in "
+            "possession.",
+        ])
 
     def describe_run_back_options(
         self,
