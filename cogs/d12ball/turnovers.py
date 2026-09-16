@@ -1172,7 +1172,7 @@ class TurnoverMixin:
             "Both teams reset to the positions their coaches last "
             "set:\n" + "\n".join(moved)
             if moved
-            else "Players return to positions assigned by the coach."
+            else "Players return to positions assigned by their coach."
         )
         await self.post_new_play_board(
             interaction, game, f"{prefix}# New play\n{body}",
