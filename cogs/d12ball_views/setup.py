@@ -36,6 +36,7 @@ from cogs.d12ball_helpers import (
     format_coin_emoji,
     format_player,
     format_player_with_team,
+    get_team_emoji,
     is_game_helper,
     refresh_player_names,
     toggle_advanced_module,
@@ -389,6 +390,7 @@ class TeamSelectionView(GameConfigurationView):
                         if player_number is not None
                         else label
                     ),
+                    emoji=get_team_emoji(cog.team_emojis, team),
                     style=(
                         discord.ButtonStyle.secondary
                         if unavailable
