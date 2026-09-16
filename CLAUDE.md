@@ -4435,6 +4435,37 @@ anywhere in the code.
   circles, so the bot reads correctly before a PNG is uploaded --
   which, like the original four, is a manual Developer Portal step
   nothing here can do.
+  - **That script writes two cuts of each, and only one of them is
+    the bot's.** `team_fire_demons.png` and its three siblings are the
+    silhouette alone and are what `TEAM_EMOJI_NAMES` looks up;
+    `team_fire_demons_letter.png` and its three are the same ring with
+    the species' initial merged into the silhouette. **Nothing in the
+    bot reads the lettered four** -- they are uploaded under their own
+    names so the application holds both, and switching to them is a
+    one-value change in `TEAM_EMOJI_NAMES` rather than a re-upload
+    over a name already in use.
+  - **A letter's placement on its silhouette is written down, not
+    derived**, in `LETTER_PLACEMENTS`. Two of the four sit at the ink's
+    own mass centroid, which is what a broad solid shape wants; the
+    other two are hand-placed because their art is *built around a
+    hole* and a centroid puts the letter straight through it -- the C
+    goes inside the cell's bolt cutout, and the K in the channel right
+    of the spiral's centre, between where the inner stroke ends and the
+    next line out. The Ooze's blob is turned 20 degrees as well, which
+    is what lands its two bubbles in the Z's own gaps instead of across
+    its strokes.
+  - **Each letter overlaps its silhouette slightly, and that is the
+    design rather than a tolerance.** A letter held clear of the ink
+    reads as hovering over a picture; one that bites into it reads as
+    part of one. So the sizes are past the largest that would clear the
+    shape -- don't "fix" them back to a clean fit, and don't write a
+    test asserting one.
+  - **The silhouette is cropped to its own ink first**, where the plain
+    set centres the art's whole padded square. That is why the two sets
+    fill different fractions of the face (`BADGE_FACE_FRAC` against
+    `ICON_FACE_FRAC`) and why the numbers are not interchangeable: one
+    is measured against a shape, the other against a shape plus its
+    margin.
 - **Changing a team's color is `TEAM_COLORS` plus its emoji, and nothing
   else.** No other module should hold a team's hex value of its own --
   that duplication is exactly what let the two drift apart before. A
