@@ -11,7 +11,9 @@ from d12ball.components import (
     duplicate_card_id,
     MANEUVER_TIER_ADVANCED,
     MIND_PULL_SUCCESS_FACES,
+    SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
+    SPECIES_OOZE,
     SPECIES_TELEKINETIC,
     VOLATILE_IGNITE_FACES,
     VOLATILE_SURGE_MINIMUM,
@@ -1669,6 +1671,67 @@ def draw_d12_polygon(
     )
 
 
+def draw_species_die_aura(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    center_x: float,
+    center_y: float,
+    die_radius: float,
+    species: str,
+    color: str,
+    halo_scale: float,
+    halo_alpha: int,
+    ring_gap: float,
+    ring_width: int,
+    draw_ring: bool = True,
+) -> None:
+    """
+    The halo-and-ring recipe every species die wears: that species' own
+    silhouette drawn faint behind the face, and a ring of the same
+    colour around it, so a d12 that is not an ordinary roll is
+    recognisable before a word of the message beside it is read.
+
+    Shared by Volatile's ignition, Mind Pull's attempt, Overdrive's
+    charge and Merge's contribution -- one drawing, four calls, rather
+    than the same two steps written out each time a fifth species
+    wants a die of its own. Draws the halo and the ring only; the face
+    itself is still `draw_d12_polygon`, called after this so the polygon
+    lands on top of the glow rather than under it.
+
+    `draw_ring=False` is the own-goal roll's escape: the kept die there
+    already wears its own ring (which of two dice the advantage took),
+    and a second ring at almost the same radius would read as one ring
+    badly drawn rather than two facts.
+    """
+    halo_size = round(2 * die_radius * halo_scale)
+    halo = species_icon(species, color, halo_size)
+    if halo is not None:
+        faded = halo.copy()
+        faded.putalpha(
+            faded.getchannel("A").point(lambda level: level * halo_alpha // 255)
+        )
+        canvas.alpha_composite(
+            faded,
+            (
+                round(center_x - halo_size / 2),
+                round(center_y - halo_size / 2),
+            ),
+        )
+    if not draw_ring:
+        return
+    ring_radius = die_radius + ring_gap
+    draw.ellipse(
+        (
+            center_x - ring_radius,
+            center_y - ring_radius,
+            center_x + ring_radius,
+            center_y + ring_radius,
+        ),
+        outline=color,
+        width=ring_width,
+    )
+
+
 SKILL_TEST_CELL_WIDTH = 230
 SKILL_TEST_DIE_RADIUS = 36
 SKILL_TEST_CENTER_Y = SKILL_TEST_DIE_RADIUS + 20
@@ -1679,9 +1742,147 @@ SKILL_TEST_TOTAL_GAP = 10
 SKILL_TEST_TOTAL_LINE_HEIGHT = 32
 SKILL_TEST_BOTTOM_PADDING = 12
 
+# **Overdrive**: the Cyborgs' own teal, on the same halo-and-ring a
+# roll's die already knows how to wear -- brighter and thicker than
+# Volatile's, which is explaining a second die nobody watched land;
+# this one is celebrating the one die a coach can already see. Scaled
+# to fit inside SKILL_TEST_CENTER_Y's own headroom (36 * 1.5 = 54, under
+# the 56px a die already sits from the top of the canvas), so a
+# supercharged roll costs the layout nothing -- no row grows to fit it.
+OVERDRIVE_AURA_COLOR = TEAM_COLORS[Team.CYBORGS]
+OVERDRIVE_HALO_SCALE = 1.5
+OVERDRIVE_HALO_ALPHA = 130
+OVERDRIVE_RING_GAP = 6
+OVERDRIVE_RING_WIDTH = 5
+
+# **Merge**: the Oozes' own slime green, drawn as a second, smaller die
+# beside a roller's own -- there is no second roll to show (Merge is a
+# flat skill number, not a d12), so the token's face is the bonus
+# itself rather than a face 1-12. The portrait beside it is what
+# answers "which Ooze", the way a score attempt's wall of defenders
+# names itself rather than only totalling.
+MERGE_AURA_COLOR = TEAM_COLORS[Team.OOZES]
+MERGE_DIE_RADIUS = 18
+MERGE_HALO_SCALE = 1.7
+MERGE_HALO_ALPHA = 100
+MERGE_RING_GAP = 5
+MERGE_RING_WIDTH = 3
+MERGE_PORTRAIT_SIZE = 40
+MERGE_ITEM_GAP = 8
+MERGE_NAME_GAP = 4
+MERGE_NAME_HEIGHT = 16
+MERGE_LABEL_TEXT = "MERGE"
+MERGE_LABEL_HEIGHT = 20
+MERGE_LABEL_GAP = 6
+MERGE_CONTRIBUTOR_SPACING = 8
+MERGE_ROW_GAP = 10
+
+
+def merge_block_height(contributors: list[tuple[str, int]]) -> int:
+    """
+    The extra height a side's Merge contributors need below its detail
+    lines, or 0 when nobody merged -- so an ordinary roll's canvas is
+    exactly the size it always was.
+
+    `render_skill_test_dice` takes the max of this across both sides,
+    the same alignment `detail_block_height` already uses for the
+    detail lines themselves, so the two totals still sit on one line
+    even when only one side merged.
+    """
+    if not contributors:
+        return 0
+    contributor_row = (
+        max(2 * MERGE_DIE_RADIUS, MERGE_PORTRAIT_SIZE)
+        + MERGE_NAME_GAP + MERGE_NAME_HEIGHT
+    )
+    return (
+        MERGE_LABEL_HEIGHT + MERGE_LABEL_GAP
+        + len(contributors) * contributor_row
+        + (len(contributors) - 1) * MERGE_CONTRIBUTOR_SPACING
+    )
+
+
+def draw_merge_contributors(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    center_x: float,
+    top_y: float,
+    contributors: list[tuple[str, int]],
+) -> None:
+    """
+    Merge, drawn rather than only totalled: the word itself once, then
+    each contributing Ooze as a small die -- haloed and ringed in slime
+    green, the same recipe Volatile's own die wears, showing what they
+    added rather than a rolled face -- beside their own portrait, so a
+    coach reads who merged and not only how much.
+    """
+    if not contributors:
+        return
+    label_width = draw.textlength(MERGE_LABEL_TEXT, font=FONT_SMALL)
+    draw.text(
+        (center_x - label_width / 2, top_y),
+        MERGE_LABEL_TEXT,
+        font=FONT_SMALL,
+        fill=MERGE_AURA_COLOR,
+    )
+    row_y = top_y + MERGE_LABEL_HEIGHT + MERGE_LABEL_GAP
+    slot_height = max(2 * MERGE_DIE_RADIUS, MERGE_PORTRAIT_SIZE)
+    item_width = 2 * MERGE_DIE_RADIUS + MERGE_ITEM_GAP + MERGE_PORTRAIT_SIZE
+
+    for name, value in contributors:
+        row_center_y = row_y + slot_height / 2
+        left = center_x - item_width / 2
+        die_center_x = left + MERGE_DIE_RADIUS
+
+        draw_species_die_aura(
+            canvas, draw, die_center_x, row_center_y, MERGE_DIE_RADIUS,
+            SPECIES_OOZE, MERGE_AURA_COLOR,
+            MERGE_HALO_SCALE, MERGE_HALO_ALPHA,
+            MERGE_RING_GAP, MERGE_RING_WIDTH,
+        )
+        draw_d12_polygon(
+            draw,
+            round(die_center_x),
+            round(row_center_y),
+            MERGE_DIE_RADIUS,
+            MERGE_AURA_COLOR,
+            f"+{value}",
+            font=FONT_SMALL,
+            text_color=high_contrast_ink(MERGE_AURA_COLOR),
+        )
+
+        portrait_center_x = (
+            left + 2 * MERGE_DIE_RADIUS + MERGE_ITEM_GAP + MERGE_PORTRAIT_SIZE / 2
+        )
+        portrait = load_player_portrait(name)
+        if portrait is not None:
+            sized = portrait.copy()
+            sized.thumbnail(
+                (MERGE_PORTRAIT_SIZE, MERGE_PORTRAIT_SIZE),
+                Image.Resampling.LANCZOS,
+            )
+            canvas.alpha_composite(
+                sized,
+                (
+                    round(portrait_center_x - sized.width / 2),
+                    round(row_center_y - sized.height / 2),
+                ),
+            )
+        name_width = draw.textlength(name, font=FONT_SMALL)
+        draw.text(
+            (
+                center_x - name_width / 2,
+                row_y + slot_height + MERGE_NAME_GAP,
+            ),
+            name,
+            font=FONT_SMALL,
+            fill="#c7ced6",
+        )
+        row_y += slot_height + MERGE_NAME_GAP + MERGE_NAME_HEIGHT + MERGE_CONTRIBUTOR_SPACING
+
 
 def render_skill_test_dice(
-    dice: list[tuple[int, str, str, list[str], int]],
+    dice: list[tuple[int, str, str, list[str], int, bool, list[tuple[str, int]]]],
 ) -> BytesIO:
     """
     Render one or more d12 results side by side, each annotated with the
@@ -1692,17 +1893,35 @@ def render_skill_test_dice(
     it added up to.
 
     Each entry is (rolled value, team color, team label, detail lines,
-    total), where detail lines are pre-formatted strings -- player name
-    and role, skill applied, any other modifiers -- stacked one per
-    line under the team label, and total is the final modified result,
-    drawn large underneath so the number that actually decided the
-    roll doesn't require reading the accompanying message.
+    total, overdriven, merge contributors), where detail lines are
+    pre-formatted strings -- player name and role, skill applied, any
+    other modifiers -- stacked one per line under the team label, and
+    total is the final modified result, drawn large underneath so the
+    number that actually decided the roll doesn't require reading the
+    accompanying message.
+
+    `overdriven` supercharges that side's own die with the Cyborgs' own
+    halo and ring -- **the actual roll, not a second one**, since
+    Overdrive is a flat bonus with nothing of its own to show.
+    `merge_contributors` draws the Oozes who added to this side below
+    the detail lines, each as its own small haloed die beside its own
+    portrait -- **both dice**, the roller's own and the Ooze's, on one
+    image, the way the rest of this row already reads two dice as one
+    contest.
     """
-    max_lines = max((len(detail) for _, _, _, detail, _ in dice), default=0)
+    max_lines = max(
+        (len(detail) for _, _, _, detail, _, _, _ in dice), default=0,
+    )
     detail_block_height = max_lines * SKILL_TEST_DETAIL_LINE_HEIGHT
+    merge_extra_height = max(
+        (merge_block_height(merge) for _, _, _, _, _, _, merge in dice),
+        default=0,
+    )
+    merge_gap = MERGE_ROW_GAP if merge_extra_height else 0
     total_y = (
         SKILL_TEST_CENTER_Y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
-        + detail_block_height + SKILL_TEST_TOTAL_GAP
+        + detail_block_height + merge_gap + merge_extra_height
+        + SKILL_TEST_TOTAL_GAP
     )
     height = total_y + SKILL_TEST_TOTAL_LINE_HEIGHT + SKILL_TEST_BOTTOM_PADDING
     width = SKILL_TEST_CELL_WIDTH * len(dice)
@@ -1710,8 +1929,17 @@ def render_skill_test_dice(
     draw = ImageDraw.Draw(canvas)
     center_y = SKILL_TEST_CENTER_Y
 
-    for index, (value, color, label, detail_lines, total) in enumerate(dice):
+    for index, (
+        value, color, label, detail_lines, total, overdriven, merge,
+    ) in enumerate(dice):
         center_x = index * SKILL_TEST_CELL_WIDTH + SKILL_TEST_CELL_WIDTH // 2
+        if overdriven:
+            draw_species_die_aura(
+                canvas, draw, center_x, center_y, SKILL_TEST_DIE_RADIUS,
+                SPECIES_CYBORG, OVERDRIVE_AURA_COLOR,
+                OVERDRIVE_HALO_SCALE, OVERDRIVE_HALO_ALPHA,
+                OVERDRIVE_RING_GAP, OVERDRIVE_RING_WIDTH,
+            )
         draw_d12_polygon(
             draw,
             center_x,
@@ -1744,9 +1972,20 @@ def render_skill_test_dice(
             )
             detail_y += SKILL_TEST_DETAIL_LINE_HEIGHT
 
+        if merge:
+            draw_merge_contributors(
+                canvas,
+                draw,
+                center_x,
+                center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
+                + detail_block_height + MERGE_ROW_GAP,
+                merge,
+            )
+
         # Aligned on max_lines rather than this entry's own line count,
         # so the totals line up across dice even when one side has more
-        # modifiers listed than the other.
+        # modifiers listed than the other -- and now even when only one
+        # side merged.
         total_label = f"= {total}"
         total_width = draw.textlength(total_label, font=FONT_DICE_TOTAL)
         draw.text(
@@ -1782,6 +2021,7 @@ def render_injury_test_die(
     team_label: str,
     player_name: str,
     safe: bool,
+    overdriven: bool = False,
 ) -> BytesIO:
     """
     Render an injury test as one small d12 -- the same size as a skill
@@ -1793,6 +2033,10 @@ def render_injury_test_die(
     against the token count of a specific player, and "Teal" alone
     doesn't name them. Everything needed to read the result is in the
     image, which is what makes it worth posting as one.
+
+    `overdriven` is "any d12 the Cyborg themselves rolls" reaching an
+    injury check -- the same supercharged halo-and-ring
+    `render_skill_test_dice` wears on the die it was spent on.
     """
     verdict = "SAFE" if safe else "INJURED"
     verdict_color = (
@@ -1815,8 +2059,18 @@ def render_injury_test_die(
     else:
         sized = None
 
+    # The halo is wider than the die whenever Overdrive is supercharging
+    # it, so it -- not the bare polygon -- is what the die column has to
+    # hold on that render, the same reason Mind Pull's and Volatile's own
+    # die columns are measured against their halo rather than their face.
+    overdrive_halo_size = (
+        round(2 * INJURY_TEST_DIE_RADIUS * OVERDRIVE_HALO_SCALE)
+        if overdriven
+        else 0
+    )
     die_column = max(
         2 * INJURY_TEST_DIE_RADIUS,
+        overdrive_halo_size,
         measure.textlength(team_label, font=FONT_SMALL),
     )
     portrait_column = max(
@@ -1828,6 +2082,7 @@ def render_injury_test_die(
 
     row_height = max(
         2 * INJURY_TEST_DIE_RADIUS,
+        overdrive_halo_size,
         portrait_height,
     ) + INJURY_TEST_LABEL_GAP + INJURY_TEST_LABEL_HEIGHT
     width = round(
@@ -1864,6 +2119,14 @@ def render_injury_test_die(
     )
 
     die_center_x = INJURY_TEST_SIDE_PADDING + die_column / 2
+    if overdriven:
+        draw_species_die_aura(
+            canvas, draw, die_center_x, content_center_y,
+            INJURY_TEST_DIE_RADIUS,
+            SPECIES_CYBORG, OVERDRIVE_AURA_COLOR,
+            OVERDRIVE_HALO_SCALE, OVERDRIVE_HALO_ALPHA,
+            OVERDRIVE_RING_GAP, OVERDRIVE_RING_WIDTH,
+        )
     draw_d12_polygon(
         draw,
         round(die_center_x),
@@ -2483,6 +2746,7 @@ def render_own_goal_dice(
     rolls: list[int],
     color: str,
     safe: bool,
+    overdriven: bool = False,
 ) -> BytesIO:
     """
     Render an own-goal roll: the dice at skill-test size, a ring around
@@ -2497,6 +2761,13 @@ def render_own_goal_dice(
 
     Every die matching the highest result is ringed, so a pair that
     rolled the same number doesn't arbitrarily favour one of them.
+
+    `overdriven` supercharges the kept die alone -- the discarded one
+    never counted, and Overdrive was spent on the total that did.
+    Drawn without its own ring (`draw_ring=False`): the kept die
+    already wears the "this one counted" mark, and a second ring at
+    nearly the same radius would blur into it rather than read as two
+    facts.
     """
     outcome = OWN_GOAL_AVOIDED_TEXT if safe else OWN_GOAL_CONCEDED_TEXT
     outcome_color = (
@@ -2534,6 +2805,14 @@ def render_own_goal_dice(
             + OWN_GOAL_CELL_WIDTH / 2
         )
         counted = value == taken
+        if counted and overdriven:
+            draw_species_die_aura(
+                canvas, draw, center_x, center_y, OWN_GOAL_DIE_RADIUS,
+                SPECIES_CYBORG, OVERDRIVE_AURA_COLOR,
+                OVERDRIVE_HALO_SCALE, OVERDRIVE_HALO_ALPHA,
+                OVERDRIVE_RING_GAP, OVERDRIVE_RING_WIDTH,
+                draw_ring=False,
+            )
         draw_d12_polygon(
             draw,
             center_x,

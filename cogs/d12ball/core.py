@@ -1378,6 +1378,7 @@ class CoreMixin:
                 team_display_name(player_team),
                 player.name,
                 safe,
+                bool(overdrive),
             ),
             filename="injury_test_die.png",
         )

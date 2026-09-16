@@ -383,7 +383,7 @@ class LooseBallSkillTestView(SafeView):
         offense_player: PlayerDefinition,
         defense_player: PlayerDefinition,
     ) -> tuple[
-        list[tuple[int, Team, list[str], int]],
+        list[tuple[int, Team, list[str], int, bool, list[tuple[str, int]]]],
         int,
         int,
         IgnitedRoll,
@@ -500,11 +500,15 @@ class LooseBallSkillTestView(SafeView):
             match.loose_ball_offense_player,
             match.loose_ball_defense_player,
         )
-        offense_merge, offense_lines = self.cog.engine.merge_bonus(
-            game, match, match.ball.possession, rolling, "offense",
+        offense_merge, offense_lines, offense_contributors = (
+            self.cog.engine.merge_bonus(
+                game, match, match.ball.possession, rolling, "offense",
+            )
         )
-        defense_merge, defense_lines = self.cog.engine.merge_bonus(
-            game, match, match.defending_side(), rolling, "defense",
+        defense_merge, defense_lines, defense_contributors = (
+            self.cog.engine.merge_bonus(
+                game, match, match.defending_side(), rolling, "defense",
+            )
         )
         offense_total += offense_merge
         defense_total += defense_merge
@@ -518,12 +522,16 @@ class LooseBallSkillTestView(SafeView):
                     match.team_for_player(offense_player.player_id),
                     offense_detail,
                     offense_total,
+                    bool(offense_overdrive),
+                    offense_contributors,
                 ),
                 (
                     defense_roll,
                     match.team_for_player(defense_player.player_id),
                     defense_detail,
                     defense_total,
+                    bool(defense_overdrive),
+                    defense_contributors,
                 ),
             ],
             offense_total,

@@ -2795,6 +2795,8 @@ class D12BallManeuverTests(unittest.TestCase):
                     "Orange",
                     ["Defender A (Fullback)", "Defense 3"],
                     10,
+                    False,
+                    [],
                 ),
                 (
                     4,
@@ -2802,6 +2804,8 @@ class D12BallManeuverTests(unittest.TestCase):
                     "Teal",
                     ["Shooter (Winger)", "Offense 2"],
                     6,
+                    False,
+                    [],
                 ),
             ]
         )

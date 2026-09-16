@@ -527,10 +527,13 @@ class RulesEngine:
         side: TeamSide,
         rolling: Collection[Optional[str]],
         skill: str,
-    ) -> tuple[int, list[str]]:
+    ) -> tuple[int, list[str], list[tuple[str, int]]]:
         """
         **Merge**: what the Oozes standing on the ball who are *not*
-        rolling add to their own side's total, and the lines saying so.
+        rolling add to their own side's total, the lines saying so, and
+        who they were and what each one added -- `(name, value)` a
+        contributor, for the dice image to draw them by rather than
+        only total them.
 
         `skill` is "offense" or "defense" -- the rules split it by
         which side of the contest this is, not by anything about the
@@ -548,11 +551,12 @@ class RulesEngine:
         a score attempt can pass its shooter and a contest its two.
         """
         if not self.species_abilities_apply(game):
-            return 0, []
+            return 0, [], []
 
         contesting = {player_id for player_id in rolling if player_id}
         total = 0
         lines: list[str] = []
+        contributors: list[tuple[str, int]] = []
         for player_id in match.contest_occupants(side):
             if player_id in contesting or player_id in match.injured:
                 continue
@@ -565,7 +569,8 @@ class RulesEngine:
                 continue
             total += value
             lines.append(f"+{value} {player.name} (Merge)")
-        return total, lines
+            contributors.append((player.name, value))
+        return total, lines, contributors
 
     def volatile_raises_tier(
         self,

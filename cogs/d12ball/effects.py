@@ -3224,6 +3224,7 @@ class ManeuverEffectsMixin:
                 list(rolls),
                 TEAM_COLORS[offense_setup.team],
                 safe,
+                bool(overdrive),
             ),
             filename="own_goal_dice.png",
         )

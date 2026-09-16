@@ -66,13 +66,16 @@ def contestant_detail(
 
 
 async def render_contest_dice(
-    contestants: list[tuple[int, Team, list[str], int]],
+    contestants: list[
+        tuple[int, Team, list[str], int, bool, list[tuple[str, int]]]
+    ],
     filename: str,
 ) -> discord.File:
     """
     The dice image behind every two-sided roll in the game -- a skill
     test, a loose ball, a score attempt, a shootout test -- as
-    `(roll, team, detail lines, total)` a side.
+    `(roll, team, detail lines, total, overdriven, merge contributors)`
+    a side.
 
     The image carries the whole arithmetic, which is why no message
     that posts one repeats it in text. Rendering is Pillow and pure
@@ -89,8 +92,10 @@ async def render_contest_dice(
                     team_display_name(team),
                     detail,
                     total,
+                    overdriven,
+                    merge,
                 )
-                for roll, team, detail, total in contestants
+                for roll, team, detail, total, overdriven, merge in contestants
             ],
         ),
         filename=filename,

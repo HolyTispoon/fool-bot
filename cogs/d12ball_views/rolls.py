@@ -77,7 +77,7 @@ class SkillTestView(SafeView):
         offense_player: PlayerDefinition,
         defense_player: PlayerDefinition,
     ) -> tuple[
-        list[tuple[int, Team, list[str], int]],
+        list[tuple[int, Team, list[str], int, bool, list[tuple[str, int]]]],
         int,
         int,
         IgnitedRoll,
@@ -203,10 +203,14 @@ class SkillTestView(SafeView):
         # attack, defensive on the defence. A maneuver's skill test is
         # always fought on the ball's space, so it always qualifies.
         rolling = (offense_player.player_id, defense_player.player_id)
-        offense_merge, offense_merge_lines = self.cog.engine.merge_bonus(
+        (
+            offense_merge, offense_merge_lines, offense_merge_contributors,
+        ) = self.cog.engine.merge_bonus(
             game, match, match.ball.possession, rolling, "offense",
         )
-        defense_merge, defense_merge_lines = self.cog.engine.merge_bonus(
+        (
+            defense_merge, defense_merge_lines, defense_merge_contributors,
+        ) = self.cog.engine.merge_bonus(
             game, match, match.defending_side(), rolling, "defense",
         )
         offense_total += offense_merge
@@ -245,12 +249,16 @@ class SkillTestView(SafeView):
                     match.team_for_player(offense_player.player_id),
                     offense_detail,
                     offense_total,
+                    bool(offense_overdrive),
+                    offense_merge_contributors,
                 ),
                 (
                     defense_roll,
                     match.team_for_player(defense_player.player_id),
                     defense_detail,
                     defense_total,
+                    bool(defense_overdrive),
+                    defense_merge_contributors,
                 ),
             ],
             offense_total,
@@ -654,7 +662,7 @@ class ScoreAttemptView(SafeView):
         attacking_setup: TeamSetup,
         defending_setup: TeamSetup,
     ) -> tuple[
-        list[tuple[int, Team, list[str], int]],
+        list[tuple[int, Team, list[str], int, bool, list[tuple[str, int]]]],
         int,
         int,
         IgnitedRoll,
@@ -720,7 +728,7 @@ class ScoreAttemptView(SafeView):
         # the defence gains nothing from it, because defenders on and
         # beyond the ball are already counted by what the defense adds
         # and an Ooze among them must not be counted twice.
-        merge, merge_lines = self.cog.engine.merge_bonus(
+        merge, merge_lines, merge_contributors = self.cog.engine.merge_bonus(
             game,
             match,
             match.ball.possession,
@@ -761,12 +769,16 @@ class ScoreAttemptView(SafeView):
                     attacking_setup.team,
                     attack_detail,
                     attack_total,
+                    bool(overdrive),
+                    merge_contributors,
                 ),
                 (
                     defense_roll,
                     defending_setup.team,
                     defense_detail,
                     defense_total,
+                    False,
+                    [],
                 ),
             ],
             attack_total,

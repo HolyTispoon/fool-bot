@@ -283,7 +283,7 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_healthy_midfielder_adds_skill_and_ability(self) -> None:
         cog, game, _ = self.build(injure_midfielder=False)
-        _, _, _, detail, total = await self.roll(cog, game)
+        _, _, _, detail, total, _, _ = await self.roll(cog, game)
 
         self.assertIn("+3 Midfielder ability", detail)
         self.assertIn("Offensive skill +3", detail)
@@ -294,7 +294,7 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         cog, game, _ = self.build(injure_midfielder=True)
-        _, _, _, detail, total = await self.roll(cog, game)
+        _, _, _, detail, total, _, _ = await self.roll(cog, game)
 
         self.assertIn("+3 Midfielder ability", detail)
         self.assertIn("Offensive skill +3", detail)
@@ -370,14 +370,14 @@ class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
         return entries[0][0]
 
     async def test_a_healthy_striker_adds_the_set_up_bonus(self) -> None:
-        _, _, _, detail, total = await self.roll_attempt(injure=False)
+        _, _, _, detail, total, _, _ = await self.roll_attempt(injure=False)
 
         self.assertIn("+3 Striker ability", detail)
         # d12 of 7, offensive skill 6, ability +3.
         self.assertEqual(total, 16)
 
     async def test_an_injured_striker_keeps_it(self) -> None:
-        _, _, _, detail, total = await self.roll_attempt(injure=True)
+        _, _, _, detail, total, _, _ = await self.roll_attempt(injure=True)
 
         self.assertIn("+3 Striker ability", detail)
         self.assertEqual(total, 16)
@@ -453,9 +453,10 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
         return entries[0]
 
     async def test_healthy_contestants_add_their_skill(self) -> None:
-        (_, _, _, off_detail, off_total), (_, _, _, _, def_total) = (
-            await self.contest()
-        )
+        (
+            (_, _, _, off_detail, off_total, _, _),
+            (_, _, _, _, def_total, _, _),
+        ) = await self.contest()
 
         self.assertIn("Offensive skill +6", off_detail)
         self.assertIn("+3 ball speed modifier", off_detail)
@@ -467,7 +468,7 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
     async def test_an_injured_receiver_keeps_only_the_ball_speed(
         self,
     ) -> None:
-        (_, _, _, off_detail, off_total), _ = await self.contest(
+        (_, _, _, off_detail, off_total, _, _), _ = await self.contest(
             injure="offense",
         )
 
@@ -479,7 +480,7 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(off_total, 10)
 
     async def test_an_injured_defender_rolls_bare(self) -> None:
-        _, (_, _, _, def_detail, def_total) = await self.contest(
+        _, (_, _, _, def_detail, def_total, _, _) = await self.contest(
             injure="defense",
         )
 
@@ -487,7 +488,7 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(def_total, 7)
 
     async def test_it_applies_to_a_plain_loose_ball_too(self) -> None:
-        (_, _, _, off_detail, off_total), _ = await self.contest(
+        (_, _, _, off_detail, off_total, _, _), _ = await self.contest(
             injure="offense", high_pass=False,
         )
 

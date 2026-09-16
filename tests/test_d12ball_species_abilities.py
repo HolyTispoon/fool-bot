@@ -1384,39 +1384,46 @@ class MergeTests(unittest.TestCase):
         roller, bystander = field_players(self.match)[:2]
         self.stand_on_the_ball(roller)
         self.stand_on_the_ball(bystander)
-        bonus, lines = self.engine.merge_bonus(
+        bonus, lines, contributors = self.engine.merge_bonus(
             self.game, self.match, self.side, (roller,), "offense",
         )
         self.assertEqual(bonus, self.offense_of(bystander))
         self.assertEqual(len(lines), 1)
+        self.assertEqual(
+            contributors,
+            [(self.engine.get_player_definition(bystander).name,
+              self.offense_of(bystander))],
+        )
 
     def test_the_roller_does_not_add_to_themselves(self):
         roller = field_players(self.match)[0]
         self.stand_on_the_ball(roller)
-        bonus, lines = self.engine.merge_bonus(
+        bonus, lines, contributors = self.engine.merge_bonus(
             self.game, self.match, self.side, (roller,), "offense",
         )
         self.assertEqual(bonus, 0)
         self.assertEqual(lines, [])
+        self.assertEqual(contributors, [])
 
     def test_two_of_them_add_twice(self):
         roller, first, second = field_players(self.match)[:3]
         for player_id in (roller, first, second):
             self.stand_on_the_ball(player_id)
-        bonus, lines = self.engine.merge_bonus(
+        bonus, lines, contributors = self.engine.merge_bonus(
             self.game, self.match, self.side, (roller,), "offense",
         )
         self.assertEqual(
             bonus, self.offense_of(first) + self.offense_of(second),
         )
         self.assertEqual(len(lines), 2)
+        self.assertEqual(len(contributors), 2)
 
     def test_an_injured_ooze_adds_nothing(self):
         roller, bystander = field_players(self.match)[:2]
         self.stand_on_the_ball(roller)
         self.stand_on_the_ball(bystander)
         self.match.mark_injured(bystander)
-        bonus, _ = self.engine.merge_bonus(
+        bonus, _, _ = self.engine.merge_bonus(
             self.game, self.match, self.side, (roller,), "offense",
         )
         self.assertEqual(bonus, 0)
@@ -1425,10 +1432,10 @@ class MergeTests(unittest.TestCase):
         roller, bystander = field_players(self.match)[:2]
         self.stand_on_the_ball(roller)
         self.stand_on_the_ball(bystander)
-        attacking, _ = self.engine.merge_bonus(
+        attacking, _, _ = self.engine.merge_bonus(
             self.game, self.match, self.side, (roller,), "offense",
         )
-        defending, _ = self.engine.merge_bonus(
+        defending, _, _ = self.engine.merge_bonus(
             self.game, self.match, self.side, (roller,), "defense",
         )
         profile = self.engine.player_catalog.effective_profile(
@@ -1440,7 +1447,7 @@ class MergeTests(unittest.TestCase):
     def test_an_ooze_off_the_ball_s_space_adds_nothing(self):
         roller = field_players(self.match)[0]
         self.stand_on_the_ball(roller)
-        bonus, _ = self.engine.merge_bonus(
+        bonus, _, _ = self.engine.merge_bonus(
             self.game, self.match, self.side, (roller,), "offense",
         )
         self.assertEqual(bonus, 0)
@@ -1450,10 +1457,10 @@ class MergeTests(unittest.TestCase):
         self.stand_on_the_ball(roller)
         self.stand_on_the_ball(bystander)
         basic = build_game(player_1_team=Team.OOZES, mode=GameMode.BASIC)
-        bonus, lines = self.engine.merge_bonus(
+        bonus, lines, contributors = self.engine.merge_bonus(
             basic, self.match, self.side, (roller,), "offense",
         )
-        self.assertEqual((bonus, lines), (0, []))
+        self.assertEqual((bonus, lines, contributors), (0, [], []))
 
     def test_a_non_ooze_bystander_adds_nothing(self):
         game = build_game(player_1_team=Team.PURPLE)
@@ -1470,7 +1477,7 @@ class MergeTests(unittest.TestCase):
             match.board.place_meeple(
                 player_id, match.ball.zone, match.ball.space_index,
             )
-        bonus, _ = self.engine.merge_bonus(
+        bonus, _, _ = self.engine.merge_bonus(
             game, match, side, (roller,), "offense",
         )
         self.assertEqual(bonus, 0)

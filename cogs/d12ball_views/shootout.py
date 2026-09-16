@@ -599,6 +599,8 @@ class ShootoutTestView(ShootoutView):
                     match.setup_for_side(side).team,
                     detail,
                     totals[side],
+                    bool(overdrive),
+                    [],
                 )
             )
 
