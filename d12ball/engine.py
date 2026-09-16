@@ -2494,16 +2494,32 @@ class RulesEngine:
         )
 
     def format_roster_player(self, player_id: str) -> str:
-        player = self.get_player_definition(player_id)
-        return f"{player.name} ({role_initials(player)})"
+        """
+        `player_with_role` for a caller holding a card id -- "Hellguard
+        [FB]", the one spelling every label in the game uses. See
+        "Naming a player" in CLAUDE.md.
+
+        It spelled the role in parentheses until 2026-09-16, which read
+        as a second form of the same thing and collided with whatever
+        the caller put after it: the halftime buttons came out
+        "Hellguard (FB) (3)" and the roster listing "Hellguard (FB)
+        (M2)". Brackets leave the parentheses to mean one thing.
+        """
+        return player_with_role(self.get_player_definition(player_id))
 
     def format_roster_player_with_team(
         self, player_id: str, team: Team,
     ) -> str:
-        player = self.get_player_definition(player_id)
+        """
+        The same, plus the team in words -- for the two autocompletes
+        that list *both* sides at once, where the name alone is
+        ambiguous whenever the same person is fielded on each (see
+        "One player, both sides"). The team is spelled out rather than
+        drawn as an emoji because an autocomplete choice is plain text.
+        """
         return (
-            f"{player.name} ({team_display_name(team)}, "
-            f"{role_initials(player)})"
+            f"{self.format_roster_player(player_id)} "
+            f"({team_display_name(team)})"
         )
 
     def roster_places(

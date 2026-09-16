@@ -661,7 +661,8 @@ position, which is what the choice usually turns on.
 | --- | --- | --- |
 | A message | `🟠 Hellguard [FB]` | `format_role_bracket`, via `D12Ball.player_label` / `player_id_label` |
 | A button | `Hellguard [FB]`, plus the position or the price the choice turns on | `player_with_role` |
-| A coaching button, and `/ref`'s roster | `Hellguard (FB)` | `RulesEngine.format_roster_player` |
+| Anywhere holding a card id rather than a definition | `Hellguard [FB]` | `RulesEngine.format_roster_player` |
+| The two both-sides autocompletes | `Hellguard [FB] (Orange)` | `RulesEngine.format_roster_player_with_team` |
 
 - **`player_with_role` in `d12ball/formatting.py` is the whole of the
   bracket spelling**, and the message form is it with the emoji in front --
@@ -672,11 +673,15 @@ position, which is what the choice usually turns on.
   `species_cards.py`), which index it for a glyph rather than for a name.
   `NamingAPlayerTests` in `tests/test_d12ball_package_shape.py` fails on
   anything else that reads it.
-- **The parens form is the odd one and is kept deliberately.** The coaching
-  flow and the roster listing print a player inside prose and parentheses read
-  better there; it still carries the role, which is the rule. It goes through
-  `role_initials` like everything else, so the two spellings cannot come to
-  disagree about what a Fullback is called.
+- **The brackets are the *only* spelling.** The coaching flow, the halftime
+  buttons and `/ref`'s roster printed `Hellguard (FB)` until 2026-09-16, on
+  the reasoning that parentheses read better inside prose. What that missed is
+  that those labels all put something else in parentheses straight after --
+  the halftime buttons came out `Hellguard (FB) (3)` and the roster listing
+  `Hellguard (FB) (M2)`, where the two pairs of brackets mean different things
+  and nothing says which. One spelling for the role leaves parentheses free to
+  mean one thing, and it is what the rule reduces to: a player looks the same
+  everywhere.
 - **The rule was written down because the run back broke it.**
   `RunBackPlayerChoiceView`'s buttons read `Hellguard — M2` -- the one place
   in the game that named a card and left the role off. It was invisible
@@ -4176,9 +4181,8 @@ anywhere in the code.
     Not to be confused with `CoachingView.player_button_label`, which
     is the name on a *button*: the position instead of the team emoji
     (every card in that flow is the clicking coach's own), cut to
-    Discord's 80-character limit. See
-    [Naming a player](#naming-a-player) for the rule both of them are
-    readings of.
+    Discord's 80-character limit. The name and role inside both are the
+    same string -- see [Naming a player](#naming-a-player).
 - **A player's id is `{slug(name)}_{role}`, not team-prefixed.**
   `hellguard_fullback`, globally unique, because a player's own color
   team is no longer part of their identity -- it can't be, when they

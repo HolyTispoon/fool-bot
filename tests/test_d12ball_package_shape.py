@@ -343,6 +343,41 @@ class NamingAPlayerTests(unittest.TestCase):
             "message) so the spelling has one home.",
         )
 
+    def test_the_roster_form_is_the_button_form(self) -> None:
+        """
+        There is one spelling, and `format_roster_player` is it for a
+        caller holding a card id. It printed the role in parentheses
+        until 2026-09-16 -- a second form of the same thing, which
+        collided with whatever each caller put after it.
+        """
+        from d12ball.components import (
+            load_basic_ruleset,
+            load_maneuver_catalog,
+            load_player_catalog,
+        )
+        from d12ball.engine import RulesEngine
+        from d12ball.formatting import player_with_role
+        from d12ball.game import Team
+
+        catalog = load_player_catalog()
+        engine = RulesEngine(
+            catalog, load_basic_ruleset(), load_maneuver_catalog(), {},
+        )
+        player = catalog.teams[Team.ORANGE].players[0]
+
+        self.assertEqual(
+            engine.format_roster_player(player.player_id),
+            player_with_role(player),
+        )
+        # The team is the only thing the wider form adds, and it is
+        # the one thing left in parentheses.
+        self.assertEqual(
+            engine.format_roster_player_with_team(
+                player.player_id, Team.ORANGE,
+            ),
+            f"{player_with_role(player)} (Orange)",
+        )
+
     def test_the_message_form_is_the_button_form_plus_the_emoji(
         self,
     ) -> None:
