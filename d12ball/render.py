@@ -1745,30 +1745,49 @@ SKILL_TEST_BOTTOM_PADDING = 12
 # **Overdrive**: the Cyborgs' own teal, on the same halo-and-ring a
 # roll's die already knows how to wear -- brighter and thicker than
 # Volatile's, which is explaining a second die nobody watched land;
-# this one is celebrating the one die a coach can already see. Scaled
-# to fit inside SKILL_TEST_CENTER_Y's own headroom (36 * 1.5 = 54, under
-# the 56px a die already sits from the top of the canvas), so a
-# supercharged roll costs the layout nothing -- no row grows to fit it.
+# this one is celebrating the one die a coach can already see.
+# **The scale matches Volatile's own** (the author, 2026-09-16) -- a
+# coach who already reads one species' aura reads the other, and a
+# smaller one read as an afterthought rather than an ability. Each
+# image that can carry Overdrive grows its own headroom to fit it
+# (`render_skill_test_dice`'s top margin, `render_own_goal_dice`'s
+# widened cell) rather than the halo being shrunk to whatever already
+# fit -- `render_injury_test_die`'s row already grows to fit whatever
+# is biggest in it, so that one needed no change at all.
 OVERDRIVE_AURA_COLOR = TEAM_COLORS[Team.CYBORGS]
-OVERDRIVE_HALO_SCALE = 1.5
+OVERDRIVE_HALO_SCALE = 2.3
 OVERDRIVE_HALO_ALPHA = 130
 OVERDRIVE_RING_GAP = 6
 OVERDRIVE_RING_WIDTH = 5
+# Every die Overdrive can reach shares one radius (SKILL_TEST_DIE_RADIUS,
+# aliased by the injury test's and the own-goal roll's own radius
+# constants), so there is one halo size to reserve room for rather than
+# a fresh calculation at each site.
+OVERDRIVE_HALO_SIZE = round(2 * SKILL_TEST_DIE_RADIUS * OVERDRIVE_HALO_SCALE)
 
-# **Merge**: the Oozes' own slime green, drawn as a second, smaller die
-# beside a roller's own -- there is no second roll to show (Merge is a
-# flat skill number, not a d12), so the token's face is the bonus
-# itself rather than a face 1-12. The portrait beside it is what
-# answers "which Ooze", the way a score attempt's wall of defenders
-# names itself rather than only totalling.
+# **Merge**: the Oozes' own slime green, drawn as a second die beside a
+# roller's own -- there is no second roll to show (Merge is a flat
+# skill number, not a d12), so the token's face is the bonus itself
+# rather than a face 1-12. The portrait beside it is what answers
+# "which Ooze", the way a score attempt's wall of defenders names
+# itself rather than only totalling. **The same halo scale Volatile
+# and Overdrive wear** (2026-09-16) -- a smaller aura on a smaller die
+# read as decoration rather than the same ability shown twice, so the
+# die and the portrait both grew to keep the token from swallowing the
+# face beside it, and the gap between them grew to keep the glow off
+# the portrait rather than bleeding onto it.
 MERGE_AURA_COLOR = TEAM_COLORS[Team.OOZES]
-MERGE_DIE_RADIUS = 18
-MERGE_HALO_SCALE = 1.7
-MERGE_HALO_ALPHA = 100
-MERGE_RING_GAP = 5
-MERGE_RING_WIDTH = 3
-MERGE_PORTRAIT_SIZE = 40
-MERGE_ITEM_GAP = 8
+MERGE_DIE_RADIUS = 24
+MERGE_HALO_SCALE = OVERDRIVE_HALO_SCALE
+MERGE_HALO_ALPHA = 130
+MERGE_RING_GAP = 6
+MERGE_RING_WIDTH = 4
+MERGE_HALO_SIZE = round(2 * MERGE_DIE_RADIUS * MERGE_HALO_SCALE)
+MERGE_PORTRAIT_SIZE = 56
+# Wide enough that the halo's own edge (MERGE_HALO_SIZE / 2 out from
+# the die's centre) lands at or before the portrait's own left edge --
+# see the arithmetic in `draw_merge_contributors`.
+MERGE_ITEM_GAP = 32
 MERGE_NAME_GAP = 4
 MERGE_NAME_HEIGHT = 16
 MERGE_LABEL_TEXT = "MERGE"
@@ -1792,7 +1811,7 @@ def merge_block_height(contributors: list[tuple[str, int]]) -> int:
     if not contributors:
         return 0
     contributor_row = (
-        max(2 * MERGE_DIE_RADIUS, MERGE_PORTRAIT_SIZE)
+        max(MERGE_HALO_SIZE, MERGE_PORTRAIT_SIZE)
         + MERGE_NAME_GAP + MERGE_NAME_HEIGHT
     )
     return (
@@ -1826,7 +1845,7 @@ def draw_merge_contributors(
         fill=MERGE_AURA_COLOR,
     )
     row_y = top_y + MERGE_LABEL_HEIGHT + MERGE_LABEL_GAP
-    slot_height = max(2 * MERGE_DIE_RADIUS, MERGE_PORTRAIT_SIZE)
+    slot_height = max(MERGE_HALO_SIZE, MERGE_PORTRAIT_SIZE)
     item_width = 2 * MERGE_DIE_RADIUS + MERGE_ITEM_GAP + MERGE_PORTRAIT_SIZE
 
     for name, value in contributors:
@@ -1918,8 +1937,19 @@ def render_skill_test_dice(
         default=0,
     )
     merge_gap = MERGE_ROW_GAP if merge_extra_height else 0
+    # An overdriven die's halo is wider than SKILL_TEST_CENTER_Y's own
+    # headroom, so the row is pushed down to give it room -- only when
+    # one is actually there, so an ordinary roll's canvas is exactly
+    # the size it always was.
+    has_overdrive = any(overdriven for _, _, _, _, _, overdriven, _ in dice)
+    top_margin = (
+        round(max(0, OVERDRIVE_HALO_SIZE / 2 - SKILL_TEST_CENTER_Y))
+        if has_overdrive
+        else 0
+    )
+    center_y = SKILL_TEST_CENTER_Y + top_margin
     total_y = (
-        SKILL_TEST_CENTER_Y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
+        center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
         + detail_block_height + merge_gap + merge_extra_height
         + SKILL_TEST_TOTAL_GAP
     )
@@ -1927,7 +1957,6 @@ def render_skill_test_dice(
     width = SKILL_TEST_CELL_WIDTH * len(dice)
     canvas = Image.new("RGBA", (width, height), "#111820")
     draw = ImageDraw.Draw(canvas)
-    center_y = SKILL_TEST_CENTER_Y
 
     for index, (
         value, color, label, detail_lines, total, overdriven, merge,
@@ -2790,12 +2819,19 @@ def render_own_goal_dice(
     outcome_height = outcome_bbox[3] - outcome_bbox[1]
 
     mark_radius = OWN_GOAL_DIE_RADIUS + OWN_GOAL_MARK_GAP
-    center_y = OWN_GOAL_TOP_PADDING + mark_radius
+    # An overdriven kept die's halo is both taller and wider than the
+    # ordinary "this one counted" mark reserves room for, so both the
+    # top padding and the cell a die sits in grow to fit it -- applied
+    # to every cell rather than only the counted one, so the two dice
+    # stay evenly spaced whichever one the advantage took.
+    overdrive_radius = (OVERDRIVE_HALO_SIZE / 2) if overdriven else 0
+    center_y = OWN_GOAL_TOP_PADDING + max(mark_radius, overdrive_radius)
+    cell_width = max(OWN_GOAL_CELL_WIDTH, OVERDRIVE_HALO_SIZE if overdriven else 0)
     outcome_y = center_y + mark_radius + OWN_GOAL_OUTCOME_GAP
     height = round(outcome_y + outcome_height + OWN_GOAL_BOTTOM_PADDING)
     width = round(
         max(
-            OWN_GOAL_CELL_WIDTH * len(rolls),
+            cell_width * len(rolls),
             outcome_width + OWN_GOAL_SIDE_PADDING * 2,
         )
     )
@@ -2804,13 +2840,13 @@ def render_own_goal_dice(
     draw = ImageDraw.Draw(canvas)
 
     taken = max(rolls)
-    dice_left = (width - OWN_GOAL_CELL_WIDTH * len(rolls)) / 2
+    dice_left = (width - cell_width * len(rolls)) / 2
 
     for index, value in enumerate(rolls):
         center_x = round(
             dice_left
-            + index * OWN_GOAL_CELL_WIDTH
-            + OWN_GOAL_CELL_WIDTH / 2
+            + index * cell_width
+            + cell_width / 2
         )
         counted = value == taken
         if counted and overdriven:
