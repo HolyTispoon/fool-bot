@@ -13,6 +13,7 @@ from d12ball.components import (
     MatchState,
     PlayerDefinition,
 )
+from d12ball.engine import IgnitedRoll
 from d12ball.game import (
     D12BallGame,
     Team,
@@ -386,7 +387,13 @@ class LooseBallSkillTestView(SafeView):
         match: MatchState,
         offense_player: PlayerDefinition,
         defense_player: PlayerDefinition,
-    ) -> tuple[list[tuple[int, Team, list[str], int]], int, int]:
+    ) -> tuple[
+        list[tuple[int, Team, list[str], int]],
+        int,
+        int,
+        IgnitedRoll,
+        IgnitedRoll,
+    ]:
         """
         Roll the contest for the ball and add what counts towards it,
         as the two sides `render_contest_dice` draws plus the totals
@@ -396,7 +403,9 @@ class LooseBallSkillTestView(SafeView):
 
         No text breakdown goes alongside it: the dice image already
         names both players and shows every modifier that built the
-        totals.
+        totals. **Both ignites come back with them**, because the
+        second die each one rolled is posted on an image of its own --
+        see `D12Ball.post_volatile_ignition`.
         """
         # An injured contestant adds no skill modifier -- their own
         # offensive or defensive skill stays off the roll, and that is
@@ -524,6 +533,8 @@ class LooseBallSkillTestView(SafeView):
             ],
             offense_total,
             defense_total,
+            offense_ignite,
+            defense_ignite,
         )
 
     def settle_loose_ball_winner(
@@ -643,7 +654,13 @@ class LooseBallSkillTestView(SafeView):
             match.loose_ball_defense_player,
         )
 
-        contestants, offense_total, defense_total = self.score_loose_ball(
+        (
+            contestants,
+            offense_total,
+            defense_total,
+            offense_ignite,
+            defense_ignite,
+        ) = self.score_loose_ball(
             game, match, offense_player, defense_player,
         )
         match.consume_overdrive()
@@ -663,6 +680,14 @@ class LooseBallSkillTestView(SafeView):
                 ),
                 attachments=[dice_file],
                 view=LooseBallSkillTestView(self.cog, self.game_id),
+            )
+            # A tie is re-rolled, and the ignites that produced it are
+            # still worth showing -- see SkillTestView.roll's own tie.
+            await self.cog.post_volatile_ignition(
+                interaction,
+                match,
+                (offense_player.player_id, offense_ignite),
+                (defense_player.player_id, defense_ignite),
             )
             await self.cog.refresh_match_image(interaction, game)
             return
@@ -686,6 +711,14 @@ class LooseBallSkillTestView(SafeView):
             content=None,
             attachments=[dice_file],
             view=None,
+        )
+        # The ignition dice sit between the roll and the result, which
+        # is where they belong: they are what settled it.
+        await self.cog.post_volatile_ignition(
+            interaction,
+            match,
+            (offense_player.player_id, offense_ignite),
+            (defense_player.player_id, defense_ignite),
         )
         await interaction.followup.send(
             announcement,

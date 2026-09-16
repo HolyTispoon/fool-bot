@@ -879,6 +879,60 @@ call sites. Volatile is the only one that reads one today.
   die image draws the natural face, so `run_injury_test` says the ignite in
   words -- otherwise the number a coach reads and the verdict they are given
   would not add up.
+- **Volatile's two numbers live in `d12ball/components.py`**, beside the
+  other three species', rather than in the engine that reads them:
+  `d12ball/render.py` cannot import the engine (the engine imports it) and
+  the ignition die's own explainer reads them too. `engine.py` re-exports
+  both, so nothing that already asked it moved.
+
+### The ignition die
+
+**The second die is a die a coach watches, not a number in a total.**
+`render_volatile_die` draws it and `D12Ball.post_volatile_ignition` posts
+it -- one message per ignited roll, between the roll's own dice image and
+the result.
+
+- **It was a line in the totals column and nothing else**, which is what
+  the modifier shape above bought and where it fell short: the face on the
+  image and the total under it disagreed by up to 12, with one grey line of
+  arithmetic to explain a die nobody saw thrown. Every other modifier in
+  the game is checkable against the board or a card; this one is a roll.
+- **`IgnitedRoll.detail` and `.explain` are one ignite said twice, and they
+  sit together.** `detail` is the arithmetic in the totals column, which
+  has to add up; `explain` is the sentence over the second die's own image,
+  which has to say why there is a second die at all. Written apart they
+  come to disagree about which way a roll went.
+- **One helper for all seven call sites**, which is `ignite` read from the
+  other end: the funnel owns what a die means and this owns what a coach is
+  shown of it. Each site hands over the pairs it has -- a contest both
+  sides, a score attempt only the shooter -- and a roll that did not ignite
+  posts nothing, so no caller branches on it. That is also what lets
+  `run_mind_pull` pass its Telekinetic's roll through: it cannot ignite
+  today, and the day a card carries both abilities this is not the one roll
+  in the game that swallows the die.
+- **Between the dice and the result, at every site including a tie.** The
+  ignite happened to the die a coach has just watched and before the
+  verdict they are about to read; a message's attachments render below its
+  content, so nothing else reads as what happened. See `SkillTestView.roll`
+  for the same reasoning about a result.
+- **The sentence is above its own die**, unlike every result in the game.
+  It is not a verdict the picture is about to reveal, it is the caption
+  explaining why a second die exists -- and the alternative is two messages
+  an ignite.
+- **The image is the Mind Pull die's layout with the Fire Demons' flame**
+  (die, portrait, verdict, with a halo and a ring), for the reason that one
+  follows the injury test's: a coach should not have to learn a layout per
+  ability. The face keeps the *roller's team* colour, since a Fire Demon
+  plays for any of the eight teams. What it adds is an explainer line under
+  the title -- "a natural 6 or 7 ignites — the second d12 adds on 5-12,
+  subtracts on 1-4", read off the constants like the Mind Pull die's target
+  band -- and it is what sizes the canvas, being both the widest thing on
+  the image and the half a coach meeting their first ignite needs.
+- **A roll site may not swallow its die**, which is a claim about all of
+  them and so cannot be made by a test that drives one:
+  `IgnitionIsShownEverywhereTests` fails any module that calls `ignite`
+  without posting one. A new roll site is written by copying an old one and
+  the arithmetic works perfectly well with the image left out.
 
 **The tier rider is one flag, not a side.** The rules name two cases -- a
 surge on the winning side raises that side's maneuver, a backfire on the
