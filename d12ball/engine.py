@@ -2372,8 +2372,15 @@ class RulesEngine:
         What the coach is agreeing to, in place of the turn prompt --
         see CedeConfirmView. Everything it names is a cost or a
         consequence the button label has no room for: who gets the
-        ball, where, that the declaration goes with it, and that the
-        other coach is handed a window of their own on the back of it.
+        ball, where, that the window is free, that the declaration goes
+        with it, and that the other coach is handed a window of their
+        own on the back of it.
+
+        It no longer lists the four actions the window offers. Those
+        are the buttons on the very next screen, and naming them here
+        made the sentence a menu ahead of the menu. That the window
+        costs no exhaustion stays, because it is not on the hub at all
+        and it is part of what the coach is weighing the ball against.
         """
         receiving = format_team_side_label(
             match.setup_for_side(match.defending_side())
@@ -2382,8 +2389,7 @@ class RulesEngine:
             "# Cede the ball?",
             f"{receiving} take possession at "
             f"{space_label(match.ball.zone, match.ball.space_index)}, where "
-            "it stands, and you open a Coaching Choice -- formation, "
-            "substitutions, zone assignment, space positioning, free of "
+            "it stands, and you open a Coaching Choice, free of "
             "exhaustion.",
             "It uses up your Coaching Choice for this half, and "
             f"{receiving} get one of their own to answer it.",
@@ -2629,18 +2635,24 @@ class RulesEngine:
         # the same read: out of range is exactly when ceding is on
         # offer, and the only thing that can take it away as well is a
         # declaration already spent.
+        #
+        # Each says the reason once and then names what is left. The
+        # third used to spell out both absences as well ("so there is
+        # no shot and no cede -- only a maneuver"), which listed two
+        # buttons that are not on the message in order to introduce the
+        # one that is -- and did it on every turn for the rest of a
+        # half, since a spent declaration does not come back.
         if match.can_attempt_score():
             action_line = "Choose an action:"
         elif match.may_cede_possession():
             action_line = (
-                "The ball is out of shooting range, so there is no shot "
-                "from here. Maneuver, or cede the ball to coach:"
+                "Out of shooting range. Maneuver, or cede the ball to "
+                "coach:"
             )
         else:
             action_line = (
-                "The ball is out of shooting range and your side has "
-                "already called its Coaching Choice this half, so there "
-                "is no shot and no cede -- only a maneuver:"
+                "Out of shooting range, and your Coaching Choice is "
+                "spent for this half. Maneuver:"
             )
         return (
             f"{controller}, it is your turn.\n\n"

@@ -261,20 +261,30 @@ class TurnoverMixin:
         The line under a coaching prompt: what this window costs, what
         moved on the way in, and who is hurt.
 
-        The three read as one paragraph but answer separately -- an
-        occasion that is declared says so, a restore is only mentioned
-        when it actually moved somebody, and an injured player is a
-        nudge rather than a requirement.
+        The three answer separately -- an occasion that is declared
+        says so, a restore is only mentioned when it actually moved
+        somebody, and an injured player is a nudge rather than a
+        requirement. Any of them may have nothing to say, so the parts
+        that are there are joined rather than interpolated; see "What a
+        message says".
+
+        The first has nothing to say at setup, halftime and full time,
+        which are the only occasions reaching that branch. It used to
+        read "Take as long as you like; nothing here costs exhaustion"
+        -- reassurance rather than information, on the three occasions
+        where no clock is running and nothing is being spent in the
+        first place.
         """
+        lines: list[str] = []
         if occasion.asks_declaration:
-            note = (
+            lines.append(
                 "Answering the other team, which leaves your own "
                 "once-a-half Coaching Choice unspent."
                 if is_response
                 else "Calling one is once a half. Coach, or pass?"
             )
         elif occasion == CoachingOccasion.CEDED:
-            note = (
+            lines.append(
                 "The ball bought this, so there is nothing to decide "
                 "-- it is open."
                 if not is_response
@@ -282,17 +292,13 @@ class TurnoverMixin:
                 "is open too, and leaves your own once-a-half Coaching "
                 "Choice unspent."
             )
-        else:
-            note = "Take as long as you like; nothing here costs exhaustion."
 
         # Said only when it actually moved somebody, which is halftime
         # and nowhere else: a coach who left the first half with their
         # side scattered is looking at their own shape again and
         # should be told why.
         if restored:
-            note += (
-                "\nYour side is back on the arrangement you last set."
-            )
+            lines.append("Your side is back on the arrangement you last set.")
 
         # An injured player is worth pointing out, but only as a
         # nudge: nothing compels a side to get them off, and a coach
@@ -304,9 +310,9 @@ class TurnoverMixin:
                 for player_id in injured_ids
             )
             verb = "is" if len(injured_ids) == 1 else "are"
-            note += f"\n{injured} {verb} injured and still on the field."
+            lines.append(f"{injured} {verb} injured and still on the field.")
 
-        return note
+        return "\n".join(lines)
 
     async def begin_substitution_window(
         self,
