@@ -2868,8 +2868,14 @@ class D12BallManeuverTests(unittest.TestCase):
         # image consistent with the two it borrows its layout from.
         self.assertGreater(VOLATILE_PORTRAIT_SIZE, INJURY_TEST_PORTRAIT_SIZE)
         self.assertLess(VOLATILE_HALO_SCALE, MIND_PULL_HALO_SCALE)
+        # The flame fills that row and does not grow it: the ceiling is
+        # the portrait, and the scale is deliberately just under it --
+        # a flame smaller than this reads as a smudge behind the die
+        # and one larger is what makes the canvas taller than its own
+        # content.
         halo_size = 2 * VOLATILE_DIE_RADIUS * VOLATILE_HALO_SCALE
         self.assertGreater(VOLATILE_PORTRAIT_SIZE, halo_size)
+        self.assertGreater(halo_size, VOLATILE_PORTRAIT_SIZE * 0.9)
 
         image_data = render_volatile_die(
             9, 6, TEAM_COLORS[Team.ORANGE], "Orange", "Defender A",

@@ -933,11 +933,14 @@ the result.
   the row under it and the other two have no such line. Three things
   follow, and all three are the same instruction -- spend the space rather
   than leave it black. The **portrait is 168** and not the 96 the other two
-  draw, so it is the tallest thing in the row. The **halo is tighter than
-  the Mind Pull's 2.9**, which is the two shapes differing rather than a
-  change of mind: a spiral is mostly the gaps between its arms and needs
-  room to read as one, where the flame is a solid silhouette and at that
-  scale was a wide orange blob with a die lost inside it. And the slack the
+  draw, so it is the tallest thing in the row. The **flame fills that row
+  and does not grow it** -- a halo up to the portrait's height costs
+  nothing, and past it the flame is what makes the canvas taller than its
+  own content, which is what the Mind Pull's 2.9 did here. It cannot be
+  that number either way, since the two shapes are not alike: a spiral is
+  mostly the gaps between its arms and needs room to read as one, where a
+  flame is solid. Both ends of that are real -- 1.85 was tried and reads as
+  a smudge behind the die. And the slack the
   explainer creates is spread **between** the three columns instead of
   around them, so the row reads as the sentence's own rather than a narrow
   thing centred under it.

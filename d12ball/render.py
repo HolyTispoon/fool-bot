@@ -2190,14 +2190,18 @@ VOLATILE_AURA_COLOR = TEAM_COLORS[Team.FIRE_DEMONS]
 # The flame behind the die, and the ring around it. Dim enough that the
 # face stays the brightest thing in the column.
 #
-# **The scale is tighter than the Mind Pull halo's 2.9**, which is the
-# difference between the two shapes rather than a change of mind: a
-# spiral is mostly the gaps between its arms, so it needs the room to
-# read as one, where the flame is a solid silhouette and at that size
-# was a wide orange blob with a die lost in the middle of it. Close
-# around the ring is where it reads as the die being alight.
+# **The flame is drawn as large as the row already is, and no larger.**
+# The row's height is the portrait's, so a halo up to that size costs
+# nothing; past it the flame is what grows the canvas, which is what
+# the Mind Pull halo's 2.9 did here -- a wide orange blob with a die
+# lost in the middle of a band of black. It cannot be the same number
+# as that one either way, since the two shapes are not alike: a spiral
+# is mostly the gaps between its arms and needs room to read as one,
+# where a flame is solid. So the scale is whatever fills the portrait's
+# height, and `test_the_portrait_is_what_sets_a_volatile_die_s_row` is
+# the ceiling on it.
 VOLATILE_HALO_ALPHA = 70
-VOLATILE_HALO_SCALE = 1.85
+VOLATILE_HALO_SCALE = 2.3
 VOLATILE_RING_GAP = 8
 VOLATILE_RING_WIDTH = 3
 VOLATILE_SURGE_TEXT = "SURGE"
