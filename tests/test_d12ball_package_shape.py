@@ -401,3 +401,83 @@ class NamingAPlayerTests(unittest.TestCase):
             format_role_bracket(player, {}, Team.ORANGE),
             f"🟠 {plain}",
         )
+
+    def test_a_message_writes_the_role_emoji_and_a_button_the_brackets(
+        self,
+    ) -> None:
+        """
+        The role badge is an application emoji, and custom emoji render
+        in exactly one of the places a player is named: a message. A
+        button label and an autocomplete choice show the raw
+        `<:...:>`, so the plain form keeps the brackets whatever has
+        been uploaded, and only the message forms take the dict.
+        """
+        from cogs.d12ball_helpers import format_role_bracket
+        from d12ball.components import (
+            PlayerRole,
+            load_basic_ruleset,
+            load_maneuver_catalog,
+            load_player_catalog,
+        )
+        from d12ball.engine import RulesEngine
+        from d12ball.formatting import player_with_role, role_initials
+        from d12ball.game import Team
+
+        catalog = load_player_catalog()
+        engine = RulesEngine(
+            catalog, load_basic_ruleset(), load_maneuver_catalog(), {},
+        )
+        player = catalog.teams[Team.ORANGE].players[0]
+        badge = f"<:role_{player.role.value}:100>"
+        engine.role_emojis = {player.role: badge}
+        plain = f"{player.name} [{role_initials(player)}]"
+
+        # The message forms carry the badge.
+        self.assertEqual(
+            player_with_role(player, engine.role_emojis),
+            f"{player.name} {badge}",
+        )
+        self.assertEqual(
+            format_role_bracket(player, {}, Team.ORANGE, engine.role_emojis),
+            f"🟠 {player.name} {badge}",
+        )
+        self.assertEqual(
+            engine.format_roster_player_for_message(player.player_id),
+            f"{player.name} {badge}",
+        )
+        # The button and autocomplete forms do not, however the engine
+        # has been loaded.
+        self.assertEqual(player_with_role(player), plain)
+        self.assertEqual(engine.format_roster_player(player.player_id), plain)
+        self.assertEqual(
+            engine.format_roster_player_with_team(player.player_id, Team.ORANGE),
+            f"{plain} (Orange)",
+        )
+        self.assertEqual(engine.shootout_button_label(None, player.player_id)[
+            : len(plain)
+        ], plain)
+
+    def test_a_role_with_no_upload_keeps_its_brackets(self) -> None:
+        """
+        Three of six uploaded is three badges and three bracketed
+        roles, not three blanks -- the fallback is per role, on the
+        dict's own missing entry.
+        """
+        from d12ball.components import PlayerRole, load_player_catalog
+        from d12ball.formatting import player_with_role, role_initials
+        from d12ball.game import Team
+
+        catalog = load_player_catalog()
+        players = catalog.teams[Team.ORANGE].players
+        striker = next(p for p in players if p.role == PlayerRole.STRIKER)
+        fullback = next(p for p in players if p.role == PlayerRole.FULLBACK)
+        role_emojis = {PlayerRole.STRIKER: "<:role_striker:100>"}
+
+        self.assertEqual(
+            player_with_role(striker, role_emojis),
+            f"{striker.name} <:role_striker:100>",
+        )
+        self.assertEqual(
+            player_with_role(fullback, role_emojis),
+            f"{fullback.name} [{role_initials(fullback)}]",
+        )

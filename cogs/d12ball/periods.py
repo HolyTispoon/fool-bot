@@ -274,7 +274,9 @@ class PeriodMixin:
         match: the whistle and the shootout each already hold one, and
         passing it in would be for this alone.
         """
-        return build_goal_log(match, self.player_catalog, self.team_emojis)
+        return build_goal_log(
+            match, self.player_catalog, self.team_emojis, self.role_emojis,
+        )
 
     async def announce_game_over(
         self,

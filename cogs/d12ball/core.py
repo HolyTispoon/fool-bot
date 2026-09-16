@@ -76,6 +76,7 @@ from cogs.d12ball_helpers import (
     load_condition_emojis,
     load_d12_emoji,
     load_d12_button_emoji,
+    load_role_emojis,
     load_team_emojis,
     send_error_fallback,
     space_label,
@@ -153,6 +154,7 @@ class CoreMixin:
         self.coin_emojis_checked_at: Optional[float] = None
         self.condition_emojis: dict[str, str] = {}
         self.team_emojis: dict[Team, str] = {}
+        # The role emoji live on the engine -- see `role_emojis` below.
         # The `<:d12dice:id>` string for the hub message and the lobby
         # heading, and the lighter `<:d12dicecream:id>` for the hub
         # button (its blue fill swallowed the darker die) -- both None
@@ -387,6 +389,9 @@ class CoreMixin:
         self.team_emojis = await load_team_emojis(
             self.bot, application_emojis,
         )
+        self.role_emojis = await load_role_emojis(
+            self.bot, application_emojis,
+        )
         self.d12_emoji = await load_d12_emoji(self.bot, application_emojis)
         self.d12_button_emoji = await load_d12_button_emoji(
             self.bot, application_emojis,
@@ -577,6 +582,25 @@ class CoreMixin:
             by_ai=by_ai,
         )
 
+    @property
+    def role_emojis(self) -> dict[PlayerRole, str]:
+        """
+        The role emoji, `PlayerRole -> "<:role_fullback:id>"`, once
+        cog_load has fetched them and `{}` before.
+
+        The dict itself lives on the engine, whose two message builders
+        name a player with it (`format_roster_player_for_message`), and
+        this is a view of that one copy rather than a second dict
+        assigned beside it -- cog_load *replaces* the dict, so a
+        reference handed to the engine at construction would go stale
+        the moment the fetch landed.
+        """
+        return self.engine.role_emojis
+
+    @role_emojis.setter
+    def role_emojis(self, role_emojis: dict[PlayerRole, str]) -> None:
+        self.engine.role_emojis = role_emojis
+
     def player_label(
         self,
         match: MatchState,
@@ -584,7 +608,8 @@ class CoreMixin:
     ) -> str:
         """
         "🟠 Hellguard [FB]" -- a player named the way every message in
-        the game names them.
+        the game names them, with the role badge emoji in place of the
+        brackets once the six are uploaded (see `role_emojis`).
 
         This is `format_role_bracket` with the two arguments that are
         the same at every call site already filled in. The emoji dict
@@ -603,6 +628,7 @@ class CoreMixin:
             player,
             self.team_emojis,
             match.team_for_player(player.player_id),
+            self.role_emojis,
         )
 
     def player_id_label(

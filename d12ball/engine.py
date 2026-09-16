@@ -254,6 +254,18 @@ class RulesEngine:
         self.basic_ruleset = basic_ruleset
         self.maneuver_catalog = maneuver_catalog
         self.ai_strategies = ai_strategies
+        # `PlayerRole -> "<:role_fullback:id>"`, the application emoji
+        # a *message* writes after a player's name in place of `[FB]`
+        # (see `format_roster_player_for_message`). Empty until the
+        # cog's cog_load has fetched them, and every lookup falls back
+        # to the brackets until then. This is the one copy:
+        # `D12Ball.role_emojis` is a property over it, so the cog and
+        # the engine cannot hold two dicts that disagree about which
+        # upload exists. It is the only Discord-shaped thing the engine
+        # holds, and it is a string per role rather than anything that
+        # needs discord.py -- what the engine still cannot do is fetch
+        # it.
+        self.role_emojis: dict[PlayerRole, str] = {}
 
     def advanced_maneuvers_apply(self, game: D12BallGame) -> bool:
         """
@@ -2321,7 +2333,7 @@ class RulesEngine:
         for area in SETUP_AREAS:
             zone = zone_for_area(side, area)
             names = ", ".join(
-                f"{self.format_roster_player(player_id)} "
+                f"{self.format_roster_player_for_message(player_id)} "
                 f"({space_label(zone, space_index)})"
                 for player_id, placed_zone, space_index in placement
                 if placed_zone == zone
@@ -2582,6 +2594,23 @@ class RulesEngine:
         """
         return player_with_role(self.get_player_definition(player_id))
 
+    def format_roster_player_for_message(self, player_id: str) -> str:
+        """
+        `format_roster_player` for text going into a *message*, where
+        the role emoji renders -- "Hellguard <:role_fullback:id>" once
+        the six are uploaded, and the brackets until then.
+
+        Two methods rather than a flag because the plain form is the
+        safe default: the same markup in a button label or an
+        autocomplete choice shows as the raw `<:...:>`, and every
+        caller of `format_roster_player` outside this module is one of
+        those. The two message builders here (`describe_formation_change`
+        and `build_turn_prompt`) are the ones that ask for this.
+        """
+        return player_with_role(
+            self.get_player_definition(player_id), self.role_emojis,
+        )
+
     def format_roster_player_with_team(
         self, player_id: str, team: Team,
     ) -> str:
@@ -2689,7 +2718,9 @@ class RulesEngine:
                 "an action."
             )
 
-        handler = self.format_roster_player(match.active_player_id)
+        handler = self.format_roster_player_for_message(
+            match.active_player_id
+        )
         # `carrying` is passed in rather than read off the match:
         # select_ball_handler has already consumed ball_carrier_id by
         # the time the prompt is built, so only the caller that did the

@@ -19,6 +19,7 @@ from d12ball.components import (
     MatchState,
     PlayerCatalog,
     PlayerDefinition,
+    PlayerRole,
     Zone,
 )
 from d12ball.formatting import (
@@ -157,6 +158,23 @@ TEAM_EMOJI_FALLBACKS = {
     Team.OOZES: "🫧",
 }
 EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
+
+# Role emoji (the two initials in a white rounded square,
+# images/emoji/role_*.png, drawn by scripts/render_role_emoji.py) are
+# uploaded to the application the same way and looked up by
+# load_role_emojis below. Where one is loaded it stands in for the
+# `[FB]` after a player's name in every *message*; a button label and
+# an autocomplete choice are plain text and keep the brackets. There
+# is no fallback table: the fallback is the brackets themselves, which
+# `d12ball.formatting.role_badge` spells when the dict has no entry.
+ROLE_EMOJI_NAMES = {
+    PlayerRole.FULLBACK: "role_fullback",
+    PlayerRole.DEFENDER: "role_defender",
+    PlayerRole.MIDFIELDER: "role_midfielder",
+    PlayerRole.PLAYMAKER: "role_playmaker",
+    PlayerRole.WINGER: "role_winger",
+    PlayerRole.STRIKER: "role_striker",
+}
 
 
 # EMOJI_REFETCH_INTERVAL now lives in discord_emoji_cache.py, imported
@@ -300,6 +318,42 @@ def get_team_emoji(team_emojis: dict[Team, str], team: Team) -> str:
     return team_emojis.get(team, TEAM_EMOJI_FALLBACKS[team])
 
 
+async def load_role_emojis(
+    bot: commands.Bot,
+    emojis_by_name: Optional[dict[str, discord.Emoji]] = None,
+) -> dict[PlayerRole, str]:
+    """
+    Look up the role-badge emoji among the application's emoji, the
+    same way load_team_emojis does.
+
+    `emojis_by_name` is an already-fetched list -- see
+    fetch_application_emojis. A role with no upload is left out, and
+    `role_badge` writes its brackets instead.
+    """
+    if emojis_by_name is None:
+        emojis_by_name = await fetch_application_emojis(bot) or {}
+
+    role_emojis: dict[PlayerRole, str] = {}
+    missing: list[str] = []
+
+    for role, name in ROLE_EMOJI_NAMES.items():
+        emoji = emojis_by_name.get(name)
+
+        if emoji is None:
+            missing.append(name)
+        else:
+            role_emojis[role] = str(emoji)
+
+    if missing:
+        LOGGER.info(
+            "This application has no role emoji named %s; those roles "
+            "will show their bracketed initials instead.",
+            ", ".join(missing),
+        )
+
+    return role_emojis
+
+
 def slugify_channel_part(text: str) -> str:
     """
     Turn free text into something Discord will keep verbatim in a
@@ -440,6 +494,7 @@ def format_role_bracket(
     player: PlayerDefinition,
     team_emojis: dict[Team, str],
     team: Team,
+    role_emojis: Optional[dict[PlayerRole, str]] = None,
 ) -> str:
     """
     "🟠 Hellguard [FB]" -- `player_with_role` with the team emoji in
@@ -450,12 +505,17 @@ def format_role_bracket(
     (`match.team_for_player(...)`, or `setup.team` when the player is
     known to be on that side).
 
+    `role_emojis` is the role's own badge in place of the brackets
+    (see `load_role_emojis`); a message is the one place custom emoji
+    render, so this is the form that takes it and `player_with_role`
+    on its own is the form that does not.
+
     **A button gets the position instead of the emoji**, which is the
     only place the two forms differ -- see `player_with_role` and
     "Naming a player" in CLAUDE.md.
     """
     team_emoji = get_team_emoji(team_emojis, team)
-    return f"{team_emoji} {player_with_role(player)}"
+    return f"{team_emoji} {player_with_role(player, role_emojis)}"
 
 
 # destination_display_name, format_team_side_label, space_label,
@@ -577,16 +637,21 @@ def format_goal_time(goal: GoalRecord) -> str:
     )
 
 
-def format_goal_scorer(goal: GoalRecord, catalog: PlayerCatalog) -> str:
+def format_goal_scorer(
+    goal: GoalRecord,
+    catalog: PlayerCatalog,
+    role_emojis: Optional[dict[PlayerRole, str]] = None,
+) -> str:
     """
     Who put it in, with **(OG)** where that is not who it counts for.
     The name carries no team emoji: every line of the log is already
     under the heading of the side the goal counts for, which for an own
     goal is not the scorer's own -- so an emoji here would be the one
-    thing on the line contradicting it.
+    thing on the line contradicting it. The *role* emoji says nothing
+    about a side, so it stays.
     """
     player = catalog.player_by_id(goal.player_id)
-    name = player_with_role(player)
+    name = player_with_role(player, role_emojis)
     return f"{name} (OG)" if goal.own_goal else name
 
 
@@ -594,6 +659,7 @@ def build_goal_log(
     match: MatchState,
     catalog: PlayerCatalog,
     team_emojis: dict[Team, str],
+    role_emojis: Optional[dict[PlayerRole, str]] = None,
 ) -> str:
     """
     The scoresheet at full time: every goal of the game, under the side
@@ -638,7 +704,7 @@ def build_goal_log(
                 [heading]
                 + [
                     f"`{format_goal_time(goal)}`  "
-                    f"{format_goal_scorer(goal, catalog)}"
+                    f"{format_goal_scorer(goal, catalog, role_emojis)}"
                     for goal in scored
                 ]
             )
@@ -649,7 +715,7 @@ def build_goal_log(
         lines = ["**Extreme shootout**"]
         for setup in (match.home, match.visiting):
             scorers = [
-                format_goal_scorer(goal, catalog)
+                format_goal_scorer(goal, catalog, role_emojis)
                 for goal in shootout
                 if goal.side == setup.side
             ]
