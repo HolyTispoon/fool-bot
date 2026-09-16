@@ -932,6 +932,65 @@ class PresentationMixin:
         # more than the cards do.
         await add_full_image_button(message)
 
+    async def send_half_field_prompt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        content: str,
+        view: discord.ui.View,
+    ) -> None:
+        """
+        Put an effect's own question up over the acting side's
+        half-field, with the ball on it.
+
+        **Five prompts ask a version of one question** -- how far does
+        the ball or its handler go, and who ends up with it: the Low
+        Pass and Skilled Pass destination, the High Pass and Setup Pass
+        distance, and both dribbles' run. Every one of them is answered
+        by reading where this side's players are standing relative to
+        the ball, every one is put to whoever has the ball
+        (`match.ball.possession`), and by the time a maneuver has
+        resolved the persistent board has scrolled away up the channel.
+        So they share this, rather than five copies of the same four
+        lines drifting apart a comment at a time.
+
+        **The half rather than the whole board**, which is what this
+        replaced on the two pass prompts that used to carry the field
+        strip: the players these questions are about are all on one
+        side, and the coaching image's single row of meeples reads at
+        1280 where the match image's two rows do not. It also brings
+        the assignment cards and both benches, which is the only place
+        exhaustion counts and the Exhausted and Injured badges are
+        drawn -- and a dribble's price is counted in tokens.
+
+        **One attachment, on the prompt rather than beside it.**
+        Discord lays two images on a message out side by side and
+        halves both, and riding on the prompt is what lets the click
+        that answers take the picture away with `attachments=[]` -- it
+        shows the ball where it was *before* the effect, so leaving it
+        under the answer would put a stale position in the channel for
+        the rest of the game. Both sends are the webhook route, so
+        neither competes with the board for the channel's edit bucket;
+        see "Discord's rate limits".
+        """
+        prompt_message = await interaction.followup.send(
+            content,
+            file=await self.coaching_file(
+                game, match, match.ball.possession, show_ball=True,
+            ),
+            view=view,
+            wait=True,
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False,
+            ),
+        )
+        game.turn_message_id = prompt_message.id
+        save_games(self.games)
+        # Handed the view, or the edit that adds the link drops the
+        # buttons the prompt exists for -- see add_full_image_button.
+        await add_full_image_button(prompt_message, view)
+
     async def build_field_file(self, game: D12BallGame) -> discord.File:
         """
         The field on its own -- where everybody is standing and where

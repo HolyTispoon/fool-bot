@@ -548,26 +548,31 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
             interaction.response.send_message.await_args.kwargs["ephemeral"]
         )
 
-    async def test_the_prompt_carries_the_field_strip(self) -> None:
-        # How far to throw is a question about where the end of the
-        # field is, and the board has scrolled away by this point in a
-        # turn. It rides on the prompt rather than on a message of its
-        # own so the click can take it away again.
+    async def test_the_prompt_carries_the_passers_half_field(self) -> None:
+        # How far to throw is a question about which teammate the pass
+        # reaches and how much field is left, and the board has
+        # scrolled away by this point in a turn. It is the passing
+        # side's half -- the receivers are all on one side -- and it
+        # rides on the prompt rather than on a message of its own so
+        # the click can take it away again.
         cog, game, match = self.build(
             Zone.MIDFIELD, 0, PlayerRole.FULLBACK,
         )
-        cog.build_field_file = mock.AsyncMock(return_value="field.png")
+        cog.coaching_file = mock.AsyncMock(return_value="half-field.png")
         interaction = build_interaction()
 
         with suppressed_full_image_links(), suppressed_cog_saves():
             await cog.resolve_high_pass(interaction, game, match)
 
         sent = interaction.followup.send.await_args
-        self.assertEqual(sent.kwargs["file"], "field.png")
-        cog.build_field_file.assert_awaited_once_with(game)
+        self.assertEqual(sent.kwargs["file"], "half-field.png")
+        self.assertEqual(
+            cog.coaching_file.await_args.args[2], match.ball.possession,
+        )
+        self.assertTrue(cog.coaching_file.await_args.kwargs["show_ball"])
 
-    async def test_choosing_takes_the_field_strip_away(self) -> None:
-        # The strip shows the ball where it was *before* the pass, so
+    async def test_choosing_takes_the_half_field_away(self) -> None:
+        # It shows the ball where it was *before* the pass, so
         # leaving it under the answer would put a stale position in the
         # channel for the rest of the game.
         cog, game, _ = self.build(Zone.MIDFIELD, 0, PlayerRole.FULLBACK)

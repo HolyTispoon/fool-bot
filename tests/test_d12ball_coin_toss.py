@@ -47,7 +47,11 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
-from save_patches import SAVING_COG_MODULES, suppressed_cog_saves, suppressed_view_saves
+from save_patches import (
+    LINKING_COG_MODULES,
+    suppressed_cog_saves,
+    suppressed_view_saves,
+)
 
 
 def build_game(player_2_id: int = 222) -> D12BallGame:
@@ -77,11 +81,14 @@ class NewPlayBoardStubMixin:
     def stub_new_play_board(self, cog) -> None:
         cog.render_match_png = mock.AsyncMock(return_value=b"")
         cog.match_file_from_png = mock.Mock(return_value=None)
-        # `add_full_image_button` is imported by every cog mixin and
-        # `pin_board_message` by the one that posts boards, so these
-        # name modules rather than the package -- see save_patches.
+        # `add_full_image_button` is bound by the five mixins that
+        # link, and `pin_board_message` by the one that posts boards,
+        # so these name modules rather than the package -- see
+        # save_patches, and LINKING_COG_MODULES for why that list is
+        # not every mixin.
         targets = [
-            f"{module}.add_full_image_button" for module in SAVING_COG_MODULES
+            f"{module}.add_full_image_button"
+            for module in LINKING_COG_MODULES
         ] + ["cogs.d12ball.presentation.pin_board_message"]
         for target in targets:
             patcher = mock.patch(target, mock.AsyncMock())

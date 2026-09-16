@@ -37,7 +37,6 @@ from d12ball.render import (
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     HIGH_PASS_CONTEST_HEADLINE,
-    add_full_image_button,
     ball_location_line,
     contest_noun,
     format_goal_time,
@@ -179,33 +178,17 @@ class ManeuverEffectsMixin:
             self.engine.possession_player_number(game, match),
             mention=True,
         )
-        # The passer's own half-field, with the ball on it. Every
-        # destination on the menu is counted from where the ball is
-        # standing and is named by a space code, and the persistent
-        # board has usually scrolled away up the channel by the time a
-        # maneuver resolves -- the same reasoning as the run back's
-        # board and the field strip under the maneuver cards. The half
-        # is the right cut here rather than the whole board: a pass
-        # reaches this side's players and nobody else's, and one row
-        # of meeples reads at 1280 where two do not.
-        prompt_view = LowPassChoiceView(self, game.game_id, key=key, free=free)
-        prompt_message = await interaction.followup.send(
-            f"{mention}, choose your "
-            f"{self.engine.maneuver_name(key)}:",
-            file=await self.coaching_file(
-                game, match, match.ball.possession, show_ball=True,
-            ),
-            view=prompt_view,
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
+        # Over the passer's own half-field: every destination on the
+        # menu is counted from where the ball is standing and named by
+        # a space code. See `send_half_field_prompt`, which the other
+        # four distance prompts share.
+        await self.send_half_field_prompt(
+            interaction,
+            game,
+            match,
+            f"{mention}, choose your {self.engine.maneuver_name(key)}:",
+            LowPassChoiceView(self, game.game_id, key=key, free=free),
         )
-        # Handed the view, or the edit that adds the link drops the
-        # buttons this prompt exists for -- see add_full_image_button.
-        await add_full_image_button(prompt_message, prompt_view)
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
 
     def send_low_pass(
         self,
@@ -397,17 +380,18 @@ class ManeuverEffectsMixin:
             self.engine.possession_player_number(game, match),
             mention=True,
         )
-        prompt_message = await interaction.followup.send(
+        # 1 or 2 is a question about the two spaces ahead of the
+        # handler and who is standing on them, which is why the buttons
+        # name the destinations and why the prompt now carries the
+        # board they are read off -- see `send_half_field_prompt`.
+        await self.send_half_field_prompt(
+            interaction,
+            game,
+            match,
             f"{mention}, choose your Dribble Advance distance "
             "(Playmaker ability):",
-            view=DribbleAdvanceChoiceView(self, game.game_id),
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
+            DribbleAdvanceChoiceView(self, game.game_id),
         )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
 
     async def apply_dribble_advance(
         self,
@@ -507,17 +491,18 @@ class ManeuverEffectsMixin:
             self.engine.possession_player_number(game, match),
             mention=True,
         )
-        prompt_message = await interaction.followup.send(
+        # A run of up to four spaces at a token each: how far is worth
+        # paying for depends on where the run ends and what this side
+        # is carrying already, and the half-field is the one picture
+        # with both on it -- see `send_half_field_prompt`.
+        await self.send_half_field_prompt(
+            interaction,
+            game,
+            match,
             f"{mention}, choose your Dribble Burst distance "
             "(1 exhaustion token a space):",
-            view=DribbleBurstChoiceView(self, game.game_id),
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
+            DribbleBurstChoiceView(self, game.game_id),
         )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
 
     async def apply_dribble_burst(
         self,
@@ -690,28 +675,19 @@ class ManeuverEffectsMixin:
             self.engine.possession_player_number(game, match),
             mention=True,
         )
-        # The field goes under the distances for the reason it goes
-        # under the maneuver cards: how far to throw is a question about
-        # where everybody is standing and where the end of the field is,
-        # and by this point in a turn the board has scrolled away. It
-        # rides on the prompt rather than on a message of its own so the
-        # click can take it away again -- see `HighPassChoiceView`.
-        prompt_view = HighPassChoiceView(self, game.game_id)
-        prompt_message = await interaction.followup.send(
+        # How far to throw is a question about which teammate the pass
+        # reaches and how much field is left, so it goes over the
+        # passer's own half-field. That replaced the field strip this
+        # carried before: the receivers are all on one side, and one
+        # row of meeples reads where two do not -- see
+        # `send_half_field_prompt`.
+        await self.send_half_field_prompt(
+            interaction,
+            game,
+            match,
             f"{mention}, choose your High Pass distance:",
-            file=await self.build_field_file(game),
-            view=prompt_view,
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
+            HighPassChoiceView(self, game.game_id),
         )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
-        # With the view handed over, or the edit that adds the link
-        # drops the distances the prompt exists for. Webhook route, not
-        # the channel's -- see "Discord's rate limits".
-        await add_full_image_button(prompt_message, prompt_view)
 
     async def resolve_setup_pass(
         self,
@@ -806,19 +782,19 @@ class ManeuverEffectsMixin:
             self.engine.possession_player_number(game, match),
             mention=True,
         )
-        prompt_view = SetupPassChoiceView(self, game.game_id)
-        prompt_message = await interaction.followup.send(
+        # The same question the High Pass asks and the same picture
+        # under it, the field strip having gone the same way -- see
+        # `send_half_field_prompt`. It matters a little more here: this
+        # card offers every distance that fits whether or not anybody
+        # is standing there, so who *is* standing there is the whole of
+        # what separates a set-up from picking the ball out into space.
+        await self.send_half_field_prompt(
+            interaction,
+            game,
+            match,
             f"{mention}, choose where your **Setup Pass** lands:",
-            file=await self.build_field_file(game),
-            view=prompt_view,
-            wait=True,
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
+            SetupPassChoiceView(self, game.game_id),
         )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
-        await add_full_image_button(prompt_message, prompt_view)
 
     async def apply_setup_pass(
         self,

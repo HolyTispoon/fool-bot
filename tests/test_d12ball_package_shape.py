@@ -16,6 +16,7 @@ from pathlib import Path
 
 import cogs.d12ball_views as views
 from save_patches import (
+    LINKING_COG_MODULES,
     SAVING_COG_MODULES,
     SAVING_MODULES,
     SAVING_VIEW_MODULES,
@@ -262,6 +263,25 @@ class StraySaveGuardTests(unittest.TestCase):
         with self.assertRaises(AssertionError) as caught:
             vars(module)["save_games"]({})
         self.assertIn("suppressed_cog_saves", str(caught.exception))
+
+    def test_every_mixin_that_links_is_named_in_linking_modules(self) -> None:
+        """
+        `suppressed_full_image_links` patches a list of bindings, and
+        `mock.patch` of a name a module does not bind raises rather
+        than doing nothing -- so a mixin dropping its last
+        `add_full_image_button` call breaks every test that suppresses
+        one, and a mixin gaining a call is an unsuppressed Discord
+        edit. Either way the list has to track the imports, which is
+        what this reads.
+        """
+        binding = {
+            module
+            for module in SAVING_COG_MODULES
+            if "add_full_image_button" in vars(
+                importlib.import_module(module)
+            )
+        }
+        self.assertEqual(binding, set(LINKING_COG_MODULES))
 
     def test_the_storage_module_itself_is_left_alone(self) -> None:
         """

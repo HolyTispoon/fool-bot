@@ -229,20 +229,9 @@ that rule for free. **This is the standard deal only**; a formation change re-de
   `LowPassReceiverView` puts the choice to the passer. `low_pass_candidates`
   still names one player per destination -- that is a button label, not the
   receiver.
-- **Both prompts are posted over the passer's own half-field, with the ball on
-  it.** Every destination is counted *from* the ball and named by a space code,
-  and the persistent board has usually scrolled away up the channel by the time
-  a maneuver resolves -- the same reasoning as
-  [the run back's board](#turnovers-steals-and-new-plays) and the field strip
-  under the maneuver cards. The **half** rather than the whole board because a
-  pass reaches this side's players and nobody else's, and one row of meeples
-  reads at 1280 where two do not; the **ball** because a Coaching Choice's
-  reason for leaving it off (`show_ball` -- see "Working on the board image")
-  is exactly what does not hold here. It is uploaded once: the receiver pick is
-  an edit of the same message and keeps it, carrying the full-image link across
-  by hand the way `RunBackPlayerChoiceView` does, and whichever view answers
-  the question takes it away with `attachments=[]` -- it shows the ball where
-  it was *before* the pass. A restart re-posts the prompt without it.
+- **Both prompts are posted over the passer's own half-field**, which is one
+  upload for the two of them -- see
+  [Choosing a distance, and the half-field under it](#choosing-a-distance-and-the-half-field-under-it).
 
 ## The Coaching Choice
 
@@ -594,6 +583,57 @@ extra click bought a round trip and nothing else.
 - **The uploads halve.** One public hand image and one public field strip,
   against a hand and a field to each of two coaches. See
   [The maneuver cards](#the-maneuver-cards).
+
+## Choosing a distance, and the half-field under it
+
+**Five prompts ask a version of one question** -- how far does the ball or its
+handler go, and who ends up with it -- and all five are posted over the acting
+side's own half-field with the ball drawn on it.
+`D12Ball.send_half_field_prompt` is the whole of it: the Low Pass and Skilled
+Pass destination (`LowPassChoiceView`), the High Pass and Setup Pass distance,
+and both dribbles' run.
+
+- **They are one helper because they are one question.** Every one is answered
+  by reading where this side's players are standing relative to the ball, every
+  one is put to whoever has the ball (`match.ball.possession`, read off the
+  match rather than passed in), and by the time a maneuver has resolved the
+  persistent board has scrolled away up the channel -- the same reasoning as
+  [the run back's board](#turnovers-steals-and-new-plays) and the field strip
+  under the maneuver cards. They were five copies of the same four lines, two
+  of them carrying the field strip and three carrying nothing.
+- **The half rather than the whole board.** The players these questions are
+  about are all on one side, and the coaching image's single row of meeples
+  reads at 1280 where the match image's two rows arrive as a sliver. It also
+  brings the assignment cards and both benches, which is the only place
+  exhaustion counts and the Exhausted and Injured badges are drawn -- and a
+  Dribble Burst's price is counted in tokens. What it gives up is the defense,
+  which is real: a High Pass can be contested where it lands, and a dribble can
+  run into somebody. The author's call, and the reason the trade is worth
+  naming rather than assumed.
+- **The ball is on it because a Coaching Choice's reason for leaving it off is
+  exactly what does not hold here** -- see `show_ball` under "Working on the
+  board image". Every destination is counted *from* the ball.
+- **One attachment, on the prompt rather than beside it.** Discord lays two
+  images on one message out side by side and halves both, which is why the
+  field under the maneuver cards is a message of its own and these are not.
+  Riding on the prompt is what lets the click that answers take the picture
+  away with `attachments=[]`: it shows the position the effect was chosen
+  against, and that position has just moved. The Low Pass's receiver pick is
+  the one step that *keeps* it -- the ball has not moved between the two
+  questions -- and so has to rebuild the full-image link onto the new view by
+  hand, the way `RunBackPlayerChoiceView` does.
+- **Both sends are the webhook route** -- the `followup.send` and the edit that
+  cuts the link -- so neither competes with the board for the channel's
+  five-in-five edit bucket. The clicks that answer are
+  `interaction.response.edit_message`, the interaction-callback route, which is
+  free of it too. See "Discord's rate limits".
+- **A restart re-posts these prompts without the picture.**
+  `resume_pending_prompt` posts `pending_turn_view`'s view on a bare message,
+  the same as every other image a resume loses.
+- **`tests/test_d12ball_half_field_prompts.py` guards the funnel**, which is
+  the thing that can quietly come apart: a resolver that goes back to building
+  its own `followup.send` still works, and still drops the board out from under
+  its own question.
 
 ## A maneuver's identity is not its printed name
 
@@ -3017,22 +3057,22 @@ deliberately not mirrored for the visiting coach**: the zones keep their real
 names and the spaces their real numbers, so V1 is the same space on both images
 and on the board the coaches are looking at.
 
-**Two occasions want that half-field, and `show_ball` is the whole difference
-between them.** A Coaching Choice happens with play stopped and none of its
-four actions turns on where the ball is, so it is left off; a Low Pass's
-destinations are counted *from* the ball, so a half-field with no ball on it is
-the one picture that cannot answer the question it is posted under -- see
-[Formations and occupancy](#formations-and-occupancy). The token is drawn
-wherever it stands and whoever has it, since this image carries one side's
-meeples and so says which space rather than which row; it is placed by
+**Two kinds of occasion want that half-field, and `show_ball` is the whole
+difference between them.** A Coaching Choice happens with play stopped and none
+of its four actions turns on where the ball is, so it is left off; the five
+[distance prompts](#choosing-a-distance-and-the-half-field-under-it) count
+their destinations *from* the ball, so a half-field with no ball on it is the
+one picture that cannot answer the question it is posted under. The token is
+drawn wherever it stands and whoever has it, since this image carries one
+side's meeples and so says which space rather than which row; it is placed by
 `ball_token_x`, the same helper the match image reads, so the two boards put it
 in the same place. `D12Ball.coaching_file` is the one builder for both, and the
-shooting-range bracket stays off either: a pass is a question about who is
-within reach, and the shot a Winger's set-up may buy is asked over the board
-that carries the bracket. The width was already chosen to hold board 6's
-two-meeple stack, and `D12BallComponentTests` now checks that stack plus a ball
-still clears the space border -- the suite cannot see the image, and an
-overflow here is silent.
+shooting-range bracket stays off either: a distance prompt is a question about
+who is within reach, and the shot a set-up may buy is asked over the board that
+carries the bracket. The width was already chosen to hold board 6's two-meeple
+stack, and `D12BallComponentTests` now checks that stack plus a ball still
+clears the space border -- the suite cannot see the image, and an overflow here
+is silent.
 
 **`render_field_image` is the third, and it is a crop rather than a third
 layout.** The field alone -- both sides' meeples, the ball, the space codes and
@@ -3240,15 +3280,14 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     inline.
   - **Losing it must not lose the pick**, which is already up and clickable by
     then, so the send is wrapped the way `add_full_image_button`'s is.
-  - **The High Pass distance prompt carries it too**, and is the one place it
-    is an attachment on the prompt rather than a message of its own. Choosing
-    2, 3 or 4 is the same question the cards are read against -- how far is the
-    end of the field from here -- and there is no second image on that message
-    for Discord to lay it out beside. Riding on the prompt is what lets
-    `HighPassChoiceView.choose` take it away with `attachments=[]` in the edit
-    that answers the question, so a strip showing the ball where it was
-    *before* the pass does not outlive the pass. See "A High Pass that runs out
-    of field".
+  - **The strip is the maneuver prompt's alone now.** The High Pass and Setup
+    Pass distance prompts carried one too, as an attachment rather than a
+    message of their own; both went over to the half-field when the five
+    distance prompts were put on one picture -- see
+    [Choosing a distance, and the half-field under it](#choosing-a-distance-and-the-half-field-under-it).
+    The strip is right *here* because the question the cards are read against
+    is about both sides at once; a distance prompt's is about where this
+    side's players are, and one row of meeples reads where two do not.
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through

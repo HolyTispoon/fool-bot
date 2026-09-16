@@ -388,7 +388,7 @@ class SetupPassChoiceView(SafeView):
         team_name = team_display_name(
             match.setup_for_side(match.ball.possession).team
         )
-        # The field strip goes with the question: it shows the ball
+        # The half-field goes with the question: it shows the ball
         # where it was before the pass, so leaving it under the answer
         # would put a stale position in the channel.
         await interaction.response.edit_message(
@@ -495,15 +495,20 @@ class HighPassChoiceView(SafeView):
     not shown at all -- resolve_high_pass sends the pass straight to
     its overshoot rather than putting up one answer three times.
 
-    **The prompt carries the field strip**, for the reason the maneuver
-    cards do: which distance to throw is a question about where
-    everybody is standing and how far the end of the field is, and the
-    persistent board has scrolled away by this point in a turn. It is
-    an attachment on the prompt rather than a message of its own --
-    unlike the field under the cards, which shares its message with the
-    hand and would be laid out beside it -- so `choose` can strip it
-    with `attachments=[]` in the edit it was already making. Leaving it
-    under the answer would show the ball where it was before the pass.
+    **The prompt carries the passer's own half-field**, for the reason
+    the maneuver cards carry the field strip: which distance to throw
+    is a question about which teammate the pass reaches and how much
+    field is left, and the persistent board has scrolled away by this
+    point in a turn. It was the strip until the whole family of
+    distance prompts was put on one picture -- the receivers are all on
+    one side, so the half is the cut that matters, and one row of
+    meeples reads at 1280 where two do not. It is an attachment on the
+    prompt rather than a message of its own -- unlike the field under
+    the cards, which shares its message with the hand and would be laid
+    out beside it -- so `choose` can strip it with `attachments=[]` in
+    the edit it was already making. Leaving it under the answer would
+    show the ball where it was before the pass. See
+    `D12Ball.send_half_field_prompt`.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -582,7 +587,7 @@ class HighPassChoiceView(SafeView):
             )
             return
 
-        # `attachments=[]` takes the field strip with the question it
+        # `attachments=[]` takes the half-field with the question it
         # answered. It shows the ball where it was *before* the pass, so
         # leaving it under the answer would put a stale position in the
         # channel for the rest of the game -- the same reason the run
@@ -801,6 +806,11 @@ class DribbleAdvanceChoiceView(SafeView):
         await interaction.response.edit_message(
             content=f"Chose **{distance} {space_word}**.",
             view=None,
+            # The half-field goes with the question: it shows the
+            # handler where they were *before* the dribble, so leaving
+            # it under the answer would put a stale position in the
+            # channel -- see D12Ball.send_half_field_prompt.
+            attachments=[],
         )
         await self.cog.apply_dribble_advance(interaction, game, match, distance)
 
@@ -904,6 +914,9 @@ class DribbleBurstChoiceView(SafeView):
         await interaction.response.edit_message(
             content=f"Chose **{distance} {space_word}**.",
             view=None,
+            # It shows the position the run was priced against, which
+            # the run has just moved -- see DribbleAdvanceChoiceView.
+            attachments=[],
         )
         await self.cog.apply_dribble_burst(interaction, game, match, distance)
 
