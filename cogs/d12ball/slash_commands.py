@@ -1926,13 +1926,13 @@ class CommandsMixin:
             )
             return
 
-        # A ceded ball is the same again: the turn was reset before
+        # A time out is the same again: the turn was reset before
         # either window opened, so nothing below would notice, and the
         # reset would drop a coach's open Coaching Choice on the floor
         # along with the pick-up the ball may still owe.
-        if match.pending_cede:
+        if match.pending_time_out:
             await interaction.followup.send(
-                "The ball has been ceded and the Coaching Choice it "
+                "A time out is running and the Coaching Choice it "
                 "bought is still running. Use `/d12ball resume` to put "
                 "its prompt back up.",
                 ephemeral=True,
@@ -2135,13 +2135,13 @@ class CommandsMixin:
             # maneuver picks, run back, loose ball, kickoff fill,
             # out-of-bounds pickup -- and the coaching window is closed
             # separately because it is not part of a turn. Setup,
-            # halftime, a ceded ball and the shootout -- the window
+            # halftime, a time out and the shootout -- the window
             # before it included -- are left alone on purpose: those
             # are real positions in the game rather than a turn gone
             # wrong, and a plain resume walks them on. The shootout
             # most of all -- there is no turn under it to clear, and
             # clearing one would throw away orders both coaches have
-            # already set. A cede has already turned the ball over, so
+            # already set. A time out has already reset the turn, so
             # clearing it would also leave the turn prompt asking the
             # receiving side to act with nobody on the ball.
             if (
@@ -2149,11 +2149,11 @@ class CommandsMixin:
                 or match.pending_halftime_stage is not None
                 or match.pending_full_time_stage is not None
                 or match.pending_shootout
-                or match.pending_cede
+                or match.pending_time_out
             ):
                 await interaction.followup.send(
                     "This game is in setup, at halftime, in the extreme "
-                    "shootout, or on a ceded ball -- none of which "
+                    "shootout, or in a time out -- none of which "
                     "`force` can skip past. Run `/d12ball resume` "
                     "without it.",
                     ephemeral=True,

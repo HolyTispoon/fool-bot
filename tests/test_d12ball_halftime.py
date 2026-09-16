@@ -345,8 +345,8 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
             match.coaching_occasion, CoachingOccasion.HALFTIME,
         )
         self.assertTrue(match.pending_coaching_declared)
-        self.assertEqual(match.declared_substitution, set())
-        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
+        self.assertEqual(match.time_outs_used, set())
+        self.assertTrue(match.may_take_time_out(TeamSide.HOME))
 
         # One message, carrying the hub rather than a declare-or-pass
         # offer, with the coach's own half of the field attached.
@@ -418,16 +418,23 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
 
         cog.refresh_match_image.assert_not_awaited()
 
-    async def test_an_ordinary_window_still_spends_the_declaration(
-        self,
-    ) -> None:
-        # Regression guard: only halftime's window is free.
+    async def test_only_a_time_out_spends_the_once_a_half(self) -> None:
+        # Regression guard, rewritten for 2026-09-16: halftime's window
+        # is free and so is a new play's. The time out is the only one
+        # that costs a side anything.
         match = self.build_match()
         match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
         match.declare_coaching()
 
-        self.assertEqual(match.declared_substitution, {"home"})
-        self.assertFalse(match.may_declare_coaching(TeamSide.HOME))
+        self.assertEqual(match.time_outs_used, set())
+        self.assertTrue(match.may_take_time_out(TeamSide.HOME))
+
+        match.close_coaching_window()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.TIME_OUT)
+        match.declare_coaching()
+
+        self.assertEqual(match.time_outs_used, {"home"})
+        self.assertFalse(match.may_take_time_out(TeamSide.HOME))
 
     def test_a_free_window_survives_a_save_and_reload(self) -> None:
         match = self.build_match()
@@ -441,8 +448,8 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         # Halftime's window opens already taken up, so a reload finds a
         # declared window that still cost the side nothing.
         self.assertTrue(reloaded.pending_coaching_declared)
-        self.assertEqual(reloaded.declared_substitution, set())
-        self.assertTrue(reloaded.may_declare_coaching(TeamSide.HOME))
+        self.assertEqual(reloaded.time_outs_used, set())
+        self.assertTrue(reloaded.may_take_time_out(TeamSide.HOME))
 
     async def test_ordinary_turnover_windows_are_unaffected(self) -> None:
         """

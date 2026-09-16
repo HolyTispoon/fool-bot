@@ -765,8 +765,8 @@ class TutorialRailTests(unittest.TestCase):
 
         self.assertFalse(labels["Maneuver"])
         self.assertTrue(
-            labels["Cede ball to coach"],
-            "ceding should be visible but not pressable",
+            labels["Time out"],
+            "the time out should be visible but not pressable",
         )
 
     def test_the_other_two_cards_are_shown_and_disabled(self) -> None:

@@ -618,7 +618,7 @@ class D12BallRunBackAnnouncementTests(
             stray = match.home.zones[Zone.HOME_GOAL][0]
             match.board.place_meeple(stray, Zone.MIDFIELD, 0)
         if not may_declare:
-            match.declared_substitution.add(TeamSide.HOME.value)
+            match.time_outs_used.add(TeamSide.HOME.value)
         return cog, interaction, game, match
 
     async def test_a_steal_explains_cost_and_speed(self) -> None:
@@ -850,7 +850,7 @@ class D12BallNewPlayKickoffTests(
         )
         # Both sides out of declarations, so no window interrupts the
         # flow and the reset runs straight into the kickoff fill.
-        match.declared_substitution.update(
+        match.time_outs_used.update(
             {TeamSide.HOME.value, TeamSide.VISITING.value}
         )
         game.match_state = match.to_dict()

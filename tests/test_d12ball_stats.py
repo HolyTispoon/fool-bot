@@ -48,6 +48,7 @@ from d12ball.components import (
     EVENT_OWN_GOAL_ROLL,
     EVENT_SHOT,
     EVENT_SKILL_TEST,
+    EVENT_TIME_OUT,
     EVENT_TURN_ACTION,
     MatchState,
     PlayerRole,
@@ -542,6 +543,27 @@ class TableTests(unittest.TestCase):
         )
         self.match.record_event(EVENT_GOAL, side=TeamSide.HOME, player_id="a")
         self.report = stats.collect_maneuvers([self.match])
+
+    def test_a_time_out_is_counted_but_is_not_a_turn(self) -> None:
+        # The author, 2026-09-16: recorded for the statistics, but not
+        # as a turn action -- a possession is a run of consecutive turn
+        # actions by one side, and a pause is not a turn anybody
+        # played. It sits below the rule, with no share of the turns'
+        # denominator.
+        match = build_match()
+        turn(match, action="maneuver")
+        match.record_event(EVENT_TIME_OUT, side=TeamSide.HOME)
+        turn(match, action="shoot")
+        report = stats.collect_maneuvers([match])
+
+        self.assertEqual(report.turns, 2)
+        self.assertEqual(report.time_outs, 1)
+        self.assertNotIn("time_out", report.actions)
+
+        table = "\n".join(stats.format_turn_actions(report))
+        self.assertIn("time outs called", table)
+        # No percentage on that row: it has no claim on the turns.
+        self.assertNotIn("%", table.rsplit("time outs called", 1)[1])
 
     def every_table(self) -> list[list[str]]:
         conditions = stats.collect_conditions([self.match])

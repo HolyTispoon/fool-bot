@@ -18,6 +18,7 @@ This is the whole of the game as it currently stands — **basic mode**, and the
 - [Contests for the ball](#contests-for-the-ball)
 - [Own goal](#own-goal)
 - [Turnovers](#turnovers)
+- [Time out](#time-out)
 - [Coaching Choice](#coaching-choice)
 - [Exhaustion and injury](#exhaustion-and-injury)
 - [The clock](#the-clock)
@@ -28,7 +29,7 @@ This is the whole of the game as it currently stands — **basic mode**, and the
 
 Two coaches each control a team of nine players: six on the field and three on the bench. The game runs over two periods on a single clock, the first from minute 00 to minute 15 and the second from 16 to 30.
 
-The team in possession takes a turn. It shoots if the ball is in its shooting range, and otherwise plays a maneuver against a defender or hands the ball over to buy itself a pause to coach. Whichever team has the ball when a turn ends takes the next one.
+The team in possession takes a turn. It shoots if the ball is in its shooting range, and otherwise plays a maneuver against a defender or calls a time out to buy both coaches a pause. Whichever team has the ball when a turn ends takes the next one.
 
 The higher score at full time wins. A level score goes to the [extreme shootout](#extreme-shootout), so every game is settled.
 
@@ -132,7 +133,7 @@ The ball then goes on the kickoff space at speed 1 in home's possession, with th
 The team in possession takes a turn, in this order.
 
 1. Choose [which of their players on the ball's space handles it](#choosing-the-handler).
-2. Choose the action: a [score attempt](#score-attempt) if the ball is in that team's shooting range, and otherwise a [maneuver](#maneuvers) or [ceding the ball](#ceding-the-ball).
+2. Choose the action: a [score attempt](#score-attempt) if the ball is in that team's shooting range, and otherwise a [maneuver](#maneuvers) or a [time out](#time-out).
 3. Resolve the action, and anything it leads to.
 4. If the action left nobody holding the ball, settle it [where it came to rest](#where-the-ball-comes-to-rest).
 5. If the ball changed hands, resolve the [turnover](#turnovers).
@@ -152,7 +153,7 @@ It holds for one turn only. If that player is no longer on the ball by the time 
 
 ### Choosing the action
 
-A score attempt is offered only inside the team's [shooting range](#shooting-range). A maneuver is always available. Ceding is offered only outside shooting range, and only while that side has not yet called a Coaching Choice this half.
+A score attempt is offered only inside the team's [shooting range](#shooting-range). A maneuver is always available. A [time out](#time-out) is offered only outside shooting range, only while that side still has its time out for the half, and never once [last possession](#last-possession) has been declared.
 
 ### Finishing the turn
 
@@ -499,7 +500,7 @@ Taking the shot costs its own space minute on top of the maneuver that set it up
 
 ## Sending a player
 
-Three rules ask a coach to send a player to the ball's space: the [maneuver challenge](#determining-the-two-players), a [loose ball](#where-the-ball-comes-to-rest) — the [High Pass contest](#the-high-pass-contest) included, which is the one contest a send may be offered against an occupied space — and the [pickup](#picking-the-ball-up) after an out-of-bounds ball, a ceded ball, a missed shot or an avoided own goal. All three ask it in the same way, and a player's zone has nothing to do with it.
+Three rules ask a coach to send a player to the ball's space: the [maneuver challenge](#determining-the-two-players), a [loose ball](#where-the-ball-comes-to-rest) — the [High Pass contest](#the-high-pass-contest) included, which is the one contest a send may be offered against an occupied space — and the [pickup](#picking-the-ball-up) after an out-of-bounds ball, a [time out](#time-out), a missed shot or an avoided own goal. All three ask it in the same way, and a player's zone has nothing to do with it.
 
 A coach may send either of their two nearest players to the space: the nearest one in front of it and the nearest one behind it, counted in spaces along the field. Where two or more are tied for nearest on one side, the coach chooses between them.
 
@@ -551,7 +552,9 @@ It is a [new play](#resetting-after-a-new-play) rather than a steal — nobody t
 
 ### Picking the ball up
 
-An out-of-bounds ball, a [ceded](#ceding-the-ball) ball, a [missed shot](#score-attempt) and an [avoided own goal](#own-goal) can all leave the ball on a space nobody of the gaining or keeping side is standing on. Once everything else has settled, that side [sends a player](#sending-a-player) to the ball's space at the usual token a space — unless one of theirs is already standing there, which settles it for nothing.
+An out-of-bounds ball, a [missed shot](#score-attempt), an [avoided own goal](#own-goal) and a [time out](#time-out) can all leave the ball on a space nobody of the gaining or keeping side is standing on. Once everything else has settled, that side [sends a player](#sending-a-player) to the ball's space — unless one of theirs is already standing there, which settles it for nothing.
+
+It costs the usual token a space, **except after a time out, which is free**. That is the one walk to the ball in the game that charges nothing: a time out costs a minute and nothing else, and a coach who rearranges their side should not be billed for putting somebody back on a ball their team never lost.
 
 A pickup is a placement rather than a contest: nobody rolls for it, nobody may contest it, and the ball is left with nobody in particular afterwards.
 
@@ -568,13 +571,12 @@ Either result is a [new play](#resetting-after-a-new-play).
 
 ## Turnovers
 
-Every change of possession resets ball speed to 1 — except a beaten [Dribble Burst](#dribble-burst), which hands the ball over at speed. There are three kinds, and what follows is different for each.
+Every change of possession resets ball speed to 1 — except a beaten [Dribble Burst](#dribble-burst), which hands the ball over at speed. There are two kinds, and what follows is different for each.
 
 | Cause | Kind | What follows |
 | --- | --- | --- |
 | Steal, Intercept, a Defender's won Pressure, a beaten Dribble Burst, a lost High Pass contest, a loose ball the other side wins | Steal | Players run back. No pause and no Coaching Choice: the ball is still live. |
 | A goal, a missed shot, an own goal conceded or avoided, a ball out of bounds, a Setup Pass that found nobody | New play | Both sides reset, and the side with the ball may call a Coaching Choice. |
-| Ceding | Cede | Both coaches take a Coaching Choice. Nobody runs back and nothing resets. |
 
 **Only a turnover moves anybody.** A resolution that leaves possession where it was runs nobody back and resets nobody, however far out of position it left them — a receiver who won their High Pass contest, the defender who walked in and lost it, a side that recovered its own loose ball. Whoever is out of position stays there, and pays nothing for it, until a turnover comes.
 
@@ -601,17 +603,23 @@ Every fielded meeple on **both** sides goes back to the space its coach's [arran
 
 Because every arrangement covers its own side's kickoff space, a goal restarts without anybody having to be dropped back to take the kickoff.
 
-An out-of-bounds or ceded ball is [picked up](#picking-the-ball-up) after the reset, at the usual cost — an arrangement covers a side's zones, not wherever the ball happens to be lying.
+An out-of-bounds ball is [picked up](#picking-the-ball-up) after the reset, at the usual cost — an arrangement covers a side's zones, not wherever the ball happens to be lying.
 
-### Ceding the ball
+## Time out
 
-A side out of [shooting range](#shooting-range) may hand the ball to the other team rather than play it, to buy itself a [Coaching Choice](#coaching-choice). Two conditions, and no others: they are out of range, and they have not yet called a Coaching Choice this half. A side with nobody left to bring on may still cede — what they are buying is the whole Coaching Choice, not the substitution.
+A side out of [shooting range](#shooting-range) may call a **time out** instead of playing the ball. **Possession does not change and the ball does not move.** What a time out buys is the pause, not the ball.
 
-Ceding uses up that side's Coaching Choice for the half. The other team takes possession on the space the ball was given up on, at speed 1. Nobody runs back and nothing restarts, and it costs 1 space minute like any other action even though nothing travelled.
+Three conditions, and no others:
 
-The ceding coach then takes a Coaching Choice and the receiving coach takes one in reply. Each of them opens on its own coach's arrangement, so by the end both sides are standing where a new play would have put them. Afterwards the receiving side [picks the ball up](#picking-the-ball-up), unless one of theirs is already on it.
+- They are **out of shooting range**.
+- They have **not yet taken a time out this half**. It is once a half, per side.
+- **[Last possession](#last-possession) has not been declared.** A time out is legal on minute 14 and not on 15, on minute 29 and not on 30.
 
-Under [last possession](#last-possession), ceding ends the period and neither coach gets a Coaching Choice.
+A side with nobody left to bring on may still call one: what a time out buys is the whole [Coaching Choice](#coaching-choice), not the substitution.
+
+A time out costs **1 space minute** and no exhaustion. **Both coaches then take a Coaching Choice** — the side that called it first, the other in reply — each opening on its own coach's arrangement. Nobody runs back and nothing resets.
+
+A Coaching Choice can move the players who called it off the ball. Possession is the team's and stays with them either way; if none of them is standing on the ball once both windows have closed, they [send a player](#sending-a-player) to it **free of exhaustion**.
 
 ## Coaching Choice
 
@@ -634,7 +642,7 @@ The Coaching Choice before the shootout offers the substitution alone.
 | --- | --- | --- | --- | --- |
 | Setup | Unlimited | Home, then the visitors | Returns to the bench | Yes |
 | A new play | 2 per half | The side that called it, then the reply | Goes to the back bench | Yes |
-| A ceded ball | 2 per half, the same two | The ceding side, then the receiver | Goes to the back bench | Yes |
+| A time out | 2 per half, the same two | The side that called it, then the other | Goes to the back bench | Yes |
 | Halftime | 2, its own | The visitors, then home | Goes to the back bench | Yes |
 | Before the shootout | 1, its own | Home, then the visitors | Goes to the back bench | No |
 
@@ -642,11 +650,13 @@ The Coaching Choice before the shootout positions nobody, because a shootout is 
 
 ### Once a half, and how many substitutions
 
-**A side may call a Coaching Choice once a half**, and calling one is what opens the pause at a new play. The other side then gets one in reply, and answering does not use up their own. Ceding uses one up as well: giving the ball away is how that coach called theirs, so a ceding coach is never asked whether they want it.
+**A new play always offers one, and costs nothing for it.** Every new play offers the side restarting play a Coaching Choice, however many they have already had this half; if they take it, the other coach gets one in reply. Passing takes the reply down with it — a coach who changes nothing was never asked for by anybody.
 
-Calling a Coaching Choice and the substitutions it allows are separate counts. A side that spent both of its substitutions answering somebody else's may still call its own later in the half, and get the rearrangement without the swaps.
+**A time out is once a half**, per side, and is the only Coaching Choice a side has to spend anything to get.
 
-Both come back at halftime. Between them, a side can substitute up to seven times in a game: two in each half, two more at halftime, and one before the shootout.
+The substitutions are a separate count from either. **A side has two substitutions per half**, spent across every Coaching Choice it takes in that half — new plays and its time out alike. A side that has spent both may still coach: they get the rearrangement without the swaps.
+
+The two come back at halftime. Between them, a side can substitute up to seven times in a game: two in each half, two more at halftime, and one before the shootout.
 
 ### Who may come on
 
@@ -741,7 +751,7 @@ One clock runs over both periods: the first half from 00 through 15, the second 
 | A High Pass | 2 |
 | A score attempt | 1 |
 | A scoring opportunity taken off a set-up | 1, on top of the maneuver's |
-| Ceding the ball | 1 |
+| A time out | 1 |
 | Running back, resetting, a pickup, a contest, any roll, a Coaching Choice | 0 |
 
 A maneuver's cost is flat. It does not depend on how far the ball or a player actually moved, or on whether the move was cut short by the end of the field.
@@ -815,4 +825,4 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 
 **A turn:** choose the player → choose the action → resolve it → settle the ball → turnover → clock → last-possession check.
 
-**A turnover:** reset speed to 1, then — a steal runs players back; a new play resets both sides and offers the side with the ball a Coaching Choice; a cede gives both coaches one.
+**A turnover:** reset speed to 1, then — a steal runs players back; a new play resets both sides and offers the side with the ball a Coaching Choice. **A time out** is not a turnover: the ball stays put and both coaches get one.

@@ -1,8 +1,8 @@
 """
 The three ways possession changes hands: the run back after a steal,
-ceding the ball to buy a Coaching Choice, and the pickup after a ball
-has gone out. See "Turnovers: steals and new plays" and "Ceding the
-ball" in CLAUDE.md.
+the time out that buys both coaches a Coaching Choice, and the pickup
+after a ball has gone out. See "Turnovers: steals and new plays" and
+"The time out" in CLAUDE.md.
 """
 
 import asyncio
@@ -12,6 +12,7 @@ import time
 from typing import Awaitable, Callable, Optional
 
 from d12ball.components import (
+    EVENT_TIME_OUT,
     CoachingOccasion,
     MatchState,
     TeamSide,
@@ -267,37 +268,39 @@ class TurnoverMixin:
         The line under a coaching prompt: what this window costs, what
         moved on the way in, and who is hurt.
 
-        The three answer separately -- an occasion that is declared
-        says so, a restore is only mentioned when it actually moved
-        somebody, and an injured player is a nudge rather than a
-        requirement. Any of them may have nothing to say, so the parts
-        that are there are joined rather than interpolated; see "What a
-        message says".
+        The three answer separately -- the question, if there is one,
+        then a restore only where it actually moved somebody, then an
+        injured player as a nudge rather than a requirement. Any of
+        them may have nothing to say, so the parts that are there are
+        joined rather than interpolated; see "What a message says".
 
-        The first has nothing to say at setup, halftime and full time,
-        which are the only occasions reaching that branch. It used to
-        read "Take as long as you like; nothing here costs exhaustion"
-        -- reassurance rather than information, on the three occasions
-        where no clock is running and nothing is being spent in the
-        first place.
+        **Almost all of it is gone, and what is left is the question
+        and the reason** (the author, 2026-09-16). Every branch used to
+        explain what the window cost and what it left unspent -- a
+        paragraph of rules recited above a menu that answers the same
+        questions by what it offers, and the header above it already
+        carries the substitution allowance.
+
+        - A new play asks **"Coach?"**, because the two buttons under it
+          are Coach and Pass and the question is the whole of the note.
+        - A time out's own coach is told nothing: they pressed the
+          button, so there is nothing a note can add.
+        - The **one reply that says anything** is a time out's, and it
+          says only what the coach could not otherwise know: the other
+          team called one. A new play's reply is silent, since the
+          restart they are answering is in the channel above them.
+
+        What it cost and what it left unspent were both worth saying
+        while a window was once a half and shared between the two
+        occasions. It no longer is -- a new play's is free and
+        unlimited -- so the reassurance was answering a question
+        nobody had.
         """
         lines: list[str] = []
-        if occasion.asks_declaration:
-            lines.append(
-                "Answering the other team, which leaves your own "
-                "once-a-half Coaching Choice unspent."
-                if is_response
-                else "Calling one is once a half. Coach, or pass?"
-            )
-        elif occasion == CoachingOccasion.CEDED:
-            lines.append(
-                "The ball bought this, so there is nothing to decide "
-                "-- it is open."
-                if not is_response
-                else "The other team gave the ball up to coach. Yours "
-                "is open too, and leaves your own once-a-half Coaching "
-                "Choice unspent."
-            )
+        if occasion.asks_declaration and not is_response:
+            lines.append("Coach?")
+        elif occasion == CoachingOccasion.TIME_OUT and is_response:
+            lines.append("The other team called a time out.")
 
         # Said only when it actually moved somebody, which is halftime
         # and nowhere else: a coach who left the first half with their
@@ -341,7 +344,7 @@ class TurnoverMixin:
         put at all, where a player taken off goes, and whether the
         three positional actions are offered at all. Setup, halftime
         and full time are given rather than declared, so all three skip
-        the offer and open the menu directly; a ceded ball skips it for
+        the offer and open the menu directly; a time out skips it for
         the opposite reason, having already been paid for.
 
         **A window opens on the arrangement its coach last settled**,
@@ -538,12 +541,12 @@ class TurnoverMixin:
             await self.advance_full_time_stage(interaction, game, match)
             return "the Coaching Choice before the shootout"
 
-        if match.pending_cede:
+        if match.pending_time_out:
             # Both windows have closed -- the branch above would have
             # caught one still open -- so what is left is the tail, and
             # that was the bot's own next step.
-            await self.finish_cede(interaction, game, match)
-            return "the ceded ball"
+            await self.finish_time_out(interaction, game, match)
+            return "the time out"
 
         if match.pending_run_back:
             await self.continue_run_back(interaction, game, match)
@@ -667,7 +670,7 @@ class TurnoverMixin:
             # done, and an AI window is not the moment to break that.
             if match.pending_setup_stage is None:
                 await self.refresh_match_image(interaction, game)
-        elif lead_in and occasion.spends_declaration:
+        elif lead_in and occasion.spends_time_out:
             # A new play's lead-in is the announcement that opened the
             # window -- the goal, the miss -- and has to be posted
             # whatever the AI decided. Setup's and halftime's are
@@ -799,7 +802,7 @@ class TurnoverMixin:
                 else TeamSide.HOME
             )
             # The reply is the same occasion as the declaration it
-            # answers -- a ceded ball opens the other coach's window
+            # answers -- a time out opens the other coach's window
             # already declared too, since there is nothing for them to
             # pass on: they have been handed the ball and the window
             # both, and neither costs them anything.
@@ -813,12 +816,12 @@ class TurnoverMixin:
             )
             return
 
-        if match.pending_cede:
+        if match.pending_time_out:
             # Nobody ran anywhere and nothing is displaced: both sides
             # took the field on their own arrangement as their windows
             # opened. So this skips the run back entirely rather than
             # letting it charge for a scramble that never happened.
-            await self.finish_cede(interaction, game, match)
+            await self.finish_time_out(interaction, game, match)
             return
 
         await self.announce_run_back(interaction, game, match)
@@ -826,132 +829,139 @@ class TurnoverMixin:
     # -- Ceding the ball to coach --------------------------------------
 
 
-    async def begin_cede(
+    async def begin_time_out(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
     ) -> None:
         """
-        The offense gives the ball up to coach -- see "Ceding the ball"
-        in docs/living-rules.md, and `MatchState.may_cede_possession`
-        for when it is on offer at all. The caller has acknowledged the
+        The side in possession stops play to coach -- see "Time out" in
+        docs/living-rules.md, and `MatchState.may_call_time_out` for
+        when it is on offer at all. The caller has acknowledged the
         interaction and is responsible for the prompt the click came
         from.
 
-        It is a turnover with none of a turnover's machinery: the ball
-        does not move and nobody runs back, but it costs its flat space
-        minute like any other maneuver (2026-08-16) -- charged in
-        `finish_cede`, once its tail (a ball recovery may span a
-        restart) is settled. What the ceding side is buying is the
-        window, so this opens it for them at once, and
-        `finish_substitution_window` hands the other coach theirs
-        exactly as a declaration's reply -- which is what it is.
+        **It is not a turnover.** The ball does not move, possession
+        does not change, ball speed is left alone and nobody runs back.
+        What it costs is the flat space minute every action costs
+        (2026-08-16), charged in `finish_time_out` once its tail (a
+        pickup may span a restart) is settled.
 
-        **Under last possession it ends the period instead.** A
-        turnover then is the end of the half either way, and ceding is
-        a turnover; the window would be a coach rearranging a side that
-        has no possession left to play. `pending_cede` is cleared with
-        it, or the flag would follow the game into the second half.
-        That branch charges the minute itself, since it bypasses
-        `finish_cede` entirely -- every turn of last possession is
-        charged as usual, this included.
+        Both coaches then coach: the caller's window opens at once, and
+        `finish_substitution_window` hands the other theirs exactly as
+        a declaration's reply -- which is what it is.
+
+        **There is no last-possession branch here any more, because the
+        button is never built then.** Ceding was a turnover, so under
+        last possession it ended the period; a time out turns nothing
+        over, and the author refused it outright there instead
+        (2026-09-16). `may_call_time_out` is the whole of that, and
+        `PlayerActionView` and `choose_action` both read it -- so this
+        is only ever reached in a position where play goes on.
         """
+        # **Its own event kind, not a turn action** (the author,
+        # 2026-09-16). A possession is a run of consecutive
+        # `turn_action`s by one side and every event in a turn belongs
+        # to the last one before it, so logging a pause as a turn would
+        # invent a turn nobody played and hang the rest of the real
+        # turn's events off it. It is still recorded -- a coach wants
+        # to know how often these get called -- on a row of its own in
+        # the statistics.
+        #
         # **Recorded here rather than on the confirm prompt**, which is
-        # where the other two turn actions are recorded. Ceding is the
-        # one of the three that asks first, and a coach who opens the
-        # confirm and presses Back has not taken a turn -- logging it
-        # there put a cede in the record that never happened, and then
-        # a second turn_action for whatever they did instead. Read
-        # before `cede_possession`, which is what flips possession out
-        # from under it.
-        self.record_turn_action(match, "cede")
+        # where the two real turn actions are recorded. A time out is
+        # the one of the three that asks first, and a coach who opens
+        # the confirm and presses Back has not called one.
+        #
+        # Read before `call_time_out`, which resets the turn: the side
+        # is the side in possession, and that is what the record is of.
+        match.record_event(
+            EVENT_TIME_OUT,
+            side=match.ball.possession,
+            player_id=match.active_player_id,
+        )
 
-        ceding_side = match.ball.possession
-        ceding_label = format_team_side_label(
-            match.setup_for_side(ceding_side)
-        )
-        receiving_side = match.cede_possession()
-        receiving_label = format_team_side_label(
-            match.setup_for_side(receiving_side)
-        )
+        side = match.call_time_out()
+        label = format_team_side_label(match.setup_for_side(side))
         self.persist(game, match)
 
         await self.drop_turn_prompt(interaction, game)
 
         lead_in = (
-            f"# {ceding_label} cede the ball\n"
-            f"{receiving_label} take possession at "
-            f"{space_label(match.ball.zone, match.ball.space_index)}, "
-            "where it was given up. The ball speed goes down to **1**."
+            f"# {label} call a time out\n"
+            "Both coaches get a Coaching Choice. The ball stays with "
+            f"{label} on "
+            f"{space_label(match.ball.zone, match.ball.space_index)}."
         )
-
-        if match.scoreboard.last_possession:
-            match.pending_cede = False
-            match.advance_time(1)
-            self.persist(game, match)
-            await self.end_period(interaction, game, match, lead_in=lead_in)
-            return
 
         await self.refresh_match_image(interaction, game)
         await self.begin_substitution_window(
             interaction,
             game,
             match,
-            ceding_side,
-            occasion=CoachingOccasion.CEDED,
+            side,
+            occasion=CoachingOccasion.TIME_OUT,
             lead_in=lead_in,
         )
 
-    async def finish_cede(
+    async def finish_time_out(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
     ) -> None:
         """
-        The tail of a cede, once both coaches have closed their
-        windows. There is no run back to run, and none is owed: each
+        The tail of a time out, once both coaches have closed their
+        windows. There is no run back to run and none is owed: each
         window opened on its own coach's arrangement, so by here both
-        sides are standing exactly where a new play's reset would have
-        put them. That is why the living rules call a cede a new play
-        in everything but how it was bought -- it arrives at the same
-        board by a different road, and nothing has to re-run the reset
-        to make it true.
+        sides are standing where their own coach left them.
 
-        What is left is whether anybody is standing on the ball. A
-        ceded ball is handed over where it lies, and the side receiving
-        it may have nobody there -- their arrangement covers their
-        zones, not wherever open play left the ball -- so they send the
-        nearest player either side of it, at the usual token a space.
-        That is the same thing an out-of-bounds ball asks of the side
-        that wins it, for the same reason, so it is the same step.
+        What is left is whether the side that called it still has
+        anybody on their own ball. A Coaching Choice can re-deal a
+        whole side, so a coach can rearrange their handler off the
+        space the ball is lying on. Possession is the team's and stays
+        with them either way (the author, 2026-09-16); they send the
+        nearest player either side of it to pick it back up.
 
-        `pending_cede` is cleared before either branch: from here on
+        **That pickup is free**, which is the one walk to the ball in
+        the game that charges nothing. A time out costs a minute and no
+        exhaustion, and a coach should not be billed for putting
+        somebody back on a ball their side never lost.
+        `pending_recovery_from_time_out` is what says so, and it says
+        the other half too: the pickup is not a turnover, because the
+        side doing it is the side that had the ball all along.
+
+        **`turnover_occurred` is False**, unlike a cede's, and that is
+        the whole of what stopped being a turnover: nothing resets ball
+        speed, and last possession is not ended by a side keeping the
+        ball it already had. The button is not built under last
+        possession at all -- see `MatchState.may_call_time_out`.
+
+        `pending_time_out` is cleared before either branch: from here on
         the state says what is owed on its own, and leaving it set
         would have `pending_turn_view` answering for a window that has
         closed.
         """
-        match.pending_cede = False
+        match.pending_time_out = False
         needs_recovery = not match.eligible_ball_handlers()
         match.pending_ball_recovery = needs_recovery
+        match.pending_recovery_from_time_out = needs_recovery
         self.persist(game, match)
 
         if needs_recovery:
             await self.begin_ball_recovery(interaction, game, match)
             return
 
-        # Ceding costs its flat space minute like any other maneuver
-        # (2026-08-16). turnover_occurred is true because it is one --
-        # it is what makes this the end of the period when last
-        # possession was already in force, which begin_cede has caught
-        # already and this keeps honest.
+        # A time out costs the flat space minute every action costs
+        # (2026-08-16), and nothing else: no turnover, so no speed
+        # reset and no last-possession end.
         await self.finish_maneuver_resolution(
             interaction,
             game,
             match,
             distance_moved=1,
-            turnover_occurred=True,
+            turnover_occurred=False,
         )
 
     async def begin_run_back(
@@ -1094,7 +1104,7 @@ class TurnoverMixin:
             await self.announce_new_play_reset(interaction, game, match, lead_in)
             lead_in = ""
             winning_side = match.ball.possession
-            if match.may_declare_coaching(winning_side):
+            if match.may_take_time_out(winning_side):
                 await self.begin_substitution_window(
                     interaction, game, match, winning_side,
                 )
@@ -1660,7 +1670,8 @@ class TurnoverMixin:
         lead_in: str = "",
     ) -> None:
         """
-        Ask the side that won an out-of-bounds or ceded ball which of
+        Ask the side that won an out-of-bounds ball, or called a
+        time out, which of
         their players goes and stands on it: the nearest either side of
         it, from any zone, at one exhaustion token per space traveled.
         It is the same choice a loose ball and a challenge put, and
@@ -1677,7 +1688,7 @@ class TurnoverMixin:
         A reset can perfectly well put one of the gaining side on the
         ball's space by itself -- that is the arrangement's own doing,
         and the rules ask for a pickup "unless one of theirs is
-        already on it". `finish_cede` decides this before it sets the
+        already on it". `finish_time_out` decides this before it sets the
         flag, because it has a second branch to run either way; the
         out-of-bounds path sets the flag before the reset, so the
         question can only be asked here.
@@ -1751,19 +1762,33 @@ class TurnoverMixin:
         # reset_maneuver clears it) precisely so this step, which can
         # span a restart, can still read it back.
         distance_moved = match.pending_run_back_distance
+        # Read before the pickup clears it. A time out's is the one
+        # walk to the ball that charges nothing, and it is not a
+        # turnover either -- the side fetching the ball is the side
+        # that has had it all along, so nothing resets and nothing
+        # ends. See finish_time_out.
+        from_time_out = match.pending_recovery_from_time_out
         distance = match.recover_out_of_bounds_ball(player_id)
-        exhaustion_text = self.apply_exhaustion(
-            game, match, player_id, distance,
+        exhaustion_text = (
+            "" if from_time_out
+            else self.apply_exhaustion(game, match, player_id, distance)
         )
         self.persist(game, match)
 
         prefix = f"{lead_in}\n\n" if lead_in else ""
+        # Joined rather than interpolated: a free pickup has no
+        # exhaustion line at all, and interpolating one would leave a
+        # blank line under the sentence. See "What a message says".
         await interaction.followup.send(
-            f"{prefix}"
-            f"{self.player_label(match, player)} picks the "
-            f"ball up at "
-            f"{space_label(match.ball.zone, match.ball.space_index)}."
-            f"\n{exhaustion_text}"
+            "\n".join(
+                part for part in (
+                    f"{prefix}"
+                    f"{self.player_label(match, player)} picks the "
+                    f"ball up at "
+                    f"{space_label(match.ball.zone, match.ball.space_index)}.",
+                    exhaustion_text,
+                ) if part
+            )
         )
         await self.refresh_match_image(interaction, game)
         await self.finish_maneuver_resolution(
@@ -1771,5 +1796,5 @@ class TurnoverMixin:
             game,
             match,
             distance_moved=distance_moved,
-            turnover_occurred=True,
+            turnover_occurred=not from_time_out,
         )

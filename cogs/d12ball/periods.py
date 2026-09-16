@@ -207,12 +207,11 @@ class PeriodMixin:
             # on the scoreboard.
             match.scoreboard.time = SECOND_HALF_START_MINUTE
             match.scoreboard.last_possession = False
-            # A declaration is once every half, so both sides get
-            # theirs back -- including a side that had to spend the
-            # first half's on an injury. Their two substitutions for
-            # the half come back with it; halftime's own two are
-            # counted separately and are not touched here.
-            match.declared_substitution.clear()
+            # A time out is once every half, so both sides get theirs
+            # back. Their two substitutions for the half come back with
+            # it; halftime's own two are counted separately and are not
+            # touched here.
+            match.time_outs_used.clear()
             match.half_substitutions_used.clear()
             match.close_coaching_window()
             kickoff_index = kickoff_space_index(
@@ -629,10 +628,8 @@ class PeriodMixin:
             side,
             occasion=CoachingOccasion.HALFTIME,
             lead_in=(
-                f"## Halftime\n{format_team_side_label(setup)} set up for "
-                "the second half. Halftime is free: it leaves their "
-                "own once-a-half Coaching Choice unspent, and its two "
-                "substitutions are its own rather than either half's."
+                f"## Halftime\n{format_team_side_label(setup)} set up "
+                "for the second half."
             ),
         )
 

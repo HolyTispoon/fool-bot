@@ -2426,56 +2426,47 @@ class RulesEngine:
             "before finishing."
         )
 
-    def cede_confirmation(
+    def time_out_confirmation(
         self,
         game: D12BallGame,
         match: MatchState,
     ) -> str:
         """
         What the coach is agreeing to, in place of the turn prompt --
-        see CedeConfirmView. Everything it names is a cost or a
-        consequence the button label has no room for: who gets the
-        ball, where, what the window is for, that the declaration goes
-        with it, and that the other coach is handed a window of their
-        own on the back of it.
+        see TimeOutConfirmView. The author's wording, 2026-09-16.
 
-        **Two sentences, one subject each** (the author). What the ball
-        does and what the coach gets are two facts, and they were run
-        together into one -- "{team} take possession at M2, where it
-        stands, and you open a Coaching Choice, free of exhaustion" --
-        which changes subject mid-clause and leaves the exhaustion note
-        hanging off the end with nothing to attach to.
+        **It names no "Coaching Choice".** A coach reading a confirm
+        screen has not read the rules document, and the term does not
+        tell them what they get; the two things they actually get --
+        substitutions, and moving people about -- are said in the words
+        the buttons on the next screen use. The rules keep the name
+        (see "Coaching Choice" in docs/living-rules.md); this message
+        does not need it.
 
-        What the window is for is named in a **purpose clause rather
-        than as a list**. The four actions were spelled out in full
-        here, which is the hub's own menu written out one screen early;
-        naming the two a coach cedes the ball *for* says why the button
-        is worth pressing without standing in for the buttons.
+        **"May" is right here and is not vagueness.** Pressing Time out
+        is itself the choice, and Back is still on this screen, so the
+        coach genuinely may do this or not. What must not be vague is
+        what *follows* from pressing it, which is why everything after
+        the first sentence is flat future tense: play *will* stop, the
+        other coach *would* then be allowed the same.
+
+        It says who has the ball afterwards, which a cede's version of
+        this message could not: possession does not move now, and that
+        is the whole of what changed on 2026-09-16.
         """
-        receiving = format_team_side_label(
+        other = format_team_side_label(
             match.setup_for_side(match.defending_side())
         )
-        lines = [
-            "# Cede the ball?",
-            f"{receiving} takes possession of the ball at "
-            f"{space_label(match.ball.zone, match.ball.space_index)}. "
-            "You may open a Coaching Choice to substitute players or "
-            "change formation/assignment.",
-            # "takes" above, so "gets" here: the team is one thing in
-            # this message, and a side that takes and then get reads
-            # as a typo.
-            "It uses up your Coaching Choice for this half, and "
-            f"{receiving} gets one of their own to answer it.",
-        ]
-        if match.scoreboard.last_possession:
-            # The one case where the coaching never happens: a turnover
-            # under last possession is the end of the period, and
-            # ceding is a turnover.
-            lines.append(
-                "**This is last possession, so this ends the period "
-                "instead -- neither side gets to coach.**"
-            )
-        return "\n".join(lines)
+        where = space_label(match.ball.zone, match.ball.space_index)
+        return "\n".join([
+            "# Take a time out?",
+            "You may take a time out once per half. If you do, play "
+            "will stop and you'll be able to substitute players or "
+            f"change formation/assignment. Then, {other} would be "
+            "allowed to do the same. Time outs take 1 minute and play "
+            f"will resume with the ball at {where}, with you in "
+            "possession.",
+        ])
 
     def describe_run_back_options(
         self,
@@ -2742,29 +2733,28 @@ class RulesEngine:
             else f"{handler} will be handling the ball."
         )
         # PlayerActionView drops the shoot button short of shooting
-        # range and offers the cede in its place, so say why rather
+        # range and offers the time out in its place, so say why rather
         # than leaving a coach to wonder where either went. The two are
-        # the same read: out of range is exactly when ceding is on
-        # offer, and the only thing that can take it away as well is a
-        # declaration already spent.
+        # the same read: out of range is exactly when a time out is on
+        # offer, and what can take it away as well is the side's time
+        # out already spent, or last possession declared.
         #
         # Each says the reason once and then names what is left. The
         # third used to spell out both absences as well ("so there is
         # no shot and no cede -- only a maneuver"), which listed two
         # buttons that are not on the message in order to introduce the
         # one that is -- and did it on every turn for the rest of a
-        # half, since a spent declaration does not come back.
+        # half, since a spent time out does not come back.
         if match.can_attempt_score():
             action_line = "Choose an action:"
-        elif match.may_cede_possession():
+        elif match.may_call_time_out():
             action_line = (
-                "Out of shooting range. Maneuver, or cede the ball to "
-                "coach:"
+                "Out of shooting range. Maneuver, or take a time out:"
             )
         else:
             action_line = (
-                "Out of shooting range, and your Coaching Choice is "
-                "spent for this half. Maneuver:"
+                "Out of shooting range, and no time out available. "
+                "Maneuver:"
             )
         return (
             f"{controller}, it is your turn.\n\n"

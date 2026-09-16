@@ -198,8 +198,8 @@ BEATS: tuple[TutorialBeat, ...] = (
             "A turn starts with whoever is standing on the ball -- the "
             "**handler**. You have one player there, your playmaker, so "
             "they are chosen for you. Then you decide what they do.\n\n"
-            "A handler can do three things: shoot, maneuver, or cede "
-            "the ball to buy a coaching window. **You are not offered "
+            "A handler can do three things: shoot, maneuver, or call "
+            "a time out to buy both coaches a pause. **You are not offered "
             "the shot** -- a shot may only be taken from inside your "
             "shooting range, which is M3 and beyond, and you are one "
             "space short of it.\n\n"
@@ -542,7 +542,8 @@ def allowed_actions(beat: Optional[TutorialBeat]) -> Optional[tuple[str, ...]]:
     The turn actions a coach may press this beat, or None for no rail.
 
     `PlayerActionView` builds everything else disabled rather than
-    leaving it out: a coach should see that shooting and ceding exist
+    leaving it out: a coach should see that shooting and the time out
+    exist
     and read in the lesson why neither is theirs yet.
     """
     return None if beat is None else beat.actions

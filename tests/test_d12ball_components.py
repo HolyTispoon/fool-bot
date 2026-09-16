@@ -757,40 +757,54 @@ class D12BallComponentTests(unittest.TestCase):
             match.pending_run_back_stays_player_id, swapped_with,
         )
 
-    def test_declaration_is_once_a_half_but_a_reply_is_free(self) -> None:
+    def test_a_new_play_is_free_and_only_a_time_out_is_once_a_half(
+        self,
+    ) -> None:
+        # The 2026-09-16 split. A new play's window costs nothing
+        # however many a side takes; the once-a-half moved onto the
+        # time out, which is now the only Coaching Choice a side pays
+        # anything for.
         match = self.standard_match()
-        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
+        self.assertTrue(match.may_take_time_out(TeamSide.HOME))
 
-        # Being offered the window spends nothing; passing on it
-        # leaves the declaration in hand for a later turnover.
-        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
-        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
-        match.close_coaching_window()
-        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
+        # Three new plays, taken up every time, and the time out is
+        # still in hand.
+        for _ in range(3):
+            match.open_coaching_window(
+                TeamSide.HOME, CoachingOccasion.NEW_PLAY,
+            )
+            match.declare_coaching()
+            match.close_coaching_window()
+            self.assertTrue(match.may_take_time_out(TeamSide.HOME))
 
-        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        # The time out spends it, and only for the side that called it.
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.TIME_OUT)
         match.declare_coaching()
         self.assertEqual(match.substitutions_remaining(), 2)
-        match.record_substitution()
-        match.record_substitution()
-        self.assertEqual(match.substitutions_remaining(), 0)
         match.close_coaching_window()
+        self.assertFalse(match.may_take_time_out(TeamSide.HOME))
 
-        self.assertFalse(match.may_declare_coaching(TeamSide.HOME))
+        # A side that has spent its time out still coaches at a new
+        # play: what it has run out of is the pause it pays for, not
+        # the one the play hands it.
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.declare_coaching()
+        match.close_coaching_window()
+        self.assertFalse(match.may_take_time_out(TeamSide.HOME))
 
-        # Answering the other team's declaration costs the answering
-        # team nothing, so the visitors can still declare their own
-        # later in the half -- and they answer with the same two the
-        # declaring side had, not a smaller allowance.
+        # Answering the other team's time out costs the answering team
+        # nothing, so the visitors still hold their own -- and they
+        # answer with the same two substitutions, not a smaller
+        # allowance.
         match.open_coaching_window(
             TeamSide.VISITING,
-            CoachingOccasion.NEW_PLAY,
+            CoachingOccasion.TIME_OUT,
             is_response=True,
         )
         match.declare_coaching()
         self.assertEqual(match.substitutions_remaining(), 2)
         match.close_coaching_window()
-        self.assertTrue(match.may_declare_coaching(TeamSide.VISITING))
+        self.assertTrue(match.may_take_time_out(TeamSide.VISITING))
 
     def test_the_two_substitutions_are_spent_across_the_whole_half(
         self,
@@ -813,7 +827,7 @@ class D12BallComponentTests(unittest.TestCase):
         match.open_coaching_window(
             TeamSide.VISITING, CoachingOccasion.NEW_PLAY,
         )
-        self.assertTrue(match.may_declare_coaching(TeamSide.VISITING))
+        self.assertTrue(match.may_take_time_out(TeamSide.VISITING))
         self.assertEqual(match.substitutions_remaining(), 0)
         self.assertFalse(match.may_substitute())
 
@@ -848,18 +862,18 @@ class D12BallComponentTests(unittest.TestCase):
         # declaration is the only gate there is, and a coach may leave
         # them on, disadvantaged, for the rest of the game.
         match = self.standard_match()
-        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
+        self.assertTrue(match.may_take_time_out(TeamSide.HOME))
 
         injured = fielded(match, PlayerRole.STRIKER)
         match.mark_injured(injured)
-        self.assertTrue(match.may_declare_coaching(TeamSide.HOME))
+        self.assertTrue(match.may_take_time_out(TeamSide.HOME))
         self.assertEqual(
             match.injured_field_players(TeamSide.HOME), [injured],
         )
         self.assertFalse(hasattr(match, "must_declare_substitution"))
 
-        match.declared_substitution.add(TeamSide.HOME.value)
-        self.assertFalse(match.may_declare_coaching(TeamSide.HOME))
+        match.time_outs_used.add(TeamSide.HOME.value)
+        self.assertFalse(match.may_take_time_out(TeamSide.HOME))
 
     def test_setup_is_the_first_arrangement_a_new_play_restores(
         self,
@@ -944,7 +958,7 @@ class D12BallComponentTests(unittest.TestCase):
 
     def test_coaching_state_round_trips(self) -> None:
         match = self.standard_match()
-        match.declared_substitution.add(TeamSide.HOME.value)
+        match.time_outs_used.add(TeamSide.HOME.value)
         match.open_coaching_window(
             TeamSide.VISITING,
             CoachingOccasion.NEW_PLAY,
@@ -956,7 +970,7 @@ class D12BallComponentTests(unittest.TestCase):
         restored = MatchState.from_dict(match.to_dict(), self.rules)
 
         self.assertEqual(
-            restored.declared_substitution, {TeamSide.HOME.value},
+            restored.time_outs_used, {TeamSide.HOME.value},
         )
         self.assertEqual(
             restored.pending_coaching_side, TeamSide.VISITING.value,
@@ -979,10 +993,10 @@ class D12BallComponentTests(unittest.TestCase):
 
         restored = MatchState.from_dict(data, self.rules)
 
-        self.assertEqual(restored.declared_substitution, set())
+        self.assertEqual(restored.time_outs_used, set())
         self.assertIsNone(restored.pending_coaching_side)
         self.assertIsNone(restored.coaching_occasion)
-        self.assertTrue(restored.may_declare_coaching(TeamSide.HOME))
+        self.assertTrue(restored.may_take_time_out(TeamSide.HOME))
 
     def test_a_window_saved_under_the_old_field_names_still_loads(
         self,
@@ -4335,19 +4349,19 @@ class MatchStateSerializationTests(unittest.TestCase):
         self.assertEqual(second.pending_injury_tests, [])
         self.assertEqual(second.assigned_positions, {})
 
-    def test_declared_substitution_is_stored_sorted_and_read_as_a_set(
+    def test_time_outs_used_is_stored_sorted_and_read_as_a_set(
         self,
     ) -> None:
         # The one field whose two directions differ: sorted so a save
         # file is stable, a set so membership is the question asked.
         match = self.match()
-        match.declared_substitution = {"visiting", "home"}
+        match.time_outs_used = {"visiting", "home"}
 
         saved = match.to_dict()
-        self.assertEqual(saved["declared_substitution"], ["home", "visiting"])
+        self.assertEqual(saved["time_outs_used"], ["home", "visiting"])
 
         restored = MatchState.from_dict(saved, self.rules)
-        self.assertEqual(restored.declared_substitution, {"home", "visiting"})
+        self.assertEqual(restored.time_outs_used, {"home", "visiting"})
 
 
 if __name__ == "__main__":

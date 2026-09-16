@@ -129,10 +129,10 @@ class BallHandlerSelectionView(SafeView):
 
 class PlayerActionView(SafeView):
     """
-    The turn's choice: shoot, maneuver, or cede the ball to coach.
-    **Shooting is only offered from within shooting range and ceding
-    only from outside it**, so a coach never sees both -- see
-    `MatchState.can_attempt_score`, `MatchState.may_cede_possession`,
+    The turn's choice: shoot, maneuver, or call a time out.
+    **Shooting is only offered from within shooting range and a time
+    out only from outside it**, so a coach never sees both -- see
+    `MatchState.can_attempt_score`, `MatchState.may_call_time_out`,
     and `D12Ball.build_turn_prompt`, which says why whichever one is
     missing is missing. Rebuilt from match state on every restart like
     every other persistent view here, so the ball's position always
@@ -151,11 +151,11 @@ class PlayerActionView(SafeView):
 
         game = cog.games.get(game_id)
         can_shoot = True
-        can_cede = False
+        can_time_out = False
         if game is not None and game.match_state is not None:
             match = cog.engine.load_match_state(game)
             can_shoot = match.can_attempt_score()
-            can_cede = match.may_cede_possession()
+            can_time_out = match.may_call_time_out()
 
         actions = [
             (
@@ -173,22 +173,22 @@ class PlayerActionView(SafeView):
                     discord.ButtonStyle.danger,
                 ),
             )
-        if can_cede:
-            # Grey, and last: it is the turn a coach takes when there
-            # is nothing else worth taking, and it should never sit
-            # beside Maneuver as an equal.
+        if can_time_out:
+            # Grey, and last: it is what a coach does when there is
+            # nothing worth playing, and it should never sit beside
+            # Maneuver as an equal.
             actions.append(
                 (
-                    "Cede ball to coach",
-                    "cede",
+                    "Time out",
+                    "time_out",
                     discord.ButtonStyle.secondary,
                 ),
             )
 
         # A tutorial beat names the one action it wants pressed, and
         # the rest are built **disabled** rather than left out: a coach
-        # should see that shooting and ceding exist and read in the
-        # lesson why neither is theirs yet. See d12ball/tutorial.py.
+        # should see that shooting and the time out exist and read in
+        # the lesson why neither is theirs yet. See d12ball/tutorial.py.
         allowed = tutorial.allowed_actions(
             self.cog.tutorial_beat(game) if game is not None else None
         )
@@ -242,7 +242,7 @@ class PlayerActionView(SafeView):
 
         # The button was built disabled, so this is a click on a prompt
         # from an earlier beat still sitting in the channel -- the same
-        # stale-view guard the shot and the cede keep.
+        # stale-view guard the shot and the time out keep.
         allowed = tutorial.allowed_actions(self.cog.tutorial_beat(game))
         if allowed is not None and action not in allowed:
             await interaction.response.send_message(
@@ -258,8 +258,8 @@ class PlayerActionView(SafeView):
             )
             return
 
-        if action == "cede":
-            await self.begin_cede_action(interaction, game, match)
+        if action == "time_out":
+            await self.begin_time_out_action(interaction, game, match)
             return
 
         await self.begin_maneuver_action(interaction, game, match)
@@ -302,36 +302,41 @@ class PlayerActionView(SafeView):
         )
         await self.cog.begin_score_attempt(interaction, game, match)
 
-    async def begin_cede_action(
+    async def begin_time_out_action(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
         match: MatchState,
     ) -> None:
         """
-        Put the cost of giving the ball up in front of the coach before
-        anything happens. Ceding is the one turn action that hands the
-        opponent the ball and it sits one button along from Maneuver,
-        so it is confirmed rather than taken -- see CedeConfirmView.
+        Put what a time out costs in front of the coach before anything
+        happens. It spends a minute and the side's one time out for the
+        half, and it sits one button along from Maneuver, so it is
+        confirmed rather than taken -- see TimeOutConfirmView.
         """
-        # Same stale-view guard the shot keeps, and the same two
+        # Same stale-view guard the shot keeps, and the same three
         # reasons the button would not have been built: the ball has
-        # moved into shooting range since, or the side has spent its
-        # once-a-half Coaching Choice elsewhere.
-        if not match.may_cede_possession():
-            await interaction.response.send_message(
-                "The ball is in shooting range now, so there is "
-                "nothing to cede for."
-                if match.can_attempt_score()
-                else "Your side has already called its Coaching "
-                "Choice this half.",
-                ephemeral=True,
-            )
+        # moved into shooting range since, the side has spent its time
+        # out, or last possession has been declared under it.
+        if not match.may_call_time_out():
+            if match.can_attempt_score():
+                refusal = (
+                    "The ball is in shooting range now, so there is "
+                    "nothing to stop play for."
+                )
+            elif match.scoreboard.last_possession:
+                refusal = (
+                    "Last possession has been declared, so there are "
+                    "no more time outs this period."
+                )
+            else:
+                refusal = "Your side has already taken its time out this half."
+            await interaction.response.send_message(refusal, ephemeral=True)
             return
 
         await interaction.response.edit_message(
-            content=self.cog.engine.cede_confirmation(game, match),
-            view=CedeConfirmView(
+            content=self.cog.engine.time_out_confirmation(game, match),
+            view=TimeOutConfirmView(
                 self.cog, self.game_id, interaction.message.content,
             ),
         )
@@ -457,13 +462,13 @@ class PlayerActionView(SafeView):
         save_games(self.cog.games)
 
 
-class CedeConfirmView(SafeView):
+class TimeOutConfirmView(SafeView):
     """
-    "Are you sure?" for the one turn action that hands the other team
-    the ball -- see `D12Ball.begin_cede`. Every other choice a coach
-    makes can be argued with afterwards; this one gives the ball away
-    and spends a once-a-half declaration, and it sits one button along
-    from Maneuver.
+    "Are you sure?" for the one turn action that buys something
+    instead of playing the ball -- see `D12Ball.begin_time_out`. Every
+    other choice a coach makes can be argued with afterwards; this one
+    spends a minute and the side's one time out for the half, and it
+    sits one button along from Maneuver.
 
     **It replaces the turn prompt in place rather than posting a
     second message**, so Back is genuinely a way out (it puts the
@@ -489,9 +494,9 @@ class CedeConfirmView(SafeView):
         self.prompt = prompt
 
         confirm = discord.ui.Button(
-            label="Cede and coach",
+            label="Take the time out",
             style=discord.ButtonStyle.danger,
-            custom_id=f"d12ball:cede_confirm:{game_id}",
+            custom_id=f"d12ball:time_out_confirm:{game_id}",
         )
         confirm.callback = self.confirm
         self.add_item(confirm)
@@ -499,7 +504,7 @@ class CedeConfirmView(SafeView):
         back = discord.ui.Button(
             label="Back",
             style=discord.ButtonStyle.secondary,
-            custom_id=f"d12ball:cede_cancel:{game_id}",
+            custom_id=f"d12ball:time_out_cancel:{game_id}",
         )
         back.callback = self.back
         self.add_item(back)
@@ -515,7 +520,7 @@ class CedeConfirmView(SafeView):
 
         if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
-                "Only the team with the ball can give it up.",
+                "Only the team with the ball can call a time out.",
                 ephemeral=True,
             )
             return None, None
@@ -539,19 +544,19 @@ class CedeConfirmView(SafeView):
         # Asked again rather than trusted from the click that opened
         # this: the prompt underneath is a live message and the match
         # can have moved on under it.
-        if not match.may_cede_possession():
+        if not match.may_call_time_out():
             await interaction.response.edit_message(
                 content=self.prompt,
                 view=PlayerActionView(self.cog, self.game_id),
             )
             await interaction.followup.send(
-                "The ball can no longer be ceded from here.",
+                "A time out can no longer be called from here.",
                 ephemeral=True,
             )
             return
 
         await interaction.response.defer()
-        await self.cog.begin_cede(interaction, game, match)
+        await self.cog.begin_time_out(interaction, game, match)
 
 
 class ManeuverChallengeView(SafeView):
