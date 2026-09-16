@@ -2196,7 +2196,15 @@ MIND_PULL_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
 MIND_PULL_TITLE = "MIND PULL"
 MIND_PULL_TITLE_TOP = 14
 MIND_PULL_ROW_TOP = 58
-MIND_PULL_PORTRAIT_SIZE = INJURY_TEST_PORTRAIT_SIZE
+# The same 168 Volatile's own portrait is drawn at (the author,
+# 2026-09-16) -- a coach reading the two side by side should not have
+# to wonder why one Telekinetic's face is smaller than one Fire
+# Demon's. Volatile earned that size by needing the width its
+# explainer line forces anyway; this image has no explainer, but its
+# own halo (MIND_PULL_HALO_SCALE, wider than Volatile's) already
+# reserves a row tall enough to hold a portrait this size for free --
+# see the row_height arithmetic below, which the halo still sets.
+MIND_PULL_PORTRAIT_SIZE = 168
 MIND_PULL_LABEL_GAP = 8
 # Two lines under the die where the injury test has one: the team, and
 # the faces the pull lands on. A d12 showing 9 says nothing until you
