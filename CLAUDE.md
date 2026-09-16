@@ -4722,7 +4722,10 @@ does bar naming specific opponents up front). Two pieces:
   background -- and `d12dicecream` (cream ink) rides the **hub buttons alone**,
   because a button's coloured fill swallowed the blue die. `load_d12_emoji(name=)`
   resolves either to a `<:name:id>` string; `load_d12_button_emoji` is the
-  button's, `d12dicecream` **falling back to `d12dice` and then to nothing**.
+  buttons', `d12dicecream` **or nothing -- it does not fall back to
+  `d12dice`**, since a blue die on a green button is the thing the cream cut
+  exists to avoid, and a bare button with an INFO line naming the missing
+  upload is the better failure.
   Both load in `cog_load` onto `self.d12_emoji` / `self.d12_button_emoji` and are
   **re-fetched by `/d12ball setup_hub`** so a fresh upload takes without a
   restart. Never a 🎲/🏈/🎮 -- a d6, a gridiron or a video-game pad, none of
