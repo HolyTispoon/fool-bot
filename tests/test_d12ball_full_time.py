@@ -597,7 +597,7 @@ class GameSetupTests(unittest.IsolatedAsyncioTestCase):
             ],
             [],
         )
-        self.assertNotIn("Ties:", build_setup_message(game))
+        self.assertNotIn("Ties:", build_setup_message(game, {}))
 
     def test_every_setup_button_fits_discord_s_five_rows(self) -> None:
         # A test game's two team rows and a solo game's AI row are what

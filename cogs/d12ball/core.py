@@ -846,6 +846,7 @@ class CoreMixin:
                 self.engine.possession_player_number(game, match)
                 if side == "offense"
                 else self.engine.defending_player_number(game, match),
+                self.team_emojis,
                 mention=True,
             )
             for side in sides
@@ -1106,8 +1107,12 @@ class CoreMixin:
         defense_name = self.engine.maneuver_name(defense_key)
         offense_number = self.engine.possession_player_number(game, match)
         defense_number = self.engine.defending_player_number(game, match)
-        offense_display = format_player_with_team(game, offense_number)
-        defense_display = format_player_with_team(game, defense_number)
+        offense_display = format_player_with_team(
+            game, offense_number, self.team_emojis,
+        )
+        defense_display = format_player_with_team(
+            game, defense_number, self.team_emojis,
+        )
 
         if match.maneuver_uncontested:
             # Nothing to reveal against and nothing to rank: the

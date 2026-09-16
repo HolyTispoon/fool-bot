@@ -10,15 +10,19 @@ for the many call sites (and other cog-level helpers, like
 format_role_bracket) that already read them from there.
 
 What stayed behind in cogs/d12ball_helpers.py either needs live
-Discord data (team_emojis, condition_emojis) or touches discord.py
-directly -- format_role_bracket needs an emoji dict this module has no
-business holding, which is the whole difference between the two files.
+Discord data (condition_emojis) or touches discord.py directly --
+format_role_bracket needs an emoji dict this module has no business
+*fetching*, which is the whole difference between the two files. A
+dict of `Team -> "<:team_purple:id>"` strings, once fetched, is plain
+data, and `format_player_with_team` takes one the way
+`format_role_bracket` does: the engine's prompt builders name a coach
+with their team emoji, so the fallbacks and the lookup live here.
 """
 
 from typing import Optional
 
 from d12ball.components import MatchState, PlayerRole, Zone
-from d12ball.game import AIOpponent, D12BallGame, team_display_name
+from d12ball.game import AIOpponent, D12BallGame, Team, team_display_name
 
 
 ROLE_INITIALS = {
@@ -53,6 +57,29 @@ AI_OPPONENT_NAMES = {
     AIOpponent.DINKY: "Dinky AI",
     AIOpponent.DECENT: "Decent AI",
 }
+
+# What a team is drawn as before its application emoji has been
+# fetched, or when the upload is missing. The uploaded emoji (a letter
+# in a team-coloured ring) are looked up by name in
+# cogs/d12ball_helpers.py's load_team_emojis; this is the half that
+# needs no Discord.
+TEAM_EMOJI_FALLBACKS = {
+    Team.ORANGE: "🟠",
+    Team.TEAL: "🔵",
+    Team.PURPLE: "🟣",
+    Team.SLIME: "🟢",
+    # A species team shares its paired color team's ring (see "Team
+    # colors" in CLAUDE.md), so its fallback has to read differently
+    # from a plain colored circle before the real upload replaces it.
+    Team.FIRE_DEMONS: "🔥",
+    Team.CYBORGS: "🤖",
+    Team.TELEKINETICS: "🔮",
+    Team.OOZES: "🫧",
+}
+
+
+def get_team_emoji(team_emojis: dict[Team, str], team: Team) -> str:
+    return team_emojis.get(team, TEAM_EMOJI_FALLBACKS[team])
 
 
 def contest_noun(match: MatchState) -> str:
@@ -279,13 +306,31 @@ def format_player(
 def format_player_with_team(
     game: D12BallGame,
     player_number: Optional[int],
+    team_emojis: dict[Team, str],
     mention: bool = False,
 ) -> str:
+    """
+    "🟣 @coach" -- a coach named with their side's emoji in front, which
+    is how every message names one: the turn prompt, the maneuver
+    picks, the coin toss, the loose-ball send.
+
+    It read "@coach (Purple)" until 2026-09-16, the team spelled out in
+    parentheses. The emoji is the same mark the board draws that side's
+    meeples in and the same one every *player* label already carries
+    (`format_role_bracket`, "🟠 Hellguard [FB]"), so a coach and their
+    cards now read as one side at a glance rather than by matching a
+    word to a colour. Same position -- in front -- for the same reason:
+    one rule for "whose is this", not two.
+
+    A coach with no team yet (setup, before the picker) is named bare:
+    "(Unknown team)" was answering a question nobody asked.
+    """
     player = format_player(game, player_number, mention=mention)
     team = (
         game.player_1_team
         if player_number == 1
         else game.player_2_team
     )
-    team_name = team_display_name(team) if team else "Unknown team"
-    return f"{player} ({team_name})"
+    if team is None:
+        return player
+    return f"{get_team_emoji(team_emojis, team)} {player}"

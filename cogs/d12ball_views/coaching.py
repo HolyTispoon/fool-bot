@@ -16,11 +16,11 @@ from d12ball.game import (
     D12BallGame,
     Formation,
     Team,
-    team_display_name,
 )
 from cogs.d12ball_helpers import (
     destination_display_name,
     format_team_side_label,
+    get_team_emoji,
     space_label,
 )
 
@@ -244,8 +244,9 @@ class CoachingOfferView(CoachingView):
         setup = match.setup_for_side(self.side(match))
         await interaction.response.edit_message(
             content=(
-                f"# Coaching Choice\n**{interaction.user.display_name} "
-                f"({team_display_name(setup.team)}) passed.**"
+                f"# Coaching Choice\n"
+                f"**{get_team_emoji(self.cog.team_emojis, setup.team)} "
+                f"{interaction.user.display_name} passed.**"
             ),
             view=None,
         )

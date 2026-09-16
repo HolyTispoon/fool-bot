@@ -24,7 +24,7 @@ python3 -m unittest discover -s tests
 | `discord_emoji_cache.py` | The cache-with-cooldown shape shared by every cog's application-emoji lookup (`cogs/coins.py`, `cogs/d12ball.py`) -- not what each cog loads, only the retry timing |
 | `botlog/` | Console logging setup, and the #logs channel mirror — see below |
 | `cogs/d12ball/` | All D12 Ball slash commands and the Discord interaction flow. One class of 217 methods over 10,087 lines is what this package replaced, split along the section banners the file already carried: `core` (lifecycle, lookups, `persist`, the spine of a turn, `pending_turn_view`), `effects` (one banner per maneuver), `turnovers` (run back, cede, out-of-bounds pickup), `periods` (clock, halftime, shootout), `presentation` (prompts, images, channels, the AI turn, the tutorial's narration) and `slash_commands` (every command, the three subgroups, the startup sweep). `__init__.py` assembles `D12Ball` from the six mixins and re-exports what the module exposed, so `from cogs.d12ball import D12Ball` is unchanged. |
-| `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming. Re-imports and re-exports everything `d12ball/formatting.py` holds, so an existing `from cogs.d12ball_helpers import space_label` keeps working; what stayed here needs an emoji dict or discord.py itself. |
+| `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming. Re-imports and re-exports everything `d12ball/formatting.py` holds, so an existing `from cogs.d12ball_helpers import space_label` keeps working; what stayed here *fetches* emoji or touches discord.py itself. (`TEAM_EMOJI_FALLBACKS` and `get_team_emoji` are `formatting.py`'s: a fetched dict is plain data, and the engine's prompt builders name a coach with it.) |
 | `cogs/d12ball_views/` | The `discord.ui.View` classes, one per prompt a player can be shown -- forty-nine of them, split into ten modules along the clusters they already fell into (`base`, `setup`, `turn`, `rolls`, `runback`, `effects`, `coaching`, `halftime`, `loose_ball`, `shootout`). `__init__.py` re-exports every name the single file held, so `from cogs.d12ball_views import X` is unchanged for every X and no call site moved -- the arrangement `cogs/d12ball_helpers.py` has with `d12ball/formatting.py`. `base` holds `SafeView` (whose `load_match`/`require_match` are the shared "get the game and its match, or bail" lookup nearly every view opens with, and whose `is_game_participant` is the shared "is this one of the two coaches" check a roll button answers to) plus the two contest-rendering helpers; it imports from no sibling, which is what keeps the package a DAG. |
 | `cogs/d12ball_boards.py` | The write gate on a game's persistent board message. `BoardRefreshState` is one game's -- when a write landed, the pass waiting to write again, the board already on the message, the link owed for it, the lock, the wants arriving mid-write, the refusals -- and `BoardRefresher` holds one per game and the six methods that read it. Those were seven parallel dicts keyed by game id on the cog, agreeing about a game only by hand at each of the eleven sites that wrote them. `D12Ball` keeps a thin forwarding method for each of the six, so no call site moved -- see "Discord's rate limits". |
 | `cogs/debug.py` | Maintenance commands, including the PBD channel-and-count reset |
@@ -663,7 +663,25 @@ position, which is what the choice usually turns on.
 | A button | `Hellguard [FB]`, plus the position or the price the choice turns on | `player_with_role` |
 | Anywhere holding a card id rather than a definition | `Hellguard [FB]` | `RulesEngine.format_roster_player` |
 | The two both-sides autocompletes | `Hellguard [FB] (Orange)` | `RulesEngine.format_roster_player_with_team` |
+| A coach, in a message | `🟠 @coach` | `format_player_with_team`, which takes the emoji dict |
 
+- **A coach is named the same way: their side's emoji in front, and
+  the team never in words.** `format_player_with_team` read
+  `@coach (Purple)` until 2026-09-16 -- the turn prompt, the maneuver
+  picks, the coin toss, the loose-ball send, the setup message all
+  spelled the team out in parentheses while every card beside them
+  carried the emoji. The emoji is the mark the board draws that side's
+  meeples in, so a coach and their cards now read as one side at a
+  glance, and the position is the player label's for the same reason
+  the emoji is: one rule for "whose is this", not two. A coach with no
+  team yet (setup, before the picker) is named bare -- "(Unknown team)"
+  answered a question nobody asked. The function takes the emoji dict
+  rather than reaching for one, which is why `build_turn_prompt` and
+  `build_loose_ball_prompt` on the engine take `team_emojis` too: the
+  engine is built before `cog_load` has fetched them and is read-only
+  from there on, so it cannot hold the dict itself. The two both-sides
+  autocompletes are the deliberate exception -- an autocomplete choice
+  is plain text and cannot render an emoji.
 - **`player_with_role` in `d12ball/formatting.py` is the whole of the
   bracket spelling**, and the message form is it with the emoji in front --
   `format_role_bracket` builds on it rather than beside it, so "outside a

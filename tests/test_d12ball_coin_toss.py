@@ -22,6 +22,7 @@ from cogs.d12ball_helpers import (
     build_setup_message,
     build_home_choice_message,
     format_coin_emoji,
+    format_player_with_team,
     get_exhaust_emoji,
     get_exhausted_emoji,
     get_injured_emoji,
@@ -143,6 +144,7 @@ class FakeCog:
     def __init__(self, game, coin_emojis: dict) -> None:
         self.games = {game.game_id: game}
         self.coin_emojis = coin_emojis
+        self.team_emojis = {}
         # The team picker refuses a team sharing a player with one
         # already taken, which is a question about the rosters -- so a
         # view cannot be built without one. The real catalog rather
@@ -224,7 +226,7 @@ class D12BallCoinTossTests(unittest.TestCase):
         )
         self.assertTrue(all(not item.disabled for item in team_buttons))
 
-        setup_message = build_setup_message(game)
+        setup_message = build_setup_message(game, {})
         self.assertIn("**Player 1:** Player 1", setup_message)
         self.assertIn("**Player 2:** Player 2", setup_message)
 
@@ -982,13 +984,18 @@ class D12BallCoinEmojiTests(unittest.TestCase):
         game = build_game()
         game.resolve_coin_toss(1, CoinFace.DOOM)
 
-        message = build_home_choice_message(game)
+        message = build_home_choice_message(game, {})
 
         self.assertEqual(
             message.splitlines()[0],
-            "Player One (Purple) flipped **Doom**!",
+            f"{TEAM_EMOJI_FALLBACKS[Team.PURPLE]} Player One flipped "
+            "**Doom**!",
         )
-        self.assertIn("**Player Two (Teal) wins the coin toss!**", message)
+        self.assertIn(
+            f"**{TEAM_EMOJI_FALLBACKS[Team.TEAL]} Player Two wins the coin "
+            "toss!**",
+            message,
+        )
 
     def test_the_result_does_not_repeat_the_coin(self) -> None:
         # The coin is posted as a message of its own, so that Discord
@@ -996,7 +1003,7 @@ class D12BallCoinEmojiTests(unittest.TestCase):
         game = build_game()
         game.resolve_coin_toss(1, CoinFace.DOOM)
 
-        message = build_home_choice_message(game)
+        message = build_home_choice_message(game, {})
 
         self.assertNotIn(COIN_EMOJI_FALLBACK, message)
         for coin_emoji in build_coin_emojis().values():
@@ -1046,10 +1053,14 @@ class D12BallCoinEmojiTests(unittest.TestCase):
         game.coin_flipped = True
         game.coin_winner_player_number = 1
 
-        message = build_home_choice_message(game)
+        message = build_home_choice_message(game, {})
 
         self.assertIn("The coin has been flipped", message)
-        self.assertIn("**Player One (Purple) wins the coin toss!**", message)
+        self.assertIn(
+            f"**{TEAM_EMOJI_FALLBACKS[Team.PURPLE]} Player One wins the coin "
+            "toss!**",
+            message,
+        )
 
 
 class D12BallConditionEmojiTests(unittest.TestCase):
@@ -1194,6 +1205,37 @@ class D12BallTeamEmojiTests(unittest.TestCase):
         self.assertEqual(
             get_team_emoji(team_emojis, Team.PURPLE), "<:team_purple:100>",
         )
+
+    def test_a_coach_is_named_with_their_team_emoji_in_front(self) -> None:
+        # "🟣 @coach", the way every message names one -- the emoji
+        # rather than "(Purple)", and in front, as on a player label.
+        game = build_game()
+        team_emojis = {Team.PURPLE: "<:team_purple:100>"}
+
+        self.assertEqual(
+            format_player_with_team(game, 1, team_emojis),
+            "<:team_purple:100> Player One",
+        )
+        self.assertEqual(
+            format_player_with_team(game, 1, team_emojis, mention=True),
+            "<:team_purple:100> <@111>",
+        )
+        # The other side has no upload, so it reads the fallback.
+        self.assertEqual(
+            format_player_with_team(game, 2, team_emojis),
+            f"{TEAM_EMOJI_FALLBACKS[Team.TEAL]} Player Two",
+        )
+        for team in Team:
+            self.assertNotIn(
+                team_display_name(team),
+                format_player_with_team(game, 1, team_emojis),
+            )
+
+    def test_a_coach_without_a_team_yet_is_named_bare(self) -> None:
+        game = build_game()
+        game.player_1_team = None
+
+        self.assertEqual(format_player_with_team(game, 1, {}), "Player One")
 
 
 class D12BallRoleEmojiTests(unittest.TestCase):
@@ -1377,7 +1419,7 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
         self.assertEqual(game.board_size, 9)
         self.assertIn(
             "recommended to play advanced mode on a board size of 9",
-            build_setup_message(game),
+            build_setup_message(game, {}),
         )
 
     def test_switching_back_to_six_or_seven_keeps_the_recommendation(
@@ -1396,12 +1438,12 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
         self.assertEqual(game.board_size, 6)
         self.assertIn(
             "recommended to play advanced mode on a board size of 9",
-            build_setup_message(game),
+            build_setup_message(game, {}),
         )
 
     def test_basic_mode_carries_no_recommendation(self) -> None:
         game = build_game()
-        self.assertNotIn("recommended", build_setup_message(game))
+        self.assertNotIn("recommended", build_setup_message(game, {}))
 
 
 if __name__ == "__main__":

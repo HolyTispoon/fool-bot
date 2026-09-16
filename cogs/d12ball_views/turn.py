@@ -87,7 +87,9 @@ class BallHandlerSelectionView(SafeView):
 
         if match.active_player_id is not None:
             await interaction.response.edit_message(
-                content=self.cog.engine.build_turn_prompt(game, match),
+                content=self.cog.engine.build_turn_prompt(
+                    game, match, self.cog.team_emojis,
+                ),
                 view=PlayerActionView(self.cog, self.game_id),
             )
             await interaction.followup.send(
@@ -118,7 +120,9 @@ class BallHandlerSelectionView(SafeView):
 
         self.cog.persist(game, match)
         await interaction.response.edit_message(
-            content=self.cog.engine.build_turn_prompt(game, match),
+            content=self.cog.engine.build_turn_prompt(
+                    game, match, self.cog.team_emojis,
+                ),
             view=PlayerActionView(self.cog, self.game_id),
         )
 
@@ -285,7 +289,9 @@ class PlayerActionView(SafeView):
         refresh_player_names(game, interaction.guild)
         handler = self.cog.engine.get_player_definition(match.active_player_id)
         offense_number = self.cog.engine.possession_player_number(game, match)
-        offense_display = format_player_with_team(game, offense_number)
+        offense_display = format_player_with_team(
+            game, offense_number, self.cog.team_emojis,
+        )
 
         await interaction.response.edit_message(
             content=(
@@ -417,6 +423,7 @@ class PlayerActionView(SafeView):
         defender_mention = format_player_with_team(
             game,
             defender_number,
+            self.cog.team_emojis,
             mention=True,
         )
 
@@ -642,7 +649,9 @@ class ManeuverChallengeView(SafeView):
 
         if match.challenger_id is not None or match.maneuver_uncontested:
             await interaction.response.edit_message(
-                content=self.cog.engine.build_turn_prompt(game, match),
+                content=self.cog.engine.build_turn_prompt(
+                    game, match, self.cog.team_emojis,
+                ),
                 view=PlayerActionView(self.cog, self.game_id),
             )
             await interaction.followup.send(
@@ -1063,7 +1072,9 @@ class ManeuverActionPromptView(SafeView):
                 if side == "offense"
                 else self.cog.engine.defending_player_number(game, match)
             )
-            side_display = format_player_with_team(game, side_number)
+            side_display = format_player_with_team(
+                game, side_number, self.cog.team_emojis,
+            )
             await interaction.followup.send(
                 f"{side_display} has picked their maneuver.",
             )
