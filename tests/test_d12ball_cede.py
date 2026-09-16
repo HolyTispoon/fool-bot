@@ -152,10 +152,12 @@ class CedeOfferTests(unittest.TestCase):
         )
 
         match.declared_substitution.add(TeamSide.HOME.value)
-        self.assertIn(
-            "already called its Coaching Choice this half",
-            cog.engine.build_turn_prompt(game, match),
-        )
+        # Why the cede went too, said once. The prompt names the
+        # reason and then what is left; it does not also list the two
+        # buttons that are not on it.
+        prompt = cog.engine.build_turn_prompt(game, match)
+        self.assertIn("Coaching Choice is spent for this half", prompt)
+        self.assertNotIn("cede the ball to coach", prompt)
 
     def test_the_button_goes_with_the_declaration(self) -> None:
         cog = build_cog()

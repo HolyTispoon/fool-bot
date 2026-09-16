@@ -254,8 +254,12 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
 
     def test_the_prompt_says_why_the_shot_is_missing(self) -> None:
         cog, game, match = self.build_turn(Zone.MIDFIELD, 0)
+        # The reason, then what is left -- the prompt does not also
+        # spell out that there is no shot, which is the button that
+        # is not on the message.
         self.assertIn(
-            "no shot from here", cog.engine.build_turn_prompt(game, match),
+            "Out of shooting range",
+            cog.engine.build_turn_prompt(game, match),
         )
 
         cog, game, match = self.build_turn(Zone.VISITORS_GOAL, 0)
