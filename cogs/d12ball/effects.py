@@ -1683,6 +1683,14 @@ class ManeuverEffectsMixin:
             attachments=[dice_file],
             view=None,
         )
+        # Asked here for the reason the ignite above is asked at all:
+        # Volatile is a Fire Demon's and this is a Telekinetic's roll,
+        # so this posts nothing today -- and the day a card carries
+        # both, the second die is shown here rather than being the one
+        # roll in the game that swallows it.
+        await self.post_volatile_ignition(
+            interaction, match, (player_id, ignite),
+        )
 
         note = "\n".join(filter(None, (
             f"🔮 **Mind Pull** — {self.player_label(match, player)} "
@@ -3356,6 +3364,12 @@ class ManeuverEffectsMixin:
             content=breakdown,
             attachments=[dice_file],
             view=None,
+        )
+        # The die kept is the only one of the two that can ignite, and
+        # its second die goes up between the roll and the verdict like
+        # every other -- see post_volatile_ignition.
+        await self.post_volatile_ignition(
+            interaction, match, (offense_player.player_id, ignite),
         )
         await interaction.followup.send(verdict)
         await self.refresh_match_image(interaction, game)

@@ -152,11 +152,27 @@ def travel_space_label(zone: Zone, space_index: int, distance: int) -> str:
 
     A run back is charged a token a space, so the distance *is* the
     price, and a coach picking between the spaces of a zone is picking
-    between prices. The number is on the button as well as in the list
-    beside it, because the button is the thing being pressed.
+    between prices. The number is on the button as well as in the
+    sentence beside it, because the button is the thing being pressed.
     """
     unit = "space" if distance == 1 else "spaces"
     return f"{space_label(zone, space_index)} ({distance} {unit})"
+
+
+def travel_space_phrase(zone: Zone, space_index: int, distance: int) -> str:
+    """
+    The same destination and the same price, worded for a sentence
+    rather than for a button -- "H1 (2 spaces away)".
+
+    The two differ by that one word and deliberately. A button is a
+    label, so it is as short as it can be and still name the price; the
+    line above the buttons is read as prose, and "2 spaces" there reads
+    as a quantity of spaces rather than as a distance. Both are built
+    from the same `distance`, so what the sentence offers and what the
+    button charges cannot drift apart.
+    """
+    unit = "space" if distance == 1 else "spaces"
+    return f"{space_label(zone, space_index)} ({distance} {unit} away)"
 
 
 def ball_space_label(match: MatchState) -> str:

@@ -1379,16 +1379,17 @@ class CoreMixin:
             match.mark_injured(player.player_id)
             self.persist(game, match)
 
+            # What happened, and nothing about what it means from
+            # here. The rest of the rule -- tokens removed, no longer
+            # exhausted, no further tokens and no further checks -- was
+            # recited on every injury in the game, and the board says
+            # all of it a moment later: the tokens come off the card
+            # and the badge goes on.
             content = (
                 f"{self.player_label(match, player)} is exhausted and rolls "
                 f"an injury test: {roll}{ignite_note} does not beat their "
-                f"{current_tokens} exhaustion tokens — injury! "
-                f"{self.player_label(match, player)} now has the condition "
-                f"**injured** {get_injured_emoji(self.condition_emojis)}. "
-                "Their exhaustion "
-                "tokens are removed; they are no longer exhausted and "
-                "cannot gain more exhaustion tokens or make another "
-                "injury check."
+                f"{current_tokens} exhaustion tokens — injury! They are "
+                f"**injured** {get_injured_emoji(self.condition_emojis)}."
             )
 
         # The prompt becomes the die, and what it says follows in its
@@ -1399,6 +1400,12 @@ class CoreMixin:
             content=None,
             attachments=[dice_file],
             view=None,
+        )
+        # The second die between the check and its verdict. It matters
+        # more here than anywhere: a backfire is the one thing in the
+        # game that injures the player who rolled well.
+        await self.post_volatile_ignition(
+            interaction, match, (player.player_id, ignite),
         )
         await interaction.followup.send(content)
         if not safe:

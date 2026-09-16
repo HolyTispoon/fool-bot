@@ -36,6 +36,7 @@ from cogs.d12ball_helpers import (
     format_coin_emoji,
     format_player,
     format_player_with_team,
+    is_game_helper,
     refresh_player_names,
     toggle_advanced_module,
 )
@@ -204,11 +205,7 @@ class GameConfigurationView(SafeView):
             )
             return None
 
-        player_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            player_ids.add(game.player_2_id)
-
-        if interaction.user.id not in player_ids:
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only the players in this game can change its settings.",
                 ephemeral=True,
@@ -523,11 +520,30 @@ class TeamSelectionView(GameConfigurationView):
             )
 
         if not is_player_1 and not is_player_2:
-            await interaction.response.send_message(
-                "Only the players in this game can choose teams.",
-                ephemeral=True,
+            if not is_game_helper(interaction.user):
+                await interaction.response.send_message(
+                    "Only the players in this game can choose teams.",
+                    ephemeral=True,
+                )
+                return
+
+            # A game helper holds neither side, so **which side this
+            # pick lands on has to be settled here** rather than read
+            # off the clicker -- see "Who may act on a game" in
+            # CLAUDE.md. A test game's button names it outright; a
+            # normal game's two sides share one row, so it goes to the
+            # side that has not chosen yet, Player 1 first. That is the
+            # same order `picking_player_number` puts a test game's
+            # sequential screens in, and it is the order the shared row
+            # is filled in anyway. Getting this wrong is silent: the
+            # `else` below would have quietly given every helper's pick
+            # to Player 2.
+            is_player_1 = (
+                selected_player_number == 1
+                if game.test_game
+                else game.player_1_team is None
             )
-            return
+            is_player_2 = not is_player_1
 
         excluded = self.excluded_teams(
             game, selected_player_number if game.test_game else None,
@@ -731,12 +747,7 @@ class CoinFlipView(GameConfigurationView):
             )
             return
 
-        allowed_player_ids = {game.player_1_id}
-
-        if game.player_2_id is not None:
-            allowed_player_ids.add(game.player_2_id)
-
-        if interaction.user.id not in allowed_player_ids:
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can flip the coin.",
                 ephemeral=True,
@@ -761,10 +772,15 @@ class CoinFlipView(GameConfigurationView):
             )
             return
 
+        # The coin is read from the flipping player's point of view, so
+        # it has to be flipped *as* somebody -- a game helper is neither
+        # player, and flips on Player 1's behalf. Which of the two it is
+        # changes nothing but the wording: the coin is fair either way,
+        # so the winner is as likely to be one as the other.
         self.settle_coin_toss(
             interaction,
             game,
-            1 if interaction.user.id == game.player_1_id else 2,
+            2 if interaction.user.id == game.player_2_id else 1,
         )
 
         await self.announce_coin_toss(interaction, game)
@@ -873,7 +889,7 @@ class HomeAwaySelectionView(SafeView):
             else game.player_2_id
         )
 
-        if interaction.user.id != winner_user_id:
+        if not self.may_act_for(interaction, winner_user_id):
             await interaction.response.send_message(
                 "Only the player who won the coin toss can make this choice.",
                 ephemeral=True,
@@ -1063,11 +1079,11 @@ class RematchView(SafeView):
             )
             return
 
-        allowed_player_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            allowed_player_ids.add(game.player_2_id)
-
-        if interaction.user.id not in allowed_player_ids:
+        # Either player, or a game helper -- the same gate as the
+        # Archive button beside it. A rematch opens a game two people
+        # have to play, which is why this was players-only; getting two
+        # people back into a game is exactly what a helper is for.
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can start a rematch.",
                 ephemeral=True,

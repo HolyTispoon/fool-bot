@@ -121,9 +121,7 @@ class LowPassChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -250,9 +248,7 @@ class LowPassReceiverView(SafeView):
         if game is None:
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -360,9 +356,7 @@ class SetupPassChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -464,9 +458,7 @@ class SetupPassPushBackView(SafeView):
         if game is None:
             return
 
-        if not self.cog.engine.user_controls_defense(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_defense(interaction, game, match):
             await interaction.response.send_message(
                 "Only the coach who beat the Setup Pass can choose.",
                 ephemeral=True,
@@ -549,9 +541,7 @@ class HighPassChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -663,9 +653,7 @@ class SetUpAttemptChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -690,9 +678,7 @@ class SetUpAttemptChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -777,9 +763,7 @@ class DribbleAdvanceChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -886,9 +870,7 @@ class DribbleBurstChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -998,7 +980,7 @@ class SpeedDeltaChoiceView(SafeView):
         controller_id = self.cog.engine.controlling_user_id(
             game, match, self.player_id,
         )
-        if interaction.user.id != controller_id:
+        if not self.may_act_for(interaction, controller_id):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -1060,9 +1042,7 @@ class TutorialContinueView(SafeView):
 
     async def _continue(self, interaction: discord.Interaction) -> None:
         game, _ = self.load_match()
-        if game is None or not self.is_game_participant(
-            game, interaction.user.id,
-        ):
+        if game is None or not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a coach in this game can continue.",
                 ephemeral=True,
@@ -1110,9 +1090,7 @@ class ShooterChoiceView(SafeView):
         if game is None:
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player resolving this effect can choose.",
                 ephemeral=True,
@@ -1198,9 +1176,10 @@ class MindPullView(SafeView):
             )
             return None, None
 
-        if self.cog.engine.controlling_user_id(
-            game, match, self.player_id,
-        ) != interaction.user.id:
+        if not self.may_act_for(
+            interaction,
+            self.cog.engine.controlling_user_id(game, match, self.player_id),
+        ):
             await interaction.response.send_message(
                 "Only the coach whose player that is can answer this.",
                 ephemeral=True,

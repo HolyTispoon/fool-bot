@@ -25,13 +25,16 @@ from d12ball.components import (
     TeamSetup,
     TeamSide,
 )
-from d12ball.game import D12BallGame
+from d12ball.engine import IgnitedRoll
+from d12ball.game import D12BallGame, team_display_name
 from d12ball import tutorial
 from d12ball.render import (
+    TEAM_COLORS,
     render_field_image,
     render_maneuver_challenge,
     render_match_image,
     render_score_attempt,
+    render_volatile_die,
     zone_labels,
 )
 from gamesaves.d12ball.storage import save_games
@@ -330,6 +333,65 @@ class PresentationMixin:
             ),
             filename="score_attempt.png",
         )
+
+    async def post_volatile_ignition(
+        self,
+        interaction: discord.Interaction,
+        match: MatchState,
+        *rolls: tuple[Optional[str], IgnitedRoll],
+    ) -> None:
+        """
+        The second die an ignite rolled, shown on its own and explained
+        -- one message per ignited roll, and nothing at all for the
+        rolls that did not ignite, which is almost all of them.
+
+        **One helper for every caller of `RulesEngine.ignite`** -- the
+        six roll sites the rules name, plus the Mind Pull roll that
+        asks anyway -- which is that funnel read from the other end:
+        it owns what a die means and this owns what a coach is shown
+        of it, so the next ability that adds a die to a roll is drawn
+        and worded in one place rather than seven. Each site passes
+        the pairs it has: a contest both sides, a score attempt only
+        the shooter, whose die is the only one of its two that can
+        ignite at all.
+
+        **It goes between the roll's own dice image and the result.**
+        The ignite happened to the die a coach has just watched and
+        before the verdict they are about to read, and a message's
+        attachments render below its content, so posting it here is the
+        only order in which the three read as what happened -- see
+        `SkillTestView.roll` for the same reasoning about a result.
+
+        The sentence is above its own die rather than under it, unlike
+        every result in the game: it is not a verdict the picture is
+        about to reveal, it is the caption explaining why a second die
+        exists at all, and the alternative is two messages an ignite.
+
+        A roll that did not ignite carries no image and no line, which
+        is "a move that costs nothing says nothing" -- and is what lets
+        a caller hand over both sides of a contest without asking.
+        """
+        for player_id, ignite in rolls:
+            if player_id is None or not ignite.ignited:
+                continue
+            player = self.engine.get_player_definition(player_id)
+            team = match.team_for_player(player_id)
+            await interaction.followup.send(
+                ignite.explain(self.player_label(match, player)),
+                file=discord.File(
+                    await asyncio.to_thread(
+                        render_volatile_die,
+                        ignite.second,
+                        ignite.face,
+                        TEAM_COLORS[team],
+                        team_display_name(team),
+                        player.name,
+                        ignite.surge,
+                        ignite.modifier,
+                    ),
+                    filename="volatile_ignition_die.png",
+                ),
+            )
 
     async def announce_maneuver_challenge(
         self,

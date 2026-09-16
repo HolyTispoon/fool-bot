@@ -991,6 +991,82 @@ call sites. Volatile is the only one that reads one today.
   die image draws the natural face, so `run_injury_test` says the ignite in
   words -- otherwise the number a coach reads and the verdict they are given
   would not add up.
+- **Volatile's two numbers live in `d12ball/components.py`**, beside the
+  other three species', rather than in the engine that reads them:
+  `d12ball/render.py` cannot import the engine (the engine imports it) and
+  the ignition die's own explainer reads them too. `engine.py` re-exports
+  both, so nothing that already asked it moved.
+
+### The ignition die
+
+**The second die is a die a coach watches, not a number in a total.**
+`render_volatile_die` draws it and `D12Ball.post_volatile_ignition` posts
+it -- one message per ignited roll, between the roll's own dice image and
+the result.
+
+- **It was a line in the totals column and nothing else**, which is what
+  the modifier shape above bought and where it fell short: the face on the
+  image and the total under it disagreed by up to 12, with one grey line of
+  arithmetic to explain a die nobody saw thrown. Every other modifier in
+  the game is checkable against the board or a card; this one is a roll.
+- **`IgnitedRoll.detail` and `.explain` are one ignite said twice, and they
+  sit together.** `detail` is the arithmetic in the totals column, which
+  has to add up; `explain` is the sentence over the second die's own image,
+  which has to say why there is a second die at all. Written apart they
+  come to disagree about which way a roll went.
+- **One helper for all seven call sites**, which is `ignite` read from the
+  other end: the funnel owns what a die means and this owns what a coach is
+  shown of it. Each site hands over the pairs it has -- a contest both
+  sides, a score attempt only the shooter -- and a roll that did not ignite
+  posts nothing, so no caller branches on it. That is also what lets
+  `run_mind_pull` pass its Telekinetic's roll through: it cannot ignite
+  today, and the day a card carries both abilities this is not the one roll
+  in the game that swallows the die.
+- **Between the dice and the result, at every site including a tie.** The
+  ignite happened to the die a coach has just watched and before the
+  verdict they are about to read; a message's attachments render below its
+  content, so nothing else reads as what happened. See `SkillTestView.roll`
+  for the same reasoning about a result.
+- **The sentence is above its own die**, unlike every result in the game.
+  It is not a verdict the picture is about to reveal, it is the caption
+  explaining why a second die exists -- and the alternative is two messages
+  an ignite.
+- **The image is the Mind Pull die's layout with the Fire Demons' flame**
+  (die, portrait, verdict, with a halo and a ring), for the reason that one
+  follows the injury test's: a coach should not have to learn a layout per
+  ability. The face keeps the *roller's team* colour, since a Fire Demon
+  plays for any of the eight teams. What it adds is an explainer line under
+  the title -- "a natural 6 or 7 ignites — the second d12 adds on 5-12,
+  subtracts on 1-4", read off the constants like the Mind Pull die's target
+  band -- and it is what sizes the canvas, being both the widest thing on
+  the image and the half a coach meeting their first ignite needs.
+- **It borrows that layout's shape and not its proportions** (the author,
+  2026-09-16), because the explainer is what makes this image wider than
+  the row under it and the other two have no such line. Three things
+  follow, and all three are the same instruction -- spend the space rather
+  than leave it black. The **portrait is 168** and not the 96 the other two
+  draw, so it is the tallest thing in the row. The **flame fills that row
+  and does not grow it** -- a halo up to the portrait's height costs
+  nothing, and past it the flame is what makes the canvas taller than its
+  own content, which is what the Mind Pull's 2.9 did here. It cannot be
+  that number either way, since the two shapes are not alike: a spiral is
+  mostly the gaps between its arms and needs room to read as one, where a
+  flame is solid. Both ends of that are real -- 1.85 was tried and reads as
+  a smudge behind the die. And the slack the
+  explainer creates is spread **between** the three columns instead of
+  around them, so the row reads as the sentence's own rather than a narrow
+  thing centred under it.
+- **What ignites is the ball, not the die** (the author, 2026-09-16), in
+  `IgnitedRoll.explain` and nowhere else. The rules state the trigger as a
+  property of the die because that is what a player has to *check*; what a
+  coach watches is a Fire Demon setting the ball alight. The image keeps
+  the mechanic -- "ignited on 6" under the face -- since that band is what
+  ties this die to the roll it came out of.
+- **A roll site may not swallow its die**, which is a claim about all of
+  them and so cannot be made by a test that drives one:
+  `IgnitionIsShownEverywhereTests` fails any module that calls `ignite`
+  without posting one. A new roll site is written by copying an old one and
+  the arithmetic works perfectly well with the image left out.
 
 **The tier rider is one flag, not a side.** The rules name two cases -- a
 surge on the winning side raises that side's maneuver, a backfire on the
@@ -2467,7 +2543,13 @@ A save written before them defaults them; nothing migrates.
   `tutorial and tutorial_step is not None`. Clearing the step is the
   whole of turning the rails off, which is all `/d12ball skip_tutorial`
   does; `tutorial` stays True so the record and the channel name still
-  say what the game was created as.
+  say what the game was created as. The command is open to the coach
+  being taught **or a game helper**: it was the coach alone, on the
+  reasoning that a tutorial is one human against Dinky and nobody
+  else's business, which is right about who it matters to and wrong
+  about who is standing next to them -- whoever turned the tutorial on
+  in the lobby is the one they will ask to turn it off. See
+  [Who may act on a game](#who-may-act-on-a-game).
 - **`stage_tutorial_beat` gates the top of `send_turn_prompt`**, which
   is called once a turn -- so the advance is what counts the beats. It
   **moves nothing**; it posts the lesson (or `HANDOVER`, once the
@@ -4370,9 +4452,11 @@ and reused by the rematch button), or the two sides otherwise —
   are not playing again saying so. That button is why the sweep is no longer
   the only way a finished game reaches the archive without someone abandoning
   a game that had already ended. Its gate is `may_administer_game` -- either
-  player, or anyone with `manage_channels` -- deliberately wider than the
-  rematch's players-only gate, since filing a channel away commits nobody to
-  playing anything.
+  player, or a game helper. The Rematch button beside it now shares that gate
+  rather than being players-only: it used to be narrower on the grounds that
+  a rematch opens a game two people have to play, and getting two people back
+  into a game is exactly what a helper is for. See
+  [Who may act on a game](#who-may-act-on-a-game).
   - **A view rebuilt straight after a move must be *told* it was archived.**
     `RematchView` takes an `archived` override for exactly this:
     discord.py's `TextChannel.edit` returns a **new** channel object and
@@ -4687,9 +4771,17 @@ does bar naming specific opponents up front). Two pieces:
     `d12ball/tutorial.py`'s script is written for -- greying the mode and board
     rows; `tutorial_step` stays None and the kickoff arms it, exactly as the
     `create_game` path does.
-  - **Name** sets `game.game_name` through a modal (players only). It decides
+  - **Name** sets `game.game_name` through a modal (players, or a game
+    helper -- as with every other setting on this message). It decides
     only the channel name at Start -- `game_name` beats the test/tutorial/
     players-derived name.
+  - **Every setting on the lobby message, Start Game included, is open to a
+    game helper as well as to the two players**, which is the case the gate
+    was built for: somebody walking a new player through their first game
+    turns Tutorial on in a lobby they are not playing in. Join, Observe and
+    Leave are deliberately not widened -- those are about the clicker
+    themselves, and a helper joining would make them a player. See
+    [Who may act on a game](#who-may-act-on-a-game).
   - **Start Game** (`lobby_start`, any player) finalises the record, does the
     **one-time best-effort** `channel.edit` (rename + lockdown -- the deliberate
     exception to "Archiving ... never renames it" under "Game channels"), then
@@ -4705,14 +4797,89 @@ does bar naming specific opponents up front). Two pieces:
   the team picker. `LobbyNameModal` is opened fresh per click and needs no
   persistence.
 
+## Who may act on a game
+
+**The coach a button belongs to, or a game helper** -- and a game helper is
+anyone the server trusts with `manage_channels`. That is the whole rule, and
+it is answered in one place: `is_game_helper`, `may_act_for_coach` and
+`may_act_in_game` in `cogs/d12ball_helpers.py`, with `SafeView.may_act_in_game`
+/ `may_act_for` / `may_act_for_possession` / `may_act_for_defense` as the
+interaction-shaped front door every view uses.
+
+It exists because somebody organising playtests is not playing in the games
+they are helping people into: a lobby's Tutorial toggle refused them for not
+being a player, while `/d12ball abandon_game` -- gated on `manage_channels`
+since long before -- would happily let the same person end the game outright.
+Two readings of "may this person touch this game" is how that happens, so
+there is now one.
+
+- **`manage_channels`, and no second kind of helper.** It is the permission
+  `/d12ball resume`, `/d12ball abandon_game`, the full-time Archive button
+  and `/debug reset_channels` were already gated on, so nothing new has to be
+  set up on a server and nobody gains anything they could not already reach
+  the long way round. A role of its own was the alternative and would have to
+  be created per server and found by name -- and self-assignable from the hub
+  it would be no gate at all.
+- **`may_administer_game` is that predicate under its old name**, kept
+  because that is what the recovery commands read as. **Don't re-inline the
+  permission check into it**: it was the first gate to let somebody act on a
+  game they are not in, and the whole point is that it is no longer the only
+  one.
+- **`is_game_participant` is a fact about the game, not the authorization
+  check.** It still answers "is this one of the two coaches", which is what
+  `game_participant_ids` is for and what a display or a mention wants. A
+  helper is not a participant and may still press the button, so a *gate*
+  that asks it is a gate that has stopped being the rule.
+- **A helper holds no side, which is the only thing that needed deciding
+  anywhere.** Almost every gate names the coach it belongs to
+  (`side_controller_id`, `controlling_user_id`, `possession_user_id`,
+  `defending_user_id`) and `may_act_for` simply widens it, so a helper acts
+  for either side and the flow is untouched. Three places had to answer
+  *which* side instead, because they read it off the clicker:
+  - **The team picker.** A normal game's two sides share one row, so
+    `select_team` fills the side that has not chosen yet, Player 1 first --
+    the same order `picking_player_number` puts a test game's sequential
+    screens in. The `else` branch would otherwise have given every helper's
+    pick to Player 2, silently.
+  - **The coin flip.** The coin is read from the flipping player's point of
+    view, so it has to be flipped *as* somebody; a helper flips on Player 1's
+    behalf. The coin is fair either way, so this changes the wording and
+    nothing else.
+  - **The shootout's order menus.** A coach gets their own side and a helper
+    gets both, so `owes` picks whichever still needs one. That does show a
+    helper both coaches' orders, which is the price of being able to set one
+    for somebody.
+- **`is True`, not truthiness, is what reads the permission**, and that is
+  about the suite rather than about Discord. Nearly every person in `tests/`
+  is a `MagicMock(spec=discord.Member)`, whose
+  `guild_permissions.manage_channels` is a Mock and so truthy -- under a plain
+  `bool(...)` every mocked click in the game would read as a helper's, which
+  turns every gate here into a no-op **and does it silently**, since a gate
+  that lets everyone through fails no test about refusing somebody. A test
+  that means to grant it says `SimpleNamespace(manage_channels=True)`.
+  `tests/test_d12ball_game_helpers.py` asserts the mock case directly.
+- **A helper's click is attributed to the coach, never to them.** Every
+  message about a pick, a toss or a choice is worded from the *side*
+  (`format_player_with_team` off the side's own player number), so nothing
+  had to change for this and nothing should: the pick is that side's however
+  it was entered. What a helper gets of their own is the ephemeral reply.
+- **What is deliberately not widened**: Join, Observe and Leave, which are
+  about the clicker themselves rather than authority over somebody's game --
+  a helper joining would make them a player, which is the opposite of the
+  point; and `/d12ball coach` and the score adjuster, which derive a side
+  from `side_for_user` and already send anyone without one to `/d12ball ref`,
+  where the team is an argument. A helper is a person with no side, so that
+  is the command that already fits them.
+
 ## Recovering a stuck game
 
 A restart re-arms exactly **one** message per game — the one recorded in
 `turn_message_id` — so a game can come back with no working button anywhere in
 its channel. `/d12ball resume` puts the question back up and
 `/d12ball abandon_game` ends the ones nobody is going to finish. Both are open
-to either player in the game, or to anyone with `manage_channels`
-(`may_administer_game`).
+to either player in the game, or to any game helper (`may_administer_game`,
+which is `may_act_in_game` under the name these two read as) -- see
+[Who may act on a game](#who-may-act-on-a-game).
 
 **So that is what a crash tells the coach to do.** The two catch-alls for an
 unexpected exception -- `SafeView.on_error` for a click and

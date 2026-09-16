@@ -47,11 +47,12 @@ which one it was.
 """
 
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import D12Ball
-from cogs.d12ball_views import MindPullView
+from cogs.d12ball_views import MindPullView, SkillTestView
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     CYBORG_DRAINED_AT,
@@ -86,7 +87,7 @@ from d12ball.game import (
 )
 
 from roster import field_players, fielded_of_species
-from save_patches import suppressed_cog_saves
+from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
 def build_engine() -> RulesEngine:
@@ -374,6 +375,241 @@ class IgniteTests(unittest.TestCase):
         self.assertIn("+9", surge.detail)
         self.assertIn("backfire", backfire.detail)
         self.assertIn("-2", backfire.detail)
+
+    def test_the_explanation_carries_both_dice_and_the_modifier(self):
+        # The sentence beside the ignition die. Not asserted as prose
+        # -- it will be revised -- but every number in it is one the
+        # coach has to be able to check against the image.
+        with mock.patch("random.randint", return_value=9):
+            surge = self.engine.ignite(self.game, self.demon, 6)
+        sentence = surge.explain("Somebody")
+        self.assertIn("Somebody", sentence)
+        self.assertIn("6", sentence)
+        self.assertIn("9", sentence)
+        self.assertIn("+9", sentence)
+        self.assertIn("surge", sentence)
+
+    def test_a_backfire_explains_itself_as_a_subtraction(self):
+        with mock.patch("random.randint", return_value=2):
+            backfire = self.engine.ignite(self.game, self.demon, 7)
+        sentence = backfire.explain("Somebody")
+        self.assertIn("backfire", sentence)
+        self.assertIn("-2", sentence)
+
+    def test_a_roll_that_did_not_ignite_explains_nothing(self):
+        # The same silence `detail` keeps, and what lets a caller hand
+        # both sides of a contest to post_volatile_ignition without
+        # asking which of them ignited.
+        ordinary = self.engine.ignite(self.game, self.demon, 4)
+        self.assertIsNone(ordinary.explain("X"))
+        self.assertIsNone(IgnitedRoll(face=4).explain("X"))
+
+
+def build_ignition_cog() -> D12Ball:
+    """
+    A cog with enough on it to post an ignition die and to run a real
+    skill test into one. Everything past the roll is mocked; the
+    posting itself emphatically is not, since it is what these tests
+    are about.
+    """
+    cog = object.__new__(D12Ball)
+    cog.games = {}
+    cog.player_catalog = load_player_catalog()
+    cog.maneuver_catalog = load_maneuver_catalog()
+    cog.basic_ruleset = load_basic_ruleset()
+    cog.team_emojis = {}
+    cog.condition_emojis = {}
+    cog.coin_emojis = {}
+    cog.ai_strategies = build_ai_strategies(
+        cog.player_catalog, cog.maneuver_catalog,
+    )
+    cog.engine = RulesEngine(
+        cog.player_catalog,
+        cog.basic_ruleset,
+        cog.maneuver_catalog,
+        cog.ai_strategies,
+    )
+    cog.refresh_match_image = mock.AsyncMock()
+    cog.begin_injury_tests = mock.AsyncMock()
+    return cog
+
+
+def build_ignition_interaction() -> SimpleNamespace:
+    return SimpleNamespace(
+        user=SimpleNamespace(id=111, display_name="One"),
+        guild=None,
+        channel=None,
+        response=SimpleNamespace(
+            defer=mock.AsyncMock(),
+            edit_message=mock.AsyncMock(),
+            send_message=mock.AsyncMock(),
+        ),
+        followup=SimpleNamespace(
+            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+        ),
+        edit_original_response=mock.AsyncMock(),
+    )
+
+
+def followup_messages(interaction) -> list[str]:
+    """Every followup's content, in the order they were sent."""
+    return [
+        (call.args[0] if call.args else call.kwargs.get("content")) or ""
+        for call in interaction.followup.send.await_args_list
+    ]
+
+
+class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The second die a coach watches.
+
+    An ignite used to be a line in the totals column of the roll's own
+    dice image and nothing else, which left the face a coach could see
+    and the total they were given disagreeing with nothing to explain
+    the gap. It is a die of its own now -- see
+    `D12Ball.post_volatile_ignition` -- and what is asserted here is
+    that it is posted, once per ignited roll, in the order the roll
+    happened.
+    """
+
+    def setUp(self) -> None:
+        self.cog = build_ignition_cog()
+        self.game = build_game()
+        self.cog.games[self.game.game_id] = self.game
+        self.match = build_match(self.cog.engine, self.game)
+        self.demon = fielded_of_species(self.match, SPECIES_FIRE_DEMON)
+
+    def ignite(self, face: int, second: int) -> IgnitedRoll:
+        with mock.patch("random.randint", return_value=second):
+            return self.cog.engine.ignite(self.game, self.demon, face)
+
+    async def test_an_ignited_roll_is_posted_with_its_own_die(self) -> None:
+        interaction = build_ignition_interaction()
+
+        await self.cog.post_volatile_ignition(
+            interaction, self.match, (self.demon, self.ignite(6, 9)),
+        )
+
+        interaction.followup.send.assert_awaited_once()
+        call = interaction.followup.send.await_args
+        self.assertIn("Volatile", call.args[0])
+        self.assertIsNotNone(call.kwargs.get("file"))
+
+    async def test_a_roll_that_did_not_ignite_is_not_posted(self) -> None:
+        # Most rolls in an advanced game and every roll in a basic one.
+        interaction = build_ignition_interaction()
+
+        await self.cog.post_volatile_ignition(
+            interaction, self.match, (self.demon, self.ignite(4, 9)),
+        )
+
+        interaction.followup.send.assert_not_awaited()
+
+    async def test_each_side_of_a_contest_gets_its_own(self) -> None:
+        # Two Fire Demons rolling means two ignites, each read off its
+        # own die -- so two dice, not one image about both.
+        other = self.match.home.field_players[1]
+        interaction = build_ignition_interaction()
+
+        await self.cog.post_volatile_ignition(
+            interaction,
+            self.match,
+            (self.demon, self.ignite(6, 9)),
+            (other, self.ignite(7, 2)),
+        )
+
+        self.assertEqual(interaction.followup.send.await_count, 2)
+
+    async def test_a_die_belonging_to_nobody_is_skipped(self) -> None:
+        # A score attempt's defensive die has no card behind it, so a
+        # caller may pass None rather than branching on it.
+        interaction = build_ignition_interaction()
+
+        await self.cog.post_volatile_ignition(
+            interaction, self.match, (None, IgnitedRoll(face=6)),
+        )
+
+        interaction.followup.send.assert_not_awaited()
+
+    async def test_a_real_skill_test_posts_it_between_roll_and_result(
+        self,
+    ) -> None:
+        # The claim the unit tests above cannot make: a roll site
+        # actually hands its ignites over, and does it after the dice
+        # image and before the verdict. Every other order reads as the
+        # result of a roll the coach has not been shown yet.
+        offense = self.match.home.field_players[0]
+        zone, space_index = self.match.board.meeple_position(offense)
+        self.match.ball.possession = TeamSide.HOME
+        self.match.set_ball_space(zone, space_index)
+        self.match.active_player_id = offense
+        challenger = self.match.visiting.field_players[0]
+        self.match.board.place_meeple(challenger, zone, space_index)
+        self.match.challenger_id = challenger
+        self.match.offense_maneuver = "low_pass"
+        self.match.defense_maneuver = "deflect"
+        self.game.match_state = self.match.to_dict()
+
+        interaction = build_ignition_interaction()
+        view = SkillTestView(self.cog, self.game.game_id)
+        # The offense rolls a natural 6 and ignites on a 9; the
+        # defense's 1 does not, whoever they are.
+        with suppressed_cog_saves(), suppressed_view_saves(), mock.patch(
+            "random.randint", side_effect=[6, 1, 9],
+        ), mock.patch(
+            "cogs.d12ball_views.base.render_skill_test_dice",
+        ), mock.patch("discord.File"):
+            await view.roll(interaction)
+
+        messages = followup_messages(interaction)
+        ignition = [
+            index for index, text in enumerate(messages)
+            if "Volatile" in text and "ignites" in text
+        ]
+        result = [
+            index for index, text in enumerate(messages)
+            if "wins the skill test" in text
+        ]
+        self.assertEqual(len(ignition), 1, messages)
+        self.assertEqual(len(result), 1, messages)
+        self.assertLess(ignition[0], result[0], messages)
+        # The dice image is on the message the prompt became, which is
+        # above both of them.
+        interaction.edit_original_response.assert_awaited()
+
+
+class IgnitionIsShownEverywhereTests(unittest.TestCase):
+    """
+    A roll site may not swallow its second die.
+
+    `RulesEngine.ignite` is the funnel every d12 comes through, and
+    every one of its callers now owes the coach the die it rolled --
+    which is a claim about *all* of them and so cannot be made by a
+    test that drives one. A new roll site is written by copying an old
+    one, and the arithmetic works perfectly well with the image left
+    out, so nothing else would notice.
+    """
+
+    def source_files(self) -> list:
+        root = Path(__file__).resolve().parent.parent / "cogs"
+        return sorted(root.rglob("*.py"))
+
+    def test_every_module_that_ignites_also_posts_the_die(self) -> None:
+        asked = []
+        for path in self.source_files():
+            source = path.read_text(encoding="utf-8")
+            if ".ignite(" not in source:
+                continue
+            asked.append(path.name)
+            self.assertIn(
+                "post_volatile_ignition",
+                source,
+                f"{path.name} rolls an ignite and never shows it",
+            )
+        # The funnel's six roll sites live in five modules; a count
+        # that drops is a site that stopped asking rather than one
+        # that stopped showing, and is worth a look either way.
+        self.assertGreaterEqual(len(asked), 5, asked)
 
 
 class VolatileTierRiderTests(unittest.TestCase):

@@ -15,7 +15,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from cogs.d12ball import MAX_RUN_BACK_PASSES, D12Ball
-from cogs.d12ball_helpers import travel_space_label
+from cogs.d12ball_helpers import travel_space_phrase
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     MatchState,
@@ -324,8 +324,10 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_the_prompt_prices_every_space_it_offers(self) -> None:
-        # The buttons and the options line carry the same labels, and
-        # both name what the run back costs: a token a space.
+        # The sentence and the buttons quote the same distance, which
+        # is the price -- a run back costs a token a space. They word
+        # it differently on purpose (see travel_space_phrase); what
+        # they may not do is disagree about the number.
         cog = self.build_cog()
         game = self.build_game()
         match = self.build_match()
@@ -343,8 +345,12 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(spaces)
         for space_index in spaces:
             distance = match.run_back_distance(player_id, zone, space_index)
+            # The sentence above the buttons prices every space it
+            # offers, in the prose form -- "M2 (1 space away)". The
+            # buttons carry travel_space_label's shorter version of the
+            # same distance; see travel_space_phrase.
             self.assertIn(
-                travel_space_label(zone, space_index, distance), prompt,
+                travel_space_phrase(zone, space_index, distance), prompt,
             )
             # Not a label that says nothing: they are standing on M1,
             # so every space they can be sent to is a real walk.

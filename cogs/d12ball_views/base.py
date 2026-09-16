@@ -28,6 +28,13 @@ from d12ball.render import (
 from cogs.d12ball_helpers import (
     ERROR_RECOVERY_ADVICE,
     LOGGER,
+    game_participant_ids,
+    # Aliased because `SafeView` carries methods of these two names --
+    # the interaction-shaped front door onto the same two functions.
+    # One rule either way; the alias is only so a method body does not
+    # read as a recursive call.
+    may_act_for_coach as user_may_act_for_coach,
+    may_act_in_game as user_may_act_in_game,
     player_with_role,
     send_error_fallback,
 )
@@ -155,15 +162,77 @@ class SafeView(discord.ui.View):
     def is_game_participant(self, game: D12BallGame, user_id: int) -> bool:
         """
         Whether `user_id` is one of the two coaches in `game` -- never
-        the AI, which has no user id to be. See "Every roll is a
-        coach's" in CLAUDE.md: any coach in the game may press a roll
-        button, not only the one it happens to be about, so this is
-        the whole of the check and callers word their own refusal.
+        the AI, which has no user id to be.
+
+        This is a fact about the game and is **not** the authorization
+        check: a game helper is not a participant and may still press
+        the button. Ask `may_act_in_game` or `may_act_for` for that --
+        see "Who may act on a game" in CLAUDE.md.
         """
-        participant_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            participant_ids.add(game.player_2_id)
-        return user_id in participant_ids
+        return user_id in game_participant_ids(game)
+
+    def may_act_in_game(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+    ) -> bool:
+        """
+        Whether this click may press a button either coach may press --
+        a roll, the maneuver reference. Either coach, or a game helper.
+
+        See "Every roll is a coach's" in CLAUDE.md: any coach in the
+        game may press a roll button, not only the one it happens to be
+        about, so this is the whole of the check and callers word their
+        own refusal.
+        """
+        return user_may_act_in_game(interaction.user, game)
+
+    def may_act_for(
+        self,
+        interaction: discord.Interaction,
+        coach_id: Optional[int],
+    ) -> bool:
+        """
+        Whether this click may press a button that belongs to one
+        particular coach -- that coach, or a game helper. `coach_id` is
+        whatever named them: `side_controller_id`, `controlling_user_id`,
+        `possession_user_id`, `defending_user_id`.
+        """
+        return user_may_act_for_coach(interaction.user, coach_id)
+
+    def may_act_for_possession(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> bool:
+        """
+        `may_act_for` the coach whose team has the ball -- the gate on
+        every offensive choice and every effect the winner resolves.
+        Replaces `engine.user_controls_possession` at a callback: the
+        engine answers who that coach is, and this answers whether the
+        click may act for them.
+        """
+        return self.may_act_for(
+            interaction,
+            self.cog.engine.possession_user_id(game, match),
+        )
+
+    def may_act_for_defense(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> bool:
+        """
+        `may_act_for` the coach defending this turn -- the challenge,
+        the defensive pick, and the effects a won defense resolves. The
+        other half of `may_act_for_possession`.
+        """
+        return self.may_act_for(
+            interaction,
+            self.cog.engine.defending_user_id(game, match),
+        )
 
     def add_overdrive_buttons(
         self,
@@ -228,9 +297,10 @@ class SafeView(discord.ui.View):
             return
 
         player_id = interaction.data["custom_id"].rsplit(":", 1)[-1]
-        if self.cog.engine.controlling_user_id(
-            game, match, player_id,
-        ) != interaction.user.id:
+        if not self.may_act_for(
+            interaction,
+            self.cog.engine.controlling_user_id(game, match, player_id),
+        ):
             await interaction.response.send_message(
                 "Only the coach whose player that is can declare "
                 "Overdrive for them.",

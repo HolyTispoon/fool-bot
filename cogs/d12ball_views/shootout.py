@@ -12,6 +12,7 @@ from d12ball.components import (
     MatchState,
     TeamSide,
 )
+from d12ball.engine import IgnitedRoll
 from d12ball.game import D12BallGame
 from cogs.d12ball_helpers import format_team_side_label
 
@@ -75,10 +76,18 @@ class ShootoutView(SafeView):
             )
             return None
 
+        # A coach gets their own side; a game helper gets both, and
+        # `owes` below picks whichever still has an order to set. That
+        # does show a helper both coaches' picks, which the secrecy of
+        # an order otherwise turns on -- it is the price of being able
+        # to set one for somebody, and the same price the maneuver pick
+        # and every other prompt pays.
         theirs = [
             side
             for side in (TeamSide.HOME, TeamSide.VISITING)
-            if self.cog.engine.side_controller_id(game, side) == interaction.user.id
+            if self.may_act_for(
+                interaction, self.cog.engine.side_controller_id(game, side),
+            )
         ]
         if not theirs:
             await interaction.response.send_message(
@@ -213,10 +222,8 @@ class ShootoutOrderSelectView(SafeView):
         if game is None:
             return None
 
-        if (
-            not match.pending_shootout
-            or self.cog.engine.side_controller_id(game, self.side)
-            != interaction.user.id
+        if not match.pending_shootout or not self.may_act_for(
+            interaction, self.cog.engine.side_controller_id(game, self.side),
         ):
             await interaction.response.edit_message(
                 content="That order is no longer being asked for.",
@@ -405,10 +412,8 @@ class ShootoutPickSelectView(SafeView):
         if game is None:
             return
 
-        if (
-            not match.pending_shootout
-            or self.cog.engine.side_controller_id(game, self.side)
-            != interaction.user.id
+        if not match.pending_shootout or not self.may_act_for(
+            interaction, self.cog.engine.side_controller_id(game, self.side),
         ):
             await interaction.response.edit_message(
                 content="That pick is no longer being asked for.",
@@ -540,7 +545,7 @@ class ShootoutTestView(ShootoutView):
         self,
         game: D12BallGame,
         match: MatchState,
-    ) -> tuple[list, dict, dict]:
+    ) -> tuple[list, dict, dict, list[tuple[str, IgnitedRoll]]]:
         """
         Roll both shooters and total them up, as the sides
         `render_contest_dice` draws plus the totals and the players
@@ -555,10 +560,13 @@ class ShootoutTestView(ShootoutView):
         rules list a shootout test among the rolls it covers. A
         shootout owes no injury check, which the ignite does not
         change -- what a backfire costs here is the goal, not a card.
+        Both ignites come back with the rest, in shooting order, for
+        the caller to post as dice of their own.
         """
         totals: dict[TeamSide, int] = {}
         players = {}
         dice = []
+        ignites: list[tuple[str, IgnitedRoll]] = []
 
         for side in (TeamSide.HOME, TeamSide.VISITING):
             player = self.cog.engine.get_player_definition(
@@ -573,6 +581,7 @@ class ShootoutTestView(ShootoutView):
             )
             roll = random.randint(1, 12)
             ignite = self.cog.engine.ignite(game, player.player_id, roll)
+            ignites.append((player.player_id, ignite))
             overdrive = match.overdrive_modifier(player.player_id)
             totals[side] = roll + skill + ignite.modifier + overdrive
             detail = contestant_detail(
@@ -593,7 +602,7 @@ class ShootoutTestView(ShootoutView):
                 )
             )
 
-        return dice, totals, players
+        return dice, totals, players, ignites
 
     def settle_shootout_test(
         self,
@@ -642,7 +651,7 @@ class ShootoutTestView(ShootoutView):
             )
             return
 
-        if not self.is_game_participant(game, interaction.user.id):
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the skill test.",
                 ephemeral=True,
@@ -653,7 +662,7 @@ class ShootoutTestView(ShootoutView):
         # out in SkillTestView.roll.
         await interaction.response.defer()
 
-        dice, totals, players = self.score_shootout_test(game, match)
+        dice, totals, players, ignites = self.score_shootout_test(game, match)
         match.consume_overdrive()
         dice_file = await render_contest_dice(
             dice, filename="shootout_dice.png",
@@ -674,6 +683,8 @@ class ShootoutTestView(ShootoutView):
             attachments=[dice_file],
             view=None,
         )
+        # Between the dice and the result, as at every other roll site.
+        await self.cog.post_volatile_ignition(interaction, match, *ignites)
         await interaction.followup.send(
             f"{outcome}\n"
             f"Extreme shootout: {self.cog.engine.shootout_running_score(match)}"

@@ -271,7 +271,7 @@ class SkillTestView(SafeView):
             )
             return
 
-        if not self.is_game_participant(game, interaction.user.id):
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the skill test.",
                 ephemeral=True,
@@ -338,6 +338,15 @@ class SkillTestView(SafeView):
                 ),
                 attachments=[dice_file],
                 view=SkillTestView(self.cog, self.game_id),
+            )
+            # A tie is re-rolled, so the ignition dice go up here too:
+            # they are what made these two totals equal, and the next
+            # roll is a fresh one that may ignite again.
+            await self.cog.post_volatile_ignition(
+                interaction,
+                match,
+                (offense_player.player_id, offense_ignite),
+                (defense_player.player_id, defense_ignite),
             )
             await self.cog.refresh_match_image(interaction, game)
             return
@@ -419,6 +428,16 @@ class SkillTestView(SafeView):
             attachments=[dice_file],
             view=None,
         )
+        # Between the dice and the verdict, which is where the ignite
+        # itself happened: the second die is what took one of those two
+        # totals past the other, and the tier rider announced below is
+        # read off the same two dice.
+        await self.cog.post_volatile_ignition(
+            interaction,
+            match,
+            (offense_player.player_id, offense_ignite),
+            (defense_player.player_id, defense_ignite),
+        )
         await interaction.followup.send(
             f"## **{winner_name}** wins the skill test!{volatile_note}"
         )
@@ -489,7 +508,7 @@ class InjuryTestView(SafeView):
             )
             return
 
-        if not self.is_game_participant(game, interaction.user.id):
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the injury test.",
                 ephemeral=True,
@@ -553,7 +572,7 @@ class OwnGoalRollView(SafeView):
             )
             return
 
-        if not self.is_game_participant(game, interaction.user.id):
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll for the own goal.",
                 ephemeral=True,
@@ -634,7 +653,12 @@ class ScoreAttemptView(SafeView):
         shooter: PlayerDefinition,
         attacking_setup: TeamSetup,
         defending_setup: TeamSetup,
-    ) -> tuple[list[tuple[int, Team, list[str], int]], int, int]:
+    ) -> tuple[
+        list[tuple[int, Team, list[str], int]],
+        int,
+        int,
+        IgnitedRoll,
+    ]:
         """
         Roll the shot and price the wall in front of it, as the two
         sides `render_contest_dice` draws plus the totals the verdict
@@ -649,7 +673,9 @@ class ScoreAttemptView(SafeView):
         meeples rather than a player rolling -- it belongs to no card,
         so there is no species behind it. See "Volatile" in
         docs/living-rules.md, which names "the shooter's die" and no
-        other.
+        other. It comes back with the totals for the same reason: the
+        caller is what posts the ignition die, and there is only ever
+        one of them to post here.
         """
         offense_skill = self.cog.player_catalog.effective_profile(
             shooter,
@@ -745,6 +771,7 @@ class ScoreAttemptView(SafeView):
             ],
             attack_total,
             defense_total,
+            attack_ignite,
         )
 
     def settle_score_attempt(
@@ -849,7 +876,7 @@ class ScoreAttemptView(SafeView):
             )
             return
 
-        if not self.is_game_participant(game, interaction.user.id):
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this game can roll the score attempt.",
                 ephemeral=True,
@@ -860,7 +887,12 @@ class ScoreAttemptView(SafeView):
         attacking_setup = match.setup_for_side(match.ball.possession)
         defending_setup = match.setup_for_side(match.defending_side())
 
-        contestants, attack_total, defense_total = self.score_score_attempt(
+        (
+            contestants,
+            attack_total,
+            defense_total,
+            attack_ignite,
+        ) = self.score_score_attempt(
             game, match, shooter, attacking_setup, defending_setup,
         )
         match.consume_overdrive()
@@ -904,6 +936,12 @@ class ScoreAttemptView(SafeView):
             content=None,
             attachments=[dice_file],
             view=None,
+        )
+        # The shooter's own die, if it ignited -- between the dice and
+        # the verdict, so a goal that a surge bought is read in the
+        # order it happened.
+        await self.cog.post_volatile_ignition(
+            interaction, match, (shooter.player_id, attack_ignite),
         )
         await interaction.followup.send(verdict)
         if scored:
@@ -971,9 +1009,7 @@ class ScoreAttemptView(SafeView):
             )
             return
 
-        if not self.cog.engine.user_controls_possession(
-            interaction.user.id, game, match,
-        ):
+        if not self.may_act_for_possession(interaction, game, match):
             await interaction.response.send_message(
                 "Only the player who chose to shoot can change their "
                 "mind.",

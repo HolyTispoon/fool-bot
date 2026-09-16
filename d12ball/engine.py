@@ -58,6 +58,8 @@ from d12ball.components import (
     SPECIES_FIRE_DEMON,
     SPECIES_OOZE,
     SPECIES_TELEKINETIC,
+    VOLATILE_IGNITE_FACES,
+    VOLATILE_SURGE_MINIMUM,
     BasicRuleset,
     CoachingOccasion,
     FormationShape,
@@ -83,7 +85,7 @@ from d12ball.formatting import (
     player_with_role,
     role_initials,
     space_label,
-    travel_space_label,
+    travel_space_phrase,
 )
 from d12ball.game import (
     AIOpponent,
@@ -113,6 +115,12 @@ class IgnitedRoll:
     `second` is the ignite's own die, `surge` says which way it went,
     and `modifier` is 0 for every roll that did not ignite -- which is
     every roll in a basic game, and most rolls in an advanced one.
+
+    **`second` is also a die a coach watches**, not only a number in
+    `modifier`: it is drawn on an ignition die of its own and captioned
+    with `explain` -- see `D12Ball.post_volatile_ignition`. That is why
+    the face and which way it went are carried apart from the
+    arithmetic rather than folded into it.
     """
 
     face: int
@@ -141,13 +149,48 @@ class IgnitedRoll:
         word = "surge" if self.surge else "backfire"
         return f"{self.modifier:+d} Volatile {word} ({self.second})"
 
+    def explain(self, label: str) -> Optional[str]:
+        """
+        The sentence posted beside the ignition die -- what just
+        happened to this roll, in words, or None when nothing did.
 
-# The faces that ignite a Fire Demon's die, and the lowest second roll
-# that surges rather than backfires -- see "Volatile (Fire Demon)" in
-# docs/living-rules.md. Named rather than written into the predicate
-# because both numbers are the author's and neither is derivable.
-VOLATILE_IGNITE_FACES = (6, 7)
-VOLATILE_SURGE_MINIMUM = 5
+        **The twin of `detail`, and deliberately beside it.** The two
+        are one ignite said in the two places a coach reads it: `detail`
+        is the modifier line in the totals column of the roll's own dice
+        image, which is arithmetic and has to add up; this is the
+        sentence over the second die's own image, which has to explain
+        why there is a second die at all. Written apart they come to
+        disagree about which way a roll went.
+
+        It names the numbers rather than the rule -- the natural face
+        that ignited, the second die, and which side of
+        `VOLATILE_SURGE_MINIMUM` it fell -- because the rule itself is
+        drawn on the image it captions (see `volatile_explainer_label`).
+        `label` is the player as the caller already names them, emoji
+        and role bracket included, so this reads like every other line
+        about them.
+
+        **What ignites is the ball** (the author, 2026-09-16), not the
+        die. The rules state the trigger as a property of the die,
+        which is what a player has to *check*; what a coach is watching
+        is a Fire Demon setting the ball alight, and the message is the
+        place that says so.
+        """
+        if not self.ignited:
+            return None
+        if self.surge:
+            return (
+                f"🔥 **Volatile** — {label} rolled a natural {self.face}, "
+                f"so **the ball ignites**. The second d12 comes up "
+                f"**{self.second}** — {VOLATILE_SURGE_MINIMUM} or more, so "
+                f"it **surges**: **{self.modifier:+d}** to their roll."
+            )
+        return (
+            f"🔥 **Volatile** — {label} rolled a natural {self.face}, so "
+            f"**the ball ignites**. The second d12 comes up "
+            f"**{self.second}** — under {VOLATILE_SURGE_MINIMUM}, so it "
+            f"**backfires**: **{self.modifier:+d}** to their roll."
+        )
 
 
 # The halftime sequence's stages, in order -- see
@@ -2372,21 +2415,37 @@ class RulesEngine:
         What the coach is agreeing to, in place of the turn prompt --
         see CedeConfirmView. Everything it names is a cost or a
         consequence the button label has no room for: who gets the
-        ball, where, that the declaration goes with it, and that the
-        other coach is handed a window of their own on the back of it.
+        ball, where, what the window is for, that the declaration goes
+        with it, and that the other coach is handed a window of their
+        own on the back of it.
+
+        **Two sentences, one subject each** (the author). What the ball
+        does and what the coach gets are two facts, and they were run
+        together into one -- "{team} take possession at M2, where it
+        stands, and you open a Coaching Choice, free of exhaustion" --
+        which changes subject mid-clause and leaves the exhaustion note
+        hanging off the end with nothing to attach to.
+
+        What the window is for is named in a **purpose clause rather
+        than as a list**. The four actions were spelled out in full
+        here, which is the hub's own menu written out one screen early;
+        naming the two a coach cedes the ball *for* says why the button
+        is worth pressing without standing in for the buttons.
         """
         receiving = format_team_side_label(
             match.setup_for_side(match.defending_side())
         )
         lines = [
             "# Cede the ball?",
-            f"{receiving} take possession at "
-            f"{space_label(match.ball.zone, match.ball.space_index)}, where "
-            "it stands, and you open a Coaching Choice -- formation, "
-            "substitutions, zone assignment, space positioning, free of "
-            "exhaustion.",
+            f"{receiving} takes possession of the ball at "
+            f"{space_label(match.ball.zone, match.ball.space_index)}. "
+            "You may open a Coaching Choice to substitute players or "
+            "change formation/assignment.",
+            # "takes" above, so "gets" here: the team is one thing in
+            # this message, and a side that takes and then get reads
+            # as a typo.
             "It uses up your Coaching Choice for this half, and "
-            f"{receiving} get one of their own to answer it.",
+            f"{receiving} gets one of their own to answer it.",
         ]
         if match.scoreboard.last_possession:
             # The one case where the coaching never happens: a turnover
@@ -2404,21 +2463,37 @@ class RulesEngine:
         side: TeamSide,
         player_id: str,
     ) -> str:
-        """The spaces `player_id` may run back to in their own zone,
-        with what each costs -- so the coach sees every option up
-        front, alongside the buttons that offer the same choice and
-        carry the same labels."""
+        """
+        The spaces `player_id` may run back to in their own zone, and
+        how far off each one is -- the question the buttons underneath
+        ask, said once as a sentence.
+
+        It reads as the offer it is ("M2 (1 space away) or M3 (2 spaces
+        away)") rather than as a list with a rule under it. The
+        "Options:" heading labelled something already sitting in front
+        of the coach, and the token-a-space clause restated a price the
+        distances are already quoting: every one of these buttons
+        charges a token a space, so a coach comparing 1 against 2 is
+        comparing the cost whether or not the sentence says so.
+        """
         zone = match.setup_for_side(side).assigned_zone(player_id)
         spaces = match.placement_spaces_in_zone(side, zone, player_id)
         if not spaces:
             return "No space in their zone."
-        options = ", ".join(
-            travel_space_label(
+        options = [
+            travel_space_phrase(
                 zone, index, match.run_back_distance(player_id, zone, index),
             )
             for index in spaces
-        )
-        return f"Options: {options} — one exhaustion token per space."
+        ]
+        # "A or B", "A, B or C" -- the last one joined with the word
+        # that says these are alternatives, since exactly one of them
+        # is going to be pressed.
+        if len(options) == 1:
+            offer = options[0]
+        else:
+            offer = f"{', '.join(options[:-1])} or {options[-1]}"
+        return f"{offer}."
 
     def shootout_mentions(
         self,
@@ -2630,18 +2705,24 @@ class RulesEngine:
         # the same read: out of range is exactly when ceding is on
         # offer, and the only thing that can take it away as well is a
         # declaration already spent.
+        #
+        # Each says the reason once and then names what is left. The
+        # third used to spell out both absences as well ("so there is
+        # no shot and no cede -- only a maneuver"), which listed two
+        # buttons that are not on the message in order to introduce the
+        # one that is -- and did it on every turn for the rest of a
+        # half, since a spent declaration does not come back.
         if match.can_attempt_score():
             action_line = "Choose an action:"
         elif match.may_cede_possession():
             action_line = (
-                "The ball is out of shooting range, so there is no shot "
-                "from here. Maneuver, or cede the ball to coach:"
+                "Out of shooting range. Maneuver, or cede the ball to "
+                "coach:"
             )
         else:
             action_line = (
-                "The ball is out of shooting range and your side has "
-                "already called its Coaching Choice this half, so there "
-                "is no shot and no cede -- only a maneuver:"
+                "Out of shooting range, and your Coaching Choice is "
+                "spent for this half. Maneuver:"
             )
         return (
             f"{controller}, it is your turn.\n\n"

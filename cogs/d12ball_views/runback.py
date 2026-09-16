@@ -106,7 +106,7 @@ class RunBackPlayerChoiceView(SafeView):
             return
 
         controller_id = self.cog.engine.controlling_user_id(game, match, player_id)
-        if interaction.user.id != controller_id:
+        if not self.may_act_for(interaction, controller_id):
             await interaction.response.send_message(
                 "Only that team's coach can choose this.",
                 ephemeral=True,
@@ -202,7 +202,7 @@ class RunBackChoiceView(SafeView):
         controller_id = self.cog.engine.controlling_user_id(
             game, match, self.player_id,
         )
-        if interaction.user.id != controller_id:
+        if not self.may_act_for(interaction, controller_id):
             await interaction.response.send_message(
                 "Only that team's coach can choose this.",
                 ephemeral=True,

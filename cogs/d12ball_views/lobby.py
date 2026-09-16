@@ -29,6 +29,7 @@ from cogs.d12ball_helpers import (
     HUB_ROLES,
     advanced_module_label,
     build_lobby_message,
+    may_act_in_game,
     toggle_advanced_module,
 )
 
@@ -141,10 +142,7 @@ class LobbyNameModal(discord.ui.Modal, title="Name this game"):
             )
             return
 
-        participant_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            participant_ids.add(game.player_2_id)
-        if interaction.user.id not in participant_ids:
+        if not may_act_in_game(interaction.user, game):
             await interaction.response.send_message(
                 "Only a player in this lobby can name the game.",
                 ephemeral=True,
@@ -384,10 +382,11 @@ class LobbyView(SafeView):
         setting: str,
         value: str,
     ) -> None:
-        participant_ids = {game.player_1_id}
-        if game.player_2_id is not None:
-            participant_ids.add(game.player_2_id)
-        if interaction.user.id not in participant_ids:
+        # Either player, or a game helper -- see "Who may act on a
+        # game" in CLAUDE.md. This is the gate somebody walking a new
+        # player through their first game meets: turning Tutorial on for
+        # a lobby they are not playing in is the whole point of it.
+        if not self.may_act_in_game(interaction, game):
             await interaction.response.send_message(
                 "Only a player in this lobby can change its settings.",
                 ephemeral=True,
