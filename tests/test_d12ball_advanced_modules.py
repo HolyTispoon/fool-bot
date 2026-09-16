@@ -66,6 +66,7 @@ class FakeCog:
     def __init__(self, game) -> None:
         self.games = {game.game_id: game}
         self.coin_emojis = {}
+        self.team_emojis = {}
         self.d12_emoji = None
         self.d12_button_emoji = None
         self.player_catalog = load_player_catalog()
@@ -159,8 +160,8 @@ class ModeWordingTests(unittest.TestCase):
     def test_both_setup_screens_say_what_the_game_is_playing(self) -> None:
         game = build_game(advanced_maneuvers=False)
 
-        self.assertIn("species abilities", build_setup_message(game))
-        self.assertNotIn("six maneuvers", build_setup_message(game))
+        self.assertIn("species abilities", build_setup_message(game, {}))
+        self.assertNotIn("six maneuvers", build_setup_message(game, {}))
         self.assertIn("species abilities", build_lobby_message(build_lobby(
             advanced_maneuvers=False,
         )))

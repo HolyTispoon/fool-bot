@@ -19,10 +19,10 @@ from d12ball.game import (
 )
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
-    ROLE_INITIALS,
     add_full_image_button_to_response,
     challenger_prompt_ask,
     format_player_with_team,
+    player_with_role,
     refresh_player_names,
 )
 
@@ -56,9 +56,8 @@ class BallHandlerSelectionView(SafeView):
         # rules.
         for player_id in cog.engine.turn_handler_candidates(game, match):
             player = self.cog.engine.get_player_definition(player_id)
-            initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
-                label=f"{player.name} [{initials}]",
+                label=player_with_role(player)[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:ball_handler:{game_id}:{player_id}"
@@ -88,7 +87,9 @@ class BallHandlerSelectionView(SafeView):
 
         if match.active_player_id is not None:
             await interaction.response.edit_message(
-                content=self.cog.engine.build_turn_prompt(game, match),
+                content=self.cog.engine.build_turn_prompt(
+                    game, match, self.cog.team_emojis,
+                ),
                 view=PlayerActionView(self.cog, self.game_id),
             )
             await interaction.followup.send(
@@ -119,7 +120,9 @@ class BallHandlerSelectionView(SafeView):
 
         self.cog.persist(game, match)
         await interaction.response.edit_message(
-            content=self.cog.engine.build_turn_prompt(game, match),
+            content=self.cog.engine.build_turn_prompt(
+                    game, match, self.cog.team_emojis,
+                ),
             view=PlayerActionView(self.cog, self.game_id),
         )
 
@@ -286,7 +289,9 @@ class PlayerActionView(SafeView):
         refresh_player_names(game, interaction.guild)
         handler = self.cog.engine.get_player_definition(match.active_player_id)
         offense_number = self.cog.engine.possession_player_number(game, match)
-        offense_display = format_player_with_team(game, offense_number)
+        offense_display = format_player_with_team(
+            game, offense_number, self.cog.team_emojis,
+        )
 
         await interaction.response.edit_message(
             content=(
@@ -423,6 +428,7 @@ class PlayerActionView(SafeView):
         defender_mention = format_player_with_team(
             game,
             defender_number,
+            self.cog.team_emojis,
             mention=True,
         )
 
@@ -588,9 +594,8 @@ class ManeuverChallengeView(SafeView):
         for player_id in match.challenge_candidates():
             player = self.cog.engine.get_player_definition(player_id)
             distance = match.distance_to_ball(player_id)
-            initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
-                label=f"{player.name} [{initials}] ({distance})",
+                label=f"{player_with_role(player)} ({distance})"[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:challenger:{game_id}:{player_id}"
@@ -649,7 +654,9 @@ class ManeuverChallengeView(SafeView):
 
         if match.challenger_id is not None or match.maneuver_uncontested:
             await interaction.response.edit_message(
-                content=self.cog.engine.build_turn_prompt(game, match),
+                content=self.cog.engine.build_turn_prompt(
+                    game, match, self.cog.team_emojis,
+                ),
                 view=PlayerActionView(self.cog, self.game_id),
             )
             await interaction.followup.send(
@@ -1070,7 +1077,9 @@ class ManeuverActionPromptView(SafeView):
                 if side == "offense"
                 else self.cog.engine.defending_player_number(game, match)
             )
-            side_display = format_player_with_team(game, side_number)
+            side_display = format_player_with_team(
+                game, side_number, self.cog.team_emojis,
+            )
             await interaction.followup.send(
                 f"{side_display} has picked their maneuver.",
             )

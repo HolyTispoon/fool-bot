@@ -24,7 +24,7 @@ from d12ball.components import (
 from d12ball.formatting import (
     AI_OPPONENT_NAMES,
     BENCH_DESTINATIONS,
-    ROLE_INITIALS,
+    TEAM_EMOJI_FALLBACKS,
     ZONE_LETTERS,
     ball_space_label,
     challenger_prompt_ask,
@@ -34,6 +34,8 @@ from d12ball.formatting import (
     format_player,
     format_player_with_team,
     format_team_side_label,
+    get_team_emoji,
+    player_with_role,
     space_label,
     travel_space_label,
     travel_space_phrase,
@@ -61,9 +63,12 @@ CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)(?:-.*)?$")
 CHANNEL_NAME_MAX_LENGTH = 100
 PBD_GAMES_CATEGORY_NAME = "PBD Games"
 PBD_ARCHIVE_CATEGORY_NAME = "PBD Archive"
-# ROLE_INITIALS, ZONE_LETTERS and BENCH_DESTINATIONS are imported above
-# from d12ball.formatting, which is also where space_label -- the
-# reader of ZONE_LETTERS -- now lives.
+# ZONE_LETTERS and BENCH_DESTINATIONS are imported above from
+# d12ball.formatting, which is also where space_label -- the reader
+# of ZONE_LETTERS -- now lives. ROLE_INITIALS is not re-exported:
+# `role_initials` is its one reader outside the drawing modules,
+# and `player_with_role` is the only thing that should be building
+# a name out of it -- see "Naming a player" in CLAUDE.md.
 COIN_EMOJI_NAMES = {
     CoinFace.FORTUNE: "3_gold_fortune",
     CoinFace.DOOM: "3_gold_doom",
@@ -140,19 +145,8 @@ TEAM_EMOJI_NAMES = {
     Team.TELEKINETICS: "team_telekinetics",
     Team.OOZES: "team_oozes",
 }
-TEAM_EMOJI_FALLBACKS = {
-    Team.ORANGE: "🟠",
-    Team.TEAL: "🔵",
-    Team.PURPLE: "🟣",
-    Team.SLIME: "🟢",
-    # A species team shares its paired color team's ring (see "Team
-    # colors" in CLAUDE.md), so its fallback has to read differently
-    # from a plain colored circle before the real upload replaces it.
-    Team.FIRE_DEMONS: "🔥",
-    Team.CYBORGS: "🤖",
-    Team.TELEKINETICS: "🔮",
-    Team.OOZES: "🫧",
-}
+# TEAM_EMOJI_FALLBACKS and get_team_emoji are imported above from
+# d12ball.formatting, where format_player_with_team reads them.
 EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
 
 
@@ -291,10 +285,6 @@ async def load_team_emojis(
         )
 
     return team_emojis
-
-
-def get_team_emoji(team_emojis: dict[Team, str], team: Team) -> str:
-    return team_emojis.get(team, TEAM_EMOJI_FALLBACKS[team])
 
 
 def slugify_channel_part(text: str) -> str:
@@ -439,15 +429,20 @@ def format_role_bracket(
     team: Team,
 ) -> str:
     """
-    "🟠 Hellguard [FB]" -- the emoji names which of a player's two
-    rosters this card is being shown as, since `PlayerDefinition` no
-    longer carries a team of its own. Every caller already has a match
-    or a setup in scope to read it off (`match.team_for_player(...)`,
-    or `setup.team` when the player is known to be on that side).
+    "🟠 Hellguard [FB]" -- `player_with_role` with the team emoji in
+    front, which is the form every *message* names a player in. The
+    emoji says which of a player's two rosters this card is being shown
+    as, since `PlayerDefinition` no longer carries a team of its own;
+    every caller already has a match or a setup in scope to read it off
+    (`match.team_for_player(...)`, or `setup.team` when the player is
+    known to be on that side).
+
+    **A button gets the position instead of the emoji**, which is the
+    only place the two forms differ -- see `player_with_role` and
+    "Naming a player" in CLAUDE.md.
     """
-    initials = ROLE_INITIALS[player.role.value]
     team_emoji = get_team_emoji(team_emojis, team)
-    return f"{team_emoji} {player.name} [{initials}]"
+    return f"{team_emoji} {player_with_role(player)}"
 
 
 # destination_display_name, format_team_side_label, space_label,
@@ -578,7 +573,7 @@ def format_goal_scorer(goal: GoalRecord, catalog: PlayerCatalog) -> str:
     thing on the line contradicting it.
     """
     player = catalog.player_by_id(goal.player_id)
-    name = f"{player.name} [{ROLE_INITIALS[player.role.value]}]"
+    name = player_with_role(player)
     return f"{name} (OG)" if goal.own_goal else name
 
 
@@ -792,16 +787,19 @@ def describe_game_mode(game: D12BallGame) -> str:
 
 def build_setup_message(
     game: D12BallGame,
+    team_emojis: dict[Team, str],
     mention_players: bool = True,
 ) -> str:
     player_1 = format_player_with_team(
         game,
         1,
+        team_emojis,
         mention=mention_players,
     )
     player_2 = format_player_with_team(
         game,
         2,
+        team_emojis,
         mention=mention_players,
     )
 
@@ -888,13 +886,16 @@ async def load_d12_button_emoji(
     emojis_by_name: Optional[dict] = None,
 ) -> Optional[str]:
     """
-    The emoji for the hub's "D12 Ball" button: the lighter `d12dicecream`
-    cut, falling back to the plain `d12dice` when that one has not been
-    uploaded.
+    The emoji for the hub's buttons: the lighter `d12dicecream` cut, or
+    None when it has not been uploaded. Deliberately no fallback to the
+    plain `d12dice` -- a blue die on a green button is exactly what the
+    cream cut exists to avoid, so a missing upload leaves the button
+    bare (and an INFO line saying which name was missed) rather than
+    quietly putting the wrong die on it.
     """
     return await load_d12_emoji(
         bot, emojis_by_name, name=D12_BUTTON_EMOJI_NAME,
-    ) or await load_d12_emoji(bot, emojis_by_name)
+    )
 
 
 def build_hub_message(d12_emoji: Optional[str] = None) -> str:
@@ -1148,10 +1149,14 @@ def format_coin_emoji(
     return coin_emojis.get(CoinFace(face), COIN_EMOJI_FALLBACK)
 
 
-def build_home_choice_message(game: D12BallGame) -> str:
+def build_home_choice_message(
+    game: D12BallGame,
+    team_emojis: dict[Team, str],
+) -> str:
     winner = format_player_with_team(
         game,
         game.coin_winner_player_number,
+        team_emojis,
     )
 
     if (
@@ -1161,6 +1166,7 @@ def build_home_choice_message(game: D12BallGame) -> str:
         flipper = format_player_with_team(
             game,
             game.coin_flipped_by_player_number,
+            team_emojis,
         )
         # The coin itself goes out as its own message, so that Discord
         # renders it large; this text does not repeat it.
@@ -1180,10 +1186,12 @@ def build_home_choice_message(game: D12BallGame) -> str:
         home_player = format_player_with_team(
             game,
             game.home_player_number,
+            team_emojis,
         )
         visiting_player = format_player_with_team(
             game,
             game.visiting_player_number,
+            team_emojis,
         )
 
         if game.is_solo_game and game.coin_winner_player_number == 2:
@@ -1201,6 +1209,7 @@ def build_home_choice_message(game: D12BallGame) -> str:
         winner_mention = format_player_with_team(
             game,
             game.coin_winner_player_number,
+            team_emojis,
             mention=True,
         )
         text += (

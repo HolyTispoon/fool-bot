@@ -77,12 +77,13 @@ from d12ball.components import (
     zone_for_area,
 )
 from d12ball.formatting import (
-    ROLE_INITIALS,
     ball_space_label,
     contest_noun,
     destination_display_name,
     format_player_with_team,
     format_team_side_label,
+    player_with_role,
+    role_initials,
     space_label,
     travel_space_phrase,
 )
@@ -2252,16 +2253,16 @@ class RulesEngine:
         if not occupants:
             return f"{space_label(zone, space_index)}, no teammate"
         teammate = self.get_player_definition(occupants[0])
-        role_initial = ROLE_INITIALS[teammate.role.value]
         return (
-            f"{space_label(zone, space_index)}-{teammate.name} "
-            f"[{role_initial}]"
+            f"{space_label(zone, space_index)}-"
+            f"{player_with_role(teammate)}"
         )
 
     def build_loose_ball_prompt(
         self,
         game: D12BallGame,
         match: MatchState,
+        team_emojis: dict[Team, str],
     ) -> str:
         """
         Who is being asked, and for what.
@@ -2270,6 +2271,11 @@ class RulesEngine:
         outlives the message that announced it: `/d12ball resume` puts
         it back up on its own, and a restart re-arms it wherever it is
         in the channel.
+
+        `team_emojis` is the cog's, passed in rather than held: the
+        coach is named with their side's emoji (see
+        `format_player_with_team`), and the engine is built before
+        cog_load has fetched them and is read-only from there on.
         """
         skill_type = self.loose_ball_side_on_the_clock(match)
         number = (
@@ -2277,7 +2283,9 @@ class RulesEngine:
             if skill_type == "offense"
             else self.defending_player_number(game, match)
         )
-        mention = format_player_with_team(game, number, mention=True)
+        mention = format_player_with_team(
+            game, number, team_emojis, mention=True,
+        )
         noun = contest_noun(match)
         where = ball_space_label(match)
         side = self.loose_ball_prompt_side(match)
@@ -2515,11 +2523,11 @@ class RulesEngine:
         the label rather than a card the coach has to go and find.
         """
         player = self.get_player_definition(player_id)
-        role = ROLE_INITIALS[player.role.value]
+        name = player_with_role(player)
         if match is not None and player_id in match.injured:
-            return f"{player.name} [{role}] injured"
+            return f"{name} injured"
         offense = self.player_catalog.effective_profile(player).offense
-        return f"{player.name} [{role}] +{offense}"
+        return f"{name} +{offense}"
 
     def challenge_side(
         self,
@@ -2548,7 +2556,7 @@ class RulesEngine:
         profile = self.player_catalog.effective_profile(player)
         return ChallengeSide(
             name=player.name,
-            role=ROLE_INITIALS[player.role.value],
+            role=role_initials(player),
             team_color=TEAM_COLORS[Team(team)],
             team_label=team_display_name(team),
             skill_name="Offensive" if attacking else "Defensive",
@@ -2560,16 +2568,33 @@ class RulesEngine:
         )
 
     def format_roster_player(self, player_id: str) -> str:
-        player = self.get_player_definition(player_id)
-        initials = ROLE_INITIALS[player.role.value]
-        return f"{player.name} ({initials})"
+        """
+        `player_with_role` for a caller holding a card id -- "Hellguard
+        [FB]", the one spelling every label in the game uses. See
+        "Naming a player" in CLAUDE.md.
+
+        It spelled the role in parentheses until 2026-09-16, which read
+        as a second form of the same thing and collided with whatever
+        the caller put after it: the halftime buttons came out
+        "Hellguard (FB) (3)" and the roster listing "Hellguard (FB)
+        (M2)". Brackets leave the parentheses to mean one thing.
+        """
+        return player_with_role(self.get_player_definition(player_id))
 
     def format_roster_player_with_team(
         self, player_id: str, team: Team,
     ) -> str:
-        player = self.get_player_definition(player_id)
-        initials = ROLE_INITIALS[player.role.value]
-        return f"{player.name} ({team_display_name(team)}, {initials})"
+        """
+        The same, plus the team in words -- for the two autocompletes
+        that list *both* sides at once, where the name alone is
+        ambiguous whenever the same person is fielded on each (see
+        "One player, both sides"). The team is spelled out rather than
+        drawn as an emoji because an autocomplete choice is plain text.
+        """
+        return (
+            f"{self.format_roster_player(player_id)} "
+            f"({team_display_name(team)})"
+        )
 
     def roster_places(
         self,
@@ -2647,12 +2672,15 @@ class RulesEngine:
         self,
         game: D12BallGame,
         match: MatchState,
+        team_emojis: dict[Team, str],
         carrying: bool = False,
     ) -> str:
+        # `team_emojis` is the cog's -- see build_loose_ball_prompt.
         player_number = self.possession_player_number(game, match)
         controller = format_player_with_team(
             game,
             player_number,
+            team_emojis,
             mention=player_number is not None,
         )
 

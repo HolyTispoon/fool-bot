@@ -24,7 +24,7 @@ python3 -m unittest discover -s tests
 | `discord_emoji_cache.py` | The cache-with-cooldown shape shared by every cog's application-emoji lookup (`cogs/coins.py`, `cogs/d12ball.py`) -- not what each cog loads, only the retry timing |
 | `botlog/` | Console logging setup, and the #logs channel mirror — see below |
 | `cogs/d12ball/` | All D12 Ball slash commands and the Discord interaction flow. One class of 217 methods over 10,087 lines is what this package replaced, split along the section banners the file already carried: `core` (lifecycle, lookups, `persist`, the spine of a turn, `pending_turn_view`), `effects` (one banner per maneuver), `turnovers` (run back, the time out, out-of-bounds pickup), `periods` (clock, halftime, shootout), `presentation` (prompts, images, channels, the AI turn, the tutorial's narration) and `slash_commands` (every command, the three subgroups, the startup sweep). `__init__.py` assembles `D12Ball` from the six mixins and re-exports what the module exposed, so `from cogs.d12ball import D12Ball` is unchanged. |
-| `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming. Re-imports and re-exports everything `d12ball/formatting.py` holds, so an existing `from cogs.d12ball_helpers import space_label` keeps working; what stayed here needs an emoji dict or discord.py itself. |
+| `cogs/d12ball_helpers.py` | Constants and free functions shared by the cog and its views — emoji lookups, player/team formatting, channel naming. Re-imports and re-exports everything `d12ball/formatting.py` holds, so an existing `from cogs.d12ball_helpers import space_label` keeps working; what stayed here *fetches* emoji or touches discord.py itself. (`TEAM_EMOJI_FALLBACKS` and `get_team_emoji` are `formatting.py`'s: a fetched dict is plain data, and the engine's prompt builders name a coach with it.) |
 | `cogs/d12ball_views/` | The `discord.ui.View` classes, one per prompt a player can be shown -- forty-nine of them, split into ten modules along the clusters they already fell into (`base`, `setup`, `turn`, `rolls`, `runback`, `effects`, `coaching`, `halftime`, `loose_ball`, `shootout`). `__init__.py` re-exports every name the single file held, so `from cogs.d12ball_views import X` is unchanged for every X and no call site moved -- the arrangement `cogs/d12ball_helpers.py` has with `d12ball/formatting.py`. `base` holds `SafeView` (whose `load_match`/`require_match` are the shared "get the game and its match, or bail" lookup nearly every view opens with, and whose `is_game_participant` is the shared "is this one of the two coaches" check a roll button answers to) plus the two contest-rendering helpers; it imports from no sibling, which is what keeps the package a DAG. |
 | `cogs/d12ball_boards.py` | The write gate on a game's persistent board message. `BoardRefreshState` is one game's -- when a write landed, the pass waiting to write again, the board already on the message, the link owed for it, the lock, the wants arriving mid-write, the refusals -- and `BoardRefresher` holds one per game and the six methods that read it. Those were seven parallel dicts keyed by game id on the cog, agreeing about a game only by hand at each of the eleven sites that wrote them. `D12Ball` keeps a thin forwarding method for each of the six, so no call site moved -- see "Discord's rate limits". |
 | `cogs/debug.py` | Maintenance commands, including the PBD channel-and-count reset |
@@ -229,6 +229,9 @@ that rule for free. **This is the standard deal only**; a formation change re-de
   `LowPassReceiverView` puts the choice to the passer. `low_pass_candidates`
   still names one player per destination -- that is a button label, not the
   receiver.
+- **Both prompts are posted over the field strip**, which is one upload for
+  the two of them -- see
+  [Choosing a distance, and the field under it](#choosing-a-distance-and-the-field-under-it).
 
 ## The Coaching Choice
 
@@ -582,6 +585,133 @@ extra click bought a round trip and nothing else.
 - **The uploads halve.** One public hand image and one public field strip,
   against a hand and a field to each of two coaches. See
   [The maneuver cards](#the-maneuver-cards).
+
+## Choosing a distance, and the field under it
+
+**Six prompts ask a version of one question** -- how far does the ball or its
+handler go, and who ends up with it -- and all of them are posted over
+[the field strip](#working-on-the-board-image).
+`D12Ball.send_field_prompt` is the funnel for five of them: the Low Pass and
+Skilled Pass destination (`LowPassChoiceView`), the High Pass and Setup Pass
+distance, and both dribbles' run. The sixth is the run back, which asks the
+same question either side of a turnover and carries the same picture through
+`send_run_back_prompt` -- see
+[Turnovers](#turnovers-steals-and-new-plays).
+
+- **They are one helper because they are one question.** Every one is answered
+  by reading where everybody is standing relative to the ball, and by the time
+  a maneuver has resolved the persistent board has scrolled away up the channel
+  -- the same reasoning as the strip under the maneuver cards. They were five
+  copies of the same four lines, two of them already carrying the strip and
+  three carrying nothing at all.
+- **The strip, and deliberately not the coaching image's half-field.** These
+  questions are about the *position*, and a position is both sides: a long pass
+  is contested where it lands, a dribble can run into somebody, and a set-up's
+  shot is priced by who is standing in front of the goal. The coaching image
+  shows one side's row with the ball left off, which is right for arranging
+  your own team with play stopped and wrong for reading a live position --
+  see [The Coaching Choice](#the-coaching-choice). `render_field_image` is a
+  **crop of the match image's own board**, so what a coach reads here cannot
+  differ from the board both of them are already looking at.
+  - This was got backwards once: the first build of these prompts used
+    `render_coaching_image` and gave `render_coaching_image` a `show_ball` to
+    make it fit, which also took the strip *off* the High Pass and Setup Pass
+    prompts that already had it. The half-field is the Coaching Choice's and
+    nothing else's; `coaching_file` says so.
+- **One attachment, on the prompt rather than beside it.** Discord lays two
+  images on one message out side by side and halves both, which is why the
+  strip under the maneuver *cards* is a message of its own and these are not.
+  Riding on the prompt is what lets the click that answers take the picture
+  away with `attachments=[]`: it shows the position the effect was chosen
+  against, and that position has just moved. The Low Pass's receiver pick is
+  the one step that *keeps* it -- the ball has not moved between the two
+  questions -- and so has to rebuild the full-image link onto the new view by
+  hand, the way `RunBackPlayerChoiceView` does.
+- **Every one carries a full-image link**, for the reason the strip under the
+  cards does: it is the whole width of the board in a strip a fifth as tall,
+  which is the smallest thing the bot sends inline.
+- **Both sends are the webhook route** -- the `followup.send` and the edit that
+  cuts the link -- so neither competes with the board for the channel's
+  five-in-five edit bucket. The clicks that answer are
+  `interaction.response.edit_message`, the interaction-callback route, which is
+  free of it too. See "Discord's rate limits".
+- **A restart re-posts these prompts without the picture.**
+  `resume_pending_prompt` posts `pending_turn_view`'s view on a bare message,
+  the same as every other image a resume loses.
+- **`tests/test_d12ball_field_prompts.py` guards the funnel**, which is the
+  thing that can quietly come apart: a resolver that goes back to building its
+  own `followup.send` still works, and still drops the field out from under its
+  own question.
+
+## Naming a player
+
+**A player is never named without their role.** Nine of them are on the field
+at once and a coach is choosing between them on what they do, so a bare name
+is the one thing a label can say that does not help -- the role initials are
+what the meeple, the card on the board and the printed card all carry, so the
+name a coach reads is the one they can match to what they are looking at.
+
+**Outside a button, a player also carries their team emoji.** Two things make
+that the split. A message can be about either side, and since the 2026-08-17
+reshuffle a card's own definition cannot say which of its two rosters it is
+being fielded as (see [One player, both sides](#one-player-both-sides)) -- so
+a message has to say. A button is the clicking coach's own side by
+construction, and the room the emoji would take is better spent on the
+position, which is what the choice usually turns on.
+
+| Where | Form | Built by |
+| --- | --- | --- |
+| A message | `🟠 Hellguard [FB]` | `format_role_bracket`, via `D12Ball.player_label` / `player_id_label` |
+| A button | `Hellguard [FB]`, plus the position or the price the choice turns on | `player_with_role` |
+| Anywhere holding a card id rather than a definition | `Hellguard [FB]` | `RulesEngine.format_roster_player` |
+| The two both-sides autocompletes | `Hellguard [FB] (Orange)` | `RulesEngine.format_roster_player_with_team` |
+| A coach, in a message | `🟠 @coach` | `format_player_with_team`, which takes the emoji dict |
+
+- **A coach is named the same way: their side's emoji in front, and
+  the team never in words.** `format_player_with_team` read
+  `@coach (Purple)` until 2026-09-16 -- the turn prompt, the maneuver
+  picks, the coin toss, the loose-ball send, the setup message all
+  spelled the team out in parentheses while every card beside them
+  carried the emoji. The emoji is the mark the board draws that side's
+  meeples in, so a coach and their cards now read as one side at a
+  glance, and the position is the player label's for the same reason
+  the emoji is: one rule for "whose is this", not two. A coach with no
+  team yet (setup, before the picker) is named bare -- "(Unknown team)"
+  answered a question nobody asked. The function takes the emoji dict
+  rather than reaching for one, which is why `build_turn_prompt` and
+  `build_loose_ball_prompt` on the engine take `team_emojis` too: the
+  engine is built before `cog_load` has fetched them and is read-only
+  from there on, so it cannot hold the dict itself. The two both-sides
+  autocompletes are the deliberate exception -- an autocomplete choice
+  is plain text and cannot render an emoji.
+- **`player_with_role` in `d12ball/formatting.py` is the whole of the
+  bracket spelling**, and the message form is it with the emoji in front --
+  `format_role_bracket` builds on it rather than beside it, so "outside a
+  button, also the emoji" is one rule and not two formatters agreeing by hand.
+- **`role_initials` is the one reader of `ROLE_INITIALS`** outside the modules
+  that *draw* it (`render.py`, `cards.py`, `player_cards.py`, `boards.py`,
+  `species_cards.py`), which index it for a glyph rather than for a name.
+  `NamingAPlayerTests` in `tests/test_d12ball_package_shape.py` fails on
+  anything else that reads it.
+- **The brackets are the *only* spelling.** The coaching flow, the halftime
+  buttons and `/ref`'s roster printed `Hellguard (FB)` until 2026-09-16, on
+  the reasoning that parentheses read better inside prose. What that missed is
+  that those labels all put something else in parentheses straight after --
+  the halftime buttons came out `Hellguard (FB) (3)` and the roster listing
+  `Hellguard (FB) (M2)`, where the two pairs of brackets mean different things
+  and nothing says which. One spelling for the role leaves parentheses free to
+  mean one thing, and it is what the rule reduces to: a player looks the same
+  everywhere.
+- **The rule was written down because the run back broke it.**
+  `RunBackPlayerChoiceView`'s buttons read `Hellguard — M2` -- the one place
+  in the game that named a card and left the role off. It was invisible
+  precisely because every *other* site spelled the brackets out for itself,
+  nine copies of `f"{player.name} [{ROLE_INITIALS[...]}]"`, so no one of them
+  looked like the odd one out. The sweep that fixed it is only permanent
+  because there is now one place left to change.
+- **A label is cut to Discord's 80 characters** (`[:80]`), which is a hard
+  limit rather than a style: a longer one is a 400 on the send, and the
+  prompt is what the turn is waiting on.
 
 ## A maneuver's identity is not its printed name
 
@@ -2119,24 +2249,35 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
   `notes` and `continue`, not send. `MAX_RUN_BACK_PASSES` bounds it: as a
   recursion the interpreter did that, and a loop that will not settle would
   hang the event loop for every game at once.
-- **A coach's run-back prompt carries the board, and prices every space it
-  offers.** "Where does this player run back to" is a question about where
-  everybody is standing and how far each space is -- the same reasoning as
-  [a loose ball](#loose-balls-and-the-board), and the persistent board has
-  scrolled away up the channel by the time a turn has resolved. So the prompt
-  is sent with a snapshot of its own, from the render the persistent message is
-  settled with (one draw, two uploads), and `RunBackChoiceView`'s buttons read
-  `M2 (4 spaces)` -- a run back costs a token a space, so the distance *is* the
-  price and the two spaces of a zone are rarely the same offer.
-  `MatchState.run_back_distance` is the one reading of it, asked by the labels
-  and spent by `run_back_player`, so what a button promises and what the coach
-  is charged cannot drift; `travel_space_label` is the wording, shared by the
-  buttons and by `describe_run_back_options` beside them.
-  - **The board goes when the question does.** The click edits the prompt into
-    its answer, and `attachments=[]` takes the snapshot with it -- it shows the
-    player still displaced, so leaving it under the result would put a stale
-    position in the channel for the rest of the game. The board they moved to
-    is the persistent message's, refreshed a line later.
+- **A coach's run-back prompt carries the field strip, and prices every space
+  it offers.** Both questions a run back asks -- which of these players goes,
+  and which space they go to -- are questions about where everybody is standing
+  and how far each space is, the same reasoning as
+  [a loose ball](#loose-balls-and-the-board), and the persistent message has
+  scrolled away up the channel by the time a turn has resolved. And
+  `RunBackChoiceView`'s buttons read `M2 (4 spaces)` -- a run back costs a
+  token a space, so the distance *is* the price and the two spaces of a zone
+  are rarely the same offer. `MatchState.run_back_distance` is the one reading
+  of it, asked by the labels and spent by `run_back_player`, so what a button
+  promises and what the coach is charged cannot drift; `travel_space_label` is
+  the wording, shared by the buttons and by `describe_run_back_options` beside
+  them.
+  - **The strip rather than the whole match image**, which is what it carried
+    before: the jumbotron, the assignment cards, the team boards and the
+    benches are not what either question turns on, and dropping them is what
+    makes the field itself legible inline. It is the same picture the five
+    [distance prompts](#choosing-a-distance-and-the-field-under-it) carry and
+    for the same reason.
+  - **It costs a second render, not a second upload.** The cascade's own board
+    still settles the persistent message and the prompt draws the strip beside
+    it, so this is two `asyncio.to_thread` renders where there was one, and
+    the same number of requests -- which is what the gate counts. See
+    "Discord's rate limits".
+  - **The picture goes when the question does.** The click edits the prompt
+    into its answer, and `attachments=[]` takes the snapshot with it -- it
+    shows the player still displaced, so leaving it under the result would put
+    a stale position in the channel for the rest of the game. The board they
+    moved to is the persistent message's, refreshed a line later.
   - The full-image link is added with the view handed over, or the edit that
     adds it drops the buttons the prompt exists for -- see
     `add_full_image_button`. That edit is the webhook route, not the channel's;
@@ -3120,6 +3261,15 @@ deliberately not mirrored for the visiting coach**: the zones keep their real
 names and the spaces their real numbers, so V1 is the same space on both images
 and on the board the coaches are looking at.
 
+**That half-field is the Coaching Choice's and nothing else's.** The ball is
+left off because a Coaching Choice happens with play stopped and none of its
+four actions turns on where the ball is, and only one side's row is drawn
+because the flow is a coach arranging their own team. Both of those are wrong
+for a prompt about a live position, which is why every
+[distance prompt](#choosing-a-distance-and-the-field-under-it) and the run back carry the field strip
+below instead -- a mistake worth naming, since the first build of those
+prompts reached for this image and grew it a `show_ball` to make it fit.
+
 **`render_field_image` is the third, and it is a crop rather than a third
 layout.** The field alone -- both sides' meeples, the ball, the space codes and
 the shooting range edges, with no title, jumbotron, assignment cards, team
@@ -3326,15 +3476,12 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     inline.
   - **Losing it must not lose the pick**, which is already up and clickable by
     then, so the send is wrapped the way `add_full_image_button`'s is.
-  - **The High Pass distance prompt carries it too**, and is the one place it
-    is an attachment on the prompt rather than a message of its own. Choosing
-    2, 3 or 4 is the same question the cards are read against -- how far is the
-    end of the field from here -- and there is no second image on that message
-    for Discord to lay it out beside. Riding on the prompt is what lets
-    `HighPassChoiceView.choose` take it away with `attachments=[]` in the edit
-    that answers the question, so a strip showing the ball where it was
-    *before* the pass does not outlive the pass. See "A High Pass that runs out
-    of field".
+  - **Every distance prompt carries one too**, as an attachment on the prompt
+    rather than a message of its own -- the High Pass, the Setup Pass, both
+    dribbles, the Low Pass and the run back. There is no second image on those
+    messages for Discord to lay it out beside, and riding on the prompt is
+    what lets the click take it away again. See
+    [Choosing a distance, and the field under it](#choosing-a-distance-and-the-field-under-it).
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through
@@ -4170,7 +4317,8 @@ anywhere in the code.
     Not to be confused with `CoachingView.player_button_label`, which
     is the name on a *button*: the position instead of the team emoji
     (every card in that flow is the clicking coach's own), cut to
-    Discord's 80-character limit.
+    Discord's 80-character limit. The name and role inside both are the
+    same string -- see [Naming a player](#naming-a-player).
 - **A player's id is `{slug(name)}_{role}`, not team-prefixed.**
   `hellguard_fullback`, globally unique, because a player's own color
   team is no longer part of their identity -- it can't be, when they
@@ -4628,7 +4776,10 @@ does bar naming specific opponents up front). Two pieces:
   background -- and `d12dicecream` (cream ink) rides the **hub buttons alone**,
   because a button's coloured fill swallowed the blue die. `load_d12_emoji(name=)`
   resolves either to a `<:name:id>` string; `load_d12_button_emoji` is the
-  button's, `d12dicecream` **falling back to `d12dice` and then to nothing**.
+  buttons', `d12dicecream` **or nothing -- it does not fall back to
+  `d12dice`**, since a blue die on a green button is the thing the cream cut
+  exists to avoid, and a bare button with an INFO line naming the missing
+  upload is the better failure.
   Both load in `cog_load` onto `self.d12_emoji` / `self.d12_button_emoji` and are
   **re-fetched by `/d12ball setup_hub`** so a fresh upload takes without a
   restart. Never a 🎲/🏈/🎮 -- a d6, a gridiron or a video-game pad, none of

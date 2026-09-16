@@ -25,9 +25,9 @@ from d12ball.game import (
 )
 from d12ball.render import render_player_portrait
 from cogs.d12ball_helpers import (
-    ROLE_INITIALS,
     format_goal_time,
     format_team_side_label,
+    player_with_role,
 )
 
 from cogs.d12ball_views.base import (
@@ -742,8 +742,7 @@ class ScoreAttemptView(SafeView):
 
         if defenders:
             defense_detail = [
-                f"{defender.player.name} "
-                f"[{ROLE_INITIALS[defender.player.role.value]}] "
+                f"{player_with_role(defender.player)} "
                 f"+{defender.value}"
                 + ("" if defender.on_ball else f" (half of {defender.defense})")
                 for defender in defenders
@@ -1026,7 +1025,9 @@ class ScoreAttemptView(SafeView):
         self.cog.persist(game, match)
 
         await interaction.response.edit_message(
-            content=self.cog.engine.build_turn_prompt(game, match),
+            content=self.cog.engine.build_turn_prompt(
+                game, match, self.cog.team_emojis,
+            ),
             view=PlayerActionView(self.cog, self.game_id),
         )
 

@@ -768,19 +768,31 @@ class LobbyMessageTests(unittest.TestCase):
         self.assertNotIn("None", build_hub_message(None))
         self.assertNotIn("None", build_lobby_message(build_lobby_game(), None))
 
-    def test_hub_button_carries_the_emoji(self) -> None:
+    def test_hub_button_never_falls_back_to_the_blue_die(self) -> None:
+        # The message-text d12 is uploaded but the cream cut is not: the
+        # green button goes bare rather than carrying the blue die.
         cog = build_cog()
         cog.d12_emoji = "<:d12dice:123456789012345678>"
         button = NewGameHubView(cog).children[0]
-        self.assertEqual(button.emoji.name, "d12dice")
+        self.assertIsNone(button.emoji)
         self.assertEqual(button.style, discord.ButtonStyle.success)
 
-    def test_hub_button_prefers_the_cream_emoji(self) -> None:
+    def test_hub_button_carries_the_cream_emoji(self) -> None:
         cog = build_cog()
         cog.d12_emoji = "<:d12dice:123456789012345678>"
         cog.d12_button_emoji = "<:d12dicecream:876543210987654321>"
         button = NewGameHubView(cog).children[0]
         self.assertEqual(button.emoji.name, "d12dicecream")
+
+    def test_the_button_loader_does_not_fall_back(self) -> None:
+        from cogs.d12ball_helpers import load_d12_button_emoji
+
+        blue = SimpleNamespace(name="d12dice")
+        blue.__str__ = lambda self: "<:d12dice:1>"
+        bot = SimpleNamespace(emojis=[])
+        self.assertIsNone(asyncio.run(
+            load_d12_button_emoji(bot, {"d12dice": blue}),
+        ))
 
 
 if __name__ == "__main__":

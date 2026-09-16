@@ -16,6 +16,7 @@ from pathlib import Path
 
 import cogs.d12ball_views as views
 from save_patches import (
+    LINKING_COG_MODULES,
     SAVING_COG_MODULES,
     SAVING_MODULES,
     SAVING_VIEW_MODULES,
@@ -263,6 +264,25 @@ class StraySaveGuardTests(unittest.TestCase):
             vars(module)["save_games"]({})
         self.assertIn("suppressed_cog_saves", str(caught.exception))
 
+    def test_every_mixin_that_links_is_named_in_linking_modules(self) -> None:
+        """
+        `suppressed_full_image_links` patches a list of bindings, and
+        `mock.patch` of a name a module does not bind raises rather
+        than doing nothing -- so a mixin dropping its last
+        `add_full_image_button` call breaks every test that suppresses
+        one, and a mixin gaining a call is an unsuppressed Discord
+        edit. Either way the list has to track the imports, which is
+        what this reads.
+        """
+        binding = {
+            module
+            for module in SAVING_COG_MODULES
+            if "add_full_image_button" in vars(
+                importlib.import_module(module)
+            )
+        }
+        self.assertEqual(binding, set(LINKING_COG_MODULES))
+
     def test_the_storage_module_itself_is_left_alone(self) -> None:
         """
         `tests/test_game_storage.py` is the one place that means to
@@ -273,3 +293,111 @@ class StraySaveGuardTests(unittest.TestCase):
         from gamesaves.d12ball import storage
 
         self.assertIsNot(storage.save_games, refuse_stray_save)
+
+
+class NamingAPlayerTests(unittest.TestCase):
+    """
+    **A player is never named without their role** -- see "Naming a
+    player" in CLAUDE.md. `player_with_role` is the whole of the
+    `Hellguard [FB]` spelling and `format_role_bracket` is that with
+    the team emoji in front; nothing else may build either by hand.
+
+    The rule arrived because the run back's own player buttons were
+    the one place in the game that named a card and left the role off,
+    and it was invisible precisely because every *other* site spelled
+    the brackets out for itself -- nine copies, so no one of them
+    looked like the odd one out.
+    """
+
+    # Where the initials are a drawn glyph rather than a name: the
+    # meeple tokens, the card header badges and the printed cards.
+    # Those are pictures of a role, not a player's name, and they are
+    # measured and placed rather than interpolated.
+    DRAWING_MODULES = ("d12ball/render.py", "d12ball/cards.py",
+                       "d12ball/player_cards.py", "d12ball/boards.py",
+                       "d12ball/species_cards.py")
+
+    def test_only_the_formatter_spells_the_role_brackets(self) -> None:
+        """
+        A second implementation of `{name} [{ROLE}]` is how the two
+        drift: the sweep that added the role to the run back's buttons
+        is only permanent if there is one place left to change.
+        """
+        offenders = []
+        for path in Path(".").glob("**/*.py"):
+            text = path.as_posix()
+            if (
+                text.startswith((".git", "tests/"))
+                or text in self.DRAWING_MODULES
+                or text == "d12ball/formatting.py"
+            ):
+                continue
+            source = path.read_text()
+            if "ROLE_INITIALS[" in source:
+                offenders.append(text)
+
+        self.assertEqual(
+            offenders, [],
+            "These read ROLE_INITIALS directly. Use "
+            "formatting.player_with_role (or format_role_bracket for a "
+            "message) so the spelling has one home.",
+        )
+
+    def test_the_roster_form_is_the_button_form(self) -> None:
+        """
+        There is one spelling, and `format_roster_player` is it for a
+        caller holding a card id. It printed the role in parentheses
+        until 2026-09-16 -- a second form of the same thing, which
+        collided with whatever each caller put after it.
+        """
+        from d12ball.components import (
+            load_basic_ruleset,
+            load_maneuver_catalog,
+            load_player_catalog,
+        )
+        from d12ball.engine import RulesEngine
+        from d12ball.formatting import player_with_role
+        from d12ball.game import Team
+
+        catalog = load_player_catalog()
+        engine = RulesEngine(
+            catalog, load_basic_ruleset(), load_maneuver_catalog(), {},
+        )
+        player = catalog.teams[Team.ORANGE].players[0]
+
+        self.assertEqual(
+            engine.format_roster_player(player.player_id),
+            player_with_role(player),
+        )
+        # The team is the only thing the wider form adds, and it is
+        # the one thing left in parentheses.
+        self.assertEqual(
+            engine.format_roster_player_with_team(
+                player.player_id, Team.ORANGE,
+            ),
+            f"{player_with_role(player)} (Orange)",
+        )
+
+    def test_the_message_form_is_the_button_form_plus_the_emoji(
+        self,
+    ) -> None:
+        """
+        The two differ by the emoji and by nothing else, which is what
+        lets "outside a button, a player also carries their team emoji"
+        be one rule rather than two formatters agreeing by hand.
+        """
+        from cogs.d12ball_helpers import format_role_bracket
+        from d12ball.components import load_player_catalog
+        from d12ball.formatting import player_with_role
+        from d12ball.game import Team
+
+        catalog = load_player_catalog()
+        player = catalog.teams[Team.ORANGE].players[0]
+        plain = player_with_role(player)
+
+        self.assertTrue(plain.endswith("]"))
+        self.assertIn(player.name, plain)
+        self.assertEqual(
+            format_role_bracket(player, {}, Team.ORANGE),
+            f"🟠 {plain}",
+        )

@@ -20,10 +20,10 @@ from d12ball.game import (
 )
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
-    ROLE_INITIALS,
     contest_noun,
     format_player_with_team,
     format_team_side_label,
+    player_with_role,
     space_label,
 )
 
@@ -81,7 +81,6 @@ class LooseBallChoiceView(SafeView):
 
         for player_id in candidates:
             player = cog.engine.get_player_definition(player_id)
-            initials = ROLE_INITIALS[player.role.value]
             zone, space_index = match.board.meeple_position(player_id)
             distance = abs(
                 match.board.flat_index(zone, space_index) - ball_flat
@@ -92,7 +91,7 @@ class LooseBallChoiceView(SafeView):
                 f"{space_word} from the ball)"
             )
             button = discord.ui.Button(
-                label=f"{player.name} [{initials}] {location_note}",
+                label=f"{player_with_role(player)} {location_note}"[:80],
                 style=(
                     discord.ButtonStyle.primary
                     if side == "offense"
@@ -250,7 +249,9 @@ class LooseBallChoiceView(SafeView):
             return
 
         prompt_message = await interaction.followup.send(
-            self.cog.engine.build_loose_ball_prompt(game, match),
+            self.cog.engine.build_loose_ball_prompt(
+                game, match, self.cog.team_emojis,
+            ),
             view=self.cog.build_loose_ball_view(self.game_id, match),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -283,12 +284,11 @@ class BallRecoveryView(SafeView):
 
         for player_id in match.contest_candidates(side):
             player = cog.engine.get_player_definition(player_id)
-            initials = ROLE_INITIALS[player.role.value]
             distance = match.distance_to_ball(player_id)
             space_word = "space" if distance == 1 else "spaces"
             button = discord.ui.Button(
                 label=(
-                    f"{player.name} [{initials}] ({distance} {space_word} "
+                    f"{player_with_role(player)} ({distance} {space_word} "
                     "away)"
                 )[:80],
                 style=discord.ButtonStyle.primary,
@@ -560,7 +560,7 @@ class LooseBallSkillTestView(SafeView):
             else self.cog.engine.defending_player_number(game, match)
         )
         winner_mention = format_player_with_team(
-            game, winner_number, mention=True,
+            game, winner_number, self.cog.team_emojis, mention=True,
         )
         winner_player = (
             offense_player if outcome == "offense" else defense_player
