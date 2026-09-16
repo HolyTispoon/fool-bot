@@ -533,15 +533,17 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
 
 class CoachingNoteTests(unittest.TestCase):
     """
-    What the line under a coaching prompt claims about the rules.
+    What the line under a coaching prompt claims about the rules, and
+    how little of it there is.
 
-    Every branch of it described the pre-2026-09-16 rules and had to be
-    rewritten with them. These assert the **stale claims are gone**
-    rather than quoting the replacements: the wording is prose and will
-    be revised, where "a new play's window is once a half" and "the
-    ball bought this" are rules that stopped being true, and a message
-    is the one place a retired rule can go on being told to a coach
-    long after the code stopped playing it.
+    Every branch described the pre-2026-09-16 rules, and rewriting them
+    with the new ones only made them longer -- so almost all of it was
+    cut instead (the author, 2026-09-16). What is asserted is the
+    **stale claims are gone** and the branches that should say nothing
+    say nothing. The wording that is left is prose and will be revised;
+    "once a half" and "the ball bought this" are retired rules, and a
+    message is the one place a retired rule goes on being told to a
+    coach long after the code stopped playing it.
     """
 
     @classmethod
@@ -562,16 +564,20 @@ class CoachingNoteTests(unittest.TestCase):
             match, TeamSide.HOME, occasion, is_response, False,
         )
 
-    def test_a_new_play_is_not_described_as_once_a_half(self) -> None:
-        # It is free and unlimited now; the once-a-half moved onto the
-        # time out.
+    def test_a_new_play_asks_the_question_and_nothing_else(self) -> None:
+        # The buttons under it are Coach and Pass, so the question is
+        # the whole of the note -- and "once a half" is a rule that
+        # stopped being true of a new play's window.
         offered = self.note(CoachingOccasion.NEW_PLAY)
 
+        self.assertEqual(offered, "Coach?")
         self.assertNotIn("once a half", offered)
-        self.assertIn("free", offered)
-        # It is still the coach-or-pass offer, which is the one thing
-        # this branch has to do.
-        self.assertIn("pass", offered)
+
+    def test_a_new_play_reply_says_nothing(self) -> None:
+        # The restart being answered is in the channel above it.
+        self.assertEqual(
+            self.note(CoachingOccasion.NEW_PLAY, is_response=True), "",
+        )
 
     def test_no_branch_says_the_ball_bought_the_window(self) -> None:
         # A cede bought it with possession and a time out pointedly
@@ -583,15 +589,15 @@ class CoachingNoteTests(unittest.TestCase):
                     self.assertNotIn("the ball bought", note)
                     self.assertNotIn("gave the ball up", note)
 
-    def test_the_time_out_branches_name_the_time_out(self) -> None:
-        called = self.note(CoachingOccasion.TIME_OUT)
-        answered = self.note(CoachingOccasion.TIME_OUT, is_response=True)
-
-        self.assertIn("time out", called)
-        # The reply is free, and what it leaves alone is the thing that
-        # is actually scarce.
-        self.assertIn("time out", answered)
-        self.assertIn("unspent", answered)
+    def test_only_the_time_out_reply_says_anything(self) -> None:
+        # The coach who called it pressed the button, so a note can add
+        # nothing; the other coach could not otherwise know why their
+        # window opened.
+        self.assertEqual(self.note(CoachingOccasion.TIME_OUT), "")
+        self.assertEqual(
+            self.note(CoachingOccasion.TIME_OUT, is_response=True),
+            "The other team called a time out.",
+        )
 
     def test_the_given_occasions_still_say_nothing(self) -> None:
         # Setup, halftime and full time reach neither branch: no clock
