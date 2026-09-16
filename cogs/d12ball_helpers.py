@@ -888,13 +888,16 @@ async def load_d12_button_emoji(
     emojis_by_name: Optional[dict] = None,
 ) -> Optional[str]:
     """
-    The emoji for the hub's "D12 Ball" button: the lighter `d12dicecream`
-    cut, falling back to the plain `d12dice` when that one has not been
-    uploaded.
+    The emoji for the hub's buttons: the lighter `d12dicecream` cut, or
+    None when it has not been uploaded. Deliberately no fallback to the
+    plain `d12dice` -- a blue die on a green button is exactly what the
+    cream cut exists to avoid, so a missing upload leaves the button
+    bare (and an INFO line saying which name was missed) rather than
+    quietly putting the wrong die on it.
     """
     return await load_d12_emoji(
         bot, emojis_by_name, name=D12_BUTTON_EMOJI_NAME,
-    ) or await load_d12_emoji(bot, emojis_by_name)
+    )
 
 
 def build_hub_message(d12_emoji: Optional[str] = None) -> str:
