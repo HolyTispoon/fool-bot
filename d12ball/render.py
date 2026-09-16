@@ -381,6 +381,17 @@ _SPECIES_ICON_TINTS: dict[
     tuple[str, str, Optional[int]], Optional[Image.Image]
 ] = {}
 
+# Lithium Powered's cell, minus the bolt cut out of the bundled
+# `cyborg.png` -- Overdrive's own halo, and the one place the author
+# asked to leave the bolt off (2026-09-16): behind a die that already
+# wears a ring and a bright glow, the cut-out competed with both rather
+# than reading as the species. Drawn fresh rather than a second bundled
+# file, since `cyborg_no_bolt.png` would be art nobody but this halo
+# ever asks for -- see "The shapes are built out of cubic segments" in
+# `scripts/render_species_icons.py`.
+CYBORG_CELL_SUPERSAMPLE = 4
+_CYBORG_CELL_TINTS: dict[tuple[str, int], Image.Image] = {}
+
 # One cache for the three condition-token icons below, keyed by name.
 # A key present means the load was already attempted -- including a
 # key mapped to None, for a file that turned out missing -- which is
@@ -527,6 +538,48 @@ def tint_silhouette(shape: Image.Image, color: str) -> Image.Image:
     """
     tinted = Image.new("RGBA", shape.size, color)
     tinted.putalpha(shape.getchannel("A"))
+    return tinted
+
+
+def cyborg_cell_without_bolt(color: str, size: int) -> Image.Image:
+    """
+    Lithium Powered's cell in `color`, `size` pixels across, without
+    the bolt cut out of it -- see the module-level note by
+    `_CYBORG_CELL_TINTS` for why this exists as its own drawing rather
+    than a second bundled icon.
+
+    The two rounded rectangles are `draw_cell`'s own, from
+    `scripts/render_species_icons.py` -- the terminal and the body,
+    with no bolt polygon punched out of the body afterwards. Drawn
+    supersampled and resized down for the same reason that script's
+    shapes are: Pillow does not antialias what `ImageDraw` draws.
+    """
+    key = (color, size)
+    if key in _CYBORG_CELL_TINTS:
+        return _CYBORG_CELL_TINTS[key]
+
+    canvas_size = size * CYBORG_CELL_SUPERSAMPLE
+    canvas = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
+    shape_draw = ImageDraw.Draw(canvas)
+    shape_draw.rounded_rectangle(
+        (
+            0.36 * canvas_size, 0.03 * canvas_size,
+            0.64 * canvas_size, 0.16 * canvas_size,
+        ),
+        radius=0.04 * canvas_size,
+        fill=(0, 0, 0, 255),
+    )
+    shape_draw.rounded_rectangle(
+        (
+            0.17 * canvas_size, 0.13 * canvas_size,
+            0.83 * canvas_size, 0.97 * canvas_size,
+        ),
+        radius=0.12 * canvas_size,
+        fill=(0, 0, 0, 255),
+    )
+    shape = canvas.resize((size, size), Image.Resampling.LANCZOS)
+    tinted = tint_silhouette(shape, color)
+    _CYBORG_CELL_TINTS[key] = tinted
     return tinted
 
 
@@ -1684,6 +1737,7 @@ def draw_species_die_aura(
     ring_gap: float,
     ring_width: int,
     draw_ring: bool = True,
+    halo_override: Optional[Image.Image] = None,
 ) -> None:
     """
     The halo-and-ring recipe every species die wears: that species' own
@@ -1702,9 +1756,20 @@ def draw_species_die_aura(
     already wears its own ring (which of two dice the advantage took),
     and a second ring at almost the same radius would read as one ring
     badly drawn rather than two facts.
+
+    `halo_override` is Overdrive's escape: a caller that has already
+    drawn its own halo image (Lithium Powered's cell without the bolt
+    cut out of it -- see `cyborg_cell_without_bolt`) hands it over
+    pre-sized to `2 * die_radius * halo_scale`, and this composites it
+    exactly as it would `species_icon`'s own answer rather than looking
+    one up.
     """
     halo_size = round(2 * die_radius * halo_scale)
-    halo = species_icon(species, color, halo_size)
+    halo = (
+        halo_override
+        if halo_override is not None
+        else species_icon(species, color, halo_size)
+    )
     if halo is not None:
         faded = halo.copy()
         faded.putalpha(
@@ -1968,6 +2033,9 @@ def render_skill_test_dice(
                 SPECIES_CYBORG, OVERDRIVE_AURA_COLOR,
                 OVERDRIVE_HALO_SCALE, OVERDRIVE_HALO_ALPHA,
                 OVERDRIVE_RING_GAP, OVERDRIVE_RING_WIDTH,
+                halo_override=cyborg_cell_without_bolt(
+                    OVERDRIVE_AURA_COLOR, OVERDRIVE_HALO_SIZE,
+                ),
             )
         draw_d12_polygon(
             draw,
@@ -2155,6 +2223,9 @@ def render_injury_test_die(
             SPECIES_CYBORG, OVERDRIVE_AURA_COLOR,
             OVERDRIVE_HALO_SCALE, OVERDRIVE_HALO_ALPHA,
             OVERDRIVE_RING_GAP, OVERDRIVE_RING_WIDTH,
+            halo_override=cyborg_cell_without_bolt(
+                OVERDRIVE_AURA_COLOR, OVERDRIVE_HALO_SIZE,
+            ),
         )
     draw_d12_polygon(
         draw,
@@ -2856,6 +2927,9 @@ def render_own_goal_dice(
                 OVERDRIVE_HALO_SCALE, OVERDRIVE_HALO_ALPHA,
                 OVERDRIVE_RING_GAP, OVERDRIVE_RING_WIDTH,
                 draw_ring=False,
+                halo_override=cyborg_cell_without_bolt(
+                    OVERDRIVE_AURA_COLOR, OVERDRIVE_HALO_SIZE,
+                ),
             )
         draw_d12_polygon(
             draw,
