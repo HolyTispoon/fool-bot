@@ -246,7 +246,7 @@ class GameConfigurationView(SafeView):
             game_id=self.game_id,
         )
         await interaction.response.edit_message(
-            content=build_setup_message(game),
+            content=build_setup_message(game, self.cog.team_emojis),
             view=refreshed_view,
         )
 
@@ -277,7 +277,7 @@ class GameConfigurationView(SafeView):
             game_id=self.game_id,
         )
         await interaction.response.edit_message(
-            content=build_setup_message(game),
+            content=build_setup_message(game, self.cog.team_emojis),
             view=refreshed_view,
         )
 
@@ -305,7 +305,7 @@ class GameConfigurationView(SafeView):
             game_id=self.game_id,
         )
         await interaction.response.edit_message(
-            content=build_setup_message(game),
+            content=build_setup_message(game, self.cog.team_emojis),
             view=refreshed_view,
         )
 
@@ -326,7 +326,7 @@ class GameConfigurationView(SafeView):
             game_id=self.game_id,
         )
         await interaction.response.edit_message(
-            content=build_setup_message(game),
+            content=build_setup_message(game, self.cog.team_emojis),
             view=refreshed_view,
         )
 
@@ -578,7 +578,7 @@ class TeamSelectionView(GameConfigurationView):
 
         save_games(self.cog.games)
 
-        message = build_setup_message(game)
+        message = build_setup_message(game, self.cog.team_emojis)
 
         if game.teams_selected:
             # Resolved before the view is built, because the flip
@@ -609,7 +609,7 @@ class TeamSelectionView(GameConfigurationView):
         self,
         game: D12BallGame,
     ) -> str:
-        return build_setup_message(game)
+        return build_setup_message(game, self.cog.team_emojis)
 
 
 class CoinFlipView(GameConfigurationView):
@@ -703,6 +703,7 @@ class CoinFlipView(GameConfigurationView):
         await interaction.response.edit_message(
             content=build_setup_message(
                 game,
+                self.cog.team_emojis,
                 mention_players=False,
             ),
             view=None,
@@ -724,7 +725,7 @@ class CoinFlipView(GameConfigurationView):
         # and there is a kickoff to show. See
         # D12Ball.finish_setup_coaching.
         choice_message = await interaction.followup.send(
-            build_home_choice_message(game),
+            build_home_choice_message(game, self.cog.team_emojis),
             view=HomeAwaySelectionView(
                 cog=self.cog,
                 game_id=self.game_id,
@@ -759,7 +760,7 @@ class CoinFlipView(GameConfigurationView):
             # put the choice back rather than only refusing, since the
             # message they clicked is the one carrying it.
             await interaction.response.edit_message(
-                content=build_home_choice_message(game),
+                content=build_home_choice_message(game, self.cog.team_emojis),
                 view=HomeAwaySelectionView(
                     cog=self.cog,
                     game_id=self.game_id,
@@ -908,13 +909,15 @@ class HomeAwaySelectionView(SafeView):
         # until both coaches are done setting up -- see the same note
         # on the coin flip, and D12Ball.finish_setup_coaching.
         await interaction.response.edit_message(
-            content=build_home_choice_message(game),
+            content=build_home_choice_message(game, self.cog.team_emojis),
             view=refreshed_view,
         )
 
+        winner = format_player_with_team(
+            game, winner_player_number, self.cog.team_emojis,
+        )
         await interaction.followup.send(
-            f"{format_player_with_team(game, winner_player_number)} chose "
-            f"**{choice.value.title()}**."
+            f"{winner} chose **{choice.value.title()}**."
         )
         await self.cog.begin_setup_coaching(interaction, game)
 

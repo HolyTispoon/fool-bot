@@ -24,6 +24,7 @@ from d12ball.components import (
 from d12ball.formatting import (
     AI_OPPONENT_NAMES,
     BENCH_DESTINATIONS,
+    TEAM_EMOJI_FALLBACKS,
     ZONE_LETTERS,
     ball_space_label,
     challenger_prompt_ask,
@@ -33,6 +34,7 @@ from d12ball.formatting import (
     format_player,
     format_player_with_team,
     format_team_side_label,
+    get_team_emoji,
     player_with_role,
     space_label,
     travel_space_label,
@@ -143,19 +145,8 @@ TEAM_EMOJI_NAMES = {
     Team.TELEKINETICS: "team_telekinetics",
     Team.OOZES: "team_oozes",
 }
-TEAM_EMOJI_FALLBACKS = {
-    Team.ORANGE: "🟠",
-    Team.TEAL: "🔵",
-    Team.PURPLE: "🟣",
-    Team.SLIME: "🟢",
-    # A species team shares its paired color team's ring (see "Team
-    # colors" in CLAUDE.md), so its fallback has to read differently
-    # from a plain colored circle before the real upload replaces it.
-    Team.FIRE_DEMONS: "🔥",
-    Team.CYBORGS: "🤖",
-    Team.TELEKINETICS: "🔮",
-    Team.OOZES: "🫧",
-}
+# TEAM_EMOJI_FALLBACKS and get_team_emoji are imported above from
+# d12ball.formatting, where format_player_with_team reads them.
 EXHAUST_EMOJI_FALLBACK = "😮\u200d💨"
 
 
@@ -294,10 +285,6 @@ async def load_team_emojis(
         )
 
     return team_emojis
-
-
-def get_team_emoji(team_emojis: dict[Team, str], team: Team) -> str:
-    return team_emojis.get(team, TEAM_EMOJI_FALLBACKS[team])
 
 
 def slugify_channel_part(text: str) -> str:
@@ -800,16 +787,19 @@ def describe_game_mode(game: D12BallGame) -> str:
 
 def build_setup_message(
     game: D12BallGame,
+    team_emojis: dict[Team, str],
     mention_players: bool = True,
 ) -> str:
     player_1 = format_player_with_team(
         game,
         1,
+        team_emojis,
         mention=mention_players,
     )
     player_2 = format_player_with_team(
         game,
         2,
+        team_emojis,
         mention=mention_players,
     )
 
@@ -1159,10 +1149,14 @@ def format_coin_emoji(
     return coin_emojis.get(CoinFace(face), COIN_EMOJI_FALLBACK)
 
 
-def build_home_choice_message(game: D12BallGame) -> str:
+def build_home_choice_message(
+    game: D12BallGame,
+    team_emojis: dict[Team, str],
+) -> str:
     winner = format_player_with_team(
         game,
         game.coin_winner_player_number,
+        team_emojis,
     )
 
     if (
@@ -1172,6 +1166,7 @@ def build_home_choice_message(game: D12BallGame) -> str:
         flipper = format_player_with_team(
             game,
             game.coin_flipped_by_player_number,
+            team_emojis,
         )
         # The coin itself goes out as its own message, so that Discord
         # renders it large; this text does not repeat it.
@@ -1191,10 +1186,12 @@ def build_home_choice_message(game: D12BallGame) -> str:
         home_player = format_player_with_team(
             game,
             game.home_player_number,
+            team_emojis,
         )
         visiting_player = format_player_with_team(
             game,
             game.visiting_player_number,
+            team_emojis,
         )
 
         if game.is_solo_game and game.coin_winner_player_number == 2:
@@ -1212,6 +1209,7 @@ def build_home_choice_message(game: D12BallGame) -> str:
         winner_mention = format_player_with_team(
             game,
             game.coin_winner_player_number,
+            team_emojis,
             mention=True,
         )
         text += (

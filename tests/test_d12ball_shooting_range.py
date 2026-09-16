@@ -259,11 +259,14 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
         # is not on the message.
         self.assertIn(
             "Out of shooting range",
-            cog.engine.build_turn_prompt(game, match),
+            cog.engine.build_turn_prompt(game, match, {}),
         )
 
         cog, game, match = self.build_turn(Zone.VISITORS_GOAL, 0)
-        self.assertIn("Choose an action:", cog.engine.build_turn_prompt(game, match))
+        self.assertIn(
+            "Choose an action:",
+            cog.engine.build_turn_prompt(game, match, {}),
+        )
 
     async def test_a_stale_shoot_click_is_refused(self) -> None:
         # The button is never built out of range, so reaching

@@ -176,6 +176,7 @@ class ManeuverEffectsMixin:
         mention = format_player_with_team(
             game,
             self.engine.possession_player_number(game, match),
+            self.team_emojis,
             mention=True,
         )
         # Over the field: every destination on the menu is counted
@@ -379,6 +380,7 @@ class ManeuverEffectsMixin:
         mention = format_player_with_team(
             game,
             self.engine.possession_player_number(game, match),
+            self.team_emojis,
             mention=True,
         )
         # 1 or 2 is a question about the two spaces ahead of the
@@ -490,6 +492,7 @@ class ManeuverEffectsMixin:
         mention = format_player_with_team(
             game,
             self.engine.possession_player_number(game, match),
+            self.team_emojis,
             mention=True,
         )
         # A run of up to four spaces at a token each: how far is worth
@@ -673,6 +676,7 @@ class ManeuverEffectsMixin:
         mention = format_player_with_team(
             game,
             self.engine.possession_player_number(game, match),
+            self.team_emojis,
             mention=True,
         )
         # How far to throw is a question about which teammate the pass
@@ -778,6 +782,7 @@ class ManeuverEffectsMixin:
         mention = format_player_with_team(
             game,
             self.engine.possession_player_number(game, match),
+            self.team_emojis,
             mention=True,
         )
         # The same question the High Pass asks and the same picture
@@ -1883,7 +1888,9 @@ class ManeuverEffectsMixin:
             return
 
         prompt_message = await interaction.followup.send(
-            self.engine.build_loose_ball_prompt(game, match),
+            self.engine.build_loose_ball_prompt(
+                game, match, self.team_emojis,
+            ),
             view=self.build_loose_ball_view(game.game_id, match),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -2179,6 +2186,7 @@ class ManeuverEffectsMixin:
         mention = format_player_with_team(
             game,
             self.engine.possession_player_number(game, match),
+            self.team_emojis,
             mention=True,
         )
         prefix = f"{lead_in}\n\n" if lead_in else ""
@@ -2469,6 +2477,7 @@ class ManeuverEffectsMixin:
         mention = format_player_with_team(
             game,
             self.engine.defending_player_number(game, match),
+            self.team_emojis,
             mention=True,
         )
         prompt_view = SetupPassPushBackView(self, game.game_id)

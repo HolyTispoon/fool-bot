@@ -642,6 +642,7 @@ class PresentationMixin:
         defender_mention = format_player_with_team(
             game,
             defender_number,
+            self.team_emojis,
             mention=True,
         )
 
@@ -872,7 +873,9 @@ class PresentationMixin:
                 )
 
             turn_message = await inner_interaction.followup.send(
-                self.engine.build_turn_prompt(game, match, carrying=carrying),
+                self.engine.build_turn_prompt(
+                    game, match, self.team_emojis, carrying=carrying,
+                ),
                 view=view,
                 wait=True,
                 allowed_mentions=discord.AllowedMentions(
@@ -914,10 +917,12 @@ class PresentationMixin:
         home_player = format_player_with_team(
             game,
             game.home_player_number,
+            self.team_emojis,
         )
         visiting_player = format_player_with_team(
             game,
             game.visiting_player_number,
+            self.team_emojis,
         )
         period = (
             "First Half"

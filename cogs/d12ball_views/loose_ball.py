@@ -249,7 +249,9 @@ class LooseBallChoiceView(SafeView):
             return
 
         prompt_message = await interaction.followup.send(
-            self.cog.engine.build_loose_ball_prompt(game, match),
+            self.cog.engine.build_loose_ball_prompt(
+                game, match, self.cog.team_emojis,
+            ),
             view=self.cog.build_loose_ball_view(self.game_id, match),
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -557,7 +559,7 @@ class LooseBallSkillTestView(SafeView):
             else self.cog.engine.defending_player_number(game, match)
         )
         winner_mention = format_player_with_team(
-            game, winner_number, mention=True,
+            game, winner_number, self.cog.team_emojis, mention=True,
         )
         winner_player = (
             offense_player if outcome == "offense" else defense_player
