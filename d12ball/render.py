@@ -1811,16 +1811,19 @@ SKILL_TEST_BOTTOM_PADDING = 12
 # roll's die already knows how to wear -- brighter and thicker than
 # Volatile's, which is explaining a second die nobody watched land;
 # this one is celebrating the one die a coach can already see.
-# **The scale matches Volatile's own** (the author, 2026-09-16) -- a
-# coach who already reads one species' aura reads the other, and a
-# smaller one read as an afterthought rather than an ability. Each
-# image that can carry Overdrive grows its own headroom to fit it
-# (`render_skill_test_dice`'s top margin, `render_own_goal_dice`'s
-# widened cell) rather than the halo being shrunk to whatever already
-# fit -- `render_injury_test_die`'s row already grows to fit whatever
-# is biggest in it, so that one needed no change at all.
+# **Close to Volatile's own scale, not identical to it** (the author,
+# 2026-09-16) -- a coach who already reads one species' aura reads the
+# other, and a smaller one read as an afterthought rather than an
+# ability, but the bolt-free cell (see `cyborg_cell_without_bolt`) is a
+# plainer shape than a flame and read as slightly too large at
+# Volatile's own 2.3. Each image that can carry Overdrive grows its own
+# headroom to fit it (`render_skill_test_dice`'s top margin,
+# `render_own_goal_dice`'s widened cell) rather than the halo being
+# shrunk to whatever already fit -- `render_injury_test_die`'s row
+# already grows to fit whatever is biggest in it, so that one needed no
+# change at all.
 OVERDRIVE_AURA_COLOR = TEAM_COLORS[Team.CYBORGS]
-OVERDRIVE_HALO_SCALE = 2.3
+OVERDRIVE_HALO_SCALE = 1.9
 OVERDRIVE_HALO_ALPHA = 130
 OVERDRIVE_RING_GAP = 6
 OVERDRIVE_RING_WIDTH = 5
@@ -1835,15 +1838,18 @@ OVERDRIVE_HALO_SIZE = round(2 * SKILL_TEST_DIE_RADIUS * OVERDRIVE_HALO_SCALE)
 # skill number, not a d12), so the token's face is the bonus itself
 # rather than a face 1-12. The portrait beside it is what answers
 # "which Ooze", the way a score attempt's wall of defenders names
-# itself rather than only totalling. **The same halo scale Volatile
-# and Overdrive wear** (2026-09-16) -- a smaller aura on a smaller die
-# read as decoration rather than the same ability shown twice, so the
-# die and the portrait both grew to keep the token from swallowing the
-# face beside it, and the gap between them grew to keep the glow off
-# the portrait rather than bleeding onto it.
+# itself rather than only totalling. **Volatile's own halo scale**
+# (2026-09-16) -- a smaller aura on a smaller die read as decoration
+# rather than the same ability shown twice, so the die and the
+# portrait both grew to keep the token from swallowing the face beside
+# it, and the gap between them grew to keep the glow off the portrait
+# rather than bleeding onto it. **Its own constant, not an alias of
+# Overdrive's** -- the blob reads fine at Volatile's 2.3 where the
+# bolt-free cell does not, and the two auras are sized on their own
+# merits even though they happened to start equal.
 MERGE_AURA_COLOR = TEAM_COLORS[Team.OOZES]
 MERGE_DIE_RADIUS = 24
-MERGE_HALO_SCALE = OVERDRIVE_HALO_SCALE
+MERGE_HALO_SCALE = 2.3
 MERGE_HALO_ALPHA = 130
 MERGE_RING_GAP = 6
 MERGE_RING_WIDTH = 4
