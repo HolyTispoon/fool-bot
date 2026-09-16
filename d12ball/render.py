@@ -11,7 +11,10 @@ from d12ball.components import (
     duplicate_card_id,
     MANEUVER_TIER_ADVANCED,
     MIND_PULL_SUCCESS_FACES,
+    SPECIES_FIRE_DEMON,
     SPECIES_TELEKINETIC,
+    VOLATILE_IGNITE_FACES,
+    VOLATILE_SURGE_MINIMUM,
     MANEUVER_TIER_BASIC,
     ManeuverCatalog,
     ManeuverDefinition,
@@ -2141,6 +2144,297 @@ def render_mind_pull_die(
         + die_column
         + portrait_column
         + MIND_PULL_COLUMN_GAP * 2
+        + verdict_column / 2
+    )
+    draw.text(
+        (
+            verdict_center_x - verdict_column / 2 - verdict_bbox[0],
+            content_center_y
+            - (verdict_bbox[3] - verdict_bbox[1]) / 2
+            - verdict_bbox[1],
+        ),
+        verdict,
+        font=FONT_DICE_TOTAL,
+        fill=verdict_color,
+    )
+
+    output = BytesIO()
+    canvas.convert("RGB").save(output, format="PNG")
+    output.seek(0)
+    return output
+
+
+VOLATILE_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
+VOLATILE_TITLE = "VOLATILE IGNITION"
+VOLATILE_TITLE_TOP = 14
+VOLATILE_EXPLAINER_TOP = 48
+VOLATILE_ROW_TOP = 86
+# Bigger than the injury test's and the Mind Pull die's 96, because
+# this image has room the others do not: its explainer line is wider
+# than any row of three columns, so a portrait at that size left the
+# middle column a small picture in a lot of black. The portrait is now
+# what sets the row's height, and the flame sits inside it.
+VOLATILE_PORTRAIT_SIZE = 168
+VOLATILE_LABEL_GAP = 8
+# Two lines under the die, as the Mind Pull die has: the team, and the
+# natural face that ignited. The second die on its own says nothing
+# about which roll it belongs to.
+VOLATILE_LABEL_HEIGHT = 44
+VOLATILE_COLUMN_GAP = 26
+VOLATILE_SIDE_PADDING = 22
+VOLATILE_BOTTOM_PADDING = 14
+# The Fire Demons' own team colour, which is what makes this read as
+# Volatile rather than as a d12 with a caption -- the same call
+# MIND_PULL_AURA_COLOR makes for the Telekinetics.
+VOLATILE_AURA_COLOR = TEAM_COLORS[Team.FIRE_DEMONS]
+# The flame behind the die, and the ring around it. Dim enough that the
+# face stays the brightest thing in the column.
+#
+# **The flame is drawn as large as the row already is, and no larger.**
+# The row's height is the portrait's, so a halo up to that size costs
+# nothing; past it the flame is what grows the canvas, which is what
+# the Mind Pull halo's 2.9 did here -- a wide orange blob with a die
+# lost in the middle of a band of black. It cannot be the same number
+# as that one either way, since the two shapes are not alike: a spiral
+# is mostly the gaps between its arms and needs room to read as one,
+# where a flame is solid. So the scale is whatever fills the portrait's
+# height, and `test_the_portrait_is_what_sets_a_volatile_die_s_row` is
+# the ceiling on it.
+VOLATILE_HALO_ALPHA = 70
+VOLATILE_HALO_SCALE = 2.3
+VOLATILE_RING_GAP = 8
+VOLATILE_RING_WIDTH = 3
+VOLATILE_SURGE_TEXT = "SURGE"
+VOLATILE_BACKFIRE_TEXT = "BACKFIRE"
+# A backfire is not a miss -- it takes the roll *down* -- so it is
+# drawn in the injury test's red rather than the Mind Pull's "nothing
+# happened" grey.
+VOLATILE_BACKFIRE_COLOR = INJURY_TEST_INJURED_COLOR
+# The die is a d12, so the surge band runs from VOLATILE_SURGE_MINIMUM
+# to its top face.
+VOLATILE_DIE_FACES = 12
+
+
+def volatile_explainer_label() -> str:
+    """
+    "a natural 6 or 7 ignites — the second d12 adds on 5-12, subtracts
+    on 1-4": the whole rule, read off `VOLATILE_IGNITE_FACES` and
+    `VOLATILE_SURGE_MINIMUM` rather than written down, so a number
+    settled upstream reaches the image with the roll.
+
+    It is on the image for the reason the Mind Pull die's target band
+    is: a coach who has just been handed a second die has no way to
+    tell whether it was a good one, and a caption that lives only in
+    the message scrolls away from the picture it explains.
+    """
+    faces = " or ".join(str(face) for face in VOLATILE_IGNITE_FACES)
+    return (
+        f"a natural {faces} ignites — the second d12 adds on "
+        f"{VOLATILE_SURGE_MINIMUM}-{VOLATILE_DIE_FACES}, subtracts on "
+        f"1-{VOLATILE_SURGE_MINIMUM - 1}"
+    )
+
+
+def render_volatile_die(
+    second: int,
+    face: int,
+    color: str,
+    team_label: str,
+    player_name: str,
+    surge: bool,
+    modifier: int,
+) -> BytesIO:
+    """
+    The extra die an ignite rolled, on an image of its own: the second
+    d12, the Fire Demon who set it off, and which way it went.
+
+    **It is a separate die because it is a separate roll.** Every other
+    modifier in the game is arithmetic a coach can check against the
+    board or a card; this one is a die nobody watched being thrown, and
+    folding it into the totals column of the roll's own dice image --
+    which is all it was before -- left the number on the face and the
+    number in the total disagreeing with nothing to explain the gap.
+
+    It follows `render_mind_pull_die`'s three-column row (die,
+    portrait, verdict) for the same reason that one follows the injury
+    test's: a coach should not have to learn a layout per ability.
+    **What makes it distinct is the aura**, the Fire Demons' own flame
+    drawn faint behind the face with a ring of their orange around it.
+    The face itself stays the roller's *team* colour, because a Fire
+    Demon plays for any of the eight teams (see "One player, both
+    sides") and whose roll it is still has to be legible.
+    """
+    verdict = VOLATILE_SURGE_TEXT if surge else VOLATILE_BACKFIRE_TEXT
+    verdict = f"{verdict} {modifier:+d}"
+    verdict_color = VOLATILE_AURA_COLOR if surge else VOLATILE_BACKFIRE_COLOR
+    trigger_label = f"ignited on {face}"
+    explainer = volatile_explainer_label()
+
+    # Measured on a throwaway canvas: the real one cannot be created
+    # until these widths have decided how big it needs to be.
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    portrait = load_player_portrait(player_name)
+    portrait_width = VOLATILE_PORTRAIT_SIZE
+    portrait_height = VOLATILE_PORTRAIT_SIZE
+    if portrait is not None:
+        sized = portrait.copy()
+        sized.thumbnail(
+            (VOLATILE_PORTRAIT_SIZE, VOLATILE_PORTRAIT_SIZE),
+            Image.Resampling.LANCZOS,
+        )
+        portrait_width, portrait_height = sized.size
+    else:
+        sized = None
+
+    # The halo is wider than the die, so it -- not the polygon -- is
+    # what the die column has to hold.
+    halo_size = round(2 * VOLATILE_DIE_RADIUS * VOLATILE_HALO_SCALE)
+    die_column = max(
+        halo_size,
+        measure.textlength(team_label, font=FONT_SMALL),
+        measure.textlength(trigger_label, font=FONT_SMALL),
+    )
+    portrait_column = max(
+        portrait_width,
+        measure.textlength(player_name, font=FONT_SMALL),
+    )
+    verdict_bbox = measure.textbbox((0, 0), verdict, font=FONT_DICE_TOTAL)
+    verdict_column = verdict_bbox[2] - verdict_bbox[0]
+
+    row_height = max(
+        halo_size,
+        portrait_height,
+    ) + VOLATILE_LABEL_GAP + VOLATILE_LABEL_HEIGHT
+    columns_width = die_column + portrait_column + verdict_column
+    # The explainer is the widest thing on most of these images, and it
+    # is the half a coach reading their first ignite actually needs --
+    # so the canvas is sized to whichever of the two is wider rather
+    # than the sentence being cut to the row.
+    explainer_width = measure.textlength(explainer, font=FONT_SMALL)
+    content_width = max(
+        columns_width + VOLATILE_COLUMN_GAP * 2, explainer_width,
+    )
+    width = round(VOLATILE_SIDE_PADDING * 2 + content_width)
+    # **The slack the explainer creates goes between the columns, not
+    # around them.** Three columns centred under a wider sentence left
+    # a band of black down each side of the row and the portrait
+    # marooned in the middle of it; spread across the whole content
+    # width they read as the row the sentence is about.
+    # `VOLATILE_COLUMN_GAP` is the floor, for the image narrow enough
+    # that the row is what sets the width.
+    column_gap = max(
+        VOLATILE_COLUMN_GAP, (content_width - columns_width) / 2,
+    )
+    height = VOLATILE_ROW_TOP + row_height + VOLATILE_BOTTOM_PADDING
+
+    canvas = Image.new("RGBA", (width, height), "#111820")
+    draw = ImageDraw.Draw(canvas)
+
+    title_width = draw.textlength(VOLATILE_TITLE, font=FONT_DICE_TOTAL)
+    draw.text(
+        ((width - title_width) / 2, VOLATILE_TITLE_TOP),
+        VOLATILE_TITLE,
+        font=FONT_DICE_TOTAL,
+        fill=VOLATILE_AURA_COLOR,
+    )
+    draw.text(
+        ((width - explainer_width) / 2, VOLATILE_EXPLAINER_TOP),
+        explainer,
+        font=FONT_SMALL,
+        fill="#c7ced6",
+    )
+
+    label_y = VOLATILE_ROW_TOP + row_height - VOLATILE_LABEL_HEIGHT
+    content_center_y = (
+        VOLATILE_ROW_TOP
+        + (row_height - VOLATILE_LABEL_GAP - VOLATILE_LABEL_HEIGHT) / 2
+    )
+
+    row_left = VOLATILE_SIDE_PADDING
+
+    die_center_x = row_left + die_column / 2
+    # The flame goes down first and the die over it, so the face is
+    # never competing with the art behind it. A missing icon file leaves
+    # the die plain rather than failing the render, the same as
+    # everywhere else a bundled image is read.
+    halo = species_icon(SPECIES_FIRE_DEMON, VOLATILE_AURA_COLOR, halo_size)
+    if halo is not None:
+        faded = halo.copy()
+        faded.putalpha(
+            faded.getchannel("A").point(
+                lambda level: level * VOLATILE_HALO_ALPHA // 255
+            )
+        )
+        canvas.alpha_composite(
+            faded,
+            (
+                round(die_center_x - halo_size / 2),
+                round(content_center_y - halo_size / 2),
+            ),
+        )
+    ring_radius = VOLATILE_DIE_RADIUS + VOLATILE_RING_GAP
+    draw.ellipse(
+        (
+            die_center_x - ring_radius,
+            content_center_y - ring_radius,
+            die_center_x + ring_radius,
+            content_center_y + ring_radius,
+        ),
+        outline=VOLATILE_AURA_COLOR,
+        width=VOLATILE_RING_WIDTH,
+    )
+    draw_d12_polygon(
+        draw,
+        round(die_center_x),
+        round(content_center_y),
+        VOLATILE_DIE_RADIUS,
+        color,
+        str(second),
+        font=FONT_DICE_VALUE,
+        text_color=high_contrast_ink(color),
+    )
+    team_width = draw.textlength(team_label, font=FONT_SMALL)
+    draw.text(
+        (die_center_x - team_width / 2, label_y),
+        team_label,
+        font=FONT_SMALL,
+        fill="#c7ced6",
+    )
+    trigger_width = draw.textlength(trigger_label, font=FONT_SMALL)
+    draw.text(
+        (die_center_x - trigger_width / 2, label_y + 22),
+        trigger_label,
+        font=FONT_SMALL,
+        fill=VOLATILE_AURA_COLOR,
+    )
+
+    portrait_center_x = (
+        row_left
+        + die_column
+        + column_gap
+        + portrait_column / 2
+    )
+    if sized is not None:
+        canvas.alpha_composite(
+            sized,
+            (
+                round(portrait_center_x - sized.width / 2),
+                round(content_center_y - sized.height / 2),
+            ),
+        )
+    name_width = draw.textlength(player_name, font=FONT_SMALL)
+    draw.text(
+        (portrait_center_x - name_width / 2, label_y),
+        player_name,
+        font=FONT_SMALL,
+        fill="#ffffff",
+    )
+
+    verdict_center_x = (
+        row_left
+        + die_column
+        + portrait_column
+        + column_gap * 2
         + verdict_column / 2
     )
     draw.text(

@@ -58,6 +58,8 @@ from d12ball.components import (
     SPECIES_FIRE_DEMON,
     SPECIES_OOZE,
     SPECIES_TELEKINETIC,
+    VOLATILE_IGNITE_FACES,
+    VOLATILE_SURGE_MINIMUM,
     BasicRuleset,
     CoachingOccasion,
     FormationShape,
@@ -112,6 +114,12 @@ class IgnitedRoll:
     `second` is the ignite's own die, `surge` says which way it went,
     and `modifier` is 0 for every roll that did not ignite -- which is
     every roll in a basic game, and most rolls in an advanced one.
+
+    **`second` is also a die a coach watches**, not only a number in
+    `modifier`: it is drawn on an ignition die of its own and captioned
+    with `explain` -- see `D12Ball.post_volatile_ignition`. That is why
+    the face and which way it went are carried apart from the
+    arithmetic rather than folded into it.
     """
 
     face: int
@@ -140,13 +148,48 @@ class IgnitedRoll:
         word = "surge" if self.surge else "backfire"
         return f"{self.modifier:+d} Volatile {word} ({self.second})"
 
+    def explain(self, label: str) -> Optional[str]:
+        """
+        The sentence posted beside the ignition die -- what just
+        happened to this roll, in words, or None when nothing did.
 
-# The faces that ignite a Fire Demon's die, and the lowest second roll
-# that surges rather than backfires -- see "Volatile (Fire Demon)" in
-# docs/living-rules.md. Named rather than written into the predicate
-# because both numbers are the author's and neither is derivable.
-VOLATILE_IGNITE_FACES = (6, 7)
-VOLATILE_SURGE_MINIMUM = 5
+        **The twin of `detail`, and deliberately beside it.** The two
+        are one ignite said in the two places a coach reads it: `detail`
+        is the modifier line in the totals column of the roll's own dice
+        image, which is arithmetic and has to add up; this is the
+        sentence over the second die's own image, which has to explain
+        why there is a second die at all. Written apart they come to
+        disagree about which way a roll went.
+
+        It names the numbers rather than the rule -- the natural face
+        that ignited, the second die, and which side of
+        `VOLATILE_SURGE_MINIMUM` it fell -- because the rule itself is
+        drawn on the image it captions (see `volatile_explainer_label`).
+        `label` is the player as the caller already names them, emoji
+        and role bracket included, so this reads like every other line
+        about them.
+
+        **What ignites is the ball** (the author, 2026-09-16), not the
+        die. The rules state the trigger as a property of the die,
+        which is what a player has to *check*; what a coach is watching
+        is a Fire Demon setting the ball alight, and the message is the
+        place that says so.
+        """
+        if not self.ignited:
+            return None
+        if self.surge:
+            return (
+                f"🔥 **Volatile** — {label} rolled a natural {self.face}, "
+                f"so **the ball ignites**. The second d12 comes up "
+                f"**{self.second}** — {VOLATILE_SURGE_MINIMUM} or more, so "
+                f"it **surges**: **{self.modifier:+d}** to their roll."
+            )
+        return (
+            f"🔥 **Volatile** — {label} rolled a natural {self.face}, so "
+            f"**the ball ignites**. The second d12 comes up "
+            f"**{self.second}** — under {VOLATILE_SURGE_MINIMUM}, so it "
+            f"**backfires**: **{self.modifier:+d}** to their roll."
+        )
 
 
 # The halftime sequence's stages, in order -- see

@@ -1400,6 +1400,12 @@ class CoreMixin:
             attachments=[dice_file],
             view=None,
         )
+        # The second die between the check and its verdict. It matters
+        # more here than anywhere: a backfire is the one thing in the
+        # game that injures the player who rolled well.
+        await self.post_volatile_ignition(
+            interaction, match, (player.player_id, ignite),
+        )
         await interaction.followup.send(content)
         if not safe:
             await self.refresh_match_image(interaction, game)

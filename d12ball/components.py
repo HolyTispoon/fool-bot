@@ -223,6 +223,21 @@ OVERDRIVE_BONUS = 5
 MIND_PULL_TOKEN_COST = 1
 MIND_PULL_SUCCESS_FACES = (1, 2)
 
+# Volatile's two numbers: the faces that ignite a Fire Demon's die, and
+# the lowest second roll that surges rather than backfires -- see
+# "Volatile (Fire Demon)" in docs/living-rules.md. Both the author's
+# and neither derivable, so they are named rather than written into the
+# predicate that reads them.
+#
+# They sit here beside the other three species' numbers, and not in
+# `engine.py` where `RulesEngine.ignite` reads them, because the
+# ignition die image reads them too: `d12ball/render.py` cannot import
+# the engine (the engine imports it), and the band under that die --
+# "surges on 5-12" -- has to be the same 5 the roll was settled on.
+# `engine.py` re-exports both for its own callers.
+VOLATILE_IGNITE_FACES = (6, 7)
+VOLATILE_SURGE_MINIMUM = 5
+
 # What each ability is called, for the messages the bot posts when one
 # fires. The names are the author's and are on the printed cards, so a
 # coach reading "Volatile" in the channel and one holding the reference
