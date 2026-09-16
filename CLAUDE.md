@@ -659,7 +659,7 @@ position, which is what the choice usually turns on.
 
 | Where | Form | Built by |
 | --- | --- | --- |
-| A message | `🟠 Hellguard [FB]` | `format_role_bracket`, via `D12Ball.player_label` / `player_id_label` |
+| A message | `🟠 Hellguard [FB]` -- and once the role emoji are uploaded, `🟠 Hellguard <:role_fullback:id>` | `format_role_bracket`, via `D12Ball.player_label` / `player_id_label`; `RulesEngine.format_roster_player_for_message` inside the engine's own two message builders |
 | A button | `Hellguard [FB]`, plus the position or the price the choice turns on | `player_with_role` |
 | Anywhere holding a card id rather than a definition | `Hellguard [FB]` | `RulesEngine.format_roster_player` |
 | The two both-sides autocompletes | `Hellguard [FB] (Orange)` | `RulesEngine.format_roster_player_with_team` |
@@ -710,6 +710,49 @@ position, which is what the choice usually turns on.
 - **A label is cut to Discord's 80 characters** (`[:80]`), which is a hard
   limit rather than a style: a longer one is a 400 on the send, and the
   prompt is what the turn is waiting on.
+- **The brackets have an emoji form, and it goes only where custom emoji
+  render.** `d12ball/images/emoji/role_<role>.png` is one badge a role --
+  the two initials in a white rounded square, drawn by
+  `scripts/render_role_emoji.py` -- uploaded to the application under
+  `ROLE_EMOJI_NAMES` (`role_fullback`, ...) exactly as the team emoji are,
+  and `load_role_emojis` looks them up on startup. `role_badge` in
+  `d12ball/formatting.py` is the whole of the substitution: given the dict
+  it writes the emoji, and without it, or for a role the application has no
+  upload for, it writes `[FB]` -- so an application with three of the six
+  is three badges and three bracketed roles, and a fresh bot reads exactly
+  as it did before.
+  - **A message takes the dict and a button does not**, which is the same
+    split the team emoji already made and for a harder reason: custom
+    emoji markup in a button label or an autocomplete choice renders as
+    the raw `<:role_fullback:123>`. So `player_with_role(player)` with no
+    dict is the plain form every button and autocomplete builds from, and
+    `format_role_bracket` / `player_label` are the forms that pass it.
+    **The plain form is the default on purpose** -- a `[FB]` in a message
+    is the old look, where a `<:...:>` in a button is a visible bug -- which
+    is why the engine has two methods rather than a flag:
+    `format_roster_player` for a label and `format_roster_player_for_message`
+    for the turn prompt and `apply_formation`'s summary, the only two
+    messages the engine words itself.
+  - **The dict lives on the engine** (`RulesEngine.role_emojis`, empty until
+    `cog_load`) and `D12Ball.role_emojis` is a property over it, not a second
+    dict: `cog_load` *replaces* the dict, so a reference handed to the engine
+    at construction would go stale the moment the fetch landed. It is the
+    one Discord-shaped thing the engine holds, and it is a string per role
+    that needs no discord.py -- what the engine still cannot do is fetch it.
+    A test fixture that builds a cog with `object.__new__` and reads a
+    message off it needs an engine for the same reason.
+  - **A square, not a ring.** The team emoji is a white circle with a
+    coloured ring and a letter, so `🟠 Hellguard [FB]` as two rings would
+    read as two teams; the badge is a rounded square in ink for that
+    reason, and a *white* one because that is what reads on Discord's dark
+    and light themes alike. Everything about it is tuned for the 22px it is
+    shown at inline: the first draft's thicker edge and smaller initials
+    were legible at 256px and a smudge in a message.
+  - **The dice image's detail lines, the matchup image and the stats
+    tables keep the brackets**: they are drawn, or set in a code block,
+    and an emoji goes in neither. The goal log does take the badge -- the
+    role says nothing about which side a goal counted for, which is the
+    reason the *team* emoji is kept off that line and does not apply here.
 
 ## A maneuver's identity is not its printed name
 
@@ -4329,6 +4372,8 @@ anywhere in the code.
   getting the full two-row budget rather than splitting it.
 - **The `team_*.png` application emoji (`d12ball/images/emoji/`) are a
   second copy of the same colors, and the only one that has to be.**
+  (The `role_*.png` beside them are the role badges, uploaded the same
+  way and carrying no team colour -- see "Naming a player".)
   They are uploaded to Discord's Developer Portal separately (see
   `TEAM_EMOJI_NAMES` in `cogs/d12ball_helpers.py`) and shown next to a
   coach's name in chat, so they cannot read `TEAM_COLORS` at request

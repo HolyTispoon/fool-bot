@@ -21,7 +21,7 @@ with their team emoji, so the fallbacks and the lookup live here.
 
 from typing import Optional
 
-from d12ball.components import MatchState, Zone
+from d12ball.components import MatchState, PlayerRole, Zone
 from d12ball.game import AIOpponent, D12BallGame, Team, team_display_name
 
 
@@ -220,10 +220,41 @@ def role_initials(player) -> str:
     return ROLE_INITIALS[player.role.value]
 
 
-def player_with_role(player) -> str:
+def role_badge(
+    player,
+    role_emojis: Optional[dict[PlayerRole, str]] = None,
+) -> str:
+    """
+    The role as it is written after a name: the application's emoji
+    for it where one has been loaded, and `[FB]` otherwise.
+
+    `role_emojis` is `PlayerRole -> "<:role_fullback:123>"`, loaded by
+    `cogs.d12ball_helpers.load_role_emojis` from the six PNGs
+    `scripts/render_role_emoji.py` draws. It is optional because the
+    text form is right in two places the emoji cannot go: a button
+    label and an autocomplete choice are plain text, and custom emoji
+    markup in either shows as the raw `<:...:>`. So a caller passes
+    the dict for a *message* and nothing for a button, which is the
+    same split as the team emoji -- see "Naming a player" in CLAUDE.md.
+    A role missing from the dict falls back to the brackets on its
+    own, so an application with three of the six uploaded is not
+    three badges and three blanks.
+    """
+    if role_emojis:
+        emoji = role_emojis.get(player.role)
+        if emoji:
+            return emoji
+    return f"[{role_initials(player)}]"
+
+
+def player_with_role(
+    player,
+    role_emojis: Optional[dict[PlayerRole, str]] = None,
+) -> str:
     """
     A card named the way every card in this game is named -- "Hellguard
-    [FB]".
+    [FB]", or "Hellguard <:role_fullback:123>" in a message once the
+    role emoji are uploaded.
 
     **A player is never named without their role.** Nine of them are on
     the field at once and a coach is choosing between them on what they
@@ -238,13 +269,14 @@ def player_with_role(player) -> str:
     for a *message*, and a button adds the position instead. Nothing
     may spell the brackets out for itself -- that is how the run back's
     own buttons came to be the one place in the game that named a
-    player and left the role off.
+    player and left the role off. `role_emojis` is `role_badge`'s, and
+    is passed only where the text is going into a message.
 
     It takes a `PlayerDefinition` rather than an id because the caller
     that has an id has a catalog to resolve it with, and this module
     has neither.
     """
-    return f"{player.name} [{role_initials(player)}]"
+    return f"{player.name} {role_badge(player, role_emojis)}"
 
 
 def format_player(

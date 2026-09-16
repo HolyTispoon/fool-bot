@@ -1,6 +1,8 @@
 import asyncio
 import json
+import os
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -14,6 +16,7 @@ from cogs.d12ball_helpers import (
     EXHAUST_EMOJI_FALLBACK,
     EXHAUSTED_EMOJI_FALLBACK,
     INJURED_EMOJI_FALLBACK,
+    ROLE_EMOJI_NAMES,
     TEAM_EMOJI_FALLBACKS,
     TEAM_EMOJI_NAMES,
     build_setup_message,
@@ -26,6 +29,7 @@ from cogs.d12ball_helpers import (
     get_team_emoji,
     load_coin_emojis,
     load_condition_emojis,
+    load_role_emojis,
     load_team_emojis,
 )
 from cogs.d12ball_views import CoinFlipView, TeamSelectionView
@@ -45,6 +49,7 @@ from d12ball.components import (
     TeamSide,
     Zone,
     load_basic_ruleset,
+    load_maneuver_catalog,
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
@@ -1233,6 +1238,64 @@ class D12BallTeamEmojiTests(unittest.TestCase):
         self.assertEqual(format_player_with_team(game, 1, {}), "Player One")
 
 
+class D12BallRoleEmojiTests(unittest.TestCase):
+    """
+    The role badges -- the `[FB]` after a name, as an application
+    emoji -- looked up the way the team emoji are. See "Naming a
+    player" in CLAUDE.md for where they are written and where the
+    brackets stay.
+    """
+
+    EMOJI_DIR = Path(__file__).resolve().parents[1] / "d12ball" / "images" / "emoji"
+
+    def test_every_role_has_an_emoji_name(self) -> None:
+        from d12ball.components import PlayerRole
+
+        self.assertEqual(set(ROLE_EMOJI_NAMES), set(PlayerRole))
+
+    def test_the_art_is_named_exactly_as_the_upload_must_be(self) -> None:
+        """
+        Nothing in the bot opens these files -- they exist to be
+        uploaded by hand under the names the loader asks for -- so a
+        file named one way and a lookup spelled another is caught by
+        nobody until every role shows brackets on the live bot.
+        Compared against the directory's own listing rather than
+        `Path.exists`, for the reason the bundled-art test gives.
+        """
+        listing = os.listdir(self.EMOJI_DIR)
+        for name in ROLE_EMOJI_NAMES.values():
+            with self.subTest(emoji=name):
+                self.assertIn(f"{name}.png", listing)
+
+    def test_application_emoji_are_looked_up_by_name(self) -> None:
+        from d12ball.components import PlayerRole
+
+        bot = FakeBot(
+            [
+                discord.PartialEmoji(name="role_fullback", id=100),
+                discord.PartialEmoji(name="role_striker", id=101),
+            ]
+        )
+
+        role_emojis = asyncio.run(load_role_emojis(bot))
+
+        self.assertEqual(
+            role_emojis,
+            {
+                PlayerRole.FULLBACK: "<:role_fullback:100>",
+                PlayerRole.STRIKER: "<:role_striker:101>",
+            },
+        )
+
+    def test_an_application_without_the_emoji_is_not_an_error(self) -> None:
+        self.assertEqual(asyncio.run(load_role_emojis(FakeBot([]))), {})
+
+    def test_a_failed_lookup_is_not_an_error(self) -> None:
+        bot = FakeBot(error=discord.DiscordException("no application id"))
+
+        self.assertEqual(asyncio.run(load_role_emojis(bot)), {})
+
+
 class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
     """
     How many times a startup, and a coin toss, ask Discord for the
@@ -1255,6 +1318,14 @@ class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
         cog.coin_emojis = {}
         cog.condition_emojis = {}
         cog.team_emojis = {}
+        # cog_load hands the role emoji to the engine, which is where
+        # they live -- see `D12Ball.role_emojis`.
+        cog.engine = RulesEngine(
+            load_player_catalog(),
+            load_basic_ruleset(),
+            load_maneuver_catalog(),
+            {},
+        )
         cog.coin_emojis_checked_at = None
         return cog
 

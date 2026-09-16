@@ -29,6 +29,7 @@ from cogs.d12ball_views import (
 )
 from d12ball.components import (
     MatchState,
+    TeamSide,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -565,6 +566,53 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
 
         cog.begin_run_back.assert_awaited_once()
         self.assertTrue(cog.begin_run_back.await_args.kwargs["new_play"])
+
+
+class RoleEmojiOnTheCogTests(unittest.TestCase):
+    """
+    A message names a player through `D12Ball.player_label`, and the
+    role emoji reach it through one dict held on the engine -- the
+    cog's `role_emojis` is a view of that copy, so a load that lands
+    on the cog is what the engine's own prompt builders read too.
+    """
+
+    def test_the_cog_and_the_engine_share_one_dict(self) -> None:
+        from d12ball.components import PlayerRole
+
+        cog = build_cog()
+        badges = {PlayerRole.STRIKER: "<:role_striker:100>"}
+
+        cog.role_emojis = badges
+
+        self.assertIs(cog.engine.role_emojis, badges)
+        self.assertIs(cog.role_emojis, badges)
+
+    def test_player_label_carries_the_role_emoji(self) -> None:
+        from d12ball.components import PlayerRole
+        from d12ball.formatting import role_initials
+
+        cog = build_cog()
+        match = MatchState.standard(
+            catalog=cog.player_catalog,
+            ruleset=cog.basic_ruleset,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        home = match.setup_for_side(TeamSide.HOME)
+        players = [cog.engine.get_player_definition(i) for i in home.field_players]
+        striker = next(p for p in players if p.role == PlayerRole.STRIKER)
+        other = next(p for p in players if p.role != PlayerRole.STRIKER)
+        cog.role_emojis = {PlayerRole.STRIKER: "<:role_striker:100>"}
+
+        self.assertEqual(
+            cog.player_label(match, striker),
+            f"🟠 {striker.name} <:role_striker:100>",
+        )
+        self.assertEqual(
+            cog.player_id_label(match, other.player_id),
+            f"🟠 {other.name} [{role_initials(other)}]",
+        )
 
 
 if __name__ == "__main__":

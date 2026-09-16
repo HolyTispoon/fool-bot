@@ -43,6 +43,7 @@ from d12ball.components import (
     load_maneuver_catalog,
     load_player_catalog,
 )
+from d12ball.engine import RulesEngine
 from d12ball.game import (
     AIOpponent,
     D12BallGame,
@@ -58,6 +59,11 @@ def build_cog() -> D12Ball:
     cog.player_catalog = load_player_catalog()
     cog.maneuver_catalog = load_maneuver_catalog()
     cog.basic_ruleset = load_basic_ruleset()
+    # The role emoji live on the engine and the cog's `role_emojis` is
+    # a view of them, so the goal log at full time needs one to read.
+    cog.engine = RulesEngine(
+        cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
+    )
     cog.team_emojis = {}
     cog.condition_emojis = {}
     cog.coin_emojis = {}
