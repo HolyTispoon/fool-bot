@@ -75,12 +75,13 @@ from d12ball.components import (
     zone_for_area,
 )
 from d12ball.formatting import (
-    ROLE_INITIALS,
     ball_space_label,
     contest_noun,
     destination_display_name,
     format_player_with_team,
     format_team_side_label,
+    player_with_role,
+    role_initials,
     space_label,
     travel_space_label,
 )
@@ -2209,10 +2210,9 @@ class RulesEngine:
         if not occupants:
             return f"{space_label(zone, space_index)}, no teammate"
         teammate = self.get_player_definition(occupants[0])
-        role_initial = ROLE_INITIALS[teammate.role.value]
         return (
-            f"{space_label(zone, space_index)}-{teammate.name} "
-            f"[{role_initial}]"
+            f"{space_label(zone, space_index)}-"
+            f"{player_with_role(teammate)}"
         )
 
     def build_loose_ball_prompt(
@@ -2449,11 +2449,11 @@ class RulesEngine:
         the label rather than a card the coach has to go and find.
         """
         player = self.get_player_definition(player_id)
-        role = ROLE_INITIALS[player.role.value]
+        name = player_with_role(player)
         if match is not None and player_id in match.injured:
-            return f"{player.name} [{role}] injured"
+            return f"{name} injured"
         offense = self.player_catalog.effective_profile(player).offense
-        return f"{player.name} [{role}] +{offense}"
+        return f"{name} +{offense}"
 
     def challenge_side(
         self,
@@ -2482,7 +2482,7 @@ class RulesEngine:
         profile = self.player_catalog.effective_profile(player)
         return ChallengeSide(
             name=player.name,
-            role=ROLE_INITIALS[player.role.value],
+            role=role_initials(player),
             team_color=TEAM_COLORS[Team(team)],
             team_label=team_display_name(team),
             skill_name="Offensive" if attacking else "Defensive",
@@ -2495,15 +2495,16 @@ class RulesEngine:
 
     def format_roster_player(self, player_id: str) -> str:
         player = self.get_player_definition(player_id)
-        initials = ROLE_INITIALS[player.role.value]
-        return f"{player.name} ({initials})"
+        return f"{player.name} ({role_initials(player)})"
 
     def format_roster_player_with_team(
         self, player_id: str, team: Team,
     ) -> str:
         player = self.get_player_definition(player_id)
-        initials = ROLE_INITIALS[player.role.value]
-        return f"{player.name} ({team_display_name(team)}, {initials})"
+        return (
+            f"{player.name} ({team_display_name(team)}, "
+            f"{role_initials(player)})"
+        )
 
     def roster_places(
         self,

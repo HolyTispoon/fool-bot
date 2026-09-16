@@ -12,8 +12,8 @@ from d12ball import tutorial
 from d12ball.components import PlayerRole
 from d12ball.game import team_display_name
 from cogs.d12ball_helpers import (
-    ROLE_INITIALS,
     build_full_image_button,
+    player_with_role,
     space_label,
 )
 
@@ -82,7 +82,6 @@ class LowPassChoiceView(SafeView):
                 target_flat,
             )
             receivers = cog.engine.low_pass_receivers(match, distance)
-            role_initial = ROLE_INITIALS[teammate.role.value]
             if len(receivers) > 1:
                 # Naming one of several would misread the choice: the
                 # space is what is being picked here, and who receives
@@ -93,7 +92,7 @@ class LowPassChoiceView(SafeView):
                 )
             else:
                 label = (
-                    f"{teammate.name} [{role_initial}] -- "
+                    f"{player_with_role(teammate)} -- "
                     f"{space_label(zone, space_index)}"
                 )
             button = discord.ui.Button(
@@ -223,9 +222,7 @@ class LowPassReceiverView(SafeView):
         for player_id in cog.engine.low_pass_receivers(match, distance):
             player = cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
-                label=(
-                    f"{player.name} [{ROLE_INITIALS[player.role.value]}]"
-                )[:80],
+                label=player_with_role(player)[:80],
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:low_pass_receiver:{game_id}:"
@@ -636,7 +633,7 @@ class SetUpAttemptChoiceView(SafeView):
 
         shooter = cog.engine.get_player_definition(shooter_id)
         attempt_button = discord.ui.Button(
-            label=f"{shooter.name} takes the shot",
+            label=f"{player_with_role(shooter)} takes the shot"[:80],
             style=discord.ButtonStyle.danger,
             custom_id=f"d12ball:setup_attempt:{game_id}:attempt",
         )
@@ -1090,9 +1087,8 @@ class ShooterChoiceView(SafeView):
 
         for player_id in candidates:
             player = cog.engine.get_player_definition(player_id)
-            initials = ROLE_INITIALS[player.role.value]
             button = discord.ui.Button(
-                label=f"{player.name} [{initials}]",
+                label=player_with_role(player)[:80],
                 style=discord.ButtonStyle.danger,
                 custom_id=f"d12ball:shooter:{game_id}:{player_id}",
             )
@@ -1168,7 +1164,7 @@ class MindPullView(SafeView):
 
         player = cog.engine.get_player_definition(player_id)
         pull = discord.ui.Button(
-            label=f"{player.name} reaches for it",
+            label=f"{player_with_role(player)} reaches for it"[:80],
             style=discord.ButtonStyle.primary,
             custom_id=f"d12ball:mind_pull:{game_id}:{player_id}",
         )

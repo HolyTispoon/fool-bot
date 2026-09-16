@@ -195,12 +195,14 @@ class TurnoverMixin:
         show_ball: bool = False,
     ) -> discord.File:
         """
-        One coach's own half of the field, as an attachment. Two
-        occasions want it: the Coaching Choice it is named for, and the
-        Low Pass destination prompt, which asks a question about where
-        this side's teammates are standing relative to the ball --
-        hence `show_ball`, which is the only thing that differs between
-        them. See `render_coaching_image`.
+        One coach's own half of the field, as an attachment. Three
+        flows want it, and all three are a coach reading their own
+        side: the Coaching Choice it is named for, the five
+        distance prompts behind `send_half_field_prompt`, and the
+        run back. `show_ball` is the only thing that differs between
+        them -- off for the Coaching Choice, which happens with play
+        stopped, and on for the other two, which do not. See
+        `render_coaching_image`.
 
         Rendered in a worker thread like every other image: Pillow is
         pure CPU and the event loop is shared by every game at once.
@@ -1391,18 +1393,39 @@ class TurnoverMixin:
         match: MatchState,
         side: TeamSide,
         candidates: list[str],
-        png: bytes,
         lead_in: str = "",
     ) -> None:
         """
-        Put a coach's run-back choice up, on the board `png` the
-        cascade has already settled -- because both questions a run
-        back asks (which of these players goes, and which space they
-        go to) are questions about where everybody is standing, and the
-        persistent message has scrolled away up the channel by the time
-        a turn has resolved. It goes with the prompt: the click edits
-        both away together, so the board a coach is reading is never
-        one of a position that has moved on.
+        Put a coach's run-back choice up, over **this side's own
+        half-field**. Both questions a run back asks -- which of these
+        players goes, and which space they go to -- are questions about
+        where that side's players are standing and which of their
+        spaces are still uncovered, and the persistent message has
+        scrolled away up the channel by the time a turn has resolved.
+
+        **The half rather than the whole board**, which is what this
+        carried before: a run back is a side rearranging itself inside
+        its own zones, so the other side's row is not part of the
+        question -- the same cut and the same reasoning the five
+        distance prompts share in `send_half_field_prompt`, and
+        the same picture a Coaching Choice works from, which is the
+        other flow about a coach's own arrangement. One row of meeples
+        reads at 1280 where the match image's two arrive as a sliver,
+        and it brings the assignment cards, which is where a coach
+        reads the exhaustion a run back is about to add to.
+
+        **The ball is on it** (`show_ball`), unlike a Coaching Choice's:
+        play is live, and the ball is the whole reason the scramble
+        happened -- it is also what the one player who is *not* running
+        back is standing on.
+
+        It costs a second render rather than a second upload: the
+        cascade's own board settles the persistent message, and this
+        draws the half-field beside it. Both are `asyncio.to_thread`
+        like every other render, and the request count is unchanged --
+        see "Discord's rate limits". The picture goes with the prompt:
+        the click edits both away together, so the board a coach is
+        reading is never one of a position that has moved on.
         """
         controller_id = self.engine.side_controller_id(game, side)
         mention = f"<@{controller_id}>" if controller_id else "Someone"
@@ -1425,7 +1448,7 @@ class TurnoverMixin:
 
         prompt_message = await interaction.followup.send(
             f"{prefix}{body}",
-            file=self.match_file_from_png(game, png),
+            file=await self.coaching_file(game, match, side, show_ball=True),
             view=prompt_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
@@ -1601,11 +1624,13 @@ class TurnoverMixin:
                     continue
 
                 # A coach's choice ends the cascade here: say what has
-                # happened so far, show the board it left, and ask.
+                # happened so far, settle the board it left, and ask.
                 #
-                # One render, two uploads -- the same board settles the
-                # persistent message, exactly as announce_board_update
-                # does. See "Discord's rate limits" in CLAUDE.md.
+                # The board goes on the persistent message; the prompt
+                # draws its own half-field (see send_run_back_prompt).
+                # Two renders, two uploads -- the requests are what the
+                # gate counts, and they are unchanged. See "Discord's
+                # rate limits" in CLAUDE.md.
                 png = await self.render_match_png(game)
                 if not await flush(png):
                     await self.refresh_match_image(interaction, game, png=png)
@@ -1616,7 +1641,6 @@ class TurnoverMixin:
                     match,
                     side,
                     candidates,
-                    png,
                     lead_in=lead_in,
                 )
                 return

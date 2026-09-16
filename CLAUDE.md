@@ -635,6 +635,53 @@ and both dribbles' run.
   its own `followup.send` still works, and still drops the board out from under
   its own question.
 
+## Naming a player
+
+**A player is never named without their role.** Nine of them are on the field
+at once and a coach is choosing between them on what they do, so a bare name
+is the one thing a label can say that does not help -- the role initials are
+what the meeple, the card on the board and the printed card all carry, so the
+name a coach reads is the one they can match to what they are looking at.
+
+**Outside a button, a player also carries their team emoji.** Two things make
+that the split. A message can be about either side, and since the 2026-08-17
+reshuffle a card's own definition cannot say which of its two rosters it is
+being fielded as (see [One player, both sides](#one-player-both-sides)) -- so
+a message has to say. A button is the clicking coach's own side by
+construction, and the room the emoji would take is better spent on the
+position, which is what the choice usually turns on.
+
+| Where | Form | Built by |
+| --- | --- | --- |
+| A message | `🟠 Hellguard [FB]` | `format_role_bracket`, via `D12Ball.player_label` / `player_id_label` |
+| A button | `Hellguard [FB]`, plus the position or the price the choice turns on | `player_with_role` |
+| A coaching button, and `/ref`'s roster | `Hellguard (FB)` | `RulesEngine.format_roster_player` |
+
+- **`player_with_role` in `d12ball/formatting.py` is the whole of the
+  bracket spelling**, and the message form is it with the emoji in front --
+  `format_role_bracket` builds on it rather than beside it, so "outside a
+  button, also the emoji" is one rule and not two formatters agreeing by hand.
+- **`role_initials` is the one reader of `ROLE_INITIALS`** outside the modules
+  that *draw* it (`render.py`, `cards.py`, `player_cards.py`, `boards.py`,
+  `species_cards.py`), which index it for a glyph rather than for a name.
+  `NamingAPlayerTests` in `tests/test_d12ball_package_shape.py` fails on
+  anything else that reads it.
+- **The parens form is the odd one and is kept deliberately.** The coaching
+  flow and the roster listing print a player inside prose and parentheses read
+  better there; it still carries the role, which is the rule. It goes through
+  `role_initials` like everything else, so the two spellings cannot come to
+  disagree about what a Fullback is called.
+- **The rule was written down because the run back broke it.**
+  `RunBackPlayerChoiceView`'s buttons read `Hellguard — M2` -- the one place
+  in the game that named a card and left the role off. It was invisible
+  precisely because every *other* site spelled the brackets out for itself,
+  nine copies of `f"{player.name} [{ROLE_INITIALS[...]}]"`, so no one of them
+  looked like the odd one out. The sweep that fixed it is only permanent
+  because there is now one place left to change.
+- **A label is cut to Discord's 80 characters** (`[:80]`), which is a hard
+  limit rather than a style: a longer one is a 400 on the send, and the
+  prompt is what the turn is waiting on.
+
 ## A maneuver's identity is not its printed name
 
 `match.offense_maneuver` and `defense_maneuver` hold a **key** --
@@ -2094,24 +2141,37 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
   `notes` and `continue`, not send. `MAX_RUN_BACK_PASSES` bounds it: as a
   recursion the interpreter did that, and a loop that will not settle would
   hang the event loop for every game at once.
-- **A coach's run-back prompt carries the board, and prices every space it
-  offers.** "Where does this player run back to" is a question about where
-  everybody is standing and how far each space is -- the same reasoning as
-  [a loose ball](#loose-balls-and-the-board), and the persistent board has
-  scrolled away up the channel by the time a turn has resolved. So the prompt
-  is sent with a snapshot of its own, from the render the persistent message is
-  settled with (one draw, two uploads), and `RunBackChoiceView`'s buttons read
-  `M2 (4 spaces)` -- a run back costs a token a space, so the distance *is* the
-  price and the two spaces of a zone are rarely the same offer.
+- **A coach's run-back prompt carries their own half-field, and prices every
+  space it offers.** "Where does this player run back to" is a question about
+  where *this side's* players are standing and how far each space is -- the
+  same reasoning as [a loose ball](#loose-balls-and-the-board), and the
+  persistent board has scrolled away up the channel by the time a turn has
+  resolved. And `RunBackChoiceView`'s buttons read `M2 (4 spaces)` -- a run
+  back costs a token a space, so the distance *is* the price and the two
+  spaces of a zone are rarely the same offer.
   `MatchState.run_back_distance` is the one reading of it, asked by the labels
   and spent by `run_back_player`, so what a button promises and what the coach
   is charged cannot drift; `travel_space_label` is the wording, shared by the
   buttons and by `describe_run_back_options` beside them.
-  - **The board goes when the question does.** The click edits the prompt into
-    its answer, and `attachments=[]` takes the snapshot with it -- it shows the
-    player still displaced, so leaving it under the result would put a stale
-    position in the channel for the rest of the game. The board they moved to
-    is the persistent message's, refreshed a line later.
+  - **The half rather than the whole board**, which is what it carried until
+    the [distance prompts](#choosing-a-distance-and-the-half-field-under-it)
+    moved: a run back is a side rearranging itself inside its own zones, so the
+    other side's row is not part of the question, and one row of meeples reads
+    at 1280 where two do not. It brings the assignment cards, which is where a
+    coach reads the exhaustion this is about to add to. **The ball is on it**,
+    unlike a Coaching Choice's: play is live, the ball is why the scramble
+    happened, and it is what the one player *not* running back is standing on.
+    `D12Ball.coaching_file` is the one builder for all three flows.
+  - **It costs a second render, not a second upload.** The cascade's own board
+    still settles the persistent message and the prompt draws the half-field
+    beside it, so this is two `asyncio.to_thread` renders where there was one,
+    and the same number of requests -- which is what the gate counts. See
+    "Discord's rate limits".
+  - **The picture goes when the question does.** The click edits the prompt
+    into its answer, and `attachments=[]` takes the snapshot with it -- it
+    shows the player still displaced, so leaving it under the result would put
+    a stale position in the channel for the rest of the game. The board they
+    moved to is the persistent message's, refreshed a line later.
   - The full-image link is added with the view handed over, or the edit that
     adds it drops the buttons the prompt exists for -- see
     `add_full_image_button`. That edit is the webhook route, not the channel's;
@@ -4123,7 +4183,9 @@ anywhere in the code.
     Not to be confused with `CoachingView.player_button_label`, which
     is the name on a *button*: the position instead of the team emoji
     (every card in that flow is the clicking coach's own), cut to
-    Discord's 80-character limit.
+    Discord's 80-character limit. See
+    [Naming a player](#naming-a-player) for the rule both of them are
+    readings of.
 - **A player's id is `{slug(name)}_{role}`, not team-prefixed.**
   `hellguard_fullback`, globally unique, because a player's own color
   team is no longer part of their identity -- it can't be, when they
