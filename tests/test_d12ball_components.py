@@ -1,4 +1,5 @@
 import dataclasses
+import io
 import itertools
 import json
 import os
@@ -1353,6 +1354,48 @@ class D12BallComponentTests(unittest.TestCase):
         )
         stack_width = deepest * MEEPLE_SIZE + (deepest - 1) * 3
         self.assertLess(stack_width, narrowest - 20)
+
+        # The Low Pass prompt draws the same half-field with the ball
+        # on it (show_ball), and the ball is tucked against the end of
+        # that same row -- so the widest case is a full stack plus a
+        # token. draw_meeple_group drops its edge margin to 2 when it
+        # is reserving room for one, and ball_token_x leaves 3px of
+        # gap; the space's own border is drawn 8px in on each side.
+        with_ball = (
+            2 + stack_width + 3 + 2 * BALL_RADIUS
+        )
+        self.assertLess(with_ball, narrowest - 8)
+
+    def test_the_half_field_draws_the_ball_only_when_it_is_asked_to(
+        self,
+    ) -> None:
+        # A Coaching Choice happens with play stopped and leaves the
+        # ball off; the Low Pass destination prompt shares the image
+        # and needs it, because its destinations are counted from the
+        # ball. The suite cannot see the image, so this asserts the two
+        # renders are of the same board and are not the same picture.
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+        )
+
+        without = render_coaching_image(
+            match, self.catalog, TeamSide.HOME, title="Orange (Home)",
+        ).getvalue()
+        with_ball = render_coaching_image(
+            match, self.catalog, TeamSide.HOME, title="Orange (Home)",
+            show_ball=True,
+        ).getvalue()
+
+        self.assertNotEqual(without, with_ball)
+        for data in (without, with_ball):
+            with Image.open(io.BytesIO(data)) as image:
+                self.assertEqual(
+                    image.size, (COACHING_WIDTH, COACHING_HEIGHT),
+                )
 
     def test_meeple_names_shrink_to_fit_a_stacked_space(self) -> None:
         # A formation can put a whole zone's players on one space, so

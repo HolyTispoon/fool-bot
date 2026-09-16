@@ -192,12 +192,18 @@ class TurnoverMixin:
         game: D12BallGame,
         match: MatchState,
         side: TeamSide,
+        show_ball: bool = False,
     ) -> discord.File:
         """
-        The coach's own half of the field, as an attachment for their
-        Coaching Choice message. Rendered in a worker thread like every
-        other image: Pillow is pure CPU and the event loop is shared by
-        every game at once.
+        One coach's own half of the field, as an attachment. Two
+        occasions want it: the Coaching Choice it is named for, and the
+        Low Pass destination prompt, which asks a question about where
+        this side's teammates are standing relative to the ball --
+        hence `show_ball`, which is the only thing that differs between
+        them. See `render_coaching_image`.
+
+        Rendered in a worker thread like every other image: Pillow is
+        pure CPU and the event loop is shared by every game at once.
         """
         png = await asyncio.to_thread(
             render_coaching_image,
@@ -205,6 +211,7 @@ class TurnoverMixin:
             self.player_catalog,
             side,
             self.engine.coaching_title(match, side),
+            show_ball,
         )
         return discord.File(
             io.BytesIO(png.getvalue()),

@@ -13,6 +13,7 @@ from d12ball.components import PlayerRole
 from d12ball.game import team_display_name
 from cogs.d12ball_helpers import (
     ROLE_INITIALS,
+    build_full_image_button,
     space_label,
 )
 
@@ -33,6 +34,15 @@ class LowPassChoiceView(SafeView):
     under a formation that stacks -- LowPassReceiverView asks which of
     them takes it. A handler with nobody in reach never sees either
     view: resolve_low_pass settles that case without a prompt.
+
+    **The prompt carries the passer's own half-field, with the ball on
+    it** -- every destination here is counted from where the ball is
+    standing, and the persistent board has usually scrolled away by
+    the time a maneuver resolves. Both views edit that one message, so
+    the picture is uploaded once and taken away by whichever of them
+    answers the question (`attachments=[]`); a restart re-posts the
+    prompt without it, the same as every other image a resume loses.
+
     Reconstructible on restart purely from match state (see
     D12Ball.build_effect_choice_view), the same pattern every other
     persistent view in this cog follows.
@@ -131,16 +141,28 @@ class LowPassChoiceView(SafeView):
         team_name = team_display_name(match.setup_for_side(offense_side).team)
 
         if len(receivers) > 1:
+            # Which of them takes it is read off the same half-field
+            # the space was picked off, so the attachment stays put --
+            # this edit passes no `attachments`, which leaves the one
+            # already on the message alone. Editing a view replaces it
+            # wholesale, though, so the full-image link has to be
+            # rebuilt onto the new one by hand (see
+            # RunBackPlayerChoiceView, which shares a board the same
+            # way).
+            receiver_view = LowPassReceiverView(
+                self.cog, self.game_id, distance,
+                key=self.key, free=self.free,
+            )
+            link = build_full_image_button(interaction.message)
+            if link is not None:
+                receiver_view.add_item(link)
             await interaction.response.edit_message(
                 content=(
                     f"**{interaction.user.display_name} ({team_name})** is "
                     f"passing to {space_label(zone, space_index)}. Which "
                     "player receives it?"
                 ),
-                view=LowPassReceiverView(
-                    self.cog, self.game_id, distance,
-                    key=self.key, free=self.free,
-                ),
+                view=receiver_view,
             )
             return
 
@@ -153,6 +175,11 @@ class LowPassChoiceView(SafeView):
                 f"{space_label(zone, space_index)}."
             ),
             view=None,
+            # The half-field this was asked over shows the ball where
+            # it was *before* the pass, so it goes with the question
+            # rather than standing under the answer -- the same call
+            # the run back's board makes.
+            attachments=[],
         )
         await self.cog.apply_low_pass(
             interaction, game, match, distance, receiver_id=receivers[0],
@@ -260,6 +287,9 @@ class LowPassReceiverView(SafeView):
                 f"{space_label(zone, space_index)}."
             ),
             view=None,
+            # The ball on it has not moved yet, so the picture goes
+            # with the question -- see LowPassChoiceView.choose.
+            attachments=[],
         )
         await self.cog.apply_low_pass(
             interaction, game, match, self.distance, receiver_id=receiver_id,

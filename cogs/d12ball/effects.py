@@ -179,15 +179,31 @@ class ManeuverEffectsMixin:
             self.engine.possession_player_number(game, match),
             mention=True,
         )
+        # The passer's own half-field, with the ball on it. Every
+        # destination on the menu is counted from where the ball is
+        # standing and is named by a space code, and the persistent
+        # board has usually scrolled away up the channel by the time a
+        # maneuver resolves -- the same reasoning as the run back's
+        # board and the field strip under the maneuver cards. The half
+        # is the right cut here rather than the whole board: a pass
+        # reaches this side's players and nobody else's, and one row
+        # of meeples reads at 1280 where two do not.
+        prompt_view = LowPassChoiceView(self, game.game_id, key=key, free=free)
         prompt_message = await interaction.followup.send(
             f"{mention}, choose your "
             f"{self.engine.maneuver_name(key)}:",
-            view=LowPassChoiceView(self, game.game_id, key=key, free=free),
+            file=await self.coaching_file(
+                game, match, match.ball.possession, show_ball=True,
+            ),
+            view=prompt_view,
             wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
         )
+        # Handed the view, or the edit that adds the link drops the
+        # buttons this prompt exists for -- see add_full_image_button.
+        await add_full_image_button(prompt_message, prompt_view)
         game.turn_message_id = prompt_message.id
         save_games(self.games)
 

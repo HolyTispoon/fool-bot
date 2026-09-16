@@ -229,6 +229,20 @@ that rule for free. **This is the standard deal only**; a formation change re-de
   `LowPassReceiverView` puts the choice to the passer. `low_pass_candidates`
   still names one player per destination -- that is a button label, not the
   receiver.
+- **Both prompts are posted over the passer's own half-field, with the ball on
+  it.** Every destination is counted *from* the ball and named by a space code,
+  and the persistent board has usually scrolled away up the channel by the time
+  a maneuver resolves -- the same reasoning as
+  [the run back's board](#turnovers-steals-and-new-plays) and the field strip
+  under the maneuver cards. The **half** rather than the whole board because a
+  pass reaches this side's players and nobody else's, and one row of meeples
+  reads at 1280 where two do not; the **ball** because a Coaching Choice's
+  reason for leaving it off (`show_ball` -- see "Working on the board image")
+  is exactly what does not hold here. It is uploaded once: the receiver pick is
+  an edit of the same message and keeps it, carrying the full-image link across
+  by hand the way `RunBackPlayerChoiceView` does, and whichever view answers
+  the question takes it away with `attachments=[]` -- it shows the ball where
+  it was *before* the pass. A restart re-posts the prompt without it.
 
 ## The Coaching Choice
 
@@ -2952,6 +2966,7 @@ output is a PNG of the expected dimensions.
 python3 scripts/render_sample.py --home purple --visiting teal --out board.png
 python3 scripts/render_sample.py --home-formation 2-3-1 --board-size 6  # stacked meeples
 python3 scripts/render_sample.py --coaching home       # a coach's own half
+python3 scripts/render_sample.py --coaching home --pass-ball  # the Low Pass prompt's
 python3 scripts/render_sample.py --field               # the field on its own
 python3 scripts/render_sample.py --list-games
 python3 scripts/render_sample.py --game <game_id>      # reproduce a real board
@@ -3001,6 +3016,23 @@ match image's width it arrives in Discord as an unreadable sliver. **It is
 deliberately not mirrored for the visiting coach**: the zones keep their real
 names and the spaces their real numbers, so V1 is the same space on both images
 and on the board the coaches are looking at.
+
+**Two occasions want that half-field, and `show_ball` is the whole difference
+between them.** A Coaching Choice happens with play stopped and none of its
+four actions turns on where the ball is, so it is left off; a Low Pass's
+destinations are counted *from* the ball, so a half-field with no ball on it is
+the one picture that cannot answer the question it is posted under -- see
+[Formations and occupancy](#formations-and-occupancy). The token is drawn
+wherever it stands and whoever has it, since this image carries one side's
+meeples and so says which space rather than which row; it is placed by
+`ball_token_x`, the same helper the match image reads, so the two boards put it
+in the same place. `D12Ball.coaching_file` is the one builder for both, and the
+shooting-range bracket stays off either: a pass is a question about who is
+within reach, and the shot a Winger's set-up may buy is asked over the board
+that carries the bracket. The width was already chosen to hold board 6's
+two-meeple stack, and `D12BallComponentTests` now checks that stack plus a ball
+still clears the space border -- the suite cannot see the image, and an
+overflow here is silent.
 
 **`render_field_image` is the third, and it is a crop rather than a third
 layout.** The field alone -- both sides' meeples, the ball, the space codes and

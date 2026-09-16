@@ -134,9 +134,12 @@ COACHING_BOARD_BOTTOM = COACHING_BOARD_TOP + 250
 #
 # **No shooting-range bracket here, unlike the match image.** A
 # Coaching Choice happens with play stopped and shows only one side's
-# own half, so there is no ball and no attempt in progress for a range
-# to matter to -- the match image carries it because that is the board
-# a shot is actually taken from.
+# own half, so there is no attempt in progress for a range to matter
+# to -- the match image carries it because that is the board a shot is
+# actually taken from. That holds for the pass prompt this image also
+# serves (`show_ball`): a Low Pass is a question about who is within
+# reach, and the shot a Winger's set-up may buy is asked separately,
+# over the board that carries the bracket.
 COACHING_CARD_GAP = 12
 COACHING_ZONE_CARDS_TOP = COACHING_BOARD_BOTTOM + 18
 COACHING_BENCH_LABEL_TOP = COACHING_ZONE_CARDS_TOP + CARD_SIZE[1] + 22
@@ -3560,6 +3563,7 @@ def render_coaching_image(
     catalog: PlayerCatalog,
     side: TeamSide,
     title: str,
+    show_ball: bool = False,
 ) -> BytesIO:
     """
     One coach's own half of the field, for the
@@ -3574,8 +3578,14 @@ def render_coaching_image(
     "V1" the space on the right in one image and the left in the
     other.
 
-    The ball is left off. Where it is has no bearing on any of the
-    four actions, and a Coaching Choice happens with play stopped.
+    **`show_ball` is off for a Coaching Choice and on for a pass.**
+    Where the ball is has no bearing on any of the four actions a
+    window offers, and a Coaching Choice happens with play stopped --
+    but a Low Pass's destinations are counted *from* the ball, so a
+    half-field with no ball on it is the one picture that cannot
+    answer the question it is posted under. It is drawn wherever it
+    stands, whoever has it: this image carries one side's meeples, so
+    the token says which space rather than which row.
     """
     side = TeamSide(side)
     players = player_index(catalog)
@@ -3650,22 +3660,52 @@ def render_coaching_image(
                 fill="#c8d1dc",
             )
 
-            draw_meeple_group(
+            side_occupants = [
+                player_id
+                for player_id in occupants
+                if player_id in team_players
+            ]
+            ball_is_here = show_ball and (
+                match.ball.zone == zone
+                and match.ball.space_index == space_index
+            )
+            group_bounds = draw_meeple_group(
                 draw,
-                [
-                    player_id
-                    for player_id in occupants
-                    if player_id in team_players
-                ],
+                side_occupants,
                 players,
                 setup.team,
                 space_left,
                 space_right,
                 COACHING_BOARD_TOP + 78,
                 alignment="left" if side == TeamSide.HOME else "right",
-                reserve_ball=False,
+                reserve_ball=ball_is_here,
                 label_bottom=COACHING_BOARD_BOTTOM - 14,
             )
+
+            if ball_is_here:
+                # Tucked against this side's row on the open end of it,
+                # or centred where they have nobody there -- the same
+                # rule and the same helper the match image reads, so
+                # the two boards place the token alike. `home_side`
+                # follows the alignment above rather than possession:
+                # there is only one row here to tuck against.
+                draw_d12_polygon(
+                    draw,
+                    ball_token_x(
+                        space_left,
+                        space_right,
+                        group_bounds,
+                        carrying_side_present=bool(side_occupants),
+                        home_side=side == TeamSide.HOME,
+                    ),
+                    COACHING_BOARD_TOP + 78 + MEEPLE_SIZE // 2,
+                    BALL_RADIUS,
+                    "#ffffff",
+                    str(match.ball.speed),
+                    font=FONT_SMALL,
+                    outline="#243347",
+                    text_color="#243347",
+                )
 
     draw_assignment_cards(
         canvas,
