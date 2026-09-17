@@ -43,10 +43,12 @@ from d12ball.formatting import (
 )
 from d12ball.game import (
     AIOpponent,
+    COLOR_TEAMS,
     CoinFace,
     D12BallGame,
     GameMode,
     Team,
+    paired_team,
     team_display_name,
 )
 from discord_emoji_cache import EMOJI_REFETCH_INTERVAL
@@ -165,6 +167,25 @@ ROLE_EMOJI_NAMES = {
     PlayerRole.PLAYMAKER: "role_playmaker",
     PlayerRole.WINGER: "role_winger",
     PlayerRole.STRIKER: "role_striker",
+}
+
+# The same badge with its edge in a team's colour -- `role_fullback`
+# and `role_fullback_orange` differ by the edge and by nothing else,
+# which is the whole of the design (see scripts/render_role_emoji.py).
+# A message names the side the card is being fielded as, so it is the
+# form a message gets; the plain badge above is what a *side-less*
+# naming falls back to, which is the goal log and nothing else.
+#
+# **Keyed by every team, filled from four files.** A species team
+# shares its colour team's hex, so Orange and Fire Demons are the same
+# upload -- the pairing is resolved once, here, exactly as
+# `TEAM_COLORS` resolves it once (see "Team colors" in CLAUDE.md), so
+# nothing downstream has to know that a Cyborg is drawn teal.
+ROLE_TEAM_EMOJI_NAMES = {
+    (role, team): f"{name}_{colour.value}"
+    for role, name in ROLE_EMOJI_NAMES.items()
+    for colour in COLOR_TEAMS
+    for team in (colour, paired_team(colour))
 }
 
 
@@ -308,19 +329,31 @@ async def load_team_emojis(
 async def load_role_emojis(
     bot: commands.Bot,
     emojis_by_name: Optional[dict[str, discord.Emoji]] = None,
-) -> dict[PlayerRole, str]:
+) -> dict[tuple[PlayerRole, Optional[Team]], str]:
     """
     Look up the role-badge emoji among the application's emoji, the
     same way load_team_emojis does.
 
     `emojis_by_name` is an already-fetched list -- see
-    fetch_application_emojis. A role with no upload is left out, and
-    `role_badge` writes its brackets instead.
+    fetch_application_emojis.
+
+    **One dict for both cuts, keyed by `(role, team)`.** The plain
+    badge is filed under `(role, None)` and each colour cut under
+    `(role, team)` for both teams sharing that colour, so a caller
+    that has a side and a caller that has none ask the same dict and
+    `role_badge` is one lookup chain rather than two dicts threaded
+    through ninety call sites.
+
+    Anything with no upload is simply left out, and `role_badge` falls
+    back on its own -- colour cut, then plain badge, then the
+    brackets. So an application holding the six plain badges and none
+    of the twenty-four reads exactly as it did before this landed,
+    which is what it was doing until somebody uploads the rest.
     """
     if emojis_by_name is None:
         emojis_by_name = await fetch_application_emojis(bot) or {}
 
-    role_emojis: dict[PlayerRole, str] = {}
+    role_emojis: dict[tuple[PlayerRole, Optional[Team]], str] = {}
     missing: list[str] = []
 
     for role, name in ROLE_EMOJI_NAMES.items():
@@ -329,13 +362,39 @@ async def load_role_emojis(
         if emoji is None:
             missing.append(name)
         else:
-            role_emojis[role] = str(emoji)
+            role_emojis[(role, None)] = str(emoji)
+
+    # The colour cuts are reported separately: an application with the
+    # plain six and none of these is the ordinary state on the way to
+    # uploading them, and listing twenty-four names beside the six
+    # would read as something being wrong with both.
+    missing_colours: list[str] = []
+
+    for (role, team), name in ROLE_TEAM_EMOJI_NAMES.items():
+        emoji = emojis_by_name.get(name)
+
+        if emoji is None:
+            # Once per file rather than once per team -- the four
+            # colours are eight keys, and naming each twice would say
+            # there are twice as many uploads owed as there are.
+            if name not in missing_colours:
+                missing_colours.append(name)
+        else:
+            role_emojis[(role, team)] = str(emoji)
 
     if missing:
         LOGGER.info(
             "This application has no role emoji named %s; those roles "
             "will show their bracketed initials instead.",
             ", ".join(missing),
+        )
+
+    if missing_colours:
+        LOGGER.info(
+            "This application has no team-coloured role emoji named "
+            "%s; players on those teams will show the plain badge "
+            "instead.",
+            ", ".join(missing_colours),
         )
 
     return role_emojis
@@ -481,7 +540,7 @@ def format_role_bracket(
     player: PlayerDefinition,
     team_emojis: dict[Team, str],
     team: Team,
-    role_emojis: Optional[dict[PlayerRole, str]] = None,
+    role_emojis: Optional[dict[tuple[PlayerRole, Optional[Team]], str]] = None,
 ) -> str:
     """
     "🟠 Hellguard [FB]" -- `player_with_role` with the team emoji in
@@ -495,14 +554,18 @@ def format_role_bracket(
     `role_emojis` is the role's own badge in place of the brackets
     (see `load_role_emojis`); a message is the one place custom emoji
     render, so this is the form that takes it and `player_with_role`
-    on its own is the form that does not.
+    on its own is the form that does not. **The team is passed on to
+    the badge as well as read for the emoji in front**, so the badge
+    is drawn with that side's own colour on its edge -- one team
+    argument answering both, which is what stops the ring and the
+    badge on one line ever naming two different sides.
 
     **A button gets the position instead of the emoji**, which is the
     only place the two forms differ -- see `player_with_role` and
     "Naming a player" in CLAUDE.md.
     """
     team_emoji = get_team_emoji(team_emojis, team)
-    return f"{team_emoji} {player_with_role(player, role_emojis)}"
+    return f"{team_emoji} {player_with_role(player, role_emojis, team)}"
 
 
 # destination_display_name, format_team_side_label, space_label,
@@ -627,7 +690,7 @@ def format_goal_time(goal: GoalRecord) -> str:
 def format_goal_scorer(
     goal: GoalRecord,
     catalog: PlayerCatalog,
-    role_emojis: Optional[dict[PlayerRole, str]] = None,
+    role_emojis: Optional[dict[tuple[PlayerRole, Optional[Team]], str]] = None,
 ) -> str:
     """
     Who put it in, with **(OG)** where that is not who it counts for.
@@ -635,7 +698,11 @@ def format_goal_scorer(
     under the heading of the side the goal counts for, which for an own
     goal is not the scorer's own -- so an emoji here would be the one
     thing on the line contradicting it. The *role* emoji says nothing
-    about a side, so it stays.
+    about a side, so it stays -- **the plain cut of it**, which is why
+    this is the one message in the game that names a player and passes
+    `role_badge` no team. A team-coloured badge says exactly what the
+    team emoji would have said, and would contradict the heading in
+    exactly the same way.
     """
     player = catalog.player_by_id(goal.player_id)
     name = player_with_role(player, role_emojis)
@@ -646,7 +713,7 @@ def build_goal_log(
     match: MatchState,
     catalog: PlayerCatalog,
     team_emojis: dict[Team, str],
-    role_emojis: Optional[dict[PlayerRole, str]] = None,
+    role_emojis: Optional[dict[tuple[PlayerRole, Optional[Team]], str]] = None,
 ) -> str:
     """
     The scoresheet at full time: every goal of the game, under the side

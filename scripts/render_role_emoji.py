@@ -27,6 +27,28 @@ which is the size a coach mostly meets it at: "🟠 Hellguard [FB]" is a
 ring and then a square, not two rings. The initials are the board's
 own (`ROLE_INITIALS`), so the two letters here are the two letters on
 the meeple and the printed card.
+
+**There are five cuts of each role, not one**: the plain badge above
+and one in each of the four team colours (`role_fullback_orange`,
+...), which is 30 files. A colour cut is the same badge with the
+*edge* in that team's hex and nothing else changed -- the face stays
+white and the initials stay ink.
+
+That is the whole of the design, and the alternatives were drawn and
+looked at before it was picked. Filling the *face* with the colour and
+setting the initials in `high_contrast_ink` -- the board's own recipe
+for a meeple token -- reads strongest at full size and worst where it
+matters: at 22px two letters knocked out of orange or slime green are
+a smudge, where black on white is still two letters (the author,
+2026-09-17). Putting the colour on the initials as well as the edge,
+which is what the *team* emoji does with its one big glyph, loses the
+same way for the same reason. So the colour is on the edge alone: the
+one part of the badge carrying no information, and the part a coach
+reads as a colour rather than as a shape.
+
+A colour cut serves **both** teams that share the hex -- Orange and
+Fire Demons are one file, the way `TEAM_COLORS` is one hex (see "Team
+colors" in CLAUDE.md). There are four files a role and not eight.
 """
 import argparse
 import sys
@@ -38,6 +60,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.formatting import ROLE_INITIALS  # noqa: E402
+from d12ball.game import COLOR_TEAMS  # noqa: E402
+from d12ball.render import TEAM_COLORS  # noqa: E402
 
 EMOJI_DIR = PROJECT_ROOT / "d12ball" / "images" / "emoji"
 FONT_PATH = PROJECT_ROOT / "d12ball" / "fonts" / "DejaVuSans-Bold.ttf"
@@ -71,8 +95,16 @@ TEXT_WIDTH = 0.88
 
 FACE_COLOR = (255, 255, 255, 255)
 # `high_contrast_ink`'s dark, the colour the board draws the initials
-# in on a card.
+# in on a card. It is the plain cut's edge as well as every cut's
+# initials -- see the module docstring for why the colour cuts move
+# the edge and leave the letters alone.
 INK = (17, 17, 17, 255)
+
+# The four hexes, read off `TEAM_COLORS` rather than written here --
+# there is exactly one hex per colour anywhere in the code, and a
+# species team shares its colour team's, which is why these are keyed
+# by the colour team alone. See "Team colors" in CLAUDE.md.
+EDGE_COLORS = {team.value: TEAM_COLORS[team] for team in COLOR_TEAMS}
 
 
 def fitted_font(size: int) -> ImageFont.FreeTypeFont:
@@ -93,7 +125,15 @@ def fitted_font(size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(str(FONT_PATH), font_size)
 
 
-def render_badge(initials: str, font: ImageFont.FreeTypeFont) -> Image.Image:
+def render_badge(
+    initials: str,
+    font: ImageFont.FreeTypeFont,
+    edge_color=INK,
+) -> Image.Image:
+    """
+    One badge. `edge_color` is the only thing a colour cut changes --
+    the face and the initials are the same on all five.
+    """
     size = CANVAS * SUPERSAMPLE
     badge = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     pen = ImageDraw.Draw(badge)
@@ -107,7 +147,7 @@ def render_badge(initials: str, font: ImageFont.FreeTypeFont) -> Image.Image:
     pen.rounded_rectangle(
         (margin, margin, size - margin, size - margin),
         radius=radius,
-        fill=INK,
+        fill=edge_color,
     )
     face_inset = margin + edge
     pen.rounded_rectangle(
@@ -130,29 +170,57 @@ def render_badge(initials: str, font: ImageFont.FreeTypeFont) -> Image.Image:
 
 
 def render_all() -> dict[str, Image.Image]:
+    """
+    Every file the set holds, keyed by the name it is uploaded under:
+    the plain badge a role, then one per team colour. The names are
+    what `ROLE_EMOJI_NAMES` and `ROLE_TEAM_EMOJI_NAMES` in
+    `cogs/d12ball_helpers.py` look up, and
+    `D12BallRoleEmojiTests` fails if the two spellings part company.
+    """
     font = fitted_font(CANVAS * SUPERSAMPLE)
-    return {
-        f"role_{role}": render_badge(initials, font)
-        for role, initials in ROLE_INITIALS.items()
-    }
+    badges: dict[str, Image.Image] = {}
+    for role, initials in ROLE_INITIALS.items():
+        badges[f"role_{role}"] = render_badge(initials, font)
+        for colour, edge in EDGE_COLORS.items():
+            badges[f"role_{role}_{colour}"] = render_badge(
+                initials, font, edge,
+            )
+    return badges
 
 
-def contact_sheet(badges: dict[str, Image.Image]) -> Image.Image:
-    """The six side by side on Discord's dark ground, at the size they
-    are drawn and at the size a coach reads them."""
+def contact_sheet(
+    badges: dict[str, Image.Image],
+    background=(49, 51, 56, 255),
+) -> Image.Image:
+    """
+    The whole set as a grid -- a role a column, a cut a row -- at the
+    size it is drawn and at the 22px a coach reads it.
+
+    The small row is the one worth looking at, and is the reason the
+    sheet exists: everything here is legible at 256px, including the
+    treatments that were rejected. Drawn on Discord's dark ground by
+    default, and `--sheet-light` writes the same grid on its light
+    one -- a badge has to hold both, which is what the white face is
+    for and what a coloured *face* would have given up.
+    """
     gap = 24
     small = 22
-    width = gap + len(badges) * (CANVAS + gap)
-    height = gap + CANVAS + gap + small + gap
-    sheet = Image.new("RGBA", (width, height), (49, 51, 56, 255))
-    x = gap
-    for badge in badges.values():
-        sheet.alpha_composite(badge, (x, gap))
-        sheet.alpha_composite(
-            badge.resize((small, small), Image.LANCZOS),
-            (x + (CANVAS - small) // 2, gap + CANVAS + gap),
-        )
-        x += CANVAS + gap
+    cut_height = CANVAS + gap + small + gap
+    cuts = ["plain", *EDGE_COLORS]
+    width = gap + len(ROLE_INITIALS) * (CANVAS + gap)
+    height = gap + len(cuts) * cut_height
+    sheet = Image.new("RGBA", (width, height), background)
+    for row, cut in enumerate(cuts):
+        y = gap + row * cut_height
+        for column, role in enumerate(ROLE_INITIALS):
+            name = f"role_{role}" if cut == "plain" else f"role_{role}_{cut}"
+            badge = badges[name]
+            x = gap + column * (CANVAS + gap)
+            sheet.alpha_composite(badge, (x, y))
+            sheet.alpha_composite(
+                badge.resize((small, small), Image.LANCZOS),
+                (x + (CANVAS - small) // 2, y + CANVAS + gap),
+            )
     return sheet
 
 
@@ -171,7 +239,12 @@ def main() -> int:
     parser.add_argument(
         "--sheet",
         action="store_true",
-        help="also write role_emoji_sheet.png, the six on a dark ground",
+        help="also write role_emoji_sheet.png, the set on a dark ground",
+    )
+    parser.add_argument(
+        "--sheet-light",
+        action="store_true",
+        help="also write role_emoji_sheet_light.png, the same on a light one",
     )
     args = parser.parse_args()
 
@@ -196,12 +269,18 @@ def main() -> int:
         contact_sheet(badges).save(path)
         print(f"sheet -> {path}")
 
+    if args.sheet_light and destination is not None:
+        path = destination / "role_emoji_sheet_light.png"
+        contact_sheet(badges, (255, 255, 255, 255)).save(path)
+        print(f"sheet -> {path}")
+
     if destination is None:
         print("\nDry run. Pass --in-place to overwrite, or --out to look first.")
     elif args.in_place:
         print(
-            "\nWritten. Upload all six to the Developer Portal's Emojis "
-            "tab under these names; nothing in the bot reads the files."
+            f"\nWritten. Upload all {len(badges)} to the Developer "
+            "Portal's Emojis tab under these names; nothing in the bot "
+            "reads the files."
         )
     return 0
 

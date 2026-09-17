@@ -584,10 +584,12 @@ class CoreMixin:
         )
 
     @property
-    def role_emojis(self) -> dict[PlayerRole, str]:
+    def role_emojis(self) -> dict[tuple[PlayerRole, Optional[Team]], str]:
         """
-        The role emoji, `PlayerRole -> "<:role_fullback:id>"`, once
-        cog_load has fetched them and `{}` before.
+        The role emoji, `(PlayerRole, Team | None) ->
+        "<:role_fullback_orange:id>"`, once cog_load has fetched them
+        and `{}` before -- the badge in a side's own colour, with the
+        plain cut filed under a team of None (see `load_role_emojis`).
 
         The dict itself lives on the engine, whose two message builders
         name a player with it (`format_roster_player_for_message`), and
@@ -599,7 +601,9 @@ class CoreMixin:
         return self.engine.role_emojis
 
     @role_emojis.setter
-    def role_emojis(self, role_emojis: dict[PlayerRole, str]) -> None:
+    def role_emojis(
+        self, role_emojis: dict[tuple[PlayerRole, Optional[Team]], str],
+    ) -> None:
         self.engine.role_emojis = role_emojis
 
     def player_label(
@@ -610,7 +614,8 @@ class CoreMixin:
         """
         "🟠 Hellguard [FB]" -- a player named the way every message in
         the game names them, with the role badge emoji in place of the
-        brackets once the six are uploaded (see `role_emojis`).
+        brackets once they are uploaded (see `role_emojis`), drawn
+        with that side's own colour on its edge.
 
         This is `format_role_bracket` with the two arguments that are
         the same at every call site already filled in. The emoji dict

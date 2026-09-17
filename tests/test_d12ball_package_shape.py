@@ -428,13 +428,13 @@ class NamingAPlayerTests(unittest.TestCase):
             catalog, load_basic_ruleset(), load_maneuver_catalog(), {},
         )
         player = catalog.teams[Team.ORANGE].players[0]
-        badge = f"<:role_{player.role.value}:100>"
-        engine.role_emojis = {player.role: badge}
+        badge = f"<:role_{player.role.value}_orange:100>"
+        engine.role_emojis = {(player.role, Team.ORANGE): badge}
         plain = f"{player.name} [{role_initials(player)}]"
 
-        # The message forms carry the badge.
+        # The message forms carry the badge, in the side's own colour.
         self.assertEqual(
-            player_with_role(player, engine.role_emojis),
+            player_with_role(player, engine.role_emojis, Team.ORANGE),
             f"{player.name} {badge}",
         )
         self.assertEqual(
@@ -442,7 +442,9 @@ class NamingAPlayerTests(unittest.TestCase):
             f"🟠 {player.name} {badge}",
         )
         self.assertEqual(
-            engine.format_roster_player_for_message(player.player_id),
+            engine.format_roster_player_for_message(
+                player.player_id, Team.ORANGE,
+            ),
             f"{player.name} {badge}",
         )
         # The button and autocomplete forms do not, however the engine
@@ -471,7 +473,7 @@ class NamingAPlayerTests(unittest.TestCase):
         players = catalog.teams[Team.ORANGE].players
         striker = next(p for p in players if p.role == PlayerRole.STRIKER)
         fullback = next(p for p in players if p.role == PlayerRole.FULLBACK)
-        role_emojis = {PlayerRole.STRIKER: "<:role_striker:100>"}
+        role_emojis = {(PlayerRole.STRIKER, None): "<:role_striker:100>"}
 
         self.assertEqual(
             player_with_role(striker, role_emojis),
@@ -480,4 +482,86 @@ class NamingAPlayerTests(unittest.TestCase):
         self.assertEqual(
             player_with_role(fullback, role_emojis),
             f"{fullback.name} [{role_initials(fullback)}]",
+        )
+
+    def test_a_team_without_its_colour_cut_falls_back_to_the_plain_badge(
+        self,
+    ) -> None:
+        """
+        Three steps down, not two: the colour cut, then the plain
+        badge, then the brackets. An application holding the six plain
+        badges and none of the twenty-four reads exactly as it did
+        before the colours existed -- which is what it is doing until
+        somebody uploads the rest.
+        """
+        from d12ball.components import PlayerRole, load_player_catalog
+        from d12ball.formatting import player_with_role, role_initials
+        from d12ball.game import Team
+
+        catalog = load_player_catalog()
+        striker = next(
+            p
+            for p in catalog.teams[Team.ORANGE].players
+            if p.role == PlayerRole.STRIKER
+        )
+        role_emojis = {
+            (PlayerRole.STRIKER, None): "<:role_striker:100>",
+            (PlayerRole.STRIKER, Team.ORANGE): "<:role_striker_orange:101>",
+        }
+
+        # The colour it has.
+        self.assertEqual(
+            player_with_role(striker, role_emojis, Team.ORANGE),
+            f"{striker.name} <:role_striker_orange:101>",
+        )
+        # A colour it does not: the plain badge, never a blank.
+        self.assertEqual(
+            player_with_role(striker, role_emojis, Team.TEAL),
+            f"{striker.name} <:role_striker:100>",
+        )
+        # And with neither, the brackets.
+        self.assertEqual(
+            player_with_role(striker, {}, Team.TEAL),
+            f"{striker.name} [{role_initials(striker)}]",
+        )
+
+    def test_the_goal_log_names_a_scorer_with_the_plain_badge(self) -> None:
+        """
+        The one message in the game that names a player and passes no
+        team. Every line of the log is under the heading of the side
+        the goal counts for, which for an own goal is not the
+        scorer's -- so a badge in the scorer's own colour would say
+        exactly what the team emoji was left off for saying. See
+        `format_goal_scorer`.
+        """
+        from cogs.d12ball_helpers import format_goal_scorer
+        from d12ball.components import (
+            GoalRecord,
+            MatchPeriod,
+            PlayerRole,
+            TeamSide,
+            load_player_catalog,
+        )
+        from d12ball.game import Team
+
+        catalog = load_player_catalog()
+        striker = next(
+            p
+            for p in catalog.teams[Team.ORANGE].players
+            if p.role == PlayerRole.STRIKER
+        )
+        role_emojis = {
+            (PlayerRole.STRIKER, None): "<:role_striker:100>",
+            (PlayerRole.STRIKER, Team.ORANGE): "<:role_striker_orange:101>",
+        }
+        goal = GoalRecord(
+            side=TeamSide.HOME,
+            player_id=striker.player_id,
+            time=7,
+            period=MatchPeriod.FIRST_HALF,
+        )
+
+        self.assertEqual(
+            format_goal_scorer(goal, catalog, role_emojis),
+            f"{striker.name} <:role_striker:100>",
         )
