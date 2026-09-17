@@ -661,7 +661,7 @@ position, which is what the choice usually turns on.
 
 | Where | Form | Built by |
 | --- | --- | --- |
-| A message | `🟠 Hellguard [FB]` -- and once the role emoji are uploaded, `🟠 Hellguard <:role_fullback:id>` | `format_role_bracket`, via `D12Ball.player_label` / `player_id_label`; `RulesEngine.format_roster_player_for_message` inside the engine's own two message builders |
+| A message | `🟠 Hellguard [FB]` -- and once the role emoji are uploaded, `🟠 Hellguard <:role_fullback_orange:id>`, the badge edged in that side's own colour | `format_role_bracket`, via `D12Ball.player_label` / `player_id_label`; `RulesEngine.format_roster_player_for_message` inside the engine's own two message builders |
 | A button | `Hellguard [FB]`, plus the position or the price the choice turns on | `player_with_role` |
 | Anywhere holding a card id rather than a definition | `Hellguard [FB]` | `RulesEngine.format_roster_player` |
 | The two both-sides autocompletes | `Hellguard [FB] (Orange)` | `RulesEngine.format_roster_player_with_team` |
@@ -750,11 +750,55 @@ position, which is what the choice usually turns on.
     and light themes alike. Everything about it is tuned for the 22px it is
     shown at inline: the first draft's thicker edge and smaller initials
     were legible at 256px and a smudge in a message.
+  - **There are five cuts of each badge, and the colour is on the edge
+    alone.** `role_fullback_orange` and its twenty-three siblings are the
+    same badge with the edge in a team's hex -- the face stays white and
+    the initials stay ink, which is the whole of the design (2026-09-17).
+    The alternatives were drawn and looked at first: filling the *face*
+    with the colour and knocking the initials out in `high_contrast_ink`,
+    which is the board's own recipe for a meeple token, reads strongest at
+    256px and worst at 22, where two letters out of orange or slime green
+    are a smudge and black on white is still two letters. Putting the
+    colour on the initials as well, which is what the *team* emoji does
+    with its one big glyph, loses the same way for the same reason. So the
+    colour goes on the one part of the badge carrying no information.
+    - **One geometry for all five cuts.** The edge stays at `EDGE_WIDTH`,
+      which is already the thickest line that survives the downscale as a
+      line rather than a shadow -- a wider edge would read the colour
+      better and cost the letters, which is the trade that settled the
+      badge in the first place and is settled the same way again.
+    - **Four files a role, not eight.** A species team shares its colour
+      team's hex, so Orange and Fire Demons are one upload.
+      `ROLE_TEAM_EMOJI_NAMES` keys every team and fills from four names,
+      resolving the pairing once the way `TEAM_COLORS` does -- so nothing
+      downstream has to know that a Cyborg is drawn teal.
+  - **One dict for both cuts, keyed `(role, team)`.** The plain badge is
+    filed under `(role, None)` and each colour cut under both teams
+    sharing it, so a caller with a side and a caller with none ask the
+    same dict. Two dicts threaded through ninety call sites was the
+    alternative. `role_badge` falls back in three steps -- the colour cut,
+    then the plain badge, then the brackets -- so an application holding
+    the six and none of the twenty-four reads exactly as it did before the
+    colours existed, which is what it does until somebody uploads them.
+  - **Passing the team is what asks for the colour, and every message
+    already had one.** `format_role_bracket` takes a team for the emoji it
+    puts in front, so the same argument now answers the badge as well --
+    which is what stops the ring and the badge on one line ever naming two
+    different sides. It is `match.team_for_player`'s answer, not the
+    definition's, so a player fielded on both sides carries each side's
+    colour on the right card (see "One player, both sides").
+  - **The goal log is the one message that passes no team, deliberately.**
+    Every line of it is under the heading of the side the goal counted
+    for, which for an own goal is not the scorer's -- so it keeps the
+    *plain* cut. A badge in the scorer's own colour would say exactly what
+    the team emoji is left off that line for saying, and contradict the
+    heading in exactly the same way. See `format_goal_scorer`.
   - **The dice image's detail lines, the matchup image and the stats
     tables keep the brackets**: they are drawn, or set in a code block,
     and an emoji goes in neither. The goal log does take the badge -- the
     role says nothing about which side a goal counted for, which is the
-    reason the *team* emoji is kept off that line and does not apply here.
+    reason the *team* emoji is kept off that line -- but the plain cut of
+    it only, since a coloured edge would say a side after all.
 
 ## A maneuver's identity is not its printed name
 

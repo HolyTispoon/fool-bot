@@ -222,26 +222,46 @@ def role_initials(player) -> str:
 
 def role_badge(
     player,
-    role_emojis: Optional[dict[PlayerRole, str]] = None,
+    role_emojis: Optional[dict[tuple[PlayerRole, Optional[Team]], str]] = None,
+    team: Optional[Team] = None,
 ) -> str:
     """
     The role as it is written after a name: the application's emoji
     for it where one has been loaded, and `[FB]` otherwise.
 
-    `role_emojis` is `PlayerRole -> "<:role_fullback:123>"`, loaded by
-    `cogs.d12ball_helpers.load_role_emojis` from the six PNGs
-    `scripts/render_role_emoji.py` draws. It is optional because the
-    text form is right in two places the emoji cannot go: a button
-    label and an autocomplete choice are plain text, and custom emoji
-    markup in either shows as the raw `<:...:>`. So a caller passes
-    the dict for a *message* and nothing for a button, which is the
-    same split as the team emoji -- see "Naming a player" in CLAUDE.md.
-    A role missing from the dict falls back to the brackets on its
-    own, so an application with three of the six uploaded is not
-    three badges and three blanks.
+    `role_emojis` is `(role, team) -> "<:role_fullback_orange:123>"`,
+    loaded by `cogs.d12ball_helpers.load_role_emojis` from the PNGs
+    `scripts/render_role_emoji.py` draws -- the plain badge under
+    `(role, None)` and a colour cut under each team. It is optional
+    because the text form is right in two places the emoji cannot go:
+    a button label and an autocomplete choice are plain text, and
+    custom emoji markup in either shows as the raw `<:...:>`. So a
+    caller passes the dict for a *message* and nothing for a button,
+    which is the same split as the team emoji -- see "Naming a player"
+    in CLAUDE.md.
+
+    **`team` is which of the player's two rosters this card is being
+    fielded as**, and passing it is what asks for the coloured badge.
+    Every message names a player through `format_role_bracket`, which
+    already takes a team for the emoji in front, so the team is in
+    hand wherever the badge is coloured -- and the one caller with no
+    team to give is the one that must not have a colour at all: the
+    goal log lists an own goal under the side it counted for, which is
+    not the scorer's, so a coloured badge there would be the one thing
+    on the line contradicting the heading over it. See
+    `format_goal_scorer`.
+
+    **Three steps down, not two.** The colour cut, then the plain
+    badge, then the brackets: an application that has uploaded the six
+    and none of the twenty-four reads exactly as it did before the
+    colours existed, and one that has uploaded three colours of six
+    roles shows those three and falls back for the rest, rather than
+    showing blanks.
     """
     if role_emojis:
-        emoji = role_emojis.get(player.role)
+        emoji = role_emojis.get((player.role, team))
+        if emoji is None and team is not None:
+            emoji = role_emojis.get((player.role, None))
         if emoji:
             return emoji
     return f"[{role_initials(player)}]"
@@ -249,7 +269,8 @@ def role_badge(
 
 def player_with_role(
     player,
-    role_emojis: Optional[dict[PlayerRole, str]] = None,
+    role_emojis: Optional[dict[tuple[PlayerRole, Optional[Team]], str]] = None,
+    team: Optional[Team] = None,
 ) -> str:
     """
     A card named the way every card in this game is named -- "Hellguard
@@ -269,14 +290,16 @@ def player_with_role(
     for a *message*, and a button adds the position instead. Nothing
     may spell the brackets out for itself -- that is how the run back's
     own buttons came to be the one place in the game that named a
-    player and left the role off. `role_emojis` is `role_badge`'s, and
-    is passed only where the text is going into a message.
+    player and left the role off. `role_emojis` and `team` are
+    `role_badge`'s, and are passed only where the text is going into a
+    message -- the team being what asks for the badge in that side's
+    own colour.
 
     It takes a `PlayerDefinition` rather than an id because the caller
     that has an id has a catalog to resolve it with, and this module
     has neither.
     """
-    return f"{player.name} {role_badge(player, role_emojis)}"
+    return f"{player.name} {role_badge(player, role_emojis, team)}"
 
 
 def format_player(
