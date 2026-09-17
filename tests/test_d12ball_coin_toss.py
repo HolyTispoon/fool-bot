@@ -17,6 +17,7 @@ from cogs.d12ball_helpers import (
     EXHAUSTED_EMOJI_FALLBACK,
     INJURED_EMOJI_FALLBACK,
     ROLE_EMOJI_NAMES,
+    ROLE_TEAM_EMOJI_NAMES,
     TEAM_EMOJI_FALLBACKS,
     TEAM_EMOJI_NAMES,
     build_setup_message,
@@ -1267,7 +1268,66 @@ class D12BallRoleEmojiTests(unittest.TestCase):
             with self.subTest(emoji=name):
                 self.assertIn(f"{name}.png", listing)
 
+    def test_the_colour_cuts_are_named_the_same_way(self) -> None:
+        """
+        The same check for the twenty-four team-coloured badges, and
+        it earns its keep harder: `ROLE_TEAM_EMOJI_NAMES` builds its
+        names by interpolation where `ROLE_EMOJI_NAMES` writes each
+        one out, so nothing but this says the spelling agrees with
+        what `scripts/render_role_emoji.py` puts on disk.
+        """
+        listing = os.listdir(self.EMOJI_DIR)
+        for name in set(ROLE_TEAM_EMOJI_NAMES.values()):
+            with self.subTest(emoji=name):
+                self.assertIn(f"{name}.png", listing)
+
+    def test_a_colour_cut_serves_both_teams_sharing_the_hex(self) -> None:
+        """
+        Four files a role and not eight. A species team shares its
+        colour team's hex, so Orange and Fire Demons are one upload --
+        the pairing is resolved once, in the table, the way
+        `TEAM_COLORS` resolves it once. See "Team colors" in
+        CLAUDE.md.
+        """
+        from d12ball.components import PlayerRole
+        from d12ball.game import COLOR_TEAMS, SPECIES_TEAMS, Team, paired_team
+
+        # Every team, colour and species alike, has a name for every
+        # role -- a coach must not be the one side in the game whose
+        # cards fall back.
+        self.assertEqual(
+            set(ROLE_TEAM_EMOJI_NAMES),
+            {
+                (role, team)
+                for role in PlayerRole
+                for team in (*COLOR_TEAMS, *SPECIES_TEAMS)
+            },
+        )
+        # And a pair names one file between them.
+        for role in PlayerRole:
+            for colour in COLOR_TEAMS:
+                with self.subTest(role=role, team=colour):
+                    self.assertEqual(
+                        ROLE_TEAM_EMOJI_NAMES[(role, colour)],
+                        ROLE_TEAM_EMOJI_NAMES[(role, paired_team(colour))],
+                    )
+        self.assertEqual(
+            len(set(ROLE_TEAM_EMOJI_NAMES.values())),
+            len(PlayerRole) * len(COLOR_TEAMS),
+        )
+        # The name is the plain badge's plus the colour, which is what
+        # makes the two cuts findable beside each other in the portal.
+        self.assertEqual(
+            ROLE_TEAM_EMOJI_NAMES[(PlayerRole.FULLBACK, Team.FIRE_DEMONS)],
+            "role_fullback_orange",
+        )
+
     def test_application_emoji_are_looked_up_by_name(self) -> None:
+        """
+        The plain cuts are filed under a team of None, which is what
+        `role_badge` falls back to and what the goal log asks for
+        outright.
+        """
         from d12ball.components import PlayerRole
 
         bot = FakeBot(
@@ -1282,9 +1342,63 @@ class D12BallRoleEmojiTests(unittest.TestCase):
         self.assertEqual(
             role_emojis,
             {
-                PlayerRole.FULLBACK: "<:role_fullback:100>",
-                PlayerRole.STRIKER: "<:role_striker:101>",
+                (PlayerRole.FULLBACK, None): "<:role_fullback:100>",
+                (PlayerRole.STRIKER, None): "<:role_striker:101>",
             },
+        )
+
+    def test_a_colour_cut_is_loaded_for_both_teams_at_once(self) -> None:
+        """
+        One upload, two keys: a message about a Fire Demon and one
+        about an Orange card read the same file, because they are the
+        same colour. Resolved here rather than at every lookup, so
+        nothing downstream has to know that a Cyborg is drawn teal.
+        """
+        from d12ball.components import PlayerRole
+        from d12ball.game import Team
+
+        bot = FakeBot(
+            [
+                discord.PartialEmoji(name="role_fullback", id=100),
+                discord.PartialEmoji(name="role_fullback_orange", id=101),
+            ]
+        )
+
+        role_emojis = asyncio.run(load_role_emojis(bot))
+
+        self.assertEqual(
+            role_emojis,
+            {
+                (PlayerRole.FULLBACK, None): "<:role_fullback:100>",
+                (PlayerRole.FULLBACK, Team.ORANGE): "<:role_fullback_orange:101>",
+                (
+                    PlayerRole.FULLBACK,
+                    Team.FIRE_DEMONS,
+                ): "<:role_fullback_orange:101>",
+            },
+        )
+
+    def test_the_plain_six_alone_load_as_they_always_did(self) -> None:
+        """
+        An application that uploaded the six before the colours
+        existed and has not uploaded the twenty-four is the ordinary
+        state on the way to having them, and reads exactly as it did
+        before -- a badge a role, whatever side the card is on.
+        """
+        from d12ball.components import PlayerRole
+
+        bot = FakeBot(
+            [
+                discord.PartialEmoji(name=name, id=100 + index)
+                for index, name in enumerate(ROLE_EMOJI_NAMES.values())
+            ]
+        )
+
+        role_emojis = asyncio.run(load_role_emojis(bot))
+
+        self.assertEqual(
+            set(role_emojis),
+            {(role, None) for role in PlayerRole},
         )
 
     def test_an_application_without_the_emoji_is_not_an_error(self) -> None:

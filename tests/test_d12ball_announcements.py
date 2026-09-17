@@ -580,7 +580,7 @@ class RoleEmojiOnTheCogTests(unittest.TestCase):
         from d12ball.components import PlayerRole
 
         cog = build_cog()
-        badges = {PlayerRole.STRIKER: "<:role_striker:100>"}
+        badges = {(PlayerRole.STRIKER, Team.ORANGE): "<:role_striker_orange:100>"}
 
         cog.role_emojis = badges
 
@@ -603,16 +603,67 @@ class RoleEmojiOnTheCogTests(unittest.TestCase):
         players = [cog.engine.get_player_definition(i) for i in home.field_players]
         striker = next(p for p in players if p.role == PlayerRole.STRIKER)
         other = next(p for p in players if p.role != PlayerRole.STRIKER)
-        cog.role_emojis = {PlayerRole.STRIKER: "<:role_striker:100>"}
+        cog.role_emojis = {
+            (PlayerRole.STRIKER, Team.ORANGE): "<:role_striker_orange:100>",
+        }
 
+        # `player_label` reads the side off the match and asks for the
+        # badge in that side's own colour -- so the ring in front and
+        # the badge after cannot name two different teams.
         self.assertEqual(
             cog.player_label(match, striker),
-            f"🟠 {striker.name} <:role_striker:100>",
+            f"🟠 {striker.name} <:role_striker_orange:100>",
         )
         self.assertEqual(
             cog.player_id_label(match, other.player_id),
             f"🟠 {other.name} [{role_initials(other)}]",
         )
+
+    def test_the_same_card_on_the_other_side_is_named_in_that_colour(
+        self,
+    ) -> None:
+        """
+        A player fielded on both sides is one person and two cards,
+        and the badge is the card's -- the visiting copy carries the
+        visitors' colour. It falls out of `player_label` reading
+        `match.team_for_player`, which is the same lookup the team
+        emoji in front already made; the point is that the two now
+        cannot disagree. See "One player, both sides" in CLAUDE.md.
+        """
+        from d12ball.components import PlayerRole
+        from d12ball.game import Team
+
+        cog = build_cog()
+        match = MatchState.standard(
+            catalog=cog.player_catalog,
+            ruleset=cog.basic_ruleset,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        cog.role_emojis = {
+            (PlayerRole.STRIKER, Team.ORANGE): "<:role_striker_orange:100>",
+            (PlayerRole.STRIKER, Team.PURPLE): "<:role_striker_purple:101>",
+        }
+
+        for side, emoji, badge in (
+            (TeamSide.HOME, "🟠", "<:role_striker_orange:100>"),
+            (TeamSide.VISITING, "🟣", "<:role_striker_purple:101>"),
+        ):
+            setup = match.setup_for_side(side)
+            striker = next(
+                player
+                for player in (
+                    cog.engine.get_player_definition(player_id)
+                    for player_id in setup.field_players
+                )
+                if player.role == PlayerRole.STRIKER
+            )
+            with self.subTest(side=side):
+                self.assertEqual(
+                    cog.player_label(match, striker),
+                    f"{emoji} {striker.name} {badge}",
+                )
 
 
 if __name__ == "__main__":
