@@ -113,6 +113,18 @@ abilities that have no data yet, one cell that may be inert, two judgement calls
 made, and the map of where advanced mode touches the code. Don't read it as a specification,
 and don't implement from it.
 
+[docs/model-discord-split.md](docs/model-discord-split.md) is the worksheet for
+**separating the model from the Discord layer**, so a web app and the bot can play
+the same game off the same rules. It holds the principles that split is made by --
+the model imports no `discord` and is never `async`, a flow step returns what
+happened rather than sending it, narration is the model's because the wording
+rules are rules, and the save format is a contract a refactor may not touch --
+along with the phases, what deliberately does not move, and the bot-testing stop
+each phase ends on. **The principles move into a section of this file at the end
+of Phase 1 and the worksheet's copy is deleted**, the same way the advanced
+matrix's answered parts were: a settled rule has exactly one home. Until then,
+read them there.
+
 **Take rules questions to the author rather than inferring them from the code** -- several
 mechanics exist only in the code, so there a bug and a deliberate decision look identical.
 Asking as inline comments on a docs PR has worked far better than asking in chat, and it
