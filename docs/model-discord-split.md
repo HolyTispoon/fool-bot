@@ -202,39 +202,82 @@ Nothing moves. This phase exists because the phases after it are large
 mechanical moves, and a mechanical move needs something that fails loudly
 when it stops being mechanical.
 
-1. **Baseline the suite.** `python3 -m unittest discover -s tests` on a
-   clean tree, recorded in the PR body. (A container without `discord.py`
-   and `Pillow` reports ~49 import errors that are not failures -- install
-   `requirements.txt` first.)
+**Done.** What follows is what it turned out to be, rather than what it
+was planned as -- the two guards are `tests/test_model_purity.py` and
+`tests/test_golden_transcript.py`.
 
-2. **Add the no-discord guard.** A test that imports every module under
-   `d12ball/` with `discord` blocked in `sys.modules`, and fails naming the
-   module that reached for it. Principle 1 is worth nothing unenforced, and
-   the existing purity is currently held by habit.
-   - Same test asserts no `async def` in `d12ball/`, for the second half of
-     principle 1.
+1. **Baseline the suite.** `python3 -m unittest discover -s tests`, on the
+   branch's real base rather than on local `main`, which can be far behind
+   it. **1,573 tests, 5 failures, all environmental.**
+   - **`requirements.txt` will not install below Python 3.13**, because it
+     pins `audioop-lts` -- a backport that exists only because `audioop`
+     left the standard library in 3.13, and that has no distribution for
+     earlier versions. On 3.11 `audioop` is stdlib and the pin is both
+     unsatisfiable and unnecessary: `pip install discord.py Pillow
+     python-dotenv` is enough to run the suite. CI pins 3.13 and is
+     unaffected.
+   - **The five failures are all the same cause, and it is running as
+     root.** `test_an_unwritable_folder_reads_as_no_record` and the four
+     `GameStorageTests` about unreachable folders all simulate a directory
+     that cannot be written to, and **uid 0 bypasses permission bits** --
+     a write into a `chmod 000` directory succeeds, verified directly.
+     They pass in CI, which runs as an ordinary user. Nobody should read
+     them as a regression, and the way to be sure is to re-run the same
+     commit on the base.
 
-3. **Add the golden-transcript test.** This is the important one. Replay a
-   saved game with the dice pinned and assert, step by step:
-   - the narration strings, byte-identical;
-   - the sequence of prompts;
-   - the final `match.to_dict()`, key for key.
+2. **The purity guard**, `tests/test_model_purity.py`. Three assertions,
+   and each was checked by injecting the violation it exists to catch:
+   - every module under `d12ball/` imports **in a fresh subprocess** with
+     `discord` refused by a `meta_path` finder. The subprocess is
+     load-bearing: `unittest discover` imports every test module before
+     running anything, so by the time an in-process version ran, half of
+     `d12ball/` would already be in `sys.modules` and `import_module`
+     would return it without re-executing. Injecting `import discord`
+     into `formatting.py` fails it naming both that module **and**
+     `engine`, which imports it -- the transitive half is the part worth
+     reporting.
+   - no `async def` anywhere in `d12ball/`, over the AST rather than by
+     grep, so a definition nested in a class or a function reads the way
+     the interpreter reads it.
+   - `d12ball/` imports nothing from `cogs/`. A cog import fails the
+     first assertion too, but naming a module nobody would expect, so
+     the direction is asserted on its own and reported as itself.
 
-   Every later phase runs it. A refactor that changes a word changes the
-   golden file, and changing a golden file is a review conversation rather
-   than something that slips through. `TutorialPlaythroughTests` is the
-   model for how to drive this -- it already plays five real turns through
-   the real cog with Discord mocked.
+3. **The golden transcript**, `tests/test_golden_transcript.py`, over
+   `tests/golden/`. It plays the tutorial through the real cog and
+   compares the narration byte for byte, the sequence of prompts, and the
+   final `to_dict()` key for key. `FOOLBOT_UPDATE_GOLDEN=1` rewrites the
+   files, so **a changed golden is a diff in a pull request rather than a
+   test somebody silences**. On failure it prints a cut-down unified diff
+   naming the press and the message, because "Diff is 18081 characters
+   long" is the opposite of a review conversation.
+   - **The seed is load-bearing and the dice are pinned deliberately.**
+     Patching `randint` is not enough -- the flow also reaches
+     `random.shuffle` and `random.choice` -- so the module RNG is seeded
+     and restored. Two seeds produce two different transcripts, because
+     the tutorial's closing shot is deliberately not scripted;
+     `GOLDEN_SEED` is one that **scores**, since a seed that missed would
+     pin the unusual branch as the reference. A test asserts that, so the
+     golden cannot quietly become the missed-shot run.
+   - **It is stable**, which is the claim the whole file rests on: two
+     runs on one seed agree (asserted), and the transcript is identical
+     under `PYTHONHASHSEED` 0, 1 and 42 -- checked, because a set of
+     player ids iterated into a message would have made it vary between
+     machines rather than on the change that broke it.
+   - **It covers one basic-mode solo game on board 7**, which is the only
+     multi-turn game the suite can drive today. No advanced maneuver, no
+     species ability, no halftime, no shootout, no time out. Proof that
+     the gap is real rather than theoretical: rewording *two* of the
+     three `Ball speed is now` sites in `effects.py` did not fail it,
+     because the tutorial only reaches the third. **Phases 4 and 5 should
+     each add a golden for what they move.**
 
-4. **Note the existing guards** so nobody weakens them by accident:
+4. **The existing guards**, so nobody weakens them by accident:
    `EveryMatchupResolvesTests` (36 pairings x 3 boards x 2 control paths),
    `TutorialPlaythroughTests`, `MatchStateSerializationTests`,
    `StraySaveGuardTests`.
 
-**Bot stop:** none. Nothing changed.
-
-**CLAUDE.md:** the "Where the statistics are tested" section gains the
-golden transcript beside the other two, under "The test suite".
+**Bot stop:** none. Nothing about the running bot changed.
 
 ---
 
