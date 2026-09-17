@@ -9,6 +9,27 @@ Phase 1. When the last phase is done this file goes.
 The goal is a web app and the Discord bot playing the same game off the same
 model, so that a rules change is made once and governs both.
 
+## The seven phases
+
+**Phase 0 is the safety net and Phases 1 to 6 are the work**, so there are
+seven of them. Each leaves the bot fully working and lands on `main` on its
+own -- that is the constraint the ordering was chosen under, not a property
+it happened to have.
+
+| Phase | What it does | Moves rules code? |
+| --- | --- | --- |
+| **0** | The safety net: the purity guard and the golden transcript | No |
+| **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) |
+| **2** | `StepResult`, proved on Low Pass alone | One maneuver |
+| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks |
+| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes |
+| **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes |
+| **6** | The driver, and the cog becomes a frontend | The last of it |
+
+A **read-only web app is possible after Phase 1** and a **playable one after
+Phase 6**; everything between the two is how much of a turn the web app can
+drive rather than watch.
+
 ---
 
 ## Where the line already is
@@ -23,8 +44,8 @@ What is **already portable, unchanged**:
 | --- | --- | --- |
 | `d12ball/components.py` | 5,362 | `MatchState` (127 methods), `BoardState`, the catalogs |
 | `d12ball/engine.py` | 2,826 | `RulesEngine`, 101 methods, **stateless** -- built from four catalogs, takes the match per call |
-| `d12ball/render.py` + `cards.py` + `boards.py` + `player_cards.py` + `species_cards.py` | ~9,700 | Pillow. Serves a web app as a PNG endpoint on day one |
-| `d12ball/ai.py`, `stats.py`, `tutorial.py`, `formatting.py`, `game.py`, `rules_doc.py` | ~3,100 | All pure |
+| `d12ball/render.py` + `cards.py` + `boards.py` + `player_cards.py` + `species_cards.py` | 9,962 | Pillow. Serves a web app as a PNG endpoint on day one |
+| `d12ball/ai.py`, `stats.py`, `tutorial.py`, `formatting.py`, `game.py`, `rules_doc.py` | 3,433 | All pure |
 | `gamesaves/d12ball/storage.py` | 415 | Persistence. `MatchState.to_dict` is **already a wire format** |
 
 What is **not portable**, and is the whole of this plan:
@@ -38,14 +59,30 @@ So `MatchState` holds the data and `RulesEngine` answers questions, but the
 Discord's. A web app built on `d12ball/` alone would have to reimplement the
 spine of a turn, which is exactly where the two would drift apart.
 
-**The author has already started this.** In `effects.py`, 14 of 63 functions
-are pure sync mutators with no `await` and no `interaction`: `send_low_pass`,
-`throw_high_pass`, `knock_ball_back`, `take_ball_by_steal`,
-`shove_pressured_handler`, `pay_double_team_cost`, `pay_clear_cost`,
-`apply_pressure_turnover`, `apply_own_goal_outcome`. The `async apply_*`
-wrappers around them are already *mutate -> word it -> refresh the image ->
-dispatch the next step*. This plan finishes that split rather than starting a
-new one.
+**The author has already started this.** Of the 63 functions in
+`effects.py`, 13 are already sync, with no `await` and no `interaction` in
+them -- so they are already on the model's side of the line in everything
+but their address:
+
+- **They change the match**: `send_low_pass`, `throw_high_pass`,
+  `knock_ball_back`, `take_ball_by_steal`, `shove_pressured_handler`,
+  `apply_pressure_turnover`.
+- **They word what happened**: `low_pass_movement_note`,
+  `deflection_numbers`.
+- **They do both**, which is the shape a flow step has:
+  `pay_double_team_cost`, `pay_clear_cost`, `steal_result_text`,
+  `pressure_result_text`, `apply_own_goal_outcome`.
+
+That third group is the useful one, because mutate-and-say-what-happened is
+exactly `StepResult`. The `async apply_*` wrappers around all thirteen are
+already *mutate -> word it -> refresh the image -> dispatch the next step*,
+and only the last two of those four are Discord's. This plan finishes a
+split the code has already begun rather than starting a new one.
+
+A fourteenth sync function in that file, `build_loose_ball_view`, is **not**
+one of them: it constructs a `discord.ui.View` and stays where it is. It is
+named here because it looks like the others in a listing and is not, and
+because Phase 1 is what turns it into a prompt kind.
 
 ---
 
@@ -64,11 +101,26 @@ against.
    behind it. A step that wants to be async wants to send something, and
    sending is the frontend's. The line is mechanical, so it is tested
    mechanically -- see Phase 0.
+   - **Both halves already hold**: `d12ball/` imports no `discord` and
+     contains no `async def` at all today. So the Phase 0 guard is a
+     **ratchet on something already true**, not a cleanup with work behind
+     it -- which is why it is cheap, and why it is worth adding before the
+     phases that would otherwise erode it one convenience at a time.
 
 2. **A rule is a question the model answers. The frontend asks it and
    renders the answer.** This is `RulesEngine`'s existing shape, extended
-   to the flow: nothing in `cogs/` may decide a rule, and nothing in
-   `d12ball/` may decide a presentation.
+   to the flow.
+   - **The line is between *what* and *how*, not between rules and
+     words.** The model decides what is true and what is said about it --
+     who may act, what the position is, the sentence describing it. The
+     frontend decides how that reaches a person: a message or a `<div>`,
+     an edit or a re-render, which lines are batched together, what a
+     button looks like and what its custom_id is.
+   - Said the short way: **nothing in `cogs/` may decide a rule, and
+     nothing in `d12ball/` may know what a message *is*.** Narration text
+     is the model's (principle 5) and is not a counter-example to this --
+     a sentence is a fact about the position, where a `discord.Embed` is
+     a medium.
 
 3. **One reading of "what is this match waiting on", and it is in the
    model.** `pending_turn_view` already claims this and already carries the
@@ -122,13 +174,19 @@ against.
    five-in-five arithmetic stay exactly where they are; what reaches them
    is `StepResult.board_changed`.
 
-9. **The driver persists; steps do not.** Today `self.persist(...)` is called at 95
-   sites in `cogs/`, and CLAUDE.md already records the class of bug that
-   produces --
-   an event recorded without a save is one the next interaction never
-   sees. A step mutates and returns; the driver saves once, after. This is
-   the one place the refactor makes the bot *better* rather than only
-   more portable, and it should be called out as such in review.
+9. **The driver persists; steps do not.** `self.persist(...)` is called at
+   **95 sites** in `cogs/` today, and CLAUDE.md already records the class
+   of bug that produces: an event recorded without a save in the same
+   breath is one the next interaction never sees, which is how beat 1 of
+   the tutorial vanished from the log. A step mutates and returns; the
+   driver saves once, after it. This is the one place the refactor makes
+   the bot *better* rather than only more portable, so it should be
+   reviewed on its own merits.
+   - **It does not touch the other 52.** `cogs/` calls `save_games(...)`
+     at 53 sites; one of those is inside `persist` itself and the other 52
+     save the *game record* alone -- a message id, a status, a tutorial
+     flag -- and have no match to write. Those stay exactly where they
+     are. Collapsing them too would be widening the job.
 
 10. **The web app may not reach past the flow.** No importing a cog, no
     re-deriving a candidate list "just for the UI", no second
@@ -189,12 +247,16 @@ rules risk**, because nothing mutates: the whole chain is a read.
 
 New `d12ball/prompts.py`:
 
-- `PromptKind` -- one value per distinct prompt (~20, matching the branches).
+- `PromptKind` -- one value per distinct prompt. **There are 26**, which is
+  measured rather than estimated: the chain itself names 17 `View` classes
+  over 25 `return` statements, and the three builders it delegates to add
+  9 more (6 effect prompts, 2 run-back, 1 loose-ball). Any count near 20 is
+  a count that forgot the builders.
 - `PendingPrompt` -- `kind`, `ask` (the line put above it), and the handful
   of parameters the branches actually carry: `player_ids`, `player_id`,
   `side`, `maneuver_key`, `skill_type`, `free`.
 - `pending_prompt(engine, game, match) -> PendingPrompt` -- the 280-line
-  chain from `core.py:1581`, moved whole.
+  chain at `core.py:1581`, moved whole.
 
 The chain's dependencies are already almost all model:
 
@@ -232,7 +294,11 @@ that must not drift.
 
 ### Sizing
 
-~400 lines moved, ~150 lines of mapping table left behind.
+**405 lines move**, measured rather than estimated: `pending_turn_view` 280,
+`build_effect_choice_view` 78, `build_run_back_view` 26,
+`build_loose_ball_view` 21. What is left behind in the cog is a mapping
+table of 26 entries and the `View` constructors they name -- call it 150
+lines, which is the one number here that is a guess.
 
 ### Test stop -- and this is a real one
 
@@ -277,10 +343,24 @@ So, from a working tree, with the bot running:
 ### Milestone: the web app can start here
 
 After this phase a **read-only spectator page** is possible with nothing
-further moved: `load_games` for the record, `render_match_png` served as a
-PNG, and `pending_prompt` for "what is this game waiting on". It plays
-nothing, but it proves the seam against a real frontend rather than against
-a plan, and it is worth building before Phase 3 for exactly that reason.
+further moved: `load_games` for the record, `pending_prompt` for "what is
+this game waiting on", and the board as a PNG.
+
+**The board is `render.render_match_image(match, catalog)`, not the cog's
+`render_match_png`.** That distinction is the whole reason this milestone
+lands here rather than later. `render_match_png` is an async *cog* method
+that loads the match, builds a `PBD12 - @coach vs. @coach, First Half`
+caption out of the team emoji it fetched at startup, and hands the rest to
+`render_match_image` in a worker thread. A web app cannot call it and does
+not need to: `render_match_image`'s `title` is optional and it writes its
+own caption from the two team names and the period when none is passed, so
+the pure entry point needs no glue at all. What the web app gives up by
+calling it directly is the PBD number and the coaches' names in the
+caption -- which it can put on the page around the image instead.
+
+The page plays nothing, but it proves the seam against a real frontend
+rather than against a plan, and it is worth building before Phase 3 for
+exactly that reason.
 
 ### CLAUDE.md
 
@@ -361,9 +441,15 @@ it, and a rank that wants a paragraph is a rank that moved a rule.
 The turn's own machinery, and where `interaction` finally dies from the
 effect path:
 
-- `finish_maneuver_resolution` -- the tail of every ordinary path
-- the three arrival gates and `check_for_mind_pull` / `check_for_loose_ball`
-- `begin_loose_ball` and the contest
+- the **three arrival points**, which are where a ball that has moved is
+  settled: `finish_maneuver_resolution` (the tail of every ordinary path),
+  `begin_loose_ball` (a Deflect, and the High Pass contest behind it) and
+  `offer_scoring_attempt_choice` (a set-up). Between them they are every
+  one of the four things a Mind Pull pre-empts.
+- the **two gates** each of those opens with, `check_for_mind_pull` and
+  `check_for_loose_ball` -- which are not the arrival points but the `if
+  ...: return` at the top of them
+- `begin_loose_ball`'s contest
 - `begin_run_back` / `continue_run_back` (the cascade; note principle 8 --
   the batching stays in the cog, the loop moves)
 - `begin_injury_tests` / `continue_injury_tests`
@@ -413,9 +499,9 @@ port:
   step, return `(narration, board_changed, PendingPrompt)`.
 - `play_ai_turn` moves in, so a web app gets Dinky for free.
 - `persist` collapses from 95 call sites to one, in the driver
-  (principle 9). The ~53 bare `save_games` calls that save the *game
-  record* alone -- a message id, a status -- stay the cog's, since they
-  have no match to write.
+  (principle 9). The 52 bare `save_games` calls that save the *game
+  record* alone -- a message id, a status, a tutorial flag -- stay the
+  cog's, since they have no match to write.
 - The cog becomes: click -> authorize -> `driver.apply(...)` -> render.
 
 **Bot stop:** everything. A full game each way, the tutorial, a restart in
