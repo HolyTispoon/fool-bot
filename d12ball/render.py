@@ -3986,57 +3986,12 @@ def _maneuver_cycle_order(
     return order
 
 
-def render_maneuver_reference_image(
-    catalog: ManeuverCatalog,
-    tier: str = MANEUVER_TIER_ADVANCED,
-) -> BytesIO:
-    """
-    Every maneuver arranged in the defeat cycle its rank sits on: arrows
-    trace who beats whom, dashed diameters connect the tie pairs
-    (opposite nodes), and each of the six rank positions carries one
-    prominent rank badge (O1, D2, ...).
-
-    **`tier` picks how many maneuvers a rank shows.**
-    `MANEUVER_TIER_ADVANCED` (the default) draws both -- the basic card
-    and its advanced counterpart side by side -- since rank alone
-    decides who beats whom (2026-08-18), so an advanced card sits
-    exactly where its basic counterpart does and the two cannot be
-    drawn as two unrelated cycles without implying a second rule that
-    does not exist. `MANEUVER_TIER_BASIC` draws one box a rank instead:
-    a basic-mode coach has no advanced cards to read a matchup for, so
-    showing them anyway would be describing a rule this game is not
-    playing by. The one box keeps the same shape it always had rather
-    than stretching to the width the pair would have shared.
-    """
-    both_tiers = tier == MANEUVER_TIER_ADVANCED
-    canvas = Image.new(
-        "RGBA",
-        (MANEUVER_DIAGRAM_WIDTH, MANEUVER_DIAGRAM_HEIGHT),
-        "#111820",
-    )
-    draw = ImageDraw.Draw(canvas)
-    cx, cy = MANEUVER_DIAGRAM_CENTER
-    node_radius = MANEUVER_DIAGRAM_NODE_RADIUS
-    box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
-    group_width = (
-        box_width * 2 + MANEUVER_DIAGRAM_TIER_GAP if both_tiers else box_width
-    )
-    pair_height = box_height + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
-
-    order = _maneuver_cycle_order(catalog, MANEUVER_TIER_BASIC)
-    node_count = len(order)
-    angles = [270 + 360 * index / node_count for index in range(node_count)]
-    centers = [
-        (
-            cx + node_radius * cos(radians(angle)),
-            cy + node_radius * sin(radians(angle)),
-        )
-        for angle in angles
-    ]
-
-    # Tie diameters (opposite nodes), drawn first so the boxes sit on
-    # top.
-    half = node_count // 2
+def draw_reference_ties(
+    draw: ImageDraw.ImageDraw,
+    centers: list[tuple[float, float]],
+) -> None:
+    """Tie diameters (opposite nodes), drawn first so the boxes sit on top."""
+    half = len(centers) // 2
     near = MANEUVER_DIAGRAM_ARC_RADIUS + 40
     for index in range(half):
         start_x, start_y = centers[index]
@@ -4053,7 +4008,14 @@ def render_maneuver_reference_image(
             width=5,
         )
 
-    # Defeat-cycle arrows.
+
+def draw_reference_arrows(
+    draw: ImageDraw.ImageDraw,
+    center: tuple[float, float],
+    angles: list[float],
+) -> None:
+    """The defeat cycle, an arc from each node round to the next."""
+    node_count = len(angles)
     for index in range(node_count):
         start_angle = angles[index]
         end_angle = (
@@ -4063,7 +4025,7 @@ def render_maneuver_reference_image(
         )
         draw_arc_arrow(
             draw,
-            (cx, cy),
+            center,
             MANEUVER_DIAGRAM_ARC_RADIUS,
             start_angle,
             end_angle,
@@ -4071,73 +4033,108 @@ def render_maneuver_reference_image(
             width=6,
         )
 
-    for (basic, is_offense), (center_x, center_y) in zip(order, centers):
-        rank_letter = "O" if is_offense else "D"
-        rank_color = (
-            MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR
-        )
 
-        pair_top = center_y - pair_height / 2
-        pair_left = center_x - group_width / 2
+def draw_reference_box(
+    draw: ImageDraw.ImageDraw,
+    box_left: float,
+    box_top: float,
+    maneuver: ManeuverDefinition,
+    fill: str,
+    text_color: str,
+) -> None:
+    """One maneuver's box: its name at a fixed size, its effect fit under it."""
+    box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
+    draw.rounded_rectangle(
+        (box_left, box_top, box_left + box_width, box_top + box_height),
+        radius=14,
+        fill=fill,
+        outline="#ffffff",
+        width=2,
+    )
+    box_center_x = box_left + box_width / 2
+
+    # No BASIC/ADVANCED tag any more -- the legend at the foot
+    # of the image already carries that distinction (by
+    # colour), so repeating it in words on every box was
+    # spending a line for nothing. The title is one fixed size
+    # on every box; the effect text is fit per box under it --
+    # see fit_maneuver_box_text.
+    fitted = fit_maneuver_box_text(
+        draw, maneuver.name, maneuver.effect, box_width - 32, box_height - 24,
+    )
+    text_y = box_top + 12
+    for line in fitted.name_lines:
         draw_centered_text(
-            draw,
-            center_x,
-            pair_top,
-            f"{rank_letter}{basic.rank}",
-            FONT_MANEUVER_RANK,
-            rank_color,
+            draw, box_center_x, text_y, line, FONT_MANEUVER_TITLE, text_color,
         )
+        text_y += MANEUVER_TITLE_LINE_HEIGHT
+    text_y += 8
+    for line in fitted.effect_lines:
+        draw_centered_text(
+            draw, box_center_x, text_y, line, fitted.effect_font, text_color,
+        )
+        text_y += fitted.effect_line_height
 
-        box_top = pair_top + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
-        boxes = [
-            (
-                basic,
-                MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR,
-                MANEUVER_CARD_TEXT_COLOR,
-            ),
-        ]
-        if both_tiers:
-            advanced = catalog.counterpart(basic)
-            boxes.append((
-                advanced,
-                MANEUVER_OFFENSE_COLOR_ADVANCED
-                if is_offense
-                else MANEUVER_DEFENSE_COLOR_ADVANCED,
-                MANEUVER_CARD_TEXT_COLOR_ADVANCED,
-            ))
-        for offset, (maneuver, fill, text_color) in enumerate(boxes):
-            box_left = pair_left + offset * (box_width + MANEUVER_DIAGRAM_TIER_GAP)
-            draw.rounded_rectangle(
-                (box_left, box_top, box_left + box_width, box_top + box_height),
-                radius=14,
-                fill=fill,
-                outline="#ffffff",
-                width=2,
-            )
-            box_center_x = box_left + box_width / 2
 
-            # No BASIC/ADVANCED tag any more -- the legend at the foot
-            # of the image already carries that distinction (by
-            # colour), so repeating it in words on every box was
-            # spending a line for nothing. The title is one fixed size
-            # on every box; the effect text is fit per box under it --
-            # see fit_maneuver_box_text.
-            fitted = fit_maneuver_box_text(
-                draw, maneuver.name, maneuver.effect, box_width - 32, box_height - 24,
-            )
-            text_y = box_top + 12
-            for line in fitted.name_lines:
-                draw_centered_text(
-                    draw, box_center_x, text_y, line, FONT_MANEUVER_TITLE, text_color,
-                )
-                text_y += MANEUVER_TITLE_LINE_HEIGHT
-            text_y += 8
-            for line in fitted.effect_lines:
-                draw_centered_text(
-                    draw, box_center_x, text_y, line, fitted.effect_font, text_color,
-                )
-                text_y += fitted.effect_line_height
+def draw_reference_rank(
+    draw: ImageDraw.ImageDraw,
+    catalog: ManeuverCatalog,
+    center: tuple[float, float],
+    basic: ManeuverDefinition,
+    is_offense: bool,
+    both_tiers: bool,
+) -> None:
+    """
+    One rank on the cycle: its badge, and the box for each card on it
+    -- the basic card alone, or the basic beside its advanced
+    counterpart.
+    """
+    center_x, center_y = center
+    box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
+    group_width = (
+        box_width * 2 + MANEUVER_DIAGRAM_TIER_GAP if both_tiers else box_width
+    )
+    pair_height = box_height + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
+    rank_letter = "O" if is_offense else "D"
+    rank_color = (
+        MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR
+    )
 
+    pair_top = center_y - pair_height / 2
+    pair_left = center_x - group_width / 2
+    draw_centered_text(
+        draw,
+        center_x,
+        pair_top,
+        f"{rank_letter}{basic.rank}",
+        FONT_MANEUVER_RANK,
+        rank_color,
+    )
+
+    box_top = pair_top + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
+    boxes = [
+        (
+            basic,
+            MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR,
+            MANEUVER_CARD_TEXT_COLOR,
+        ),
+    ]
+    if both_tiers:
+        advanced = catalog.counterpart(basic)
+        boxes.append((
+            advanced,
+            MANEUVER_OFFENSE_COLOR_ADVANCED
+            if is_offense
+            else MANEUVER_DEFENSE_COLOR_ADVANCED,
+            MANEUVER_CARD_TEXT_COLOR_ADVANCED,
+        ))
+    for offset, (maneuver, fill, text_color) in enumerate(boxes):
+        box_left = pair_left + offset * (box_width + MANEUVER_DIAGRAM_TIER_GAP)
+        draw_reference_box(draw, box_left, box_top, maneuver, fill, text_color)
+
+
+def draw_reference_legend(draw: ImageDraw.ImageDraw, both_tiers: bool) -> None:
+    """The colour swatches, and the two relations the lines draw."""
     legend_y = MANEUVER_DIAGRAM_HEIGHT - 96
     swatch_size = 30
     legend_x = 100
@@ -4201,6 +4198,56 @@ def render_maneuver_reference_image(
         font=FONT_MANEUVER_LEGEND,
         fill="#ffffff",
     )
+
+
+def render_maneuver_reference_image(
+    catalog: ManeuverCatalog,
+    tier: str = MANEUVER_TIER_ADVANCED,
+) -> BytesIO:
+    """
+    Every maneuver arranged in the defeat cycle its rank sits on: arrows
+    trace who beats whom, dashed diameters connect the tie pairs
+    (opposite nodes), and each of the six rank positions carries one
+    prominent rank badge (O1, D2, ...).
+
+    **`tier` picks how many maneuvers a rank shows.**
+    `MANEUVER_TIER_ADVANCED` (the default) draws both -- the basic card
+    and its advanced counterpart side by side -- since rank alone
+    decides who beats whom (2026-08-18), so an advanced card sits
+    exactly where its basic counterpart does and the two cannot be
+    drawn as two unrelated cycles without implying a second rule that
+    does not exist. `MANEUVER_TIER_BASIC` draws one box a rank instead:
+    a basic-mode coach has no advanced cards to read a matchup for, so
+    showing them anyway would be describing a rule this game is not
+    playing by. The one box keeps the same shape it always had rather
+    than stretching to the width the pair would have shared.
+    """
+    both_tiers = tier == MANEUVER_TIER_ADVANCED
+    canvas = Image.new(
+        "RGBA",
+        (MANEUVER_DIAGRAM_WIDTH, MANEUVER_DIAGRAM_HEIGHT),
+        "#111820",
+    )
+    draw = ImageDraw.Draw(canvas)
+    cx, cy = MANEUVER_DIAGRAM_CENTER
+    node_radius = MANEUVER_DIAGRAM_NODE_RADIUS
+
+    order = _maneuver_cycle_order(catalog, MANEUVER_TIER_BASIC)
+    node_count = len(order)
+    angles = [270 + 360 * index / node_count for index in range(node_count)]
+    centers = [
+        (
+            cx + node_radius * cos(radians(angle)),
+            cy + node_radius * sin(radians(angle)),
+        )
+        for angle in angles
+    ]
+
+    draw_reference_ties(draw, centers)
+    draw_reference_arrows(draw, (cx, cy), angles)
+    for (basic, is_offense), center in zip(order, centers):
+        draw_reference_rank(draw, catalog, center, basic, is_offense, both_tiers)
+    draw_reference_legend(draw, both_tiers)
 
     output = BytesIO()
     canvas.convert("RGB").save(output, format="PNG")
