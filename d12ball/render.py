@@ -2188,6 +2188,200 @@ INJURY_TEST_SAFE_COLOR = "#5ac36a"
 INJURY_TEST_INJURED_COLOR = "#e2564b"
 
 
+@dataclass(frozen=True)
+class VerdictRow:
+    """
+    The three-column row -- a die, the player who rolled it, the
+    verdict -- that the injury test, Mind Pull and Volatile all draw,
+    measured before the canvas exists so the widths can size it.
+
+    The three images share the row and not their proportions: each
+    passes its own radius, portrait size, gaps and paddings, which is
+    what keeps Volatile's 168px portrait and spread columns Volatile's
+    (see "The ignition die" in CLAUDE.md) while the arithmetic that
+    places a column is written once. Each column is centred on its own
+    share of the row, and the labels under the die and the portrait
+    share a baseline so the team name and the player's name read as
+    one line.
+    """
+
+    portrait: Optional[Image.Image]
+    die_column: float
+    portrait_column: float
+    verdict: str
+    verdict_bbox: tuple[int, int, int, int]
+    row_height: float
+    row_left: float
+    row_top: float
+    column_gap: float
+    label_gap: float
+    label_height: float
+
+    @property
+    def verdict_column(self) -> int:
+        return self.verdict_bbox[2] - self.verdict_bbox[0]
+
+    @property
+    def label_y(self) -> float:
+        return self.row_top + self.row_height - self.label_height
+
+    @property
+    def content_center_y(self) -> float:
+        return (
+            self.row_top
+            + (self.row_height - self.label_gap - self.label_height) / 2
+        )
+
+    @property
+    def die_center_x(self) -> float:
+        return self.row_left + self.die_column / 2
+
+    @property
+    def portrait_center_x(self) -> float:
+        return (
+            self.row_left
+            + self.die_column
+            + self.column_gap
+            + self.portrait_column / 2
+        )
+
+    @property
+    def verdict_center_x(self) -> float:
+        return (
+            self.row_left
+            + self.die_column
+            + self.portrait_column
+            + self.column_gap * 2
+            + self.verdict_column / 2
+        )
+
+
+def thumbnail_portrait(
+    player_name: str, size: int,
+) -> tuple[Optional[Image.Image], int, int]:
+    """
+    A player's portrait fit inside `size`, with the width and height
+    it came out at -- or the full square and no image when there is no
+    art for them, so the column is still reserved.
+    """
+    portrait = load_player_portrait(player_name)
+    if portrait is None:
+        return None, size, size
+    sized = portrait.copy()
+    sized.thumbnail((size, size), Image.Resampling.LANCZOS)
+    return sized, sized.width, sized.height
+
+
+def measure_verdict_columns(
+    measure: ImageDraw.ImageDraw,
+    die_extents: list[float],
+    die_labels: list[str],
+    player_name: str,
+    portrait_size: int,
+    verdict: str,
+    label_gap: float,
+    label_height: float,
+) -> tuple[Optional[Image.Image], float, float, tuple[int, int, int, int], float]:
+    """
+    The three column widths and the row's height, from what each
+    column has to hold. `die_extents` is whatever is drawn around the
+    die -- the halo is wider than the die whenever a species aura is
+    on it, so it, not the bare polygon, is what the die column and the
+    row have to hold.
+    """
+    portrait, portrait_width, portrait_height = thumbnail_portrait(
+        player_name, portrait_size,
+    )
+    die_column = max(
+        *die_extents,
+        *(measure.textlength(label, font=FONT_SMALL) for label in die_labels),
+    )
+    portrait_column = max(
+        portrait_width,
+        measure.textlength(player_name, font=FONT_SMALL),
+    )
+    verdict_bbox = measure.textbbox((0, 0), verdict, font=FONT_DICE_TOTAL)
+    row_height = max(*die_extents, portrait_height) + label_gap + label_height
+    return portrait, die_column, portrait_column, verdict_bbox, row_height
+
+
+def draw_title_across(
+    draw: ImageDraw.ImageDraw,
+    width: int,
+    y: float,
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: str,
+) -> None:
+    """A line centred across the whole image."""
+    text_width = draw.textlength(text, font=font)
+    draw.text(((width - text_width) / 2, y), text, font=font, fill=fill)
+
+
+def draw_verdict_die(
+    draw: ImageDraw.ImageDraw,
+    row: VerdictRow,
+    radius: int,
+    color: str,
+    value: int,
+    labels: list[tuple[str, str]],
+) -> None:
+    """
+    The face, and the lines under it -- the team first, and any second
+    line the image explains itself with (Mind Pull's target band,
+    Volatile's trigger) on the line below.
+    """
+    draw_d12_polygon(
+        draw,
+        round(row.die_center_x),
+        round(row.content_center_y),
+        radius,
+        color,
+        str(value),
+        font=FONT_DICE_VALUE,
+        text_color=high_contrast_ink(color),
+    )
+    y = row.label_y
+    for text, fill in labels:
+        draw_centered_text(draw, row.die_center_x, y, text, FONT_SMALL, fill)
+        y += 22
+
+
+def draw_verdict_portrait(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    row: VerdictRow,
+    player_name: str,
+) -> None:
+    if row.portrait is not None:
+        canvas.alpha_composite(
+            row.portrait,
+            (
+                round(row.portrait_center_x - row.portrait.width / 2),
+                round(row.content_center_y - row.portrait.height / 2),
+            ),
+        )
+    draw_centered_text(
+        draw, row.portrait_center_x, row.label_y, player_name, FONT_SMALL, "#ffffff",
+    )
+
+
+def draw_verdict_text(
+    draw: ImageDraw.ImageDraw, row: VerdictRow, color: str,
+) -> None:
+    """The verdict, centred on its column by its ink box rather than its advance."""
+    bbox = row.verdict_bbox
+    draw.text(
+        (
+            row.verdict_center_x - row.verdict_column / 2 - bbox[0],
+            row.content_center_y - (bbox[3] - bbox[1]) / 2 - bbox[1],
+        ),
+        row.verdict,
+        font=FONT_DICE_TOTAL,
+        fill=color,
+    )
+
+
 def render_injury_test_die(
     value: int,
     color: str,
@@ -2215,86 +2409,52 @@ def render_injury_test_die(
     verdict_color = (
         INJURY_TEST_SAFE_COLOR if safe else INJURY_TEST_INJURED_COLOR
     )
-
     # Measured on a throwaway canvas: the real one can't be created
     # until these widths have decided how big it needs to be.
     measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
-    portrait = load_player_portrait(player_name)
-    portrait_width = INJURY_TEST_PORTRAIT_SIZE
-    portrait_height = INJURY_TEST_PORTRAIT_SIZE
-    if portrait is not None:
-        sized = portrait.copy()
-        sized.thumbnail(
-            (INJURY_TEST_PORTRAIT_SIZE, INJURY_TEST_PORTRAIT_SIZE),
-            Image.Resampling.LANCZOS,
-        )
-        portrait_width, portrait_height = sized.size
-    else:
-        sized = None
-
-    # The halo is wider than the die whenever Overdrive is supercharging
-    # it, so it -- not the bare polygon -- is what the die column has to
-    # hold on that render, the same reason Mind Pull's and Volatile's own
-    # die columns are measured against their halo rather than their face.
     overdrive_halo_size = (
         round(2 * INJURY_TEST_DIE_RADIUS * OVERDRIVE_HALO_SCALE)
         if overdriven
         else 0
     )
-    die_column = max(
-        2 * INJURY_TEST_DIE_RADIUS,
-        overdrive_halo_size,
-        measure.textlength(team_label, font=FONT_SMALL),
+    portrait, die_column, portrait_column, verdict_bbox, row_height = (
+        measure_verdict_columns(
+            measure,
+            [2 * INJURY_TEST_DIE_RADIUS, overdrive_halo_size],
+            [team_label],
+            player_name,
+            INJURY_TEST_PORTRAIT_SIZE,
+            verdict,
+            INJURY_TEST_LABEL_GAP,
+            INJURY_TEST_LABEL_HEIGHT,
+        )
     )
-    portrait_column = max(
-        portrait_width,
-        measure.textlength(player_name, font=FONT_SMALL),
+    row = VerdictRow(
+        portrait, die_column, portrait_column, verdict, verdict_bbox, row_height,
+        row_left=INJURY_TEST_SIDE_PADDING,
+        row_top=INJURY_TEST_ROW_TOP,
+        column_gap=INJURY_TEST_COLUMN_GAP,
+        label_gap=INJURY_TEST_LABEL_GAP,
+        label_height=INJURY_TEST_LABEL_HEIGHT,
     )
-    verdict_bbox = measure.textbbox((0, 0), verdict, font=FONT_DICE_TOTAL)
-    verdict_column = verdict_bbox[2] - verdict_bbox[0]
-
-    row_height = max(
-        2 * INJURY_TEST_DIE_RADIUS,
-        overdrive_halo_size,
-        portrait_height,
-    ) + INJURY_TEST_LABEL_GAP + INJURY_TEST_LABEL_HEIGHT
     width = round(
         INJURY_TEST_SIDE_PADDING * 2
         + die_column
         + portrait_column
-        + verdict_column
+        + row.verdict_column
         + INJURY_TEST_COLUMN_GAP * 2
     )
     height = INJURY_TEST_ROW_TOP + row_height + INJURY_TEST_BOTTOM_PADDING
-
     canvas = Image.new("RGBA", (width, height), "#111820")
     draw = ImageDraw.Draw(canvas)
 
-    title_width = draw.textlength(INJURY_TEST_TITLE, font=FONT_DICE_TOTAL)
-    draw.text(
-        ((width - title_width) / 2, INJURY_TEST_TITLE_TOP),
-        INJURY_TEST_TITLE,
-        font=FONT_DICE_TOTAL,
-        fill="#ffffff",
+    draw_title_across(
+        draw, width, INJURY_TEST_TITLE_TOP, INJURY_TEST_TITLE,
+        FONT_DICE_TOTAL, "#ffffff",
     )
-
-    # Each column is centered on its own share of the row, and the
-    # labels under the die and the portrait share a baseline so the
-    # team name and the player's name read as one line.
-    label_y = (
-        INJURY_TEST_ROW_TOP
-        + row_height
-        - INJURY_TEST_LABEL_HEIGHT
-    )
-    content_center_y = (
-        INJURY_TEST_ROW_TOP
-        + (row_height - INJURY_TEST_LABEL_GAP - INJURY_TEST_LABEL_HEIGHT) / 2
-    )
-
-    die_center_x = INJURY_TEST_SIDE_PADDING + die_column / 2
     if overdriven:
         draw_species_die_aura(
-            canvas, draw, die_center_x, content_center_y,
+            canvas, draw, row.die_center_x, row.content_center_y,
             INJURY_TEST_DIE_RADIUS,
             SPECIES_CYBORG, OVERDRIVE_AURA_COLOR,
             OVERDRIVE_HALO_SCALE, OVERDRIVE_HALO_ALPHA,
@@ -2303,65 +2463,12 @@ def render_injury_test_die(
                 OVERDRIVE_AURA_COLOR, OVERDRIVE_HALO_SIZE,
             ),
         )
-    draw_d12_polygon(
-        draw,
-        round(die_center_x),
-        round(content_center_y),
-        INJURY_TEST_DIE_RADIUS,
-        color,
-        str(value),
-        font=FONT_DICE_VALUE,
-        text_color=high_contrast_ink(color),
+    draw_verdict_die(
+        draw, row, INJURY_TEST_DIE_RADIUS, color, value,
+        [(team_label, "#c7ced6")],
     )
-    team_width = draw.textlength(team_label, font=FONT_SMALL)
-    draw.text(
-        (die_center_x - team_width / 2, label_y),
-        team_label,
-        font=FONT_SMALL,
-        fill="#c7ced6",
-    )
-
-    portrait_center_x = (
-        INJURY_TEST_SIDE_PADDING
-        + die_column
-        + INJURY_TEST_COLUMN_GAP
-        + portrait_column / 2
-    )
-    if sized is not None:
-        canvas.alpha_composite(
-            sized,
-            (
-                round(portrait_center_x - sized.width / 2),
-                round(content_center_y - sized.height / 2),
-            ),
-        )
-    name_width = draw.textlength(player_name, font=FONT_SMALL)
-    draw.text(
-        (portrait_center_x - name_width / 2, label_y),
-        player_name,
-        font=FONT_SMALL,
-        fill="#ffffff",
-    )
-
-    verdict_center_x = (
-        INJURY_TEST_SIDE_PADDING
-        + die_column
-        + portrait_column
-        + INJURY_TEST_COLUMN_GAP * 2
-        + verdict_column / 2
-    )
-    draw.text(
-        (
-            verdict_center_x - verdict_column / 2 - verdict_bbox[0],
-            content_center_y
-            - (verdict_bbox[3] - verdict_bbox[1]) / 2
-            - verdict_bbox[1],
-        ),
-        verdict,
-        font=FONT_DICE_TOTAL,
-        fill=verdict_color,
-    )
-
+    draw_verdict_portrait(canvas, draw, row, player_name)
+    draw_verdict_text(draw, row, verdict_color)
     return png_bytes(canvas)
 
 
@@ -2441,167 +2548,64 @@ def render_mind_pull_die(
         MIND_PULL_AURA_COLOR if pulled else MIND_PULL_MISSED_COLOR
     )
     target_label = mind_pull_target_label()
-
     # Measured on a throwaway canvas: the real one cannot be created
-    # until these widths have decided how big it needs to be.
+    # until these widths have decided how big it needs to be. The halo
+    # is wider than the die, so it -- not the polygon -- is what the
+    # die column has to hold.
     measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
-    portrait = load_player_portrait(player_name)
-    portrait_width = MIND_PULL_PORTRAIT_SIZE
-    portrait_height = MIND_PULL_PORTRAIT_SIZE
-    if portrait is not None:
-        sized = portrait.copy()
-        sized.thumbnail(
-            (MIND_PULL_PORTRAIT_SIZE, MIND_PULL_PORTRAIT_SIZE),
-            Image.Resampling.LANCZOS,
-        )
-        portrait_width, portrait_height = sized.size
-    else:
-        sized = None
-
-    # The halo is wider than the die, so it -- not the polygon -- is
-    # what the die column has to hold.
     halo_size = round(2 * MIND_PULL_DIE_RADIUS * MIND_PULL_HALO_SCALE)
-    die_column = max(
-        halo_size,
-        measure.textlength(team_label, font=FONT_SMALL),
-        measure.textlength(target_label, font=FONT_SMALL),
+    portrait, die_column, portrait_column, verdict_bbox, row_height = (
+        measure_verdict_columns(
+            measure,
+            [halo_size],
+            [team_label, target_label],
+            player_name,
+            MIND_PULL_PORTRAIT_SIZE,
+            verdict,
+            MIND_PULL_LABEL_GAP,
+            MIND_PULL_LABEL_HEIGHT,
+        )
     )
-    portrait_column = max(
-        portrait_width,
-        measure.textlength(player_name, font=FONT_SMALL),
+    row = VerdictRow(
+        portrait, die_column, portrait_column, verdict, verdict_bbox, row_height,
+        row_left=MIND_PULL_SIDE_PADDING,
+        row_top=MIND_PULL_ROW_TOP,
+        column_gap=MIND_PULL_COLUMN_GAP,
+        label_gap=MIND_PULL_LABEL_GAP,
+        label_height=MIND_PULL_LABEL_HEIGHT,
     )
-    verdict_bbox = measure.textbbox((0, 0), verdict, font=FONT_DICE_TOTAL)
-    verdict_column = verdict_bbox[2] - verdict_bbox[0]
-
-    row_height = max(
-        halo_size,
-        portrait_height,
-    ) + MIND_PULL_LABEL_GAP + MIND_PULL_LABEL_HEIGHT
     width = round(
         MIND_PULL_SIDE_PADDING * 2
         + die_column
         + portrait_column
-        + verdict_column
+        + row.verdict_column
         + MIND_PULL_COLUMN_GAP * 2
     )
     height = MIND_PULL_ROW_TOP + row_height + MIND_PULL_BOTTOM_PADDING
-
     canvas = Image.new("RGBA", (width, height), "#111820")
     draw = ImageDraw.Draw(canvas)
 
-    title_width = draw.textlength(MIND_PULL_TITLE, font=FONT_DICE_TOTAL)
-    draw.text(
-        ((width - title_width) / 2, MIND_PULL_TITLE_TOP),
-        MIND_PULL_TITLE,
-        font=FONT_DICE_TOTAL,
-        fill=MIND_PULL_AURA_COLOR,
+    draw_title_across(
+        draw, width, MIND_PULL_TITLE_TOP, MIND_PULL_TITLE,
+        FONT_DICE_TOTAL, MIND_PULL_AURA_COLOR,
     )
-
-    label_y = MIND_PULL_ROW_TOP + row_height - MIND_PULL_LABEL_HEIGHT
-    content_center_y = (
-        MIND_PULL_ROW_TOP
-        + (row_height - MIND_PULL_LABEL_GAP - MIND_PULL_LABEL_HEIGHT) / 2
-    )
-
-    die_center_x = MIND_PULL_SIDE_PADDING + die_column / 2
     # The spiral goes down first and the die over it, so the face is
     # never competing with the art behind it. A missing icon file
     # leaves the die plain rather than failing the render, the same as
     # everywhere else a bundled image is read.
-    halo = species_icon(
-        SPECIES_TELEKINETIC, MIND_PULL_AURA_COLOR, halo_size,
-    )
-    if halo is not None:
-        faded = halo.copy()
-        faded.putalpha(
-            faded.getchannel("A").point(
-                lambda level: level * MIND_PULL_HALO_ALPHA // 255
-            )
-        )
-        canvas.alpha_composite(
-            faded,
-            (
-                round(die_center_x - halo_size / 2),
-                round(content_center_y - halo_size / 2),
-            ),
-        )
-    ring_radius = MIND_PULL_DIE_RADIUS + MIND_PULL_RING_GAP
-    draw.ellipse(
-        (
-            die_center_x - ring_radius,
-            content_center_y - ring_radius,
-            die_center_x + ring_radius,
-            content_center_y + ring_radius,
-        ),
-        outline=MIND_PULL_AURA_COLOR,
-        width=MIND_PULL_RING_WIDTH,
-    )
-    draw_d12_polygon(
-        draw,
-        round(die_center_x),
-        round(content_center_y),
+    draw_species_die_aura(
+        canvas, draw, row.die_center_x, row.content_center_y,
         MIND_PULL_DIE_RADIUS,
-        color,
-        str(value),
-        font=FONT_DICE_VALUE,
-        text_color=high_contrast_ink(color),
+        SPECIES_TELEKINETIC, MIND_PULL_AURA_COLOR,
+        MIND_PULL_HALO_SCALE, MIND_PULL_HALO_ALPHA,
+        MIND_PULL_RING_GAP, MIND_PULL_RING_WIDTH,
     )
-    team_width = draw.textlength(team_label, font=FONT_SMALL)
-    draw.text(
-        (die_center_x - team_width / 2, label_y),
-        team_label,
-        font=FONT_SMALL,
-        fill="#c7ced6",
+    draw_verdict_die(
+        draw, row, MIND_PULL_DIE_RADIUS, color, value,
+        [(team_label, "#c7ced6"), (target_label, MIND_PULL_AURA_COLOR)],
     )
-    target_width = draw.textlength(target_label, font=FONT_SMALL)
-    draw.text(
-        (die_center_x - target_width / 2, label_y + 22),
-        target_label,
-        font=FONT_SMALL,
-        fill=MIND_PULL_AURA_COLOR,
-    )
-
-    portrait_center_x = (
-        MIND_PULL_SIDE_PADDING
-        + die_column
-        + MIND_PULL_COLUMN_GAP
-        + portrait_column / 2
-    )
-    if sized is not None:
-        canvas.alpha_composite(
-            sized,
-            (
-                round(portrait_center_x - sized.width / 2),
-                round(content_center_y - sized.height / 2),
-            ),
-        )
-    name_width = draw.textlength(player_name, font=FONT_SMALL)
-    draw.text(
-        (portrait_center_x - name_width / 2, label_y),
-        player_name,
-        font=FONT_SMALL,
-        fill="#ffffff",
-    )
-
-    verdict_center_x = (
-        MIND_PULL_SIDE_PADDING
-        + die_column
-        + portrait_column
-        + MIND_PULL_COLUMN_GAP * 2
-        + verdict_column / 2
-    )
-    draw.text(
-        (
-            verdict_center_x - verdict_column / 2 - verdict_bbox[0],
-            content_center_y
-            - (verdict_bbox[3] - verdict_bbox[1]) / 2
-            - verdict_bbox[1],
-        ),
-        verdict,
-        font=FONT_DICE_TOTAL,
-        fill=verdict_color,
-    )
-
+    draw_verdict_portrait(canvas, draw, row, player_name)
+    draw_verdict_text(draw, row, verdict_color)
     return png_bytes(canvas)
 
 
@@ -2710,47 +2714,30 @@ def render_volatile_die(
     verdict_color = VOLATILE_AURA_COLOR if surge else VOLATILE_BACKFIRE_COLOR
     trigger_label = f"ignited on {face}"
     explainer = volatile_explainer_label()
-
     # Measured on a throwaway canvas: the real one cannot be created
-    # until these widths have decided how big it needs to be.
+    # until these widths have decided how big it needs to be. The halo
+    # is wider than the die, so it -- not the polygon -- is what the
+    # die column has to hold.
     measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
-    portrait = load_player_portrait(player_name)
-    portrait_width = VOLATILE_PORTRAIT_SIZE
-    portrait_height = VOLATILE_PORTRAIT_SIZE
-    if portrait is not None:
-        sized = portrait.copy()
-        sized.thumbnail(
-            (VOLATILE_PORTRAIT_SIZE, VOLATILE_PORTRAIT_SIZE),
-            Image.Resampling.LANCZOS,
-        )
-        portrait_width, portrait_height = sized.size
-    else:
-        sized = None
-
-    # The halo is wider than the die, so it -- not the polygon -- is
-    # what the die column has to hold.
     halo_size = round(2 * VOLATILE_DIE_RADIUS * VOLATILE_HALO_SCALE)
-    die_column = max(
-        halo_size,
-        measure.textlength(team_label, font=FONT_SMALL),
-        measure.textlength(trigger_label, font=FONT_SMALL),
+    portrait, die_column, portrait_column, verdict_bbox, row_height = (
+        measure_verdict_columns(
+            measure,
+            [halo_size],
+            [team_label, trigger_label],
+            player_name,
+            VOLATILE_PORTRAIT_SIZE,
+            verdict,
+            VOLATILE_LABEL_GAP,
+            VOLATILE_LABEL_HEIGHT,
+        )
     )
-    portrait_column = max(
-        portrait_width,
-        measure.textlength(player_name, font=FONT_SMALL),
-    )
-    verdict_bbox = measure.textbbox((0, 0), verdict, font=FONT_DICE_TOTAL)
     verdict_column = verdict_bbox[2] - verdict_bbox[0]
-
-    row_height = max(
-        halo_size,
-        portrait_height,
-    ) + VOLATILE_LABEL_GAP + VOLATILE_LABEL_HEIGHT
-    columns_width = die_column + portrait_column + verdict_column
     # The explainer is the widest thing on most of these images, and it
     # is the half a coach reading their first ignite actually needs --
     # so the canvas is sized to whichever of the two is wider rather
     # than the sentence being cut to the row.
+    columns_width = die_column + portrait_column + verdict_column
     explainer_width = measure.textlength(explainer, font=FONT_SMALL)
     content_width = max(
         columns_width + VOLATILE_COLUMN_GAP * 2, explainer_width,
@@ -2766,17 +2753,21 @@ def render_volatile_die(
     column_gap = max(
         VOLATILE_COLUMN_GAP, (content_width - columns_width) / 2,
     )
+    row = VerdictRow(
+        portrait, die_column, portrait_column, verdict, verdict_bbox, row_height,
+        row_left=VOLATILE_SIDE_PADDING,
+        row_top=VOLATILE_ROW_TOP,
+        column_gap=column_gap,
+        label_gap=VOLATILE_LABEL_GAP,
+        label_height=VOLATILE_LABEL_HEIGHT,
+    )
     height = VOLATILE_ROW_TOP + row_height + VOLATILE_BOTTOM_PADDING
-
     canvas = Image.new("RGBA", (width, height), "#111820")
     draw = ImageDraw.Draw(canvas)
 
-    title_width = draw.textlength(VOLATILE_TITLE, font=FONT_DICE_TOTAL)
-    draw.text(
-        ((width - title_width) / 2, VOLATILE_TITLE_TOP),
-        VOLATILE_TITLE,
-        font=FONT_DICE_TOTAL,
-        fill=VOLATILE_AURA_COLOR,
+    draw_title_across(
+        draw, width, VOLATILE_TITLE_TOP, VOLATILE_TITLE,
+        FONT_DICE_TOTAL, VOLATILE_AURA_COLOR,
     )
     draw.text(
         ((width - explainer_width) / 2, VOLATILE_EXPLAINER_TOP),
@@ -2784,112 +2775,23 @@ def render_volatile_die(
         font=FONT_SMALL,
         fill="#c7ced6",
     )
-
-    label_y = VOLATILE_ROW_TOP + row_height - VOLATILE_LABEL_HEIGHT
-    content_center_y = (
-        VOLATILE_ROW_TOP
-        + (row_height - VOLATILE_LABEL_GAP - VOLATILE_LABEL_HEIGHT) / 2
-    )
-
-    row_left = VOLATILE_SIDE_PADDING
-
-    die_center_x = row_left + die_column / 2
     # The flame goes down first and the die over it, so the face is
     # never competing with the art behind it. A missing icon file leaves
     # the die plain rather than failing the render, the same as
     # everywhere else a bundled image is read.
-    halo = species_icon(SPECIES_FIRE_DEMON, VOLATILE_AURA_COLOR, halo_size)
-    if halo is not None:
-        faded = halo.copy()
-        faded.putalpha(
-            faded.getchannel("A").point(
-                lambda level: level * VOLATILE_HALO_ALPHA // 255
-            )
-        )
-        canvas.alpha_composite(
-            faded,
-            (
-                round(die_center_x - halo_size / 2),
-                round(content_center_y - halo_size / 2),
-            ),
-        )
-    ring_radius = VOLATILE_DIE_RADIUS + VOLATILE_RING_GAP
-    draw.ellipse(
-        (
-            die_center_x - ring_radius,
-            content_center_y - ring_radius,
-            die_center_x + ring_radius,
-            content_center_y + ring_radius,
-        ),
-        outline=VOLATILE_AURA_COLOR,
-        width=VOLATILE_RING_WIDTH,
-    )
-    draw_d12_polygon(
-        draw,
-        round(die_center_x),
-        round(content_center_y),
+    draw_species_die_aura(
+        canvas, draw, row.die_center_x, row.content_center_y,
         VOLATILE_DIE_RADIUS,
-        color,
-        str(second),
-        font=FONT_DICE_VALUE,
-        text_color=high_contrast_ink(color),
+        SPECIES_FIRE_DEMON, VOLATILE_AURA_COLOR,
+        VOLATILE_HALO_SCALE, VOLATILE_HALO_ALPHA,
+        VOLATILE_RING_GAP, VOLATILE_RING_WIDTH,
     )
-    team_width = draw.textlength(team_label, font=FONT_SMALL)
-    draw.text(
-        (die_center_x - team_width / 2, label_y),
-        team_label,
-        font=FONT_SMALL,
-        fill="#c7ced6",
+    draw_verdict_die(
+        draw, row, VOLATILE_DIE_RADIUS, color, second,
+        [(team_label, "#c7ced6"), (trigger_label, VOLATILE_AURA_COLOR)],
     )
-    trigger_width = draw.textlength(trigger_label, font=FONT_SMALL)
-    draw.text(
-        (die_center_x - trigger_width / 2, label_y + 22),
-        trigger_label,
-        font=FONT_SMALL,
-        fill=VOLATILE_AURA_COLOR,
-    )
-
-    portrait_center_x = (
-        row_left
-        + die_column
-        + column_gap
-        + portrait_column / 2
-    )
-    if sized is not None:
-        canvas.alpha_composite(
-            sized,
-            (
-                round(portrait_center_x - sized.width / 2),
-                round(content_center_y - sized.height / 2),
-            ),
-        )
-    name_width = draw.textlength(player_name, font=FONT_SMALL)
-    draw.text(
-        (portrait_center_x - name_width / 2, label_y),
-        player_name,
-        font=FONT_SMALL,
-        fill="#ffffff",
-    )
-
-    verdict_center_x = (
-        row_left
-        + die_column
-        + portrait_column
-        + column_gap * 2
-        + verdict_column / 2
-    )
-    draw.text(
-        (
-            verdict_center_x - verdict_column / 2 - verdict_bbox[0],
-            content_center_y
-            - (verdict_bbox[3] - verdict_bbox[1]) / 2
-            - verdict_bbox[1],
-        ),
-        verdict,
-        font=FONT_DICE_TOTAL,
-        fill=verdict_color,
-    )
-
+    draw_verdict_portrait(canvas, draw, row, player_name)
+    draw_verdict_text(draw, row, verdict_color)
     return png_bytes(canvas)
 
 
