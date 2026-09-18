@@ -1160,6 +1160,146 @@ def draw_assignment_cards(
             x += CARD_SIZE[0] + gap
 
 
+def draw_zone_frame(
+    draw: ImageDraw.ImageDraw,
+    zone: Zone,
+    left: float,
+    right: float,
+    label: str,
+) -> None:
+    """A zone's tinted panel, and its name across the top of it."""
+    draw.rectangle(
+        (left, BOARD_TOP, right, BOARD_BOTTOM),
+        fill=ZONE_COLORS[zone],
+        outline="#d7dde5",
+        width=3,
+    )
+    label_width = draw.textlength(label, font=FONT_HEADING)
+    draw.text(
+        (
+            left + (right - left - label_width) / 2,
+            BOARD_TOP + 14,
+        ),
+        label,
+        font=FONT_HEADING,
+        fill="#ffffff",
+    )
+
+
+def draw_space(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    match: MatchState,
+    players: dict[str, PlayerDefinition],
+    zone: Zone,
+    space_index: int,
+    occupants: list[str],
+    space_left: int,
+    space_right: int,
+    species_icons: bool = False,
+) -> None:
+    """
+    One space: its frame and code, the visiting side's meeples on the
+    upper row and the home side's on the lower, and the ball if it is
+    here -- hung off the possessing side's group, or centred when they
+    have nobody on it (see `ball_token_x`).
+    """
+    draw.rectangle(
+        (
+            space_left + 8,
+            BOARD_TOP + 58,
+            space_right - 8,
+            BOARD_BOTTOM - 12,
+        ),
+        outline="#9aabbc",
+        width=2,
+    )
+    draw.text(
+        (space_left + 15, BOARD_TOP + 66),
+        space_code(zone, space_index),
+        font=FONT_SMALL,
+        fill="#c8d1dc",
+    )
+
+    visiting_occupants = [
+        player_id
+        for player_id in occupants
+        if player_id in match.visiting.field_players
+    ]
+    home_occupants = [
+        player_id
+        for player_id in occupants
+        if player_id in match.home.field_players
+    ]
+    ball_is_here = (
+        match.ball.zone == zone
+        and match.ball.space_index == space_index
+    )
+    visiting_bounds = draw_meeple_group(
+        canvas,
+        draw,
+        visiting_occupants,
+        players,
+        match.visiting.team,
+        space_left,
+        space_right,
+        VISITING_MEEPLE_TOP,
+        alignment="right",
+        reserve_ball=(
+            ball_is_here
+            and match.ball.possession.value == "visiting"
+        ),
+        # Stop above the home side's own tokens.
+        label_bottom=HOME_MEEPLE_TOP - 5,
+        species_icons=species_icons,
+    )
+    home_bounds = draw_meeple_group(
+        canvas,
+        draw,
+        home_occupants,
+        players,
+        match.home.team,
+        space_left,
+        space_right,
+        HOME_MEEPLE_TOP,
+        alignment="left",
+        reserve_ball=(
+            ball_is_here
+            and match.ball.possession.value == "home"
+        ),
+        label_bottom=BOARD_BOTTOM - 16,
+        species_icons=species_icons,
+    )
+
+    if ball_is_here:
+        home_has_it = match.ball.possession.value == "home"
+        ball_x = ball_token_x(
+            space_left,
+            space_right,
+            home_bounds if home_has_it else visiting_bounds,
+            carrying_side_present=bool(
+                home_occupants if home_has_it else visiting_occupants
+            ),
+            home_side=home_has_it,
+        )
+        ball_y = (
+            HOME_MEEPLE_TOP + MEEPLE_SIZE // 2
+            if home_has_it
+            else VISITING_MEEPLE_TOP + MEEPLE_SIZE // 2
+        )
+        draw_d12_polygon(
+            draw,
+            ball_x,
+            ball_y,
+            BALL_RADIUS,
+            "#ffffff",
+            str(match.ball.speed),
+            font=FONT_SMALL,
+            outline="#243347",
+            text_color="#243347",
+        )
+
+
 def draw_board(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
@@ -1179,122 +1319,17 @@ def draw_board(
     labels = zone_labels(match.board.layout.board_size)
     for zone in Zone:
         left, right = bounds[zone]
-        draw.rectangle(
-            (left, BOARD_TOP, right, BOARD_BOTTOM),
-            fill=ZONE_COLORS[zone],
-            outline="#d7dde5",
-            width=3,
-        )
-        label_width = draw.textlength(labels[zone], font=FONT_HEADING)
-        draw.text(
-            (
-                left + (right - left - label_width) / 2,
-                BOARD_TOP + 14,
-            ),
-            labels[zone],
-            font=FONT_HEADING,
-            fill="#ffffff",
-        )
+        draw_zone_frame(draw, zone, left, right, labels[zone])
 
         spaces = match.board.spaces[zone]
         space_width = (right - left) / len(spaces)
         for space_index, occupants in enumerate(spaces):
             space_left = round(left + space_index * space_width)
             space_right = round(left + (space_index + 1) * space_width)
-            draw.rectangle(
-                (
-                    space_left + 8,
-                    BOARD_TOP + 58,
-                    space_right - 8,
-                    BOARD_BOTTOM - 12,
-                ),
-                outline="#9aabbc",
-                width=2,
+            draw_space(
+                canvas, draw, match, players, zone, space_index, occupants,
+                space_left, space_right, species_icons=species_icons,
             )
-            draw.text(
-                (space_left + 15, BOARD_TOP + 66),
-                space_code(zone, space_index),
-                font=FONT_SMALL,
-                fill="#c8d1dc",
-            )
-
-            visiting_occupants = [
-                player_id
-                for player_id in occupants
-                if player_id in match.visiting.field_players
-            ]
-            home_occupants = [
-                player_id
-                for player_id in occupants
-                if player_id in match.home.field_players
-            ]
-            ball_is_here = (
-                match.ball.zone == zone
-                and match.ball.space_index == space_index
-            )
-            visiting_bounds = draw_meeple_group(
-                canvas,
-                draw,
-                visiting_occupants,
-                players,
-                match.visiting.team,
-                space_left,
-                space_right,
-                VISITING_MEEPLE_TOP,
-                alignment="right",
-                reserve_ball=(
-                    ball_is_here
-                    and match.ball.possession.value == "visiting"
-                ),
-                # Stop above the home side's own tokens.
-                label_bottom=HOME_MEEPLE_TOP - 5,
-                species_icons=species_icons,
-            )
-            home_bounds = draw_meeple_group(
-                canvas,
-                draw,
-                home_occupants,
-                players,
-                match.home.team,
-                space_left,
-                space_right,
-                HOME_MEEPLE_TOP,
-                alignment="left",
-                reserve_ball=(
-                    ball_is_here
-                    and match.ball.possession.value == "home"
-                ),
-                label_bottom=BOARD_BOTTOM - 16,
-                species_icons=species_icons,
-            )
-
-            if ball_is_here:
-                home_has_it = match.ball.possession.value == "home"
-                ball_x = ball_token_x(
-                    space_left,
-                    space_right,
-                    home_bounds if home_has_it else visiting_bounds,
-                    carrying_side_present=bool(
-                        home_occupants if home_has_it else visiting_occupants
-                    ),
-                    home_side=home_has_it,
-                )
-                ball_y = (
-                    HOME_MEEPLE_TOP + MEEPLE_SIZE // 2
-                    if home_has_it
-                    else VISITING_MEEPLE_TOP + MEEPLE_SIZE // 2
-                )
-                draw_d12_polygon(
-                    draw,
-                    ball_x,
-                    ball_y,
-                    BALL_RADIUS,
-                    "#ffffff",
-                    str(match.ball.speed),
-                    font=FONT_SMALL,
-                    outline="#243347",
-                    text_color="#243347",
-                )
 
     draw_end_zone(
         canvas,
@@ -2203,10 +2238,7 @@ def render_skill_test_dice(
             fill=color,
         )
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 INJURY_TEST_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
@@ -2221,6 +2253,200 @@ INJURY_TEST_SIDE_PADDING = 22
 INJURY_TEST_BOTTOM_PADDING = 14
 INJURY_TEST_SAFE_COLOR = "#5ac36a"
 INJURY_TEST_INJURED_COLOR = "#e2564b"
+
+
+@dataclass(frozen=True)
+class VerdictRow:
+    """
+    The three-column row -- a die, the player who rolled it, the
+    verdict -- that the injury test, Mind Pull and Volatile all draw,
+    measured before the canvas exists so the widths can size it.
+
+    The three images share the row and not their proportions: each
+    passes its own radius, portrait size, gaps and paddings, which is
+    what keeps Volatile's 168px portrait and spread columns Volatile's
+    (see "The ignition die" in CLAUDE.md) while the arithmetic that
+    places a column is written once. Each column is centred on its own
+    share of the row, and the labels under the die and the portrait
+    share a baseline so the team name and the player's name read as
+    one line.
+    """
+
+    portrait: Optional[Image.Image]
+    die_column: float
+    portrait_column: float
+    verdict: str
+    verdict_bbox: tuple[int, int, int, int]
+    row_height: float
+    row_left: float
+    row_top: float
+    column_gap: float
+    label_gap: float
+    label_height: float
+
+    @property
+    def verdict_column(self) -> int:
+        return self.verdict_bbox[2] - self.verdict_bbox[0]
+
+    @property
+    def label_y(self) -> float:
+        return self.row_top + self.row_height - self.label_height
+
+    @property
+    def content_center_y(self) -> float:
+        return (
+            self.row_top
+            + (self.row_height - self.label_gap - self.label_height) / 2
+        )
+
+    @property
+    def die_center_x(self) -> float:
+        return self.row_left + self.die_column / 2
+
+    @property
+    def portrait_center_x(self) -> float:
+        return (
+            self.row_left
+            + self.die_column
+            + self.column_gap
+            + self.portrait_column / 2
+        )
+
+    @property
+    def verdict_center_x(self) -> float:
+        return (
+            self.row_left
+            + self.die_column
+            + self.portrait_column
+            + self.column_gap * 2
+            + self.verdict_column / 2
+        )
+
+
+def thumbnail_portrait(
+    player_name: str, size: int,
+) -> tuple[Optional[Image.Image], int, int]:
+    """
+    A player's portrait fit inside `size`, with the width and height
+    it came out at -- or the full square and no image when there is no
+    art for them, so the column is still reserved.
+    """
+    portrait = load_player_portrait(player_name)
+    if portrait is None:
+        return None, size, size
+    sized = portrait.copy()
+    sized.thumbnail((size, size), Image.Resampling.LANCZOS)
+    return sized, sized.width, sized.height
+
+
+def measure_verdict_columns(
+    measure: ImageDraw.ImageDraw,
+    die_extents: list[float],
+    die_labels: list[str],
+    player_name: str,
+    portrait_size: int,
+    verdict: str,
+    label_gap: float,
+    label_height: float,
+) -> tuple[Optional[Image.Image], float, float, tuple[int, int, int, int], float]:
+    """
+    The three column widths and the row's height, from what each
+    column has to hold. `die_extents` is whatever is drawn around the
+    die -- the halo is wider than the die whenever a species aura is
+    on it, so it, not the bare polygon, is what the die column and the
+    row have to hold.
+    """
+    portrait, portrait_width, portrait_height = thumbnail_portrait(
+        player_name, portrait_size,
+    )
+    die_column = max(
+        *die_extents,
+        *(measure.textlength(label, font=FONT_SMALL) for label in die_labels),
+    )
+    portrait_column = max(
+        portrait_width,
+        measure.textlength(player_name, font=FONT_SMALL),
+    )
+    verdict_bbox = measure.textbbox((0, 0), verdict, font=FONT_DICE_TOTAL)
+    row_height = max(*die_extents, portrait_height) + label_gap + label_height
+    return portrait, die_column, portrait_column, verdict_bbox, row_height
+
+
+def draw_title_across(
+    draw: ImageDraw.ImageDraw,
+    width: int,
+    y: float,
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: str,
+) -> None:
+    """A line centred across the whole image."""
+    text_width = draw.textlength(text, font=font)
+    draw.text(((width - text_width) / 2, y), text, font=font, fill=fill)
+
+
+def draw_verdict_die(
+    draw: ImageDraw.ImageDraw,
+    row: VerdictRow,
+    radius: int,
+    color: str,
+    value: int,
+    labels: list[tuple[str, str]],
+) -> None:
+    """
+    The face, and the lines under it -- the team first, and any second
+    line the image explains itself with (Mind Pull's target band,
+    Volatile's trigger) on the line below.
+    """
+    draw_d12_polygon(
+        draw,
+        round(row.die_center_x),
+        round(row.content_center_y),
+        radius,
+        color,
+        str(value),
+        font=FONT_DICE_VALUE,
+        text_color=high_contrast_ink(color),
+    )
+    y = row.label_y
+    for text, fill in labels:
+        draw_centered_text(draw, row.die_center_x, y, text, FONT_SMALL, fill)
+        y += 22
+
+
+def draw_verdict_portrait(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    row: VerdictRow,
+    player_name: str,
+) -> None:
+    if row.portrait is not None:
+        canvas.alpha_composite(
+            row.portrait,
+            (
+                round(row.portrait_center_x - row.portrait.width / 2),
+                round(row.content_center_y - row.portrait.height / 2),
+            ),
+        )
+    draw_centered_text(
+        draw, row.portrait_center_x, row.label_y, player_name, FONT_SMALL, "#ffffff",
+    )
+
+
+def draw_verdict_text(
+    draw: ImageDraw.ImageDraw, row: VerdictRow, color: str,
+) -> None:
+    """The verdict, centred on its column by its ink box rather than its advance."""
+    bbox = row.verdict_bbox
+    draw.text(
+        (
+            row.verdict_center_x - row.verdict_column / 2 - bbox[0],
+            row.content_center_y - (bbox[3] - bbox[1]) / 2 - bbox[1],
+        ),
+        row.verdict,
+        font=FONT_DICE_TOTAL,
+        fill=color,
+    )
 
 
 def render_injury_test_die(
@@ -2250,86 +2476,52 @@ def render_injury_test_die(
     verdict_color = (
         INJURY_TEST_SAFE_COLOR if safe else INJURY_TEST_INJURED_COLOR
     )
-
     # Measured on a throwaway canvas: the real one can't be created
     # until these widths have decided how big it needs to be.
     measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
-    portrait = load_player_portrait(player_name)
-    portrait_width = INJURY_TEST_PORTRAIT_SIZE
-    portrait_height = INJURY_TEST_PORTRAIT_SIZE
-    if portrait is not None:
-        sized = portrait.copy()
-        sized.thumbnail(
-            (INJURY_TEST_PORTRAIT_SIZE, INJURY_TEST_PORTRAIT_SIZE),
-            Image.Resampling.LANCZOS,
-        )
-        portrait_width, portrait_height = sized.size
-    else:
-        sized = None
-
-    # The halo is wider than the die whenever Overdrive is supercharging
-    # it, so it -- not the bare polygon -- is what the die column has to
-    # hold on that render, the same reason Mind Pull's and Volatile's own
-    # die columns are measured against their halo rather than their face.
     overdrive_halo_size = (
         round(2 * INJURY_TEST_DIE_RADIUS * OVERDRIVE_HALO_SCALE)
         if overdriven
         else 0
     )
-    die_column = max(
-        2 * INJURY_TEST_DIE_RADIUS,
-        overdrive_halo_size,
-        measure.textlength(team_label, font=FONT_SMALL),
+    portrait, die_column, portrait_column, verdict_bbox, row_height = (
+        measure_verdict_columns(
+            measure,
+            [2 * INJURY_TEST_DIE_RADIUS, overdrive_halo_size],
+            [team_label],
+            player_name,
+            INJURY_TEST_PORTRAIT_SIZE,
+            verdict,
+            INJURY_TEST_LABEL_GAP,
+            INJURY_TEST_LABEL_HEIGHT,
+        )
     )
-    portrait_column = max(
-        portrait_width,
-        measure.textlength(player_name, font=FONT_SMALL),
+    row = VerdictRow(
+        portrait, die_column, portrait_column, verdict, verdict_bbox, row_height,
+        row_left=INJURY_TEST_SIDE_PADDING,
+        row_top=INJURY_TEST_ROW_TOP,
+        column_gap=INJURY_TEST_COLUMN_GAP,
+        label_gap=INJURY_TEST_LABEL_GAP,
+        label_height=INJURY_TEST_LABEL_HEIGHT,
     )
-    verdict_bbox = measure.textbbox((0, 0), verdict, font=FONT_DICE_TOTAL)
-    verdict_column = verdict_bbox[2] - verdict_bbox[0]
-
-    row_height = max(
-        2 * INJURY_TEST_DIE_RADIUS,
-        overdrive_halo_size,
-        portrait_height,
-    ) + INJURY_TEST_LABEL_GAP + INJURY_TEST_LABEL_HEIGHT
     width = round(
         INJURY_TEST_SIDE_PADDING * 2
         + die_column
         + portrait_column
-        + verdict_column
+        + row.verdict_column
         + INJURY_TEST_COLUMN_GAP * 2
     )
     height = INJURY_TEST_ROW_TOP + row_height + INJURY_TEST_BOTTOM_PADDING
-
     canvas = Image.new("RGBA", (width, height), "#111820")
     draw = ImageDraw.Draw(canvas)
 
-    title_width = draw.textlength(INJURY_TEST_TITLE, font=FONT_DICE_TOTAL)
-    draw.text(
-        ((width - title_width) / 2, INJURY_TEST_TITLE_TOP),
-        INJURY_TEST_TITLE,
-        font=FONT_DICE_TOTAL,
-        fill="#ffffff",
+    draw_title_across(
+        draw, width, INJURY_TEST_TITLE_TOP, INJURY_TEST_TITLE,
+        FONT_DICE_TOTAL, "#ffffff",
     )
-
-    # Each column is centered on its own share of the row, and the
-    # labels under the die and the portrait share a baseline so the
-    # team name and the player's name read as one line.
-    label_y = (
-        INJURY_TEST_ROW_TOP
-        + row_height
-        - INJURY_TEST_LABEL_HEIGHT
-    )
-    content_center_y = (
-        INJURY_TEST_ROW_TOP
-        + (row_height - INJURY_TEST_LABEL_GAP - INJURY_TEST_LABEL_HEIGHT) / 2
-    )
-
-    die_center_x = INJURY_TEST_SIDE_PADDING + die_column / 2
     if overdriven:
         draw_species_die_aura(
-            canvas, draw, die_center_x, content_center_y,
+            canvas, draw, row.die_center_x, row.content_center_y,
             INJURY_TEST_DIE_RADIUS,
             SPECIES_CYBORG, OVERDRIVE_AURA_COLOR,
             OVERDRIVE_HALO_SCALE, OVERDRIVE_HALO_ALPHA,
@@ -2338,69 +2530,13 @@ def render_injury_test_die(
                 OVERDRIVE_AURA_COLOR, OVERDRIVE_HALO_SIZE,
             ),
         )
-    draw_d12_polygon(
-        draw,
-        round(die_center_x),
-        round(content_center_y),
-        INJURY_TEST_DIE_RADIUS,
-        color,
-        str(value),
-        font=FONT_DICE_VALUE,
-        text_color=high_contrast_ink(color),
+    draw_verdict_die(
+        draw, row, INJURY_TEST_DIE_RADIUS, color, value,
+        [(team_label, "#c7ced6")],
     )
-    team_width = draw.textlength(team_label, font=FONT_SMALL)
-    draw.text(
-        (die_center_x - team_width / 2, label_y),
-        team_label,
-        font=FONT_SMALL,
-        fill="#c7ced6",
-    )
-
-    portrait_center_x = (
-        INJURY_TEST_SIDE_PADDING
-        + die_column
-        + INJURY_TEST_COLUMN_GAP
-        + portrait_column / 2
-    )
-    if sized is not None:
-        canvas.alpha_composite(
-            sized,
-            (
-                round(portrait_center_x - sized.width / 2),
-                round(content_center_y - sized.height / 2),
-            ),
-        )
-    name_width = draw.textlength(player_name, font=FONT_SMALL)
-    draw.text(
-        (portrait_center_x - name_width / 2, label_y),
-        player_name,
-        font=FONT_SMALL,
-        fill="#ffffff",
-    )
-
-    verdict_center_x = (
-        INJURY_TEST_SIDE_PADDING
-        + die_column
-        + portrait_column
-        + INJURY_TEST_COLUMN_GAP * 2
-        + verdict_column / 2
-    )
-    draw.text(
-        (
-            verdict_center_x - verdict_column / 2 - verdict_bbox[0],
-            content_center_y
-            - (verdict_bbox[3] - verdict_bbox[1]) / 2
-            - verdict_bbox[1],
-        ),
-        verdict,
-        font=FONT_DICE_TOTAL,
-        fill=verdict_color,
-    )
-
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    draw_verdict_portrait(canvas, draw, row, player_name)
+    draw_verdict_text(draw, row, verdict_color)
+    return png_bytes(canvas)
 
 
 MIND_PULL_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
@@ -2479,171 +2615,65 @@ def render_mind_pull_die(
         MIND_PULL_AURA_COLOR if pulled else MIND_PULL_MISSED_COLOR
     )
     target_label = mind_pull_target_label()
-
     # Measured on a throwaway canvas: the real one cannot be created
-    # until these widths have decided how big it needs to be.
+    # until these widths have decided how big it needs to be. The halo
+    # is wider than the die, so it -- not the polygon -- is what the
+    # die column has to hold.
     measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
-    portrait = load_player_portrait(player_name)
-    portrait_width = MIND_PULL_PORTRAIT_SIZE
-    portrait_height = MIND_PULL_PORTRAIT_SIZE
-    if portrait is not None:
-        sized = portrait.copy()
-        sized.thumbnail(
-            (MIND_PULL_PORTRAIT_SIZE, MIND_PULL_PORTRAIT_SIZE),
-            Image.Resampling.LANCZOS,
-        )
-        portrait_width, portrait_height = sized.size
-    else:
-        sized = None
-
-    # The halo is wider than the die, so it -- not the polygon -- is
-    # what the die column has to hold.
     halo_size = round(2 * MIND_PULL_DIE_RADIUS * MIND_PULL_HALO_SCALE)
-    die_column = max(
-        halo_size,
-        measure.textlength(team_label, font=FONT_SMALL),
-        measure.textlength(target_label, font=FONT_SMALL),
+    portrait, die_column, portrait_column, verdict_bbox, row_height = (
+        measure_verdict_columns(
+            measure,
+            [halo_size],
+            [team_label, target_label],
+            player_name,
+            MIND_PULL_PORTRAIT_SIZE,
+            verdict,
+            MIND_PULL_LABEL_GAP,
+            MIND_PULL_LABEL_HEIGHT,
+        )
     )
-    portrait_column = max(
-        portrait_width,
-        measure.textlength(player_name, font=FONT_SMALL),
+    row = VerdictRow(
+        portrait, die_column, portrait_column, verdict, verdict_bbox, row_height,
+        row_left=MIND_PULL_SIDE_PADDING,
+        row_top=MIND_PULL_ROW_TOP,
+        column_gap=MIND_PULL_COLUMN_GAP,
+        label_gap=MIND_PULL_LABEL_GAP,
+        label_height=MIND_PULL_LABEL_HEIGHT,
     )
-    verdict_bbox = measure.textbbox((0, 0), verdict, font=FONT_DICE_TOTAL)
-    verdict_column = verdict_bbox[2] - verdict_bbox[0]
-
-    row_height = max(
-        halo_size,
-        portrait_height,
-    ) + MIND_PULL_LABEL_GAP + MIND_PULL_LABEL_HEIGHT
     width = round(
         MIND_PULL_SIDE_PADDING * 2
         + die_column
         + portrait_column
-        + verdict_column
+        + row.verdict_column
         + MIND_PULL_COLUMN_GAP * 2
     )
     height = MIND_PULL_ROW_TOP + row_height + MIND_PULL_BOTTOM_PADDING
-
     canvas = Image.new("RGBA", (width, height), "#111820")
     draw = ImageDraw.Draw(canvas)
 
-    title_width = draw.textlength(MIND_PULL_TITLE, font=FONT_DICE_TOTAL)
-    draw.text(
-        ((width - title_width) / 2, MIND_PULL_TITLE_TOP),
-        MIND_PULL_TITLE,
-        font=FONT_DICE_TOTAL,
-        fill=MIND_PULL_AURA_COLOR,
+    draw_title_across(
+        draw, width, MIND_PULL_TITLE_TOP, MIND_PULL_TITLE,
+        FONT_DICE_TOTAL, MIND_PULL_AURA_COLOR,
     )
-
-    label_y = MIND_PULL_ROW_TOP + row_height - MIND_PULL_LABEL_HEIGHT
-    content_center_y = (
-        MIND_PULL_ROW_TOP
-        + (row_height - MIND_PULL_LABEL_GAP - MIND_PULL_LABEL_HEIGHT) / 2
-    )
-
-    die_center_x = MIND_PULL_SIDE_PADDING + die_column / 2
     # The spiral goes down first and the die over it, so the face is
     # never competing with the art behind it. A missing icon file
     # leaves the die plain rather than failing the render, the same as
     # everywhere else a bundled image is read.
-    halo = species_icon(
-        SPECIES_TELEKINETIC, MIND_PULL_AURA_COLOR, halo_size,
-    )
-    if halo is not None:
-        faded = halo.copy()
-        faded.putalpha(
-            faded.getchannel("A").point(
-                lambda level: level * MIND_PULL_HALO_ALPHA // 255
-            )
-        )
-        canvas.alpha_composite(
-            faded,
-            (
-                round(die_center_x - halo_size / 2),
-                round(content_center_y - halo_size / 2),
-            ),
-        )
-    ring_radius = MIND_PULL_DIE_RADIUS + MIND_PULL_RING_GAP
-    draw.ellipse(
-        (
-            die_center_x - ring_radius,
-            content_center_y - ring_radius,
-            die_center_x + ring_radius,
-            content_center_y + ring_radius,
-        ),
-        outline=MIND_PULL_AURA_COLOR,
-        width=MIND_PULL_RING_WIDTH,
-    )
-    draw_d12_polygon(
-        draw,
-        round(die_center_x),
-        round(content_center_y),
+    draw_species_die_aura(
+        canvas, draw, row.die_center_x, row.content_center_y,
         MIND_PULL_DIE_RADIUS,
-        color,
-        str(value),
-        font=FONT_DICE_VALUE,
-        text_color=high_contrast_ink(color),
+        SPECIES_TELEKINETIC, MIND_PULL_AURA_COLOR,
+        MIND_PULL_HALO_SCALE, MIND_PULL_HALO_ALPHA,
+        MIND_PULL_RING_GAP, MIND_PULL_RING_WIDTH,
     )
-    team_width = draw.textlength(team_label, font=FONT_SMALL)
-    draw.text(
-        (die_center_x - team_width / 2, label_y),
-        team_label,
-        font=FONT_SMALL,
-        fill="#c7ced6",
+    draw_verdict_die(
+        draw, row, MIND_PULL_DIE_RADIUS, color, value,
+        [(team_label, "#c7ced6"), (target_label, MIND_PULL_AURA_COLOR)],
     )
-    target_width = draw.textlength(target_label, font=FONT_SMALL)
-    draw.text(
-        (die_center_x - target_width / 2, label_y + 22),
-        target_label,
-        font=FONT_SMALL,
-        fill=MIND_PULL_AURA_COLOR,
-    )
-
-    portrait_center_x = (
-        MIND_PULL_SIDE_PADDING
-        + die_column
-        + MIND_PULL_COLUMN_GAP
-        + portrait_column / 2
-    )
-    if sized is not None:
-        canvas.alpha_composite(
-            sized,
-            (
-                round(portrait_center_x - sized.width / 2),
-                round(content_center_y - sized.height / 2),
-            ),
-        )
-    name_width = draw.textlength(player_name, font=FONT_SMALL)
-    draw.text(
-        (portrait_center_x - name_width / 2, label_y),
-        player_name,
-        font=FONT_SMALL,
-        fill="#ffffff",
-    )
-
-    verdict_center_x = (
-        MIND_PULL_SIDE_PADDING
-        + die_column
-        + portrait_column
-        + MIND_PULL_COLUMN_GAP * 2
-        + verdict_column / 2
-    )
-    draw.text(
-        (
-            verdict_center_x - verdict_column / 2 - verdict_bbox[0],
-            content_center_y
-            - (verdict_bbox[3] - verdict_bbox[1]) / 2
-            - verdict_bbox[1],
-        ),
-        verdict,
-        font=FONT_DICE_TOTAL,
-        fill=verdict_color,
-    )
-
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    draw_verdict_portrait(canvas, draw, row, player_name)
+    draw_verdict_text(draw, row, verdict_color)
+    return png_bytes(canvas)
 
 
 VOLATILE_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
@@ -2751,47 +2781,30 @@ def render_volatile_die(
     verdict_color = VOLATILE_AURA_COLOR if surge else VOLATILE_BACKFIRE_COLOR
     trigger_label = f"ignited on {face}"
     explainer = volatile_explainer_label()
-
     # Measured on a throwaway canvas: the real one cannot be created
-    # until these widths have decided how big it needs to be.
+    # until these widths have decided how big it needs to be. The halo
+    # is wider than the die, so it -- not the polygon -- is what the
+    # die column has to hold.
     measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
-    portrait = load_player_portrait(player_name)
-    portrait_width = VOLATILE_PORTRAIT_SIZE
-    portrait_height = VOLATILE_PORTRAIT_SIZE
-    if portrait is not None:
-        sized = portrait.copy()
-        sized.thumbnail(
-            (VOLATILE_PORTRAIT_SIZE, VOLATILE_PORTRAIT_SIZE),
-            Image.Resampling.LANCZOS,
-        )
-        portrait_width, portrait_height = sized.size
-    else:
-        sized = None
-
-    # The halo is wider than the die, so it -- not the polygon -- is
-    # what the die column has to hold.
     halo_size = round(2 * VOLATILE_DIE_RADIUS * VOLATILE_HALO_SCALE)
-    die_column = max(
-        halo_size,
-        measure.textlength(team_label, font=FONT_SMALL),
-        measure.textlength(trigger_label, font=FONT_SMALL),
+    portrait, die_column, portrait_column, verdict_bbox, row_height = (
+        measure_verdict_columns(
+            measure,
+            [halo_size],
+            [team_label, trigger_label],
+            player_name,
+            VOLATILE_PORTRAIT_SIZE,
+            verdict,
+            VOLATILE_LABEL_GAP,
+            VOLATILE_LABEL_HEIGHT,
+        )
     )
-    portrait_column = max(
-        portrait_width,
-        measure.textlength(player_name, font=FONT_SMALL),
-    )
-    verdict_bbox = measure.textbbox((0, 0), verdict, font=FONT_DICE_TOTAL)
     verdict_column = verdict_bbox[2] - verdict_bbox[0]
-
-    row_height = max(
-        halo_size,
-        portrait_height,
-    ) + VOLATILE_LABEL_GAP + VOLATILE_LABEL_HEIGHT
-    columns_width = die_column + portrait_column + verdict_column
     # The explainer is the widest thing on most of these images, and it
     # is the half a coach reading their first ignite actually needs --
     # so the canvas is sized to whichever of the two is wider rather
     # than the sentence being cut to the row.
+    columns_width = die_column + portrait_column + verdict_column
     explainer_width = measure.textlength(explainer, font=FONT_SMALL)
     content_width = max(
         columns_width + VOLATILE_COLUMN_GAP * 2, explainer_width,
@@ -2807,17 +2820,21 @@ def render_volatile_die(
     column_gap = max(
         VOLATILE_COLUMN_GAP, (content_width - columns_width) / 2,
     )
+    row = VerdictRow(
+        portrait, die_column, portrait_column, verdict, verdict_bbox, row_height,
+        row_left=VOLATILE_SIDE_PADDING,
+        row_top=VOLATILE_ROW_TOP,
+        column_gap=column_gap,
+        label_gap=VOLATILE_LABEL_GAP,
+        label_height=VOLATILE_LABEL_HEIGHT,
+    )
     height = VOLATILE_ROW_TOP + row_height + VOLATILE_BOTTOM_PADDING
-
     canvas = Image.new("RGBA", (width, height), "#111820")
     draw = ImageDraw.Draw(canvas)
 
-    title_width = draw.textlength(VOLATILE_TITLE, font=FONT_DICE_TOTAL)
-    draw.text(
-        ((width - title_width) / 2, VOLATILE_TITLE_TOP),
-        VOLATILE_TITLE,
-        font=FONT_DICE_TOTAL,
-        fill=VOLATILE_AURA_COLOR,
+    draw_title_across(
+        draw, width, VOLATILE_TITLE_TOP, VOLATILE_TITLE,
+        FONT_DICE_TOTAL, VOLATILE_AURA_COLOR,
     )
     draw.text(
         ((width - explainer_width) / 2, VOLATILE_EXPLAINER_TOP),
@@ -2825,116 +2842,24 @@ def render_volatile_die(
         font=FONT_SMALL,
         fill="#c7ced6",
     )
-
-    label_y = VOLATILE_ROW_TOP + row_height - VOLATILE_LABEL_HEIGHT
-    content_center_y = (
-        VOLATILE_ROW_TOP
-        + (row_height - VOLATILE_LABEL_GAP - VOLATILE_LABEL_HEIGHT) / 2
-    )
-
-    row_left = VOLATILE_SIDE_PADDING
-
-    die_center_x = row_left + die_column / 2
     # The flame goes down first and the die over it, so the face is
     # never competing with the art behind it. A missing icon file leaves
     # the die plain rather than failing the render, the same as
     # everywhere else a bundled image is read.
-    halo = species_icon(SPECIES_FIRE_DEMON, VOLATILE_AURA_COLOR, halo_size)
-    if halo is not None:
-        faded = halo.copy()
-        faded.putalpha(
-            faded.getchannel("A").point(
-                lambda level: level * VOLATILE_HALO_ALPHA // 255
-            )
-        )
-        canvas.alpha_composite(
-            faded,
-            (
-                round(die_center_x - halo_size / 2),
-                round(content_center_y - halo_size / 2),
-            ),
-        )
-    ring_radius = VOLATILE_DIE_RADIUS + VOLATILE_RING_GAP
-    draw.ellipse(
-        (
-            die_center_x - ring_radius,
-            content_center_y - ring_radius,
-            die_center_x + ring_radius,
-            content_center_y + ring_radius,
-        ),
-        outline=VOLATILE_AURA_COLOR,
-        width=VOLATILE_RING_WIDTH,
-    )
-    draw_d12_polygon(
-        draw,
-        round(die_center_x),
-        round(content_center_y),
+    draw_species_die_aura(
+        canvas, draw, row.die_center_x, row.content_center_y,
         VOLATILE_DIE_RADIUS,
-        color,
-        str(second),
-        font=FONT_DICE_VALUE,
-        text_color=high_contrast_ink(color),
+        SPECIES_FIRE_DEMON, VOLATILE_AURA_COLOR,
+        VOLATILE_HALO_SCALE, VOLATILE_HALO_ALPHA,
+        VOLATILE_RING_GAP, VOLATILE_RING_WIDTH,
     )
-    team_width = draw.textlength(team_label, font=FONT_SMALL)
-    draw.text(
-        (die_center_x - team_width / 2, label_y),
-        team_label,
-        font=FONT_SMALL,
-        fill="#c7ced6",
+    draw_verdict_die(
+        draw, row, VOLATILE_DIE_RADIUS, color, second,
+        [(team_label, "#c7ced6"), (trigger_label, VOLATILE_AURA_COLOR)],
     )
-    trigger_width = draw.textlength(trigger_label, font=FONT_SMALL)
-    draw.text(
-        (die_center_x - trigger_width / 2, label_y + 22),
-        trigger_label,
-        font=FONT_SMALL,
-        fill=VOLATILE_AURA_COLOR,
-    )
-
-    portrait_center_x = (
-        row_left
-        + die_column
-        + column_gap
-        + portrait_column / 2
-    )
-    if sized is not None:
-        canvas.alpha_composite(
-            sized,
-            (
-                round(portrait_center_x - sized.width / 2),
-                round(content_center_y - sized.height / 2),
-            ),
-        )
-    name_width = draw.textlength(player_name, font=FONT_SMALL)
-    draw.text(
-        (portrait_center_x - name_width / 2, label_y),
-        player_name,
-        font=FONT_SMALL,
-        fill="#ffffff",
-    )
-
-    verdict_center_x = (
-        row_left
-        + die_column
-        + portrait_column
-        + column_gap * 2
-        + verdict_column / 2
-    )
-    draw.text(
-        (
-            verdict_center_x - verdict_column / 2 - verdict_bbox[0],
-            content_center_y
-            - (verdict_bbox[3] - verdict_bbox[1]) / 2
-            - verdict_bbox[1],
-        ),
-        verdict,
-        font=FONT_DICE_TOTAL,
-        fill=verdict_color,
-    )
-
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    draw_verdict_portrait(canvas, draw, row, player_name)
+    draw_verdict_text(draw, row, verdict_color)
+    return png_bytes(canvas)
 
 
 OWN_GOAL_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
@@ -3072,10 +2997,7 @@ def render_own_goal_dice(
         fill=outcome_color,
     )
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 CHALLENGE_TITLE = "MANEUVER CHALLENGE"
@@ -3429,6 +3351,245 @@ def draw_contribution_bands(
         )
 
 
+def portrait_row_width(sides: list[ChallengeSide]) -> int:
+    """How wide a group's portraits are, laid side by side."""
+    return (
+        len(sides) * CHALLENGE_PORTRAIT_SIZE
+        + max(len(sides) - 1, 0) * CHALLENGE_PORTRAIT_SPACING
+    )
+
+
+def matchup_group_width(
+    measure: ImageDraw.ImageDraw,
+    sides: list[ChallengeSide],
+    note: str,
+    ability: bool,
+) -> int:
+    """
+    Wide enough for the portraits, and for the text up to the point
+    where wrapping it is better than growing.
+    """
+    portraits = portrait_row_width(sides)
+    # The ability is left out of this: it is a sentence, and sizing
+    # a group to fit one on a line would make the image unreadably
+    # wide. It wraps to whatever the rest of the group settles on.
+    texts = [
+        (text, font)
+        for text, _, font, _ in group_text_lines(sides, False)
+    ]
+    if not sides and note:
+        texts = [(note, FONT_CHALLENGE_BODY)]
+    text_width = max(
+        (measure.textlength(text, font=font) for text, font in texts),
+        default=0,
+    )
+    # The sum is the one line that must not wrap: a total broken
+    # over two lines, with the number stranded on the second, is
+    # unreadable however wide the alternative makes the image. So
+    # it sets a floor the maximum width does not get to override.
+    sum_width = max(
+        (
+            measure.textlength(text, font=font)
+            for text, font in texts
+            if font is FONT_CHALLENGE_TOTAL
+        ),
+        default=0,
+    )
+    wanted = max(
+        portraits,
+        text_width + CHALLENGE_TEXT_PADDING * 2,
+    )
+    if ability:
+        # A group carrying an ability holds a minimum width, so a
+        # sentence under one short name doesn't wrap into a narrow
+        # column. A group without one is as narrow as its own
+        # content allows, which is what packs a wall of defenders
+        # together instead of spreading them over a fixed grid.
+        wanted = max(wanted, CHALLENGE_MIN_GROUP_WIDTH)
+    return round(
+        max(
+            min(wanted, CHALLENGE_MAX_GROUP_WIDTH),
+            portraits + CHALLENGE_TEXT_PADDING * 2,
+            sum_width + CHALLENGE_TEXT_PADDING * 2,
+        )
+    )
+
+
+def matchup_group_lines(
+    measure: ImageDraw.ImageDraw,
+    sides: list[ChallengeSide],
+    note: str,
+    ability: bool,
+    width: int,
+) -> list[tuple[str, str, ImageFont.ImageFont, int]]:
+    """A group's text, wrapped to the width the group settled on."""
+    if not sides:
+        return (
+            [(note, CHALLENGE_SKILL_COLOR, FONT_CHALLENGE_BODY, CHALLENGE_LINE_HEIGHT)]
+            if note
+            else []
+        )
+    lines = []
+    for text, color, font, line_height in group_text_lines(sides, ability):
+        if not text:
+            lines.append((text, color, font, line_height))
+            continue
+        for piece in wrap_text(
+            measure, text, font, width - CHALLENGE_TEXT_PADDING * 2,
+        ):
+            lines.append((piece, color, font, line_height))
+    return lines
+
+
+@dataclass(frozen=True)
+class MatchupLayout:
+    """
+    Every measurement a matchup image is drawn against, settled before
+    the canvas exists -- its width is content, not a canvas, so the
+    groups have to be measured before there is anything to draw on.
+    """
+
+    attacking_width: int
+    defending_width: int
+    attacking_lines: list[tuple[str, str, ImageFont.ImageFont, int]]
+    defending_lines: list[tuple[str, str, ImageFont.ImageFont, int]]
+    portrait_top: float
+    text_top: float
+    width: int
+    height: int
+
+    @property
+    def defending_left(self) -> int:
+        return self.attacking_width + CHALLENGE_GUTTER
+
+
+def matchup_layout(
+    attacking: list[ChallengeSide],
+    defending: list[ChallengeSide],
+    defending_note: str,
+    attacking_abilities: bool,
+    defending_abilities: bool,
+) -> MatchupLayout:
+    # Measured on a throwaway canvas: how wide each group wants to be,
+    # and how many lines its text wraps to at that width, decide the
+    # size of the real one.
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+
+    attacking_width = matchup_group_width(
+        measure, attacking, "", attacking_abilities,
+    )
+    defending_width = matchup_group_width(
+        measure, defending, defending_note, defending_abilities,
+    )
+    attacking_lines = matchup_group_lines(
+        measure, attacking, "", attacking_abilities, attacking_width,
+    )
+    defending_lines = matchup_group_lines(
+        measure, defending, defending_note, defending_abilities, defending_width,
+    )
+
+    # Badges and their band labels are drawn around the portraits, so
+    # an image carrying them starts its portrait row lower and its text
+    # lower again. Both groups move together: the two rows of portraits
+    # are read as one line and the "vs" sits between them.
+    banded = any(
+        side.contribution is not None for side in attacking + defending
+    )
+    portrait_top = CHALLENGE_PORTRAIT_TOP + (CHALLENGE_BAND_GAP if banded else 0)
+    text_top = (
+        portrait_top
+        + CHALLENGE_PORTRAIT_SIZE
+        + CHALLENGE_PORTRAIT_GAP
+        + (CHALLENGE_BADGE_NOTE_GAP if banded else 0)
+    )
+    body_bottom = text_top + max(
+        sum(line_height for _, _, _, line_height in lines)
+        for lines in (attacking_lines, defending_lines)
+    )
+    return MatchupLayout(
+        attacking_width=attacking_width,
+        defending_width=defending_width,
+        attacking_lines=attacking_lines,
+        defending_lines=defending_lines,
+        portrait_top=portrait_top,
+        text_top=text_top,
+        width=attacking_width + CHALLENGE_GUTTER + defending_width,
+        height=round(body_bottom + CHALLENGE_BOTTOM_PADDING),
+    )
+
+
+def draw_matchup_heading(
+    draw: ImageDraw.ImageDraw,
+    layout: MatchupLayout,
+    title: str,
+    location: str,
+) -> None:
+    """The title, the space it is happening on, and the "vs" between the groups."""
+    draw_centered_text(
+        draw, layout.width / 2, CHALLENGE_TITLE_TOP, title, FONT_CHALLENGE_TITLE, "#ffffff",
+    )
+    draw_centered_text(
+        draw, layout.width / 2, CHALLENGE_LOCATION_TOP, location, FONT_CHALLENGE_BODY,
+        CHALLENGE_SKILL_COLOR,
+    )
+    draw_centered_text(
+        draw,
+        layout.attacking_width + CHALLENGE_GUTTER / 2,
+        layout.portrait_top + CHALLENGE_PORTRAIT_SIZE / 2 - 14,
+        CHALLENGE_VERSUS_TEXT,
+        FONT_CHALLENGE_TITLE,
+        CHALLENGE_VERSUS_COLOR,
+    )
+
+
+def draw_matchup_group(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    layout: MatchupLayout,
+    left: int,
+    group_width_px: int,
+    sides: list[ChallengeSide],
+    lines: list[tuple[str, str, ImageFont.ImageFont, int]],
+) -> None:
+    """One side of the matchup: its portraits in a row, and its text under them."""
+    center_x = left + group_width_px / 2
+    portrait_x = center_x - portrait_row_width(sides) / 2
+    placed: list[tuple[ChallengeSide, float]] = []
+    for side in sides:
+        placed.append((side, portrait_x))
+        portrait = load_player_portrait(side.name)
+        if portrait is not None:
+            sized = portrait.copy()
+            sized.thumbnail(
+                (CHALLENGE_PORTRAIT_SIZE, CHALLENGE_PORTRAIT_SIZE),
+                Image.Resampling.LANCZOS,
+            )
+            canvas.alpha_composite(
+                sized,
+                (
+                    round(
+                        portrait_x
+                        + (CHALLENGE_PORTRAIT_SIZE - sized.width) / 2
+                    ),
+                    round(
+                        layout.portrait_top
+                        + (CHALLENGE_PORTRAIT_SIZE - sized.height) / 2
+                    ),
+                ),
+            )
+        portrait_x += CHALLENGE_PORTRAIT_SIZE + CHALLENGE_PORTRAIT_SPACING
+
+    for side, x in placed:
+        if side.contribution is not None:
+            draw_contribution_badge(canvas, draw, x, layout.portrait_top, side)
+    draw_contribution_bands(draw, placed, layout.portrait_top - CHALLENGE_BAND_GAP)
+
+    y = layout.text_top
+    for text, color, font, line_height in lines:
+        draw_centered_text(draw, center_x, y, text, font, color)
+        y += line_height
+
+
 def render_matchup(
     title: str,
     location: str,
@@ -3470,198 +3631,24 @@ def render_matchup(
     other side's skills and abilities, which the board shows only as
     numbers on a card too small to read the ability off.
     """
-    # Measured on a throwaway canvas: how wide each group wants to be,
-    # and how many lines its text wraps to at that width, decide the
-    # size of the real one.
-    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
-
-    def group_width(sides: list[ChallengeSide], note: str, ability: bool) -> int:
-        """
-        Wide enough for the portraits, and for the text up to the point
-        where wrapping it is better than growing.
-        """
-        portraits = (
-            len(sides) * CHALLENGE_PORTRAIT_SIZE
-            + max(len(sides) - 1, 0) * CHALLENGE_PORTRAIT_SPACING
-        )
-        # The ability is left out of this: it is a sentence, and sizing
-        # a group to fit one on a line would make the image unreadably
-        # wide. It wraps to whatever the rest of the group settles on.
-        texts = [
-            (text, font)
-            for text, _, font, _ in group_text_lines(sides, False)
-        ]
-        if not sides and note:
-            texts = [(note, FONT_CHALLENGE_BODY)]
-        text_width = max(
-            (measure.textlength(text, font=font) for text, font in texts),
-            default=0,
-        )
-        # The sum is the one line that must not wrap: a total broken
-        # over two lines, with the number stranded on the second, is
-        # unreadable however wide the alternative makes the image. So
-        # it sets a floor the maximum width does not get to override.
-        sum_width = max(
-            (
-                measure.textlength(text, font=font)
-                for text, font in texts
-                if font is FONT_CHALLENGE_TOTAL
-            ),
-            default=0,
-        )
-        wanted = max(
-            portraits,
-            text_width + CHALLENGE_TEXT_PADDING * 2,
-        )
-        if ability:
-            # A group carrying an ability holds a minimum width, so a
-            # sentence under one short name doesn't wrap into a narrow
-            # column. A group without one is as narrow as its own
-            # content allows, which is what packs a wall of defenders
-            # together instead of spreading them over a fixed grid.
-            wanted = max(wanted, CHALLENGE_MIN_GROUP_WIDTH)
-        return round(
-            max(
-                min(wanted, CHALLENGE_MAX_GROUP_WIDTH),
-                portraits + CHALLENGE_TEXT_PADDING * 2,
-                sum_width + CHALLENGE_TEXT_PADDING * 2,
-            )
-        )
-
-    attacking_width = group_width(attacking, "", attacking_abilities)
-    defending_width = group_width(
-        defending, defending_note, defending_abilities,
+    layout = matchup_layout(
+        attacking, defending, defending_note,
+        attacking_abilities, defending_abilities,
     )
-
-    def wrapped(
-        sides: list[ChallengeSide],
-        note: str,
-        ability: bool,
-        width: int,
-    ) -> list[tuple[str, str, ImageFont.ImageFont, int]]:
-        if not sides:
-            return (
-                [(note, CHALLENGE_SKILL_COLOR, FONT_CHALLENGE_BODY, CHALLENGE_LINE_HEIGHT)]
-                if note
-                else []
-            )
-        lines = []
-        for text, color, font, line_height in group_text_lines(sides, ability):
-            if not text:
-                lines.append((text, color, font, line_height))
-                continue
-            for piece in wrap_text(
-                measure, text, font, width - CHALLENGE_TEXT_PADDING * 2,
-            ):
-                lines.append((piece, color, font, line_height))
-        return lines
-
-    attacking_lines = wrapped(
-        attacking, "", attacking_abilities, attacking_width,
-    )
-    defending_lines = wrapped(
-        defending, defending_note, defending_abilities, defending_width,
-    )
-
-    # Badges and their band labels are drawn around the portraits, so
-    # an image carrying them starts its portrait row lower and its text
-    # lower again. Both groups move together: the two rows of portraits
-    # are read as one line and the "vs" sits between them.
-    banded = any(
-        side.contribution is not None for side in attacking + defending
-    )
-    portrait_top = CHALLENGE_PORTRAIT_TOP + (CHALLENGE_BAND_GAP if banded else 0)
-    text_top = (
-        portrait_top
-        + CHALLENGE_PORTRAIT_SIZE
-        + CHALLENGE_PORTRAIT_GAP
-        + (CHALLENGE_BADGE_NOTE_GAP if banded else 0)
-    )
-    body_bottom = text_top + max(
-        sum(line_height for _, _, _, line_height in lines)
-        for lines in (attacking_lines, defending_lines)
-    )
-    height = round(body_bottom + CHALLENGE_BOTTOM_PADDING)
-    width = attacking_width + CHALLENGE_GUTTER + defending_width
-
-    canvas = Image.new("RGBA", (width, height), "#111820")
+    canvas = Image.new("RGBA", (layout.width, layout.height), "#111820")
     draw = ImageDraw.Draw(canvas)
 
-    draw_centered_text(
-        draw, width / 2, CHALLENGE_TITLE_TOP, title, FONT_CHALLENGE_TITLE, "#ffffff",
+    draw_matchup_heading(draw, layout, title, location)
+    draw_matchup_group(
+        canvas, draw, layout, 0, layout.attacking_width,
+        attacking, layout.attacking_lines,
     )
-    draw_centered_text(
-        draw, width / 2, CHALLENGE_LOCATION_TOP, location, FONT_CHALLENGE_BODY,
-        CHALLENGE_SKILL_COLOR,
-    )
-    draw_centered_text(
-        draw,
-        attacking_width + CHALLENGE_GUTTER / 2,
-        portrait_top + CHALLENGE_PORTRAIT_SIZE / 2 - 14,
-        CHALLENGE_VERSUS_TEXT,
-        FONT_CHALLENGE_TITLE,
-        CHALLENGE_VERSUS_COLOR,
+    draw_matchup_group(
+        canvas, draw, layout, layout.defending_left, layout.defending_width,
+        defending, layout.defending_lines,
     )
 
-    def draw_group(
-        left: int,
-        group_width_px: int,
-        sides: list[ChallengeSide],
-        lines: list[tuple[str, str, ImageFont.ImageFont, int]],
-    ) -> None:
-        center_x = left + group_width_px / 2
-        strip = (
-            len(sides) * CHALLENGE_PORTRAIT_SIZE
-            + max(len(sides) - 1, 0) * CHALLENGE_PORTRAIT_SPACING
-        )
-        portrait_x = center_x - strip / 2
-        placed: list[tuple[ChallengeSide, float]] = []
-        for side in sides:
-            placed.append((side, portrait_x))
-            portrait = load_player_portrait(side.name)
-            if portrait is not None:
-                sized = portrait.copy()
-                sized.thumbnail(
-                    (CHALLENGE_PORTRAIT_SIZE, CHALLENGE_PORTRAIT_SIZE),
-                    Image.Resampling.LANCZOS,
-                )
-                canvas.alpha_composite(
-                    sized,
-                    (
-                        round(
-                            portrait_x
-                            + (CHALLENGE_PORTRAIT_SIZE - sized.width) / 2
-                        ),
-                        round(
-                            portrait_top
-                            + (CHALLENGE_PORTRAIT_SIZE - sized.height) / 2
-                        ),
-                    ),
-                )
-            portrait_x += CHALLENGE_PORTRAIT_SIZE + CHALLENGE_PORTRAIT_SPACING
-
-        for side, x in placed:
-            if side.contribution is not None:
-                draw_contribution_badge(canvas, draw, x, portrait_top, side)
-        draw_contribution_bands(draw, placed, portrait_top - CHALLENGE_BAND_GAP)
-
-        y = text_top
-        for text, color, font, line_height in lines:
-            draw_centered_text(draw, center_x, y, text, font, color)
-            y += line_height
-
-    draw_group(0, attacking_width, attacking, attacking_lines)
-    draw_group(
-        attacking_width + CHALLENGE_GUTTER,
-        defending_width,
-        defending,
-        defending_lines,
-    )
-
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 def render_maneuver_challenge(
@@ -3818,6 +3805,18 @@ def fit_maneuver_box_text(
     )
 
 
+def png_bytes(image: Image.Image) -> BytesIO:
+    """
+    An image as the PNG every render hands back, flattened to RGB --
+    Discord shows the alpha channel's transparency as a checkerboard,
+    and nothing here is meant to be see-through.
+    """
+    output = BytesIO()
+    image.convert("RGB").save(output, format="PNG")
+    output.seek(0)
+    return output
+
+
 def draw_centered_text(
     draw: ImageDraw.ImageDraw,
     center_x: float,
@@ -3950,57 +3949,12 @@ def _maneuver_cycle_order(
     return order
 
 
-def render_maneuver_reference_image(
-    catalog: ManeuverCatalog,
-    tier: str = MANEUVER_TIER_ADVANCED,
-) -> BytesIO:
-    """
-    Every maneuver arranged in the defeat cycle its rank sits on: arrows
-    trace who beats whom, dashed diameters connect the tie pairs
-    (opposite nodes), and each of the six rank positions carries one
-    prominent rank badge (O1, D2, ...).
-
-    **`tier` picks how many maneuvers a rank shows.**
-    `MANEUVER_TIER_ADVANCED` (the default) draws both -- the basic card
-    and its advanced counterpart side by side -- since rank alone
-    decides who beats whom (2026-08-18), so an advanced card sits
-    exactly where its basic counterpart does and the two cannot be
-    drawn as two unrelated cycles without implying a second rule that
-    does not exist. `MANEUVER_TIER_BASIC` draws one box a rank instead:
-    a basic-mode coach has no advanced cards to read a matchup for, so
-    showing them anyway would be describing a rule this game is not
-    playing by. The one box keeps the same shape it always had rather
-    than stretching to the width the pair would have shared.
-    """
-    both_tiers = tier == MANEUVER_TIER_ADVANCED
-    canvas = Image.new(
-        "RGBA",
-        (MANEUVER_DIAGRAM_WIDTH, MANEUVER_DIAGRAM_HEIGHT),
-        "#111820",
-    )
-    draw = ImageDraw.Draw(canvas)
-    cx, cy = MANEUVER_DIAGRAM_CENTER
-    node_radius = MANEUVER_DIAGRAM_NODE_RADIUS
-    box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
-    group_width = (
-        box_width * 2 + MANEUVER_DIAGRAM_TIER_GAP if both_tiers else box_width
-    )
-    pair_height = box_height + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
-
-    order = _maneuver_cycle_order(catalog, MANEUVER_TIER_BASIC)
-    node_count = len(order)
-    angles = [270 + 360 * index / node_count for index in range(node_count)]
-    centers = [
-        (
-            cx + node_radius * cos(radians(angle)),
-            cy + node_radius * sin(radians(angle)),
-        )
-        for angle in angles
-    ]
-
-    # Tie diameters (opposite nodes), drawn first so the boxes sit on
-    # top.
-    half = node_count // 2
+def draw_reference_ties(
+    draw: ImageDraw.ImageDraw,
+    centers: list[tuple[float, float]],
+) -> None:
+    """Tie diameters (opposite nodes), drawn first so the boxes sit on top."""
+    half = len(centers) // 2
     near = MANEUVER_DIAGRAM_ARC_RADIUS + 40
     for index in range(half):
         start_x, start_y = centers[index]
@@ -4017,7 +3971,14 @@ def render_maneuver_reference_image(
             width=5,
         )
 
-    # Defeat-cycle arrows.
+
+def draw_reference_arrows(
+    draw: ImageDraw.ImageDraw,
+    center: tuple[float, float],
+    angles: list[float],
+) -> None:
+    """The defeat cycle, an arc from each node round to the next."""
+    node_count = len(angles)
     for index in range(node_count):
         start_angle = angles[index]
         end_angle = (
@@ -4027,7 +3988,7 @@ def render_maneuver_reference_image(
         )
         draw_arc_arrow(
             draw,
-            (cx, cy),
+            center,
             MANEUVER_DIAGRAM_ARC_RADIUS,
             start_angle,
             end_angle,
@@ -4035,73 +3996,108 @@ def render_maneuver_reference_image(
             width=6,
         )
 
-    for (basic, is_offense), (center_x, center_y) in zip(order, centers):
-        rank_letter = "O" if is_offense else "D"
-        rank_color = (
-            MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR
-        )
 
-        pair_top = center_y - pair_height / 2
-        pair_left = center_x - group_width / 2
+def draw_reference_box(
+    draw: ImageDraw.ImageDraw,
+    box_left: float,
+    box_top: float,
+    maneuver: ManeuverDefinition,
+    fill: str,
+    text_color: str,
+) -> None:
+    """One maneuver's box: its name at a fixed size, its effect fit under it."""
+    box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
+    draw.rounded_rectangle(
+        (box_left, box_top, box_left + box_width, box_top + box_height),
+        radius=14,
+        fill=fill,
+        outline="#ffffff",
+        width=2,
+    )
+    box_center_x = box_left + box_width / 2
+
+    # No BASIC/ADVANCED tag any more -- the legend at the foot
+    # of the image already carries that distinction (by
+    # colour), so repeating it in words on every box was
+    # spending a line for nothing. The title is one fixed size
+    # on every box; the effect text is fit per box under it --
+    # see fit_maneuver_box_text.
+    fitted = fit_maneuver_box_text(
+        draw, maneuver.name, maneuver.effect, box_width - 32, box_height - 24,
+    )
+    text_y = box_top + 12
+    for line in fitted.name_lines:
         draw_centered_text(
-            draw,
-            center_x,
-            pair_top,
-            f"{rank_letter}{basic.rank}",
-            FONT_MANEUVER_RANK,
-            rank_color,
+            draw, box_center_x, text_y, line, FONT_MANEUVER_TITLE, text_color,
         )
+        text_y += MANEUVER_TITLE_LINE_HEIGHT
+    text_y += 8
+    for line in fitted.effect_lines:
+        draw_centered_text(
+            draw, box_center_x, text_y, line, fitted.effect_font, text_color,
+        )
+        text_y += fitted.effect_line_height
 
-        box_top = pair_top + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
-        boxes = [
-            (
-                basic,
-                MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR,
-                MANEUVER_CARD_TEXT_COLOR,
-            ),
-        ]
-        if both_tiers:
-            advanced = catalog.counterpart(basic)
-            boxes.append((
-                advanced,
-                MANEUVER_OFFENSE_COLOR_ADVANCED
-                if is_offense
-                else MANEUVER_DEFENSE_COLOR_ADVANCED,
-                MANEUVER_CARD_TEXT_COLOR_ADVANCED,
-            ))
-        for offset, (maneuver, fill, text_color) in enumerate(boxes):
-            box_left = pair_left + offset * (box_width + MANEUVER_DIAGRAM_TIER_GAP)
-            draw.rounded_rectangle(
-                (box_left, box_top, box_left + box_width, box_top + box_height),
-                radius=14,
-                fill=fill,
-                outline="#ffffff",
-                width=2,
-            )
-            box_center_x = box_left + box_width / 2
 
-            # No BASIC/ADVANCED tag any more -- the legend at the foot
-            # of the image already carries that distinction (by
-            # colour), so repeating it in words on every box was
-            # spending a line for nothing. The title is one fixed size
-            # on every box; the effect text is fit per box under it --
-            # see fit_maneuver_box_text.
-            fitted = fit_maneuver_box_text(
-                draw, maneuver.name, maneuver.effect, box_width - 32, box_height - 24,
-            )
-            text_y = box_top + 12
-            for line in fitted.name_lines:
-                draw_centered_text(
-                    draw, box_center_x, text_y, line, FONT_MANEUVER_TITLE, text_color,
-                )
-                text_y += MANEUVER_TITLE_LINE_HEIGHT
-            text_y += 8
-            for line in fitted.effect_lines:
-                draw_centered_text(
-                    draw, box_center_x, text_y, line, fitted.effect_font, text_color,
-                )
-                text_y += fitted.effect_line_height
+def draw_reference_rank(
+    draw: ImageDraw.ImageDraw,
+    catalog: ManeuverCatalog,
+    center: tuple[float, float],
+    basic: ManeuverDefinition,
+    is_offense: bool,
+    both_tiers: bool,
+) -> None:
+    """
+    One rank on the cycle: its badge, and the box for each card on it
+    -- the basic card alone, or the basic beside its advanced
+    counterpart.
+    """
+    center_x, center_y = center
+    box_width, box_height = MANEUVER_DIAGRAM_BOX_SIZE
+    group_width = (
+        box_width * 2 + MANEUVER_DIAGRAM_TIER_GAP if both_tiers else box_width
+    )
+    pair_height = box_height + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
+    rank_letter = "O" if is_offense else "D"
+    rank_color = (
+        MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR
+    )
 
+    pair_top = center_y - pair_height / 2
+    pair_left = center_x - group_width / 2
+    draw_centered_text(
+        draw,
+        center_x,
+        pair_top,
+        f"{rank_letter}{basic.rank}",
+        FONT_MANEUVER_RANK,
+        rank_color,
+    )
+
+    box_top = pair_top + MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT
+    boxes = [
+        (
+            basic,
+            MANEUVER_OFFENSE_COLOR if is_offense else MANEUVER_DEFENSE_COLOR,
+            MANEUVER_CARD_TEXT_COLOR,
+        ),
+    ]
+    if both_tiers:
+        advanced = catalog.counterpart(basic)
+        boxes.append((
+            advanced,
+            MANEUVER_OFFENSE_COLOR_ADVANCED
+            if is_offense
+            else MANEUVER_DEFENSE_COLOR_ADVANCED,
+            MANEUVER_CARD_TEXT_COLOR_ADVANCED,
+        ))
+    for offset, (maneuver, fill, text_color) in enumerate(boxes):
+        box_left = pair_left + offset * (box_width + MANEUVER_DIAGRAM_TIER_GAP)
+        draw_reference_box(draw, box_left, box_top, maneuver, fill, text_color)
+
+
+def draw_reference_legend(draw: ImageDraw.ImageDraw, both_tiers: bool) -> None:
+    """The colour swatches, and the two relations the lines draw."""
     legend_y = MANEUVER_DIAGRAM_HEIGHT - 96
     swatch_size = 30
     legend_x = 100
@@ -4166,10 +4162,57 @@ def render_maneuver_reference_image(
         fill="#ffffff",
     )
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+
+def render_maneuver_reference_image(
+    catalog: ManeuverCatalog,
+    tier: str = MANEUVER_TIER_ADVANCED,
+) -> BytesIO:
+    """
+    Every maneuver arranged in the defeat cycle its rank sits on: arrows
+    trace who beats whom, dashed diameters connect the tie pairs
+    (opposite nodes), and each of the six rank positions carries one
+    prominent rank badge (O1, D2, ...).
+
+    **`tier` picks how many maneuvers a rank shows.**
+    `MANEUVER_TIER_ADVANCED` (the default) draws both -- the basic card
+    and its advanced counterpart side by side -- since rank alone
+    decides who beats whom (2026-08-18), so an advanced card sits
+    exactly where its basic counterpart does and the two cannot be
+    drawn as two unrelated cycles without implying a second rule that
+    does not exist. `MANEUVER_TIER_BASIC` draws one box a rank instead:
+    a basic-mode coach has no advanced cards to read a matchup for, so
+    showing them anyway would be describing a rule this game is not
+    playing by. The one box keeps the same shape it always had rather
+    than stretching to the width the pair would have shared.
+    """
+    both_tiers = tier == MANEUVER_TIER_ADVANCED
+    canvas = Image.new(
+        "RGBA",
+        (MANEUVER_DIAGRAM_WIDTH, MANEUVER_DIAGRAM_HEIGHT),
+        "#111820",
+    )
+    draw = ImageDraw.Draw(canvas)
+    cx, cy = MANEUVER_DIAGRAM_CENTER
+    node_radius = MANEUVER_DIAGRAM_NODE_RADIUS
+
+    order = _maneuver_cycle_order(catalog, MANEUVER_TIER_BASIC)
+    node_count = len(order)
+    angles = [270 + 360 * index / node_count for index in range(node_count)]
+    centers = [
+        (
+            cx + node_radius * cos(radians(angle)),
+            cy + node_radius * sin(radians(angle)),
+        )
+        for angle in angles
+    ]
+
+    draw_reference_ties(draw, centers)
+    draw_reference_arrows(draw, (cx, cy), angles)
+    for (basic, is_offense), center in zip(order, centers):
+        draw_reference_rank(draw, catalog, center, basic, is_offense, both_tiers)
+    draw_reference_legend(draw, both_tiers)
+
+    return png_bytes(canvas)
 
 
 def draw_jumbotron(
@@ -4487,10 +4530,7 @@ def render_coaching_image(
     )
     draw_coaching_benches(canvas, draw, setup, players, catalog, match)
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 def draw_coaching_benches(
@@ -4591,10 +4631,7 @@ def render_field_image(
         )
     )
 
-    output = BytesIO()
-    field.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(field)
 
 
 def render_match_image(
@@ -4686,13 +4723,9 @@ def render_match_image(
         match.injured,
     )
 
-    output = BytesIO()
     # BILINEAR here, not LANCZOS: this is a pure 1.5x upscale of an
     # already-antialiased raster (unlike the card build, which downscales
     # from a supersampled source and needs LANCZOS's quality), so the
     # cheaper filter costs no visible sharpness but is significantly
     # faster.
-    enlarged = canvas.resize(OUTPUT_SIZE, Image.Resampling.BILINEAR)
-    enlarged.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas.resize(OUTPUT_SIZE, Image.Resampling.BILINEAR))

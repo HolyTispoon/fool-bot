@@ -3365,6 +3365,44 @@ which is how to reproduce a board someone reported a problem with rather than
 guessing at the state. Saved games are local to each machine, so a fresh clone
 lists none until the bot has been run.
 
+**A refactor of drawing code is verified by hash, not by the suite, and
+not by eye either.** The suite cannot see a pixel, and a change that moves
+everything two pixels left looks fine on a screen. So the check is: render
+every image the function feeds *before* touching it, keep the bytes,
+re-render after each commit and compare SHA-256s -- byte-identical or it is
+not done. The 2026-09-18 split of the rendering layer's oversized functions
+(`draw_strip`, `render_matchup`, the card back and face, the reference
+image, `draw_board` and the three verdict dice) was done that way against
+107 images: every card on both tiers, the sheet, the hands and the bleed
+cut, the boards at all three sizes plus a stacked 6 and a species 9, both
+coaching halves, the field strip, the print boards, and every branch of
+every dice image. Cover both tiers and all three board sizes at least --
+`draw_strip` draws a basic card on the 7-space strip and an advanced one on
+the 9, and `render_maneuver_card_back` draws a different hexagon per tier.
+The renders are deterministic (two runs, identical hashes), which is what
+makes this a check rather than a hope. The baseline script is throwaway
+scaffolding and is not in `scripts/`; the recipe is the paragraph above.
+
+- **The shape those splits settled on is `boards.py`'s**: a geometry or
+  layout record computed once (`StripGeometry`, `MatchupLayout`,
+  `VerdictRow`), and small `draw_*` functions taking the pen and that
+  record, so the top-level function reads as the sequence of bands it
+  draws. Every coordinate expression is copied verbatim in the same
+  evaluation order -- `(a + b) + c` is not `a + (b + c)` in floating point,
+  and a `round()` on the far side of one will flip on the one input that
+  sits on a half.
+- **`VerdictRow` is the die-portrait-verdict row the injury test, Mind Pull
+  and Volatile share -- the row, not the proportions.** Each still passes
+  its own radius, portrait size and gaps, which is what keeps Volatile's
+  168px portrait and spread columns its own (see "The ignition die"); what
+  is written once is the arithmetic that places a column. Volatile keeps
+  its own width and column-gap sums beside it, since the explainer sizing
+  the canvas is the one thing about its row that is not the same row.
+- **`draw_end_zone` was left whole on purpose.** Its rotation maths was
+  verified against Pillow's actual output rather than derived (see "End
+  zones"), and a split that re-derives where the "O" lands is a sign error
+  waiting to be silent.
+
 **The first board of a game goes up when setup coaching ends**, not when the
 match is created. `finish_setup_coaching` posts it; the coin toss and the
 home/visiting choice leave the persistent message imageless, and an AI setup

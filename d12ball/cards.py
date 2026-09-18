@@ -24,7 +24,7 @@ the reason -- see EXTRA_ROLES and EXTRA_NOTES.
 """
 import re
 from io import BytesIO
-from math import ceil
+from math import ceil, cos, radians, sin
 from typing import NamedTuple, Optional, Sequence
 
 from PIL import Image, ImageDraw, ImageFont
@@ -41,6 +41,7 @@ from d12ball.render import (
     MANEUVER_DEFENSE_COLOR_ADVANCED as DEFENSE_COLOR_ADVANCED,
     MANEUVER_OFFENSE_COLOR as OFFENSE_COLOR,
     MANEUVER_OFFENSE_COLOR_ADVANCED as OFFENSE_COLOR_ADVANCED,
+    _maneuver_cycle_order,
     arrowhead_triangle,
     draw_dashed_line,
     load_font,
@@ -1220,40 +1221,23 @@ def draw_abilities(
         y += 6
 
 
-def render_maneuver_card(
-    catalog: ManeuverCatalog,
-    players: PlayerCatalog,
+CARD_HEADER_HEIGHT = 152
+
+
+def draw_card_header(
+    pen: Pen,
     maneuver: ManeuverDefinition,
     is_offense: bool,
-    bleed: bool,
-) -> Image.Image:
-    # A distinct shade for an advanced card, not a tint of the basic
-    # one -- the two sit side by side in a coach's hand and back to
-    # back in the print run, so they have to read as two cards at a
-    # glance rather than as the same colour under different light. The
-    # "ADVANCED MANEUVER" corner label is the only other thing on the
-    # face that says so; the back cannot, since one back serves both.
-    if maneuver.is_advanced:
-        color = OFFENSE_COLOR_ADVANCED if is_offense else DEFENSE_COLOR_ADVANCED
-    else:
-        color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
-    pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
-
-    # The card is a rounded rectangle on the sheet's white, outlined in
-    # the maneuver's colour: the outline is the card's edge and the cut
-    # line at once.
-    pen.rect(
-        (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
-        radius=CORNER,
-        fill=CARD_FACE,
-        outline=color,
-        width=EDGE_WIDTH,
-    )
-
+    color: str,
+) -> None:
+    """
+    The band across the top of a face: the rank badge, the name fit to
+    the room between it and the tier label, and the tier label itself.
+    """
     # Header: the rank badge and the name, in a band whose top corners
     # follow the card's own.
     header_top = FRAME
-    header_height = 152
+    header_height = CARD_HEADER_HEIGHT
     pen.rect(
         (FRAME, header_top, CARD_WIDTH - FRAME, header_top + header_height),
         radius=CORNER,
@@ -1304,7 +1288,105 @@ def render_maneuver_card(
         )
         title_y += title_step
 
-    strip_top = header_top + header_height + 22
+
+
+def draw_card_effect(
+    pen: Pen,
+    maneuver: ManeuverDefinition,
+    band_top: float,
+    band_bottom: float,
+) -> None:
+    """
+    The effect text, centred in the band between the strip and the
+    matchups, with the time cost pinned under it.
+    """
+    # The effect, centred in what is left, with the time cost pinned
+    # under it -- the clock is part of what the maneuver costs, so it
+    # belongs to the effect rather than to the diagram, where it used
+    # to sit and collide with the board strip.
+    #
+    # **The size is searched, not set.** The effects run from Block
+    # Deflect's twenty words to Double Team's seventy, and the band
+    # they share is whatever the strip, the matchups and the abilities
+    # leave behind -- so a fixed size fits the short cards and runs the
+    # long ones straight over the matchup row. Which it did: Double
+    # Team's paragraph overran three bands at once, silently, because
+    # nothing here measured what it was given. The largest size that
+    # fits is what is drawn, and 17 is the floor rather than a fit,
+    # since a card nobody can read is a different failure from one that
+    # overflows.
+    time_font = font(19, bold=True)
+    time_text = f"TIME · {maneuver.time}"
+    time_width = pen.text_size(time_text, time_font)[0] + 34
+    room = band_bottom - band_top - 16
+
+    for size in range(29, 16, -1):
+        effect_font = font(size)
+        lines = pen.wrapped(
+            maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20
+        )
+        step = line_height(pen, effect_font)
+        block_height = step * len(lines) + 26 + 38
+        if block_height <= room:
+            break
+
+    y = (band_top + band_bottom) / 2 - block_height / 2
+    for line in lines:
+        pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
+        y += step
+
+    y += 26
+    pen.rect(
+        (
+            (CARD_WIDTH - time_width) / 2,
+            y,
+            (CARD_WIDTH + time_width) / 2,
+            y + 38,
+        ),
+        radius=19,
+        fill=PANEL_COLOR,
+        outline=PANEL_EDGE,
+        width=2,
+    )
+    pen.text(
+        (CARD_WIDTH / 2, y + 20), time_text, time_font, MUTED, anchor="mm"
+    )
+
+
+
+def render_maneuver_card(
+    catalog: ManeuverCatalog,
+    players: PlayerCatalog,
+    maneuver: ManeuverDefinition,
+    is_offense: bool,
+    bleed: bool,
+) -> Image.Image:
+    # A distinct shade for an advanced card, not a tint of the basic
+    # one -- the two sit side by side in a coach's hand and back to
+    # back in the print run, so they have to read as two cards at a
+    # glance rather than as the same colour under different light. The
+    # "ADVANCED MANEUVER" corner label is the only other thing on the
+    # face that says so; the back cannot, since one back serves both.
+    if maneuver.is_advanced:
+        color = OFFENSE_COLOR_ADVANCED if is_offense else DEFENSE_COLOR_ADVANCED
+    else:
+        color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
+    pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
+
+    # The card is a rounded rectangle on the sheet's white, outlined in
+    # the maneuver's colour: the outline is the card's edge and the cut
+    # line at once.
+    pen.rect(
+        (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
+        radius=CORNER,
+        fill=CARD_FACE,
+        outline=color,
+        width=EDGE_WIDTH,
+    )
+
+    draw_card_header(pen, maneuver, is_offense, color)
+
+    strip_top = FRAME + CARD_HEADER_HEIGHT + 22
     strip_height = 288
     draw_strip(pen, maneuver, strip_top, strip_height)
 
@@ -1328,56 +1410,8 @@ def render_maneuver_card(
     )
     draw_abilities(pen, abilities, abilities_top)
 
-    # The effect, centred in what is left, with the time cost pinned
-    # under it -- the clock is part of what the maneuver costs, so it
-    # belongs to the effect rather than to the diagram, where it used
-    # to sit and collide with the board strip.
-    #
-    # **The size is searched, not set.** The effects run from Block
-    # Deflect's twenty words to Double Team's seventy, and the band
-    # they share is whatever the strip, the matchups and the abilities
-    # leave behind -- so a fixed size fits the short cards and runs the
-    # long ones straight over the matchup row. Which it did: Double
-    # Team's paragraph overran three bands at once, silently, because
-    # nothing here measured what it was given. The largest size that
-    # fits is what is drawn, and 17 is the floor rather than a fit,
-    # since a card nobody can read is a different failure from one that
-    # overflows.
-    time_font = font(19, bold=True)
-    time_text = f"TIME · {maneuver.time}"
-    time_width = pen.text_size(time_text, time_font)[0] + 34
-    room = matchup_top - (strip_top + strip_height) - 16
-
-    for size in range(29, 16, -1):
-        effect_font = font(size)
-        lines = pen.wrapped(
-            maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20
-        )
-        step = line_height(pen, effect_font)
-        block_height = step * len(lines) + 26 + 38
-        if block_height <= room:
-            break
-
-    y = (strip_top + strip_height + matchup_top) / 2 - block_height / 2
-    for line in lines:
-        pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
-        y += step
-
-    y += 26
-    pen.rect(
-        (
-            (CARD_WIDTH - time_width) / 2,
-            y,
-            (CARD_WIDTH + time_width) / 2,
-            y + 38,
-        ),
-        radius=19,
-        fill=PANEL_COLOR,
-        outline=PANEL_EDGE,
-        width=2,
-    )
-    pen.text(
-        (CARD_WIDTH / 2, y + 20), time_text, time_font, MUTED, anchor="mm"
+    draw_card_effect(
+        pen, maneuver, strip_top + strip_height, matchup_top,
     )
 
     return pen.finish(bleed, CARD_FACE)
@@ -1562,6 +1596,199 @@ def fit_node_block(
     )
 
 
+def draw_back_title(pen: Pen) -> None:
+    pen.text(
+        (CARD_WIDTH / 2, 96),
+        "D12 BALL",
+        font(44, bold=True),
+        INK,
+        anchor="mm",
+    )
+    pen.text(
+        (CARD_WIDTH / 2, 138),
+        "MANEUVERS",
+        font(21, bold=True),
+        MUTED,
+        anchor="mm",
+    )
+
+
+def cycle_points(
+    center: tuple[float, float], count: int,
+) -> list[tuple[float, float]]:
+    """The nodes' centres, evenly round the ellipse from the top."""
+    angles = [270 + 360 * index / count for index in range(count)]
+    return [
+        (
+            center[0] + CYCLE_RADIUS_X * cos(radians(angle)),
+            center[1] + CYCLE_RADIUS_Y * sin(radians(angle)),
+        )
+        for angle in angles
+    ]
+
+
+def draw_cycle_ties(
+    pen: Pen,
+    catalog: ManeuverCatalog,
+    order: list[tuple[ManeuverDefinition, bool]],
+    points: list[tuple[float, float]],
+) -> None:
+    """
+    The ties first, so the arrows and the nodes sit over them: a
+    dashed line is the quieter of the two relations and reads as the
+    background of the cycle rather than a step in it.
+    """
+    node_at = {
+        (maneuver.key, is_offense): point
+        for (maneuver, is_offense), point in zip(order, points)
+    }
+    for offense, defense in tie_pairs(catalog):
+        draw_tie_line(
+            pen, node_at[(offense.key, True)], node_at[(defense.key, False)]
+        )
+
+
+def draw_cycle_arrows(pen: Pen, points: list[tuple[float, float]]) -> None:
+    """A solid arrow from each node to the one it beats, round the ring."""
+    for index, point in enumerate(points):
+        nxt = points[(index + 1) % len(points)]
+        dx, dy = nxt[0] - point[0], nxt[1] - point[1]
+        length = (dx * dx + dy * dy) ** 0.5
+        ux, uy = dx / length, dy / length
+        start = (point[0] + ux * CYCLE_NODE_RADIUS, point[1] + uy * CYCLE_NODE_RADIUS)
+        tip = (
+            nxt[0] - ux * (CYCLE_NODE_RADIUS + 4),
+            nxt[1] - uy * (CYCLE_NODE_RADIUS + 4),
+        )
+        # The line stops where the arrowhead's own base is, not at its
+        # tip -- a stroked line's end cap is flat, so a line run all the
+        # way to the tip poked its own width out past the triangle's
+        # point, which is exactly zero wide there. Stopping at the base
+        # leaves the line's cap inside the triangle's much wider base
+        # instead, where the fill already covers it.
+        arrow_size = 24
+        line_end = (tip[0] - ux * arrow_size, tip[1] - uy * arrow_size)
+        pen.line([start, line_end], fill=MUTED, width=6)
+        draw_arrowhead(pen, tip, (ux, uy), arrow_size, MUTED)
+
+
+def node_stack(
+    catalog: ManeuverCatalog, maneuver: ManeuverDefinition, both_tiers: bool,
+) -> list[list[str]]:
+    """A node's words: the basic name, over its counterpart's on an advanced back."""
+    basic_words = maneuver.name.split(" ")
+    if not both_tiers:
+        return [basic_words]
+    return [basic_words, catalog.counterpart(maneuver).name.split(" ")]
+
+
+def draw_cycle_node(
+    pen: Pen,
+    point: tuple[float, float],
+    center_y: float,
+    maneuver: ManeuverDefinition,
+    is_offense: bool,
+    stack: list[list[str]],
+    both_tiers: bool,
+    cap_size: int,
+) -> None:
+    """One rank: its disc, the rank badge outside it, and the names inside."""
+    color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
+    pen.circle(point, CYCLE_NODE_RADIUS, fill=color)
+
+    # The rank, outside the circle rather than inside it -- a node
+    # already carries two names, and O1/D2 is what says the two
+    # cards on it resolve by rank rather than as six basic and six
+    # advanced maneuvers with no relation to each other. Placed
+    # straight above or below the node -- whichever side faces away
+    # from the ring's own centre -- rather than out along the
+    # spoke: the spoke direction pushed the four off-axis nodes
+    # toward the card's corners, close enough that the label's own
+    # width ran past the edge. Vertical is the direction every node
+    # has room in, since the hexagon already clears the header above
+    # and the caption below.
+    vertical_sign = -1 if point[1] < center_y else 1
+    rank_label = f"{'O' if is_offense else 'D'}{maneuver.rank}"
+    pen.text(
+        (
+            point[0],
+            point[1]
+            + vertical_sign * (CYCLE_NODE_RADIUS + CYCLE_RANK_LABEL_GAP),
+        ),
+        rank_label,
+        font(CYCLE_RANK_FONT_SIZE, bold=True),
+        color,
+        anchor="mm",
+    )
+
+    # The label is centred as a block rather than line by line, so a
+    # one-word name and a two-word one both sit in the middle of the
+    # circle. Written as fixed offsets it was measured against the
+    # two-line case and left the whole stack low in the circle.
+    #
+    # None on a basic-only back: there is no second stack to split
+    # from, so no hairline is drawn either.
+    split = len(stack[0]) if both_tiers else None
+    lines, heights, _ = fit_node_block(
+        pen, stack, CYCLE_NODE_RADIUS, max_size=cap_size,
+    )
+    boxes = [pen.ink_box(text, face) for text, face in lines]
+    gaps = [
+        CYCLE_TIER_GAP if split is not None and index == split - 1
+        else CYCLE_LINE_GAP
+        for index in range(len(lines) - 1)
+    ]
+    top = point[1] - (sum(heights) + sum(gaps)) / 2
+    for index, (text, face) in enumerate(lines):
+        middle = top + heights[index] / 2
+        pen.text(
+            (point[0], middle - (boxes[index][1] + boxes[index][3]) / 2),
+            text,
+            face,
+            INK,
+            anchor="mm",
+        )
+        top += heights[index]
+        if index < len(gaps):
+            # The hairline between the two tiers, drawn in the gap
+            # it is the reason for -- without it the four lines read
+            # as one four-word name.
+            if split is not None and index == split - 1:
+                rule_y = top + gaps[index] / 2
+                rule_half = CYCLE_NODE_RADIUS * 0.52
+                pen.line(
+                    [
+                        (point[0] - rule_half, rule_y),
+                        (point[0] + rule_half, rule_y),
+                    ],
+                    fill=CARD_FACE,
+                    width=CYCLE_TIER_RULE_WIDTH,
+                )
+            top += gaps[index]
+
+
+def draw_back_captions(pen: Pen, both_tiers: bool) -> None:
+    # Pushed lower than the two captions used to sit, to clear the D1
+    # rank badge below the bottom node -- the one node whose spoke runs
+    # straight down into where the caption block used to start.
+    pen.text(
+        (CARD_WIDTH / 2, CARD_HEIGHT - 76),
+        "each node is one rank: basic maneuvers above advanced"
+        if both_tiers
+        else "each node is one rank",
+        font(19),
+        MUTED,
+        anchor="mm",
+    )
+    pen.text(
+        (CARD_WIDTH / 2, CARD_HEIGHT - 48),
+        "solid: beats what it points to · dashed: ties",
+        font(19),
+        MUTED,
+        anchor="mm",
+    )
+
+
 def render_maneuver_card_back(
     catalog: ManeuverCatalog,
     bleed: bool,
@@ -1595,7 +1822,6 @@ def render_maneuver_card_back(
     and a tie is the branch that costs a skill test and a token each.
     """
     both_tiers = tier == MANEUVER_TIER_ADVANCED
-    from d12ball.render import _maneuver_cycle_order
 
     pen = Pen((CARD_WIDTH, CARD_HEIGHT), BACK_COLOR)
     pen.rect(
@@ -1605,75 +1831,17 @@ def render_maneuver_card_back(
         outline=BACK_EDGE,
         width=EDGE_WIDTH,
     )
-    pen.text(
-        (CARD_WIDTH / 2, 96),
-        "D12 BALL",
-        font(44, bold=True),
-        INK,
-        anchor="mm",
-    )
-    pen.text(
-        (CARD_WIDTH / 2, 138),
-        "MANEUVERS",
-        font(21, bold=True),
-        MUTED,
-        anchor="mm",
-    )
+    draw_back_title(pen)
 
     # The basic tier gives the six positions; the advanced card on each
     # rank is looked up rather than walked, because it is the same
     # cycle and walking it twice would only prove that again.
     order = _maneuver_cycle_order(catalog, MANEUVER_TIER_BASIC)
     center = (CARD_WIDTH / 2, CYCLE_CENTER_Y)
-    from math import cos, radians, sin
+    points = cycle_points(center, len(order))
 
-    angles = [270 + 360 * index / len(order) for index in range(len(order))]
-    points = [
-        (
-            center[0] + CYCLE_RADIUS_X * cos(radians(angle)),
-            center[1] + CYCLE_RADIUS_Y * sin(radians(angle)),
-        )
-        for angle in angles
-    ]
-
-    # The ties first, so the arrows and the nodes sit over them: a
-    # dashed line is the quieter of the two relations and reads as the
-    # background of the cycle rather than a step in it.
-    node_at = {
-        (maneuver.key, is_offense): point
-        for (maneuver, is_offense), point in zip(order, points)
-    }
-    for offense, defense in tie_pairs(catalog):
-        draw_tie_line(
-            pen, node_at[(offense.key, True)], node_at[(defense.key, False)]
-        )
-
-    for index, point in enumerate(points):
-        nxt = points[(index + 1) % len(points)]
-        dx, dy = nxt[0] - point[0], nxt[1] - point[1]
-        length = (dx * dx + dy * dy) ** 0.5
-        ux, uy = dx / length, dy / length
-        start = (point[0] + ux * CYCLE_NODE_RADIUS, point[1] + uy * CYCLE_NODE_RADIUS)
-        tip = (
-            nxt[0] - ux * (CYCLE_NODE_RADIUS + 4),
-            nxt[1] - uy * (CYCLE_NODE_RADIUS + 4),
-        )
-        # The line stops where the arrowhead's own base is, not at its
-        # tip -- a stroked line's end cap is flat, so a line run all the
-        # way to the tip poked its own width out past the triangle's
-        # point, which is exactly zero wide there. Stopping at the base
-        # leaves the line's cap inside the triangle's much wider base
-        # instead, where the fill already covers it.
-        arrow_size = 24
-        line_end = (tip[0] - ux * arrow_size, tip[1] - uy * arrow_size)
-        pen.line([start, line_end], fill=MUTED, width=6)
-        draw_arrowhead(pen, tip, (ux, uy), arrow_size, MUTED)
-
-    def node_stack(maneuver: ManeuverDefinition) -> list[list[str]]:
-        basic_words = maneuver.name.split(" ")
-        if not both_tiers:
-            return [basic_words]
-        return [basic_words, catalog.counterpart(maneuver).name.split(" ")]
+    draw_cycle_ties(pen, catalog, order, points)
+    draw_cycle_arrows(pen, points)
 
     # **One size for all six nodes, and it is the tightest of them.**
     # Sized independently they read as six different alphabets: "Low
@@ -1689,104 +1857,17 @@ def render_maneuver_card_back(
     # than one outlier, and matching it costs the roomiest node three
     # points to make the cycle read as one picture. A basic-only back
     # is back to the single-name case, since there is no second stack.
-    stacks = [node_stack(maneuver) for maneuver, _ in order]
+    stacks = [node_stack(catalog, maneuver, both_tiers) for maneuver, _ in order]
     cap_size = min(
         fit_node_block(pen, stack, CYCLE_NODE_RADIUS)[2] for stack in stacks
     )
-
-    for (maneuver, is_offense), point in zip(order, points):
-        color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
-        pen.circle(point, CYCLE_NODE_RADIUS, fill=color)
-
-        # The rank, outside the circle rather than inside it -- a node
-        # already carries two names, and O1/D2 is what says the two
-        # cards on it resolve by rank rather than as six basic and six
-        # advanced maneuvers with no relation to each other. Placed
-        # straight above or below the node -- whichever side faces away
-        # from the ring's own centre -- rather than out along the
-        # spoke: the spoke direction pushed the four off-axis nodes
-        # toward the card's corners, close enough that the label's own
-        # width ran past the edge. Vertical is the direction every node
-        # has room in, since the hexagon already clears the header above
-        # and the caption below.
-        vertical_sign = -1 if point[1] < center[1] else 1
-        rank_label = f"{'O' if is_offense else 'D'}{maneuver.rank}"
-        pen.text(
-            (
-                point[0],
-                point[1]
-                + vertical_sign * (CYCLE_NODE_RADIUS + CYCLE_RANK_LABEL_GAP),
-            ),
-            rank_label,
-            font(CYCLE_RANK_FONT_SIZE, bold=True),
-            color,
-            anchor="mm",
+    for (maneuver, is_offense), point, stack in zip(order, points, stacks):
+        draw_cycle_node(
+            pen, point, center[1], maneuver, is_offense,
+            stack, both_tiers, cap_size,
         )
 
-        # The label is centred as a block rather than line by line, so a
-        # one-word name and a two-word one both sit in the middle of the
-        # circle. Written as fixed offsets it was measured against the
-        # two-line case and left the whole stack low in the circle.
-        stack = node_stack(maneuver)
-        # None on a basic-only back: there is no second stack to split
-        # from, so no hairline is drawn either.
-        split = len(stack[0]) if both_tiers else None
-        lines, heights, _ = fit_node_block(
-            pen, stack, CYCLE_NODE_RADIUS, max_size=cap_size,
-        )
-        boxes = [pen.ink_box(text, face) for text, face in lines]
-        gaps = [
-            CYCLE_TIER_GAP if split is not None and index == split - 1
-            else CYCLE_LINE_GAP
-            for index in range(len(lines) - 1)
-        ]
-        top = point[1] - (sum(heights) + sum(gaps)) / 2
-        for index, (text, face) in enumerate(lines):
-            middle = top + heights[index] / 2
-            pen.text(
-                (point[0], middle - (boxes[index][1] + boxes[index][3]) / 2),
-                text,
-                face,
-                INK,
-                anchor="mm",
-            )
-            top += heights[index]
-            if index < len(gaps):
-                # The hairline between the two tiers, drawn in the gap
-                # it is the reason for -- without it the four lines read
-                # as one four-word name.
-                if split is not None and index == split - 1:
-                    rule_y = top + gaps[index] / 2
-                    rule_half = CYCLE_NODE_RADIUS * 0.52
-                    pen.line(
-                        [
-                            (point[0] - rule_half, rule_y),
-                            (point[0] + rule_half, rule_y),
-                        ],
-                        fill=CARD_FACE,
-                        width=CYCLE_TIER_RULE_WIDTH,
-                    )
-                top += gaps[index]
-
-    # Pushed lower than the two captions used to sit, to clear the D1
-    # rank badge below the bottom node -- the one node whose spoke runs
-    # straight down into where the caption block used to start.
-    pen.text(
-        (CARD_WIDTH / 2, CARD_HEIGHT - 76),
-        "each node is one rank: basic maneuvers above advanced"
-        if both_tiers
-        else "each node is one rank",
-        font(19),
-        MUTED,
-        anchor="mm",
-    )
-    pen.text(
-        (CARD_WIDTH / 2, CARD_HEIGHT - 48),
-        "solid: beats what it points to · dashed: ties",
-        font(19),
-        MUTED,
-        anchor="mm",
-    )
+    draw_back_captions(pen, both_tiers)
     return pen.finish(bleed, BACK_COLOR)
 
 
