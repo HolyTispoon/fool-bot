@@ -45,6 +45,7 @@ from cogs.d12ball_helpers import (
     board_image_filename,
     challenger_prompt_ask,
     format_ai_name,
+    format_player,
     format_player_with_team,
     format_team_side_label,
     get_exhaust_emoji,
@@ -934,16 +935,8 @@ class PresentationMixin:
         the result) needs two Files over one render, not two renders.
         """
         match = self.engine.load_match_state(game)
-        home_player = format_player_with_team(
-            game,
-            game.home_player_number,
-            self.team_emojis,
-        )
-        visiting_player = format_player_with_team(
-            game,
-            game.visiting_player_number,
-            self.team_emojis,
-        )
+        home_player = format_player(game, game.home_player_number)
+        visiting_player = format_player(game, game.visiting_player_number)
         period = (
             "First Half"
             if match.scoreboard.period.value == "first_half"
