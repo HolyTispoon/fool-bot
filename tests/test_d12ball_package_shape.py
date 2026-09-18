@@ -10,6 +10,7 @@ Neither is visible in a test of any one view.
 
 import ast
 import importlib
+import os
 import pkgutil
 import unittest
 from pathlib import Path
@@ -28,6 +29,35 @@ PACKAGE = Path(views.__file__).parent
 SUBMODULES = sorted(
     m.name for m in pkgutil.iter_modules([str(PACKAGE)])
 )
+
+
+def own_python_files(root: Path) -> list:
+    """
+    Every `.py` under `root` that belongs to *this* checkout.
+
+    A directory holding a `.git` entry is a checkout of its own -- a
+    clone carries a `.git` directory and a linked worktree a `.git`
+    file -- and the desktop app puts its worktrees under
+    `.claude/worktrees/`, inside the repository. `Path.glob("**/*.py")`
+    walked into one and read a second copy of every module against
+    exemptions written for this checkout's paths: `d12ball/render.py`
+    was exempt and `.claude/worktrees/x/d12ball/render.py` was an
+    offender, so the guards below failed on `main` for as long as a
+    worktree sat there. Pruning on the `.git` entry rather than on the
+    `.claude` name is what covers a checkout nested anywhere else too.
+    """
+    found = []
+    for directory, subdirectories, files in os.walk(root):
+        subdirectories[:] = sorted(
+            name for name in subdirectories
+            if name != ".git"
+            and not (Path(directory) / name / ".git").exists()
+        )
+        found.extend(
+            Path(directory) / name for name in sorted(files)
+            if name.endswith(".py")
+        )
+    return found
 
 
 class ViewsPackageTests(unittest.TestCase):
@@ -216,7 +246,7 @@ class StraySaveGuardTests(unittest.TestCase):
         """
         binding = {
             path
-            for path in Path("cogs").rglob("*.py")
+            for path in own_python_files(Path("cogs"))
             if "save_games" in vars(
                 importlib.import_module(
                     str(path.with_suffix("")).replace("/", ".")
@@ -324,10 +354,10 @@ class NamingAPlayerTests(unittest.TestCase):
         is only permanent if there is one place left to change.
         """
         offenders = []
-        for path in Path(".").glob("**/*.py"):
+        for path in own_python_files(Path(".")):
             text = path.as_posix()
             if (
-                text.startswith((".git", "tests/"))
+                text.startswith("tests/")
                 or text in self.DRAWING_MODULES
                 or text == "d12ball/formatting.py"
             ):
