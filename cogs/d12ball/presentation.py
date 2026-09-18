@@ -951,6 +951,7 @@ class PresentationMixin:
             match,
             self.player_catalog,
             title=title,
+            species_icons=self.engine.species_abilities_apply(game),
         )
         return image.getvalue()
 
@@ -1089,6 +1090,7 @@ class PresentationMixin:
             render_field_image,
             self.engine.load_match_state(game),
             self.player_catalog,
+            species_icons=self.engine.species_abilities_apply(game),
         )
         return discord.File(image, filename=FIELD_IMAGE_FILENAME)
 

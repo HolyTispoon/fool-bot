@@ -3491,7 +3491,7 @@ what a coach has to act on, where a species is the same every turn of the
 game. See "The species icons".
 
 **A meeple is the species icon over the role initials, and it is 76px
-because it carries both.** `draw_meeple_face` is the face; `draw_meeple_group`
+because it carries both -- in a game playing species abilities.** `draw_meeple_face` is the face; `draw_meeple_group`
 composites it onto the canvas it now takes. It was a 56px disc with the
 initials alone until 2026-09-18, when species abilities made what a card *is*
 as much a fact of the position as what it does. Thirteen drawings were tried
@@ -3521,8 +3521,26 @@ and judged at the width Discord shows the field strip (~900px), not at the
   midfield is 155px into ~330 on the match image and into 200 on the
   coaching one, which is what `test_a_stacked_coaching_space_still_fits_its_meeples` and
   `test_a_meeple_carries_its_species_over_its_role` hold.
-- **A missing icon falls back to the initials alone, centred** -- the token
-  as it was -- because the loader is silent (see "A bundled file's name is
+- **The icon is drawn only in a game playing species abilities** (the
+  author, 2026-09-18). In a basic game, or an advanced one that opted the
+  module out, species is a name on the card and nothing a coach acts on, so
+  the disc carries the initials alone -- `FONT_TOKEN_SOLO`, sized to fill
+  the 76px it still is; the disc does not shrink back, or the two rows and
+  the ball would move with the mode. `species_icons` is the flag on all
+  three render entry points (`render_match_image`, `render_field_image`,
+  `render_coaching_image`), defaulting to **off** so a caller that forgets
+  it draws a basic game rather than an advanced one, and the cog's three
+  call sites answer it from `RulesEngine.species_abilities_apply(game)` --
+  the renderer never reads the game's own bools, which is the same rule
+  every ability site follows (see "Species abilities in the bot").
+  `test_every_cog_render_asks_the_engine_whether_to_draw_species` greps
+  those three calls, because a site that forgets the flag draws every
+  advanced game without its species and nothing else in the suite can see
+  it. `scripts/render_sample.py` draws the advanced look by default (it is
+  the one worth checking), `--basic` for the other, and a `--game` the way
+  its own record says.
+- **A missing icon falls back the same way** -- initials alone, filling the
+  disc -- because the loader is silent (see "A bundled file's name is
   case-sensitive...").
 
 **The ball token hangs off the possessing side's meeples, except when they have
@@ -5163,10 +5181,62 @@ there is now one.
     view, so it has to be flipped *as* somebody; a helper flips on Player 1's
     behalf. The coin is fair either way, so this changes the wording and
     nothing else.
-  - **The shootout's order menus.** A coach gets their own side and a helper
-    gets both, so `owes` picks whichever still needs one. That does show a
-    helper both coaches' orders, which is the price of being able to set one
-    for somebody.
+  - **The shootout's order menus.** A coach gets their own side -- **and only
+    their own, whether or not they also hold the permission** -- and a helper
+    outside the game gets both, so `owes` picks whichever still needs one.
+    That does show a helper both coaches' orders, which is the price of being
+    able to set one for somebody. `claim` read the permission ahead of the
+    side until 2026-09-18, which handed a visiting coach with
+    `manage_channels` the *home* order to set; see the next two bullets.
+- **A coach who holds the permission is a coach first.** Every gate answers
+  "is this the coach it belongs to" before it asks "is this a helper", so a
+  coach with `manage_channels` presses their own buttons exactly as anybody
+  else does and is only a helper's click for the *other* side.
+  `SafeView.may_act_for` does that by construction; the three sites above
+  that derive a side had to be read the same way, and the shootout's was
+  not. Anything new that derives a side from the clicker has to try their
+  own side first.
+- **A helper's click for somebody else is confirmed first, past the lobby.**
+  `SafeView.may_act_for` and `may_act_in_game` raise
+  `HelperConfirmationRequired` for a helper acting for a coach who is not
+  them, unless the click already carries `HELPER_CONFIRMED_EXTRA` on its
+  `interaction.extras`; `SafeView.on_error` catches it and swaps the
+  prompt's buttons for a `HelperConfirmationView` -- Confirm (the helper
+  alone) and Cancel (anyone in the game), with an ephemeral line saying
+  who the click would act for. Confirm re-runs the button that asked with
+  the confirming click marked, so the callback runs exactly as it would
+  have. It is asked every click, and not remembered: "for now", the
+  author, 2026-09-18 -- it may later narrow to helpers who are coaches in
+  the game.
+  - **It is an exception rather than a third return value** because the
+    gates are called from fifty-odd callbacks as `if not
+    self.may_act_for(...)`, each of which has neither responded nor changed
+    anything when it asks -- which is what makes raising there safe, and is
+    a property every new gate site has to keep. The raise leaves the
+    callback untouched and reaches `on_error`, the one place that knows the
+    button it came from.
+  - **The confirmation replaces the prompt's view in place**, the way
+    `TimeOutConfirmView` does, so the click that confirms is a click *on
+    the prompt* and a callback that answers with `edit_message` -- nearly
+    all of them -- edits the message it always did. An ephemeral
+    confirmation would hand the callback an interaction on the ephemeral
+    message, and a coaching flow or a run back would carry on inside a
+    message only the helper can see. A callback that answers with a message
+    of its own (the maneuver pick) leaves Confirm/Cancel up, so the view
+    puts the prompt's own buttons back by hand -- the one channel-route
+    edit in it. A timeout does the same, so a helper who walked away does
+    not leave a coach without their buttons.
+  - **The lobby is exempt** (`LobbyView.confirms_helper_clicks = False`):
+    turning Tutorial on and pressing Start for somebody is what the gate was
+    widened for, and nothing there is a move made for a coach. The slash
+    commands (`resume`, `abandon_game`, `skip_tutorial`) read the free
+    functions in `cogs/d12ball_helpers.py`, which stay plain booleans, so
+    they ask nothing either -- they were `manage_channels`-gated before any
+    of this.
+  - **Not restart-safe, deliberately.** A restart re-arms the prompt's own
+    view on the message, so the Confirm/Cancel a coach sees are answered by
+    nothing; `/d12ball resume` puts the prompt back, the same as any other
+    stuck prompt.
 - **`is True`, not truthiness, is what reads the permission**, and that is
   about the suite rather than about Discord. Nearly every person in `tests/`
   is a `MagicMock(spec=discord.Member)`, whose

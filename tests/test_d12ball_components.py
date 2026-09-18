@@ -1,7 +1,9 @@
 import dataclasses
+import inspect
 import itertools
 import json
 import os
+import re
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -89,6 +91,8 @@ from d12ball.render import (
     BALL_RADIUS,
     BOARD_BOTTOM,
     FONT_TOKEN_ROLE,
+    FONT_TOKEN_SOLO,
+    draw_meeple_face,
     HOME_MEEPLE_TOP,
     MEEPLE_LABEL_MIN_SIZE,
     MEEPLE_ROLE_BOTTOM_INSET,
@@ -1435,6 +1439,77 @@ class D12BallComponentTests(unittest.TestCase):
             (BOARD_BOTTOM - 16) - (HOME_MEEPLE_TOP + MEEPLE_SIZE + 7),
             2 * line,
         )
+
+    def test_the_species_icon_is_drawn_only_when_asked_for(self) -> None:
+        # The icon is a fact of an advanced game playing species
+        # abilities; a basic game's meeple is the initials alone,
+        # sized to fill the disc (the author, 2026-09-18). The cog
+        # answers the flag from RulesEngine.species_abilities_apply --
+        # the renderer never reads the game's own bools.
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.TEAL,
+        )
+        player = self.catalog.player_by_id(
+            fielded(match, PlayerRole.FULLBACK)
+        )
+        for species_icons, composites, font in (
+            (True, 1, FONT_TOKEN_ROLE),
+            (False, 0, FONT_TOKEN_SOLO),
+        ):
+            canvas = mock.MagicMock(spec=Image.Image)
+            draw = mock.MagicMock(spec=ImageDraw.ImageDraw)
+            draw.textlength.return_value = 20
+            draw.textbbox.return_value = (0, 0, 20, 20)
+            draw_meeple_face(
+                canvas, draw, player, 0, 0, "#000000",
+                species_icons=species_icons,
+            )
+            self.assertEqual(canvas.alpha_composite.call_count, composites)
+            self.assertIs(draw.text.call_args.kwargs["font"], font)
+
+        # And every render entry point takes the flag, defaulting to
+        # the basic look, so a caller that forgets it draws a basic
+        # game rather than an advanced one.
+        for renderer in (
+            render_match_image, render_field_image, render_coaching_image,
+        ):
+            parameter = inspect.signature(renderer).parameters["species_icons"]
+            self.assertIs(parameter.default, False, renderer.__name__)
+
+    def test_every_cog_render_asks_the_engine_whether_to_draw_species(
+        self,
+    ) -> None:
+        # The default is the basic look, so a render site that forgets
+        # the flag draws every advanced game without its species -- and
+        # nothing else in the suite can see that. Each call of the three
+        # renderers in the cog has to pass the engine's own answer.
+        renderers = (
+            "render_match_image", "render_field_image",
+            "render_coaching_image",
+        )
+        expected = "species_icons=self.engine.species_abilities_apply(game)"
+        seen = 0
+        for path in Path("cogs").glob("**/*.py"):
+            source = path.read_text()
+            for renderer in renderers:
+                for index in [
+                    m.end() for m in re.finditer(
+                        rf"to_thread\(\s*{renderer},", source,
+                    )
+                ]:
+                    # Up to the call's own closing paren, which sits
+                    # on a line of its own at the call's indent.
+                    call = source[index:source.index("\n        )", index)]
+                    self.assertIn(
+                        expected, call,
+                        f"{path}: {renderer} is called without the flag",
+                    )
+                    seen += 1
+        self.assertEqual(seen, 3)
 
     def test_a_loose_ball_is_drawn_inside_its_own_space(self) -> None:
         # A space with none of the possessing side's meeples on it is

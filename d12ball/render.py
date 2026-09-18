@@ -295,6 +295,10 @@ FONT_TOKEN = load_font(19, bold=True)
 # draw_meeple_group. Smaller than FONT_TOKEN because they share the
 # disc with the icon now; the ball's "12" keeps FONT_TOKEN.
 FONT_TOKEN_ROLE = load_font(18, bold=True)
+# The initials alone, when no species icon shares the disc with them:
+# a game not playing species abilities, or an icon that failed to
+# load. Sized to fill a 76px disc on their own.
+FONT_TOKEN_SOLO = load_font(26, bold=True)
 FONT_BADGE_COUNT = load_font(16, bold=True)
 FONT_MANEUVER_RANK = load_font(34, bold=True)
 FONT_MANEUVER_LEGEND = load_font(22)
@@ -348,6 +352,15 @@ _MEEPLE_LABEL_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
 # first thing to vanish -- tried, in that order. So the disc grew to
 # carry both, and the icon is the larger of the two because the
 # initials are also in the name label a coach reads anyway.
+#
+# **The icon is drawn only when the game plays species abilities**
+# (the author, 2026-09-18): in a basic game, or an advanced one that
+# opted the module out, species is a name on the card and nothing a
+# coach acts on, so the disc carries the initials alone -- at a size
+# that fills it, since it is still 76px. Whether to draw it is the
+# `species_icons` flag every render entry point takes; the cog answers
+# it from `RulesEngine.species_abilities_apply`, and this module never
+# reads the game's own bools (see "Species abilities in the bot").
 MEEPLE_SIZE = 76
 MEEPLE_SPECIES_ICON_SIZE = 38
 MEEPLE_SPECIES_ICON_TOP = 7
@@ -1183,6 +1196,7 @@ def draw_space(
     occupants: list[str],
     space_left: int,
     space_right: int,
+    species_icons: bool = False,
 ) -> None:
     """
     One space: its frame and code, the visiting side's meeples on the
@@ -1237,6 +1251,7 @@ def draw_space(
         ),
         # Stop above the home side's own tokens.
         label_bottom=HOME_MEEPLE_TOP - 5,
+        species_icons=species_icons,
     )
     home_bounds = draw_meeple_group(
         canvas,
@@ -1253,6 +1268,7 @@ def draw_space(
             and match.ball.possession.value == "home"
         ),
         label_bottom=BOARD_BOTTOM - 16,
+        species_icons=species_icons,
     )
 
     if ball_is_here:
@@ -1289,6 +1305,7 @@ def draw_board(
     draw: ImageDraw.ImageDraw,
     match: MatchState,
     players: dict[str, PlayerDefinition],
+    species_icons: bool = False,
 ) -> dict[Zone, tuple[int, int]]:
     bounds = zone_bounds(match)
     draw.rounded_rectangle(
@@ -1311,7 +1328,7 @@ def draw_board(
             space_right = round(left + (space_index + 1) * space_width)
             draw_space(
                 canvas, draw, match, players, zone, space_index, occupants,
-                space_left, space_right,
+                space_left, space_right, species_icons=species_icons,
             )
 
     draw_end_zone(
@@ -1647,6 +1664,7 @@ def draw_meeple_group(
     alignment: str,
     reserve_ball: bool,
     label_bottom: int,
+    species_icons: bool = False,
 ) -> tuple[int, int]:
     """
     One team's meeples on one space: a row of tokens, with their names
@@ -1658,7 +1676,9 @@ def draw_meeple_group(
     the team's own (see "Team colors" in CLAUDE.md), so the shape is
     the whole signal, and the four silhouettes were drawn to survive
     18px for exactly this. `canvas` is what the icon is composited
-    onto; everything else here is drawn with `draw`. A species whose
+    onto; everything else here is drawn with `draw`. `species_icons`
+    is whether the game plays species abilities at all -- off, the
+    disc carries the initials alone (see MEEPLE_SIZE). A species whose
     icon is missing falls back to the initials alone, centred, which is
     the token as it was before the icon -- the loader is silent on
     purpose (see load_species_icon).
@@ -1717,7 +1737,10 @@ def draw_meeple_group(
             outline=token_ink,
             width=4,
         )
-        draw_meeple_face(canvas, draw, player, token_x, token_y, token_ink)
+        draw_meeple_face(
+            canvas, draw, player, token_x, token_y, token_ink,
+            species_icons=species_icons,
+        )
         label = shorten_to_width(
             draw, player.name, label_font, label_width_limit,
         )
@@ -1746,25 +1769,35 @@ def draw_meeple_face(
     token_x: int,
     token_y: int,
     ink: str,
+    species_icons: bool,
 ) -> None:
     """
     What is written on a meeple: the species icon over the role
-    initials, both in `ink`. See draw_meeple_group for why the disc
-    carries both and why the icon is the larger.
+    initials, both in `ink`, when `species_icons` is set -- and the
+    initials alone, centred and larger, when it is not. See
+    draw_meeple_group for why the disc carries both and why the icon
+    is the larger, and the note by MEEPLE_SIZE for who decides the
+    flag.
     """
     initials = ROLE_INITIALS[player.role.value]
-    icon = species_icon(player.species, ink, MEEPLE_SPECIES_ICON_SIZE)
+    icon = (
+        species_icon(player.species, ink, MEEPLE_SPECIES_ICON_SIZE)
+        if species_icons
+        else None
+    )
     if icon is None:
-        # No icon to draw: the initials alone, centred, as the token
-        # read before the species was on it.
-        initials_width = draw.textlength(initials, font=FONT_TOKEN)
+        # Nothing shares the disc with the initials: a game not playing
+        # species abilities, or an icon that failed to load. Either way
+        # the initials take the whole face.
+        initials_width = draw.textlength(initials, font=FONT_TOKEN_SOLO)
+        bbox = draw.textbbox((0, 0), initials, font=FONT_TOKEN_SOLO)
         draw.text(
             (
                 token_x + (MEEPLE_SIZE - initials_width) / 2,
-                token_y + (MEEPLE_SIZE - FONT_TOKEN.size) / 2 - 2,
+                token_y + (MEEPLE_SIZE - (bbox[3] - bbox[1])) / 2 - bbox[1],
             ),
             initials,
-            font=FONT_TOKEN,
+            font=FONT_TOKEN_SOLO,
             fill=ink,
         )
         return
@@ -4372,6 +4405,7 @@ def render_coaching_image(
     catalog: PlayerCatalog,
     side: TeamSide,
     title: str,
+    species_icons: bool = False,
 ) -> BytesIO:
     """
     One coach's own half of the field, for the
@@ -4478,6 +4512,7 @@ def render_coaching_image(
                 alignment="left" if side == TeamSide.HOME else "right",
                 reserve_ball=False,
                 label_bottom=COACHING_BOARD_BOTTOM - 14,
+                species_icons=species_icons,
             )
 
     draw_assignment_cards(
@@ -4556,6 +4591,7 @@ def draw_coaching_benches(
 def render_field_image(
     match: MatchState,
     catalog: PlayerCatalog,
+    species_icons: bool = False,
 ) -> BytesIO:
     """
     The field on its own -- both sides' meeples, the ball, the space
@@ -4584,7 +4620,7 @@ def render_field_image(
         "#111820",
     )
     draw = ImageDraw.Draw(canvas)
-    draw_board(canvas, draw, match, players)
+    draw_board(canvas, draw, match, players, species_icons=species_icons)
 
     field = canvas.crop(
         (
@@ -4602,6 +4638,7 @@ def render_match_image(
     match: MatchState,
     catalog: PlayerCatalog,
     title: str | None = None,
+    species_icons: bool = False,
 ) -> BytesIO:
     players = player_index(catalog)
     canvas = Image.new(
@@ -4643,7 +4680,7 @@ def render_match_image(
         match.exhausted,
         match.injured,
     )
-    draw_board(canvas, draw, match, players)
+    draw_board(canvas, draw, match, players, species_icons=species_icons)
     draw_assignment_cards(
         canvas,
         draw,
