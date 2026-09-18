@@ -5125,10 +5125,62 @@ there is now one.
     view, so it has to be flipped *as* somebody; a helper flips on Player 1's
     behalf. The coin is fair either way, so this changes the wording and
     nothing else.
-  - **The shootout's order menus.** A coach gets their own side and a helper
-    gets both, so `owes` picks whichever still needs one. That does show a
-    helper both coaches' orders, which is the price of being able to set one
-    for somebody.
+  - **The shootout's order menus.** A coach gets their own side -- **and only
+    their own, whether or not they also hold the permission** -- and a helper
+    outside the game gets both, so `owes` picks whichever still needs one.
+    That does show a helper both coaches' orders, which is the price of being
+    able to set one for somebody. `claim` read the permission ahead of the
+    side until 2026-09-18, which handed a visiting coach with
+    `manage_channels` the *home* order to set; see the next two bullets.
+- **A coach who holds the permission is a coach first.** Every gate answers
+  "is this the coach it belongs to" before it asks "is this a helper", so a
+  coach with `manage_channels` presses their own buttons exactly as anybody
+  else does and is only a helper's click for the *other* side.
+  `SafeView.may_act_for` does that by construction; the three sites above
+  that derive a side had to be read the same way, and the shootout's was
+  not. Anything new that derives a side from the clicker has to try their
+  own side first.
+- **A helper's click for somebody else is confirmed first, past the lobby.**
+  `SafeView.may_act_for` and `may_act_in_game` raise
+  `HelperConfirmationRequired` for a helper acting for a coach who is not
+  them, unless the click already carries `HELPER_CONFIRMED_EXTRA` on its
+  `interaction.extras`; `SafeView.on_error` catches it and swaps the
+  prompt's buttons for a `HelperConfirmationView` -- Confirm (the helper
+  alone) and Cancel (anyone in the game), with an ephemeral line saying
+  who the click would act for. Confirm re-runs the button that asked with
+  the confirming click marked, so the callback runs exactly as it would
+  have. It is asked every click, and not remembered: "for now", the
+  author, 2026-09-18 -- it may later narrow to helpers who are coaches in
+  the game.
+  - **It is an exception rather than a third return value** because the
+    gates are called from fifty-odd callbacks as `if not
+    self.may_act_for(...)`, each of which has neither responded nor changed
+    anything when it asks -- which is what makes raising there safe, and is
+    a property every new gate site has to keep. The raise leaves the
+    callback untouched and reaches `on_error`, the one place that knows the
+    button it came from.
+  - **The confirmation replaces the prompt's view in place**, the way
+    `TimeOutConfirmView` does, so the click that confirms is a click *on
+    the prompt* and a callback that answers with `edit_message` -- nearly
+    all of them -- edits the message it always did. An ephemeral
+    confirmation would hand the callback an interaction on the ephemeral
+    message, and a coaching flow or a run back would carry on inside a
+    message only the helper can see. A callback that answers with a message
+    of its own (the maneuver pick) leaves Confirm/Cancel up, so the view
+    puts the prompt's own buttons back by hand -- the one channel-route
+    edit in it. A timeout does the same, so a helper who walked away does
+    not leave a coach without their buttons.
+  - **The lobby is exempt** (`LobbyView.confirms_helper_clicks = False`):
+    turning Tutorial on and pressing Start for somebody is what the gate was
+    widened for, and nothing there is a move made for a coach. The slash
+    commands (`resume`, `abandon_game`, `skip_tutorial`) read the free
+    functions in `cogs/d12ball_helpers.py`, which stay plain booleans, so
+    they ask nothing either -- they were `manage_channels`-gated before any
+    of this.
+  - **Not restart-safe, deliberately.** A restart re-arms the prompt's own
+    view on the message, so the Confirm/Cancel a coach sees are answered by
+    nothing; `/d12ball resume` puts the prompt back, the same as any other
+    stuck prompt.
 - **`is True`, not truthiness, is what reads the permission**, and that is
   about the suite rather than about Discord. Nearly every person in `tests/`
   is a `MagicMock(spec=discord.Member)`, whose

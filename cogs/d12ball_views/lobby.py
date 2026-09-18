@@ -173,7 +173,16 @@ class LobbyView(SafeView):
     A lobby channel is visible to the whole server, so **Observe** is
     only about what happens at kickoff: `lobby_start` locks the channel
     to the two players, and observers keep read-only access.
+
+    A game helper's click here is **not** put behind a confirmation,
+    unlike everywhere past the lobby: somebody walking a new player
+    through their first game turns Tutorial on and presses Start for
+    them, and asking "are you sure?" of each of those is asking about
+    the thing the gate was widened for. Nothing in a lobby has been
+    played yet, so nothing here is a move made for a coach.
     """
+
+    confirms_helper_clicks = False
 
     def __init__(self, cog: "D12Ball", game_id: str):
         super().__init__(timeout=None)

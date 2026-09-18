@@ -536,6 +536,48 @@ def may_act_in_game(user, game: D12BallGame) -> bool:
     return user.id in game_participant_ids(game) or is_game_helper(user)
 
 
+# The key on `Interaction.extras` that says a helper's click has been
+# confirmed. Set by `HelperConfirmationView.confirm` on the click that
+# answers the confirmation, before it re-runs the button that asked
+# for it -- so the gate that raised the first time reads it and lets
+# the same click through. It is on the interaction rather than on the
+# match or the view because it is a fact about *this click* and
+# nothing else: the next click the helper makes for somebody else is
+# asked again.
+HELPER_CONFIRMED_EXTRA = "d12ball_helper_confirmed"
+
+
+def helper_click_confirmed(interaction) -> bool:
+    """Whether this click already carries a helper's confirmation."""
+    extras = getattr(interaction, "extras", None)
+    return bool(extras) and extras.get(HELPER_CONFIRMED_EXTRA) is True
+
+
+class HelperConfirmationRequired(Exception):
+    """
+    Raised by `SafeView.may_act_for` and `SafeView.may_act_in_game`
+    when the click is a game helper's, is for somebody other than
+    themselves, and has not been confirmed -- see "Who may act on a
+    game" in CLAUDE.md.
+
+    It is an exception rather than a third return value because the
+    gates are called from fifty-odd callbacks as `if not
+    self.may_act_for(...)`, every one of which has yet to respond or
+    change anything when it asks. Raising lets the click leave the
+    callback untouched and reach `SafeView.on_error`, which is the one
+    place that knows the button it came from and can put the
+    confirmation up in its place. `coach_ids` is who the click would
+    act for -- one coach, or both for a button either may press -- and
+    is only ever used to word the confirmation.
+    """
+
+    def __init__(self, coach_ids: tuple[Optional[int], ...]):
+        super().__init__(
+            "A game helper's click for somebody else needs confirming."
+        )
+        self.coach_ids = coach_ids
+
+
 def format_role_bracket(
     player: PlayerDefinition,
     team_emojis: dict[Team, str],

@@ -27,8 +27,13 @@ from d12ball.render import (
 )
 from cogs.d12ball_helpers import (
     ERROR_RECOVERY_ADVICE,
+    HELPER_CONFIRMED_EXTRA,
     LOGGER,
+    HelperConfirmationRequired,
+    format_player,
+    format_player_with_team,
     game_participant_ids,
+    helper_click_confirmed,
     # Aliased because `SafeView` carries methods of these two names --
     # the interaction-shaped front door onto the same two functions.
     # One rule either way; the alias is only so a method body does not
@@ -115,12 +120,23 @@ class SafeView(discord.ui.View):
     as parameters.
     """
 
+    # Whether a game helper's click for somebody else is put behind a
+    # confirmation before it acts. True for every view in a game;
+    # `LobbyView` turns it off, because a lobby is exactly where a
+    # helper is expected to be pressing things for people -- see "Who
+    # may act on a game" in CLAUDE.md.
+    confirms_helper_clicks = True
+
     async def on_error(
         self,
         interaction: discord.Interaction,
         error: Exception,
         item: discord.ui.Item,
     ) -> None:
+        if isinstance(error, HelperConfirmationRequired):
+            await self.ask_helper_confirmation(interaction, item, error)
+            return
+
         LOGGER.error(
             "Unhandled error in %r for %r: %r",
             self, item, error, exc_info=error,
@@ -189,8 +205,23 @@ class SafeView(discord.ui.View):
         game may press a roll button, not only the one it happens to be
         about, so this is the whole of the check and callers word their
         own refusal.
+
+        A helper who is not one of the coaches is let through only once
+        they have confirmed -- see `require_helper_confirmation`.
         """
-        return user_may_act_in_game(interaction.user, game)
+        if interaction.user.id in game_participant_ids(game):
+            return True
+        if not user_may_act_in_game(interaction.user, game):
+            return False
+        self.require_helper_confirmation(
+            interaction,
+            tuple(
+                coach_id
+                for coach_id in (game.player_1_id, game.player_2_id)
+                if coach_id is not None
+            ),
+        )
+        return True
 
     def may_act_for(
         self,
@@ -202,8 +233,103 @@ class SafeView(discord.ui.View):
         particular coach -- that coach, or a game helper. `coach_id` is
         whatever named them: `side_controller_id`, `controlling_user_id`,
         `possession_user_id`, `defending_user_id`.
+
+        **The coach it belongs to is answered first, and without a
+        confirmation**, whether or not they are also a helper: a coach
+        holding `manage_channels` is pressing their own buttons like
+        anybody else, and only a click for the *other* coach is a
+        helper's. See `require_helper_confirmation`.
         """
-        return user_may_act_for_coach(interaction.user, coach_id)
+        if interaction.user.id == coach_id:
+            return True
+        if not user_may_act_for_coach(interaction.user, coach_id):
+            return False
+        self.require_helper_confirmation(interaction, (coach_id,))
+        return True
+
+    def require_helper_confirmation(
+        self,
+        interaction: discord.Interaction,
+        coach_ids: tuple[Optional[int], ...],
+    ) -> None:
+        """
+        Raise `HelperConfirmationRequired` unless this helper's click
+        for somebody else has already been confirmed, or this view is
+        one that asks for no confirmation (the lobby).
+
+        A helper's click is a real one: it moves the game for a coach
+        who is not pressing anything. So it is put behind an "are you
+        sure" the first time -- `on_error` catches the raise and swaps
+        the prompt's buttons for Confirm/Cancel -- and the click that
+        confirms carries `HELPER_CONFIRMED_EXTRA` on its own
+        `interaction.extras`, which is what lets it through here the
+        second time. Every click is asked on its own; nothing is
+        remembered between them.
+        """
+        if not self.confirms_helper_clicks:
+            return
+        if helper_click_confirmed(interaction):
+            return
+        raise HelperConfirmationRequired(coach_ids)
+
+    async def ask_helper_confirmation(
+        self,
+        interaction: discord.Interaction,
+        item: discord.ui.Item,
+        required: HelperConfirmationRequired,
+    ) -> None:
+        """
+        Put Confirm/Cancel in place of the prompt's buttons for a
+        helper's click, and tell the helper why ephemerally.
+
+        **The confirmation replaces the prompt's view in place rather
+        than being a second message**, the way `TimeOutConfirmView`
+        does: the click that confirms is then a click *on the prompt*,
+        so a callback that answers with `edit_message` -- nearly all of
+        them -- edits the message it always did. An ephemeral
+        confirmation would hand the callback an interaction on the
+        ephemeral message, and a coaching flow or a run back would
+        carry on inside a message only the helper can see. Both edits
+        here are the interaction-callback route, so they cost nothing
+        out of the channel's edit bucket (see "Discord's rate limits").
+        """
+        game = self.cog.games.get(self.game_id)
+        names = describe_coaches(
+            game, required.coach_ids, self.cog.team_emojis,
+        )
+        label_names = describe_coaches(game, required.coach_ids, {})
+
+        if interaction.response.is_done() or interaction.message is None:
+            # Nothing of ours responds before it gates, so this is a
+            # gate asked somewhere it should not have been; refuse
+            # rather than leave the click hanging.
+            await send_error_fallback(
+                interaction,
+                f"That click would act for {names}, and it cannot be "
+                "confirmed from here. Press the button on the prompt "
+                "itself.",
+            )
+            return
+
+        confirmation = HelperConfirmationView(
+            prompt_view=self,
+            item=item,
+            helper_id=interaction.user.id,
+            message=interaction.message,
+            label=f"Confirm: act for {label_names}"[:80],
+        )
+        await interaction.response.edit_message(view=confirmation)
+        try:
+            await interaction.followup.send(
+                f"You are not {names}, but you hold Manage Channels, so "
+                "you may press this for them. **Confirm** on the prompt "
+                "to go ahead, or **Cancel** to put its buttons back.",
+                ephemeral=True,
+            )
+        except discord.HTTPException:
+            # The buttons are already up; the explanation is the part
+            # that can be lost.
+            pass
 
     def may_act_for_possession(
         self,
@@ -380,3 +506,154 @@ class SafeView(discord.ui.View):
             f"The skill test must be rolled again.\n"
             f"{exhaustion_text}\n\nRoll again:"
         )
+
+
+# How long a helper's Confirm/Cancel stays in place of the prompt's own
+# buttons before they are put back on their own. Long enough to read
+# the ephemeral explanation and decide; short enough that a helper who
+# walked away does not leave a coach without their buttons.
+HELPER_CONFIRMATION_TIMEOUT = 120
+
+
+def describe_coaches(
+    game: Optional[D12BallGame],
+    coach_ids: tuple[Optional[int], ...],
+    team_emojis: dict[Team, str],
+) -> str:
+    """
+    The coach or coaches a helper's click would act for, named the way
+    every message names one -- "🟠 One", or "🟠 One or 🟣 Two" for a
+    button either coach may press. `None` is an AI side, named as
+    `format_player` names it. With an empty emoji dict this is the
+    plain form a button label can carry.
+    """
+    if game is None:
+        return "the other coach"
+    numbers = []
+    for coach_id in coach_ids:
+        if coach_id is not None and coach_id == game.player_1_id:
+            numbers.append(1)
+        else:
+            numbers.append(2)
+    names = []
+    for number in dict.fromkeys(numbers):
+        if team_emojis:
+            names.append(format_player_with_team(game, number, team_emojis))
+        else:
+            names.append(format_player(game, number))
+    return " or ".join(names)
+
+
+class HelperConfirmationView(discord.ui.View):
+    """
+    Confirm/Cancel over a prompt a game helper is about to answer for
+    a coach who is not them -- see `SafeView.ask_helper_confirmation`
+    for why it stands in for the prompt's own buttons rather than
+    being a message of its own.
+
+    **Confirm re-runs the button that asked**, with the confirming
+    click marked on its `interaction.extras`, so the gate that raised
+    lets it through and the callback runs exactly as it would have.
+    Only the helper who asked may confirm; anyone in the game may
+    cancel, since while this is up the prompt's own buttons are not.
+    A timeout puts them back on its own for the same reason.
+
+    Not restart-safe, and deliberately not registered: a restart
+    re-arms the prompt's own view on the message, so the buttons a
+    coach sees are these and the clicks they send are answered by
+    nothing -- `/d12ball resume` puts the prompt back, the same as any
+    other stuck prompt.
+    """
+
+    def __init__(
+        self,
+        prompt_view: SafeView,
+        item: discord.ui.Item,
+        helper_id: int,
+        message: discord.Message,
+        label: str,
+    ):
+        super().__init__(timeout=HELPER_CONFIRMATION_TIMEOUT)
+        self.prompt_view = prompt_view
+        self.item = item
+        self.helper_id = helper_id
+        self.message = message
+
+        confirm = discord.ui.Button(
+            label=label,
+            style=discord.ButtonStyle.danger,
+            custom_id=f"d12ball:helper_confirm:{prompt_view.game_id}",
+        )
+        confirm.callback = self.confirm
+        self.add_item(confirm)
+
+        cancel = discord.ui.Button(
+            label="Cancel",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:helper_cancel:{prompt_view.game_id}",
+        )
+        cancel.callback = self.cancel
+        self.add_item(cancel)
+
+    async def confirm(self, interaction: discord.Interaction) -> None:
+        if interaction.user.id != self.helper_id:
+            await interaction.response.send_message(
+                "Only the helper who asked can confirm this. Cancel puts "
+                "the prompt's buttons back.",
+                ephemeral=True,
+            )
+            return
+
+        self.stop()
+        interaction.extras[HELPER_CONFIRMED_EXTRA] = True
+        try:
+            await self.item.callback(interaction)
+        except Exception as error:
+            # The prompt's own catch-all, exactly as discord.py would
+            # have reached it had the click come in the ordinary way.
+            await self.prompt_view.on_error(interaction, error, self.item)
+
+        # A callback that answered by editing the prompt has already
+        # replaced these buttons. One that answered with a message of
+        # its own -- the maneuver pick's ephemeral reply -- has left
+        # them up, so the prompt's own go back by hand. That is the one
+        # channel-route edit here, and only a helper's confirmed click
+        # on such a prompt pays it.
+        if interaction.response.type not in (
+            discord.InteractionResponseType.message_update,
+            discord.InteractionResponseType.deferred_message_update,
+        ):
+            await self.restore_prompt(interaction.message)
+
+    async def cancel(self, interaction: discord.Interaction) -> None:
+        game = self.prompt_view.cog.games.get(self.prompt_view.game_id)
+        if (
+            interaction.user.id != self.helper_id
+            and not (game is not None and user_may_act_in_game(
+                interaction.user, game,
+            ))
+        ):
+            await interaction.response.send_message(
+                "Only a coach in this game, or a game helper, can cancel "
+                "this.",
+                ephemeral=True,
+            )
+            return
+
+        self.stop()
+        await interaction.response.edit_message(view=self.prompt_view)
+
+    async def on_timeout(self) -> None:
+        await self.restore_prompt(self.message)
+
+    async def restore_prompt(
+        self, message: Optional[discord.Message],
+    ) -> None:
+        try:
+            await message.edit(view=self.prompt_view)
+        except (discord.HTTPException, AttributeError):
+            # An ephemeral prompt cannot be edited through the channel,
+            # and a deleted one is gone; either way the buttons are not
+            # worth more than the turn they sit under.
+            pass
+
