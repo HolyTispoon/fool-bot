@@ -1221,40 +1221,23 @@ def draw_abilities(
         y += 6
 
 
-def render_maneuver_card(
-    catalog: ManeuverCatalog,
-    players: PlayerCatalog,
+CARD_HEADER_HEIGHT = 152
+
+
+def draw_card_header(
+    pen: Pen,
     maneuver: ManeuverDefinition,
     is_offense: bool,
-    bleed: bool,
-) -> Image.Image:
-    # A distinct shade for an advanced card, not a tint of the basic
-    # one -- the two sit side by side in a coach's hand and back to
-    # back in the print run, so they have to read as two cards at a
-    # glance rather than as the same colour under different light. The
-    # "ADVANCED MANEUVER" corner label is the only other thing on the
-    # face that says so; the back cannot, since one back serves both.
-    if maneuver.is_advanced:
-        color = OFFENSE_COLOR_ADVANCED if is_offense else DEFENSE_COLOR_ADVANCED
-    else:
-        color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
-    pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
-
-    # The card is a rounded rectangle on the sheet's white, outlined in
-    # the maneuver's colour: the outline is the card's edge and the cut
-    # line at once.
-    pen.rect(
-        (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
-        radius=CORNER,
-        fill=CARD_FACE,
-        outline=color,
-        width=EDGE_WIDTH,
-    )
-
+    color: str,
+) -> None:
+    """
+    The band across the top of a face: the rank badge, the name fit to
+    the room between it and the tier label, and the tier label itself.
+    """
     # Header: the rank badge and the name, in a band whose top corners
     # follow the card's own.
     header_top = FRAME
-    header_height = 152
+    header_height = CARD_HEADER_HEIGHT
     pen.rect(
         (FRAME, header_top, CARD_WIDTH - FRAME, header_top + header_height),
         radius=CORNER,
@@ -1305,7 +1288,105 @@ def render_maneuver_card(
         )
         title_y += title_step
 
-    strip_top = header_top + header_height + 22
+
+
+def draw_card_effect(
+    pen: Pen,
+    maneuver: ManeuverDefinition,
+    band_top: float,
+    band_bottom: float,
+) -> None:
+    """
+    The effect text, centred in the band between the strip and the
+    matchups, with the time cost pinned under it.
+    """
+    # The effect, centred in what is left, with the time cost pinned
+    # under it -- the clock is part of what the maneuver costs, so it
+    # belongs to the effect rather than to the diagram, where it used
+    # to sit and collide with the board strip.
+    #
+    # **The size is searched, not set.** The effects run from Block
+    # Deflect's twenty words to Double Team's seventy, and the band
+    # they share is whatever the strip, the matchups and the abilities
+    # leave behind -- so a fixed size fits the short cards and runs the
+    # long ones straight over the matchup row. Which it did: Double
+    # Team's paragraph overran three bands at once, silently, because
+    # nothing here measured what it was given. The largest size that
+    # fits is what is drawn, and 17 is the floor rather than a fit,
+    # since a card nobody can read is a different failure from one that
+    # overflows.
+    time_font = font(19, bold=True)
+    time_text = f"TIME · {maneuver.time}"
+    time_width = pen.text_size(time_text, time_font)[0] + 34
+    room = band_bottom - band_top - 16
+
+    for size in range(29, 16, -1):
+        effect_font = font(size)
+        lines = pen.wrapped(
+            maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20
+        )
+        step = line_height(pen, effect_font)
+        block_height = step * len(lines) + 26 + 38
+        if block_height <= room:
+            break
+
+    y = (band_top + band_bottom) / 2 - block_height / 2
+    for line in lines:
+        pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
+        y += step
+
+    y += 26
+    pen.rect(
+        (
+            (CARD_WIDTH - time_width) / 2,
+            y,
+            (CARD_WIDTH + time_width) / 2,
+            y + 38,
+        ),
+        radius=19,
+        fill=PANEL_COLOR,
+        outline=PANEL_EDGE,
+        width=2,
+    )
+    pen.text(
+        (CARD_WIDTH / 2, y + 20), time_text, time_font, MUTED, anchor="mm"
+    )
+
+
+
+def render_maneuver_card(
+    catalog: ManeuverCatalog,
+    players: PlayerCatalog,
+    maneuver: ManeuverDefinition,
+    is_offense: bool,
+    bleed: bool,
+) -> Image.Image:
+    # A distinct shade for an advanced card, not a tint of the basic
+    # one -- the two sit side by side in a coach's hand and back to
+    # back in the print run, so they have to read as two cards at a
+    # glance rather than as the same colour under different light. The
+    # "ADVANCED MANEUVER" corner label is the only other thing on the
+    # face that says so; the back cannot, since one back serves both.
+    if maneuver.is_advanced:
+        color = OFFENSE_COLOR_ADVANCED if is_offense else DEFENSE_COLOR_ADVANCED
+    else:
+        color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
+    pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
+
+    # The card is a rounded rectangle on the sheet's white, outlined in
+    # the maneuver's colour: the outline is the card's edge and the cut
+    # line at once.
+    pen.rect(
+        (FRAME, FRAME, CARD_WIDTH - FRAME, CARD_HEIGHT - FRAME),
+        radius=CORNER,
+        fill=CARD_FACE,
+        outline=color,
+        width=EDGE_WIDTH,
+    )
+
+    draw_card_header(pen, maneuver, is_offense, color)
+
+    strip_top = FRAME + CARD_HEADER_HEIGHT + 22
     strip_height = 288
     draw_strip(pen, maneuver, strip_top, strip_height)
 
@@ -1329,56 +1410,8 @@ def render_maneuver_card(
     )
     draw_abilities(pen, abilities, abilities_top)
 
-    # The effect, centred in what is left, with the time cost pinned
-    # under it -- the clock is part of what the maneuver costs, so it
-    # belongs to the effect rather than to the diagram, where it used
-    # to sit and collide with the board strip.
-    #
-    # **The size is searched, not set.** The effects run from Block
-    # Deflect's twenty words to Double Team's seventy, and the band
-    # they share is whatever the strip, the matchups and the abilities
-    # leave behind -- so a fixed size fits the short cards and runs the
-    # long ones straight over the matchup row. Which it did: Double
-    # Team's paragraph overran three bands at once, silently, because
-    # nothing here measured what it was given. The largest size that
-    # fits is what is drawn, and 17 is the floor rather than a fit,
-    # since a card nobody can read is a different failure from one that
-    # overflows.
-    time_font = font(19, bold=True)
-    time_text = f"TIME · {maneuver.time}"
-    time_width = pen.text_size(time_text, time_font)[0] + 34
-    room = matchup_top - (strip_top + strip_height) - 16
-
-    for size in range(29, 16, -1):
-        effect_font = font(size)
-        lines = pen.wrapped(
-            maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20
-        )
-        step = line_height(pen, effect_font)
-        block_height = step * len(lines) + 26 + 38
-        if block_height <= room:
-            break
-
-    y = (strip_top + strip_height + matchup_top) / 2 - block_height / 2
-    for line in lines:
-        pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
-        y += step
-
-    y += 26
-    pen.rect(
-        (
-            (CARD_WIDTH - time_width) / 2,
-            y,
-            (CARD_WIDTH + time_width) / 2,
-            y + 38,
-        ),
-        radius=19,
-        fill=PANEL_COLOR,
-        outline=PANEL_EDGE,
-        width=2,
-    )
-    pen.text(
-        (CARD_WIDTH / 2, y + 20), time_text, time_font, MUTED, anchor="mm"
+    draw_card_effect(
+        pen, maneuver, strip_top + strip_height, matchup_top,
     )
 
     return pen.finish(bleed, CARD_FACE)
