@@ -211,6 +211,7 @@ class TurnoverMixin:
             self.player_catalog,
             side,
             self.engine.coaching_title(match, side),
+            species_icons=self.engine.species_abilities_apply(game),
         )
         return discord.File(
             io.BytesIO(png.getvalue()),

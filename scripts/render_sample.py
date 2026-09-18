@@ -27,6 +27,7 @@ from d12ball.components import TeamSide  # noqa: E402
 from d12ball.game import (  # noqa: E402
     VALID_BOARD_SIZES,
     Formation,
+    GameMode,
     Team,
     team_display_name,
 )
@@ -64,7 +65,7 @@ def list_games() -> int:
     return 0
 
 
-def match_from_saved_game(game_id: str) -> tuple[MatchState, str]:
+def match_from_saved_game(game_id: str) -> tuple[MatchState, str, bool]:
     games = load_games()
     game = games.get(game_id)
     if game is None:
@@ -77,7 +78,10 @@ def match_from_saved_game(game_id: str) -> tuple[MatchState, str]:
         )
 
     match = MatchState.from_dict(game.match_state, load_basic_ruleset())
-    return match, f"PBD{game.game_number}"
+    # The same reading RulesEngine.species_abilities_apply makes, so a
+    # saved game is drawn exactly as the bot draws it.
+    species_icons = game.mode == GameMode.ADVANCED and game.species_abilities
+    return match, f"PBD{game.game_number}", species_icons
 
 
 def main() -> None:
@@ -137,6 +141,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--basic",
+        action="store_true",
+        help=(
+            "Draw the meeples as a game not playing species abilities "
+            "does -- role initials alone, no species icon. The default "
+            "is the advanced look, since that is the one worth checking; "
+            "a --game is drawn the way its own record says."
+        ),
+    )
+    parser.add_argument(
         "--field",
         action="store_true",
         help=(
@@ -159,7 +173,7 @@ def main() -> None:
     catalog = load_player_catalog()
 
     if arguments.game:
-        match, label = match_from_saved_game(arguments.game)
+        match, label, species_icons = match_from_saved_game(arguments.game)
     else:
         if arguments.home == arguments.visiting:
             raise SystemExit("--home and --visiting must be different teams.")
@@ -179,9 +193,10 @@ def main() -> None:
             # cannot say which, since it depends on --board-size.
             raise SystemExit(str(error)) from error
         label = "Sample"
+        species_icons = not arguments.basic
 
     if arguments.field:
-        image = render_field_image(match, catalog)
+        image = render_field_image(match, catalog, species_icons=species_icons)
     elif arguments.coaching:
         side = TeamSide(arguments.coaching)
         setup = match.setup_for_side(side)
@@ -192,6 +207,7 @@ def main() -> None:
             title=arguments.title or (
                 f"{team_display_name(setup.team)} ({side.value.title()})"
             ),
+            species_icons=species_icons,
         )
     else:
         image = render_match_image(
@@ -202,6 +218,7 @@ def main() -> None:
                 f"{team_display_name(match.visiting.team)}, "
                 f"{period_label(match)}"
             ),
+            species_icons=species_icons,
         )
 
     arguments.out.parent.mkdir(parents=True, exist_ok=True)
