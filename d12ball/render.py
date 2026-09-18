@@ -2171,10 +2171,7 @@ def render_skill_test_dice(
             fill=color,
         )
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 INJURY_TEST_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
@@ -2365,10 +2362,7 @@ def render_injury_test_die(
         fill=verdict_color,
     )
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 MIND_PULL_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
@@ -2608,10 +2602,7 @@ def render_mind_pull_die(
         fill=verdict_color,
     )
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 VOLATILE_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
@@ -2899,10 +2890,7 @@ def render_volatile_die(
         fill=verdict_color,
     )
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 OWN_GOAL_DIE_RADIUS = SKILL_TEST_DIE_RADIUS
@@ -3040,10 +3028,7 @@ def render_own_goal_dice(
         fill=outcome_color,
     )
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 CHALLENGE_TITLE = "MANEUVER CHALLENGE"
@@ -3694,10 +3679,7 @@ def render_matchup(
         defending, layout.defending_lines,
     )
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 def render_maneuver_challenge(
@@ -3852,6 +3834,18 @@ def fit_maneuver_box_text(
         effect_font,
         min_size + 6,
     )
+
+
+def png_bytes(image: Image.Image) -> BytesIO:
+    """
+    An image as the PNG every render hands back, flattened to RGB --
+    Discord shows the alpha channel's transparency as a checkerboard,
+    and nothing here is meant to be see-through.
+    """
+    output = BytesIO()
+    image.convert("RGB").save(output, format="PNG")
+    output.seek(0)
+    return output
 
 
 def draw_centered_text(
@@ -4249,10 +4243,7 @@ def render_maneuver_reference_image(
         draw_reference_rank(draw, catalog, center, basic, is_offense, both_tiers)
     draw_reference_legend(draw, both_tiers)
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 def draw_jumbotron(
@@ -4568,10 +4559,7 @@ def render_coaching_image(
     )
     draw_coaching_benches(canvas, draw, setup, players, catalog, match)
 
-    output = BytesIO()
-    canvas.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas)
 
 
 def draw_coaching_benches(
@@ -4671,10 +4659,7 @@ def render_field_image(
         )
     )
 
-    output = BytesIO()
-    field.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(field)
 
 
 def render_match_image(
@@ -4765,13 +4750,9 @@ def render_match_image(
         match.injured,
     )
 
-    output = BytesIO()
     # BILINEAR here, not LANCZOS: this is a pure 1.5x upscale of an
     # already-antialiased raster (unlike the card build, which downscales
     # from a supersampled source and needs LANCZOS's quality), so the
     # cheaper filter costs no visible sharpness but is significantly
     # faster.
-    enlarged = canvas.resize(OUTPUT_SIZE, Image.Resampling.BILINEAR)
-    enlarged.convert("RGB").save(output, format="PNG")
-    output.seek(0)
-    return output
+    return png_bytes(canvas.resize(OUTPUT_SIZE, Image.Resampling.BILINEAR))
