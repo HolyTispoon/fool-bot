@@ -643,6 +643,321 @@ STRIP_GEOMETRY: dict[str, tuple[int, int]] = {
 }
 
 
+SIDE_COLORS = {"offense": OFFENSE_COLOR, "defense": DEFENSE_COLOR}
+
+# The face a strip token is drawn on, and the space behind it.
+STRIP_SPACE_COLOR = "#f1ebdd"
+
+
+class StripGeometry(NamedTuple):
+    """
+    Every measurement the strip diagram is drawn against, worked out
+    once so the drawing functions read as drawing rather than as
+    arithmetic -- the arrangement `boards.py` makes with its three
+    geometries.
+
+    The strip floats inside its panel rather than sitting on the
+    floor, and where it floats to depends on the maneuver: High Pass's
+    longest arc rises four spaces' worth above the strip and says two
+    lines about its landing, where Steal's one arc barely leaves it.
+    So `strip_top` is set from the tallest arc and the caption rows
+    together, which is why the geometry has to know the moves.
+    """
+
+    left: float
+    right: float
+    space_width: float
+    strip_top: float
+    strip_height: float
+    ball_space: int
+    forward: int
+    spaces: int
+    caption_line: float
+    # The y each caption row starts at, below the strip.
+    row_top: dict[int, float]
+
+    def center(self, index: float) -> tuple[float, float]:
+        """The middle of a space, counted along the strip."""
+        return (
+            self.left + (index + 0.5) * self.space_width,
+            self.strip_top + self.strip_height / 2,
+        )
+
+    def space_center(self, offset: int | float) -> tuple[float, float]:
+        """The middle of the space `offset` along the attack from the ball."""
+        return self.center(self.ball_space + offset * self.forward)
+
+
+def strip_geometry(
+    maneuver: ManeuverDefinition,
+    top: float,
+    height: float,
+) -> StripGeometry:
+    """
+    Where the strip and its captions go for this maneuver's panel.
+
+    How deep the caption block is depends on the maneuver: High Pass
+    says two lines about its 2-space landing and still needs a row
+    below for the Fullback's. The strip floats up to make room rather
+    than the captions being squeezed. The diagram is then centred in
+    the panel, since how tall it is varies a lot and a fixed anchor
+    leaves one card or the other with a band of empty panel.
+    """
+    moves = STRIP_MOVES[maneuver.key]
+    strip_spaces, ball_space = STRIP_GEOMETRY[maneuver.tier]
+    left = MARGIN + 18
+    right = CARD_WIDTH - MARGIN - 18
+    space_width = (right - left) / strip_spaces
+    strip_height = 76
+    caption_line = 25
+
+    rows = sorted({move.caption_row for move in moves})
+    row_lines = {
+        row: max(
+            len(move.label.split("\n"))
+            for move in moves
+            if move.caption_row == row
+        )
+        for row in rows
+    }
+    row_top = {}
+    cursor = 0.0
+    for row in rows:
+        row_top[row] = cursor
+        cursor += row_lines[row] * caption_line
+    label_room = cursor + 12
+
+    tallest = max(arc_rise(move) for move in moves)
+    ink_above = strip_height / 2 - 30 - tallest - 12
+    block = strip_height + label_room - ink_above
+    strip_top = top + 46 + ((height - 54) - block) / 2 - ink_above
+
+    return StripGeometry(
+        left=left,
+        right=right,
+        space_width=space_width,
+        strip_top=strip_top,
+        strip_height=strip_height,
+        ball_space=ball_space,
+        forward=1 if ATTACK_RIGHT else -1,
+        spaces=strip_spaces,
+        caption_line=caption_line,
+        row_top=row_top,
+    )
+
+
+def draw_strip_spaces(pen: Pen, geo: StripGeometry) -> None:
+    for index in range(geo.spaces):
+        space_left = geo.left + index * geo.space_width
+        pen.rect(
+            (
+                space_left + 3,
+                geo.strip_top,
+                space_left + geo.space_width - 3,
+                geo.strip_top + geo.strip_height,
+            ),
+            radius=8,
+            fill=STRIP_SPACE_COLOR,
+            outline=PANEL_EDGE,
+            width=2,
+        )
+
+
+def draw_strip_token(
+    pen: Pen,
+    geo: StripGeometry,
+    index: float,
+    color: str,
+    label: str,
+    ghost: bool = False,
+    offset: float = 0,
+    radius: float = 23,
+) -> None:
+    """A piece on a space: solid where it stands, ghosted where it lands."""
+    cx, cy = geo.center(index)
+    cx += offset
+    if ghost:
+        pen.circle((cx, cy), radius, fill=STRIP_SPACE_COLOR, outline=color, width=3)
+    else:
+        pen.circle((cx, cy), radius, fill=color, outline=STRIP_SPACE_COLOR, width=2)
+    pen.text(
+        (cx, cy + 1),
+        label,
+        font(20, bold=True),
+        color if ghost else "#ffffff",
+        anchor="mm",
+    )
+
+
+def draw_strip_arc(pen: Pen, geo: StripGeometry, move: Move, color: str) -> None:
+    """One move's arc, from the ball's space to where it lands."""
+    x0, y0 = geo.center(geo.ball_space)
+    x1, y1 = geo.space_center(move.offset)
+    x0 += move.start
+    x1 += move.end
+    y0 -= 30
+    y1 -= 30
+    peak = min(y0, y1) - arc_rise(move)
+    steps = 30
+    points = []
+    for step in range(steps + 1):
+        t = step / steps
+        x = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * (x0 + x1) / 2 + t**2 * x1
+        y = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * peak + t**2 * y1
+        points.append((x, y))
+    if move.dashed:
+        for step in range(0, steps - 3, 3):
+            pen.line(points[step : step + 2], fill=color, width=5)
+    else:
+        pen.line(points[:-1], fill=color, width=5)
+    tail, tip = points[-3], points[-1]
+    dx, dy = tip[0] - tail[0], tip[1] - tail[1]
+    length = max((dx * dx + dy * dy) ** 0.5, 0.001)
+    draw_arrowhead(pen, tip, (dx / length, dy / length), 19, color)
+
+
+def draw_strip_caption(
+    pen: Pen,
+    geo: StripGeometry,
+    moves: Sequence[Move],
+    move: Move,
+    color: str,
+) -> None:
+    """
+    Hung under the space the move lands on -- or between two of them,
+    where one caption covers both, as a High Pass's contested 3 and 4
+    do. A second row keeps two captions on neighbouring spaces off each
+    other; a role's variant takes it by default.
+    """
+    cx, _ = geo.space_center(move.caption_space)
+    # How much room this caption has is how far the next caption on
+    # its row is: High Pass lands on consecutive spaces and gets a
+    # space's width each, while a lone caption may run wide.
+    neighbours = [
+        abs(other.caption_space - move.caption_space)
+        for other in moves
+        if other is not move and other.caption_row == move.caption_row
+    ]
+    room = geo.space_width * (min(neighbours) if neighbours else 2.4) - 8
+    lines = move.label.split("\n")
+    for size in range(17, 11, -1):
+        face = font(size, bold=True)
+        width = max(pen.text_size(line, face)[0] for line in lines)
+        if width <= room:
+            break
+    # A caption on the first or last space would otherwise hang off
+    # the panel, so it slides back inside rather than being cut.
+    cx = min(max(cx, geo.left + width / 2), geo.right - width / 2)
+    y = geo.strip_top + geo.strip_height + 8 + geo.row_top[move.caption_row]
+    for line in lines:
+        pen.text((cx, y), line, face, color, anchor="ma")
+        y += geo.caption_line
+
+
+def draw_strip_ghosts(pen: Pen, geo: StripGeometry, index: float, who: str) -> None:
+    """
+    The pieces a space is drawn holding, spread evenly across it. One
+    is centred; two straddle the middle; Double Team's three -- the
+    handler, the challenger and the teammate who joined -- pack tighter
+    still, which is what the shrinking radius is for.
+    """
+    if len(who) == 1:
+        draw_strip_token(
+            pen, geo, index, SIDE_COLORS["offense" if who in "HR" else "defense"],
+            who, ghost=True,
+        )
+        return
+    gap = 38 if len(who) == 2 else 32
+    radius = 20 if len(who) == 2 else 16
+    first = -gap * (len(who) - 1) / 2
+    for position, label in enumerate(who):
+        draw_strip_token(
+            pen,
+            geo,
+            index,
+            SIDE_COLORS["offense" if label in "HR" else "defense"],
+            label,
+            ghost=True,
+            offset=first + gap * position,
+            radius=radius,
+        )
+
+
+def draw_strip_landings(
+    pen: Pen,
+    geo: StripGeometry,
+    moves: Sequence[Move],
+    landings: dict[int, str],
+) -> None:
+    """What each move leaves on the space it lands on, and its caption."""
+    drawn: set[int] = set()
+    for move in moves:
+        who = landings.get(move.offset)
+        if who is not None:
+            # Pressure's two moves land on one space, so its pair of
+            # ghosts is drawn once rather than once per arc.
+            if move.offset not in drawn:
+                draw_strip_ghosts(
+                    pen, geo, geo.ball_space + move.offset * geo.forward, who,
+                )
+                drawn.add(move.offset)
+        else:
+            # Nothing lands here but the ball, so the space carries how
+            # far it came instead -- the distance is the choice on a
+            # High Pass and the ability on a Deflect.
+            cx, cy = geo.space_center(move.offset)
+            pen.text(
+                (cx, cy + 1),
+                str(abs(move.offset)),
+                font(30, bold=True),
+                PANEL_EDGE,
+                anchor="mm",
+            )
+        draw_strip_caption(pen, geo, moves, move, SIDE_COLORS[move.side])
+
+
+def draw_strip_ball_space(pen: Pen, geo: StripGeometry, standing: str) -> None:
+    """
+    The ball's own space, drawn last so its tokens sit over the arcs
+    that leave it. Pressure is the one maneuver with both players on it.
+    """
+    here = geo.ball_space
+    if standing == "HC":
+        draw_strip_token(pen, geo, here, SIDE_COLORS["offense"], "H", offset=-19, radius=20)
+        draw_strip_token(pen, geo, here, SIDE_COLORS["defense"], "C", offset=19, radius=20)
+        # On the handler's outside shoulder: between the two tokens the
+        # ball would read as the challenger's, and it is not until the
+        # steal resolves.
+        ball_x, ball_y = geo.center(here)
+        ball_x -= 36
+    else:
+        draw_strip_token(
+            pen, geo, here,
+            SIDE_COLORS["offense" if standing == "H" else "defense"], standing,
+        )
+        ball_x, ball_y = geo.center(here)
+        ball_x += 17
+    pen.circle((ball_x, ball_y - 19), 12, fill=INK)
+    pen.circle((ball_x, ball_y - 19), 12, outline=STRIP_SPACE_COLOR, width=2)
+
+
+def draw_strip_legend(pen: Pen, geo: StripGeometry, top: float) -> None:
+    pen.text(
+        (geo.right, top + 16),
+        f"offense attacks {'→' if ATTACK_RIGHT else '←'}",
+        font(16),
+        MUTED,
+        anchor="ra",
+    )
+    pen.text(
+        (geo.left, top + 16),
+        "H handler   C challenger",
+        font(16),
+        MUTED,
+        anchor="la",
+    )
+
+
 def draw_strip(
     pen: Pen,
     maneuver: ManeuverDefinition,
@@ -661,8 +976,6 @@ def draw_strip(
     each other; hung off the destination they cannot collide, because
     no two of a maneuver's moves land on the same space.
     """
-    left = MARGIN + 18
-    right = CARD_WIDTH - MARGIN - 18
     pen.rect(
         (MARGIN, top, CARD_WIDTH - MARGIN, top + height),
         radius=18,
@@ -670,227 +983,16 @@ def draw_strip(
         outline=PANEL_EDGE,
         width=2,
     )
-
     moves = STRIP_MOVES[maneuver.key]
     standing, landings = STRIP_ACTORS[maneuver.key]
-    strip_spaces, ball_space = STRIP_GEOMETRY[maneuver.tier]
+    geo = strip_geometry(maneuver, top, height)
 
-    space_width = (right - left) / strip_spaces
-    strip_height = 76
-    # How deep the caption block is depends on the maneuver: High Pass
-    # says two lines about its 2-space landing and still needs a row
-    # below for the Fullback's. The strip floats up to make room rather
-    # than the captions being squeezed.
-    caption_line = 25
-    rows = sorted({move.caption_row for move in moves})
-    row_lines = {
-        row: max(
-            len(move.label.split("\n"))
-            for move in moves
-            if move.caption_row == row
-        )
-        for row in rows
-    }
-    row_top = {}
-    cursor = 0.0
-    for row in rows:
-        row_top[row] = cursor
-        cursor += row_lines[row] * caption_line
-    label_room = cursor + 12
-
-    # The diagram is centred in the panel rather than sitting on its
-    # floor. How tall it is varies a lot -- High Pass's longest arc
-    # rises four spaces' worth above the strip and Steal Intercept's
-    # one arc barely leaves it -- so a fixed anchor leaves one card or
-    # the other with a band of empty panel.
-    tallest = max(arc_rise(move) for move in moves)
-    ink_above = strip_height / 2 - 30 - tallest - 12
-    block = strip_height + label_room - ink_above
-    strip_top = top + 46 + ((height - 54) - block) / 2 - ink_above
-    for index in range(strip_spaces):
-        space_left = left + index * space_width
-        pen.rect(
-            (
-                space_left + 3,
-                strip_top,
-                space_left + space_width - 3,
-                strip_top + strip_height,
-            ),
-            radius=8,
-            fill="#f1ebdd",
-            outline=PANEL_EDGE,
-            width=2,
-        )
-
-    colors = {"offense": OFFENSE_COLOR, "defense": DEFENSE_COLOR}
-    forward = 1 if ATTACK_RIGHT else -1
-    here = ball_space
-
-    def center(index: float) -> tuple[float, float]:
-        return (
-            left + (index + 0.5) * space_width,
-            strip_top + strip_height / 2,
-        )
-
-    def token(
-        index: int,
-        color: str,
-        label: str,
-        ghost: bool = False,
-        offset: float = 0,
-        radius: float = 23,
-    ) -> None:
-        cx, cy = center(index)
-        cx += offset
-        if ghost:
-            pen.circle((cx, cy), radius, fill="#f1ebdd", outline=color, width=3)
-        else:
-            pen.circle((cx, cy), radius, fill=color, outline="#f1ebdd", width=2)
-        pen.text(
-            (cx, cy + 1),
-            label,
-            font(20, bold=True),
-            color if ghost else "#ffffff",
-            anchor="mm",
-        )
-
-    def arc(move: Move, color: str) -> None:
-        x0, y0 = center(here)
-        x1, y1 = center(here + move.offset * forward)
-        x0 += move.start
-        x1 += move.end
-        y0 -= 30
-        y1 -= 30
-        peak = min(y0, y1) - arc_rise(move)
-        steps = 30
-        points = []
-        for step in range(steps + 1):
-            t = step / steps
-            x = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * (x0 + x1) / 2 + t**2 * x1
-            y = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * peak + t**2 * y1
-            points.append((x, y))
-        if move.dashed:
-            for step in range(0, steps - 3, 3):
-                pen.line(points[step : step + 2], fill=color, width=5)
-        else:
-            pen.line(points[:-1], fill=color, width=5)
-        tail, tip = points[-3], points[-1]
-        dx, dy = tip[0] - tail[0], tip[1] - tail[1]
-        length = max((dx * dx + dy * dy) ** 0.5, 0.001)
-        draw_arrowhead(pen, tip, (dx / length, dy / length), 19, color)
-
-    def caption(move: Move, color: str) -> None:
-        """
-        Hung under the space the move lands on -- or between two of
-        them, where one caption covers both, as a High Pass's contested
-        3 and 4 do. A second row keeps two captions on neighbouring
-        spaces off each other; a role's variant takes it by default.
-        """
-        cx, _ = center(here + move.caption_space * forward)
-        # How much room this caption has is how far the next caption on
-        # its row is: High Pass lands on consecutive spaces and gets a
-        # space's width each, while a lone caption may run wide.
-        neighbours = [
-            abs(other.caption_space - move.caption_space)
-            for other in moves
-            if other is not move and other.caption_row == move.caption_row
-        ]
-        room = space_width * (min(neighbours) if neighbours else 2.4) - 8
-        lines = move.label.split("\n")
-        for size in range(17, 11, -1):
-            face = font(size, bold=True)
-            width = max(pen.text_size(line, face)[0] for line in lines)
-            if width <= room:
-                break
-        # A caption on the first or last space would otherwise hang off
-        # the panel, so it slides back inside rather than being cut.
-        cx = min(max(cx, left + width / 2), right - width / 2)
-        y = strip_top + strip_height + 8 + row_top[move.caption_row]
-        for line in lines:
-            pen.text((cx, y), line, face, color, anchor="ma")
-            y += caption_line
-
-    def ghosts(index: float, who: str) -> None:
-        """
-        The pieces a space is drawn holding, spread evenly across it.
-        One is centred; two straddle the middle; Double Team's three --
-        the handler, the challenger and the teammate who joined -- pack
-        tighter still, which is what the shrinking radius is for.
-        """
-        if len(who) == 1:
-            token(index, colors["offense" if who in "HR" else "defense"], who,
-                  ghost=True)
-            return
-        gap = 38 if len(who) == 2 else 32
-        radius = 20 if len(who) == 2 else 16
-        first = -gap * (len(who) - 1) / 2
-        for position, label in enumerate(who):
-            token(
-                index,
-                colors["offense" if label in "HR" else "defense"],
-                label,
-                ghost=True,
-                offset=first + gap * position,
-                radius=radius,
-            )
-
+    draw_strip_spaces(pen, geo)
     for move in moves:
-        arc(move, colors[move.side])
-
-    drawn: set[int] = set()
-    for move in moves:
-        who = landings.get(move.offset)
-        if who is not None:
-            # Pressure's two moves land on one space, so its pair of
-            # ghosts is drawn once rather than once per arc.
-            if move.offset not in drawn:
-                ghosts(here + move.offset * forward, who)
-                drawn.add(move.offset)
-        else:
-            # Nothing lands here but the ball, so the space carries how
-            # far it came instead -- the distance is the choice on a
-            # High Pass and the ability on a Deflect.
-            cx, cy = center(here + move.offset * forward)
-            pen.text(
-                (cx, cy + 1),
-                str(abs(move.offset)),
-                font(30, bold=True),
-                PANEL_EDGE,
-                anchor="mm",
-            )
-        caption(move, colors[move.side])
-
-    # The ball's own space last, so its tokens sit over the arcs that
-    # leave it. Pressure is the one maneuver with both players on it.
-    if standing == "HC":
-        token(here, colors["offense"], "H", offset=-19, radius=20)
-        token(here, colors["defense"], "C", offset=19, radius=20)
-        # On the handler's outside shoulder: between the two tokens the
-        # ball would read as the challenger's, and it is not until the
-        # steal resolves.
-        ball_x, ball_y = center(here)
-        ball_x -= 36
-    else:
-        token(here, colors["offense" if standing == "H" else "defense"], standing)
-        ball_x, ball_y = center(here)
-        ball_x += 17
-    pen.circle((ball_x, ball_y - 19), 12, fill=INK)
-    pen.circle((ball_x, ball_y - 19), 12, outline="#f1ebdd", width=2)
-
-    pen.text(
-        (right, top + 16),
-        f"offense attacks {'→' if ATTACK_RIGHT else '←'}",
-        font(16),
-        MUTED,
-        anchor="ra",
-    )
-    pen.text(
-        (left, top + 16),
-        "H handler   C challenger",
-        font(16),
-        MUTED,
-        anchor="la",
-    )
+        draw_strip_arc(pen, geo, move, SIDE_COLORS[move.side])
+    draw_strip_landings(pen, geo, moves, landings)
+    draw_strip_ball_space(pen, geo, standing)
+    draw_strip_legend(pen, geo, top)
 
 
 def matchup_rank_groups(
@@ -1908,9 +2010,8 @@ def render_maneuver_hands(
     blocks = [
         hand_card_rows(catalog, players, side, tiers) for side in sides
     ]
-    colours = {"offense": OFFENSE_COLOR, "defense": DEFENSE_COLOR}
     headings: list[Optional[tuple[str, str]]] = [
-        (HAND_HEADINGS[side], colours[side]) for side in sides
+        (HAND_HEADINGS[side], SIDE_COLORS[side]) for side in sides
     ]
     if len(sides) < 2 and MANEUVER_TIER_ADVANCED not in tiers:
         # The back rides on the end of the hand's own row rather than
