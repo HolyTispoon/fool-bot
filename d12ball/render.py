@@ -3397,6 +3397,245 @@ def draw_contribution_bands(
         )
 
 
+def portrait_row_width(sides: list[ChallengeSide]) -> int:
+    """How wide a group's portraits are, laid side by side."""
+    return (
+        len(sides) * CHALLENGE_PORTRAIT_SIZE
+        + max(len(sides) - 1, 0) * CHALLENGE_PORTRAIT_SPACING
+    )
+
+
+def matchup_group_width(
+    measure: ImageDraw.ImageDraw,
+    sides: list[ChallengeSide],
+    note: str,
+    ability: bool,
+) -> int:
+    """
+    Wide enough for the portraits, and for the text up to the point
+    where wrapping it is better than growing.
+    """
+    portraits = portrait_row_width(sides)
+    # The ability is left out of this: it is a sentence, and sizing
+    # a group to fit one on a line would make the image unreadably
+    # wide. It wraps to whatever the rest of the group settles on.
+    texts = [
+        (text, font)
+        for text, _, font, _ in group_text_lines(sides, False)
+    ]
+    if not sides and note:
+        texts = [(note, FONT_CHALLENGE_BODY)]
+    text_width = max(
+        (measure.textlength(text, font=font) for text, font in texts),
+        default=0,
+    )
+    # The sum is the one line that must not wrap: a total broken
+    # over two lines, with the number stranded on the second, is
+    # unreadable however wide the alternative makes the image. So
+    # it sets a floor the maximum width does not get to override.
+    sum_width = max(
+        (
+            measure.textlength(text, font=font)
+            for text, font in texts
+            if font is FONT_CHALLENGE_TOTAL
+        ),
+        default=0,
+    )
+    wanted = max(
+        portraits,
+        text_width + CHALLENGE_TEXT_PADDING * 2,
+    )
+    if ability:
+        # A group carrying an ability holds a minimum width, so a
+        # sentence under one short name doesn't wrap into a narrow
+        # column. A group without one is as narrow as its own
+        # content allows, which is what packs a wall of defenders
+        # together instead of spreading them over a fixed grid.
+        wanted = max(wanted, CHALLENGE_MIN_GROUP_WIDTH)
+    return round(
+        max(
+            min(wanted, CHALLENGE_MAX_GROUP_WIDTH),
+            portraits + CHALLENGE_TEXT_PADDING * 2,
+            sum_width + CHALLENGE_TEXT_PADDING * 2,
+        )
+    )
+
+
+def matchup_group_lines(
+    measure: ImageDraw.ImageDraw,
+    sides: list[ChallengeSide],
+    note: str,
+    ability: bool,
+    width: int,
+) -> list[tuple[str, str, ImageFont.ImageFont, int]]:
+    """A group's text, wrapped to the width the group settled on."""
+    if not sides:
+        return (
+            [(note, CHALLENGE_SKILL_COLOR, FONT_CHALLENGE_BODY, CHALLENGE_LINE_HEIGHT)]
+            if note
+            else []
+        )
+    lines = []
+    for text, color, font, line_height in group_text_lines(sides, ability):
+        if not text:
+            lines.append((text, color, font, line_height))
+            continue
+        for piece in wrap_text(
+            measure, text, font, width - CHALLENGE_TEXT_PADDING * 2,
+        ):
+            lines.append((piece, color, font, line_height))
+    return lines
+
+
+@dataclass(frozen=True)
+class MatchupLayout:
+    """
+    Every measurement a matchup image is drawn against, settled before
+    the canvas exists -- its width is content, not a canvas, so the
+    groups have to be measured before there is anything to draw on.
+    """
+
+    attacking_width: int
+    defending_width: int
+    attacking_lines: list[tuple[str, str, ImageFont.ImageFont, int]]
+    defending_lines: list[tuple[str, str, ImageFont.ImageFont, int]]
+    portrait_top: float
+    text_top: float
+    width: int
+    height: int
+
+    @property
+    def defending_left(self) -> int:
+        return self.attacking_width + CHALLENGE_GUTTER
+
+
+def matchup_layout(
+    attacking: list[ChallengeSide],
+    defending: list[ChallengeSide],
+    defending_note: str,
+    attacking_abilities: bool,
+    defending_abilities: bool,
+) -> MatchupLayout:
+    # Measured on a throwaway canvas: how wide each group wants to be,
+    # and how many lines its text wraps to at that width, decide the
+    # size of the real one.
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+
+    attacking_width = matchup_group_width(
+        measure, attacking, "", attacking_abilities,
+    )
+    defending_width = matchup_group_width(
+        measure, defending, defending_note, defending_abilities,
+    )
+    attacking_lines = matchup_group_lines(
+        measure, attacking, "", attacking_abilities, attacking_width,
+    )
+    defending_lines = matchup_group_lines(
+        measure, defending, defending_note, defending_abilities, defending_width,
+    )
+
+    # Badges and their band labels are drawn around the portraits, so
+    # an image carrying them starts its portrait row lower and its text
+    # lower again. Both groups move together: the two rows of portraits
+    # are read as one line and the "vs" sits between them.
+    banded = any(
+        side.contribution is not None for side in attacking + defending
+    )
+    portrait_top = CHALLENGE_PORTRAIT_TOP + (CHALLENGE_BAND_GAP if banded else 0)
+    text_top = (
+        portrait_top
+        + CHALLENGE_PORTRAIT_SIZE
+        + CHALLENGE_PORTRAIT_GAP
+        + (CHALLENGE_BADGE_NOTE_GAP if banded else 0)
+    )
+    body_bottom = text_top + max(
+        sum(line_height for _, _, _, line_height in lines)
+        for lines in (attacking_lines, defending_lines)
+    )
+    return MatchupLayout(
+        attacking_width=attacking_width,
+        defending_width=defending_width,
+        attacking_lines=attacking_lines,
+        defending_lines=defending_lines,
+        portrait_top=portrait_top,
+        text_top=text_top,
+        width=attacking_width + CHALLENGE_GUTTER + defending_width,
+        height=round(body_bottom + CHALLENGE_BOTTOM_PADDING),
+    )
+
+
+def draw_matchup_heading(
+    draw: ImageDraw.ImageDraw,
+    layout: MatchupLayout,
+    title: str,
+    location: str,
+) -> None:
+    """The title, the space it is happening on, and the "vs" between the groups."""
+    draw_centered_text(
+        draw, layout.width / 2, CHALLENGE_TITLE_TOP, title, FONT_CHALLENGE_TITLE, "#ffffff",
+    )
+    draw_centered_text(
+        draw, layout.width / 2, CHALLENGE_LOCATION_TOP, location, FONT_CHALLENGE_BODY,
+        CHALLENGE_SKILL_COLOR,
+    )
+    draw_centered_text(
+        draw,
+        layout.attacking_width + CHALLENGE_GUTTER / 2,
+        layout.portrait_top + CHALLENGE_PORTRAIT_SIZE / 2 - 14,
+        CHALLENGE_VERSUS_TEXT,
+        FONT_CHALLENGE_TITLE,
+        CHALLENGE_VERSUS_COLOR,
+    )
+
+
+def draw_matchup_group(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    layout: MatchupLayout,
+    left: int,
+    group_width_px: int,
+    sides: list[ChallengeSide],
+    lines: list[tuple[str, str, ImageFont.ImageFont, int]],
+) -> None:
+    """One side of the matchup: its portraits in a row, and its text under them."""
+    center_x = left + group_width_px / 2
+    portrait_x = center_x - portrait_row_width(sides) / 2
+    placed: list[tuple[ChallengeSide, float]] = []
+    for side in sides:
+        placed.append((side, portrait_x))
+        portrait = load_player_portrait(side.name)
+        if portrait is not None:
+            sized = portrait.copy()
+            sized.thumbnail(
+                (CHALLENGE_PORTRAIT_SIZE, CHALLENGE_PORTRAIT_SIZE),
+                Image.Resampling.LANCZOS,
+            )
+            canvas.alpha_composite(
+                sized,
+                (
+                    round(
+                        portrait_x
+                        + (CHALLENGE_PORTRAIT_SIZE - sized.width) / 2
+                    ),
+                    round(
+                        layout.portrait_top
+                        + (CHALLENGE_PORTRAIT_SIZE - sized.height) / 2
+                    ),
+                ),
+            )
+        portrait_x += CHALLENGE_PORTRAIT_SIZE + CHALLENGE_PORTRAIT_SPACING
+
+    for side, x in placed:
+        if side.contribution is not None:
+            draw_contribution_badge(canvas, draw, x, layout.portrait_top, side)
+    draw_contribution_bands(draw, placed, layout.portrait_top - CHALLENGE_BAND_GAP)
+
+    y = layout.text_top
+    for text, color, font, line_height in lines:
+        draw_centered_text(draw, center_x, y, text, font, color)
+        y += line_height
+
+
 def render_matchup(
     title: str,
     location: str,
@@ -3438,192 +3677,21 @@ def render_matchup(
     other side's skills and abilities, which the board shows only as
     numbers on a card too small to read the ability off.
     """
-    # Measured on a throwaway canvas: how wide each group wants to be,
-    # and how many lines its text wraps to at that width, decide the
-    # size of the real one.
-    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
-
-    def group_width(sides: list[ChallengeSide], note: str, ability: bool) -> int:
-        """
-        Wide enough for the portraits, and for the text up to the point
-        where wrapping it is better than growing.
-        """
-        portraits = (
-            len(sides) * CHALLENGE_PORTRAIT_SIZE
-            + max(len(sides) - 1, 0) * CHALLENGE_PORTRAIT_SPACING
-        )
-        # The ability is left out of this: it is a sentence, and sizing
-        # a group to fit one on a line would make the image unreadably
-        # wide. It wraps to whatever the rest of the group settles on.
-        texts = [
-            (text, font)
-            for text, _, font, _ in group_text_lines(sides, False)
-        ]
-        if not sides and note:
-            texts = [(note, FONT_CHALLENGE_BODY)]
-        text_width = max(
-            (measure.textlength(text, font=font) for text, font in texts),
-            default=0,
-        )
-        # The sum is the one line that must not wrap: a total broken
-        # over two lines, with the number stranded on the second, is
-        # unreadable however wide the alternative makes the image. So
-        # it sets a floor the maximum width does not get to override.
-        sum_width = max(
-            (
-                measure.textlength(text, font=font)
-                for text, font in texts
-                if font is FONT_CHALLENGE_TOTAL
-            ),
-            default=0,
-        )
-        wanted = max(
-            portraits,
-            text_width + CHALLENGE_TEXT_PADDING * 2,
-        )
-        if ability:
-            # A group carrying an ability holds a minimum width, so a
-            # sentence under one short name doesn't wrap into a narrow
-            # column. A group without one is as narrow as its own
-            # content allows, which is what packs a wall of defenders
-            # together instead of spreading them over a fixed grid.
-            wanted = max(wanted, CHALLENGE_MIN_GROUP_WIDTH)
-        return round(
-            max(
-                min(wanted, CHALLENGE_MAX_GROUP_WIDTH),
-                portraits + CHALLENGE_TEXT_PADDING * 2,
-                sum_width + CHALLENGE_TEXT_PADDING * 2,
-            )
-        )
-
-    attacking_width = group_width(attacking, "", attacking_abilities)
-    defending_width = group_width(
-        defending, defending_note, defending_abilities,
+    layout = matchup_layout(
+        attacking, defending, defending_note,
+        attacking_abilities, defending_abilities,
     )
-
-    def wrapped(
-        sides: list[ChallengeSide],
-        note: str,
-        ability: bool,
-        width: int,
-    ) -> list[tuple[str, str, ImageFont.ImageFont, int]]:
-        if not sides:
-            return (
-                [(note, CHALLENGE_SKILL_COLOR, FONT_CHALLENGE_BODY, CHALLENGE_LINE_HEIGHT)]
-                if note
-                else []
-            )
-        lines = []
-        for text, color, font, line_height in group_text_lines(sides, ability):
-            if not text:
-                lines.append((text, color, font, line_height))
-                continue
-            for piece in wrap_text(
-                measure, text, font, width - CHALLENGE_TEXT_PADDING * 2,
-            ):
-                lines.append((piece, color, font, line_height))
-        return lines
-
-    attacking_lines = wrapped(
-        attacking, "", attacking_abilities, attacking_width,
-    )
-    defending_lines = wrapped(
-        defending, defending_note, defending_abilities, defending_width,
-    )
-
-    # Badges and their band labels are drawn around the portraits, so
-    # an image carrying them starts its portrait row lower and its text
-    # lower again. Both groups move together: the two rows of portraits
-    # are read as one line and the "vs" sits between them.
-    banded = any(
-        side.contribution is not None for side in attacking + defending
-    )
-    portrait_top = CHALLENGE_PORTRAIT_TOP + (CHALLENGE_BAND_GAP if banded else 0)
-    text_top = (
-        portrait_top
-        + CHALLENGE_PORTRAIT_SIZE
-        + CHALLENGE_PORTRAIT_GAP
-        + (CHALLENGE_BADGE_NOTE_GAP if banded else 0)
-    )
-    body_bottom = text_top + max(
-        sum(line_height for _, _, _, line_height in lines)
-        for lines in (attacking_lines, defending_lines)
-    )
-    height = round(body_bottom + CHALLENGE_BOTTOM_PADDING)
-    width = attacking_width + CHALLENGE_GUTTER + defending_width
-
-    canvas = Image.new("RGBA", (width, height), "#111820")
+    canvas = Image.new("RGBA", (layout.width, layout.height), "#111820")
     draw = ImageDraw.Draw(canvas)
 
-    draw_centered_text(
-        draw, width / 2, CHALLENGE_TITLE_TOP, title, FONT_CHALLENGE_TITLE, "#ffffff",
+    draw_matchup_heading(draw, layout, title, location)
+    draw_matchup_group(
+        canvas, draw, layout, 0, layout.attacking_width,
+        attacking, layout.attacking_lines,
     )
-    draw_centered_text(
-        draw, width / 2, CHALLENGE_LOCATION_TOP, location, FONT_CHALLENGE_BODY,
-        CHALLENGE_SKILL_COLOR,
-    )
-    draw_centered_text(
-        draw,
-        attacking_width + CHALLENGE_GUTTER / 2,
-        portrait_top + CHALLENGE_PORTRAIT_SIZE / 2 - 14,
-        CHALLENGE_VERSUS_TEXT,
-        FONT_CHALLENGE_TITLE,
-        CHALLENGE_VERSUS_COLOR,
-    )
-
-    def draw_group(
-        left: int,
-        group_width_px: int,
-        sides: list[ChallengeSide],
-        lines: list[tuple[str, str, ImageFont.ImageFont, int]],
-    ) -> None:
-        center_x = left + group_width_px / 2
-        strip = (
-            len(sides) * CHALLENGE_PORTRAIT_SIZE
-            + max(len(sides) - 1, 0) * CHALLENGE_PORTRAIT_SPACING
-        )
-        portrait_x = center_x - strip / 2
-        placed: list[tuple[ChallengeSide, float]] = []
-        for side in sides:
-            placed.append((side, portrait_x))
-            portrait = load_player_portrait(side.name)
-            if portrait is not None:
-                sized = portrait.copy()
-                sized.thumbnail(
-                    (CHALLENGE_PORTRAIT_SIZE, CHALLENGE_PORTRAIT_SIZE),
-                    Image.Resampling.LANCZOS,
-                )
-                canvas.alpha_composite(
-                    sized,
-                    (
-                        round(
-                            portrait_x
-                            + (CHALLENGE_PORTRAIT_SIZE - sized.width) / 2
-                        ),
-                        round(
-                            portrait_top
-                            + (CHALLENGE_PORTRAIT_SIZE - sized.height) / 2
-                        ),
-                    ),
-                )
-            portrait_x += CHALLENGE_PORTRAIT_SIZE + CHALLENGE_PORTRAIT_SPACING
-
-        for side, x in placed:
-            if side.contribution is not None:
-                draw_contribution_badge(canvas, draw, x, portrait_top, side)
-        draw_contribution_bands(draw, placed, portrait_top - CHALLENGE_BAND_GAP)
-
-        y = text_top
-        for text, color, font, line_height in lines:
-            draw_centered_text(draw, center_x, y, text, font, color)
-            y += line_height
-
-    draw_group(0, attacking_width, attacking, attacking_lines)
-    draw_group(
-        attacking_width + CHALLENGE_GUTTER,
-        defending_width,
-        defending,
-        defending_lines,
+    draw_matchup_group(
+        canvas, draw, layout, layout.defending_left, layout.defending_width,
+        defending, layout.defending_lines,
     )
 
     output = BytesIO()
