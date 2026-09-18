@@ -79,6 +79,25 @@ already *mutate -> word it -> refresh the image -> dispatch the next step*,
 and only the last two of those four are Discord's. This plan finishes a
 split the code has already begun rather than starting a new one.
 
+**Five of the thirteen save themselves, and that is the one thing a step may
+not do** (principle 9). Every mutator on the list does it -- `send_low_pass`
+(`effects.py:195`), `throw_high_pass` (`:927`), `knock_ball_back` (`:2293`),
+`take_ball_by_steal` (`:2546`) and `apply_own_goal_outcome` (`:3248`) each
+call `self.persist(game, match)` in their own body. So they are on the
+model's side in everything but their address *and* their save, and lifting
+one means stripping the persist out of it first.
+
+**That is not a free deletion, because the wrapper is not currently saving
+either.** `apply_low_pass` never persists: it relies on `send_low_pass`
+having done so before `finish_maneuver_resolution` or
+`offer_scoring_attempt_choice` run. Strip the step's save and add none to
+the wrapper, and the match reaches the spine unsaved -- and a spine step that
+ends in a prompt hands the turn to a click that reloads the match out of the
+save file. That is the beat-1 event-log bug CLAUDE.md already records,
+reintroduced by the refactor meant to fix it. So the persist moves rather
+than being removed: see the wrapper in
+[Phase 2](#phase-2----stepresult-on-one-vertical-slice).
+
 A fourteenth sync function in that file, `build_loose_ball_view`, is **not**
 one of them: it constructs a `discord.ui.View` and stays where it is. It is
 named here because it looks like the others in a listing and is not, and
@@ -182,6 +201,13 @@ against.
    driver saves once, after it. This is the one place the refactor makes
    the bot *better* rather than only more portable, so it should be
    reviewed on its own merits.
+   - **Until Phase 6, the cog wrapper holds that save.** A step lifted in
+     Phases 2-5 stops persisting and the spine below it is still the cog's,
+     so the wrapper persists immediately after the step and before
+     dispatching what comes next; Phase 6 is what collapses those calls into
+     the driver. See
+     [Phase 2](#phase-2----stepresult-on-one-vertical-slice) -- the
+     transition is where the bug this principle fixes can be reintroduced.
    - **It does not touch the other 52.** `cogs/` calls `save_games(...)`
      at 53 sites; one of those is inside `persist` itself and the other 52
      save the *game record* alone -- a message id, a status, a tutorial
@@ -308,7 +334,7 @@ match.*                                        the bulk
 engine.{settled_maneuver_winner,
         next_run_back_step, halftime_stage,
         get_player_definition}                 pure already
-player_label                                   Discord-free underneath
+player_label                                   see below -- one decision owed
 self.games[game_id]                            becomes a `game` parameter
 build_{run_back,loose_ball,effect_choice}_view the only Discord-shaped bits
 ```
@@ -323,6 +349,43 @@ each is *already* a pure decision over match state that happens to end in a
   `loose_ball_side_on_the_clock` / `loose_ball_prompt_side`.
 - `build_effect_choice_view` -> the effect prompts, off
   `pending_effect_continuation` and `resolving_maneuver`.
+
+### The prerequisite: where a fetched emoji dict lives
+
+`player_label` is **not** Discord-free as its signature stands.
+`format_role_bracket` underneath it is, but `D12Ball.player_label` reads
+`self.team_emojis`, and that dict lives on the cog alone -- so
+`pending_prompt(engine, game, match)` as specified cannot word the two
+branches that use it (`core.py:1690` and `:1703`, the Mind Pull and
+injury-test `ask` lines).
+
+**The codebase currently answers "where does a fetched emoji dict live" two
+different ways.** `role_emojis` sits on the `RulesEngine` with a cog
+property over it (`engine.py:270`), because `cog_load` *replaces* the dict
+and a reference handed over at construction would go stale. `team_emojis`
+is threaded through as a parameter instead -- `build_turn_prompt` and
+`build_loose_ball_prompt` both take it -- on the reasoning that the engine
+is read-only once built.
+
+**Decide it once, here: `team_emojis` joins `role_emojis` on the engine**,
+in exactly that shape -- the engine owns the dict and `D12Ball.team_emojis`
+becomes a property whose setter assigns to `engine.team_emojis`, so
+`cog_load`'s existing `self.team_emojis = await load_team_emojis(...)`
+rebinds the engine's own attribute and there is only ever one dict. Two
+reasons. The parameter reasoning was already overturned by `role_emojis`:
+the engine holding a string-per-team dict needs no discord.py, and what it
+still cannot do is *fetch* one. And Phase 1 hits this on its first `ask`
+line while every narration step in Phases 2-5 hits it again, so the
+alternative is the same ad-hoc decision made five times. The two
+both-sides autocompletes stay as they are; they are plain text and can
+render no emoji either way.
+
+**So `player_label` crossing the seam is a Phase 1 prerequisite, not a
+consequence of it** -- it is an unlisted step that has to land before
+anything with a player's name in it can be lifted. It becomes
+`RulesEngine.format_roster_player_for_message`'s shape: engine-side, reading
+both dicts off the engine, with `D12Ball.player_label` left as the
+forwarding method so no call site moves.
 
 Each returns `None` today and falls back to `PlayerActionView`; that becomes
 `PromptKind.PLAYER_ACTION`, and the fallback stays exactly as deliberate as
@@ -342,6 +405,10 @@ that must not drift.
 `build_loose_ball_view` 21. What is left behind in the cog is a mapping
 table of 26 entries and the `View` constructors they name -- call it 150
 lines, which is the one number here that is a guess.
+
+**The emoji prerequisite above is not in that 405.** It is a small,
+separable change -- one dict moved, one property added, two engine builders
+losing a parameter -- and it lands first, on its own.
 
 ### Test stop -- and this is a real one
 
@@ -430,8 +497,22 @@ Prove the write-side seam on one maneuver before committing to twelve.
 
 - Move **Low Pass** and nothing else: `send_low_pass` (already sync) plus
   the wording, into `d12ball/flow/effects.py` as a sync function returning
-  `StepResult`. `apply_low_pass` in the cog becomes: call it, post the
-  narration, refresh if `board_changed`, dispatch `next`.
+  `StepResult`, with the `self.persist(game, match)` currently inside it
+  stripped out. `apply_low_pass` in the cog becomes: call it, **persist**,
+  post the narration, refresh if `board_changed`, dispatch `next`.
+
+**The persist is in that list on purpose, and it is the transition rule for
+every phase up to the last.** Through Phases 2-5 the cog wrapper saves
+immediately after the step and before dispatching `next`; Phase 6 collapses
+those wrapper calls into the one in the driver. Principle 9 is right about
+the destination and says nothing about the way there, and the way there is
+where this can break: a lifted step no longer saves, the spine underneath it
+is still the cog's, and a spine step ending in a prompt hands the turn to a
+click that reloads the match from the file. Drop the persist at this stage
+and Low Pass's own events are gone by the next interaction -- which is the
+bug principle 9 exists to fix, reproduced by the move that was meant to fix
+it. The same applies to the four other self-saving steps as Phase 3 lifts
+them.
 
 Low Pass is the right slice because it is mid-sized (96 lines, 4 awaits), it
 has a role-ability branch (the Winger's set-up) so it is not a toy, and it
