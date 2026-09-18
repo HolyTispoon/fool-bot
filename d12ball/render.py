@@ -122,7 +122,7 @@ JUMBOTRON_RIGHT = FIELD_FAR_RIGHT
 #
 # The width still has to fit a stack. The widest case is board 6's
 # two-space midfield holding three cards under 2-3-1 or 1-3-2, which
-# is two meeples on one space -- 115px into a 200px space. Every other
+# is two meeples on one space -- 155px into a 200px space. Every other
 # board and shape puts one card a space, and board 9's spaces are the
 # narrowest at 133px. So one MEEPLE_SIZE token always fits and the one
 # stack that exists fits too.
@@ -291,6 +291,10 @@ FONT_GOAL_ZONE = load_goal_zone_font(95)
 # two-space zone there. Its own smaller size fits every board.
 FONT_COACHING_ZONE = load_font(28, bold=True)
 FONT_TOKEN = load_font(19, bold=True)
+# The role initials on a meeple, under its species icon -- see
+# draw_meeple_group. Smaller than FONT_TOKEN because they share the
+# disc with the icon now; the ball's "12" keeps FONT_TOKEN.
+FONT_TOKEN_ROLE = load_font(18, bold=True)
 FONT_BADGE_COUNT = load_font(16, bold=True)
 FONT_MANEUVER_RANK = load_font(34, bold=True)
 FONT_MANEUVER_LEGEND = load_font(22)
@@ -337,8 +341,24 @@ MEEPLE_LABEL_MIN_SIZE = 14
 MEEPLE_LABEL_MAX_SIZE = 27
 MEEPLE_LABEL_LINE_GAP = 3
 _MEEPLE_LABEL_FONT_CACHE: dict[int, ImageFont.ImageFont] = {}
-MEEPLE_SIZE = 56
+# A meeple is a disc carrying two facts: the species icon over the role
+# initials. It was 56px with the initials alone; the icon is what an
+# advanced game is played on, and at Discord's size a mark *added* to a
+# 56px disc (a corner badge, a watermark, an icon by the name) is the
+# first thing to vanish -- tried, in that order. So the disc grew to
+# carry both, and the icon is the larger of the two because the
+# initials are also in the name label a coach reads anyway.
+MEEPLE_SIZE = 76
+MEEPLE_SPECIES_ICON_SIZE = 38
+MEEPLE_SPECIES_ICON_TOP = 7
+MEEPLE_ROLE_BOTTOM_INSET = 28
 BALL_RADIUS = 27
+# Where the two rows of meeples sit on the board. The visiting row's
+# names stop above the home row's tokens, and the home row's stop at
+# the board's foot, so the room for names is about the same either way
+# (54px and 51px). The offsets are the ball token's as well.
+VISITING_MEEPLE_TOP = BOARD_TOP + 88
+HOME_MEEPLE_TOP = BOARD_BOTTOM - 150
 
 ROLE_INITIALS = {
     "fullback": "FB",
@@ -1199,29 +1219,31 @@ def draw_board(
                 and match.ball.space_index == space_index
             )
             visiting_bounds = draw_meeple_group(
+                canvas,
                 draw,
                 visiting_occupants,
                 players,
                 match.visiting.team,
                 space_left,
                 space_right,
-                BOARD_TOP + 88,
+                VISITING_MEEPLE_TOP,
                 alignment="right",
                 reserve_ball=(
                     ball_is_here
                     and match.ball.possession.value == "visiting"
                 ),
                 # Stop above the home side's own tokens.
-                label_bottom=BOARD_BOTTOM - 145,
+                label_bottom=HOME_MEEPLE_TOP - 5,
             )
             home_bounds = draw_meeple_group(
+                canvas,
                 draw,
                 home_occupants,
                 players,
                 match.home.team,
                 space_left,
                 space_right,
-                BOARD_BOTTOM - 135,
+                HOME_MEEPLE_TOP,
                 alignment="left",
                 reserve_ball=(
                     ball_is_here
@@ -1242,9 +1264,9 @@ def draw_board(
                     home_side=home_has_it,
                 )
                 ball_y = (
-                    BOARD_BOTTOM - 135 + MEEPLE_SIZE // 2
+                    HOME_MEEPLE_TOP + MEEPLE_SIZE // 2
                     if home_has_it
-                    else BOARD_TOP + 88 + MEEPLE_SIZE // 2
+                    else VISITING_MEEPLE_TOP + MEEPLE_SIZE // 2
                 )
                 draw_d12_polygon(
                     draw,
@@ -1580,6 +1602,7 @@ def ball_token_x(
 
 
 def draw_meeple_group(
+    canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
     occupants: list[str],
     players: dict[str, PlayerDefinition],
@@ -1594,6 +1617,17 @@ def draw_meeple_group(
     """
     One team's meeples on one space: a row of tokens, with their names
     listed under them, one per line.
+
+    **A token is the species icon over the role initials.** The icon is
+    the bigger of the two and sits in the top of the disc, in the same
+    ink as the initials and the outline -- a species colour would be
+    the team's own (see "Team colors" in CLAUDE.md), so the shape is
+    the whole signal, and the four silhouettes were drawn to survive
+    18px for exactly this. `canvas` is what the icon is composited
+    onto; everything else here is drawn with `draw`. A species whose
+    icon is missing falls back to the initials alone, centred, which is
+    the token as it was before the icon -- the loader is silent on
+    purpose (see load_species_icon).
 
     `label_bottom` is the lowest y the names may reach -- the bottom of
     the space for the home side, the top of the home side's tokens for
@@ -1649,17 +1683,7 @@ def draw_meeple_group(
             outline=token_ink,
             width=4,
         )
-        initials = ROLE_INITIALS[player.role.value]
-        initials_width = draw.textlength(initials, font=FONT_TOKEN)
-        draw.text(
-            (
-                token_x + (token_size - initials_width) / 2,
-                token_y + 16,
-            ),
-            initials,
-            font=FONT_TOKEN,
-            fill=token_ink,
-        )
+        draw_meeple_face(canvas, draw, player, token_x, token_y, token_ink)
         label = shorten_to_width(
             draw, player.name, label_font, label_width_limit,
         )
@@ -1679,6 +1703,55 @@ def draw_meeple_group(
         token_x += token_size + gap
 
     return group_left, group_left + total_width
+
+
+def draw_meeple_face(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    player: PlayerDefinition,
+    token_x: int,
+    token_y: int,
+    ink: str,
+) -> None:
+    """
+    What is written on a meeple: the species icon over the role
+    initials, both in `ink`. See draw_meeple_group for why the disc
+    carries both and why the icon is the larger.
+    """
+    initials = ROLE_INITIALS[player.role.value]
+    icon = species_icon(player.species, ink, MEEPLE_SPECIES_ICON_SIZE)
+    if icon is None:
+        # No icon to draw: the initials alone, centred, as the token
+        # read before the species was on it.
+        initials_width = draw.textlength(initials, font=FONT_TOKEN)
+        draw.text(
+            (
+                token_x + (MEEPLE_SIZE - initials_width) / 2,
+                token_y + (MEEPLE_SIZE - FONT_TOKEN.size) / 2 - 2,
+            ),
+            initials,
+            font=FONT_TOKEN,
+            fill=ink,
+        )
+        return
+
+    canvas.alpha_composite(
+        icon,
+        (
+            token_x + (MEEPLE_SIZE - MEEPLE_SPECIES_ICON_SIZE) // 2,
+            token_y + MEEPLE_SPECIES_ICON_TOP,
+        ),
+    )
+    initials_width = draw.textlength(initials, font=FONT_TOKEN_ROLE)
+    draw.text(
+        (
+            token_x + (MEEPLE_SIZE - initials_width) / 2,
+            token_y + MEEPLE_SIZE - MEEPLE_ROLE_BOTTOM_INSET,
+        ),
+        initials,
+        font=FONT_TOKEN_ROLE,
+        fill=ink,
+    )
 
 
 def polygon_points(
@@ -4348,6 +4421,7 @@ def render_coaching_image(
             )
 
             draw_meeple_group(
+                canvas,
                 draw,
                 [
                     player_id

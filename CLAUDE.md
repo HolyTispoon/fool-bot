@@ -3452,6 +3452,41 @@ showing. That is the right way round: a condition is what has just changed and
 what a coach has to act on, where a species is the same every turn of the
 game. See "The species icons".
 
+**A meeple is the species icon over the role initials, and it is 76px
+because it carries both.** `draw_meeple_face` is the face; `draw_meeple_group`
+composites it onto the canvas it now takes. It was a 56px disc with the
+initials alone until 2026-09-18, when species abilities made what a card *is*
+as much a fact of the position as what it does. Thirteen drawings were tried
+and judged at the width Discord shows the field strip (~900px), not at the
+2200px canvas -- which is what separated them:
+
+- **The species colour is not the signal and cannot be.** Every species
+  shares its colour team's hex (see "Team colors"), so a species-coloured
+  ring on an Orange token is just orange. The icon is drawn in the same ink
+  as the initials and the outline, and the *shape* is the whole of it -- the
+  four silhouettes were drawn to survive 18px for exactly this (see "The
+  species icons").
+- **A mark added to a 56px disc vanishes at that width.** A corner badge, a
+  watermark behind the initials, an icon at the name's height and a species
+  word on a second line were each drawn and each turned to noise. What
+  survives downscaling is a big flat mark, so the disc grew and the icon is
+  the larger of the two things on it; the initials are also in every name
+  label a coach reads, where the icon is not.
+- **The icon *as* the face, with the role moved into the label, read best
+  and was not chosen**: the meeple is where a coach matches a role to the
+  card and the printed card (see "Naming a player"), and the author kept it
+  there.
+- **The two rows moved to make room.** `VISITING_MEEPLE_TOP` and
+  `HOME_MEEPLE_TOP` are the offsets, the ball token reads the same two, and
+  the home row moved up 15px so each row keeps about the same space for
+  names (54px and 51px). Every stack still fits: board 6's two-meeple
+  midfield is 155px into ~330 on the match image and into 200 on the
+  coaching one, which is what `test_a_stacked_coaching_space_still_fits_its_meeples` and
+  `test_a_meeple_carries_its_species_over_its_role` hold.
+- **A missing icon falls back to the initials alone, centred** -- the token
+  as it was -- because the loader is silent (see "A bundled file's name is
+  case-sensitive...").
+
 **The ball token hangs off the possessing side's meeples, except when they have
 none there.** `ball_token_x` is the whole of the placement: normally it tucks
 against that side's group on the open end of the row, which keeps it next to

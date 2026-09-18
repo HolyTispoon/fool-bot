@@ -87,7 +87,15 @@ from d12ball.render import (
     FONT_SMALL,
     FONT_TITLE,
     BALL_RADIUS,
+    BOARD_BOTTOM,
+    FONT_TOKEN_ROLE,
+    HOME_MEEPLE_TOP,
+    MEEPLE_LABEL_MIN_SIZE,
+    MEEPLE_ROLE_BOTTOM_INSET,
     MEEPLE_SIZE,
+    MEEPLE_SPECIES_ICON_SIZE,
+    MEEPLE_SPECIES_ICON_TOP,
+    VISITING_MEEPLE_TOP,
     PORTRAIT_IMAGE_SIZE,
     ball_token_x,
     fit_meeple_labels,
@@ -99,6 +107,7 @@ from d12ball.render import (
     player_index,
     render_coaching_image,
     render_field_image,
+    species_icon,
     INJURY_TEST_PORTRAIT_SIZE,
     MIND_PULL_DIE_RADIUS,
     MIND_PULL_HALO_SCALE,
@@ -1398,6 +1407,34 @@ class D12BallComponentTests(unittest.TestCase):
             self.assertLessEqual(
                 draw.textlength(name, font=stacked_font), 400,
             )
+
+    def test_a_meeple_carries_its_species_over_its_role(self) -> None:
+        # The disc holds two things now, the species icon over the role
+        # initials, and both have to fit inside it -- the icon in the
+        # top, the initials clear of the icon and of the disc's foot.
+        # The suite cannot see the image, so this checks the geometry.
+        for species in SPECIES_ORDER:
+            self.assertIsNotNone(
+                species_icon(species, "#000000", MEEPLE_SPECIES_ICON_SIZE),
+                species,
+            )
+        icon_bottom = MEEPLE_SPECIES_ICON_TOP + MEEPLE_SPECIES_ICON_SIZE
+        initials_top = MEEPLE_SIZE - MEEPLE_ROLE_BOTTOM_INSET
+        self.assertLessEqual(icon_bottom, initials_top)
+        self.assertLess(initials_top + FONT_TOKEN_ROLE.size, MEEPLE_SIZE)
+
+        # And a bigger disc must still leave each row a line of names:
+        # the visiting names stop above the home tokens, the home names
+        # at the board's foot.
+        line = MEEPLE_LABEL_MIN_SIZE + 3
+        self.assertGreaterEqual(
+            (HOME_MEEPLE_TOP - 5) - (VISITING_MEEPLE_TOP + MEEPLE_SIZE + 7),
+            2 * line,
+        )
+        self.assertGreaterEqual(
+            (BOARD_BOTTOM - 16) - (HOME_MEEPLE_TOP + MEEPLE_SIZE + 7),
+            2 * line,
+        )
 
     def test_a_loose_ball_is_drawn_inside_its_own_space(self) -> None:
         # A space with none of the possessing side's meeples on it is
