@@ -1147,6 +1147,143 @@ def draw_assignment_cards(
             x += CARD_SIZE[0] + gap
 
 
+def draw_zone_frame(
+    draw: ImageDraw.ImageDraw,
+    zone: Zone,
+    left: float,
+    right: float,
+    label: str,
+) -> None:
+    """A zone's tinted panel, and its name across the top of it."""
+    draw.rectangle(
+        (left, BOARD_TOP, right, BOARD_BOTTOM),
+        fill=ZONE_COLORS[zone],
+        outline="#d7dde5",
+        width=3,
+    )
+    label_width = draw.textlength(label, font=FONT_HEADING)
+    draw.text(
+        (
+            left + (right - left - label_width) / 2,
+            BOARD_TOP + 14,
+        ),
+        label,
+        font=FONT_HEADING,
+        fill="#ffffff",
+    )
+
+
+def draw_space(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    match: MatchState,
+    players: dict[str, PlayerDefinition],
+    zone: Zone,
+    space_index: int,
+    occupants: list[str],
+    space_left: int,
+    space_right: int,
+) -> None:
+    """
+    One space: its frame and code, the visiting side's meeples on the
+    upper row and the home side's on the lower, and the ball if it is
+    here -- hung off the possessing side's group, or centred when they
+    have nobody on it (see `ball_token_x`).
+    """
+    draw.rectangle(
+        (
+            space_left + 8,
+            BOARD_TOP + 58,
+            space_right - 8,
+            BOARD_BOTTOM - 12,
+        ),
+        outline="#9aabbc",
+        width=2,
+    )
+    draw.text(
+        (space_left + 15, BOARD_TOP + 66),
+        space_code(zone, space_index),
+        font=FONT_SMALL,
+        fill="#c8d1dc",
+    )
+
+    visiting_occupants = [
+        player_id
+        for player_id in occupants
+        if player_id in match.visiting.field_players
+    ]
+    home_occupants = [
+        player_id
+        for player_id in occupants
+        if player_id in match.home.field_players
+    ]
+    ball_is_here = (
+        match.ball.zone == zone
+        and match.ball.space_index == space_index
+    )
+    visiting_bounds = draw_meeple_group(
+        canvas,
+        draw,
+        visiting_occupants,
+        players,
+        match.visiting.team,
+        space_left,
+        space_right,
+        VISITING_MEEPLE_TOP,
+        alignment="right",
+        reserve_ball=(
+            ball_is_here
+            and match.ball.possession.value == "visiting"
+        ),
+        # Stop above the home side's own tokens.
+        label_bottom=HOME_MEEPLE_TOP - 5,
+    )
+    home_bounds = draw_meeple_group(
+        canvas,
+        draw,
+        home_occupants,
+        players,
+        match.home.team,
+        space_left,
+        space_right,
+        HOME_MEEPLE_TOP,
+        alignment="left",
+        reserve_ball=(
+            ball_is_here
+            and match.ball.possession.value == "home"
+        ),
+        label_bottom=BOARD_BOTTOM - 16,
+    )
+
+    if ball_is_here:
+        home_has_it = match.ball.possession.value == "home"
+        ball_x = ball_token_x(
+            space_left,
+            space_right,
+            home_bounds if home_has_it else visiting_bounds,
+            carrying_side_present=bool(
+                home_occupants if home_has_it else visiting_occupants
+            ),
+            home_side=home_has_it,
+        )
+        ball_y = (
+            HOME_MEEPLE_TOP + MEEPLE_SIZE // 2
+            if home_has_it
+            else VISITING_MEEPLE_TOP + MEEPLE_SIZE // 2
+        )
+        draw_d12_polygon(
+            draw,
+            ball_x,
+            ball_y,
+            BALL_RADIUS,
+            "#ffffff",
+            str(match.ball.speed),
+            font=FONT_SMALL,
+            outline="#243347",
+            text_color="#243347",
+        )
+
+
 def draw_board(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
@@ -1165,120 +1302,17 @@ def draw_board(
     labels = zone_labels(match.board.layout.board_size)
     for zone in Zone:
         left, right = bounds[zone]
-        draw.rectangle(
-            (left, BOARD_TOP, right, BOARD_BOTTOM),
-            fill=ZONE_COLORS[zone],
-            outline="#d7dde5",
-            width=3,
-        )
-        label_width = draw.textlength(labels[zone], font=FONT_HEADING)
-        draw.text(
-            (
-                left + (right - left - label_width) / 2,
-                BOARD_TOP + 14,
-            ),
-            labels[zone],
-            font=FONT_HEADING,
-            fill="#ffffff",
-        )
+        draw_zone_frame(draw, zone, left, right, labels[zone])
 
         spaces = match.board.spaces[zone]
         space_width = (right - left) / len(spaces)
         for space_index, occupants in enumerate(spaces):
             space_left = round(left + space_index * space_width)
             space_right = round(left + (space_index + 1) * space_width)
-            draw.rectangle(
-                (
-                    space_left + 8,
-                    BOARD_TOP + 58,
-                    space_right - 8,
-                    BOARD_BOTTOM - 12,
-                ),
-                outline="#9aabbc",
-                width=2,
+            draw_space(
+                canvas, draw, match, players, zone, space_index, occupants,
+                space_left, space_right,
             )
-            draw.text(
-                (space_left + 15, BOARD_TOP + 66),
-                space_code(zone, space_index),
-                font=FONT_SMALL,
-                fill="#c8d1dc",
-            )
-
-            visiting_occupants = [
-                player_id
-                for player_id in occupants
-                if player_id in match.visiting.field_players
-            ]
-            home_occupants = [
-                player_id
-                for player_id in occupants
-                if player_id in match.home.field_players
-            ]
-            ball_is_here = (
-                match.ball.zone == zone
-                and match.ball.space_index == space_index
-            )
-            visiting_bounds = draw_meeple_group(
-                canvas,
-                draw,
-                visiting_occupants,
-                players,
-                match.visiting.team,
-                space_left,
-                space_right,
-                VISITING_MEEPLE_TOP,
-                alignment="right",
-                reserve_ball=(
-                    ball_is_here
-                    and match.ball.possession.value == "visiting"
-                ),
-                # Stop above the home side's own tokens.
-                label_bottom=HOME_MEEPLE_TOP - 5,
-            )
-            home_bounds = draw_meeple_group(
-                canvas,
-                draw,
-                home_occupants,
-                players,
-                match.home.team,
-                space_left,
-                space_right,
-                HOME_MEEPLE_TOP,
-                alignment="left",
-                reserve_ball=(
-                    ball_is_here
-                    and match.ball.possession.value == "home"
-                ),
-                label_bottom=BOARD_BOTTOM - 16,
-            )
-
-            if ball_is_here:
-                home_has_it = match.ball.possession.value == "home"
-                ball_x = ball_token_x(
-                    space_left,
-                    space_right,
-                    home_bounds if home_has_it else visiting_bounds,
-                    carrying_side_present=bool(
-                        home_occupants if home_has_it else visiting_occupants
-                    ),
-                    home_side=home_has_it,
-                )
-                ball_y = (
-                    HOME_MEEPLE_TOP + MEEPLE_SIZE // 2
-                    if home_has_it
-                    else VISITING_MEEPLE_TOP + MEEPLE_SIZE // 2
-                )
-                draw_d12_polygon(
-                    draw,
-                    ball_x,
-                    ball_y,
-                    BALL_RADIUS,
-                    "#ffffff",
-                    str(match.ball.speed),
-                    font=FONT_SMALL,
-                    outline="#243347",
-                    text_color="#243347",
-                )
 
     draw_end_zone(
         canvas,
