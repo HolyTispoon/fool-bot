@@ -54,6 +54,7 @@ from cogs.d12ball_helpers import (
     get_or_create_category,
     pin_board_message,
     refresh_player_names,
+    send_new_prompt,
     space_label,
 )
 from cogs.d12ball_views import (
@@ -90,7 +91,7 @@ class PresentationMixin:
         on and both sides share one button, so the prompt reads the
         same after one pick as before it, and the view is built from
         the game id alone. That edit was a request out of the tightest
-        bucket in the game (see "Discord's rate limits" in CLAUDE.md),
+        bucket in the game (see "Discord's rate limits" in docs/design/rate-limits.md),
         spent once a maneuver, immediately before the resolution's own
         board refresh, for nothing. Who has picked is announced in its
         own message.
@@ -377,7 +378,8 @@ class PresentationMixin:
                 continue
             player = self.engine.get_player_definition(player_id)
             team = match.team_for_player(player_id)
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 ignite.explain(self.player_label(match, player)),
                 file=discord.File(
                     await asyncio.to_thread(
@@ -408,13 +410,15 @@ class PresentationMixin:
         for.
         """
         if walk_in_text:
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 walk_in_text,
                 allowed_mentions=discord.AllowedMentions(
                     users=False, roles=False, everyone=False,
                 ),
             )
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             file=await self.build_maneuver_challenge_file(match, defender_id),
         )
 
@@ -598,8 +602,8 @@ class PresentationMixin:
         # like any other AI window, and the human coach gets theirs in
         # reply exactly as a human caller's opponent would.
         if action == "time_out":
-            await interaction.followup.send(
-                f"{ai_name} calls a time out."
+            await send_new_prompt(
+                interaction, f"{ai_name} calls a time out."
             )
             await self.begin_time_out(interaction, game, match)
             return
@@ -613,7 +617,8 @@ class PresentationMixin:
             match.pending_action = "shoot"
             self.persist(game, match)
 
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 f"{ai_name} has chosen to shoot to score with "
                 f"{self.player_label(match, handler)}.",
             )
@@ -628,7 +633,8 @@ class PresentationMixin:
             match.begin_uncontested_maneuver()
             self.persist(game, match)
 
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 f"{ai_name} has chosen to maneuver with "
                 f"{self.player_label(match, handler)}."
             )
@@ -668,12 +674,12 @@ class PresentationMixin:
         )
 
         challenge_view = ManeuverChallengeView(self, game.game_id)
-        challenge_message = await interaction.followup.send(
+        challenge_message = await send_new_prompt(
+            interaction,
             f"{ai_name} will maneuver with "
             f"{self.player_label(match, handler)}.\n\n"
             f"{defender_mention}, {challenger_prompt_ask(match)}",
             view=challenge_view,
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True,
                 roles=False,
@@ -774,7 +780,8 @@ class PresentationMixin:
         receives the interaction the button click produced, not this
         one, since everything after the click has to answer with that.
         """
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             text,
             view=TutorialContinueView(self, game.game_id, then),
         )
@@ -833,7 +840,7 @@ class PresentationMixin:
                     interaction, game, tutorial.HANDOVER, then,
                 )
             else:
-                await interaction.followup.send(tutorial.HANDOVER)
+                await send_new_prompt(interaction, tutorial.HANDOVER)
             return
 
         game.tutorial_staged = True
@@ -841,7 +848,7 @@ class PresentationMixin:
         if then is not None:
             await self.post_tutorial_note(interaction, game, beat.lesson, then)
         else:
-            await interaction.followup.send(beat.lesson)
+            await send_new_prompt(interaction, beat.lesson)
 
     async def send_turn_prompt(
         self,
@@ -893,12 +900,12 @@ class PresentationMixin:
                     game.game_id,
                 )
 
-            turn_message = await inner_interaction.followup.send(
+            turn_message = await send_new_prompt(
+                inner_interaction,
                 self.engine.build_turn_prompt(
                     game, match, self.team_emojis, carrying=carrying,
                 ),
                 view=view,
-                wait=True,
                 allowed_mentions=discord.AllowedMentions(
                     users=True,
                     roles=False,
@@ -1000,9 +1007,9 @@ class PresentationMixin:
         under it.
         """
         try:
-            message = await interaction.followup.send(
+            message = await send_new_prompt(
+                interaction,
                 file=await self.build_field_file(game),
-                wait=True,
             )
         except (discord.HTTPException, aiohttp.ClientError):
             return
@@ -1056,11 +1063,11 @@ class PresentationMixin:
         webhook route, so neither competes with the board for the
         channel's edit bucket; see "Discord's rate limits".
         """
-        prompt_message = await interaction.followup.send(
+        prompt_message = await send_new_prompt(
+            interaction,
             content,
             file=await self.build_field_file(game),
             view=view,
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -1115,10 +1122,10 @@ class PresentationMixin:
         does.
         """
         png = await self.render_match_png(game)
-        snapshot = await interaction.followup.send(
+        snapshot = await send_new_prompt(
+            interaction,
             message,
             file=self.match_file_from_png(game, png),
-            wait=True,
         )
         await add_full_image_button(snapshot)
         await self.refresh_match_image(interaction, game, png=png)
@@ -1147,10 +1154,10 @@ class PresentationMixin:
         twice.
         """
         png = await self.render_match_png(game)
-        snapshot = await interaction.followup.send(
+        snapshot = await send_new_prompt(
+            interaction,
             message,
             file=self.match_file_from_png(game, png),
-            wait=True,
         )
         await add_full_image_button(snapshot)
         await self.refresh_match_image(interaction, game, png=png)

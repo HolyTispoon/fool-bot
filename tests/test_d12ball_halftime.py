@@ -101,6 +101,10 @@ def build_solo_game_home_ai() -> D12BallGame:
 
 def build_interaction() -> SimpleNamespace:
     return SimpleNamespace(
+        response=SimpleNamespace(is_done=lambda: True),
+        channel=SimpleNamespace(
+            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+        ),
         followup=SimpleNamespace(
             send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
         ),
@@ -350,8 +354,8 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
 
         # One message, carrying the hub rather than a declare-or-pass
         # offer, with the coach's own half of the field attached.
-        interaction.followup.send.assert_awaited_once()
-        _, kwargs = interaction.followup.send.await_args
+        interaction.channel.send.assert_awaited_once()
+        _, kwargs = interaction.channel.send.await_args
         self.assertIsInstance(kwargs["view"], CoachingHubView)
         self.assertIsNotNone(kwargs["file"])
 
@@ -391,7 +395,7 @@ class HalftimeSubstitutionRoutingTests(unittest.IsolatedAsyncioTestCase):
         cog.refresh_match_image.assert_awaited_once()
         self.assertIn(
             "back on the arrangement you last set",
-            interaction.followup.send.await_args.args[0],
+            interaction.channel.send.await_args.args[0],
         )
 
     async def test_a_window_that_moves_nobody_costs_no_refresh(

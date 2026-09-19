@@ -35,7 +35,7 @@ coverage. Say what you checked by hand, and what you did not.
 - [ ] `python3 -m unittest discover -s tests` passes
 - [ ] **Rules change?** `docs/living-rules.md` and a dated `docs/rules-log.md`
       entry are in their own commit, so the rules move as a reviewable diff.
-- [ ] **Architecture change?** CLAUDE.md updated in the same commit — a new
+- [ ] **Architecture change?** The topic's `docs/design/` file (and `CLAUDE.md`, for a new topic or hard rule) updated in the same commit — a new
       module, a responsibility moving, a new persisted field, a new
       environment variable. Record the reasoning, not just the fact.
 - [ ] **Board image change?** A sample rendered and looked at

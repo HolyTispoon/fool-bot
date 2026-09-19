@@ -303,7 +303,7 @@ class PlayerDefinition:
     carry. `PlayerCatalog.teams` says which rosters hold a given id;
     `MatchState.team_for_player` says which of them a *match* is
     fielding the player as. Nothing here should grow a `team` field
-    back -- see "Team colors" in CLAUDE.md.
+    back -- see "Team colors" in docs/design/teams-and-players.md.
     """
 
     player_id: str
@@ -352,7 +352,7 @@ class ShotDefender:
 # That is a duplicate, not a shared card: the two copies are separate
 # players of the game, exhausted, injured, substituted and sent about
 # independently, and they can be made to challenge each other. See "One
-# player, both sides" in CLAUDE.md.
+# player, both sides" in docs/design/teams-and-players.md.
 #
 # Everything in a match is keyed by a **card id**, which is the catalog
 # player's id for the home copy and this suffix on top of it for the
@@ -649,7 +649,7 @@ class TeamSetup:
         The id this side holds a catalog player under -- their own, or
         `duplicate_card_id` when this is the copy of somebody the
         other side is fielding too. See "One player, both sides" in
-        CLAUDE.md.
+        docs/design/teams-and-players.md.
 
         Anything walking a *roster* and asking the match about each
         player has to come through here, since the roster is the
@@ -1991,7 +1991,7 @@ class MatchState:
         # is 3 of its own species plus 2 of each other, so any color
         # side meets any species side holding 2 or 3 of the same
         # people. Those are played as two cards, and the visiting one
-        # carries the suffix; see "One player, both sides" in CLAUDE.md
+        # carries the suffix; see "One player, both sides" in docs/design/teams-and-players.md
         # and `catalog_player_id`. Two teams on one axis are disjoint
         # and this is empty, which is every match before the reshuffle
         # and most of them since.
@@ -3729,7 +3729,7 @@ class MatchState:
         opposing meeple never blocks a space here.
 
         `spread_exempt_ids` counts for nothing here -- Spreadable's
-        whole rule (see "Slimey" in CLAUDE.md): a Spreadable Ooze's own
+        whole rule (see "Slimey" in docs/design/species-abilities.md): a Spreadable Ooze's own
         space still reads as uncovered even though it is the one
         standing on it. This module does not know what a species is,
         so the ids are the caller's to supply -- see

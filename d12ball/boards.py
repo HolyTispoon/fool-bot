@@ -34,7 +34,7 @@ so the areas are labelled HOME ZONE / MIDFIELD / VISITORS ZONE exactly
 as the bot's coaching image labels them -- HOME THIRD / VISITORS THIRD
 on the 9-space board, the only one where the three areas (H/M/V) are
 all equal (see "The field" in the living rules, and the 2026-08-24
-entry in the rules log). See "Working on the board image" in CLAUDE.md
+entry in the rules log). See "Working on the board image" in docs/design/board-image.md
 for the same decision taken there, and "The zone-assignment rows" below
 for why they moved off the team board.
 """
@@ -802,6 +802,71 @@ def draw_field_end_zones(sheet: Sheet, geometry: FieldGeometry) -> None:
     )
 
 
+def draw_field_end_zone_frame(
+    sheet: Sheet, left: float, right: float, top: float, bottom: float,
+) -> None:
+    """The end zone's own outline, drawn before the "GOAL" lettering."""
+    sheet.rect(
+        (round(left), round(top), round(right), round(bottom)),
+        fill=PANEL_COLOR,
+        outline=INK,
+        width=sheet.u(2.5),
+    )
+
+
+def goal_word_metrics(
+    sheet: Sheet,
+    word: str,
+    font: ImageFont.ImageFont,
+    letter_spacing: float,
+) -> tuple[list[float], float, float, tuple[int, int, int, int]]:
+    """
+    A word's per-letter widths and its total run at this font size --
+    with the letter spacing `draw_field_end_zone` adds on top of the
+    font's own advance -- plus its cell height and bounding box.
+    `fit_goal_word_font` reads this once per candidate size, which is
+    what keeps the same four lines from being written twice: once for
+    the size the search settles on, once for the size it falls back to.
+    """
+    bbox = sheet.draw.textbbox((0, 0), word, font=font)
+    cell_height = bbox[3] - bbox[1]
+    widths = [sheet.draw.textlength(ch, font=font) for ch in word]
+    total_width = sum(widths) + letter_spacing * (len(word) - 1)
+    return widths, total_width, cell_height, bbox
+
+
+def fit_goal_word_font(
+    sheet: Sheet,
+    word: str,
+    letter_spacing: float,
+    zone_width: float,
+    zone_length: float,
+) -> tuple[
+    ImageFont.ImageFont, list[float], float, float, tuple[int, int, int, int]
+]:
+    """
+    The largest size (in whole pixels, not `sheet.u()` -- this is
+    fitted directly against the zone's own measured extent rather
+    than eyeballed the way `sheet.font` is elsewhere) that fits the
+    word along the zone's length once rotated, and each letter
+    within its width.
+    """
+    size = round(zone_length)
+    while size > 24:
+        font = load_goal_zone_font(size)
+        widths, total_width, cell_height, bbox = goal_word_metrics(
+            sheet, word, font, letter_spacing,
+        )
+        if cell_height <= zone_width * 0.8 and total_width <= zone_length * 0.88:
+            return font, widths, total_width, cell_height, bbox
+        size = round(size * 0.9)
+    font = load_goal_zone_font(24)
+    widths, total_width, cell_height, bbox = goal_word_metrics(
+        sheet, word, font, letter_spacing,
+    )
+    return font, widths, total_width, cell_height, bbox
+
+
 def draw_field_end_zone(
     sheet: Sheet,
     left: float,
@@ -817,14 +882,16 @@ def draw_field_end_zone(
     render.py's own end zone takes and for the same reason: the two
     ends of a real field face opposite ways rather than both reading
     the same direction.
+
+    **The block below, from the "O"'s slot through the ball placement,
+    moves as one unit or not at all -- see "End zones" in
+    docs/design/printed-boards.md.** Its coordinate math was verified
+    empirically against Pillow's actual `rotate(90)`/`rotate(270)`
+    output, not derived on paper; a sign error in it is silent, not a
+    crash.
     """
     assert angle in (90, 270)
-    sheet.rect(
-        (round(left), round(top), round(right), round(bottom)),
-        fill=PANEL_COLOR,
-        outline=INK,
-        width=sheet.u(2.5),
-    )
+    draw_field_end_zone_frame(sheet, left, right, top, bottom)
 
     word = "GOAL"
     stroke_width = max(1, round(sheet.u(1.2)))
@@ -832,27 +899,9 @@ def draw_field_end_zone(
     zone_width = right - left
     zone_length = bottom - top
 
-    # The largest size (in whole pixels, not `sheet.u()` -- this is
-    # fitted directly against the zone's own measured extent rather
-    # than eyeballed the way `sheet.font` is elsewhere) that fits the
-    # word along the zone's length once rotated, and each letter
-    # within its width.
-    size = round(zone_length)
-    while size > 24:
-        font = load_goal_zone_font(size)
-        bbox = sheet.draw.textbbox((0, 0), word, font=font)
-        cell_height = bbox[3] - bbox[1]
-        widths = [sheet.draw.textlength(ch, font=font) for ch in word]
-        total_width = sum(widths) + letter_spacing * (len(word) - 1)
-        if cell_height <= zone_width * 0.8 and total_width <= zone_length * 0.88:
-            break
-        size = round(size * 0.9)
-    else:
-        font = load_goal_zone_font(24)
-        bbox = sheet.draw.textbbox((0, 0), word, font=font)
-        cell_height = bbox[3] - bbox[1]
-        widths = [sheet.draw.textlength(ch, font=font) for ch in word]
-        total_width = sum(widths) + letter_spacing * (len(word) - 1)
+    font, widths, total_width, cell_height, bbox = fit_goal_word_font(
+        sheet, word, letter_spacing, zone_width, zone_length,
+    )
 
     pad = 6 + stroke_width
     text_layer = Image.new(
@@ -1406,28 +1455,77 @@ def draw_jumbotron_header(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     )
 
 
+@dataclass(frozen=True)
+class ClockTrackGeometry:
+    """
+    Where a minute's cell sits, on the clock panel `JumbotronGeometry`
+    already laid out -- its own record because `draw_clock_track` reads
+    it from four different bands (the frame, the two half labels, the
+    cells and the overrun note) that all have to agree on the same
+    cells.
+
+    `cell_origin` is the one place that turns a minute into a row and
+    column. The band label above each half is charged once per half
+    rather than once per row, which is the only reason it is arithmetic
+    rather than a nested loop -- the break falls at the end of a row by
+    construction (see `CLOCK_COLUMNS`), so a minute knows its own band.
+    """
+
+    left: float
+    right: float
+    top: float
+    bottom: float
+    cells_left: float
+    cells_top: float
+    cell_width: float
+    cell_height: float
+    band_label: float
+
+    @classmethod
+    def for_jumbotron(cls, geometry: JumbotronGeometry) -> "ClockTrackGeometry":
+        cell_width, cell_height = geometry.clock_cell()
+        return cls(
+            left=geometry.left,
+            right=geometry.right,
+            top=geometry.clock_top,
+            bottom=geometry.clock_bottom,
+            cells_left=geometry.cells_left,
+            cells_top=geometry.clock_top + geometry.label_height,
+            cell_width=cell_width,
+            cell_height=cell_height,
+            band_label=geometry.clock_band_label_height,
+        )
+
+    def cell_origin(self, minute: int) -> tuple[float, float]:
+        row = minute // CLOCK_COLUMNS
+        band = 0 if minute <= HALFTIME_MINUTE else 1
+        return (
+            self.cells_left + (minute % CLOCK_COLUMNS) * self.cell_width,
+            self.cells_top + (band + 1) * self.band_label
+            + row * self.cell_height,
+        )
+
+
 def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     """
-    The whole game's minutes, in rows of eight under a band per half.
-    Each half's **last** minute is bordered and captioned, because
-    reaching it is the one thing on this board that changes what a coach
-    may do -- see "Last possession".
-
-    **The overrun has no cells.** The clock runs past a period's last
-    minute for as long as its last possession does, and a track drawn
-    for that would be a row of squares nobody can say the length of; a
-    token sitting on 15 or 30 is a period playing itself out, and the
-    caption under those two says so in words.
-
-    The second half is a cell short of its second row, which the spare
-    slot says outright rather than leaving as a track that ran out.
+    The whole game's minutes, in rows of eight under a band per half --
+    the frame, the two half labels, the cells and the overrun note, in
+    that order.
     """
+    track = ClockTrackGeometry.for_jumbotron(geometry)
+    draw_clock_track_frame(sheet, track)
+    draw_clock_half_bands(sheet, track)
+    draw_clock_cells(sheet, track)
+    draw_clock_overrun_note(sheet, track)
+
+
+def draw_clock_track_frame(sheet: Sheet, track: ClockTrackGeometry) -> None:
     sheet.rect(
         (
-            geometry.left,
-            geometry.clock_top,
-            geometry.right,
-            geometry.clock_bottom,
+            track.left,
+            track.top,
+            track.right,
+            track.bottom,
         ),
         radius=sheet.u(10),
         fill=PANEL_COLOR,
@@ -1435,55 +1533,44 @@ def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
         width=sheet.u(2),
     )
     sheet.text(
-        (geometry.cells_left, geometry.clock_top + sheet.u(10)),
+        (track.cells_left, track.top + sheet.u(10)),
         "CLOCK  ·  SPACE MINUTES",
         sheet.font(17, bold=True),
         MUTED,
     )
 
-    cells_left = geometry.cells_left
-    cell_width, cell_height = geometry.clock_cell()
-    band_label = geometry.clock_band_label_height
-    cells_top = geometry.clock_top + geometry.label_height
-    number_face = sheet.font(38, bold=True)
+
+def draw_clock_half_bands(sheet: Sheet, track: ClockTrackGeometry) -> None:
     band_face = sheet.font(17, bold=True)
-
-    def cell_origin(minute: int) -> tuple[float, float]:
-        """
-        Where a minute's cell sits. The band label above each half is
-        charged once per half rather than once per row, which is the
-        only reason this is arithmetic rather than a nested loop -- the
-        break falls at the end of a row by construction (see
-        CLOCK_COLUMNS), so a minute knows its own band.
-        """
-        row = minute // CLOCK_COLUMNS
-        band = 0 if minute <= HALFTIME_MINUTE else 1
-        return (
-            cells_left + (minute % CLOCK_COLUMNS) * cell_width,
-            cells_top + (band + 1) * band_label + row * cell_height,
-        )
-
     for band, (first, last_minute) in enumerate(
         ((0, HALFTIME_MINUTE), (HALFTIME_MINUTE + 1, CLOCK_MINUTES))
     ):
-        label_top = cell_origin(first)[1] - band_label
+        label_top = track.cell_origin(first)[1] - track.band_label
         sheet.text(
-            (cells_left, label_top + band_label * 0.1),
+            (track.cells_left, label_top + track.band_label * 0.1),
             f"{'FIRST' if not band else 'SECOND'} HALF  ·  "
             f"{first:02d}-{last_minute:02d}",
             band_face,
             INK,
         )
 
+
+def draw_clock_cells(sheet: Sheet, track: ClockTrackGeometry) -> None:
+    """
+    Each half's **last** minute is bordered and captioned, because
+    reaching it is the one thing on this board that changes what a coach
+    may do -- see "Last possession".
+    """
+    number_face = sheet.font(38, bold=True)
     for minute in range(CLOCK_MINUTES + 1):
-        cell_left, cell_top = cell_origin(minute)
+        cell_left, cell_top = track.cell_origin(minute)
         last = minute in (HALFTIME_MINUTE, CLOCK_MINUTES)
         sheet.rect(
             (
                 cell_left + sheet.u(4),
                 cell_top + sheet.u(4),
-                cell_left + cell_width - sheet.u(4),
-                cell_top + cell_height - sheet.u(4),
+                cell_left + track.cell_width - sheet.u(4),
+                cell_top + track.cell_height - sheet.u(4),
             ),
             radius=sheet.u(8),
             fill=FACE_COLOR,
@@ -1505,8 +1592,8 @@ def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
         # plain number centred in it, which is most of the track.
         sheet.text(
             (
-                cell_left + cell_width / 2,
-                cell_top + cell_height * (0.4 if caption else 0.5),
+                cell_left + track.cell_width / 2,
+                cell_top + track.cell_height * (0.4 if caption else 0.5),
             ),
             f"{minute:02d}",
             number_face,
@@ -1515,29 +1602,47 @@ def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
         )
         if caption:
             sheet.text(
-                (cell_left + cell_width / 2, cell_top + cell_height * 0.76),
+                (
+                    cell_left + track.cell_width / 2,
+                    cell_top + track.cell_height * 0.76,
+                ),
                 caption,
                 sheet.fitted_font(
-                    caption, cell_width * 0.82, 16, bold=last
+                    caption, track.cell_width * 0.82, 16, bold=last
                 ),
                 OFFENSE_COLOR if last else MUTED,
                 anchor="mm",
             )
 
-    # The spare slot at the end of the second half's last row, which is
-    # where a coach looks when the token is about to run off the track.
-    spare_left, spare_top = cell_origin(CLOCK_MINUTES)
-    spare_left += cell_width
+
+def draw_clock_overrun_note(sheet: Sheet, track: ClockTrackGeometry) -> None:
+    """
+    **The overrun has no cells.** The clock runs past a period's last
+    minute for as long as its last possession does, and a track drawn
+    for that would be a row of squares nobody can say the length of; a
+    token sitting on 15 or 30 is a period playing itself out, and the
+    caption under those two says so in words.
+
+    The second half is a cell short of its second row, which the spare
+    slot says outright rather than leaving as a track that ran out --
+    at the end of the second half's last row, which is where a coach
+    looks when the token is about to run off the track.
+    """
+    spare_left, spare_top = track.cell_origin(CLOCK_MINUTES)
+    spare_left += track.cell_width
     for offset, line in (
         (0.36, "PAST " + f"{CLOCK_MINUTES:02d}"),
         (0.62, "keep the token here;"),
         (0.80, "last possession plays on"),
     ):
         sheet.text(
-            (spare_left + cell_width / 2, spare_top + cell_height * offset),
+            (
+                spare_left + track.cell_width / 2,
+                spare_top + track.cell_height * offset,
+            ),
             line,
             sheet.fitted_font(
-                line, cell_width * 0.86, 22 if offset == 0.36 else 15,
+                line, track.cell_width * 0.86, 22 if offset == 0.36 else 15,
                 bold=offset == 0.36,
             ),
             MUTED,
@@ -1712,7 +1817,7 @@ class TeamBoardGeometry:
 
     **It used to be six -- the three zones across the top as well.**
     Those moved to the field board (see "The zone-assignment rows" in
-    CLAUDE.md), which is what let two of these boards -- one for each
+    docs/design/printed-boards.md), which is what let two of these boards -- one for each
     coach -- share a single sheet instead of each wanting one of its
     own: dropping the zone row cut what a board needs to a single row
     a card tall plus a header and a footer, which is a good deal short
@@ -1832,7 +1937,7 @@ def render_team_board(
     """
     Two coaches' boards, one sheet: each panel is the bench, the back
     bench and the head coach's cell -- the three zone areas moved to
-    the field board (see "The zone-assignment rows" in CLAUDE.md),
+    the field board (see "The zone-assignment rows" in docs/design/printed-boards.md),
     which is what leaves a panel short enough that two of them, one
     for each side of a match, share a single 11 x 17 sheet cut in
     half rather than each wanting a sheet of its own.
@@ -2026,7 +2131,7 @@ def draw_die_slot(
     selection d6s beside it, because that data is the bot's model and
     the rules' component list; the printed board is where they have
     stopped being used, and drawing an unused component is worse than
-    the divergence. See "The printed boards" in CLAUDE.md.
+    the divergence. See "The printed boards" in docs/design/printed-boards.md.
     """
     die = rules.team_board.team_die
     size = min((right - left) * 0.10, sheet.u(40))

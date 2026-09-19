@@ -14,7 +14,7 @@ from d12ball.components import (
 )
 from d12ball.engine import IgnitedRoll
 from d12ball.game import D12BallGame
-from cogs.d12ball_helpers import format_team_side_label
+from cogs.d12ball_helpers import format_team_side_label, send_new_prompt
 
 from cogs.d12ball_views.base import (
     SafeView,
@@ -83,7 +83,7 @@ class ShootoutView(SafeView):
         # was read the other way round -- a helper got both sides, home
         # first -- which handed a visiting coach with the permission
         # the *home* order to set. See "Who may act on a game" in
-        # CLAUDE.md.
+        # docs/design/permissions.md.
         sides = (TeamSide.HOME, TeamSide.VISITING)
         own = [
             side
@@ -324,9 +324,10 @@ class ShootoutOrderSelectView(SafeView):
         if not settled:
             return
 
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             f"{format_team_side_label(match.setup_for_side(self.side))} "
-            "has set their shooting order."
+            "has set their shooting order.",
         )
 
         if match.shootout_orders_complete:
@@ -467,9 +468,10 @@ class ShootoutPickSelectView(SafeView):
             ),
             view=None,
         )
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             f"{format_team_side_label(match.setup_for_side(self.side))} "
-            "has chosen their shooter."
+            "has chosen their shooter.",
         )
 
         if match.shootout_shooters_complete:
@@ -707,9 +709,10 @@ class ShootoutTestView(ShootoutView):
         )
         # Between the dice and the result, as at every other roll site.
         await self.cog.post_volatile_ignition(interaction, match, *ignites)
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             f"{outcome}\n"
-            f"Extreme shootout: {self.cog.engine.shootout_running_score(match)}"
+            f"Extreme shootout: {self.cog.engine.shootout_running_score(match)}",
         )
         if winner is not None:
             await self.cog.refresh_match_image(interaction, game)

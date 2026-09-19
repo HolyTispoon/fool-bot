@@ -6,7 +6,7 @@ A restart re-arms exactly one message per game -- the one recorded in
 `turn_message_id` -- so a game can come back with no working button
 anywhere in its channel. `/d12ball resume` re-posts whatever the saved
 state is waiting on, and `/d12ball abandon_game` ends the ones nobody
-is going to finish. See "Recovering a stuck game" in CLAUDE.md.
+is going to finish. See "Recovering a stuck game" in docs/design/recovery.md.
 
 The one thing worth guarding hardest is that `pending_turn_view` stays
 the *single* reading of "what is this match waiting on?": startup
@@ -95,11 +95,16 @@ def build_game(**overrides) -> D12BallGame:
 def build_interaction(user_id: int = 111, **user_fields) -> SimpleNamespace:
     return SimpleNamespace(
         channel_id=2,
+        channel=SimpleNamespace(
+            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+        ),
         guild=None,
         user=SimpleNamespace(
             id=user_id, display_name="One", **user_fields,
         ),
-        response=SimpleNamespace(defer=mock.AsyncMock()),
+        response=SimpleNamespace(
+            defer=mock.AsyncMock(), is_done=lambda: True,
+        ),
         followup=SimpleNamespace(
             send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
         ),
@@ -459,7 +464,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(waiting_on, "the open Coaching Choice")
         self.assertEqual(match.pending_coaching_substitutions, 2)
         self.assertEqual(match.substitutions_remaining(), remaining_before)
-        _, kwargs = interaction.followup.send.await_args
+        _, kwargs = interaction.channel.send.await_args
         self.assertIsInstance(kwargs["view"], CoachingHubView)
         # The image goes back up with it: exhaustion counts and the
         # benches are drawn nowhere else.
@@ -537,7 +542,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves():
             await cog.resume_pending_prompt(interaction, game, match)
 
-        _, kwargs = interaction.followup.send.await_args
+        _, kwargs = interaction.channel.send.await_args
         self.assertIsInstance(kwargs["view"], ScoreAttemptView)
         # Recorded, so the next restart re-arms the message this just
         # posted rather than the dead one it replaced.

@@ -1,6 +1,6 @@
 """
 The scripted opening a tutorial game plays -- see `d12ball/tutorial.py`
-and "The tutorial" in CLAUDE.md.
+and "The tutorial" in docs/design/tutorial.md.
 
 The centrepiece is `TutorialPlaythroughTests`, which plays the whole
 script through the **real cog** with Discord mocked, pressing whichever
@@ -163,6 +163,12 @@ def build_interaction(recorder=None, user_id: int = 111) -> SimpleNamespace:
     return SimpleNamespace(
         channel_id=2,
         guild=None,
+        # The same `send` the recorder already watches through
+        # `followup`: which of the two a post actually goes out through
+        # depends on whether the interaction still had a response to
+        # give at that point in the cascade, and the recorder cares
+        # about what was said, not which route said it.
+        channel=SimpleNamespace(send=send),
         message=SimpleNamespace(id=999, content="prompt", attachments=[]),
         user=SimpleNamespace(id=user_id, display_name="Coach"),
         edit_original_response=edit_original_response,
@@ -173,6 +179,7 @@ def build_interaction(recorder=None, user_id: int = 111) -> SimpleNamespace:
             defer=mock.AsyncMock(),
             send_message=send_message,
             edit_message=edit_message,
+            is_done=lambda: True,
         ),
         followup=SimpleNamespace(send=send),
     )
@@ -552,7 +559,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
 
         **The shot's outcome is not asserted, because the script does
         not fix it.** It is deliberately left to the dice (see "The
-        five beats" in CLAUDE.md), a heavy favourite and not a
+        five beats" in docs/design/tutorial.md), a heavy favourite and not a
         certainty, so a test demanding a goal fails one run in seven
         for the reason the tutorial is built to allow -- which it did,
         on `main`, at about that rate. What the fold has to agree with
@@ -889,9 +896,11 @@ class TutorialStagingTests(unittest.IsolatedAsyncioTestCase):
     async def stage(self, cog, game):
         interaction = build_interaction()
         recorded = []
-        interaction.followup.send = mock.AsyncMock(
+        recorder = mock.AsyncMock(
             side_effect=lambda content=None, **kw: recorded.append(content),
         )
+        interaction.followup.send = recorder
+        interaction.channel.send = recorder
         with suppressed_cog_saves():
             await cog.stage_tutorial_beat(interaction, game)
         return recorded
@@ -1004,10 +1013,12 @@ class TutorialCoachingNoteTests(unittest.IsolatedAsyncioTestCase):
     async def open_window(self, cog, game, match, side=TeamSide.HOME):
         interaction = build_interaction()
         posted = []
-        interaction.followup.send = mock.AsyncMock(
+        recorder = mock.AsyncMock(
             side_effect=lambda content=None, **kw: posted.append(content)
             or SimpleNamespace(id=1, attachments=[]),
         )
+        interaction.followup.send = recorder
+        interaction.channel.send = recorder
         with suppressed_cog_saves():
             await cog.begin_substitution_window(
                 interaction, game, match, side,

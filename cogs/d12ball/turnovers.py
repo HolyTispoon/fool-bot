@@ -2,7 +2,7 @@
 The three ways possession changes hands: the run back after a steal,
 the time out that buys both coaches a Coaching Choice, and the pickup
 after a ball has gone out. See "Turnovers: steals and new plays" and
-"The time out" in CLAUDE.md.
+"The time out" in docs/design/time-out.md.
 """
 
 import asyncio
@@ -32,6 +32,7 @@ from cogs.d12ball_helpers import (
     format_player_with_team,
     format_team_side_label,
     get_exhaust_emoji,
+    send_new_prompt,
     space_label,
 )
 from cogs.d12ball_views import (
@@ -398,7 +399,8 @@ class TurnoverMixin:
                 match, side, occasion, is_response, restored,
             )
 
-            prompt = await inner_interaction.followup.send(
+            prompt = await send_new_prompt(
+                inner_interaction,
                 self.engine.coaching_prompt(
                     game, match, side, note, lead_in=lead_in,
                 ),
@@ -408,7 +410,6 @@ class TurnoverMixin:
                     if occasion.asks_declaration
                     else CoachingHubView(self, game.game_id)
                 ),
-                wait=True,
                 allowed_mentions=discord.AllowedMentions(
                     users=True, roles=False, everyone=False,
                 ),
@@ -445,7 +446,7 @@ class TurnoverMixin:
         The image is re-sent because a Coaching Choice is unreadable
         without it -- exhaustion counts, the Exhausted and Injured
         badges and which bench a player sits on are drawn nowhere else
-        (see "Working on the board image" in CLAUDE.md).
+        (see "Working on the board image" in docs/design/board-image.md).
         """
         side = TeamSide(match.pending_coaching_side)
 
@@ -462,7 +463,8 @@ class TurnoverMixin:
             if match.pending_coaching_declared
             else CoachingOfferView(self, game.game_id)
         )
-        prompt = await interaction.followup.send(
+        prompt = await send_new_prompt(
+            interaction,
             self.engine.coaching_prompt(
                 game,
                 match,
@@ -472,7 +474,6 @@ class TurnoverMixin:
             ),
             file=await self.coaching_file(game, match, side),
             view=view,
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -557,10 +558,10 @@ class TurnoverMixin:
             return "the out-of-bounds pickup"
 
         view, ask = self.pending_turn_view(game.game_id, match)
-        prompt = await interaction.followup.send(
+        prompt = await send_new_prompt(
+            interaction,
             ask,
             view=view,
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -661,7 +662,8 @@ class TurnoverMixin:
         prefix = f"{lead_in}\n\n" if lead_in else ""
         if lines:
             body = "\n".join(lines)
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 f"{prefix}# Coaching Choice\n"
                 f"{format_team_side_label(setup)}:\n{body}"
             )
@@ -677,7 +679,7 @@ class TurnoverMixin:
             # instructions to a coach, so an AI that changed nothing
             # says nothing rather than posting a menu heading with no
             # menu under it.
-            await interaction.followup.send(lead_in)
+            await send_new_prompt(interaction, lead_in)
 
         await self.finish_substitution_window(interaction, game, match)
 
@@ -1236,14 +1238,15 @@ class TurnoverMixin:
             for side in (TeamSide.HOME, TeamSide.VISITING)
         )
         if displaced:
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 f"{prefix}# Players run back!\n"
                 "Players return to an open space in their assigned zone and "
                 "gain 1 exhaustion token for every space traveled. "
                 f"{speed_note}".rstrip()
             )
         elif prefix or speed_note:
-            await interaction.followup.send(f"{prefix}{speed_note}".strip())
+            await send_new_prompt(interaction, f"{prefix}{speed_note}".strip())
         await self.continue_run_back(interaction, game, match)
 
 
@@ -1317,7 +1320,7 @@ class TurnoverMixin:
         Place one of an AI side's run-backs and describe it, without
         posting anything: the line comes back for the cascade in
         continue_run_back to batch with every other automatic
-        placement. See "Discord's rate limits" in CLAUDE.md.
+        placement. See "Discord's rate limits" in docs/design/rate-limits.md.
         """
         # One candidate is a settled player and only the space is
         # open; several is a stack Dinky picks out of, the same call a
@@ -1454,11 +1457,11 @@ class TurnoverMixin:
                 match, side, candidates, mention,
             )
 
-        prompt_message = await interaction.followup.send(
+        prompt_message = await send_new_prompt(
+            interaction,
             f"{prefix}{body}",
             file=await self.build_field_file(game),
             view=prompt_view,
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -1599,7 +1602,7 @@ class TurnoverMixin:
             body = "\n".join(notes)
             notes = []
             lead_in = ""
-            await interaction.followup.send(f"{prefix}{body}")
+            await send_new_prompt(interaction, f"{prefix}{body}")
             await self.refresh_match_image(interaction, game, png=png)
             return True
 
@@ -1638,7 +1641,7 @@ class TurnoverMixin:
                 # draws its own field strip (see send_run_back_prompt).
                 # Two renders, two uploads -- the requests are what the
                 # gate counts, and they are unchanged. See "Discord's
-                # rate limits" in CLAUDE.md.
+                # rate limits" in docs/design/rate-limits.md.
                 png = await self.render_match_png(game)
                 if not await flush(png):
                     await self.refresh_match_image(interaction, game, png=png)
@@ -1740,12 +1743,12 @@ class TurnoverMixin:
             game, number, self.team_emojis, mention=True,
         )
         prefix = f"{lead_in}\n\n" if lead_in else ""
-        prompt_message = await interaction.followup.send(
+        prompt_message = await send_new_prompt(
+            interaction,
             f"{prefix}{mention}, everyone is back in position -- send "
             "the nearest player either side of the ball to pick it up "
             f"at {space_label(match.ball.zone, match.ball.space_index)}:",
             view=BallRecoveryView(self, game.game_id),
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -1784,7 +1787,8 @@ class TurnoverMixin:
         # Joined rather than interpolated: a free pickup has no
         # exhaustion line at all, and interpolating one would leave a
         # blank line under the sentence. See "What a message says".
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             "\n".join(
                 part for part in (
                     f"{prefix}"

@@ -34,8 +34,9 @@ from save_patches import suppressed_cog_saves, suppressed_full_image_links, supp
 
 def build_interaction() -> SimpleNamespace:
     return SimpleNamespace(
+        response=SimpleNamespace(is_done=lambda: True),
         followup=SimpleNamespace(send=mock.AsyncMock()),
-        channel=None,
+        channel=SimpleNamespace(send=mock.AsyncMock()),
     )
 
 
@@ -156,13 +157,13 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
 
         # However many players moved, the channel sees one post and the
         # board is re-uploaded once.
-        self.assertEqual(interaction.followup.send.await_count, 1)
+        self.assertEqual(interaction.channel.send.await_count, 1)
         self.assertEqual(cog.refresh_match_image.await_count, 1)
 
         # And it really was a cascade: one message per placement is the
         # behaviour being guarded against, so a scenario with only one
         # placement would pass this test without proving anything.
-        posted = interaction.followup.send.await_args_list[0].args[0]
+        posted = interaction.channel.send.await_args_list[0].args[0]
         self.assertEqual(posted.count("runs back to"), 4)
 
     async def test_every_placement_is_still_reported(self) -> None:
@@ -176,7 +177,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = await self.run_back(cog, game, match)
 
-        posted = interaction.followup.send.await_args_list[0].args[0]
+        posted = interaction.channel.send.await_args_list[0].args[0]
         moved_names = [
             self.catalog.player_by_id(player_id).name
             for player_id in movers
@@ -242,7 +243,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = await self.run_back(cog, game, match)
 
-        prompt = interaction.followup.send.await_args_list[-1].args[0]
+        prompt = interaction.channel.send.await_args_list[-1].args[0]
         self.assertIn("choose where", prompt)
         cog.finish_maneuver_resolution.assert_not_awaited()
         self.assertNotEqual(
@@ -263,7 +264,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = await self.run_back(cog, game, match)
 
-        prompt = interaction.followup.send.await_args_list[-1].args[0]
+        prompt = interaction.channel.send.await_args_list[-1].args[0]
         self.assertIn("choose which of them runs back", prompt)
         for player_id in midfield:
             self.assertIn(self.catalog.player_by_id(player_id).name, prompt)
@@ -290,7 +291,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = await self.run_back(cog, game, match)
 
-        prompt = interaction.followup.send.await_args_list[-1].args[0]
+        prompt = interaction.channel.send.await_args_list[-1].args[0]
         self.assertIn("choose where", prompt)
         self.assertIn(self.catalog.player_by_id(midfield[1]).name, prompt)
         self.assertNotIn(self.catalog.player_by_id(midfield[0]).name, prompt)
@@ -311,7 +312,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = await self.run_back(cog, game, match)
 
-        prompt_call = interaction.followup.send.await_args_list[-1]
+        prompt_call = interaction.channel.send.await_args_list[-1]
         self.assertEqual(
             prompt_call.kwargs.get("file"), mock.sentinel.field,
         )
@@ -338,7 +339,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = await self.run_back(cog, game, match)
 
-        prompt = interaction.followup.send.await_args_list[-1].args[0]
+        prompt = interaction.channel.send.await_args_list[-1].args[0]
         side, (player_id,) = cog.engine.next_run_back_step(game, match)
         zone = match.setup_for_side(side).assigned_zone(player_id)
         spaces = match.placement_spaces_in_zone(side, zone, player_id)
@@ -371,9 +372,9 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         interaction = await self.run_back(cog, game, match)
-        sends_before = interaction.followup.send.await_count
+        sends_before = interaction.channel.send.await_count
 
-        view = interaction.followup.send.await_args_list[-1].kwargs["view"]
+        view = interaction.channel.send.await_args_list[-1].kwargs["view"]
         click = SimpleNamespace(
             user=SimpleNamespace(id=11),
             message=SimpleNamespace(attachments=[]),
@@ -393,7 +394,7 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         # Nothing new posted, and nobody moved until the space is
         # picked: the second question is the same message asked again.
         self.assertEqual(
-            interaction.followup.send.await_count, sends_before,
+            interaction.channel.send.await_count, sends_before,
         )
         self.assertEqual(match.board.meeple_position(midfield[1])[1], 0)
 
@@ -519,10 +520,11 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
             advanced_maneuvers=True,
             species_abilities=True,
         )
+        send = mock.AsyncMock(return_value=SimpleNamespace(id=1, attachments=[]))
         interaction = SimpleNamespace(
-            followup=SimpleNamespace(
-                send=mock.AsyncMock(return_value="snapshot"),
-            ),
+            channel=SimpleNamespace(send=send),
+            followup=SimpleNamespace(send=send),
+            response=SimpleNamespace(is_done=lambda: True),
         )
 
         with (

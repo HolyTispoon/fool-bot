@@ -1,7 +1,7 @@
 """
 A ball nobody is holding, the pickup after one goes out, and the
 contest that settles either -- which the long High Pass borrows. See
-"Where the ball comes to rest" in CLAUDE.md.
+"Where the ball comes to rest" in docs/design/loose-balls.md.
 """
 
 import discord
@@ -24,6 +24,7 @@ from cogs.d12ball_helpers import (
     format_player_with_team,
     format_team_side_label,
     player_with_role,
+    send_new_prompt,
     space_label,
 )
 
@@ -248,12 +249,12 @@ class LooseBallChoiceView(SafeView):
             await self.cog.resolve_loose_ball(interaction, game, match)
             return
 
-        prompt_message = await interaction.followup.send(
+        prompt_message = await send_new_prompt(
+            interaction,
             self.cog.engine.build_loose_ball_prompt(
                 game, match, self.cog.team_emojis,
             ),
             view=self.cog.build_loose_ball_view(self.game_id, match),
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -723,7 +724,8 @@ class LooseBallSkillTestView(SafeView):
             (offense_player.player_id, offense_ignite),
             (defense_player.player_id, defense_ignite),
         )
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             announcement,
             # The edit this replaced never pinged the winner, and the
             # prompt that follows does; one ping per turn is plenty.

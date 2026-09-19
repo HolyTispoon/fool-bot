@@ -34,7 +34,13 @@ drive rather than watch.
 
 ## Where the line already is
 
-`d12ball/` is 21,583 lines and does not import `discord` anywhere. Neither
+*Re-measured 2026-09-19 against current `main`: the render-group split and the
+reply-strip sweep landed since this was last counted, and moved a few of the
+figures below by a percent or two. Re-run the counts again before trusting
+them past another batch of unrelated pull requests -- that is the nature of a
+number taken from the tree rather than asserted.*
+
+`d12ball/` is 22,142 lines and does not import `discord` anywhere. Neither
 does `gamesaves/`. That is not luck -- it is a rule the author has been
 holding, and it is most of the work already done.
 
@@ -43,14 +49,14 @@ What is **already portable, unchanged**:
 | Module | Lines | What it is |
 | --- | --- | --- |
 | `d12ball/components.py` | 5,362 | `MatchState` (127 methods), `BoardState`, the catalogs |
-| `d12ball/engine.py` | 2,826 | `RulesEngine`, 101 methods, **stateless** -- built from four catalogs, takes the match per call |
-| `d12ball/render.py` + `cards.py` + `boards.py` + `player_cards.py` + `species_cards.py` | 9,962 | Pillow. Serves a web app as a PNG endpoint on day one |
-| `d12ball/ai.py`, `stats.py`, `tutorial.py`, `formatting.py`, `game.py`, `rules_doc.py` | 3,433 | All pure |
+| `d12ball/engine.py` | 2,837 | `RulesEngine`, 101 methods, **stateless** -- built from four catalogs, takes the match per call |
+| `d12ball/render.py` + `cards.py` + `boards.py` + `player_cards.py` + `species_cards.py` | 10,487 | Pillow. Serves a web app as a PNG endpoint on day one |
+| `d12ball/ai.py`, `stats.py`, `tutorial.py`, `formatting.py`, `game.py`, `rules_doc.py` | 3,456 | All pure |
 | `gamesaves/d12ball/storage.py` | 415 | Persistence. `MatchState.to_dict` is **already a wire format** |
 
 What is **not portable**, and is the whole of this plan:
 
-`cogs/d12ball/` is 12,510 lines and holds the **turn flow**. 188 async
+`cogs/d12ball/` is 12,537 lines and holds the **turn flow**. 188 async
 methods, 161 taking `interaction`, 125 touching match state, and **76 direct
 writes of rules state from the cog** -- nearly all of them `pending_*` flags.
 
@@ -81,8 +87,8 @@ split the code has already begun rather than starting a new one.
 
 **Five of the thirteen save themselves, and that is the one thing a step may
 not do** (principle 9). Every mutator on the list does it -- `send_low_pass`
-(`effects.py:195`), `throw_high_pass` (`:927`), `knock_ball_back` (`:2293`),
-`take_ball_by_steal` (`:2546`) and `apply_own_goal_outcome` (`:3248`) each
+(`effects.py:196`), `throw_high_pass` (`:928`), `knock_ball_back` (`:2297`),
+`take_ball_by_steal` (`:2550`) and `apply_own_goal_outcome` (`:3253`) each
 call `self.persist(game, match)` in their own body. So they are on the
 model's side in everything but their address *and* their save, and lifting
 one means stripping the persist out of it first.

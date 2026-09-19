@@ -11,7 +11,7 @@ game.
 
 `gamesaves.d12ball.storage.migrate_legacy_game_data` is the fix,
 applied tolerantly on every load rather than as a one-time rewrite --
-see the legacy-migration gotcha in CLAUDE.md. These build a synthetic
+see the legacy-migration gotcha in docs/design/gotchas.md. These build a synthetic
 pre-reshuffle save by taking a real match played against the *current*
 catalog (home = Fire Demons, visiting = Cyborgs -- species teams,
 whose membership is exactly the old Orange/Teal rosters) and renaming

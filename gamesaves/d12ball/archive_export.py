@@ -1,7 +1,7 @@
 """
 Writing a finished game's export to local disk, before `/debug
 export_archived_games` deletes its channel -- see "Freeing up the PBD
-Archive" in CLAUDE.md.
+Archive" in docs/design/channels-and-archive.md.
 
 This module knows nothing about Discord. The cog does the fetching (the
 channel, its message history, each attachment's bytes) and hands this
@@ -39,7 +39,7 @@ def archive_export_dir() -> Optional[Path]:
     anybody's channels just because the command exists, and both
     developers run this bot against their own checkout. For the live
     bot this would point at a folder inside the mounted Google Drive
-    letter (see "Two of those machines" in CLAUDE.md) -- there is no
+    letter (see "Two of those machines" in docs/design/collaboration.md) -- there is no
     Google Drive API call anywhere in this bot, so "downloaded to
     Google Drive" means written to a path that Drive itself is already
     syncing, exactly the way the checkout and its saved games already
@@ -132,7 +132,7 @@ def write_game_export(
 INLINE_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp")
 
 # The suffix MatchState puts on a visiting card when both sides field
-# the same player -- see "One player, both sides" in CLAUDE.md. Spelled
+# the same player -- see "One player, both sides" in docs/design/teams-and-players.md. Spelled
 # out here rather than imported: this module writes files and knows
 # nothing about the game model, and a prettified name that gets this
 # wrong is cosmetic, where an import would tie the exporter to the
@@ -257,7 +257,7 @@ def summarise_game(game_data: dict) -> list[tuple[str, str]]:
 
     if game_data.get("abandoned"):
         # A scoreboard read off a game nobody finished is a result
-        # nobody earned -- see "The event log" in CLAUDE.md.
+        # nobody earned -- see "The event log" in docs/design/clock-and-records.md.
         rows.append(("Result", "Abandoned before full time"))
     elif scoreboard:
         rows.append((
@@ -281,7 +281,7 @@ def describe_goals(game_data: dict) -> list[str]:
     An own goal is stored as two facts and reads as one line: `side` is
     who it counted for and `player_id` is the defender who put it in,
     which is the one line of a scoresheet where the name and the column
-    disagree. See "The goal log" in CLAUDE.md.
+    disagree. See "The goal log" in docs/design/clock-and-records.md.
     """
     match_state = game_data.get("match_state") or {}
     lines = []

@@ -77,7 +77,9 @@ def build_game() -> D12BallGame:
 def build_interaction() -> SimpleNamespace:
     return SimpleNamespace(
         user=SimpleNamespace(id=111, display_name="One"),
-        channel=None,
+        channel=SimpleNamespace(
+            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+        ),
         guild=None,
         followup=SimpleNamespace(
             send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
@@ -86,6 +88,7 @@ def build_interaction() -> SimpleNamespace:
             defer=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
         edit_original_response=mock.AsyncMock(),
     )
@@ -101,7 +104,7 @@ def a_player(name: str) -> PlayerDefinition:
     carrying a real player's name is not looked up and so cannot break
     when that player is renamed -- but it reads as a roster reference,
     and the next rename sends somebody chasing it. See "The test suite"
-    in CLAUDE.md.
+    in docs/design/testing.md.
     """
     return PlayerDefinition(
         player_id=f"teal_{name.lower().replace(' ', '_')}",
@@ -355,7 +358,7 @@ class ShotImageTests(unittest.TestCase):
     """
     The composition image. It cannot be read back, so what is asserted
     is the text it is built from and that it renders at all -- see
-    "Working on the board image" in CLAUDE.md.
+    "Working on the board image" in docs/design/board-image.md.
     """
 
     def side(

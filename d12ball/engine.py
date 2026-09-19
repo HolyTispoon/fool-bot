@@ -1149,7 +1149,7 @@ class RulesEngine:
         an ordinary tie for the same reason -- the disadvantage is
         measured against a healthy opponent. Both are the author's
         (2026-08-09); see "The maneuver with nobody to challenge it" in
-        CLAUDE.md.
+        docs/design/sending-a-player.md.
         """
         if match.maneuver_uncontested:
             return match.offense_maneuver
@@ -1965,7 +1965,7 @@ class RulesEngine:
         `spread_exempt_ids` rides along (see `spread_exempt_ids`): a
         Spreadable Ooze sharing a space with one zone-native teammate
         is a stack of one once the Ooze is disregarded, so the pair is
-        never offered here at all -- see "Slimey" in CLAUDE.md.
+        never offered here at all -- see "Slimey" in docs/design/species-abilities.md.
         """
         return match.crowded_candidates(
             side, self.spread_exempt_ids(game, match, side),
@@ -2035,7 +2035,7 @@ class RulesEngine:
                     continue
                 # Never below zero, and nothing to say for a Cyborg
                 # carrying none -- see "A move that costs nothing says
-                # nothing" in CLAUDE.md.
+                # nothing" in docs/design/naming-and-wording.md.
                 if match.exhaustion.get(player_id, 0) <= 0:
                     continue
                 charged.append(player_id)
@@ -2648,7 +2648,7 @@ class RulesEngine:
         """
         `player_with_role` for a caller holding a card id -- "Hellguard
         [FB]", the one spelling every label in the game uses. See
-        "Naming a player" in CLAUDE.md.
+        "Naming a player" in docs/design/naming-and-wording.md.
 
         It spelled the role in parentheses until 2026-09-16, which read
         as a second form of the same thing and collided with whatever
@@ -2719,7 +2719,7 @@ class RulesEngine:
         # Keyed by card id, not by the catalog's: this side may be
         # holding the duplicate of a player the other side fields, and
         # its meeple is on the board under that id. See "One player,
-        # both sides" in CLAUDE.md.
+        # both sides" in docs/design/teams-and-players.md.
         roster_order = {
             setup.card_id_for(player.player_id): index
             for index, player in enumerate(

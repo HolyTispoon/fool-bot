@@ -8,7 +8,7 @@ by looking: that the tracked portraits are already cut, which is what
 would catch a new painting arriving with its background still on it.
 
 See scripts/recut_player_portraits.py, and "The player cards" in
-CLAUDE.md.
+docs/design/cards.md.
 """
 
 import importlib.util

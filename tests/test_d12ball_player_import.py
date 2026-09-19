@@ -12,7 +12,7 @@ carries one and the Midfielder's, which also starts "+3", does not. So
 every ability column is stripped rather than the ones somebody has
 checked.
 
-See scripts/import_d12ball_players.py, and "The rules" in CLAUDE.md for
+See scripts/import_d12ball_players.py, and "The rules" in docs/design/rules-and-data.md for
 where the sheet lives.
 """
 
@@ -292,7 +292,7 @@ class DualRosterValidationTests(unittest.TestCase):
     """
     The importer's own checks, previously untested altogether: the two
     id/team invariants that only the reshuffle introduced. See "Team
-    colors" and the player-catalog notes in CLAUDE.md.
+    colors" and "Player species" in docs/design/teams-and-players.md.
     """
 
     def _import(self, rows):

@@ -39,6 +39,7 @@ from cogs.d12ball_helpers import (
     get_team_emoji,
     is_game_helper,
     refresh_player_names,
+    send_new_prompt,
     toggle_advanced_module,
 )
 
@@ -451,7 +452,7 @@ class TeamSelectionView(GameConfigurationView):
         theirs, and there is nothing else on it that says. Every other
         color/species matchup is offered and playable: the 2 or 3
         players those rosters share are fielded as two cards, one a
-        side. See "One player, both sides" in CLAUDE.md.
+        side. See "One player, both sides" in docs/design/teams-and-players.md.
         """
         if game is None:
             return set()
@@ -532,7 +533,7 @@ class TeamSelectionView(GameConfigurationView):
             # A game helper holds neither side, so **which side this
             # pick lands on has to be settled here** rather than read
             # off the clicker -- see "Who may act on a game" in
-            # CLAUDE.md. A test game's button names it outright; a
+            # docs/design/permissions.md. A test game's button names it outright; a
             # normal game's two sides share one row, so it goes to the
             # side that has not chosen yet, Player 1 first. That is the
             # same order `picking_player_number` puts a test game's
@@ -713,7 +714,8 @@ class CoinFlipView(GameConfigurationView):
 
         # The coin goes out on its own, with nothing else in the
         # message, which is what makes Discord render it large.
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             format_coin_emoji(
                 await self.cog.ensure_coin_emojis(),
                 game.coin_face,
@@ -726,13 +728,13 @@ class CoinFlipView(GameConfigurationView):
         # nothing is drawn until both coaches have finished setting up
         # and there is a kickoff to show. See
         # D12Ball.finish_setup_coaching.
-        choice_message = await interaction.followup.send(
+        choice_message = await send_new_prompt(
+            interaction,
             build_home_choice_message(game, self.cog.team_emojis),
             view=HomeAwaySelectionView(
                 cog=self.cog,
                 game_id=self.game_id,
             ),
-            wait=True,
         )
         game.message_id = choice_message.id
         save_games(self.cog.games)
@@ -918,8 +920,8 @@ class HomeAwaySelectionView(SafeView):
         winner = format_player_with_team(
             game, winner_player_number, self.cog.team_emojis,
         )
-        await interaction.followup.send(
-            f"{winner} chose **{choice.value.title()}**."
+        await send_new_prompt(
+            interaction, f"{winner} chose **{choice.value.title()}**.",
         )
         await self.cog.begin_setup_coaching(interaction, game)
 

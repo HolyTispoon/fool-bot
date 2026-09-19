@@ -1,7 +1,7 @@
 """
 A turn as the coach drives it -- picking the handler, picking the
 action, ceding, answering a challenge, and the public maneuver prompt
-both sides pick off. See "The maneuver prompt" in CLAUDE.md.
+both sides pick off. See "The maneuver prompt" in docs/design/maneuver-prompt.md.
 """
 
 import discord
@@ -24,6 +24,7 @@ from cogs.d12ball_helpers import (
     format_player_with_team,
     player_with_role,
     refresh_player_names,
+    send_new_prompt,
 )
 
 from cogs.d12ball_views.base import SafeView
@@ -446,12 +447,12 @@ class PlayerActionView(SafeView):
         ask = challenger_prompt_ask(match)
         handler_team = match.team_for_player(handler.player_id)
         challenge_view = ManeuverChallengeView(self.cog, self.game_id)
-        challenge_message = await interaction.followup.send(
+        challenge_message = await send_new_prompt(
+            interaction,
             f"{self.cog.player_label(match, handler)} will "
             f"maneuver for {team_display_name(handler_team)}.\n\n"
             f"{defender_mention}, {ask}",
             view=challenge_view,
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True,
                 roles=False,
@@ -985,7 +986,7 @@ class ManeuverActionPromptView(SafeView):
 
         It takes the interaction rather than the clicker's id because a
         game helper may pick for either side and the permission is on
-        the member -- see "Who may act on a game" in CLAUDE.md.
+        the member -- see "Who may act on a game" in docs/design/permissions.md.
         """
         if side == "offense":
             authorized = self.may_act_for_possession(
@@ -1080,7 +1081,8 @@ class ManeuverActionPromptView(SafeView):
             side_display = format_player_with_team(
                 game, side_number, self.cog.team_emojis,
             )
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 f"{side_display} has picked their maneuver.",
             )
 

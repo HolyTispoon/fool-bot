@@ -71,7 +71,7 @@ PBD_ARCHIVE_CATEGORY_NAME = "PBD Archive"
 # of ZONE_LETTERS -- now lives. ROLE_INITIALS is not re-exported:
 # `role_initials` is its one reader outside the drawing modules,
 # and `player_with_role` is the only thing that should be building
-# a name out of it -- see "Naming a player" in CLAUDE.md.
+# a name out of it -- see "Naming a player" in docs/design/naming-and-wording.md.
 COIN_EMOJI_NAMES = {
     CoinFace.FORTUNE: "3_gold_fortune",
     CoinFace.DOOM: "3_gold_doom",
@@ -179,7 +179,7 @@ ROLE_EMOJI_NAMES = {
 # **Keyed by every team, filled from four files.** A species team
 # shares its colour team's hex, so Orange and Fire Demons are the same
 # upload -- the pairing is resolved once, here, exactly as
-# `TEAM_COLORS` resolves it once (see "Team colors" in CLAUDE.md), so
+# `TEAM_COLORS` resolves it once (see "Team colors" in docs/design/teams-and-players.md), so
 # nothing downstream has to know that a Cyborg is drawn teal.
 ROLE_TEAM_EMOJI_NAMES = {
     (role, team): f"{name}_{colour.value}"
@@ -531,7 +531,7 @@ def may_act_in_game(user, game: D12BallGame) -> bool:
     """
     Whether this person may press a button either coach may press -- a
     roll, the maneuver reference -- which is either coach, or a game
-    helper. See "Every roll is a coach's" in CLAUDE.md.
+    helper. See "Every roll is a coach's" in docs/design/maneuvers.md.
     """
     return user.id in game_participant_ids(game) or is_game_helper(user)
 
@@ -558,7 +558,7 @@ class HelperConfirmationRequired(Exception):
     Raised by `SafeView.may_act_for` and `SafeView.may_act_in_game`
     when the click is a game helper's, is for somebody other than
     themselves, and has not been confirmed -- see "Who may act on a
-    game" in CLAUDE.md.
+    game" in docs/design/permissions.md.
 
     It is an exception rather than a third return value because the
     gates are called from fifty-odd callbacks as `if not
@@ -604,7 +604,7 @@ def format_role_bracket(
 
     **A button gets the position instead of the emoji**, which is the
     only place the two forms differ -- see `player_with_role` and
-    "Naming a player" in CLAUDE.md.
+    "Naming a player" in docs/design/naming-and-wording.md.
     """
     team_emoji = get_team_emoji(team_emojis, team)
     return f"{team_emoji} {player_with_role(player, role_emojis, team)}"
@@ -1021,7 +1021,7 @@ def build_setup_message(
 
 # The names of the application emoji uploaded through the Developer
 # Portal for D12 Ball -- both a d12 (see "The game-creation hub and the
-# lobby" in CLAUDE.md). `d12dice` is the one that sits in message text
+# lobby" in docs/design/hub-and-lobby.md). `d12dice` is the one that sits in message text
 # (the hub message and the lobby heading); `d12dicecream` is a
 # lighter-inked cut used only on the hub button, whose blue Discord fill
 # swallowed the darker die. Everything degrades to the other name, then
@@ -1432,6 +1432,50 @@ async def send_error_fallback(
         pass
 
 
+async def send_new_prompt(
+    interaction: discord.Interaction,
+    content: Optional[str] = None,
+    *,
+    file: Optional[discord.File] = None,
+    view: Optional[discord.ui.View] = None,
+    allowed_mentions: Optional[discord.AllowedMentions] = None,
+) -> discord.Message:
+    """
+    Post a new, public message for this game -- a fresh prompt or
+    announcement that is not itself the answer to a coach's ephemeral
+    click (see `send_error_fallback` for that).
+
+    `interaction.followup.send` ties whatever it posts into the same
+    interaction as the response that came before it, and Discord's
+    client shows that by quoting the earlier one in a "replying to"
+    strip above the new message. That is right for the message that
+    genuinely *is* this click's own answer -- the one response Discord
+    lets an interaction give -- and wrong for everything a cascade goes
+    on to post afterwards, which has nothing to do with the click that
+    started it and reads as clutter wearing a reply it doesn't need.
+    So this answers the interaction itself only while it still has an
+    answer to give, and posts a plain, unreferenced channel message
+    once it doesn't -- the same `is_done()` read `send_error_fallback`
+    already makes, for the opposite reason: that one always answers
+    ephemerally and only picks the route; this one changes the message
+    itself, because a plain channel post can't be ephemeral.
+    """
+    args = () if content is None else (content,)
+    kwargs: dict = {}
+    if file is not None:
+        kwargs["file"] = file
+    if view is not None:
+        kwargs["view"] = view
+    if allowed_mentions is not None:
+        kwargs["allowed_mentions"] = allowed_mentions
+
+    if interaction.response.is_done():
+        return await interaction.channel.send(*args, **kwargs)
+
+    await interaction.response.send_message(*args, **kwargs)
+    return await interaction.original_response()
+
+
 def build_full_image_button(
     message: discord.Message,
 ) -> Optional[discord.ui.Button]:
@@ -1542,7 +1586,7 @@ async def pin_board_message(message: discord.Message) -> None:
     bounds -- not the several boards a single turn puts out. A pin is
     an extra request and Discord posts a "pinned a message" notice for
     each one, so this is deliberately rare; see "Discord's rate limits"
-    in CLAUDE.md.
+    in docs/design/rate-limits.md.
 
     A channel holds 50 pins. At the cap, the oldest pinned *board* is
     unpinned to make room -- a pin somebody else put there is left

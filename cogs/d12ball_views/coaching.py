@@ -1,6 +1,6 @@
 """
 The Coaching Choice: one flow, five occasions, four actions. See "The
-Coaching Choice" in CLAUDE.md for what varies between them, all of
+Coaching Choice" in docs/design/coaching-choice.md for what varies between them, all of
 which is on `CoachingOccasion` rather than in these views.
 """
 
@@ -45,7 +45,7 @@ class CoachingView(SafeView):
     - It used to be a message per step, and a coach making two
       substitutions and a rearrangement put eight of them into the
       channel plus a board refresh apiece. See "Discord's rate limits"
-      in CLAUDE.md: the fix for that is always fewer requests.
+      in docs/design/rate-limits.md: the fix for that is always fewer requests.
     - Only the newest message could be restored after a restart, but
       every older one kept a live view. A coach could scroll up and
       click a menu from three steps ago, and it would act on the

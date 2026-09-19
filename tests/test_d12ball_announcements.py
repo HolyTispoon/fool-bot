@@ -75,17 +75,21 @@ def build_game() -> D12BallGame:
 
 
 def build_interaction() -> SimpleNamespace:
+    # `channel.send` and `followup.send` share one mock: which route a
+    # post takes depends on whether the interaction still had a response
+    # to give, and these tests read back "everything this posted" in
+    # order without caring which route carried which message.
+    send = mock.AsyncMock(return_value=SimpleNamespace(id=999))
     return SimpleNamespace(
         user=SimpleNamespace(id=111, display_name="One"),
-        channel=None,
+        channel=SimpleNamespace(send=send),
         guild=None,
-        followup=SimpleNamespace(
-            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
-        ),
+        followup=SimpleNamespace(send=send),
         response=SimpleNamespace(
             defer=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
         edit_original_response=mock.AsyncMock(),
     )
@@ -628,7 +632,7 @@ class RoleEmojiOnTheCogTests(unittest.TestCase):
         visitors' colour. It falls out of `player_label` reading
         `match.team_for_player`, which is the same lookup the team
         emoji in front already made; the point is that the two now
-        cannot disagree. See "One player, both sides" in CLAUDE.md.
+        cannot disagree. See "One player, both sides" in docs/design/teams-and-players.md.
         """
         from d12ball.components import PlayerRole
         from d12ball.game import Team

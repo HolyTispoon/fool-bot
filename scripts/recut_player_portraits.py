@@ -5,7 +5,7 @@ The art is JPEG paintings on a white background, and a cut-out that
 leaves any of it behind shows twice over: as a pale box behind the
 player on every dark image the bot draws, and as a faint checkerboard
 on a printed card, because the leftover is not flat white but the
-JPEG's own 8x8 blocks. See "The player cards" in CLAUDE.md.
+JPEG's own 8x8 blocks. See "The player cards" in docs/design/cards.md.
 
     python3 scripts/recut_player_portraits.py               # dry run
     python3 scripts/recut_player_portraits.py --in-place

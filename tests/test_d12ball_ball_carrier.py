@@ -81,7 +81,10 @@ def build_interaction() -> SimpleNamespace:
     sent = SimpleNamespace(id=999)
     return SimpleNamespace(
         user=SimpleNamespace(id=111, display_name="One"),
-        response=SimpleNamespace(defer=mock.AsyncMock()),
+        channel=SimpleNamespace(send=mock.AsyncMock(return_value=sent)),
+        response=SimpleNamespace(
+            defer=mock.AsyncMock(), is_done=lambda: True,
+        ),
         followup=SimpleNamespace(send=mock.AsyncMock(return_value=sent)),
     )
 
@@ -90,7 +93,9 @@ def build_contest_interaction() -> SimpleNamespace:
     """The contest edits its own message, unlike the effects above."""
     return SimpleNamespace(
         user=SimpleNamespace(id=111, display_name="One"),
-        channel=None,
+        channel=SimpleNamespace(
+            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+        ),
         guild=None,
         followup=SimpleNamespace(
             send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
@@ -99,6 +104,7 @@ def build_contest_interaction() -> SimpleNamespace:
             defer=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
         edit_original_response=mock.AsyncMock(),
     )
