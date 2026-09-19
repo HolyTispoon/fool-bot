@@ -102,7 +102,7 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 - **A test names a player by role** (`tests/roster.py`: `fielded`, `benched`, `roles`), never by id or name -- the roster is data the author revises.
 - **Suppress saves through `tests/save_patches.py`** (`suppressed_cog_saves` *and* `suppressed_view_saves`; a view usually needs both). A patch on a package name reaches none of its submodules. A full run must not create `data/`.
 - `EveryMatchupResolvesTests` and `TutorialPlaythroughTests` drive the real cog; a recorder or a flow change is tested there, not only in a unit test.
-- **`tests/test_model_purity.py` ratchets `d12ball/` importing no `discord` and defining no `async def`; `tests/test_golden_transcript.py` pins the tutorial's narration byte for byte.** Both are the safety net under the model/Discord split. -- [model-discord-split.md](docs/design/model-discord-split.md)
+- **`tests/test_model_purity.py` ratchets `d12ball/` and `gamesaves/d12ball/` importing no `discord` and defining no `async def`; `tests/test_golden_transcript.py` pins the tutorial's narration byte for byte.** Both are the safety net under the model/Discord split. -- [model-discord-split.md](docs/design/model-discord-split.md)
 
 **Git and collaboration** -- [collaboration.md](docs/design/collaboration.md)
 - **Never force-push a branch that has been pushed.** Feature branches are short-lived and land on `main` by PR. Either developer may be running the bot from the working tree at any time.
@@ -142,7 +142,7 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 | `to_dict`/`from_dict`, `storage.py`, the startup sweep, the full-image link, bundled file names | [gotchas.md](docs/design/gotchas.md) | Every fallback and why it stays; the swallowed save; the case-sensitive name |
 | Writing or moving a test; patching `save_games` | [testing.md](docs/design/testing.md) | The package-split patch trap; the stray-save guard; naming by role |
 | Deploying, the `K:\` host, `update_main_bot.ps1`, a 10062 | [collaboration.md](docs/design/collaboration.md) | Two machines, one live bot; one bot per token |
-| `tests/test_model_purity.py`, `tests/test_golden_transcript.py`, `tests/golden/`, anything that could add a `discord` import or `async def` under `d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | The purity ratchet and why it runs in a subprocess; the golden transcript's seeded RNG and what it does not cover; the Python-version and root-test gotchas |
+| `tests/test_model_purity.py`, `tests/test_golden_transcript.py`, `tests/golden/`, anything that could add a `discord` import or `async def` under `d12ball/` or `gamesaves/d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | The purity ratchet and why it runs in a subprocess; the golden transcript's seeded RNG and what it does not cover; the Python-version and root-test gotchas |
 
 ## Notes for Claude
 

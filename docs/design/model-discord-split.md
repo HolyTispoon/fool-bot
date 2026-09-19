@@ -9,12 +9,19 @@ of the plan lands.
 
 ## `tests/test_model_purity.py`
 
-**Is the line itself.** Every module under `d12ball/` imports **in a fresh
-subprocess** with `discord` refused, none of them defines an `async def`, and
-none of them imports from `cogs/`. All three hold today, so this is a
-**ratchet on something already true** -- the purity was kept by habit, and
-habit is what erodes once flow code starts moving across the line.
+**Is the line itself.** Every module under `d12ball/` **and
+`gamesaves/d12ball/`** imports **in a fresh subprocess** with `discord`
+refused, none of them defines an `async def`, and none of them imports from
+`cogs/`. All three hold today, so this is a **ratchet on something already
+true** -- the purity was kept by habit, and habit is what erodes once flow
+code starts moving across the line.
 
+- **`gamesaves/d12ball/` is checked too, not just `d12ball/`.** The plan
+  leans on `gamesaves/d12ball/storage.py` being pure -- it is what makes
+  `MatchState.to_dict` "already a wire format" rather than a claim to prove
+  later -- so the ratchet covers the module the plan actually depends on,
+  not only the one it is named after. `gamesaves/tethysdeck/`, a different
+  prototype's save, is left out.
 - The subprocess is load-bearing, not fastidious. `unittest discover` imports
   every test module before running anything, so an in-process version of this
   check would find half of `d12ball/` already in `sys.modules`, and

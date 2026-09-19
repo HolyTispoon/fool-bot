@@ -400,10 +400,18 @@ render no emoji either way.
 
 **So `player_label` crossing the seam is a Phase 1 prerequisite, not a
 consequence of it** -- it is an unlisted step that has to land before
-anything with a player's name in it can be lifted. It becomes
-`RulesEngine.format_roster_player_for_message`'s shape: engine-side, reading
-both dicts off the engine, with `D12Ball.player_label` left as the
-forwarding method so no call site moves.
+anything with a player's name in it can be lifted. **Not by becoming
+`RulesEngine.format_roster_player_for_message`** -- that method already
+exists (`engine.py:2661`) and is a different, narrower thing: role badge
+only, no team emoji, for its two current callers (`apply_formation`,
+`build_turn_prompt`), where a team emoji next to a card already on that
+team's board would say nothing new. `player_label` wants both. It becomes
+a new method beside it, `RulesEngine.format_player_label`: engine-side,
+reading both `team_emojis` and `role_emojis` off the engine, with
+`D12Ball.player_label` left as the forwarding method so no call site
+moves. The two methods stay distinct on purpose -- a caller that wants the
+narrower form keeps asking for it by name, rather than a flag threading
+through both.
 
 Each returns `None` today and falls back to `PlayerActionView`; that becomes
 `PromptKind.PLAYER_ACTION`, and the fallback stays exactly as deliberate as
@@ -580,9 +588,17 @@ it, and a rank that wants a paragraph is a rank that moved a rule.
 
 ## Phase 4 -- the spine
 
-The turn's own machinery, and where `interaction` finally dies from the
-effect path:
+The turn's own machinery, and where `interaction` dies from everything
+Phases 1-3 didn't already reach:
 
+- **the front half of a turn**: choosing and announcing a challenger
+  (`auto_resolve_challenger`, `announce_uncontested_maneuver` -- see
+  [sending-a-player.md](docs/design/sending-a-player.md)),
+  `begin_maneuver_action_selection` and `resolve_maneuver`. Easy to read as
+  already covered by "the spine" below, and it isn't -- nothing in Phases
+  1-3 touches it. Both a human's pick and `play_ai_turn`'s pass through it,
+  which is also why "`interaction` dies" above is qualified: it doesn't,
+  until this moves too.
 - the **three arrival points**, which are where a ball that has moved is
   settled: `finish_maneuver_resolution` (the tail of every ordinary path),
   `begin_loose_ball` (a Deflect, and the High Pass contest behind it) and
@@ -593,7 +609,13 @@ effect path:
   ...: return` at the top of them
 - `begin_loose_ball`'s contest
 - `begin_run_back` / `continue_run_back` (the cascade; note principle 8 --
-  the batching stays in the cog, the loop moves)
+  the batching stays in the cog, the loop moves). **The loop's own
+  per-pass `self.persist(game, match)` stays too**, as a named exception to
+  principle 9: the give-up-after-`MAX_RUN_BACK_PASSES` branch logs and
+  bails rather than returning a step for a wrapper to save after, and its
+  comment ("the match is saved as it stands") is a promise about that
+  intra-loop persist specifically. Collapsing it to one persist after the
+  loop returns would drop that guarantee on exactly the path it exists for.
 - `begin_injury_tests` / `continue_injury_tests`
 - `run_own_goal_roll`
 - `begin_ball_recovery`
