@@ -853,8 +853,9 @@ def build_full_time_summary(
     home_score = match.scoreboard.home_score
     visiting_score = match.scoreboard.visiting_score
     score_line = (
-        f"Final score: {team_display_name(match.home.team)} {home_score}:"
-        f"{visiting_score} {team_display_name(match.visiting.team)}"
+        f"**Final score:** {team_display_name(match.home.team)} "
+        f"{home_score}:{visiting_score} "
+        f"{team_display_name(match.visiting.team)}"
     )
 
     shootout = match.shootout_score_line()
@@ -864,8 +865,7 @@ def build_full_time_summary(
     if home_score == visiting_score:
         return (
             f"{score_line}\n\n"
-            "**It's a tie!** The game goes to the "
-            "**extreme shootout**."
+            "# It's a tie! The game goes to the extreme shootout."
         )
 
     home_won = home_score > visiting_score

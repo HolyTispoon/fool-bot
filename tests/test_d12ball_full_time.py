@@ -314,7 +314,7 @@ class FullTimeSummaryTests(unittest.TestCase):
             build_game(), self.build_match(3, 1),
         )
 
-        self.assertIn("Final score: Orange 3:1 Purple", summary)
+        self.assertIn("Final score:** Orange 3:1 Purple", summary)
         self.assertIn("# Orange wins!", summary)
         self.assertIn("<@111>", summary)
         self.assertNotIn("<@222>", summary)
@@ -362,7 +362,7 @@ class FullTimeSummaryTests(unittest.TestCase):
 
         summary = build_full_time_summary(build_game(), match)
 
-        self.assertIn("Final score: Orange 6:5 Purple", summary)
+        self.assertIn("Final score:** Orange 6:5 Purple", summary)
         self.assertIn("2:2 at full time", summary)
         self.assertIn("settled 4-3 on the extreme shootout", summary)
         self.assertIn("# Orange wins!", summary)

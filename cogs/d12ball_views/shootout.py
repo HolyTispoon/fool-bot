@@ -646,7 +646,7 @@ class ShootoutTestView(ShootoutView):
 
         if home_total == visiting_total:
             return None, (
-                f"**A tie, {home_total}-{visiting_total}.** Neither "
+                f"# A tie, {home_total}-{visiting_total}! Neither "
                 "side scores."
             )
 
@@ -658,7 +658,7 @@ class ShootoutTestView(ShootoutView):
         scorer = players[winner]
         match.award_shootout_goal(winner, scorer.player_id)
         return winner, (
-            "## "
+            "# "
             f"{self.cog.player_label(match, scorer)} "
             "scores!"
         )
