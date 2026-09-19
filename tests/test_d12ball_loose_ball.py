@@ -309,7 +309,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         # can see.
         cog.refresh_match_image.assert_not_awaited()
 
-        self.assertIn(where, interaction.followup.send.await_args.args[0])
+        self.assertIn(where, interaction.channel.send.await_args.args[0])
 
     async def test_nobody_contesting_is_an_out_of_bounds_turnover(
         self,

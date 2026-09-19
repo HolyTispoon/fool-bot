@@ -42,6 +42,7 @@ from cogs.d12ball_helpers import (
     format_goal_time,
     format_player_with_team,
     format_team_side_label,
+    send_new_prompt,
 )
 from cogs.d12ball_views import (
     DribbleAdvanceChoiceView,
@@ -1354,7 +1355,7 @@ class ManeuverEffectsMixin:
                 game
             ).choose_scoring_opportunity_attempt(match)
             if lead_in:
-                await interaction.followup.send(lead_in)
+                await send_new_prompt(interaction, lead_in)
             if attempt:
                 await self.start_set_up_shot(
                     interaction, game, match, shooter_id,
@@ -1368,7 +1369,8 @@ class ManeuverEffectsMixin:
             return
 
         shooter = self.engine.get_player_definition(shooter_id)
-        prompt_message = await interaction.followup.send(
+        prompt_message = await send_new_prompt(
+            interaction,
             f"{lead_in}\n\n"
             f"{self.player_label(match, shooter)} can attempt "
             "the scoring opportunity, or let it go:",
@@ -1376,7 +1378,6 @@ class ManeuverEffectsMixin:
                 self, game.game_id, shooter_id, distance_moved,
                 contest_on_decline=contest_on_decline,
             ),
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -1545,7 +1546,8 @@ class ManeuverEffectsMixin:
                 continue
 
             player = self.engine.get_player_definition(player_id)
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 f"🔮 **Mind Pull** — the ball crossed "
                 f"{self.player_label(match, player)}, who may reach out "
                 f"for it: {MIND_PULL_TOKEN_COST} exhaustion token and a "
@@ -1708,8 +1710,8 @@ class ManeuverEffectsMixin:
             # Telekinetic in the queue is owed the same offer, and the
             # arrival behind them is still the one to fall back to.
             self.persist(game, match)
-            await interaction.followup.send(
-                f"{note}\nThe ball slips past them."
+            await send_new_prompt(
+                interaction, f"{note}\nThe ball slips past them."
             )
             await self.continue_mind_pull(interaction, game, match)
             return
@@ -1870,7 +1872,7 @@ class ManeuverEffectsMixin:
             # A High Pass is not a loose ball: the ball is on a player
             # everyone can already see, and the board it is standing on
             # was posted by the pass itself.
-            await interaction.followup.send(f"{prefix}{headline}")
+            await send_new_prompt(interaction, f"{prefix}{headline}")
         else:
             # A genuine loose ball is the one position nobody can read
             # off the last thing they were told -- the ball is lying in
@@ -1887,12 +1889,12 @@ class ManeuverEffectsMixin:
             await self.resolve_loose_ball(interaction, game, match)
             return
 
-        prompt_message = await interaction.followup.send(
+        prompt_message = await send_new_prompt(
+            interaction,
             self.engine.build_loose_ball_prompt(
                 game, match, self.team_emojis,
             ),
             view=self.build_loose_ball_view(game.game_id, match),
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -1936,7 +1938,8 @@ class ManeuverEffectsMixin:
         match.pending_ball_recovery = True
         self.persist(game, match)
 
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             f"**Out of bounds!** {reason} -- "
             f"{format_team_side_label(match.setup_for_side(winning_side))} "
             "take over.\n\n# Turnover!\nOnce everyone has run back, "
@@ -2022,7 +2025,7 @@ class ManeuverEffectsMixin:
         # what is there rather than an interpolation.
         content = "\n".join(filter(None, [content, exhaustion_text]))
 
-        await interaction.followup.send(content)
+        await send_new_prompt(interaction, content)
         await self.refresh_match_image(interaction, game)
         await self.begin_run_back(
             interaction, game, match,
@@ -2101,11 +2104,11 @@ class ManeuverEffectsMixin:
             f"(defense skill {defense_skill}) both contest the "
             f"{contest_noun(match)} -- skill test!"
         )
-        test_message = await interaction.followup.send(
+        test_message = await send_new_prompt(
+            interaction,
             f"{contest_line}\n{exhaustion_text}\n\nEither "
             "player can roll:",
             view=LooseBallSkillTestView(self, game.game_id),
-            wait=True,
         )
         game.turn_message_id = test_message.id
         save_games(self.games)
@@ -2179,7 +2182,7 @@ class ManeuverEffectsMixin:
                     candidates, match,
                 )
             if lead_in:
-                await interaction.followup.send(lead_in)
+                await send_new_prompt(interaction, lead_in)
             await self.start_set_up_shot(interaction, game, match, shooter_id)
             return
 
@@ -2190,10 +2193,10 @@ class ManeuverEffectsMixin:
             mention=True,
         )
         prefix = f"{lead_in}\n\n" if lead_in else ""
-        prompt_message = await interaction.followup.send(
+        prompt_message = await send_new_prompt(
+            interaction,
             f"{prefix}{mention}, choose who takes the shot:",
             view=ShooterChoiceView(self, game.game_id, candidates),
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -2224,7 +2227,8 @@ class ManeuverEffectsMixin:
         self.persist(game, match)
 
         shooter = self.engine.get_player_definition(shooter_id)
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             f"{self.player_label(match, shooter)} takes the "
             "shot off the set-up."
         )
@@ -2481,11 +2485,11 @@ class ManeuverEffectsMixin:
             mention=True,
         )
         prompt_view = SetupPassPushBackView(self, game.game_id)
-        prompt_message = await interaction.followup.send(
+        prompt_message = await send_new_prompt(
+            interaction,
             f"{lead_in}\n\n{mention}, **Setup Pass** was beaten -- how far "
             "back does the ball go? It will be loose where it stops.",
             view=prompt_view,
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -2911,7 +2915,8 @@ class ManeuverEffectsMixin:
 
         if overshot:
             self.persist(game, match)
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 f"{content}\n\nThat overshoots toward their own goal!",
             )
             await self.refresh_match_image(interaction, game)
@@ -3013,13 +3018,13 @@ class ManeuverEffectsMixin:
         prefix = f"{lead_in}\n\n" if lead_in else ""
 
         async def show_prompt(inner_interaction: discord.Interaction) -> None:
-            prompt_message = await inner_interaction.followup.send(
+            prompt_message = await send_new_prompt(
+                inner_interaction,
                 f"{prefix}{mention}, manipulate the ball's speed (up to "
                 f"{skill_value}):",
                 view=SpeedDeltaChoiceView(
                     self, game.game_id, player_id, skill_type,
                 ),
-                wait=True,
                 allowed_mentions=discord.AllowedMentions(
                     users=True, roles=False, everyone=False,
                 ),
@@ -3057,8 +3062,8 @@ class ManeuverEffectsMixin:
         self.persist(game, match)
 
         prefix = f"{lead_in}\n\n" if lead_in else ""
-        await interaction.followup.send(
-            f"{prefix}Ball speed is now **{target_speed}**."
+        await send_new_prompt(
+            interaction, f"{prefix}Ball speed is now **{target_speed}**."
         )
         await self.refresh_match_image(interaction, game)
 
@@ -3184,14 +3189,14 @@ class ManeuverEffectsMixin:
         )
         mention = f"<@{controller_id}>" if controller_id else "Someone"
 
-        prompt_message = await interaction.followup.send(
+        prompt_message = await send_new_prompt(
+            interaction,
             f"**Own goal risk!** {mention}, "
             f"{self.player_label(match, offense_player)} "
             "rolls two d12 at an advantage — the higher of the two, plus "
             f"their offensive skill ({offense_skill}). A total of 7 or "
             "more and the own goal is avoided.",
             view=OwnGoalRollView(self, game.game_id),
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -3381,7 +3386,7 @@ class ManeuverEffectsMixin:
         await self.post_volatile_ignition(
             interaction, match, (offense_player.player_id, ignite),
         )
-        await interaction.followup.send(verdict)
+        await send_new_prompt(interaction, verdict)
         await self.refresh_match_image(interaction, game)
 
         if safe:

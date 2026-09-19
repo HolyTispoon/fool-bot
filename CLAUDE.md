@@ -3317,16 +3317,20 @@ invariants read as ordinary cog surface among 223 methods.
   for the opposite reason (that one always answers ephemerally and only
   picks the route; this one changes the message itself, since a channel post
   can't be ephemeral). Every "new prompt or announcement" send in
-  `cogs/d12ball/turnovers.py` goes through it now -- the Coaching Choice
-  window opening or being reposted, the run-back and out-of-bounds-pickup
-  announcements, the AI's own coaching summary, and `resume_pending_prompt`'s
-  fallback -- since by the time any of them fires the interaction has
-  already been acknowledged earlier in the same cascade (`drop_turn_prompt`'s
-  own docstring says as much: "The caller must have acknowledged the
+  `cogs/d12ball/turnovers.py` and `cogs/d12ball/effects.py` goes through it
+  now -- the Coaching Choice window opening or being reposted, the run-back
+  and out-of-bounds-pickup announcements, the AI's own coaching summary,
+  `resume_pending_prompt`'s fallback, and every maneuver effect's own
+  narration and follow-on prompt (a scoring opportunity, a loose ball, the
+  speed choice after a steal, an own goal roll, Mind Pull's offer) -- since
+  by the time any of them fires the interaction has already been
+  acknowledged earlier in the same cascade (`drop_turn_prompt`'s own
+  docstring says as much: "The caller must have acknowledged the
   interaction already"). The same clutter reaches every other
-  `followup.send` in the cog once its own cascade has answered first; this
-  is the funnel to route a new one through, not a one-off worth repeating
-  by hand.
+  `followup.send` in the cog once its own cascade has answered first --
+  `periods.py`, `presentation.py` and `slash_commands.py` still call it
+  directly -- and this is the funnel to route a new one through when that
+  reaches somebody, not a one-off worth repeating by hand.
 - **Renders belong in a worker thread.** Everything that draws goes through
   `asyncio.to_thread`; Pillow is pure CPU and blocking the loop stalls the
   rate-limit sleeps and the gateway heartbeat along with everything else. The

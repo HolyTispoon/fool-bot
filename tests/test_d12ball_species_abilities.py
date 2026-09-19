@@ -2098,16 +2098,22 @@ def build_mind_pull_cog() -> D12Ball:
 
 def build_mind_pull_interaction() -> SimpleNamespace:
     sent = SimpleNamespace(id=999, attachments=[])
+    # `channel.send` and `followup.send` share one mock: a post's route
+    # depends on whether the interaction still had a response to give,
+    # and `sent_views` below reads back "everything this posted" without
+    # caring which route carried which message.
+    send = mock.AsyncMock(return_value=sent)
     return SimpleNamespace(
         user=SimpleNamespace(id=222, display_name="Two"),
         guild=None,
-        channel=None,
+        channel=SimpleNamespace(send=send),
         response=SimpleNamespace(
             defer=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
-        followup=SimpleNamespace(send=mock.AsyncMock(return_value=sent)),
+        followup=SimpleNamespace(send=send),
         edit_original_response=mock.AsyncMock(),
     )
 

@@ -663,6 +663,14 @@ class FakeResponse:
     async def defer(self, ephemeral: bool = False) -> None:
         self.deferred = True
 
+    def is_done(self) -> bool:
+        # Every caller reaches these deep in a cascade whose own
+        # response was already given earlier -- see `send_new_prompt`
+        # in cogs/d12ball_helpers.py -- so this is always True here,
+        # independent of whether this particular fixture ever called
+        # `defer`.
+        return True
+
 
 class FakeMessageable:
     def __init__(self) -> None:
@@ -966,7 +974,9 @@ class RollsReachTheLogTests(unittest.IsolatedAsyncioTestCase):
     def build_interaction(self):
         return SimpleNamespace(
             user=SimpleNamespace(id=10, display_name="One"),
-            channel=None,
+            channel=SimpleNamespace(
+                send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+            ),
             guild=None,
             followup=SimpleNamespace(
                 send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
@@ -975,6 +985,7 @@ class RollsReachTheLogTests(unittest.IsolatedAsyncioTestCase):
                 defer=mock.AsyncMock(),
                 edit_message=mock.AsyncMock(),
                 send_message=mock.AsyncMock(),
+                is_done=lambda: True,
             ),
             edit_original_response=mock.AsyncMock(),
         )
