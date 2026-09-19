@@ -93,6 +93,38 @@ async def defer_or_report(interaction: discord.Interaction) -> bool:
         return False
 
 
+async def delete_channel_with_retries(
+    channel: discord.abc.GuildChannel, reason: str,
+) -> str | None:
+    """
+    Delete `channel`, retrying on the backoff in
+    `CHANNEL_DELETE_RETRY_DELAYS` -- see the comment on that constant
+    for why the delays exist and why they only lengthen.
+
+    Returns `None` once Discord has confirmed the channel is gone (a
+    delete that lands, or a `discord.NotFound` -- already gone counts
+    as landed, since either way there is nothing left to retry).
+    Returns the failure text for a `failed_channels`/`failures` entry
+    otherwise: `"permission denied: ..."` for a `discord.Forbidden`,
+    which is not worth retrying and stops on the first attempt, or
+    `"Discord error: ..."` once every retry is spent.
+    """
+    for attempt in range(len(CHANNEL_DELETE_RETRY_DELAYS) + 1):
+        if attempt:
+            await asyncio.sleep(CHANNEL_DELETE_RETRY_DELAYS[attempt - 1])
+        try:
+            await channel.delete(reason=reason)
+            return None
+        except discord.NotFound:
+            return None
+        except discord.Forbidden as error:
+            return f"permission denied: {error}"
+        except discord.HTTPException as error:
+            if attempt == len(CHANNEL_DELETE_RETRY_DELAYS):
+                return f"Discord error: {error}"
+    return None
+
+
 class Debug(commands.Cog):
     # The permission gate has to sit on the **group**, not on the
     # subcommands. Discord only carries `default_member_permissions`
@@ -241,33 +273,17 @@ class Debug(commands.Cog):
         deleted_channels = 0
 
         for channel in pbd_channels:
-            for attempt in range(len(CHANNEL_DELETE_RETRY_DELAYS) + 1):
-                if attempt:
-                    await asyncio.sleep(
-                        CHANNEL_DELETE_RETRY_DELAYS[attempt - 1]
-                    )
-                try:
-                    await channel.delete(
-                        reason=(
-                            "D12 Ball channel and count reset requested by "
-                            f"{interaction.user}"
-                        ),
-                    )
-                    deleted_channels += 1
-                    break
-                except discord.NotFound:
-                    deleted_channels += 1
-                    break
-                except discord.Forbidden as error:
-                    failed_channels.append(
-                        (channel.name, f"permission denied: {error}")
-                    )
-                    break
-                except discord.HTTPException as error:
-                    if attempt == len(CHANNEL_DELETE_RETRY_DELAYS):
-                        failed_channels.append(
-                            (channel.name, f"Discord error: {error}")
-                        )
+            error_text = await delete_channel_with_retries(
+                channel,
+                reason=(
+                    "D12 Ball channel and count reset requested by "
+                    f"{interaction.user}"
+                ),
+            )
+            if error_text is None:
+                deleted_channels += 1
+            else:
+                failed_channels.append((channel.name, error_text))
 
         game_ids = [
             game_id
@@ -588,35 +604,18 @@ class Debug(commands.Cog):
 
             exported += 1
 
-            for attempt in range(len(CHANNEL_DELETE_RETRY_DELAYS) + 1):
-                if attempt:
-                    await asyncio.sleep(
-                        CHANNEL_DELETE_RETRY_DELAYS[attempt - 1]
-                    )
-                try:
-                    await channel.delete(
-                        reason=(
-                            "D12 Ball game exported to disk and deleted "
-                            f"from the PBD Archive by {interaction.user}"
-                        ),
-                    )
-                    deleted += 1
-                    d12ball_cog.games.pop(game.game_id, None)
-                    break
-                except discord.NotFound:
-                    deleted += 1
-                    d12ball_cog.games.pop(game.game_id, None)
-                    break
-                except discord.Forbidden as error:
-                    failures.append(
-                        (channel.name, f"permission denied: {error}")
-                    )
-                    break
-                except discord.HTTPException as error:
-                    if attempt == len(CHANNEL_DELETE_RETRY_DELAYS):
-                        failures.append(
-                            (channel.name, f"Discord error: {error}")
-                        )
+            error_text = await delete_channel_with_retries(
+                channel,
+                reason=(
+                    "D12 Ball game exported to disk and deleted "
+                    f"from the PBD Archive by {interaction.user}"
+                ),
+            )
+            if error_text is None:
+                deleted += 1
+                d12ball_cog.games.pop(game.game_id, None)
+            else:
+                failures.append((channel.name, error_text))
 
         if exported:
             save_games(d12ball_cog.games)
