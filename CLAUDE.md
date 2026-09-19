@@ -113,6 +113,18 @@ abilities that have no data yet, one cell that may be inert, two judgement calls
 made, and the map of where advanced mode touches the code. Don't read it as a specification,
 and don't implement from it.
 
+[docs/model-discord-split.md](docs/model-discord-split.md) is the worksheet for
+**separating the model from the Discord layer**, so a web app and the bot can play
+the same game off the same rules. It holds the principles that split is made by --
+the model imports no `discord` and is never `async`, a flow step returns what
+happened rather than sending it, narration is the model's because the wording
+rules are rules, and the save format is a contract a refactor may not touch --
+along with the phases, what deliberately does not move, and the bot-testing stop
+each phase ends on. **The principles move into a section of this file at the end
+of Phase 1 and the worksheet's copy is deleted**, the same way the advanced
+matrix's answered parts were: a settled rule has exactly one home. Until then,
+read them there.
+
 **Take rules questions to the author rather than inferring them from the code** -- several
 mechanics exist only in the code, so there a bug and a deliberate decision look identical.
 Asking as inline comments on a docs PR has worked far better than asking in chat, and it
@@ -5604,6 +5616,58 @@ starts saving and is not named there.
   were always global; they say `random.` and `discord.` now, which is what
   they always did.
 
+
+**Two guards stand under the model/Discord split**, and both are new with
+it -- see [docs/model-discord-split.md](docs/model-discord-split.md).
+
+- `tests/test_model_purity.py` is the line itself: every module under
+  `d12ball/` imports **in a fresh subprocess** with `discord` refused, none
+  of them defines an `async def`, and none of them imports from `cogs/`.
+  The subprocess is the load-bearing part -- `unittest discover` imports
+  every test module before running anything, so an in-process check would
+  find half of `d12ball/` already in `sys.modules` and `import_module`
+  would hand it back without re-executing it. All three assertions hold
+  today, so this is a **ratchet on something already true**: the purity was
+  kept by habit, and habit is what erodes once flow code starts moving
+  across the line.
+- `tests/test_golden_transcript.py` plays the tutorial through the real cog
+  and compares the narration byte for byte, the sequence of prompts, and
+  the final `to_dict()` key for key, against `tests/golden/`.
+  `FOOLBOT_UPDATE_GOLDEN=1` rewrites those files, so **a wording change is
+  a diff in a pull request rather than a test somebody silences** -- the
+  "What a message says" rules are rules, and a refactor that rewords a
+  result has changed the game.
+  - **The module RNG is seeded, not `randint` patched**: the flow also
+    reaches `random.shuffle` and `random.choice`. The seed is restored
+    afterwards, since it is global and would otherwise leak into whatever
+    runs next.
+  - **`GOLDEN_SEED` is one that scores.** The tutorial's closing shot is
+    deliberately unscripted (see "Determinism: rails and dice"), so two
+    seeds give two transcripts; a seed that missed would pin the unusual
+    branch as the reference, and a test asserts the recorded run is the
+    one with the goal in it.
+  - **It covers one basic-mode solo game on board 7** and nothing else --
+    no advanced maneuver, no species ability, no halftime, no shootout, no
+    time out. Rewording two of the three `Ball speed is now` sites in
+    `effects.py` does not fail it, because the script only reaches the
+    third. Don't read a green golden as "the wording is covered".
+
+**Running the suite below Python 3.13 needs the pin left off.**
+`requirements.txt` pins `audioop-lts`, a backport that exists only because
+`audioop` left the standard library in 3.13 and that has no distribution
+for earlier versions -- so `pip install -r requirements.txt` fails outright
+on 3.11 or 3.12, where `audioop` is stdlib and the pin is unnecessary.
+`pip install discord.py Pillow python-dotenv` is enough. CI pins 3.13 and
+is unaffected.
+
+**Five tests fail when the suite is run as root**, and none of them is a
+regression: `test_an_unwritable_folder_reads_as_no_record` and the four
+`GameStorageTests` about unreachable folders all simulate a directory that
+cannot be written to, and **uid 0 bypasses permission bits** -- a write
+into a `chmod 000` directory simply succeeds. They pass in CI, which runs
+as an ordinary user. Before treating any suite failure as yours, re-run the
+same commit on the branch's **real base** (`origin/main`, not a local
+`main` that may be far behind it).
 
 **A recorder is tested where a real game is already being played.** The event
 log behind the statistics is written at seven separate funnels, and a recorder
