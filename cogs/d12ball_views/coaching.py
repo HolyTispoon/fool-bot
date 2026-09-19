@@ -569,10 +569,13 @@ class CoachingSubstitutionOutView(CoachingView):
 
         for player_id in match.setup_for_side(side).field_players:
             injured = player_id in match.injured
+            injured_word, _ = self.cog.injured_word_and_emoji(
+                game, player_id,
+            )
             button = discord.ui.Button(
                 label=(
                     f"{self.player_button_label(match, player_id)}"
-                    f"{' - injured' if injured else ''}"
+                    f"{f' - {injured_word}' if injured else ''}"
                 )[:80],
                 style=(
                     discord.ButtonStyle.danger

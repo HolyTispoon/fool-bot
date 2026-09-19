@@ -50,6 +50,7 @@ def contestant_detail(
     skill_word: str,
     skill: int,
     injured: bool = False,
+    cyborg: bool = False,
 ) -> list[str]:
     """
     The lines naming one side of a contest on the dice image: who is
@@ -61,10 +62,17 @@ def contestant_detail(
     does. A maneuver's skill test and a score attempt are untouched by
     it and pass nothing, which is the rule rather than an omission; see
     "Injured players" in docs/living-rules.md.
+
+    `cyborg` only ever changes the word, to Damaged -- a Cyborg's own
+    name for Injured (see "Lithium Powered" in docs/living-rules.md).
+    Drawn text cannot carry a Discord emoji, so unlike a message this
+    has no icon to swap; the caller answers it off
+    `RulesEngine.has_species_ability` the same way it already answers
+    `injured`.
     """
     return [
         player_with_role(player),
-        "Injured — no skill modifier"
+        ("Damaged" if cyborg else "Injured") + " — no skill modifier"
         if injured
         else f"{skill_word} skill +{skill}",
     ]

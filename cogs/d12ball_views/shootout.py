@@ -10,6 +10,7 @@ from typing import Optional, TYPE_CHECKING
 
 from d12ball.components import (
     MatchState,
+    SPECIES_CYBORG,
     TeamSide,
 )
 from d12ball.engine import IgnitedRoll
@@ -151,13 +152,13 @@ class ShootoutOrderPromptView(ShootoutView):
             # this shows it rather than reopening the menu.
             await interaction.response.send_message(
                 "Your order is set:\n"
-                f"{self.cog.shootout_order_text(match, side)}",
+                f"{self.cog.shootout_order_text(game, match, side)}",
                 ephemeral=True,
             )
             return
 
         await interaction.response.send_message(
-            content=self.cog.shootout_order_text(match, side),
+            content=self.cog.shootout_order_text(game, match, side),
             view=ShootoutOrderSelectView(self.cog, self.game_id, side),
             ephemeral=True,
         )
@@ -206,7 +207,9 @@ class ShootoutOrderSelectView(SafeView):
 
         for player_id in remaining:
             button = discord.ui.Button(
-                label=cog.engine.shootout_button_label(match, player_id),
+                label=cog.engine.shootout_button_label(
+                    game, match, player_id,
+                ),
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:shootout_order:{game_id}:"
@@ -273,7 +276,7 @@ class ShootoutOrderSelectView(SafeView):
         self.cog.persist(game, match)
 
         await interaction.response.edit_message(
-            content=self.cog.shootout_order_text(match, self.side),
+            content=self.cog.shootout_order_text(game, match, self.side),
             view=ShootoutOrderSelectView(self.cog, self.game_id, self.side),
         )
 
@@ -295,7 +298,7 @@ class ShootoutOrderSelectView(SafeView):
             await interaction.response.edit_message(
                 content=(
                     f"{error}\n\n"
-                    f"{self.cog.shootout_order_text(match, self.side)}"
+                    f"{self.cog.shootout_order_text(game, match, self.side)}"
                 ),
                 view=(
                     None
@@ -311,7 +314,7 @@ class ShootoutOrderSelectView(SafeView):
 
         settled = match.shootout_order_complete(self.side)
         await interaction.response.edit_message(
-            content=self.cog.shootout_order_text(match, self.side),
+            content=self.cog.shootout_order_text(game, match, self.side),
             view=(
                 None
                 if settled
@@ -407,7 +410,9 @@ class ShootoutPickSelectView(SafeView):
 
         for player_id in eligible:
             button = discord.ui.Button(
-                label=cog.engine.shootout_button_label(match, player_id),
+                label=cog.engine.shootout_button_label(
+                    game, match, player_id,
+                ),
                 style=discord.ButtonStyle.primary,
                 custom_id=(
                     f"d12ball:shootout_pick:{game_id}:"
@@ -540,7 +545,7 @@ class ShootoutTestView(ShootoutView):
         claimed = await self.claim(interaction)
         if claimed is None:
             return
-        _, match, side = claimed
+        game, match, side = claimed
 
         if match.shootout_round > 1:
             remaining = [
@@ -559,7 +564,7 @@ class ShootoutTestView(ShootoutView):
             return
 
         await interaction.response.send_message(
-            self.cog.shootout_order_text(match, side),
+            self.cog.shootout_order_text(game, match, side),
             ephemeral=True,
         )
 
@@ -608,6 +613,9 @@ class ShootoutTestView(ShootoutView):
             totals[side] = roll + skill + ignite.modifier + overdrive
             detail = contestant_detail(
                 player, "Offensive", skill, injured=injured,
+                cyborg=self.cog.engine.has_species_ability(
+                    game, player.player_id, SPECIES_CYBORG,
+                ),
             )
             for line in (
                 ignite.detail,

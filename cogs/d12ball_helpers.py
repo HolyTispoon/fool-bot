@@ -133,6 +133,16 @@ EXHAUSTED_EMOJI_NAME = "exhausted"
 EXHAUSTED_EMOJI_FALLBACK = "🥵"
 INJURED_EMOJI_NAME = "injured"
 INJURED_EMOJI_FALLBACK = "🤕"
+# A Cyborg's own words for the same two conditions -- see "Lithium
+# Powered" in docs/living-rules.md. Drained and Damaged are Exhausted
+# and Injured under different names and nothing else, so they get
+# their own art (images/emoji/drained.png, images/emoji/damaged.png)
+# rather than a recolour of the human tokens, and fall back to their
+# own plain emoji on an application with no upload.
+DRAINED_EMOJI_NAME = "drained"
+DRAINED_EMOJI_FALLBACK = "🪫"
+DAMAGED_EMOJI_NAME = "damaged"
+DAMAGED_EMOJI_FALLBACK = "💥"
 
 # Team emoji (a letter in a team-colored ring, images/emoji/team_*.png)
 # are uploaded to the application (Developer Portal "Emojis" tab) and
@@ -199,6 +209,8 @@ CONDITION_EMOJI_NAMES = {
     "exhaust": EXHAUST_EMOJI_NAME,
     "exhausted": EXHAUSTED_EMOJI_NAME,
     "injured": INJURED_EMOJI_NAME,
+    "drained": DRAINED_EMOJI_NAME,
+    "damaged": DAMAGED_EMOJI_NAME,
 }
 
 
@@ -289,6 +301,14 @@ def get_exhausted_emoji(condition_emojis: dict[str, str]) -> str:
 
 def get_injured_emoji(condition_emojis: dict[str, str]) -> str:
     return condition_emojis.get("injured", INJURED_EMOJI_FALLBACK)
+
+
+def get_drained_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("drained", DRAINED_EMOJI_FALLBACK)
+
+
+def get_damaged_emoji(condition_emojis: dict[str, str]) -> str:
+    return condition_emojis.get("damaged", DAMAGED_EMOJI_FALLBACK)
 
 
 async def load_team_emojis(

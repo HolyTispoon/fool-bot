@@ -455,9 +455,9 @@ class NamingAPlayerTests(unittest.TestCase):
             engine.format_roster_player_with_team(player.player_id, Team.ORANGE),
             f"{plain} (Orange)",
         )
-        self.assertEqual(engine.shootout_button_label(None, player.player_id)[
-            : len(plain)
-        ], plain)
+        self.assertEqual(engine.shootout_button_label(
+            None, None, player.player_id,
+        )[: len(plain)], plain)
 
     def test_a_role_with_no_upload_keeps_its_brackets(self) -> None:
         """

@@ -124,6 +124,23 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-19 -- author, Damaged joins Drained as a Cyborg's own word for Injured
+
+Drained already existed as the Cyborgs' own word for Exhausted (2026-09-06 below). The author,
+in chat: *"the cyborgs use Drain rather than exhausted [...] this is only in advanced mode when
+the spec ability is turned on"* -- confirmed as the missing other half, so a Cyborg who fails an
+injury check is now **Damaged** rather than Injured, the same disadvantage under the Cyborgs'
+own word, gated on `RulesEngine.has_species_ability` exactly as Drained already is.
+
+Scoped narrowly, on the same reasoning Drained was: Cyborgs only, not a rename of Injured for
+every species. Every site that already branched Exhausted/Drained on a player's species (message
+text, the shootout menus, the contest dice images, the assignment-card badge) picked up the
+matching Injured/Damaged branch alongside it, so the two conditions cannot drift out of step on
+one Cyborg's card. New token art (`drained.png`, `damaged.png` via
+`scripts/render_condition_tokens.py`) gives both their own icon and application emoji rather than
+recolouring the human Exhausted/Injured tokens -- see "Lithium Powered" in
+docs/design/species-abilities.md.
+
 ### 2026-09-16 (later still) -- author, Spreadable joins Slimey
 
 A third Ooze ability, alongside slip in and merge, that went through three readings in one
