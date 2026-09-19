@@ -15,7 +15,7 @@ bot has the board to put it on -- a coach can ask for the roster or the
 rules -- where a card on a table is the only thing in front of its
 coach, so the sentence has to be on it. It is the full sentence from
 `players.json` and never the short form: see "Every ability is imported
-twice" in CLAUDE.md.
+twice" in docs/design/rules-and-data.md.
 
 Nothing here is written in the module. The names, roles, skills and
 abilities all come from `players.json` through `load_player_catalog`,
@@ -137,7 +137,7 @@ def draw_header(
     A player with no species draws no icon and the layout does not
     close up around it, because `players.json` written before the
     species column loads with an empty one (see "Player species" in
-    CLAUDE.md) and a set of cards where some names are centred
+    docs/design/teams-and-players.md) and a set of cards where some names are centred
     differently from others reads as a mistake.
     """
     pen.rect(
@@ -287,7 +287,7 @@ SPECIES_CHIP_HEIGHT = 50
 # for it. This is the one place a card is allowed to carry an
 # abbreviation, and it is not the role's: `ability_short` in
 # species.json exists for "anywhere the sentence does not fit" (see
-# "The species cards" in CLAUDE.md), and a player's card carrying two
+# "The species cards" in docs/design/cards.md), and a player's card carrying two
 # full ability paragraphs is exactly that. The role's own sentence is
 # never cut -- see "Every ability is imported twice".
 SPECIES_SHORT_SIZE = 23
@@ -437,7 +437,7 @@ def species_players(catalog: PlayerCatalog, species: str):
     """
     Every player of a species, once each. A player is on two rosters
     (their colour team and their species team), so the walk dedupes by
-    id -- see "One player, both sides" in CLAUDE.md.
+    id -- see "One player, both sides" in docs/design/teams-and-players.md.
     """
     seen: set[str] = set()
     for roster in catalog.teams.values():
@@ -692,7 +692,7 @@ def render_player_card_back(
 
     What makes it the advanced one is the species keyword beside the
     role ability, since a species ability is only ever in play in an
-    advanced game (see "Species abilities in the bot" in CLAUDE.md).
+    advanced game (see "Species abilities in the bot" in docs/design/species-abilities.md).
     The role sentence itself is still the basic one, because the
     sheet's `Advanced` ability column is empty for all thirty-six --
     the band's role half is what changes when it fills.

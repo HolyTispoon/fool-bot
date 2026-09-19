@@ -160,7 +160,7 @@ class D12BallFieldBoardTests(unittest.TestCase):
     def test_the_zone_rows_hold_a_real_card_and_do_not_overlap(self) -> None:
         """
         Each zone-assignment row is a card row, full stop -- see
-        "The zone-assignment rows" in CLAUDE.md -- so it has to clear
+        "The zone-assignment rows" in docs/design/printed-boards.md -- so it has to clear
         `CARD_INCHES`' own height, and the two rows (visiting's above
         the strip, home's below it) must never reach into the header,
         the strip or each other.
@@ -281,7 +281,7 @@ class D12BallTeamBoardTests(unittest.TestCase):
         Three cells for the three places a card or the coach's own
         d12 can be -- the bench, the back bench and the head coach.
         The three zone areas moved to the field board (see "The
-        zone-assignment rows" in CLAUDE.md), which is what let two of
+        zone-assignment rows" in docs/design/printed-boards.md), which is what let two of
         these panels share a sheet in the first place.
         """
         geometry = self.panel_geometry("a3")

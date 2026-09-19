@@ -147,7 +147,7 @@ class D12BallComponentTests(unittest.TestCase):
         # Since the 2026-08-17 eight-team split: 4 color teams and 4
         # species teams, each 9 players -- but 36 players total, not
         # 72, because every id is named by exactly one of each. See
-        # "Team colors" in CLAUDE.md.
+        # "Team colors" in docs/design/teams-and-players.md.
         self.assertEqual(set(self.catalog.teams), set(Team))
 
         color_teams = (Team.ORANGE, Team.TEAL, Team.PURPLE, Team.SLIME)
@@ -1553,7 +1553,7 @@ class TeamPairsTests(unittest.TestCase):
     """
     TEAM_PAIRS/paired_team and the two four-tuples they're built from
     -- the plumbing every mutual-exclusion and legacy-migration check
-    reads. See "Team colors" in CLAUDE.md.
+    reads. See "Team colors" in docs/design/teams-and-players.md.
     """
 
     def test_every_team_is_in_exactly_one_axis(self) -> None:
@@ -1592,7 +1592,7 @@ class DuplicateCardTests(unittest.TestCase):
     """
     One player, both sides -- `shared_player_ids`, the card-id scheme
     that keeps the two copies apart, and a match built on top of them.
-    See "One player, both sides" in CLAUDE.md.
+    See "One player, both sides" in docs/design/teams-and-players.md.
     """
 
     def setUp(self) -> None:
@@ -1803,7 +1803,7 @@ class TeamDisplayNameTests(unittest.TestCase):
     """
     team_display_name -- the fix for team.value.title() silently
     mangling an underscored team ("fire_demons".title() ==
-    "Fire_Demons"). See "Team colors" in CLAUDE.md.
+    "Fire_Demons"). See "Team colors" in docs/design/teams-and-players.md.
     """
 
     def test_a_single_word_team_reads_the_same_as_title(self) -> None:
@@ -1826,7 +1826,7 @@ class TeamForPlayerTests(unittest.TestCase):
     MatchState.team_for_player -- the one reading of "which of a
     player's two rosters is this match fielding them as", now that
     PlayerDefinition carries no team of its own. See "Team colors" and
-    the player-catalog notes in CLAUDE.md.
+    "Team colors" in docs/design/teams-and-players.md.
     """
 
     @classmethod

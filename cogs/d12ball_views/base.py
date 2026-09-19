@@ -85,7 +85,7 @@ async def render_contest_dice(
     The image carries the whole arithmetic, which is why no message
     that posts one repeats it in text. Rendering is Pillow and pure
     CPU, so it goes to a worker thread; see "Discord's rate limits" in
-    CLAUDE.md.
+    docs/design/rate-limits.md.
     """
     return discord.File(
         await asyncio.to_thread(
@@ -124,7 +124,7 @@ class SafeView(discord.ui.View):
     # confirmation before it acts. True for every view in a game;
     # `LobbyView` turns it off, because a lobby is exactly where a
     # helper is expected to be pressing things for people -- see "Who
-    # may act on a game" in CLAUDE.md.
+    # may act on a game" in docs/design/permissions.md.
     confirms_helper_clicks = True
 
     async def on_error(
@@ -188,7 +188,7 @@ class SafeView(discord.ui.View):
         This is a fact about the game and is **not** the authorization
         check: a game helper is not a participant and may still press
         the button. Ask `may_act_in_game` or `may_act_for` for that --
-        see "Who may act on a game" in CLAUDE.md.
+        see "Who may act on a game" in docs/design/permissions.md.
         """
         return user_id in game_participant_ids(game)
 
@@ -201,7 +201,7 @@ class SafeView(discord.ui.View):
         Whether this click may press a button either coach may press --
         a roll, the maneuver reference. Either coach, or a game helper.
 
-        See "Every roll is a coach's" in CLAUDE.md: any coach in the
+        See "Every roll is a coach's" in docs/design/maneuvers.md: any coach in the
         game may press a roll button, not only the one it happens to be
         about, so this is the whole of the check and callers word their
         own refusal.

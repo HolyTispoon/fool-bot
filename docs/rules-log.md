@@ -163,7 +163,7 @@ indefinitely.
   reconfirmed once the design turned passive, and it is the one of the four that needs the
   most new plumbing (`position_meeple` has no `game` today) for the least certain payoff.
 
-Implemented as `RulesEngine.spread_exempt_ids` -- see "Slimey" in CLAUDE.md for the whole of
+Implemented as `RulesEngine.spread_exempt_ids` -- see "Slimey" in docs/design/species-abilities.md for the whole of
 it, including exactly which three functions it reaches and why a fourth candidate was left
 out.
 
@@ -796,7 +796,7 @@ able to decide which player to run back."*
   the old behaviour survives wherever it happened to be right.
 - **The two questions share one message.** `RunBackPlayerChoiceView` asks which player and edits
   itself into the existing `RunBackChoiceView` to ask which space, so the board uploaded for the
-  first question is the board the second is read off -- see "Discord's rate limits" in CLAUDE.md.
+  first question is the board the second is read off -- see "Discord's rate limits" in docs/design/rate-limits.md.
   Neither pick is persisted: a restart puts the first question back rather than the answer, the
   same as a part-made Coaching Choice.
 - **`apply_forced_run_backs` leaves an undecided stack out of its arithmetic** rather than
@@ -900,7 +900,7 @@ declined costs only the maneuver's own flat cost, same as if there had been no s
   read as if it could. Removed rather than left in place.
 - **`maneuvers.json`'s printed `time` field is hand-edited, not re-imported.** It is normally
   regenerated whole from the Google Sheet's own "time" column (see "The maneuver cards" in
-  CLAUDE.md), but this rule came from the author directly rather than from a sheet pull, so the
+  docs/design/cards.md), but this rule came from the author directly rather than from a sheet pull, so the
   json was updated by hand to keep the printed cards honest. The sheet still said the old
   distance-based costs, so the next `scripts/import_d12ball_maneuvers.py` run would have
   silently reverted this file to the old wording -- **the author fixed the column upstream on

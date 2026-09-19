@@ -11,7 +11,7 @@ backoff and tries again, and the only trace of it is one line:
 
 That is logged at ERROR with the traceback attached, which under this
 bot's rules puts it in #logs (see "The level you log at decides who
-sees it" in CLAUDE.md). It should not be there. Nobody can act on it,
+sees it" in docs/design/logging.md). It should not be there. Nobody can act on it,
 the library has already dealt with it, and a channel that carries
 Discord's own weather reports is a channel people stop reading -- so
 the one record in it that did need somebody goes past unnoticed.

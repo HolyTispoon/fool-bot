@@ -786,7 +786,7 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         """
         A saved game older than a player rename refuses to build --
-        see the legacy-migration gotcha in CLAUDE.md. A report that
+        see the legacy-migration gotcha in docs/design/gotchas.md. A report that
         dies on one bad record is worse than one that counts the other
         forty.
         """

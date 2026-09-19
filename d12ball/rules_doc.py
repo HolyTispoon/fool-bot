@@ -1,7 +1,7 @@
 """Serving docs/living-rules.md to Discord.
 
 The living rules are the one statement of the ruleset -- see "The rules"
-in CLAUDE.md -- so the two lookup commands read that file rather than
+in docs/design/rules-and-data.md -- so the two lookup commands read that file rather than
 keeping a second copy of the text anywhere in the bot. Everything here
 is about getting markdown written for GitHub into a chat client that
 cannot render half of it, and into messages of 2000 characters.
@@ -244,7 +244,7 @@ def parse_rules_document(markdown: str) -> RulesDocument:
 # The parse is cheap but it is asked for on every autocomplete
 # keystroke, so it is cached against the file's timestamp -- which also
 # means an edited ruleset is served without restarting the bot. The
-# render fonts are the counter-example; see "Fonts" in CLAUDE.md.
+# render fonts are the counter-example; see "Fonts" in docs/design/board-image.md.
 _CACHE: dict[Path, tuple[int, RulesDocument]] = {}
 
 

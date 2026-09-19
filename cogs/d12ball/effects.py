@@ -130,7 +130,7 @@ class ManeuverEffectsMixin:
             # under its own announcement and brings the persistent
             # message in line with it, so one here would be a second
             # write of an identical board (see "Discord's rate limits"
-            # in CLAUDE.md).
+            # in docs/design/rate-limits.md).
             await self.begin_loose_ball(
                 interaction,
                 game,

@@ -45,7 +45,7 @@ EXPECTED_SPECIES = {"fire_demon", "cyborg", "telekinetic", "ooze"}
 # pre-reshuffle grouping, carried over unchanged in membership under its
 # own Team enum key. The mirror image of this map (species team -> old
 # color name) is how a legacy saved game's ids and Team values are
-# reconstructed on load; see the "legacy migration" gotcha in CLAUDE.md.
+# reconstructed on load; see the "legacy migration" gotcha in docs/design/gotchas.md.
 SPECIES_TEAM = {
     "fire_demon": "fire_demons",
     "cyborg": "cyborgs",
@@ -204,7 +204,7 @@ def import_players(
     """
     Read the player cards sheet into the flat-players + eight-rosters
     shape `load_player_catalog` expects -- see "Team colors" and the
-    player-catalog notes in CLAUDE.md.
+    "Player species" in docs/design/teams-and-players.md.
 
     Each row still declares exactly one color team (`Team`) and one
     species (`Species`); `players_by_team` and `players_by_species_team`
@@ -248,7 +248,7 @@ def import_players(
         # An id is `{slugified name}_{role}` -- globally unique without a
         # team prefix, since the reshuffle means a player's own color
         # team is no longer part of their identity (see "Team colors" and
-        # the player-catalog id-scheme note in CLAUDE.md). Checked exactly
+        # the "Team colors" in docs/design/teams-and-players.md). Checked exactly
         # rather than merely pattern-matched, the same way the old prefix
         # rule was: this is what catches the sheet's player_id column
         # drifting from a renamed player or a re-keyed role.

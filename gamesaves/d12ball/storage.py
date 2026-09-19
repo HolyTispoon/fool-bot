@@ -61,7 +61,7 @@ def _build_legacy_id_map() -> dict[str, str]:
     a player's old id was `{legacy color}_{slug(name)}`
     (LEGACY_COLOR_FOR_SPECIES keyed off their species) and their new
     one is already `player_id` on the catalog entry. See the
-    legacy-migration gotcha in CLAUDE.md.
+    legacy-migration gotcha in docs/design/gotchas.md.
     """
     global _legacy_id_map
     if _legacy_id_map is not None:
@@ -293,7 +293,7 @@ def load_games() -> dict[str, D12BallGame]:
         # its players by their old id and its two sides by a legacy
         # color -- migrate_legacy_game_data is a no-op the moment
         # neither is true any more. See the legacy-migration gotcha in
-        # CLAUDE.md.
+        # docs/design/gotchas.md.
         migrated = migrate_legacy_game_data(game_data)
         if migrated is not game_data:
             LOGGER.info(
@@ -395,7 +395,7 @@ def save_games(games: dict[str, D12BallGame]) -> None:
         # somebody has to go and remount the drive (or free the disk).
         # The ones behind it are the same fact repeated once or twice a
         # click, so they stay on the console -- see "The level you log
-        # at decides who sees it" in CLAUDE.md.
+        # at decides who sees it" in docs/design/logging.md.
         if _save_failing:
             LOGGER.info("Still could not save D12 Ball games: %s", error)
         else:

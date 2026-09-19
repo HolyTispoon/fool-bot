@@ -222,7 +222,7 @@ class D12BallPlayerCardTests(unittest.TestCase):
         """
         Which half of a two-part ability survives is a rules judgement,
         so the short form is written upstream and imported -- see
-        "Every ability is imported twice" in CLAUDE.md. A printed card
+        "Every ability is imported twice" in docs/design/rules-and-data.md. A printed card
         is the only place its coach can read the rule, so it carries
         the sentence; this is the guard against somebody reaching for
         `ability_short` to buy a line of room back.
@@ -230,7 +230,7 @@ class D12BallPlayerCardTests(unittest.TestCase):
         It is a rule about the *role* ability, which is why the grep is
         for the attribute: the back does carry the species' short form,
         out of `species.json`'s own dict, which is exactly what that
-        field is there for -- see "The species cards" in CLAUDE.md.
+        field is there for -- see "The species cards" in docs/design/cards.md.
         """
         source = Path(player_cards.__file__).read_text(encoding="utf-8")
         for name in ("ability_short", "short_ability"):

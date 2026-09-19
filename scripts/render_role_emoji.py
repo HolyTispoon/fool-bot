@@ -7,7 +7,7 @@ One PNG a role, in `d12ball/images/emoji/`, named the way
 emoji by hand, the same way the team and condition emoji are, and once
 they are there every *message* that names a player carries the badge
 in place of the bracketed initials -- see "Naming a player" in
-CLAUDE.md for which places that is, and which stay text.
+docs/design/naming-and-wording.md for which places that is, and which stay text.
 
     python3 scripts/render_role_emoji.py                 # dry run
     python3 scripts/render_role_emoji.py --out /tmp/roles --sheet
@@ -48,7 +48,7 @@ reads as a colour rather than as a shape.
 
 A colour cut serves **both** teams that share the hex -- Orange and
 Fire Demons are one file, the way `TEAM_COLORS` is one hex (see "Team
-colors" in CLAUDE.md). There are four files a role and not eight.
+colors" in docs/design/teams-and-players.md). There are four files a role and not eight.
 """
 import argparse
 import sys
@@ -103,7 +103,7 @@ INK = (17, 17, 17, 255)
 # The four hexes, read off `TEAM_COLORS` rather than written here --
 # there is exactly one hex per colour anywhere in the code, and a
 # species team shares its colour team's, which is why these are keyed
-# by the colour team alone. See "Team colors" in CLAUDE.md.
+# by the colour team alone. See "Team colors" in docs/design/teams-and-players.md.
 EDGE_COLORS = {team.value: TEAM_COLORS[team] for team in COLOR_TEAMS}
 
 

@@ -451,7 +451,7 @@ class TeamSelectionView(GameConfigurationView):
         theirs, and there is nothing else on it that says. Every other
         color/species matchup is offered and playable: the 2 or 3
         players those rosters share are fielded as two cards, one a
-        side. See "One player, both sides" in CLAUDE.md.
+        side. See "One player, both sides" in docs/design/teams-and-players.md.
         """
         if game is None:
             return set()
@@ -532,7 +532,7 @@ class TeamSelectionView(GameConfigurationView):
             # A game helper holds neither side, so **which side this
             # pick lands on has to be settled here** rather than read
             # off the clicker -- see "Who may act on a game" in
-            # CLAUDE.md. A test game's button names it outright; a
+            # docs/design/permissions.md. A test game's button names it outright; a
             # normal game's two sides share one row, so it goes to the
             # side that has not chosen yet, Player 1 first. That is the
             # same order `picking_player_number` puts a test game's

@@ -6,7 +6,7 @@ A restart re-arms exactly one message per game -- the one recorded in
 `turn_message_id` -- so a game can come back with no working button
 anywhere in its channel. `/d12ball resume` re-posts whatever the saved
 state is waiting on, and `/d12ball abandon_game` ends the ones nobody
-is going to finish. See "Recovering a stuck game" in CLAUDE.md.
+is going to finish. See "Recovering a stuck game" in docs/design/recovery.md.
 
 The one thing worth guarding hardest is that `pending_turn_view` stays
 the *single* reading of "what is this match waiting on?": startup

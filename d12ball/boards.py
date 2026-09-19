@@ -34,7 +34,7 @@ so the areas are labelled HOME ZONE / MIDFIELD / VISITORS ZONE exactly
 as the bot's coaching image labels them -- HOME THIRD / VISITORS THIRD
 on the 9-space board, the only one where the three areas (H/M/V) are
 all equal (see "The field" in the living rules, and the 2026-08-24
-entry in the rules log). See "Working on the board image" in CLAUDE.md
+entry in the rules log). See "Working on the board image" in docs/design/board-image.md
 for the same decision taken there, and "The zone-assignment rows" below
 for why they moved off the team board.
 """
@@ -1712,7 +1712,7 @@ class TeamBoardGeometry:
 
     **It used to be six -- the three zones across the top as well.**
     Those moved to the field board (see "The zone-assignment rows" in
-    CLAUDE.md), which is what let two of these boards -- one for each
+    docs/design/printed-boards.md), which is what let two of these boards -- one for each
     coach -- share a single sheet instead of each wanting one of its
     own: dropping the zone row cut what a board needs to a single row
     a card tall plus a header and a footer, which is a good deal short
@@ -1832,7 +1832,7 @@ def render_team_board(
     """
     Two coaches' boards, one sheet: each panel is the bench, the back
     bench and the head coach's cell -- the three zone areas moved to
-    the field board (see "The zone-assignment rows" in CLAUDE.md),
+    the field board (see "The zone-assignment rows" in docs/design/printed-boards.md),
     which is what leaves a panel short enough that two of them, one
     for each side of a match, share a single 11 x 17 sheet cut in
     half rather than each wanting a sheet of its own.
@@ -2026,7 +2026,7 @@ def draw_die_slot(
     selection d6s beside it, because that data is the bot's model and
     the rules' component list; the printed board is where they have
     stopped being used, and drawing an unused component is worse than
-    the divergence. See "The printed boards" in CLAUDE.md.
+    the divergence. See "The printed boards" in docs/design/printed-boards.md.
     """
     die = rules.team_board.team_die
     size = min((right - left) * 0.10, sheet.u(40))

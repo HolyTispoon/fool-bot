@@ -9,7 +9,7 @@ for Fire Demons, Cyborgs, Telekinetics and Oozes -- in two sets.
 **The plain set is the bot's.** `team_fire_demons.png` and its three
 siblings carry the species silhouette alone, and those are the names
 `TEAM_EMOJI_NAMES` in `cogs/d12ball_helpers.py` looks up -- see "Team
-colors" in CLAUDE.md for the ring and "The species icons" for the
+colors" in docs/design/teams-and-players.md for the ring and "The species icons" for the
 silhouette. **The lettered set is an alternate**, written beside them
 as `team_fire_demons_letter.png` and so on: the same ring with that
 species' initial merged into the silhouette. Nothing in the bot reads

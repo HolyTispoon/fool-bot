@@ -1,6 +1,6 @@
 """
 The scripted opening a tutorial game plays -- see `d12ball/tutorial.py`
-and "The tutorial" in CLAUDE.md.
+and "The tutorial" in docs/design/tutorial.md.
 
 The centrepiece is `TutorialPlaythroughTests`, which plays the whole
 script through the **real cog** with Discord mocked, pressing whichever
@@ -552,7 +552,7 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
 
         **The shot's outcome is not asserted, because the script does
         not fix it.** It is deliberately left to the dice (see "The
-        five beats" in CLAUDE.md), a heavy favourite and not a
+        five beats" in docs/design/tutorial.md), a heavy favourite and not a
         certainty, so a test demanding a goal fails one run in seven
         for the reason the tutorial is built to allow -- which it did,
         on `main`, at about that rate. What the fold has to agree with
