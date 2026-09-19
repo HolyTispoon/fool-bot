@@ -248,4 +248,10 @@ frees a slot in the category.
   landed before it does something `save_games` never has to contend with:
   an action Discord cannot undo. `cogs/debug.py` does every bit of
   fetching (the channel, its history, each attachment's bytes) and only
-  hands this module data once it has all of it for one game.
+  hands this module data once it has all of it for one game. That
+  render-transcript-write-delete sequence for one game is
+  `export_one_game`, over `collect_export_candidates` (the candidate list)
+  and `read_channel_transcript` (the history walk); `export_archived_games`
+  itself is just the refusals, the two notices, and a fold over the
+  per-game results. `delete_channel_with_retries` is the retry loop, and
+  is the one piece `reset_channels` shares with it.

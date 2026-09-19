@@ -1,5 +1,7 @@
 import asyncio
 import logging
+from pathlib import Path
+from typing import NamedTuple
 
 import discord
 from discord import app_commands
@@ -12,7 +14,7 @@ from cogs.d12ball_helpers import (
     send_error_fallback,
 )
 import botlog
-from d12ball.game import GameStatus
+from d12ball.game import D12BallGame, GameStatus
 from gamesaves.d12ball.archive_export import archive_export_dir, write_game_export
 from gamesaves.d12ball.storage import save_games
 
@@ -91,6 +93,202 @@ async def defer_or_report(interaction: discord.Interaction) -> bool:
             command_name, age,
         )
         return False
+
+
+async def delete_channel_with_retries(
+    channel: discord.abc.GuildChannel, reason: str,
+) -> str | None:
+    """
+    Delete `channel`, retrying on the backoff in
+    `CHANNEL_DELETE_RETRY_DELAYS` -- see the comment on that constant
+    for why the delays exist and why they only lengthen.
+
+    Returns `None` once Discord has confirmed the channel is gone (a
+    delete that lands, or a `discord.NotFound` -- already gone counts
+    as landed, since either way there is nothing left to retry).
+    Returns the failure text for a `failed_channels`/`failures` entry
+    otherwise: `"permission denied: ..."` for a `discord.Forbidden`,
+    which is not worth retrying and stops on the first attempt, or
+    `"Discord error: ..."` once every retry is spent.
+    """
+    for attempt in range(len(CHANNEL_DELETE_RETRY_DELAYS) + 1):
+        if attempt:
+            await asyncio.sleep(CHANNEL_DELETE_RETRY_DELAYS[attempt - 1])
+        try:
+            await channel.delete(reason=reason)
+            return None
+        except discord.NotFound:
+            return None
+        except discord.Forbidden as error:
+            return f"permission denied: {error}"
+        except discord.HTTPException as error:
+            if attempt == len(CHANNEL_DELETE_RETRY_DELAYS):
+                return f"Discord error: {error}"
+    return None
+
+
+class ExportOneGameResult(NamedTuple):
+    exported: bool
+    deleted: bool
+    failure: tuple[str, str] | None
+
+
+async def collect_export_candidates(
+    guild: discord.Guild, cog, limit: int,
+) -> list[tuple[D12BallGame, discord.TextChannel]]:
+    """
+    Every finished D12 Ball game `cog` still tracks for `guild` whose
+    channel is currently sitting in the PBD Archive category, oldest
+    `game_number` first and cut to `limit` -- any archived channel
+    freed makes the same room, so there is no other reason to prefer
+    one game over another. A game whose channel already vanished is
+    left for the startup sweep to prune, with nothing here left to
+    export.
+    """
+    try:
+        guild_channels = await guild.fetch_channels()
+    except (discord.Forbidden, discord.HTTPException):
+        guild_channels = guild.channels
+
+    archived_channels_by_id = {
+        channel.id: channel
+        for channel in guild_channels
+        if isinstance(channel, discord.TextChannel)
+        if CHANNEL_NAME_PATTERN.fullmatch(channel.name.lower())
+        if (
+            channel.category is not None
+            and channel.category.name.casefold()
+            == PBD_ARCHIVE_CATEGORY_NAME.casefold()
+        )
+    }
+
+    # Oldest game_number first: any archived channel freed makes the
+    # same room, so this is about tidying the oldest history first
+    # rather than anything a coach would notice.
+    return sorted(
+        (
+            (game, archived_channels_by_id[game.channel_id])
+            for game in cog.games.values()
+            if game.guild_id == guild.id
+            and game.status == GameStatus.FINISHED
+            and game.channel_id in archived_channels_by_id
+        ),
+        key=lambda pair: pair[0].game_number,
+    )[:limit]
+
+
+async def read_channel_transcript(
+    channel: discord.TextChannel, game_id: str,
+) -> tuple[list[dict], list[tuple[str, bytes]]]:
+    """
+    Walk `channel`'s whole history oldest-first and download every
+    attachment along the way. Raises `discord.Forbidden` or
+    `discord.HTTPException` straight through -- `export_one_game`
+    already catches those to leave the channel and the game alone. A
+    single attachment that fails to download is logged and skipped
+    rather than failing the whole transcript.
+    """
+    transcript: list[dict] = []
+    attachments: list[tuple[str, bytes]] = []
+    async for message in channel.history(limit=None, oldest_first=True):
+        entry = {
+            "id": message.id,
+            "created_at": message.created_at.isoformat(),
+            "author": str(message.author),
+            "author_id": message.author.id,
+            "content": message.content,
+            "attachments": [],
+        }
+        for attachment in message.attachments:
+            filename = f"{message.id}-{attachment.filename}"
+            try:
+                data = await attachment.read()
+            except (discord.HTTPException, discord.NotFound) as error:
+                LOGGER.warning(
+                    "Could not download an attachment from "
+                    "D12 Ball game %s: %s",
+                    game_id, error,
+                )
+                continue
+            attachments.append((filename, data))
+            entry["attachments"].append(filename)
+        transcript.append(entry)
+    return transcript, attachments
+
+
+async def export_one_game(
+    cog,
+    game: D12BallGame,
+    channel: discord.TextChannel,
+    export_dir: Path,
+    actor: object,
+) -> ExportOneGameResult:
+    """
+    Export one archived game to `export_dir` and only then delete its
+    channel. **The export has to land before the channel dies, never
+    after** -- render, transcript and write all happen first, and a
+    failure at any of those three returns a failure reason with that
+    game's channel and save record completely untouched. Losing a
+    channel Discord will never give back over a write that could be
+    retried is the one failure mode this whole feature exists to
+    avoid, so this ordering does not change.
+    """
+    try:
+        board_png = await cog.render_match_png(game)
+    except Exception as error:
+        LOGGER.warning(
+            "Could not render the final board for D12 Ball "
+            "game %s while exporting it: %s",
+            game.game_id, error,
+        )
+        board_png = None
+
+    try:
+        transcript, attachments = await read_channel_transcript(
+            channel, game.game_id,
+        )
+    except (discord.Forbidden, discord.HTTPException) as error:
+        return ExportOneGameResult(
+            exported=False,
+            deleted=False,
+            failure=(channel.name, f"could not read its history: {error}"),
+        )
+
+    dest = export_dir / build_game_channel_name(
+        game.game_number,
+        game.player_1_name or "",
+        game.player_2_name or "",
+        game.game_name,
+    )
+    try:
+        write_game_export(
+            dest,
+            game_data=game.to_dict(),
+            board_png=board_png,
+            transcript=transcript,
+            attachments=attachments,
+        )
+    except OSError as error:
+        return ExportOneGameResult(
+            exported=False,
+            deleted=False,
+            failure=(channel.name, f"could not write its export: {error}"),
+        )
+
+    error_text = await delete_channel_with_retries(
+        channel,
+        reason=(
+            "D12 Ball game exported to disk and deleted "
+            f"from the PBD Archive by {actor}"
+        ),
+    )
+    if error_text is None:
+        cog.games.pop(game.game_id, None)
+        return ExportOneGameResult(exported=True, deleted=True, failure=None)
+
+    return ExportOneGameResult(
+        exported=True, deleted=False, failure=(channel.name, error_text),
+    )
 
 
 class Debug(commands.Cog):
@@ -241,33 +439,17 @@ class Debug(commands.Cog):
         deleted_channels = 0
 
         for channel in pbd_channels:
-            for attempt in range(len(CHANNEL_DELETE_RETRY_DELAYS) + 1):
-                if attempt:
-                    await asyncio.sleep(
-                        CHANNEL_DELETE_RETRY_DELAYS[attempt - 1]
-                    )
-                try:
-                    await channel.delete(
-                        reason=(
-                            "D12 Ball channel and count reset requested by "
-                            f"{interaction.user}"
-                        ),
-                    )
-                    deleted_channels += 1
-                    break
-                except discord.NotFound:
-                    deleted_channels += 1
-                    break
-                except discord.Forbidden as error:
-                    failed_channels.append(
-                        (channel.name, f"permission denied: {error}")
-                    )
-                    break
-                except discord.HTTPException as error:
-                    if attempt == len(CHANNEL_DELETE_RETRY_DELAYS):
-                        failed_channels.append(
-                            (channel.name, f"Discord error: {error}")
-                        )
+            error_text = await delete_channel_with_retries(
+                channel,
+                reason=(
+                    "D12 Ball channel and count reset requested by "
+                    f"{interaction.user}"
+                ),
+            )
+            if error_text is None:
+                deleted_channels += 1
+            else:
+                failed_channels.append((channel.name, error_text))
 
         game_ids = [
             game_id
@@ -458,36 +640,7 @@ class Debug(commands.Cog):
             )
             return
 
-        try:
-            guild_channels = await guild.fetch_channels()
-        except (discord.Forbidden, discord.HTTPException):
-            guild_channels = guild.channels
-
-        archived_channels_by_id = {
-            channel.id: channel
-            for channel in guild_channels
-            if isinstance(channel, discord.TextChannel)
-            if CHANNEL_NAME_PATTERN.fullmatch(channel.name.lower())
-            if (
-                channel.category is not None
-                and channel.category.name.casefold()
-                == PBD_ARCHIVE_CATEGORY_NAME.casefold()
-            )
-        }
-
-        # Oldest game_number first: any archived channel freed makes
-        # the same room, so this is about tidying the oldest history
-        # first rather than anything a coach would notice.
-        candidates = sorted(
-            (
-                (game, archived_channels_by_id[game.channel_id])
-                for game in d12ball_cog.games.values()
-                if game.guild_id == guild.id
-                and game.status == GameStatus.FINISHED
-                and game.channel_id in archived_channels_by_id
-            ),
-            key=lambda pair: pair[0].game_number,
-        )[:limit]
+        candidates = await collect_export_candidates(guild, d12ball_cog, limit)
 
         if not candidates:
             await interaction.followup.send(
@@ -522,101 +675,15 @@ class Debug(commands.Cog):
         failures: list[tuple[str, str]] = []
 
         for game, channel in candidates:
-            try:
-                board_png = await d12ball_cog.render_match_png(game)
-            except Exception as error:
-                LOGGER.warning(
-                    "Could not render the final board for D12 Ball "
-                    "game %s while exporting it: %s",
-                    game.game_id, error,
-                )
-                board_png = None
-
-            transcript: list[dict] = []
-            attachments: list[tuple[str, bytes]] = []
-            try:
-                async for message in channel.history(
-                    limit=None, oldest_first=True,
-                ):
-                    entry = {
-                        "id": message.id,
-                        "created_at": message.created_at.isoformat(),
-                        "author": str(message.author),
-                        "author_id": message.author.id,
-                        "content": message.content,
-                        "attachments": [],
-                    }
-                    for attachment in message.attachments:
-                        filename = f"{message.id}-{attachment.filename}"
-                        try:
-                            data = await attachment.read()
-                        except (discord.HTTPException, discord.NotFound) as error:
-                            LOGGER.warning(
-                                "Could not download an attachment from "
-                                "D12 Ball game %s: %s",
-                                game.game_id, error,
-                            )
-                            continue
-                        attachments.append((filename, data))
-                        entry["attachments"].append(filename)
-                    transcript.append(entry)
-            except (discord.Forbidden, discord.HTTPException) as error:
-                failures.append(
-                    (channel.name, f"could not read its history: {error}")
-                )
-                continue
-
-            dest = export_dir / build_game_channel_name(
-                game.game_number,
-                game.player_1_name or "",
-                game.player_2_name or "",
-                game.game_name,
+            game_result = await export_one_game(
+                d12ball_cog, game, channel, export_dir, interaction.user,
             )
-            try:
-                write_game_export(
-                    dest,
-                    game_data=game.to_dict(),
-                    board_png=board_png,
-                    transcript=transcript,
-                    attachments=attachments,
-                )
-            except OSError as error:
-                failures.append(
-                    (channel.name, f"could not write its export: {error}")
-                )
-                continue
-
-            exported += 1
-
-            for attempt in range(len(CHANNEL_DELETE_RETRY_DELAYS) + 1):
-                if attempt:
-                    await asyncio.sleep(
-                        CHANNEL_DELETE_RETRY_DELAYS[attempt - 1]
-                    )
-                try:
-                    await channel.delete(
-                        reason=(
-                            "D12 Ball game exported to disk and deleted "
-                            f"from the PBD Archive by {interaction.user}"
-                        ),
-                    )
-                    deleted += 1
-                    d12ball_cog.games.pop(game.game_id, None)
-                    break
-                except discord.NotFound:
-                    deleted += 1
-                    d12ball_cog.games.pop(game.game_id, None)
-                    break
-                except discord.Forbidden as error:
-                    failures.append(
-                        (channel.name, f"permission denied: {error}")
-                    )
-                    break
-                except discord.HTTPException as error:
-                    if attempt == len(CHANNEL_DELETE_RETRY_DELAYS):
-                        failures.append(
-                            (channel.name, f"Discord error: {error}")
-                        )
+            if game_result.exported:
+                exported += 1
+            if game_result.deleted:
+                deleted += 1
+            if game_result.failure is not None:
+                failures.append(game_result.failure)
 
         if exported:
             save_games(d12ball_cog.games)
