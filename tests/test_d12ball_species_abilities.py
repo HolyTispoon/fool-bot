@@ -85,6 +85,7 @@ from d12ball.game import (
     GameStatus,
     Team,
 )
+from cogs.d12ball_helpers import get_damaged_emoji, get_injured_emoji
 
 from roster import field_players, fielded_of_species
 from save_patches import suppressed_cog_saves, suppressed_view_saves
@@ -942,6 +943,74 @@ class DrainThresholdTests(unittest.TestCase):
         self.assertEqual(
             self.engine.exhaustion_threshold(self.game, other),
             self.defense_of(other),
+        )
+
+
+class DamagedWordingTests(unittest.TestCase):
+    """
+    "A Cyborg who fails an injury check is Damaged, not Injured ...
+    Only the word (and the token art) is a Cyborg's own." Nothing here
+    asserts a message's prose -- only that the Damaged/Injured choice
+    tracks `has_species_ability` the same way Drained/Exhausted already
+    does, and that the underlying condition (`match.injured`) is
+    unaffected either way.
+    """
+
+    def setUp(self) -> None:
+        self.cog = build_ignition_cog()
+        self.game = build_game(player_1_team=Team.CYBORGS)
+        self.match = build_match(self.cog.engine, self.game)
+        self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
+        self.other = fielded_of_species(
+            self.match, SPECIES_FIRE_DEMON, TeamSide.VISITING,
+        )
+
+    def test_a_cyborg_reads_as_damaged(self) -> None:
+        word, emoji = self.cog.injured_word_and_emoji(self.game, self.cyborg)
+        self.assertEqual(word, "damaged")
+        self.assertEqual(emoji, get_damaged_emoji(self.cog.condition_emojis))
+
+    def test_a_non_cyborg_reads_as_injured(self) -> None:
+        word, emoji = self.cog.injured_word_and_emoji(self.game, self.other)
+        self.assertEqual(word, "injured")
+        self.assertEqual(emoji, get_injured_emoji(self.cog.condition_emojis))
+
+    def test_a_basic_game_gives_a_cyborg_no_such_thing(self) -> None:
+        basic = build_game(player_1_team=Team.CYBORGS, mode=GameMode.BASIC)
+        word, _ = self.cog.injured_word_and_emoji(basic, self.cyborg)
+        self.assertEqual(word, "injured")
+
+    def test_the_underlying_condition_is_untouched(self) -> None:
+        # Damaged is a word, not a second condition -- mark_injured
+        # writes the one `match.injured` set either way.
+        self.match.mark_injured(self.cyborg)
+        self.assertIn(self.cyborg, self.match.injured)
+
+    def test_describe_exhaustion_gain_calls_a_damaged_cyborg_damaged(
+        self,
+    ) -> None:
+        self.match.mark_injured(self.cyborg)
+        text = self.cog.describe_exhaustion_gain(
+            self.game, self.match, self.cyborg, 1,
+        )
+        self.assertIn("damaged", text)
+        self.assertIn("drain tokens", text)
+        self.assertNotIn("injured", text)
+
+    def test_cyborg_condition_ids_answers_off_exhausted_and_injured(
+        self,
+    ) -> None:
+        self.match.exhaustion[self.cyborg] = CYBORG_DRAINED_AT
+        self.match.exhausted.add(self.cyborg)
+        self.assertEqual(
+            self.cog.cyborg_condition_ids(self.game, self.match),
+            frozenset({self.cyborg}),
+        )
+        # A non-Cyborg who is Exhausted/Injured never joins the set.
+        self.match.exhaustion[self.other] = 99
+        self.match.exhausted.add(self.other)
+        self.assertNotIn(
+            self.other, self.cog.cyborg_condition_ids(self.game, self.match),
         )
 
 

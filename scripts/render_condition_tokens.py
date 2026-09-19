@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Draw the Injured and Exhausted condition tokens.
+"""Draw the Injured, Exhausted, Drained and Damaged condition tokens.
 
-These two PNGs are read in two places and have to be one file each:
+These four PNGs are read in two places and have to be one file each:
 `render.py` loads them as the badges it draws on a player's card
-(`load_injured_icon` / `load_exhausted_icon`), and the same art is
-uploaded to the application's emoji so a line of text and the badge on
-the board show a coach the same icon -- see "Logging and the #logs
-channel" for how application emoji are looked up, and
-`cogs/d12ball_helpers.py` for the names they must be uploaded under.
+(`load_injured_icon` / `load_exhausted_icon` / `load_drained_icon` /
+`load_damaged_icon`), and the same art is uploaded to the application's
+emoji so a line of text and the badge on the board show a coach the
+same icon -- see "Logging and the #logs channel" for how application
+emoji are looked up, and `cogs/d12ball_helpers.py` for the names they
+must be uploaded under.
 
     python3 scripts/render_condition_tokens.py                 # dry run
     python3 scripts/render_condition_tokens.py --in-place
@@ -28,6 +29,17 @@ and the word itself condensed to the full width of the face. What
 changed is the colour, which is the whole point of the rewrite --
 **injury is red and exhaustion is blue**, where it used to be the other
 way round.
+
+**Drained and Damaged are a Cyborg's own words for Exhausted and
+Injured** (see "Lithium Powered" in docs/living-rules.md) -- the same
+mechanic under a different name, so they get their own art rather than
+a recolour of the human tokens standing in for a different word. Both
+are teal/amber rather than the human pair's blue/red, since teal is the
+Cyborgs' own team colour (`TEAM_COLORS[Team.TEAL]`, see "Team colors" in
+docs/design/teams-and-players.md) and amber reads as a mechanical
+warning light beside it -- deliberately brighter than a literal
+`TEAM_COLORS` teal, which the author found too muted a fill at 26px
+once it was next to the sunburst rays it shares its own colour with.
 """
 import argparse
 import math
@@ -89,6 +101,12 @@ TEXT_HALO = 0.07  # of the font size
 TOKENS = {
     "injured": ("INJURED", (255, 52, 0, 255)),
     "exhausted": ("EXHAUSTED", (0, 164, 255, 255)),
+    # A Cyborg's own pair -- Damaged reads with Injured's own urgency
+    # and Drained with Exhausted's, so each keeps its human
+    # counterpart's role in the pairing and picks up a Cyborg-flavoured
+    # hue instead of red/blue.
+    "damaged": ("DAMAGED", (255, 176, 0, 255)),
+    "drained": ("DRAINED", (0, 158, 158, 255)),
 }
 
 

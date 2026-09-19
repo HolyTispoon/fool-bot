@@ -48,6 +48,8 @@ from cogs.d12ball_helpers import (
     format_player,
     format_player_with_team,
     format_team_side_label,
+    get_damaged_emoji,
+    get_drained_emoji,
     get_exhaust_emoji,
     get_exhausted_emoji,
     get_injured_emoji,
@@ -165,7 +167,19 @@ class PresentationMixin:
         charged here rather than inside `MatchState`.
         """
         player = self.engine.get_player_definition(player_id)
+        # A Cyborg's tokens are drain, and are called that everywhere a
+        # coach reads them -- the mechanic is the same and the word is
+        # the ability. See "Lithium Powered" in docs/living-rules.md.
+        drain = self.engine.has_species_ability(
+            game, player_id, SPECIES_CYBORG,
+        )
         if player_id in match.injured:
+            if drain:
+                return (
+                    f"{self.player_label(match, player)} is damaged "
+                    f"{get_damaged_emoji(self.condition_emojis)} and gains "
+                    "no drain tokens."
+                )
             return (
                 f"{self.player_label(match, player)} is injured "
                 f"{get_injured_emoji(self.condition_emojis)} and gains no "
@@ -186,12 +200,6 @@ class PresentationMixin:
         exhaust_emoji = get_exhaust_emoji(self.condition_emojis)
         total = match.exhaustion.get(player_id, 0)
         token_word = "token" if amount == 1 else "tokens"
-        # A Cyborg's tokens are drain, and are called that everywhere a
-        # coach reads them -- the mechanic is the same and the word is
-        # the ability. See "Lithium Powered" in docs/living-rules.md.
-        drain = self.engine.has_species_ability(
-            game, player_id, SPECIES_CYBORG,
-        )
         noun = "drain" if drain else "exhaustion"
         text = (
             f"{self.player_label(match, player)} gains {amount} {noun} "
@@ -199,15 +207,16 @@ class PresentationMixin:
         )
 
         if self.engine.retest_exhausted(game, match, player_id):
-            exhausted_emoji = get_exhausted_emoji(self.condition_emojis)
             if drain:
+                drained_emoji = get_drained_emoji(self.condition_emojis)
                 text += (
                     f"\n{self.player_label(match, player)} is now "
-                    f"**Drained** {exhausted_emoji} — {total} drain "
+                    f"**Drained** {drained_emoji} — {total} drain "
                     f"tokens reaches {CYBORG_DRAINED_AT}. Drained counts "
                     "as Exhausted everywhere the rules use the word."
                 )
             else:
+                exhausted_emoji = get_exhausted_emoji(self.condition_emojis)
                 defense_skill = self.player_catalog.effective_profile(
                     player,
                 ).defense
@@ -959,8 +968,31 @@ class PresentationMixin:
             self.player_catalog,
             title=title,
             species_icons=self.engine.species_abilities_apply(game),
+            cyborg_ids=self.cyborg_condition_ids(game, match),
         )
         return image.getvalue()
+
+    def cyborg_condition_ids(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> frozenset[str]:
+        """
+        Which of the currently Exhausted or Injured players are Cyborgs
+        playing with their own drain -- the answer `render.py`'s
+        `cyborg_ids` needs to draw Drained/Damaged instead of
+        Exhausted/Injured, without this module handing the renderer a
+        `game` or a species to read itself. See "Lithium Powered" in
+        docs/design/species-abilities.md and the `species_icons` flag
+        this mirrors.
+        """
+        return frozenset(
+            player_id
+            for player_id in match.exhausted | match.injured
+            if self.engine.has_species_ability(
+                game, player_id, SPECIES_CYBORG,
+            )
+        )
 
     def match_file_from_png(
         self,
