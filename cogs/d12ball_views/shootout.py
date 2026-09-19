@@ -76,19 +76,39 @@ class ShootoutView(SafeView):
             )
             return None
 
-        # A coach gets their own side; a game helper gets both, and
-        # `owes` below picks whichever still has an order to set. That
-        # does show a helper both coaches' picks, which the secrecy of
-        # an order otherwise turns on -- it is the price of being able
-        # to set one for somebody, and the same price the maneuver pick
-        # and every other prompt pays.
-        theirs = [
+        # **A coach gets their own side, and only their own**, whether
+        # or not they also hold `manage_channels`: a coach who is a
+        # helper is pressing this for themselves, like anybody else,
+        # and a helper's wider reach is for a game they are not in. It
+        # was read the other way round -- a helper got both sides, home
+        # first -- which handed a visiting coach with the permission
+        # the *home* order to set. See "Who may act on a game" in
+        # CLAUDE.md.
+        sides = (TeamSide.HOME, TeamSide.VISITING)
+        own = [
             side
-            for side in (TeamSide.HOME, TeamSide.VISITING)
-            if self.may_act_for(
-                interaction, self.cog.engine.side_controller_id(game, side),
-            )
+            for side in sides
+            if interaction.user.id
+            == self.cog.engine.side_controller_id(game, side)
         ]
+        if own:
+            theirs = own
+        else:
+            # Not a coach in the game: a helper acting for one, which
+            # the gate puts behind a confirmation. They get both
+            # sides, and `owes` below picks whichever still has an
+            # order to set. That does show a helper both coaches'
+            # picks, which the secrecy of an order otherwise turns on
+            # -- it is the price of being able to set one for
+            # somebody.
+            theirs = [
+                side
+                for side in sides
+                if self.may_act_for(
+                    interaction,
+                    self.cog.engine.side_controller_id(game, side),
+                )
+            ]
         if not theirs:
             await interaction.response.send_message(
                 "Only a coach in this game can do that.",

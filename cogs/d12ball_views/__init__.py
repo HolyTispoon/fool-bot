@@ -24,8 +24,10 @@ ordinary shot, or the scoring opportunity's own choice
 """
 
 from cogs.d12ball_views.base import (
+    HelperConfirmationView,
     SafeView,
     contestant_detail,
+    describe_coaches,
     render_contest_dice,
 )
 from cogs.d12ball_views.setup import (
@@ -108,8 +110,10 @@ from cogs.d12ball_views.shootout import (
 )
 
 __all__ = [
+    "HelperConfirmationView",
     "SafeView",
     "contestant_detail",
+    "describe_coaches",
     "render_contest_dice",
     "CoinFlipView",
     "GameConfigurationView",
