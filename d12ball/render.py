@@ -2112,6 +2112,169 @@ def draw_merge_contributors(
         row_y += slot_height + MERGE_NAME_GAP + MERGE_NAME_HEIGHT + MERGE_CONTRIBUTOR_SPACING
 
 
+@dataclass(frozen=True)
+class SkillTestRowLayout:
+    """
+    What every die in the row has to agree on, measured across all of
+    them before the canvas exists -- `max_lines`, the tallest Merge
+    block and whether anyone is overdriven all come from the whole
+    row, not one die, which is what keeps every total on one line even
+    when only one side has the longer detail list or the Merge block.
+    """
+
+    center_y: float
+    total_y: float
+    detail_block_height: float
+    merge_extra_height: float
+    merge_gap: float
+    width: int
+    height: int
+
+    @classmethod
+    def measure(
+        cls,
+        dice: list[
+            tuple[int, str, str, list[str], int, bool, list[tuple[str, int]]]
+        ],
+    ) -> "SkillTestRowLayout":
+        max_lines = max(
+            (len(detail) for _, _, _, detail, _, _, _ in dice), default=0,
+        )
+        detail_block_height = max_lines * SKILL_TEST_DETAIL_LINE_HEIGHT
+        merge_extra_height = max(
+            (merge_block_height(merge) for _, _, _, _, _, _, merge in dice),
+            default=0,
+        )
+        merge_gap = MERGE_ROW_GAP if merge_extra_height else 0
+        # An overdriven die's halo is wider than SKILL_TEST_CENTER_Y's own
+        # headroom, so the row is pushed down to give it room -- only when
+        # one is actually there, so an ordinary roll's canvas is exactly
+        # the size it always was.
+        has_overdrive = any(
+            overdriven for _, _, _, _, _, overdriven, _ in dice
+        )
+        top_margin = (
+            round(max(0, OVERDRIVE_HALO_SIZE / 2 - SKILL_TEST_CENTER_Y))
+            if has_overdrive
+            else 0
+        )
+        center_y = SKILL_TEST_CENTER_Y + top_margin
+        total_y = (
+            center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
+            + detail_block_height + merge_gap + merge_extra_height
+            + SKILL_TEST_TOTAL_GAP
+        )
+        height = (
+            total_y + SKILL_TEST_TOTAL_LINE_HEIGHT + SKILL_TEST_BOTTOM_PADDING
+        )
+        width = SKILL_TEST_CELL_WIDTH * len(dice)
+        return cls(
+            center_y=center_y,
+            total_y=total_y,
+            detail_block_height=detail_block_height,
+            merge_extra_height=merge_extra_height,
+            merge_gap=merge_gap,
+            width=width,
+            height=height,
+        )
+
+
+def draw_skill_test_die(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    layout: SkillTestRowLayout,
+    index: int,
+    value: int,
+    color: str,
+    label: str,
+    detail_lines: list[str],
+    total: int,
+    overdriven: bool,
+    merge: list[tuple[str, int]],
+) -> None:
+    """
+    One die: the polygon (haloed and ringed when `overdriven`), the
+    team label, the detail lines, the Merge row when `merge` carries
+    contributors, and the total -- every one of them placed off the
+    row's own measured `layout` rather than this die's own content, so
+    every die in the row lines its total up on the same y.
+
+    `overdriven` supercharges the die with the Cyborgs' own halo and
+    ring -- **the actual roll, not a second one**, since Overdrive is a
+    flat bonus with nothing of its own to show. `merge` draws the Oozes
+    who added to this side below the detail lines, each as its own
+    small haloed die beside its own portrait -- **both dice**, the
+    roller's own and the Ooze's, on one image, the way the rest of
+    this row already reads two dice as one contest.
+    """
+    center_x = index * SKILL_TEST_CELL_WIDTH + SKILL_TEST_CELL_WIDTH // 2
+    center_y = layout.center_y
+    if overdriven:
+        draw_species_die_aura(
+            canvas, draw, center_x, center_y, SKILL_TEST_DIE_RADIUS,
+            SPECIES_CYBORG, OVERDRIVE_AURA_COLOR,
+            OVERDRIVE_HALO_SCALE, OVERDRIVE_HALO_ALPHA,
+            OVERDRIVE_RING_GAP, OVERDRIVE_RING_WIDTH,
+            halo_override=cyborg_cell_without_bolt(
+                OVERDRIVE_AURA_COLOR, OVERDRIVE_HALO_SIZE,
+            ),
+        )
+    draw_d12_polygon(
+        draw,
+        center_x,
+        center_y,
+        SKILL_TEST_DIE_RADIUS,
+        color,
+        str(value),
+        font=FONT_DICE_VALUE,
+        text_color=high_contrast_ink(color),
+    )
+    label_width = draw.textlength(label, font=FONT_SMALL)
+    draw.text(
+        (
+            center_x - label_width / 2,
+            center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_LABEL_GAP,
+        ),
+        label,
+        font=FONT_SMALL,
+        fill="#ffffff",
+    )
+
+    detail_y = center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
+    for line in detail_lines:
+        line_width = draw.textlength(line, font=FONT_SMALL)
+        draw.text(
+            (center_x - line_width / 2, detail_y),
+            line,
+            font=FONT_SMALL,
+            fill="#c7ced6",
+        )
+        detail_y += SKILL_TEST_DETAIL_LINE_HEIGHT
+
+    if merge:
+        draw_merge_contributors(
+            canvas,
+            draw,
+            center_x,
+            center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
+            + layout.detail_block_height + MERGE_ROW_GAP,
+            merge,
+        )
+
+    # Aligned on max_lines rather than this entry's own line count,
+    # so the totals line up across dice even when one side has more
+    # modifiers listed than the other -- and now even when only one
+    # side merged.
+    total_label = f"= {total}"
+    total_width = draw.textlength(total_label, font=FONT_DICE_TOTAL)
+    draw.text(
+        (center_x - total_width / 2, layout.total_y),
+        total_label,
+        font=FONT_DICE_TOTAL,
+        fill=color,
+    )
+
+
 def render_skill_test_dice(
     dice: list[tuple[int, str, str, list[str], int, bool, list[tuple[str, int]]]],
 ) -> BytesIO:
@@ -2130,113 +2293,17 @@ def render_skill_test_dice(
     total is the final modified result, drawn large underneath so the
     number that actually decided the roll doesn't require reading the
     accompanying message.
-
-    `overdriven` supercharges that side's own die with the Cyborgs' own
-    halo and ring -- **the actual roll, not a second one**, since
-    Overdrive is a flat bonus with nothing of its own to show.
-    `merge_contributors` draws the Oozes who added to this side below
-    the detail lines, each as its own small haloed die beside its own
-    portrait -- **both dice**, the roller's own and the Ooze's, on one
-    image, the way the rest of this row already reads two dice as one
-    contest.
     """
-    max_lines = max(
-        (len(detail) for _, _, _, detail, _, _, _ in dice), default=0,
-    )
-    detail_block_height = max_lines * SKILL_TEST_DETAIL_LINE_HEIGHT
-    merge_extra_height = max(
-        (merge_block_height(merge) for _, _, _, _, _, _, merge in dice),
-        default=0,
-    )
-    merge_gap = MERGE_ROW_GAP if merge_extra_height else 0
-    # An overdriven die's halo is wider than SKILL_TEST_CENTER_Y's own
-    # headroom, so the row is pushed down to give it room -- only when
-    # one is actually there, so an ordinary roll's canvas is exactly
-    # the size it always was.
-    has_overdrive = any(overdriven for _, _, _, _, _, overdriven, _ in dice)
-    top_margin = (
-        round(max(0, OVERDRIVE_HALO_SIZE / 2 - SKILL_TEST_CENTER_Y))
-        if has_overdrive
-        else 0
-    )
-    center_y = SKILL_TEST_CENTER_Y + top_margin
-    total_y = (
-        center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
-        + detail_block_height + merge_gap + merge_extra_height
-        + SKILL_TEST_TOTAL_GAP
-    )
-    height = total_y + SKILL_TEST_TOTAL_LINE_HEIGHT + SKILL_TEST_BOTTOM_PADDING
-    width = SKILL_TEST_CELL_WIDTH * len(dice)
-    canvas = Image.new("RGBA", (width, height), "#111820")
+    layout = SkillTestRowLayout.measure(dice)
+    canvas = Image.new("RGBA", (layout.width, layout.height), "#111820")
     draw = ImageDraw.Draw(canvas)
 
     for index, (
         value, color, label, detail_lines, total, overdriven, merge,
     ) in enumerate(dice):
-        center_x = index * SKILL_TEST_CELL_WIDTH + SKILL_TEST_CELL_WIDTH // 2
-        if overdriven:
-            draw_species_die_aura(
-                canvas, draw, center_x, center_y, SKILL_TEST_DIE_RADIUS,
-                SPECIES_CYBORG, OVERDRIVE_AURA_COLOR,
-                OVERDRIVE_HALO_SCALE, OVERDRIVE_HALO_ALPHA,
-                OVERDRIVE_RING_GAP, OVERDRIVE_RING_WIDTH,
-                halo_override=cyborg_cell_without_bolt(
-                    OVERDRIVE_AURA_COLOR, OVERDRIVE_HALO_SIZE,
-                ),
-            )
-        draw_d12_polygon(
-            draw,
-            center_x,
-            center_y,
-            SKILL_TEST_DIE_RADIUS,
-            color,
-            str(value),
-            font=FONT_DICE_VALUE,
-            text_color=high_contrast_ink(color),
-        )
-        label_width = draw.textlength(label, font=FONT_SMALL)
-        draw.text(
-            (
-                center_x - label_width / 2,
-                center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_LABEL_GAP,
-            ),
-            label,
-            font=FONT_SMALL,
-            fill="#ffffff",
-        )
-
-        detail_y = center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
-        for line in detail_lines:
-            line_width = draw.textlength(line, font=FONT_SMALL)
-            draw.text(
-                (center_x - line_width / 2, detail_y),
-                line,
-                font=FONT_SMALL,
-                fill="#c7ced6",
-            )
-            detail_y += SKILL_TEST_DETAIL_LINE_HEIGHT
-
-        if merge:
-            draw_merge_contributors(
-                canvas,
-                draw,
-                center_x,
-                center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
-                + detail_block_height + MERGE_ROW_GAP,
-                merge,
-            )
-
-        # Aligned on max_lines rather than this entry's own line count,
-        # so the totals line up across dice even when one side has more
-        # modifiers listed than the other -- and now even when only one
-        # side merged.
-        total_label = f"= {total}"
-        total_width = draw.textlength(total_label, font=FONT_DICE_TOTAL)
-        draw.text(
-            (center_x - total_width / 2, total_y),
-            total_label,
-            font=FONT_DICE_TOTAL,
-            fill=color,
+        draw_skill_test_die(
+            canvas, draw, layout, index,
+            value, color, label, detail_lines, total, overdriven, merge,
         )
 
     return png_bytes(canvas)
