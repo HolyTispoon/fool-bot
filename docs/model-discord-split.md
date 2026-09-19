@@ -610,12 +610,23 @@ Phases 1-3 didn't already reach:
 - `begin_loose_ball`'s contest
 - `begin_run_back` / `continue_run_back` (the cascade; note principle 8 --
   the batching stays in the cog, the loop moves). **The loop's own
-  per-pass `self.persist(game, match)` stays too**, as a named exception to
-  principle 9: the give-up-after-`MAX_RUN_BACK_PASSES` branch logs and
-  bails rather than returning a step for a wrapper to save after, and its
-  comment ("the match is saved as it stands") is a promise about that
-  intra-loop persist specifically. Collapsing it to one persist after the
-  loop returns would drop that guarantee on exactly the path it exists for.
+  per-pass `self.persist(game, match)` (`turnovers.py:1622`) stays too**, as
+  a named exception to principle 9, and the path that needs it is the
+  **coach's-choice `return`** (`:1657`): when `next_run_back_step` comes
+  back with a question, the loop posts the prompt and returns from inside
+  itself, so nothing after the loop runs. The turn is then waiting on a
+  click that reloads the match out of the save file -- which means this
+  pass's placements have to already be on disk, and the intra-loop persist
+  is what puts them there. Collapse it to one save after the loop and every
+  cascade that stops to ask somebody loses the placements it just made.
+  - **The give-up-after-`MAX_RUN_BACK_PASSES` branch is not that path**,
+    though it reads like it: it `break`s rather than returning, and the two
+    statements after the loop are `flush()` and `finish_run_back`, which
+    persists at `:1505`. So its log line ("the match is saved as it
+    stands") is kept by that save whatever happens to the one in the loop.
+    Worth writing down because the branch *looks* like the fragile one and
+    is the safe one, and the genuinely fragile path has no log line drawing
+    attention to itself.
 - `begin_injury_tests` / `continue_injury_tests`
 - `run_own_goal_roll`
 - `begin_ball_recovery`
