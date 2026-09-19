@@ -802,6 +802,71 @@ def draw_field_end_zones(sheet: Sheet, geometry: FieldGeometry) -> None:
     )
 
 
+def draw_field_end_zone_frame(
+    sheet: Sheet, left: float, right: float, top: float, bottom: float,
+) -> None:
+    """The end zone's own outline, drawn before the "GOAL" lettering."""
+    sheet.rect(
+        (round(left), round(top), round(right), round(bottom)),
+        fill=PANEL_COLOR,
+        outline=INK,
+        width=sheet.u(2.5),
+    )
+
+
+def goal_word_metrics(
+    sheet: Sheet,
+    word: str,
+    font: ImageFont.ImageFont,
+    letter_spacing: float,
+) -> tuple[list[float], float, float, tuple[int, int, int, int]]:
+    """
+    A word's per-letter widths and its total run at this font size --
+    with the letter spacing `draw_field_end_zone` adds on top of the
+    font's own advance -- plus its cell height and bounding box.
+    `fit_goal_word_font` reads this once per candidate size, which is
+    what keeps the same four lines from being written twice: once for
+    the size the search settles on, once for the size it falls back to.
+    """
+    bbox = sheet.draw.textbbox((0, 0), word, font=font)
+    cell_height = bbox[3] - bbox[1]
+    widths = [sheet.draw.textlength(ch, font=font) for ch in word]
+    total_width = sum(widths) + letter_spacing * (len(word) - 1)
+    return widths, total_width, cell_height, bbox
+
+
+def fit_goal_word_font(
+    sheet: Sheet,
+    word: str,
+    letter_spacing: float,
+    zone_width: float,
+    zone_length: float,
+) -> tuple[
+    ImageFont.ImageFont, list[float], float, float, tuple[int, int, int, int]
+]:
+    """
+    The largest size (in whole pixels, not `sheet.u()` -- this is
+    fitted directly against the zone's own measured extent rather
+    than eyeballed the way `sheet.font` is elsewhere) that fits the
+    word along the zone's length once rotated, and each letter
+    within its width.
+    """
+    size = round(zone_length)
+    while size > 24:
+        font = load_goal_zone_font(size)
+        widths, total_width, cell_height, bbox = goal_word_metrics(
+            sheet, word, font, letter_spacing,
+        )
+        if cell_height <= zone_width * 0.8 and total_width <= zone_length * 0.88:
+            return font, widths, total_width, cell_height, bbox
+        size = round(size * 0.9)
+    font = load_goal_zone_font(24)
+    widths, total_width, cell_height, bbox = goal_word_metrics(
+        sheet, word, font, letter_spacing,
+    )
+    return font, widths, total_width, cell_height, bbox
+
+
 def draw_field_end_zone(
     sheet: Sheet,
     left: float,
@@ -817,14 +882,16 @@ def draw_field_end_zone(
     render.py's own end zone takes and for the same reason: the two
     ends of a real field face opposite ways rather than both reading
     the same direction.
+
+    **The block below, from the "O"'s slot through the ball placement,
+    moves as one unit or not at all -- see "End zones" in
+    docs/design/printed-boards.md.** Its coordinate math was verified
+    empirically against Pillow's actual `rotate(90)`/`rotate(270)`
+    output, not derived on paper; a sign error in it is silent, not a
+    crash.
     """
     assert angle in (90, 270)
-    sheet.rect(
-        (round(left), round(top), round(right), round(bottom)),
-        fill=PANEL_COLOR,
-        outline=INK,
-        width=sheet.u(2.5),
-    )
+    draw_field_end_zone_frame(sheet, left, right, top, bottom)
 
     word = "GOAL"
     stroke_width = max(1, round(sheet.u(1.2)))
@@ -832,27 +899,9 @@ def draw_field_end_zone(
     zone_width = right - left
     zone_length = bottom - top
 
-    # The largest size (in whole pixels, not `sheet.u()` -- this is
-    # fitted directly against the zone's own measured extent rather
-    # than eyeballed the way `sheet.font` is elsewhere) that fits the
-    # word along the zone's length once rotated, and each letter
-    # within its width.
-    size = round(zone_length)
-    while size > 24:
-        font = load_goal_zone_font(size)
-        bbox = sheet.draw.textbbox((0, 0), word, font=font)
-        cell_height = bbox[3] - bbox[1]
-        widths = [sheet.draw.textlength(ch, font=font) for ch in word]
-        total_width = sum(widths) + letter_spacing * (len(word) - 1)
-        if cell_height <= zone_width * 0.8 and total_width <= zone_length * 0.88:
-            break
-        size = round(size * 0.9)
-    else:
-        font = load_goal_zone_font(24)
-        bbox = sheet.draw.textbbox((0, 0), word, font=font)
-        cell_height = bbox[3] - bbox[1]
-        widths = [sheet.draw.textlength(ch, font=font) for ch in word]
-        total_width = sum(widths) + letter_spacing * (len(word) - 1)
+    font, widths, total_width, cell_height, bbox = fit_goal_word_font(
+        sheet, word, letter_spacing, zone_width, zone_length,
+    )
 
     pad = 6 + stroke_width
     text_layer = Image.new(
