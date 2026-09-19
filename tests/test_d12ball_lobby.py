@@ -4,7 +4,7 @@ The game-creation hub and the pre-game lobby.
 The hub is one locked channel with a persistent "D12 Ball" button; the
 lobby is a SETUP game with `in_lobby=True` whose own channel is reused
 as the game channel once Start Game is pressed. See "The game-creation
-hub and the lobby" in CLAUDE.md.
+hub and the lobby" in docs/design/hub-and-lobby.md.
 """
 
 import asyncio

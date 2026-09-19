@@ -90,7 +90,7 @@ class PresentationMixin:
         on and both sides share one button, so the prompt reads the
         same after one pick as before it, and the view is built from
         the game id alone. That edit was a request out of the tightest
-        bucket in the game (see "Discord's rate limits" in CLAUDE.md),
+        bucket in the game (see "Discord's rate limits" in docs/design/rate-limits.md),
         spent once a maneuver, immediately before the resolution's own
         board refresh, for nothing. Who has picked is announced in its
         own message.

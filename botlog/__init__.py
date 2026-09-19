@@ -242,7 +242,7 @@ async def post_notice(client: discord.Client, message: str) -> bool:
     goes silent otherwise. Logging it at ERROR to get it into the
     channel would break the one rule that makes that channel worth
     reading: an ERROR means somebody has to fix something (see "The
-    level you log at decides who sees it" in CLAUDE.md).
+    level you log at decides who sees it" in docs/design/logging.md).
 
     So this is the third thing that reaches the channel on purpose,
     after the sink and the deploy notice, and the third place

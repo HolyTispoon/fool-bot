@@ -69,7 +69,7 @@ TEAM_EMOJI_FALLBACKS = {
     Team.PURPLE: "🟣",
     Team.SLIME: "🟢",
     # A species team shares its paired color team's ring (see "Team
-    # colors" in CLAUDE.md), so its fallback has to read differently
+    # colors" in docs/design/teams-and-players.md), so its fallback has to read differently
     # from a plain colored circle before the real upload replaces it.
     Team.FIRE_DEMONS: "🔥",
     Team.CYBORGS: "🤖",
@@ -238,7 +238,7 @@ def role_badge(
     custom emoji markup in either shows as the raw `<:...:>`. So a
     caller passes the dict for a *message* and nothing for a button,
     which is the same split as the team emoji -- see "Naming a player"
-    in CLAUDE.md.
+    in docs/design/naming-and-wording.md.
 
     **`team` is which of the player's two rosters this card is being
     fielded as**, and passing it is what asks for the coloured badge.
@@ -283,7 +283,7 @@ def player_with_role(
     help: the role initials are what the meeple, the card on the board
     and the printed card all carry, so this is the name a coach can
     match to what they are looking at. See "Naming a player" in
-    CLAUDE.md.
+    docs/design/naming-and-wording.md.
 
     This is the whole of the spelling, and the two things that add to
     it build on it: `format_role_bracket` puts the team emoji in front

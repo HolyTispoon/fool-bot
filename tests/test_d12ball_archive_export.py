@@ -182,7 +182,7 @@ class TranscriptPageTests(unittest.TestCase):
         """
         The one line of a scoresheet where the name and the column
         disagree -- `side` is who it counted for, `player_id` is who
-        put it in. See "The goal log" in CLAUDE.md.
+        put it in. See "The goal log" in docs/design/clock-and-records.md.
         """
         goals = describe_goals(self.build_game())
 
@@ -285,7 +285,7 @@ class PrettifyPlayerIdTests(unittest.TestCase):
     def test_the_visiting_copy_of_a_shared_player_is_marked(self) -> None:
         """
         Both sides can field the same person -- see "One player, both
-        sides" in CLAUDE.md -- and a scoresheet naming them twice with
+        sides" in docs/design/teams-and-players.md -- and a scoresheet naming them twice with
         nothing to tell them apart is a scoresheet nobody can read.
         """
         self.assertEqual(

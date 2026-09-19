@@ -124,7 +124,7 @@ class CommandsMixin:
 
         A game whose match fails to load is skipped rather than
         raising. A saved game older than a rename can refuse to build
-        (see the legacy-migration gotcha in CLAUDE.md), and a report
+        (see the legacy-migration gotcha in docs/design/gotchas.md), and a report
         that dies on one bad record is worse than one that counts the
         other forty and says how many it could not read.
         """
@@ -442,7 +442,7 @@ class CommandsMixin:
         `player_label` and every other place the bot names somebody:
         these tables are read across games, and the same person can
         appear in them under either of their two rosters (see "One
-        player, both sides" in CLAUDE.md). A colour that changed
+        player, both sides" in docs/design/teams-and-players.md). A colour that changed
         between rows of one table would be saying something untrue
         about the player.
 
@@ -929,7 +929,7 @@ class CommandsMixin:
         This message is **not** the one the board ends up on -- the
         coin flip re-points `game.message_id` at the home/visiting
         choice it posts, which is what every later board is written to.
-        See "Discord's rate limits" in CLAUDE.md.
+        See "Discord's rate limits" in docs/design/rate-limits.md.
         """
         view = TeamSelectionView(
             cog=self,
@@ -1078,7 +1078,7 @@ class CommandsMixin:
     # opens a private lobby, where players join and pick settings before
     # anyone commits to a game. `/d12ball create_game` stays for test,
     # tutorial and explicitly-paired games. See "The game-creation hub
-    # and the lobby" in CLAUDE.md.
+    # and the lobby" in docs/design/hub-and-lobby.md.
 
     @app_commands.command(
         name="setup_hub",
@@ -1768,7 +1768,7 @@ class CommandsMixin:
 
         The document ships with the checkout, so a deployment without it
         is a broken deployment and worth an ERROR -- see "Logging and the
-        #logs channel" in CLAUDE.md. Both commands ask before they answer
+        #logs channel" in docs/design/logging.md. Both commands ask before they answer
         the interaction, so the refusal is the response itself.
         """
         try:
@@ -1806,7 +1806,7 @@ class CommandsMixin:
         # thread: it stays out of the channel's history, and a thread
         # has its own id, so those sends are a rate-limit bucket of
         # their own rather than the game channel's -- see "Discord's
-        # rate limits" in CLAUDE.md. A command run inside a thread
+        # rate limits" in docs/design/rate-limits.md. A command run inside a thread
         # already has one, and threads do not nest.
         if isinstance(channel, discord.Thread):
             await interaction.response.send_message(
@@ -2011,7 +2011,7 @@ class CommandsMixin:
         was the first gate in the codebase to let somebody act on a game
         they are not in, and the rest of the flow now answers the same
         question the same way -- see "Who may act on a game" in
-        CLAUDE.md. **Don't re-inline the permission check here**: two
+        docs/design/permissions.md. **Don't re-inline the permission check here**: two
         readings of one rule is how the lobby came to refuse a helper a
         setting while letting them abandon the game outright.
         """
@@ -2219,7 +2219,7 @@ class CommandsMixin:
 
         The channel is archived, not deleted: it is the record of what
         happened, deleting one is the tightest rate limit Discord has
-        (see "Discord's rate limits" in CLAUDE.md), and the saved game
+        (see "Discord's rate limits" in docs/design/rate-limits.md), and the saved game
         is what keeps its PBD number from being handed out twice.
         """
         await interaction.response.defer(ephemeral=True)

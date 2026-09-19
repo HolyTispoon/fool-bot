@@ -5,7 +5,7 @@ Where each server's D12 Ball game-creation hub lives, in
 The hub is one locked channel carrying two persistent messages: the
 games message with its "D12 Ball" button, and the roles message with a
 toggle button per role (see "The game-creation hub and the lobby" in
-CLAUDE.md). `/d12ball setup_hub` registers both; this file is the only
+docs/design/hub-and-lobby.md). `/d12ball setup_hub` registers both; this file is the only
 thing that survives a restart, so the buttons can be re-armed against
 the right messages. The map is `{guild_id: {"channel_id": int,
 "message_id": int, "roles_message_id": int}}`, with `roles_message_id`

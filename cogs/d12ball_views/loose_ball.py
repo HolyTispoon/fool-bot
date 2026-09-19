@@ -1,7 +1,7 @@
 """
 A ball nobody is holding, the pickup after one goes out, and the
 contest that settles either -- which the long High Pass borrows. See
-"Where the ball comes to rest" in CLAUDE.md.
+"Where the ball comes to rest" in docs/design/loose-balls.md.
 """
 
 import discord

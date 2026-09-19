@@ -7,7 +7,7 @@ could not move their channel. A saved game outliving its channel is not
 that: nobody can act on it, and it would otherwise post the same error
 into #logs on every reconnect, so it is an INFO and the record goes.
 A game whose *server* is missing is only skipped -- an outage looks the
-same from here. See the logging section of CLAUDE.md for what earns an
+same from here. See docs/design/logging.md for what earns an
 ERROR.
 """
 

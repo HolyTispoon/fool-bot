@@ -18,7 +18,7 @@ cards without anything here being edited.
 Which roles a card lists is mostly matched, not tabulated: a role is on
 the card when its ability sentence names that maneuver, so the Fullback
 appears on both High Pass and Deflect. Abilities are never cut
-down here; see "Every ability is imported twice" in CLAUDE.md. The two
+down here; see "Every ability is imported twice" in docs/design/rules-and-data.md. The two
 things that match cannot find are listed explicitly below, each with
 the reason -- see EXTRA_ROLES and EXTRA_NOTES.
 """
@@ -1445,7 +1445,7 @@ CYCLE_CENTER_Y = 560
 # A node's label is the maneuver's name alone, one word to a line --
 # the O1/D1 rank badge that used to sit above it named the selection
 # die, and the team board's own cell already carries that (see "The
-# printed boards" in CLAUDE.md), so it was the one thing on this card
+# printed boards" in docs/design/printed-boards.md), so it was the one thing on this card
 # a coach never needed to look up. Dropping it freed the whole circle
 # for the name, which is why the size below is a search rather than a
 # constant: "Intercept" has to clear the circle where it sits, which
@@ -2066,7 +2066,7 @@ def render_maneuver_hands(
     ask for at any time (`/d12ball maneuver_reference` posts the
     hexagon to the whole channel), and what stays secret is the *pick*,
     which is hidden by the ephemeral reply to the click rather than by
-    the menu being private. See "The maneuver cards" in CLAUDE.md.
+    the menu being private. See "The maneuver cards" in docs/design/cards.md.
 
     **An advanced hand is two rows -- the basic three, and the advanced
     card of each rank under it -- and carries no back at all** (the

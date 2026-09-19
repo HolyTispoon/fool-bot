@@ -341,8 +341,8 @@ class D12BallCoinTossTests(unittest.TestCase):
     def test_every_matchup_the_picker_offers_builds_a_match(self) -> None:
         """
         The picker is the only thing standing between a coach and a
-        match the engine cannot build -- see the Team colors section of
-        CLAUDE.md for why the rule is checked there and not in
+        match the engine cannot build -- see "Team colors" in
+        docs/design/teams-and-players.md for why the rule is checked there and not in
         `MatchState`. So this walks every pair it will actually offer
         and builds the match, which is what the coin flip does a moment
         later.
@@ -1243,7 +1243,7 @@ class D12BallRoleEmojiTests(unittest.TestCase):
     """
     The role badges -- the `[FB]` after a name, as an application
     emoji -- looked up the way the team emoji are. See "Naming a
-    player" in CLAUDE.md for where they are written and where the
+    player" in docs/design/naming-and-wording.md for where they are written and where the
     brackets stay.
     """
 
@@ -1287,7 +1287,7 @@ class D12BallRoleEmojiTests(unittest.TestCase):
         colour team's hex, so Orange and Fire Demons are one upload --
         the pairing is resolved once, in the table, the way
         `TEAM_COLORS` resolves it once. See "Team colors" in
-        CLAUDE.md.
+        docs/design/teams-and-players.md.
         """
         from d12ball.components import PlayerRole
         from d12ball.game import COLOR_TEAMS, SPECIES_TEAMS, Team, paired_team

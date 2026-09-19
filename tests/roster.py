@@ -74,7 +74,7 @@ def _card_id(match: MatchState, side: TeamSide, player_id: str) -> str:
     The id this match holds that player under on that side.
 
     Their own, unless the two sides overlap and this is the visiting
-    copy -- see "One player, both sides" in CLAUDE.md. These helpers
+    copy -- see "One player, both sides" in docs/design/teams-and-players.md. These helpers
     read the catalog rather than the board on purpose (so they stay
     answerable after a substitution), which is exactly why they have
     to make this translation themselves.

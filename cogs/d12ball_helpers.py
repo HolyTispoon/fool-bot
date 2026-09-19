@@ -71,7 +71,7 @@ PBD_ARCHIVE_CATEGORY_NAME = "PBD Archive"
 # of ZONE_LETTERS -- now lives. ROLE_INITIALS is not re-exported:
 # `role_initials` is its one reader outside the drawing modules,
 # and `player_with_role` is the only thing that should be building
-# a name out of it -- see "Naming a player" in CLAUDE.md.
+# a name out of it -- see "Naming a player" in docs/design/naming-and-wording.md.
 COIN_EMOJI_NAMES = {
     CoinFace.FORTUNE: "3_gold_fortune",
     CoinFace.DOOM: "3_gold_doom",
@@ -179,7 +179,7 @@ ROLE_EMOJI_NAMES = {
 # **Keyed by every team, filled from four files.** A species team
 # shares its colour team's hex, so Orange and Fire Demons are the same
 # upload -- the pairing is resolved once, here, exactly as
-# `TEAM_COLORS` resolves it once (see "Team colors" in CLAUDE.md), so
+# `TEAM_COLORS` resolves it once (see "Team colors" in docs/design/teams-and-players.md), so
 # nothing downstream has to know that a Cyborg is drawn teal.
 ROLE_TEAM_EMOJI_NAMES = {
     (role, team): f"{name}_{colour.value}"
@@ -531,7 +531,7 @@ def may_act_in_game(user, game: D12BallGame) -> bool:
     """
     Whether this person may press a button either coach may press -- a
     roll, the maneuver reference -- which is either coach, or a game
-    helper. See "Every roll is a coach's" in CLAUDE.md.
+    helper. See "Every roll is a coach's" in docs/design/maneuvers.md.
     """
     return user.id in game_participant_ids(game) or is_game_helper(user)
 
@@ -558,7 +558,7 @@ class HelperConfirmationRequired(Exception):
     Raised by `SafeView.may_act_for` and `SafeView.may_act_in_game`
     when the click is a game helper's, is for somebody other than
     themselves, and has not been confirmed -- see "Who may act on a
-    game" in CLAUDE.md.
+    game" in docs/design/permissions.md.
 
     It is an exception rather than a third return value because the
     gates are called from fifty-odd callbacks as `if not
@@ -604,7 +604,7 @@ def format_role_bracket(
 
     **A button gets the position instead of the emoji**, which is the
     only place the two forms differ -- see `player_with_role` and
-    "Naming a player" in CLAUDE.md.
+    "Naming a player" in docs/design/naming-and-wording.md.
     """
     team_emoji = get_team_emoji(team_emojis, team)
     return f"{team_emoji} {player_with_role(player, role_emojis, team)}"
@@ -1021,7 +1021,7 @@ def build_setup_message(
 
 # The names of the application emoji uploaded through the Developer
 # Portal for D12 Ball -- both a d12 (see "The game-creation hub and the
-# lobby" in CLAUDE.md). `d12dice` is the one that sits in message text
+# lobby" in docs/design/hub-and-lobby.md). `d12dice` is the one that sits in message text
 # (the hub message and the lobby heading); `d12dicecream` is a
 # lighter-inked cut used only on the hub button, whose blue Discord fill
 # swallowed the darker die. Everything degrades to the other name, then
@@ -1542,7 +1542,7 @@ async def pin_board_message(message: discord.Message) -> None:
     bounds -- not the several boards a single turn puts out. A pin is
     an extra request and Discord posts a "pinned a message" notice for
     each one, so this is deliberately rare; see "Discord's rate limits"
-    in CLAUDE.md.
+    in docs/design/rate-limits.md.
 
     A channel holds 50 pins. At the cap, the oldest pinned *board* is
     unpinned to make room -- a pin somebody else put there is left

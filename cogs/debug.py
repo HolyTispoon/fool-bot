@@ -67,7 +67,7 @@ async def defer_or_report(interaction: discord.Interaction) -> bool:
 
     Logged at ERROR, so it reaches #logs. This is precisely the kind of
     failure nobody can act on from the symptom alone -- see "The level
-    you log at decides who sees it" in CLAUDE.md.
+    you log at decides who sees it" in docs/design/logging.md.
     """
     try:
         await interaction.response.defer(ephemeral=True)

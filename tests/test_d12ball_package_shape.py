@@ -298,7 +298,7 @@ class StraySaveGuardTests(unittest.TestCase):
 class NamingAPlayerTests(unittest.TestCase):
     """
     **A player is never named without their role** -- see "Naming a
-    player" in CLAUDE.md. `player_with_role` is the whole of the
+    player" in docs/design/naming-and-wording.md. `player_with_role` is the whole of the
     `Hellguard [FB]` spelling and `format_role_bracket` is that with
     the team emoji in front; nothing else may build either by hand.
 

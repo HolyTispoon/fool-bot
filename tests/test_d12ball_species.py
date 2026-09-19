@@ -180,7 +180,7 @@ class D12BallSpeciesIconTests(unittest.TestCase):
         # A players.json written before the species column loads with
         # an empty species; every caller here is drawing something
         # optional, so the answer is None and the card goes on without
-        # it. See "Player species" in CLAUDE.md.
+        # it. See "Player species" in docs/design/teams-and-players.md.
         self.assertIsNone(load_species_icon(""))
         self.assertIsNone(species_icon("", "#ffffff", 32))
 
@@ -265,7 +265,7 @@ class D12BallSpeciesIconTests(unittest.TestCase):
         The paired colour team's hex out of `TEAM_COLORS`, so there is
         still exactly one hex per colour in the codebase and a palette
         change reaches these by re-running the script -- see "Team
-        colors" in CLAUDE.md.
+        colors" in docs/design/teams-and-players.md.
         """
         suffix = load_script("render_species_icons").COLOR_SUFFIX
         for species in SPECIES_ORDER:
