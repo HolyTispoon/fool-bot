@@ -1434,7 +1434,7 @@ async def send_error_fallback(
 
 async def send_new_prompt(
     interaction: discord.Interaction,
-    content: str,
+    content: Optional[str] = None,
     *,
     file: Optional[discord.File] = None,
     view: Optional[discord.ui.View] = None,
@@ -1460,6 +1460,7 @@ async def send_new_prompt(
     ephemerally and only picks the route; this one changes the message
     itself, because a plain channel post can't be ephemeral.
     """
+    args = () if content is None else (content,)
     kwargs: dict = {}
     if file is not None:
         kwargs["file"] = file
@@ -1469,9 +1470,9 @@ async def send_new_prompt(
         kwargs["allowed_mentions"] = allowed_mentions
 
     if interaction.response.is_done():
-        return await interaction.channel.send(content, **kwargs)
+        return await interaction.channel.send(*args, **kwargs)
 
-    await interaction.response.send_message(content, **kwargs)
+    await interaction.response.send_message(*args, **kwargs)
     return await interaction.original_response()
 
 

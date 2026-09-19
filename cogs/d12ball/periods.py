@@ -30,6 +30,7 @@ from cogs.d12ball_helpers import (
     build_full_time_summary,
     build_goal_log,
     format_team_side_label,
+    send_new_prompt,
     space_label,
 )
 from cogs.d12ball_views import (
@@ -124,10 +125,11 @@ class PeriodMixin:
             # The minute is the period's own, and the clock does not
             # stop on it: from here every turn is charged as usual and
             # only the turnover ends the period.
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 f"{prefix}The clock reaches "
                 f"{match.scoreboard.last_minute:02d} -- this is now "
-                f"**last possession**. {body} The clock keeps running."
+                f"**last possession**. {body} The clock keeps running.",
             )
             lead_in = ""
 
@@ -158,15 +160,13 @@ class PeriodMixin:
             f"Time has advanced {distance_moved}, now "
             f"at {match.scoreboard.time:02d}."
         )
-        snapshot = await interaction.followup.send(
-            content=(
-                f"{prefix}Ball is now "
-                f"{space_label(match.ball.zone, match.ball.space_index)}, "
-                f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
-                f"has possession. {clock}"
-            ),
+        snapshot = await send_new_prompt(
+            interaction,
+            f"{prefix}Ball is now "
+            f"{space_label(match.ball.zone, match.ball.space_index)}, "
+            f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
+            f"has possession. {clock}",
             file=self.match_file_from_png(game, png),
-            wait=True,
         )
         await add_full_image_button(snapshot)
 
@@ -224,11 +224,12 @@ class PeriodMixin:
             match.reset_maneuver()
             self.persist(game, match)
 
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 f"{prefix}**End of the first half!** The ball turns over "
                 f"at {first_half_ended_at:02d} under last possession -- "
                 "the period ends. The second half starts at "
-                f"{SECOND_HALF_START_MINUTE:02d}."
+                f"{SECOND_HALF_START_MINUTE:02d}.",
             )
             await self.refresh_match_image(interaction, game)
             await self.begin_halftime(interaction, game, match)
@@ -250,7 +251,7 @@ class PeriodMixin:
             # it -- the game record stays in progress until then, so a
             # restart mid-shootout comes back to a live game. One
             # substitution a side comes first.
-            await interaction.followup.send(whistle)
+            await send_new_prompt(interaction, whistle)
             await self.refresh_match_image(interaction, game)
             await self.begin_full_time_coaching(interaction, game, match)
             return
@@ -302,7 +303,8 @@ class PeriodMixin:
         """
         view = RematchView(self, game.game_id)
         png = await self.render_match_png(game)
-        final = await interaction.followup.send(
+        final = await send_new_prompt(
+            interaction,
             content,
             file=self.match_file_from_png(game, png),
             view=view,
@@ -311,7 +313,6 @@ class PeriodMixin:
                 roles=False,
                 everyone=False,
             ),
-            wait=True,
         )
         # Handed the view, or the edit that adds the link drops the two
         # buttons this message exists for.
@@ -363,9 +364,10 @@ class PeriodMixin:
             if recovery_lines
             else "No fielded player had any exhaustion tokens to recover."
         )
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             f"# Halftime\nEvery fielded player recovers 1 exhaustion "
-            f"token:\n{body}"
+            f"token:\n{body}",
         )
         await self.refresh_match_image(interaction, game)
 
@@ -573,11 +575,12 @@ class PeriodMixin:
             if removed:
                 player = self.engine.get_player_definition(player_id)
                 remaining = match.exhaustion.get(player_id, 0)
-                await interaction.followup.send(
+                await send_new_prompt(
+                    interaction,
                     f"{format_team_side_label(setup)} removes an extra "
                     "exhaustion token from "
                     f"{self.player_label(match, player)} "
-                    f"(now {remaining})."
+                    f"(now {remaining}).",
                 )
                 await self.refresh_match_image(interaction, game)
             await self.advance_halftime_stage(interaction, game, match)
@@ -585,11 +588,11 @@ class PeriodMixin:
 
         controller_id = self.engine.side_controller_id(game, side)
         mention = f"<@{controller_id}>" if controller_id else "Someone"
-        prompt = await interaction.followup.send(
+        prompt = await send_new_prompt(
+            interaction,
             f"{mention}, {format_team_side_label(setup)}: choose one "
             "fielded player to lose an extra exhaustion token.",
             view=HalftimeExtraTokenView(self, game.game_id, side),
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -772,7 +775,8 @@ class PeriodMixin:
         match.begin_shootout()
         self.persist(game, match)
 
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             "# Extreme shootout\n"
             "The scores are level, so the game is settled on the "
             "extreme shootout.\n\n"
@@ -782,7 +786,7 @@ class PeriodMixin:
             "test**, each adding their offensive skill -- an injured "
             "player adds none and rolls the bare d12. The winner "
             "scores a goal; a tie scores for nobody. Six skill tests "
-            "is a **round**, and a level round goes to sudden death."
+            "is a **round**, and a level round goes to sudden death.",
         )
         await self.advance_shootout(interaction, game, match)
 
@@ -911,10 +915,10 @@ class PeriodMixin:
         view: discord.ui.View,
         heading: Optional[str] = None,
     ) -> None:
-        prompt = await interaction.followup.send(
+        prompt = await send_new_prompt(
+            interaction,
             f"{heading or self.engine.shootout_heading(match)}\n{content}",
             view=view,
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True, roles=False, everyone=False,
             ),
@@ -987,11 +991,11 @@ class PeriodMixin:
                 f"{self.player_label(match, player)}{note}"
             )
 
-        prompt = await interaction.followup.send(
+        prompt = await send_new_prompt(
+            interaction,
             f"{self.engine.shootout_heading(match)}\n"
             f"{lines[0]}\nversus\n{lines[1]}\n\nEither player can roll:",
             view=ShootoutTestView(self, game.game_id),
-            wait=True,
         )
         game.turn_message_id = prompt.id
         save_games(self.games)

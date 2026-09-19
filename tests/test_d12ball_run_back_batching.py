@@ -520,10 +520,11 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
             advanced_maneuvers=True,
             species_abilities=True,
         )
+        send = mock.AsyncMock(return_value=SimpleNamespace(id=1, attachments=[]))
         interaction = SimpleNamespace(
-            followup=SimpleNamespace(
-                send=mock.AsyncMock(return_value="snapshot"),
-            ),
+            channel=SimpleNamespace(send=send),
+            followup=SimpleNamespace(send=send),
+            response=SimpleNamespace(is_done=lambda: True),
         )
 
         with (

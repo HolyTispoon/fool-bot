@@ -3317,20 +3317,32 @@ invariants read as ordinary cog surface among 223 methods.
   for the opposite reason (that one always answers ephemerally and only
   picks the route; this one changes the message itself, since a channel post
   can't be ephemeral). Every "new prompt or announcement" send in
-  `cogs/d12ball/turnovers.py` and `cogs/d12ball/effects.py` goes through it
-  now -- the Coaching Choice window opening or being reposted, the run-back
-  and out-of-bounds-pickup announcements, the AI's own coaching summary,
-  `resume_pending_prompt`'s fallback, and every maneuver effect's own
-  narration and follow-on prompt (a scoring opportunity, a loose ball, the
-  speed choice after a steal, an own goal roll, Mind Pull's offer) -- since
-  by the time any of them fires the interaction has already been
+  `cogs/d12ball/turnovers.py`, `cogs/d12ball/effects.py`,
+  `cogs/d12ball/presentation.py`, `cogs/d12ball/core.py` and
+  `cogs/d12ball/periods.py` goes through it now, and so does every
+  non-ephemeral one in the views that post mid-cascade
+  (`cogs/d12ball_views/turn.py`, `loose_ball.py`, `rolls.py`, `setup.py`,
+  `shootout.py`) -- the Coaching Choice window opening or being reposted,
+  the run-back and out-of-bounds-pickup announcements, the AI's own
+  coaching summary, `resume_pending_prompt`'s fallback, every maneuver
+  effect's own narration and follow-on prompt, the maneuver-pick and
+  skill-test and score-attempt results, the coin toss and home/visiting
+  choice, halftime and full-time coaching, and the whole extreme shootout
+  -- since by the time any of them fires the interaction has already been
   acknowledged earlier in the same cascade (`drop_turn_prompt`'s own
   docstring says as much: "The caller must have acknowledged the
-  interaction already"). The same clutter reaches every other
-  `followup.send` in the cog once its own cascade has answered first --
-  `periods.py`, `presentation.py` and `slash_commands.py` still call it
-  directly -- and this is the funnel to route a new one through when that
-  reaches somebody, not a one-off worth repeating by hand.
+  interaction already"). An ephemeral reply (an error, a refusal, a
+  coach's own pick coming back to them) is untouched and stays on
+  `followup.send` -- ephemeral can only ever go out over the interaction,
+  so there is no route for `send_new_prompt` to fall back to. What is
+  deliberately not converted is `cogs/d12ball/slash_commands.py` and
+  `cogs/debug.py`: a slash command's own followups are the direct answer
+  to that command's interaction rather than a cascade riding on someone
+  else's click, and Discord does not tie a slash-command followup to an
+  origin message the way it ties a component interaction's -- there is no
+  "replying to ..." strip for those to grow in the first place. This is
+  the funnel to route a new mid-cascade send through when one turns up
+  somewhere else, not a one-off worth repeating by hand.
 - **Renders belong in a worker thread.** Everything that draws goes through
   `asyncio.to_thread`; Pillow is pure CPU and blocking the loop stalls the
   rate-limit sleeps and the gateway heartbeat along with everything else. The

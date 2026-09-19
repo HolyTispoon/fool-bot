@@ -165,10 +165,11 @@ class NewPlayBoardTests(unittest.IsolatedAsyncioTestCase):
         cog.match_file_from_png = mock.Mock(side_effect=lambda game, png: png)
         cog.refresh_match_image = mock.AsyncMock()
         snapshot = FakeMessage(message_id=5, filenames=[BOARD])
+        send = mock.AsyncMock(return_value=snapshot)
         interaction = SimpleNamespace(
-            followup=SimpleNamespace(
-                send=mock.AsyncMock(return_value=snapshot),
-            ),
+            response=SimpleNamespace(is_done=lambda: True),
+            channel=SimpleNamespace(send=send),
+            followup=SimpleNamespace(send=send),
         )
         game = SimpleNamespace(game_id="g", game_number=7)
         return cog, interaction, game, snapshot

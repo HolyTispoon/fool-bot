@@ -28,6 +28,7 @@ from cogs.d12ball_helpers import (
     format_goal_time,
     format_team_side_label,
     player_with_role,
+    send_new_prompt,
 )
 
 from cogs.d12ball_views.base import (
@@ -446,8 +447,9 @@ class SkillTestView(SafeView):
             (offense_player.player_id, offense_ignite),
             (defense_player.player_id, defense_ignite),
         )
-        await interaction.followup.send(
-            f"## **{winner_name}** wins the skill test!{volatile_note}"
+        await send_new_prompt(
+            interaction,
+            f"## **{winner_name}** wins the skill test!{volatile_note}",
         )
         await self.cog.refresh_match_image(interaction, game)
 
@@ -955,7 +957,7 @@ class ScoreAttemptView(SafeView):
         await self.cog.post_volatile_ignition(
             interaction, match, (shooter.player_id, attack_ignite),
         )
-        await interaction.followup.send(verdict)
+        await send_new_prompt(interaction, verdict)
         if scored:
             # The scorer, posted under the announcement -- its own
             # message rather than an attachment on it, which would put
@@ -964,7 +966,8 @@ class ScoreAttemptView(SafeView):
                 render_player_portrait, shooter.name,
             )
             if portrait is not None:
-                await interaction.followup.send(
+                await send_new_prompt(
+                    interaction,
                     file=discord.File(
                         portrait,
                         filename=f"{shooter.player_id}_goal.png",

@@ -435,18 +435,22 @@ def build_ignition_cog() -> D12Ball:
 
 
 def build_ignition_interaction() -> SimpleNamespace:
+    # `channel.send` and `followup.send` share one mock: which route a
+    # post takes depends on whether the interaction still had a response
+    # to give, and these tests read the ignition posts back off
+    # `followup.send` regardless of which route actually carried them.
+    send = mock.AsyncMock(return_value=SimpleNamespace(id=999))
     return SimpleNamespace(
         user=SimpleNamespace(id=111, display_name="One"),
         guild=None,
-        channel=None,
+        channel=SimpleNamespace(send=send),
         response=SimpleNamespace(
             defer=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
-        followup=SimpleNamespace(
-            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
-        ),
+        followup=SimpleNamespace(send=send),
         edit_original_response=mock.AsyncMock(),
     )
 

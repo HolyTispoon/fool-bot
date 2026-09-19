@@ -87,10 +87,15 @@ def build_game() -> D12BallGame:
 
 
 def build_interaction() -> SimpleNamespace:
+    # `channel.send` and `followup.send` share one mock: which route a
+    # post takes depends on whether the interaction still had a response
+    # to give, and these tests read back "what this posted" without
+    # caring which route carried it.
+    send = mock.AsyncMock(return_value=SimpleNamespace(id=999))
     return SimpleNamespace(
-        followup=SimpleNamespace(
-            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
-        ),
+        response=SimpleNamespace(is_done=lambda: True),
+        channel=SimpleNamespace(send=send),
+        followup=SimpleNamespace(send=send),
     )
 
 
@@ -260,14 +265,17 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
         return cog, game, midfielder
 
     async def roll(self, cog, game):
+        send = mock.AsyncMock()
         interaction = SimpleNamespace(
             user=SimpleNamespace(id=game.player_1_id),
             response=SimpleNamespace(
                 defer=mock.AsyncMock(),
                 send_message=mock.AsyncMock(),
+                is_done=lambda: True,
             ),
             edit_original_response=mock.AsyncMock(),
-            followup=SimpleNamespace(send=mock.AsyncMock()),
+            channel=SimpleNamespace(send=send),
+            followup=SimpleNamespace(send=send),
         )
         view = SkillTestView(cog, game.game_id)
         with suppressed_view_saves(), mock.patch(

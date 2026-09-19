@@ -896,9 +896,11 @@ class TutorialStagingTests(unittest.IsolatedAsyncioTestCase):
     async def stage(self, cog, game):
         interaction = build_interaction()
         recorded = []
-        interaction.followup.send = mock.AsyncMock(
+        recorder = mock.AsyncMock(
             side_effect=lambda content=None, **kw: recorded.append(content),
         )
+        interaction.followup.send = recorder
+        interaction.channel.send = recorder
         with suppressed_cog_saves():
             await cog.stage_tutorial_beat(interaction, game)
         return recorded
@@ -1011,10 +1013,12 @@ class TutorialCoachingNoteTests(unittest.IsolatedAsyncioTestCase):
     async def open_window(self, cog, game, match, side=TeamSide.HOME):
         interaction = build_interaction()
         posted = []
-        interaction.followup.send = mock.AsyncMock(
+        recorder = mock.AsyncMock(
             side_effect=lambda content=None, **kw: posted.append(content)
             or SimpleNamespace(id=1, attachments=[]),
         )
+        interaction.followup.send = recorder
+        interaction.channel.send = recorder
         with suppressed_cog_saves():
             await cog.begin_substitution_window(
                 interaction, game, match, side,

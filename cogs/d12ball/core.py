@@ -79,6 +79,7 @@ from cogs.d12ball_helpers import (
     load_role_emojis,
     load_team_emojis,
     send_error_fallback,
+    send_new_prompt,
     space_label,
 )
 from cogs.d12ball_views import (
@@ -703,7 +704,8 @@ class CoreMixin:
         build_maneuver_challenge_file): a shot is decided by skills and
         abilities that a line of prose lists without showing.
         """
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             file=await self.build_score_attempt_file(match),
         )
 
@@ -711,12 +713,12 @@ class CoreMixin:
         # read against each other, so it rides on the prompt -- which
         # becomes the dice image the moment it is answered, taking the
         # explanation with it once it is no longer needed.
-        prompt_message = await interaction.followup.send(
+        prompt_message = await send_new_prompt(
+            interaction,
             "Either player can roll. Both sides roll one d12; the "
             "attacker scores on a total equal to or higher than the "
             "defence.",
             view=ScoreAttemptView(self, game.game_id),
-            wait=True,
         )
         game.turn_message_id = prompt_message.id
         save_games(self.games)
@@ -777,7 +779,8 @@ class CoreMixin:
         else:
             reason = "have nobody left to challenge"
 
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             f"**Unchallenged!** {format_team_side_label(defense_setup)} "
             f"{reason} "
             f"{self.player_label(match, handler)}, "
@@ -920,13 +923,13 @@ class CoreMixin:
             # which would halve the width of both hands. See
             # render_maneuver_hands for why showing both gives nothing
             # away.
-            prompt_message = await inner_interaction.followup.send(
+            prompt_message = await send_new_prompt(
+                inner_interaction,
                 f"{' and '.join(waiting_on)}, {instruction}",
                 file=self.build_maneuver_hand_file(
                     sides, self.engine.maneuver_tiers(game, match),
                 ),
                 view=prompt_view,
-                wait=True,
                 allowed_mentions=discord.AllowedMentions(
                     users=True,
                     roles=False,
@@ -1076,7 +1079,8 @@ class CoreMixin:
         # This reveal is a permanent message, separate from the roll
         # prompt below, so it survives every re-roll intact instead of
         # being edited away.
-        await interaction.followup.send(
+        await send_new_prompt(
+            interaction,
             f"{headline}"
             f"{self.player_label(match, offense_player)}: offense skill "
             f"{offense_skill}\n"
@@ -1091,10 +1095,10 @@ class CoreMixin:
         )
         await self.refresh_match_image(interaction, game)
 
-        test_message = await interaction.followup.send(
+        test_message = await send_new_prompt(
+            interaction,
             "Either player can roll:",
             view=SkillTestView(self, game.game_id),
-            wait=True,
         )
         game.turn_message_id = test_message.id
         save_games(self.games)
@@ -1124,7 +1128,8 @@ class CoreMixin:
             # Nothing to reveal against and nothing to rank: the
             # offense's pick is the winner, and its effect runs the
             # same pipeline a decisive win always does.
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 f"{offense_display} chose **{offense_name}**, "
                 f"unchallenged.\n\n## **{offense_name}** succeeds!"
             )
@@ -1147,7 +1152,8 @@ class CoreMixin:
         winner_key = self.engine.settled_maneuver_winner(match)
 
         if winner_key is not None:
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 self.maneuver_winner_text(
                     match,
                     reveal,
@@ -1243,14 +1249,14 @@ class CoreMixin:
             controller_id = self.engine.controlling_user_id(game, match, player_id)
             mention = f"<@{controller_id}>" if controller_id else "Someone"
             tokens = match.exhaustion.get(player_id, 0)
-            prompt_message = await interaction.followup.send(
+            prompt_message = await send_new_prompt(
+                interaction,
                 f"{mention}, "
                 f"{self.player_label(match, player)} is "
                 "exhausted and owes an injury test: a d12 that has to "
                 f"beat their {tokens} exhaustion "
                 f"{'token' if tokens == 1 else 'tokens'}.",
                 view=InjuryTestView(self, game.game_id, player_id),
-                wait=True,
                 allowed_mentions=discord.AllowedMentions(
                     users=True, roles=False, everyone=False,
                 ),
@@ -1445,7 +1451,7 @@ class CoreMixin:
         await self.post_volatile_ignition(
             interaction, match, (player.player_id, ignite),
         )
-        await interaction.followup.send(content)
+        await send_new_prompt(interaction, content)
         if not safe:
             await self.refresh_match_image(interaction, game)
 

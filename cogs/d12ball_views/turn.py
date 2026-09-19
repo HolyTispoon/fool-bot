@@ -24,6 +24,7 @@ from cogs.d12ball_helpers import (
     format_player_with_team,
     player_with_role,
     refresh_player_names,
+    send_new_prompt,
 )
 
 from cogs.d12ball_views.base import SafeView
@@ -446,12 +447,12 @@ class PlayerActionView(SafeView):
         ask = challenger_prompt_ask(match)
         handler_team = match.team_for_player(handler.player_id)
         challenge_view = ManeuverChallengeView(self.cog, self.game_id)
-        challenge_message = await interaction.followup.send(
+        challenge_message = await send_new_prompt(
+            interaction,
             f"{self.cog.player_label(match, handler)} will "
             f"maneuver for {team_display_name(handler_team)}.\n\n"
             f"{defender_mention}, {ask}",
             view=challenge_view,
-            wait=True,
             allowed_mentions=discord.AllowedMentions(
                 users=True,
                 roles=False,
@@ -1080,7 +1081,8 @@ class ManeuverActionPromptView(SafeView):
             side_display = format_player_with_team(
                 game, side_number, self.cog.team_emojis,
             )
-            await interaction.followup.send(
+            await send_new_prompt(
+                interaction,
                 f"{side_display} has picked their maneuver.",
             )
 

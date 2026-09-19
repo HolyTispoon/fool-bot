@@ -79,7 +79,10 @@ def build_cog() -> D12Ball:
     # the result.
     cog.bot = SimpleNamespace(get_channel=lambda channel_id: None)
     cog.render_match_png = mock.AsyncMock(return_value=b"png")
-    cog.match_file_from_png = mock.Mock(return_value=None)
+    # A real discord.File, never None -- `send_new_prompt` drops a
+    # `file=None` kwarg rather than forwarding it, so a mock returning
+    # None here would make the board's own upload vanish from the call.
+    cog.match_file_from_png = mock.Mock(return_value=mock.sentinel.file)
     return cog
 
 
@@ -105,22 +108,27 @@ def build_game(**overrides) -> D12BallGame:
 
 
 def build_interaction() -> SimpleNamespace:
+    # `channel.send` and `followup.send` share one mock: which route a
+    # post takes depends on whether the interaction still had a response
+    # to give, and `sent_texts` reads back "what this posted" without
+    # caring which route carried it.
+    send = mock.AsyncMock(
+        return_value=SimpleNamespace(
+            id=999,
+            attachments=[],
+            edit=mock.AsyncMock(),
+        ),
+    )
     return SimpleNamespace(
         user=SimpleNamespace(id=111, display_name="One"),
         message=SimpleNamespace(edit=mock.AsyncMock(), attachments=[]),
-        followup=SimpleNamespace(
-            send=mock.AsyncMock(
-                return_value=SimpleNamespace(
-                    id=999,
-                    attachments=[],
-                    edit=mock.AsyncMock(),
-                ),
-            ),
-        ),
+        channel=SimpleNamespace(send=send),
+        followup=SimpleNamespace(send=send),
         response=SimpleNamespace(
             defer=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
     )
 
