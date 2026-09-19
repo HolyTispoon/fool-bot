@@ -38,7 +38,10 @@ drive rather than watch.
 reply-strip sweep landed since this was last counted, and moved a few of the
 figures below by a percent or two. Re-run the counts again before trusting
 them past another batch of unrelated pull requests -- that is the nature of a
-number taken from the tree rather than asserted.*
+number taken from the tree rather than asserted. The four figures about
+`cogs/d12ball/` below now carry their counting rule with them, which is what
+makes them re-measurable rather than re-guessable -- the `interaction` count
+had been quoted under two different rules at once.*
 
 `d12ball/` is 22,142 lines and does not import `discord` anywhere. Neither
 does `gamesaves/`. That is not luck -- it is a rule the author has been
@@ -56,9 +59,18 @@ What is **already portable, unchanged**:
 
 What is **not portable**, and is the whole of this plan:
 
-`cogs/d12ball/` is 12,537 lines and holds the **turn flow**. 188 async
-methods, 161 taking `interaction`, 125 touching match state, and **76 direct
-writes of rules state from the cog** -- nearly all of them `pending_*` flags.
+`cogs/d12ball/` is 12,537 lines and holds the **turn flow**: 188 async
+methods, of which **157 take an `interaction`** (4 more sync ones do, so 161
+in all), **139 read or write `match.`**, and **61 assign to a `match`
+attribute directly from the cog** -- nearly all of them `pending_*` flags.
+
+*Each of those four is a rule, not a grep, and the rule is written down so
+the next re-measure is mechanical rather than a fresh judgement call:* a
+method is counted **async** by its `def`; it **takes an `interaction`** when
+that name is in its parameter list; it **touches the match** when its body
+holds an attribute access on a name `match`; and a **direct write** is an
+assignment (including `+=`) whose target is `match.<attr>`. All four are
+read off the AST, so a mention in a comment or a string counts for nothing.
 
 So `MatchState` holds the data and `RulesEngine` answers questions, but the
 *sequencing* -- what happens next, and what the match is waiting on -- is
@@ -680,7 +692,13 @@ Naming these now so nobody widens the job mid-phase:
 
 Two readings, both cheap:
 
-- **`grep -c interaction` in `cogs/d12ball/`** falls from 161 toward zero.
+- **`interaction` leaves the package.** Two readings, and they are not the
+  same number: 157 async methods **take** one as a parameter today, and
+  `grep -c interaction cogs/d12ball/*.py` totals **699 matching lines**. The
+  first falls as methods cross the seam and the second as the call sites
+  inside them go, so the second is the slower and more honest of the two.
+  161 was quoted here for the grep and was never a grep count -- it is the
+  signature count with the 4 sync methods added in.
 - **The test suite's discord dependency falls.** 45 of 55 test files
   currently need `discord.py` installed just to import, because they drive
   the cog. As the flow moves into the model, those become model tests that
