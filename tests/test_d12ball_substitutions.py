@@ -505,7 +505,9 @@ class ContinueRunBackKickoffFillTests(unittest.IsolatedAsyncioTestCase):
             species_abilities=True,
         )
         interaction = SimpleNamespace(
-            followup=SimpleNamespace(send=mock.AsyncMock())
+            response=SimpleNamespace(is_done=lambda: True),
+            channel=SimpleNamespace(send=mock.AsyncMock()),
+            followup=SimpleNamespace(send=mock.AsyncMock()),
         )
 
         with suppressed_cog_saves():
@@ -515,7 +517,7 @@ class ContinueRunBackKickoffFillTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(match.pending_run_back)
         self.assertNotEqual(match.eligible_ball_handlers(), [])
         cog.finish_maneuver_resolution.assert_awaited_once()
-        sent = interaction.followup.send.await_args_list[0].args[0]
+        sent = interaction.channel.send.await_args_list[0].args[0]
         self.assertIn("start the kickoff", sent)
 
 

@@ -237,12 +237,16 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         )
 
     def build_interaction(self) -> SimpleNamespace:
+        # `channel.send` and `followup.send` share one mock: which route
+        # a post takes depends on whether the interaction still had a
+        # response to give, and these tests read back "what this
+        # posted" without caring which route carried it.
+        send = mock.AsyncMock(return_value=SimpleNamespace(id=999))
         return SimpleNamespace(
-            channel=None,
+            channel=SimpleNamespace(send=send),
             guild=None,
-            followup=SimpleNamespace(
-                send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
-            ),
+            response=SimpleNamespace(is_done=lambda: True),
+            followup=SimpleNamespace(send=send),
             delete_original_response=mock.AsyncMock(),
         )
 
@@ -407,11 +411,19 @@ class ManeuverPickHarness:
         cog.engine.load_match_state = mock.Mock(return_value=match)
 
         sent = SimpleNamespace(id=999, attachments=[])
+        # `channel.send` and `followup.send` share one mock: which route
+        # a post takes depends on whether the interaction still had a
+        # response to give, and these tests read back "what this
+        # posted" without caring which route carried it.
+        send = mock.AsyncMock(return_value=sent)
         interaction = SimpleNamespace(
             user=SimpleNamespace(id=111),
             guild=None,
-            response=SimpleNamespace(send_message=mock.AsyncMock()),
-            followup=SimpleNamespace(send=mock.AsyncMock(return_value=sent)),
+            channel=SimpleNamespace(send=send),
+            response=SimpleNamespace(
+                send_message=mock.AsyncMock(), is_done=lambda: True,
+            ),
+            followup=SimpleNamespace(send=send),
         )
         with suppressed_cog_saves(), suppressed_full_image_links():
             await cog.begin_maneuver_action_selection(
@@ -469,7 +481,8 @@ class ManeuverPickShowsTheCardsTests(
             self.build_ready_cog(),
         )
 
-        self.assertTrue(self.prompt_kwargs(interaction)["wait"])
+        # send_new_prompt always returns the real message now, rather
+        # than that being a `wait=True` kwarg the caller had to pass.
         self.assertEqual(game.turn_message_id, 999)
 
     def test_the_prompt_offers_both_sides_then_the_reference(self) -> None:
@@ -590,10 +603,9 @@ class ManeuverPickShowsTheFieldTests(
 
         sent = interaction.followup.send.await_args_list[-1].kwargs
         self.assertEqual(sent["file"].filename, "d12ball-field.png")
-        # The message has to come back, or there is nothing to hang the
-        # full-image link on -- the field is the smallest thing the bot
-        # sends inline.
-        self.assertTrue(sent["wait"])
+        # send_new_prompt always returns the real message, or there
+        # would be nothing to hang the full-image link on -- the field
+        # is the smallest thing the bot sends inline.
 
     async def test_the_field_is_public_like_the_prompt(self) -> None:
         # One upload for both coaches, where it used to be one apiece.

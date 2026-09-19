@@ -77,7 +77,9 @@ def build_game() -> D12BallGame:
 def build_interaction() -> SimpleNamespace:
     return SimpleNamespace(
         user=SimpleNamespace(id=111, display_name="One"),
-        channel=None,
+        channel=SimpleNamespace(
+            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+        ),
         guild=None,
         followup=SimpleNamespace(
             send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
@@ -86,6 +88,7 @@ def build_interaction() -> SimpleNamespace:
             defer=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
         edit_original_response=mock.AsyncMock(),
     )

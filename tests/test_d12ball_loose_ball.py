@@ -73,7 +73,9 @@ def build_game(ai: bool = False) -> D12BallGame:
 def build_interaction() -> SimpleNamespace:
     return SimpleNamespace(
         user=SimpleNamespace(id=111, display_name="One"),
-        channel=None,
+        channel=SimpleNamespace(
+            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+        ),
         guild=None,
         followup=SimpleNamespace(
             send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
@@ -82,6 +84,7 @@ def build_interaction() -> SimpleNamespace:
             defer=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
     )
 
@@ -306,7 +309,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         # can see.
         cog.refresh_match_image.assert_not_awaited()
 
-        self.assertIn(where, interaction.followup.send.await_args.args[0])
+        self.assertIn(where, interaction.channel.send.await_args.args[0])
 
     async def test_nobody_contesting_is_an_out_of_bounds_turnover(
         self,

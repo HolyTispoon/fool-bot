@@ -112,8 +112,11 @@ def clear_the_ball_s_space(match: MatchState, player_ids: list[str]) -> None:
 
 def build_interaction(user_id: int = 111) -> SimpleNamespace:
     # attachments so the prompt's full-image link can be built off
-    # it -- empty, since nothing here reads the link.
+    # it -- empty, since nothing here reads the link. `channel.send`
+    # and `followup.send` share one mock: which route a post takes
+    # depends on whether the interaction still had a response to give.
     sent = SimpleNamespace(id=999, attachments=[])
+    send = mock.AsyncMock(return_value=sent)
     prompt_message = SimpleNamespace(
         edit=mock.AsyncMock(), delete=mock.AsyncMock(),
     )
@@ -121,13 +124,15 @@ def build_interaction(user_id: int = 111) -> SimpleNamespace:
         user=SimpleNamespace(id=user_id, display_name="One"),
         channel=SimpleNamespace(
             get_partial_message=mock.Mock(return_value=prompt_message),
+            send=send,
         ),
         response=SimpleNamespace(
             defer=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
-        followup=SimpleNamespace(send=mock.AsyncMock(return_value=sent)),
+        followup=SimpleNamespace(send=send),
         delete_original_response=mock.AsyncMock(),
     )
 

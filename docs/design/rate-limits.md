@@ -263,6 +263,44 @@ invariants read as ordinary cog surface among 223 methods.
     drawn yet, and every write it delays is one it is about to make
     unnecessary. A coach waits on prompts and on the messages a turn posts,
     and none of those go through this gate.
+- **A followup after the click's own answer reads as a reply to it, and that
+  is not what most of them are.** `interaction.followup.send` posts through
+  the interaction's own webhook, and Discord's client shows that message
+  quoting whatever the interaction answered before it -- right for the one
+  message that genuinely *is* this click's answer, and a "replying to ..."
+  strip of clutter above everything a cascade goes on to post once that
+  answer has already been given. `send_new_prompt` in `cogs/d12ball_helpers.py`
+  is the fix: it answers the interaction while it still has an answer to
+  give, and falls back to a plain, unreferenced `channel.send` once it
+  doesn't -- the same `is_done()` read `send_error_fallback` already makes,
+  for the opposite reason (that one always answers ephemerally and only
+  picks the route; this one changes the message itself, since a channel post
+  can't be ephemeral). Every "new prompt or announcement" send that fires
+  mid-cascade goes through it now -- `cogs/d12ball/turnovers.py`,
+  `cogs/d12ball/effects.py`, `cogs/d12ball/presentation.py`,
+  `cogs/d12ball/core.py`, `cogs/d12ball/periods.py`, and the non-ephemeral
+  sends in `cogs/d12ball_views/turn.py`, `loose_ball.py`, `rolls.py`,
+  `setup.py` and `shootout.py`: the Coaching Choice window opening or being
+  reposted, the run-back and out-of-bounds-pickup announcements, the AI's
+  own coaching summary, `resume_pending_prompt`'s fallback, every maneuver
+  effect's own narration and follow-on prompt, the maneuver-pick and
+  skill-test and score-attempt results, the coin toss and home/visiting
+  choice, halftime, full time, and the whole extreme shootout -- since by
+  the time any of them fires the interaction has already been acknowledged
+  earlier in the same cascade (`drop_turn_prompt`'s own docstring says as
+  much: "The caller must have acknowledged the interaction already"). An
+  ephemeral reply (an error, a refusal, a coach's own pick coming back to
+  them) is untouched and stays on `followup.send` -- ephemeral can only
+  ever go out over the interaction, so there is no route for
+  `send_new_prompt` to fall back to. What is deliberately not converted is
+  `cogs/d12ball/slash_commands.py` and `cogs/debug.py`: a slash command's
+  own followups are the direct answer to that command's interaction rather
+  than a cascade riding on someone else's click, and Discord does not tie a
+  slash-command followup to an origin message the way it ties a component
+  interaction's -- there is no "replying to ..." strip for those to grow in
+  the first place. This is the funnel to route a new mid-cascade send
+  through when one turns up somewhere else, not a one-off worth repeating
+  by hand.
 - **Renders belong in a worker thread.** Everything that draws goes through
   `asyncio.to_thread`; Pillow is pure CPU and blocking the loop stalls the
   rate-limit sleeps and the gateway heartbeat along with everything else. The

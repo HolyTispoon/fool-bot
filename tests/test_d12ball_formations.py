@@ -91,13 +91,20 @@ def build_game(**overrides) -> D12BallGame:
 
 
 def build_interaction(user_id: int = 111) -> SimpleNamespace:
+    # `channel.send` and `followup.send` share one mock: which route a
+    # post takes depends on whether the interaction still had a response
+    # to give, and these tests read back "what this posted" without
+    # caring which route carried it.
+    send = mock.AsyncMock()
     return SimpleNamespace(
         user=SimpleNamespace(id=user_id, display_name="One"),
+        channel=SimpleNamespace(send=send),
         response=SimpleNamespace(
             edit_message=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
-        followup=SimpleNamespace(send=mock.AsyncMock()),
+        followup=SimpleNamespace(send=send),
         # A component interaction always carries its message, and a
         # real one always has an attachment list -- the Low Pass prompt
         # posts its field strip there and the receiver pick reads the

@@ -121,18 +121,25 @@ def build_interaction() -> SimpleNamespace:
     # `attachments` because the prompts that carry a field strip go on
     # to ask for a full-image link off the message that went out.
     sent = SimpleNamespace(id=999, attachments=[])
+    # `channel.send` and `followup.send` are the same mock: which route
+    # a given post takes depends on whether the interaction still had a
+    # response to give at that point in the cascade, and these tests
+    # read back "everything this resolution posted" without caring which
+    # route carried which message.
+    send = mock.AsyncMock(return_value=sent)
     return SimpleNamespace(
         user=SimpleNamespace(id=111, display_name="One"),
         # A resolution that runs all the way through hands the turn
         # back to `send_turn_prompt`, which reads both of these.
         guild=None,
-        channel=None,
+        channel=SimpleNamespace(send=send),
         response=SimpleNamespace(
             defer=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
-        followup=SimpleNamespace(send=mock.AsyncMock(return_value=sent)),
+        followup=SimpleNamespace(send=send),
         edit_original_response=mock.AsyncMock(),
     )
 
