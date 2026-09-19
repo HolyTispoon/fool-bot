@@ -4468,6 +4468,63 @@ def draw_team_board(
             card_x += CARD_SIZE[0] + 14
 
 
+def draw_coaching_space(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    players: dict[str, PlayerDefinition],
+    team_players: set[str],
+    team: Team,
+    side: TeamSide,
+    zone: Zone,
+    space_index: int,
+    occupants: list[str],
+    space_left: int,
+    space_right: int,
+    species_icons: bool = False,
+) -> None:
+    """
+    One space on a coach's own half: its frame and code, and that
+    side's own meeples on it -- one row, not two, and no ball. A
+    Coaching Choice happens with play stopped, and none of its four
+    actions turns on where the ball is.
+    """
+    draw.rectangle(
+        (
+            space_left + 8,
+            COACHING_BOARD_TOP + 46,
+            space_right - 8,
+            COACHING_BOARD_BOTTOM - 12,
+        ),
+        outline="#9aabbc",
+        width=2,
+    )
+    draw.text(
+        (space_left + 15, COACHING_BOARD_TOP + 52),
+        space_code(zone, space_index),
+        font=FONT_SMALL,
+        fill="#c8d1dc",
+    )
+
+    draw_meeple_group(
+        canvas,
+        draw,
+        [
+            player_id
+            for player_id in occupants
+            if player_id in team_players
+        ],
+        players,
+        team,
+        space_left,
+        space_right,
+        COACHING_BOARD_TOP + 78,
+        alignment="left" if side == TeamSide.HOME else "right",
+        reserve_ball=False,
+        label_bottom=COACHING_BOARD_BOTTOM - 14,
+        species_icons=species_icons,
+    )
+
+
 def render_coaching_image(
     match: MatchState,
     catalog: PlayerCatalog,
@@ -4547,39 +4604,9 @@ def render_coaching_image(
         for space_index, occupants in enumerate(spaces):
             space_left = round(left + space_index * space_width)
             space_right = round(left + (space_index + 1) * space_width)
-            draw.rectangle(
-                (
-                    space_left + 8,
-                    COACHING_BOARD_TOP + 46,
-                    space_right - 8,
-                    COACHING_BOARD_BOTTOM - 12,
-                ),
-                outline="#9aabbc",
-                width=2,
-            )
-            draw.text(
-                (space_left + 15, COACHING_BOARD_TOP + 52),
-                space_code(zone, space_index),
-                font=FONT_SMALL,
-                fill="#c8d1dc",
-            )
-
-            draw_meeple_group(
-                canvas,
-                draw,
-                [
-                    player_id
-                    for player_id in occupants
-                    if player_id in team_players
-                ],
-                players,
-                setup.team,
-                space_left,
-                space_right,
-                COACHING_BOARD_TOP + 78,
-                alignment="left" if side == TeamSide.HOME else "right",
-                reserve_ball=False,
-                label_bottom=COACHING_BOARD_BOTTOM - 14,
+            draw_coaching_space(
+                canvas, draw, players, team_players, setup.team, side,
+                zone, space_index, occupants, space_left, space_right,
                 species_icons=species_icons,
             )
 
