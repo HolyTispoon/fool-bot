@@ -388,7 +388,7 @@ class LobbyView(SafeView):
         value: str,
     ) -> None:
         # Either player, or a game helper -- see "Who may act on a
-        # game" in CLAUDE.md. This is the gate somebody walking a new
+        # game" in docs/design/permissions.md. This is the gate somebody walking a new
         # player through their first game meets: turning Tutorial on for
         # a lobby they are not playing in is the whole point of it.
         if not self.may_act_in_game(interaction, game):

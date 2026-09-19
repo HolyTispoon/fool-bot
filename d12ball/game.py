@@ -37,7 +37,7 @@ class Team(str, Enum):
 # the roster: a pair shares a hex, so that one match would draw both
 # sides the same. Every other color/species matchup shares players too
 # -- 2 of them -- and is played with those fielded as two cards. See
-# "Team colors" and "One player, both sides" in CLAUDE.md.
+# "Team colors" and "One player, both sides" in docs/design/teams-and-players.md.
 TEAM_PAIRS: dict[Team, Team] = {
     Team.ORANGE: Team.FIRE_DEMONS,
     Team.FIRE_DEMONS: Team.ORANGE,
@@ -223,7 +223,7 @@ class D12BallGame:
     # Whether the game record exists but is still sitting in its
     # pre-game lobby -- players joining or leaving, settings being
     # picked, nobody having pressed Start Game yet. See "The
-    # game-creation hub and the lobby" in CLAUDE.md.
+    # game-creation hub and the lobby" in docs/design/hub-and-lobby.md.
     #
     # A lobby is an ordinary SETUP game (no GameStatus value of its
     # own), so `start_game`, the stats scoping and the startup sweep are

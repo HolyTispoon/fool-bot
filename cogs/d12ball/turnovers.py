@@ -2,7 +2,7 @@
 The three ways possession changes hands: the run back after a steal,
 the time out that buys both coaches a Coaching Choice, and the pickup
 after a ball has gone out. See "Turnovers: steals and new plays" and
-"The time out" in CLAUDE.md.
+"The time out" in docs/design/time-out.md.
 """
 
 import asyncio
@@ -446,7 +446,7 @@ class TurnoverMixin:
         The image is re-sent because a Coaching Choice is unreadable
         without it -- exhaustion counts, the Exhausted and Injured
         badges and which bench a player sits on are drawn nowhere else
-        (see "Working on the board image" in CLAUDE.md).
+        (see "Working on the board image" in docs/design/board-image.md).
         """
         side = TeamSide(match.pending_coaching_side)
 
@@ -1320,7 +1320,7 @@ class TurnoverMixin:
         Place one of an AI side's run-backs and describe it, without
         posting anything: the line comes back for the cascade in
         continue_run_back to batch with every other automatic
-        placement. See "Discord's rate limits" in CLAUDE.md.
+        placement. See "Discord's rate limits" in docs/design/rate-limits.md.
         """
         # One candidate is a settled player and only the space is
         # open; several is a stack Dinky picks out of, the same call a
@@ -1641,7 +1641,7 @@ class TurnoverMixin:
                 # draws its own field strip (see send_run_back_prompt).
                 # Two renders, two uploads -- the requests are what the
                 # gate counts, and they are unchanged. See "Discord's
-                # rate limits" in CLAUDE.md.
+                # rate limits" in docs/design/rate-limits.md.
                 png = await self.render_match_png(game)
                 if not await flush(png):
                     await self.refresh_match_image(interaction, game, png=png)

@@ -21,7 +21,7 @@ them read as ordinary surface.
 
 `D12Ball` keeps a thin forwarding method for each of the six, so the
 fifty-odd call sites did not move. See "Discord's rate limits" in
-CLAUDE.md for the measurements every decision here rests on.
+docs/design/rate-limits.md for the measurements every decision here rests on.
 """
 
 import asyncio
@@ -55,7 +55,7 @@ LOGGER = logging.getLogger(__name__)
 # requests and was still earning 429s, measured. Six leaves a turn at
 # three requests over three passes -- the immediate board, the settling
 # board, and the link the second of those owes. See "The board message
-# is one bucket" in CLAUDE.md.
+# is one bucket" in docs/design/rate-limits.md.
 #
 # Nothing spends two requests inside one of these windows any more,
 # which is what the last batch of 429s turned out to be: see
@@ -215,7 +215,7 @@ class BoardRefresher:
         instant the lock frees, into the bucket that was refusing the
         last one. The lock stopped two writes being *concurrent*; only
         this stops them being *consecutive*, which is the same feedback
-        loop one step along. See "Discord's rate limits" in CLAUDE.md.
+        loop one step along. See "Discord's rate limits" in docs/design/rate-limits.md.
 
         `png` is an already-rendered board, for a caller that is
         posting the same one somewhere else in the same breath and

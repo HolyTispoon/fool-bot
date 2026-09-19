@@ -16,7 +16,7 @@ their own buttons** -- the shootout order handed a visiting coach with
 else is confirmed first** past the lobby, since it moves the game for a
 coach who pressed nothing.
 
-See "Who may act on a game" in CLAUDE.md.
+See "Who may act on a game" in docs/design/permissions.md.
 """
 
 import asyncio

@@ -371,7 +371,7 @@ class FullTimeSummaryTests(unittest.TestCase):
 class GoalLogTests(unittest.TestCase):
     """
     Who scored and when, which the scoreboard cannot be read backwards
-    for. See "The goal log" in CLAUDE.md.
+    for. See "The goal log" in docs/design/clock-and-records.md.
     """
 
     @classmethod

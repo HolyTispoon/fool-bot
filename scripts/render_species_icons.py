@@ -25,7 +25,7 @@ cannot come to disagree. It is there for the places a file has to
 arrive already coloured -- a Developer Portal emoji upload, a document,
 a slide -- where the bot's own drawing tints at the moment it draws.
 Anything drawing an icon *in code* asks `render.species_icon` for the
-colour it needs; see "The species icons" in CLAUDE.md.
+colour it needs; see "The species icons" in docs/design/cards.md.
 
 Read the Oozes' on something dark. Its hex is Slime green, which is the
 one of the four that all but disappears on white -- the same fact

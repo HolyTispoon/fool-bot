@@ -51,7 +51,7 @@ from d12ball.render import (
 # The species order the card set is built in, and the colour each
 # panel's header band is drawn in -- the paired colour team's hex, the
 # same one the board draws that species' meeples in. See "Team colors"
-# in CLAUDE.md.
+# in docs/design/teams-and-players.md.
 #
 # `SPECIES_ORDER` is `d12ball/components.py`'s now, since the engine
 # reads species to play the abilities and cannot import this module.

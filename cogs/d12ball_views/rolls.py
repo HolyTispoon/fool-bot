@@ -1,7 +1,7 @@
 """
 The rolls a coach presses for: a maneuver's skill test, an injury
 test, an own goal, and a score attempt. See "Every roll is a coach's"
-in CLAUDE.md -- nothing in the game rolls on its own.
+in docs/design/maneuvers.md -- nothing in the game rolls on its own.
 """
 
 import asyncio
@@ -401,7 +401,7 @@ class SkillTestView(SafeView):
         # Said only where there is an advanced cost for it to have
         # changed: a coach told "the surge spares them the cost" of a
         # card that carried none is being answered a question nobody
-        # asked (see "What a message says" in CLAUDE.md).
+        # asked (see "What a message says" in docs/design/naming-and-wording.md).
         loser_card = self.cog.engine.maneuver_catalog.get(
             match.opposing_maneuver(winner_key) or "",
         )
@@ -629,7 +629,7 @@ class ScoreAttemptView(SafeView):
         # that chose it may reconsider. No `possession_user_id` means
         # Dinky is the one shooting, which is not a choice a human
         # standing in for its rolls gets to undo either (see "Every
-        # roll is a coach's" in CLAUDE.md).
+        # roll is a coach's" in docs/design/maneuvers.md).
         if (
             game is not None
             and match is not None
@@ -984,7 +984,7 @@ class ScoreAttemptView(SafeView):
         # it took the game's write window, pushing the board that *is*
         # worth reading out of the render post_new_play_board already
         # has in hand and into a trailing pass. See "Discord's rate
-        # limits" in CLAUDE.md.
+        # limits" in docs/design/rate-limits.md.
         #
         # Goal or miss, the ball is dead and being restarted, so this
         # is a new play and both restarts open a substitution window.

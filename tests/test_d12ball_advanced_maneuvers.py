@@ -360,7 +360,7 @@ class DinkyAdvancedManeuverPickTests(AdvancedHarness, unittest.TestCase):
     `DinkyAI.choose_maneuver_action` rolls a rank on the d6 and then
     coin-flips the tier, which lands on each of the six with equal
     odds. See "Dinky rolls its rank as it always has and picks the
-    tier at random" in CLAUDE.md.
+    tier at random" in docs/design/maneuvers.md.
     """
 
     def test_dinky_reaches_every_card_of_an_advanced_hand(self) -> None:

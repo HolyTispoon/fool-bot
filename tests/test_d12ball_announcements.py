@@ -632,7 +632,7 @@ class RoleEmojiOnTheCogTests(unittest.TestCase):
         visitors' colour. It falls out of `player_label` reading
         `match.team_for_player`, which is the same lookup the team
         emoji in front already made; the point is that the two now
-        cannot disagree. See "One player, both sides" in CLAUDE.md.
+        cannot disagree. See "One player, both sides" in docs/design/teams-and-players.md.
         """
         from d12ball.components import PlayerRole
         from d12ball.game import Team

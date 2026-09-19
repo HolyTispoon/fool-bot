@@ -132,7 +132,7 @@ class CoreMixin:
         self.games = load_games()
         # `{guild_id: {"channel_id", "message_id"}}` for each server's
         # game-creation hub message -- see gamesaves/d12ball/hub.py and
-        # "The game-creation hub and the lobby" in CLAUDE.md.
+        # "The game-creation hub and the lobby" in docs/design/hub-and-lobby.md.
         self.hubs = load_hubs()
         self.player_catalog = load_player_catalog()
         self.basic_ruleset = load_basic_ruleset()
@@ -235,7 +235,7 @@ class CoreMixin:
 
         A restart re-arms exactly one turn message per game, which is
         why a game can still come back with no working button anywhere
-        -- see "Recovering a stuck game" in CLAUDE.md.
+        -- see "Recovering a stuck game" in docs/design/recovery.md.
         """
         restored_views = 0
 
@@ -354,7 +354,7 @@ class CoreMixin:
         thing in it that identifies the game is the channel and message
         id. Three rounds of those warnings were read by inferring which
         message that was, wrongly; this makes it a lookup instead. See
-        "Discord's rate limits" in CLAUDE.md.
+        "Discord's rate limits" in docs/design/rate-limits.md.
         """
         for game in self.games.values():
             if game.status == GameStatus.FINISHED:
@@ -539,7 +539,7 @@ class CoreMixin:
         already moved past, silently, until a restart reads it back.
         Nothing about that failure is visible while the bot is up.
 
-        `save_games` never raises (see "Gotchas" in CLAUDE.md), which
+        `save_games` never raises (see "Gotchas" in docs/design/gotchas.md), which
         is what lets this be called mid-resolution without a save
         failure taking the turn down with it.
 
@@ -623,7 +623,7 @@ class CoreMixin:
         is the cog's, and the team is **always** the one the match is
         fielding this card as: a player belongs to two rosters, so
         their definition cannot answer it and `match.team_for_player`
-        has to (see "One player, both sides" in CLAUDE.md). Ninety-odd
+        has to (see "One player, both sides" in docs/design/teams-and-players.md). Ninety-odd
         sites wrote out all three, which put the same forty characters
         of lookup in front of every player's name in the codebase.
 

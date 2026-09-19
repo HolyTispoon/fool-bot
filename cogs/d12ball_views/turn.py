@@ -1,7 +1,7 @@
 """
 A turn as the coach drives it -- picking the handler, picking the
 action, ceding, answering a challenge, and the public maneuver prompt
-both sides pick off. See "The maneuver prompt" in CLAUDE.md.
+both sides pick off. See "The maneuver prompt" in docs/design/maneuver-prompt.md.
 """
 
 import discord
@@ -986,7 +986,7 @@ class ManeuverActionPromptView(SafeView):
 
         It takes the interaction rather than the clicker's id because a
         game helper may pick for either side and the permission is on
-        the member -- see "Who may act on a game" in CLAUDE.md.
+        the member -- see "Who may act on a game" in docs/design/permissions.md.
         """
         if side == "offense":
             authorized = self.may_act_for_possession(

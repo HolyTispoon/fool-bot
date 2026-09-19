@@ -159,7 +159,7 @@ TEAM_COLORS = {
     Team.SLIME: "#66FF00",
 }
 # A species team shares its paired color team's hex -- see "Team
-# colors" in CLAUDE.md. Defined from TEAM_PAIRS rather than restated,
+# colors" in docs/design/teams-and-players.md. Defined from TEAM_PAIRS rather than restated,
 # so there is still exactly one hex per color anywhere in the code.
 TEAM_COLORS.update(
     {
@@ -170,7 +170,7 @@ TEAM_COLORS.update(
 )
 # Slime green is bright enough that white loses contrast against it,
 # on a meeple token or a die alike -- Oozes shares the same hex (see
-# "Team colors" in CLAUDE.md), so comparing the color catches both
+# "Team colors" in docs/design/teams-and-players.md), so comparing the color catches both
 # without naming either team. Every other team's color keeps white.
 SLIME_GREEN = TEAM_COLORS[Team.SLIME]
 
@@ -437,7 +437,7 @@ def _load_icon(path: Path, size: int, cache_key: str) -> Optional[Image.Image]:
     Load (and cache) a small condition-token icon, thumbnailed to
     `size`. Returns None -- and caches that -- when the file is missing
     or unreadable, so rendering can gracefully skip it; see "A bundled
-    file's name is case-sensitive..." in CLAUDE.md for why this stays
+    file's name is case-sensitive..." in docs/design/gotchas.md for why this stays
     silent rather than raising.
     """
     if cache_key in _ICON_CACHE:
@@ -503,7 +503,7 @@ def load_species_icon(species: str) -> Optional[Image.Image]:
     Returns None -- and caches that -- when the file is missing, so a
     render skips the icon rather than failing, exactly as the condition
     tokens and the portraits do; see "A bundled file's name is
-    case-sensitive..." in CLAUDE.md for why this stays silent.
+    case-sensitive..." in docs/design/gotchas.md for why this stays silent.
 
     Callers want `species_icon`, which colours it. This is the raw ink
     and is only useful to something about to tint it itself.
@@ -890,7 +890,7 @@ def player_index(
     That is each catalog player under their own id *and* under
     `duplicate_card_id`, because both sides of a match can field the
     same person and the visiting copy carries the suffix -- see "One
-    player, both sides" in CLAUDE.md. Aliased once here rather than
+    player, both sides" in docs/design/teams-and-players.md. Aliased once here rather than
     resolved at each of this module's `players[...]` lookups: they are
     a plain dict index in a dozen places and the two copies draw the
     same portrait, name, role and skills anyway. What tells them apart
@@ -1365,8 +1365,9 @@ def draw_end_zone(
     """
     A goal zone of its own, American-football style, beyond H1 or
     beyond the board's last V space rather than squeezed into either
-    one's own space -- see "Formations and occupancy" in CLAUDE.md for
-    why H1 and the last V space are already full at kickoff. "GOAL"
+    one's own space -- see "Formations and occupancy" in
+    docs/design/formations-and-occupancy.md for why H1 and the last V
+    space are already full at kickoff. "GOAL"
     runs the zone's length in the defending team's color -- rotated
     90°, the way an end zone's lettering reads sideways on a field
     running left to right -- with a blank d12 stamped over it, the way
@@ -1391,7 +1392,7 @@ def draw_end_zone(
     word = "GOAL"
     # A dark outline around each letter for a bolder, more "sports
     # poster" look, on the same bundled bold face rather than a new
-    # font asset -- see "Fonts" in CLAUDE.md for why a face is loaded
+    # font asset -- see "Fonts" in docs/design/board-image.md for why a face is loaded
     # from the bundle rather than by name.
     stroke_width = 4
     stroke_color = "#14202b"
@@ -1673,7 +1674,7 @@ def draw_meeple_group(
     **A token is the species icon over the role initials.** The icon is
     the bigger of the two and sits in the top of the disc, in the same
     ink as the initials and the outline -- a species colour would be
-    the team's own (see "Team colors" in CLAUDE.md), so the shape is
+    the team's own (see "Team colors" in docs/design/teams-and-players.md), so the shape is
     the whole signal, and the four silhouettes were drawn to survive
     18px for exactly this. `canvas` is what the icon is composited
     onto; everything else here is drawn with `draw`. `species_icons`
@@ -2265,7 +2266,7 @@ class VerdictRow:
     The three images share the row and not their proportions: each
     passes its own radius, portrait size, gaps and paddings, which is
     what keeps Volatile's 168px portrait and spread columns Volatile's
-    (see "The ignition die" in CLAUDE.md) while the arithmetic that
+    (see "The ignition die" in docs/design/species-abilities.md) while the arithmetic that
     places a column is written once. Each column is centred on its own
     share of the row, and the labels under the die and the portrait
     share a baseline so the team name and the player's name read as

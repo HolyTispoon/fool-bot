@@ -83,7 +83,7 @@ class ShootoutView(SafeView):
         # was read the other way round -- a helper got both sides, home
         # first -- which handed a visiting coach with the permission
         # the *home* order to set. See "Who may act on a game" in
-        # CLAUDE.md.
+        # docs/design/permissions.md.
         sides = (TeamSide.HOME, TeamSide.VISITING)
         own = [
             side
