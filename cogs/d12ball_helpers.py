@@ -1432,6 +1432,49 @@ async def send_error_fallback(
         pass
 
 
+async def send_new_prompt(
+    interaction: discord.Interaction,
+    content: str,
+    *,
+    file: Optional[discord.File] = None,
+    view: Optional[discord.ui.View] = None,
+    allowed_mentions: Optional[discord.AllowedMentions] = None,
+) -> discord.Message:
+    """
+    Post a new, public message for this game -- a fresh prompt or
+    announcement that is not itself the answer to a coach's ephemeral
+    click (see `send_error_fallback` for that).
+
+    `interaction.followup.send` ties whatever it posts into the same
+    interaction as the response that came before it, and Discord's
+    client shows that by quoting the earlier one in a "replying to"
+    strip above the new message. That is right for the message that
+    genuinely *is* this click's own answer -- the one response Discord
+    lets an interaction give -- and wrong for everything a cascade goes
+    on to post afterwards, which has nothing to do with the click that
+    started it and reads as clutter wearing a reply it doesn't need.
+    So this answers the interaction itself only while it still has an
+    answer to give, and posts a plain, unreferenced channel message
+    once it doesn't -- the same `is_done()` read `send_error_fallback`
+    already makes, for the opposite reason: that one always answers
+    ephemerally and only picks the route; this one changes the message
+    itself, because a plain channel post can't be ephemeral.
+    """
+    kwargs: dict = {}
+    if file is not None:
+        kwargs["file"] = file
+    if view is not None:
+        kwargs["view"] = view
+    if allowed_mentions is not None:
+        kwargs["allowed_mentions"] = allowed_mentions
+
+    if interaction.response.is_done():
+        return await interaction.channel.send(content, **kwargs)
+
+    await interaction.response.send_message(content, **kwargs)
+    return await interaction.original_response()
+
+
 def build_full_image_button(
     message: discord.Message,
 ) -> Optional[discord.ui.Button]:

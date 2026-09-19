@@ -72,6 +72,10 @@ def build_game(**overrides) -> D12BallGame:
 
 def build_interaction() -> SimpleNamespace:
     return SimpleNamespace(
+        response=SimpleNamespace(is_done=lambda: True),
+        channel=SimpleNamespace(
+            send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
+        ),
         followup=SimpleNamespace(
             send=mock.AsyncMock(return_value=SimpleNamespace(id=999)),
         ),
@@ -395,7 +399,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         # nothing is charged for it.
         self.assertTrue(match.pending_coaching_declared)
         self.assertEqual(match.time_outs_used, set())
-        _, kwargs = interaction.followup.send.await_args
+        _, kwargs = interaction.channel.send.await_args
         self.assertIsInstance(kwargs["view"], CoachingHubView)
         cog.send_turn_prompt.assert_not_awaited()
 
@@ -519,7 +523,7 @@ class SetupCoachingTests(unittest.IsolatedAsyncioTestCase):
         # window posts nothing at all.
         posted = [
             call.args[0]
-            for call in interaction.followup.send.await_args_list
+            for call in interaction.channel.send.await_args_list
             if call.args
         ]
         self.assertEqual(

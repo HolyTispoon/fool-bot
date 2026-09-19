@@ -104,26 +104,31 @@ def build_game(**overrides) -> D12BallGame:
 
 
 def build_interaction(user_id: int = 111) -> SimpleNamespace:
+    # `channel.send` and `followup.send` are the same mock: `send_new_prompt`
+    # picks one or the other depending on `response.is_done()`, and a test
+    # asserting on "the message this posted" should not have to know which
+    # route production took to get there.
+    send = mock.AsyncMock(
+        return_value=SimpleNamespace(
+            id=999,
+            attachments=[],
+            edit=mock.AsyncMock(),
+        ),
+    )
     return SimpleNamespace(
         user=SimpleNamespace(id=user_id, display_name="One"),
         channel=SimpleNamespace(
+            send=send,
             get_partial_message=lambda message_id: SimpleNamespace(
                 delete=mock.AsyncMock(),
             ),
         ),
-        followup=SimpleNamespace(
-            send=mock.AsyncMock(
-                return_value=SimpleNamespace(
-                    id=999,
-                    attachments=[],
-                    edit=mock.AsyncMock(),
-                ),
-            ),
-        ),
+        followup=SimpleNamespace(send=send),
         response=SimpleNamespace(
             defer=mock.AsyncMock(),
             send_message=mock.AsyncMock(),
             edit_message=mock.AsyncMock(),
+            is_done=lambda: True,
         ),
         edit_original_response=mock.AsyncMock(),
     )

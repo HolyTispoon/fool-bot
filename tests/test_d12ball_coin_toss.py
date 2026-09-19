@@ -596,8 +596,17 @@ class D12BallRunBackAnnouncementTests(
         cog.finish_maneuver_resolution = mock.AsyncMock()
         cog.refresh_match_image = mock.AsyncMock()
         self.stub_new_play_board(cog)
+        # `channel.send` and `followup.send` are the same mock: a reset's
+        # own post still goes out through `post_new_play_board`'s
+        # followup.send, and a run back or a speed note that follows it
+        # in the same cascade now goes through `channel.send` instead --
+        # so an assertion reading "everything this posted" has to see
+        # both without knowing which route carried which message.
+        send = mock.AsyncMock()
         interaction = SimpleNamespace(
-            followup=SimpleNamespace(send=mock.AsyncMock())
+            response=SimpleNamespace(is_done=lambda: True),
+            channel=SimpleNamespace(send=send),
+            followup=SimpleNamespace(send=send),
         )
         game = SimpleNamespace(
             match_state=None,
@@ -837,10 +846,11 @@ class D12BallNewPlayKickoffTests(
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         self.stub_new_play_board(cog)
+        send = mock.AsyncMock(return_value=SimpleNamespace(id=1))
         interaction = SimpleNamespace(
-            followup=SimpleNamespace(
-                send=mock.AsyncMock(return_value=SimpleNamespace(id=1)),
-            )
+            response=SimpleNamespace(is_done=lambda: True),
+            channel=SimpleNamespace(send=send),
+            followup=SimpleNamespace(send=send),
         )
         game = SimpleNamespace(
             match_state=None, game_id="g", turn_message_id=None,

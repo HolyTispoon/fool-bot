@@ -3304,6 +3304,29 @@ invariants read as ordinary cog surface among 223 methods.
     drawn yet, and every write it delays is one it is about to make
     unnecessary. A coach waits on prompts and on the messages a turn posts,
     and none of those go through this gate.
+- **A followup after the click's own answer reads as a reply to it, and that
+  is not what most of them are.** `interaction.followup.send` posts through
+  the interaction's own webhook, and Discord's client shows that message
+  quoting whatever the interaction answered before it -- right for the one
+  message that genuinely *is* this click's answer, and a "replying to ..."
+  strip of clutter above everything a cascade goes on to post once that
+  answer has already been given. `send_new_prompt` in `cogs/d12ball_helpers.py`
+  is the fix: it answers the interaction while it still has an answer to
+  give, and falls back to a plain, unreferenced `channel.send` once it
+  doesn't -- the same `is_done()` read `send_error_fallback` already makes,
+  for the opposite reason (that one always answers ephemerally and only
+  picks the route; this one changes the message itself, since a channel post
+  can't be ephemeral). Every "new prompt or announcement" send in
+  `cogs/d12ball/turnovers.py` goes through it now -- the Coaching Choice
+  window opening or being reposted, the run-back and out-of-bounds-pickup
+  announcements, the AI's own coaching summary, and `resume_pending_prompt`'s
+  fallback -- since by the time any of them fires the interaction has
+  already been acknowledged earlier in the same cascade (`drop_turn_prompt`'s
+  own docstring says as much: "The caller must have acknowledged the
+  interaction already"). The same clutter reaches every other
+  `followup.send` in the cog once its own cascade has answered first; this
+  is the funnel to route a new one through, not a one-off worth repeating
+  by hand.
 - **Renders belong in a worker thread.** Everything that draws goes through
   `asyncio.to_thread`; Pillow is pure CPU and blocking the loop stalls the
   rate-limit sleeps and the gateway heartbeat along with everything else. The

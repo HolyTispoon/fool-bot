@@ -163,6 +163,12 @@ def build_interaction(recorder=None, user_id: int = 111) -> SimpleNamespace:
     return SimpleNamespace(
         channel_id=2,
         guild=None,
+        # The same `send` the recorder already watches through
+        # `followup`: which of the two a post actually goes out through
+        # depends on whether the interaction still had a response to
+        # give at that point in the cascade, and the recorder cares
+        # about what was said, not which route said it.
+        channel=SimpleNamespace(send=send),
         message=SimpleNamespace(id=999, content="prompt", attachments=[]),
         user=SimpleNamespace(id=user_id, display_name="Coach"),
         edit_original_response=edit_original_response,
@@ -173,6 +179,7 @@ def build_interaction(recorder=None, user_id: int = 111) -> SimpleNamespace:
             defer=mock.AsyncMock(),
             send_message=send_message,
             edit_message=edit_message,
+            is_done=lambda: True,
         ),
         followup=SimpleNamespace(send=send),
     )
