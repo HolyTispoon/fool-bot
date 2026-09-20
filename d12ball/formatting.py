@@ -134,8 +134,8 @@ def challenger_prompt_ask(match: MatchState) -> str:
     """
     if match.may_decline_challenge():
         return (
-            "choose which player will maneuver to challenge for the "
-            "ball, or send nobody and let the maneuver through."
+            "choose which player will move to challenge the maneuver, "
+            "or send nobody and let it through."
         )
     return (
         "these players are already on the ball, so one of them has to "
