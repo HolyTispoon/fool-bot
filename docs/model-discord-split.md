@@ -26,7 +26,7 @@ it happened to have.
 | --- | --- | --- | --- |
 | **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
-| **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #226) |
+| **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Open |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
@@ -259,7 +259,7 @@ exactly that reason.
 
 ## Phase 2 -- `StepResult`, on one vertical slice
 
-**Done** (PR #226). `d12ball/flow/` holds `StepResult`, the transitional
+**Done** (PR #227). `d12ball/flow/` holds `StepResult`, the transitional
 `FollowOn`, and `low_pass_step`; `D12Ball.apply_low_pass` is the wrapper
 and `D12Ball.dispatch_step_result` the whole of the Discord side. What it
 settled -- the shape of `next`, the narration staying out of the

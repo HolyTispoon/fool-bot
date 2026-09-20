@@ -13,7 +13,7 @@ Phase 1 on.
 
 Phase 0 has landed (PR #201), and so has Phase 1, in the two halves the
 worksheet's own "lands first, on its own" asked for (1a in PR #223, 1b in
-PR #225), and so has Phase 2 (PR #226) -- so there are no prompts for any
+PR #225), and so has Phase 2 (PR #227) -- so there are no prompts for any
 of them. Phase 3 is one template run six times.
 
 ---
