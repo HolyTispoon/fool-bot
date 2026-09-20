@@ -548,8 +548,24 @@ against `tests/golden/advanced_*`.
 - **What it still does not reach**, said in the module rather than left
   to be found: no own-goal roll, no shootout, no time out, no window
   taken up, no stacked run back (the *space* question is asked, the
-  "which of these players goes" question is not), and seven of the
+  "which of these players goes" question is not), and eight of the
   twelve cards.
+- **PR #244 landed under it while the branch was open**, which is the
+  first thing this golden was any use for. Widening the gambit gate to
+  count Exhausted players took Dinky's gambits off it in this game --
+  the human's Telekinetics are the more worn side by the time it
+  matters -- so Dinky plays Steal where it had played Intercept, and the
+  whole turn after that reads differently. The recording was
+  regenerated against the new rule in a commit of its own, and the
+  evidence that none of it was the move's doing is that a recording
+  made on `main` with the rule and **without** the move is byte-identical
+  to it. That is what "recorded on the old code first" is for.
+- **It narrowed the card coverage, and that is left visible rather than
+  tuned away.** The three gambits the first recording reached are no
+  longer played here. Every prompt in `SPINE_PROMPTS` still is, which is
+  what this golden is for, and the cards are Phase 3's with their own
+  fixture tables -- but `ADVANCED_GOLDEN_SEED` is a one-line change if
+  the breadth is wanted back.
 - **Stability checked the same two ways**: two runs on the seed agree
   (asserted), and the transcript is identical under `PYTHONHASHSEED` 0,
   1 and 42.

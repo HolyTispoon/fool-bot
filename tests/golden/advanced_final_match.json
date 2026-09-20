@@ -56,9 +56,9 @@
   },
   "ball": {
     "possession": "visiting",
-    "space_index": 1,
+    "space_index": 0,
     "speed": 6,
-    "zone": "midfield"
+    "zone": "visitors_goal"
   },
   "ball_carrier_id": null,
   "board": {
@@ -484,7 +484,7 @@
         "action": "maneuver",
         "by_ai": false,
         "exhaustion": {
-          "spectra_midfielder": 1
+          "zenith_winger": 1
         }
       },
       "kind": "turn_action",
@@ -497,9 +497,9 @@
       "details": {
         "challenger_id": "blazebulk_defender",
         "decision": "cards",
-        "defense_key": "intercept",
+        "defense_key": "steal",
         "offense_key": "low_pass",
-        "winner_key": "intercept"
+        "winner_key": "steal"
       },
       "kind": "maneuver",
       "period": "first_half",
@@ -524,7 +524,8 @@
     "dravox_defender": 4,
     "quillon_playmaker": 2,
     "scorchit_midfielder": 3,
-    "spectra_midfielder": 7
+    "spectra_midfielder": 6,
+    "zenith_winger": 1
   },
   "goals": [],
   "half_substitutions_used": {

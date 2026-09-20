@@ -47,9 +47,19 @@ recorded for. That is the same job `GOLDEN_SEED`'s
 than it is: no own-goal roll, no shootout, no time out, no substitution
 window taken up (the coaching windows are opened and passed on), no
 stacked run back -- the *space* question is asked, the "which of these
-players goes" question is not -- and of the twelve cards it plays
-Low Pass, Skilled Pass, Dribble Advance, Dribble Burst, Deflect, Steal
-and Intercept. Phase 5 should add its own for the periods and windows.
+players goes" question is not -- and of the twelve cards it settles only
+Low Pass, Dribble Advance, Deflect and Steal. Phase 5 should add its own
+for the periods and windows.
+
+**The card coverage narrowed when PR #244 landed**, and that is worth
+knowing rather than quietly re-tuning away. Widening the gambit gate to
+count Exhausted players took Dinky's gambits off it in this game -- the
+human's Telekinetics are the more worn side by the time it matters -- so
+the three gambits the first recording reached (Skilled Pass, Dribble
+Burst, Intercept) are no longer played here. Every prompt in
+`SPINE_PROMPTS` is still reached, which is what this golden is for; the
+cards are Phase 3's and have their own fixture tables. `ADVANCED_GOLDEN_SEED`
+is a one-line change if the coverage is wanted back.
 
 Regenerating is the same as the tutorial's, and means the same thing:
 

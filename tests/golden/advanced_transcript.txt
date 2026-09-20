@@ -242,8 +242,6 @@ Blazebulk has moved 1 space.
 🔥 Blazebulk [DD] gains 1 exhaustion token 😮‍💨 (now 1 total).
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔥 Dinky AI may play a gambit this maneuver.
 === press 24: ManeuverActionPromptView -> 'Low Pass'
 --- message
 You chose **Low Pass**.
@@ -272,8 +270,6 @@ Out of shooting range. Maneuver, or take a time out:
 === press 26: PlayerActionView -> 'Maneuver'
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔥 Dinky AI may play a gambit this maneuver.
 === press 27: ManeuverActionPromptView -> 'Low Pass'
 --- message
 You chose **Low Pass**.
@@ -302,8 +298,6 @@ Choose an action:
 === press 29: PlayerActionView -> 'Maneuver'
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔥 Dinky AI may play a gambit this maneuver.
 === press 30: ManeuverActionPromptView -> 'Low Pass'
 --- message
 You chose **Low Pass**.
@@ -341,8 +335,6 @@ Out of shooting range. Maneuver, or take a time out:
 === press 33: PlayerActionView -> 'Maneuver'
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔥 Dinky AI may play a gambit this maneuver.
 === press 34: ManeuverActionPromptView -> 'Low Pass'
 --- message
 You chose **Low Pass**.
@@ -371,8 +363,6 @@ Choose an action:
 === press 36: PlayerActionView -> 'Maneuver'
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔥 Dinky AI may play a gambit this maneuver.
 === press 37: ManeuverActionPromptView -> 'Low Pass'
 --- message
 You chose **Low Pass**.
@@ -380,31 +370,31 @@ You chose **Low Pass**.
 🔮 One has picked their maneuver.
 --- message
 🔮 One chose **Low Pass**.
-🔥 Dinky AI chose **Intercept**.
+🔥 Dinky AI chose **Steal**.
 
-## **Intercept** wins!
+## **Steal** wins!
 --- message
-🔮 **Mind Pull** — the ball crossed 🔮 Spectra [MF], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
-=== press 38: MindPullView -> 'Spectra [MF] reaches for it'
+🔮 **Mind Pull** — the ball crossed 🔮 Zenith [WG], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 38: MindPullView -> 'Zenith [WG] reaches for it'
 --- message
-🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
-🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 7 total).
+🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
+🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 1 total).
 The ball slips past them.
 --- message
-**Intercept:**
+**Steal:**
 # Turnover!
-🔥 Blazebulk [DD] steals the ball. Fire Demons (Visiting) now has possession, then carries it 1 space forward, toward the goal they now attack.
+🔥 Blazebulk [DD] steals the ball. Fire Demons (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
 
 The ball speed goes down to **1**.
 --- message
 Ball speed is now **6**.
 --- message
-Ball is now M2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 11.
+Ball is now V1, Fire Demons (Visiting) has possession. Time has advanced 1, now at 11.
 --- message
 Dinky AI calls a time out.
 --- message
 # Fire Demons (Visiting) call a time out
-Both coaches get a Coaching Choice. The ball stays with Fire Demons (Visiting) on M2.
+Both coaches get a Coaching Choice. The ball stays with Fire Demons (Visiting) on V1.
 
 # Coaching Choice
 Fire Demons (Visiting):
