@@ -44,6 +44,8 @@ python3 -m unittest discover -s tests
 | `d12ball/player_cards.py` | The roster as cards, print-only, over `cards.py` |
 | `d12ball/species_cards.py` | The four species abilities as a three-card reference set, print-only |
 | `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game |
+| `d12ball/rulebooks.py` | The two rulebooks as PDFs: the markdown subset, the Charter's build-time numbering, the reportlab layout. `scripts/build_rulebooks.py` is its CLI -- [rulebooks.md](docs/design/rulebooks.md) |
+| `d12ball/rulebook_figures.py` | The Learn to Play's illustrations, as real match states rendered by `render.py` and annotated; written to `docs/rulebooks/figures/` by `--figures` |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
 | `d12ball/stats.py` | Every statistic `/d12ball stats` reports, as a fold over `MatchState.events`. No Discord and no game flow |
 | `d12ball/tutorial.py` | The scripted opening a tutorial game plays -- the five beats as data, and the rails |
@@ -60,6 +62,7 @@ python3 -m unittest discover -s tests
 | `docs/gambit-matrix.md` | The worksheet the gambits were built from, cut to what is still open. **Nothing in it is a rule** |
 | `docs/model-discord-split.md` | The worksheet the model/Discord split is being built from -- the phases still open, what deliberately does not move, the bot-testing stop each phase ends on. **Nothing in it is a rule**; the principles it was written around now live in "The model and the Discord layer" below, moved there when Phase 1 landed |
 | `docs/model-discord-split-prompts.md` | The prompt each phase of that worksheet is run from, one conversation per phase. Deleted phase by phase as they land, and with the worksheet at the end |
+| `docs/rulebooks/` | The worksheet the two rulebooks are built from -- the plan, the Charter and Learn to Play outlines, and the committed figure sketches. **Nothing in it is a rule** |
 | `docs/design/` | The design notes this file points at -- one topic per file |
 
 ## Hard rules
@@ -294,6 +297,7 @@ bot stop each phase ends on.
 | `to_dict`/`from_dict`, `storage.py`, the startup sweep, the full-image link, bundled file names | [gotchas.md](docs/design/gotchas.md) | Every fallback and why it stays; the swallowed save; the case-sensitive name |
 | Writing or moving a test; patching `save_games` | [testing.md](docs/design/testing.md) | The package-split patch trap; the stray-save guard; naming by role |
 | Deploying, the `K:\` host, `update_main_bot.ps1`, a 10062 | [collaboration.md](docs/design/collaboration.md) | Two machines, one live bot; one bot per token |
+| `d12ball/rulebooks.py`, `d12ball/rulebook_figures.py`, `scripts/build_rulebooks.py`, anything in `docs/rulebooks/` | [rulebooks.md](docs/design/rulebooks.md) | The Charter is the living rules renumbered, not a copy; numbering at build time; the figures are the renderer's; the markdown subset that fails the suite, not the print run |
 | `d12ball/prompts.py`, `pending_turn_view`, `view_for_prompt`, `tests/prompt_fixtures.py`; `d12ball/flow/`, `StepResult`, `FollowOn`, `dispatch_step_result`, `tests/low_pass_fixtures.py`, `tests/dribble_fixtures.py`; `tests/test_model_purity.py`, `tests/test_golden_transcript.py`, `tests/golden/`, anything that could add a `discord` import or `async def` under `d12ball/` or `gamesaves/d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | Why the chain moved whole and what a prompt may carry; one kind per view class; the purity ratchet and why it runs in a subprocess; the golden transcript's seeded RNG and what it does not cover; the Python-version and root-test gotchas |
 
 ## Notes for Claude
