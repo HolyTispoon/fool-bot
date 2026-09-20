@@ -49,7 +49,8 @@ class FollowOnStep(Enum):
     #: A set-up -- the offense is offered a scoring attempt instead of
     #: letting the maneuver resolve normally.
     OFFER_SCORING_ATTEMPT_CHOICE = auto()
-    #: The ball-speed manipulation a dribble ends on: always the last
+    #: The ball-speed manipulation a Dribble Advance ends on (a burst
+    #: sets 12 and asks nothing): always the last
     #: human choice in an effect, and it leads into
     #: `finish_maneuver_resolution` itself once answered. It is a
     #: follow-on rather than a `PendingPrompt` because whether anyone

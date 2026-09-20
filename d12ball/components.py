@@ -875,8 +875,8 @@ SKILLED_PASS_REACH = 3
 # what the exhaustion is charged against.
 DRIBBLE_BURST_MAX_DISTANCE = 4
 # The ball's speed runs 1 to this. It is the one number a speed choice
-# is clamped to, and since 2026-09-20 also what a Dribble Burst may set
-# outright -- see `RulesEngine.speed_choice_reach`.
+# is clamped to, and since 2026-09-20 also what a won Dribble Burst
+# leaves the ball at -- see `dribble_burst_step`.
 BALL_SPEED_MAX = 12
 
 MANEUVER_TIER_BASIC = "basic"
