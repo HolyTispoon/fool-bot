@@ -162,8 +162,7 @@ class PlayerActionView(SafeView):
             ),
         ]
         if can_shoot:
-            actions.insert(
-                0,
+            actions.append(
                 (
                     "Shoot to score",
                     "shoot",

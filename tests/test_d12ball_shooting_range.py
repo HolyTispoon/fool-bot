@@ -239,7 +239,7 @@ class ShootButtonTests(unittest.IsolatedAsyncioTestCase):
             [item.label for item in PlayerActionView(
                 cog, game.game_id,
             ).children],
-            ["Shoot to score", "Maneuver"],
+            ["Maneuver", "Shoot to score"],
         )
 
         # Out of range the cede takes the shot's place -- the two are
