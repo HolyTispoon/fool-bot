@@ -206,9 +206,11 @@ class FollowOnStepTests(unittest.TestCase):
     rank's own tests.
     """
 
-    #: Every spine step a lifted effect may end by naming, as of rank
-    #: D2. A rank that hands off to a new one adds its member here and
-    #: a row to `D12Ball.follow_on_methods`; Phase 6 empties both.
+    #: Every spine step a lifted step may end by naming, as of Phase
+    #: 4. A phase that hands off to a new one adds its member here and
+    #: a row to `D12Ball.follow_on_methods`; one that lifts a step the
+    #: cog used to dispatch takes its member back out. Phase 6 empties
+    #: both.
     EXPECTED = {
         "FINISH_MANEUVER_RESOLUTION",
         "OFFER_SCORING_ATTEMPT_CHOICE",
@@ -219,6 +221,7 @@ class FollowOnStepTests(unittest.TestCase):
         "BEGIN_LOOSE_BALL",
         "OFFER_SETUP_PASS_PUSH_BACK",
         "BEGIN_HIGH_PASS_CONTEST",
+        "DISPATCH_INJURY_RESUME",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(

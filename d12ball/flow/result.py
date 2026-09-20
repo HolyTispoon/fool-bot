@@ -102,6 +102,16 @@ class FollowOnStep(Enum):
     #: side of the coach's answer, rather than in front of a question
     #: whose answer moves the ball again.
     OFFER_SETUP_PASS_PUSH_BACK = auto()
+    #: Where a drained injury-test queue puts the turn back. Phase 4's,
+    #: and a member rather than a lift because two of the three
+    #: arrivals it names are not the spine's: a maneuver's skill test
+    #: goes on to `begin_effect_resolution` and a shootout test to
+    #: `continue_shootout`, neither of which this phase moves. The
+    #: third, `begin_run_back`, did move -- but a dispatcher that can
+    #: only answer one of its three kinds in the model is a dispatcher
+    #: split in two, which is the second-copy failure principle 3 is
+    #: about. It goes when Phase 5 takes the shootout.
+    DISPATCH_INJURY_RESUME = auto()
     #: The long pass's contest: the receiver standing where a High
     #: Pass of 3 or 4 landed still has to win a skill test to keep it.
     #: Rank O3's, and a member of its own rather than `BEGIN_LOOSE_BALL`

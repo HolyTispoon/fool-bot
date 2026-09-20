@@ -53,6 +53,10 @@ from d12ball.cards import (
     render_maneuver_hands,
 )
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.injuries import (
+    begin_injury_tests,
+    continue_injury_tests,
+)
 from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
@@ -1406,42 +1410,21 @@ class CoreMixin:
         resume: dict,
     ) -> None:
         """
-        Hand the injury tests a resolved contest owes to the coaches,
-        one button each, and remember what the contest was going to do
-        next.
+        The Discord half of the injury tests a resolved contest owes:
+        run the step, save what it did, then ask what it asks or run
+        what it names.
 
-        **A contest cannot simply carry on into its effect any more**:
-        the tests are now clicks, and the last of them may be several
-        minutes after the roll that owed them. `resume` is that
-        continuation, persisted with the queue because a restart in
-        between has nothing else to reconstruct it from -- the skill
-        test's winner is not derivable once the roll has happened
-        (`settled_maneuver_winner` answers None while a test is owed),
-        and a loose ball's distance is gone with the state that
-        cleared it. `dispatch_injury_resume` is the other half.
-
-        A player already injured owes nothing, so the queue is
-        filtered here rather than refused at the prompt -- an injured
-        player gains no exhaustion tokens and can never be asked
-        again.
+        The queue, the filter and the continuation are all
+        `d12ball.flow.injuries.begin_injury_tests`'s since Phase 4 --
+        see it for why `resume` is persisted alongside the queue. What
+        is left here is the persist, which the step no longer does
+        (principle 9), and which is an **added** line rather than a
+        moved one: the wrapper was not saving before, it relied on the
+        step to.
         """
-        owed = [
-            player.player_id
-            for player in players
-            if player.player_id not in match.injured
-        ]
-        if not owed:
-            # Nothing owed is the common case, and it writes nothing:
-            # the contest carries straight on into its continuation,
-            # exactly as it did before the tests became clicks.
-            await self.dispatch_injury_resume(interaction, game, match, resume)
-            return
-
-        match.pending_injury_tests = owed
-        match.pending_injury_resume = resume
+        result = begin_injury_tests(self.engine, game, match, players, resume)
         self.persist(game, match)
-
-        await self.continue_injury_tests(interaction, game, match)
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def continue_injury_tests(
         self,
@@ -1452,44 +1435,13 @@ class CoreMixin:
         """
         Ask for the next injury test still owed, or -- when there are
         none left -- do what the contest that owed them was going to
-        do. The one exit from the queue, so a test that is rolled and
-        a test that turns out not to be owed leave by the same door.
+        do. The Discord half of
+        `d12ball.flow.injuries.continue_injury_tests`, and the one
+        exit from the queue.
         """
-        while match.pending_injury_tests:
-            player_id = match.pending_injury_tests[0]
-            if player_id in match.injured:
-                # Injured since the queue was built -- by the other
-                # participant's test, which cannot happen today, but a
-                # player who cannot be injured twice should never be
-                # asked to roll for it.
-                match.pending_injury_tests.pop(0)
-                continue
-
-            player = self.engine.get_player_definition(player_id)
-            controller_id = self.engine.controlling_user_id(game, match, player_id)
-            mention = f"<@{controller_id}>" if controller_id else "Someone"
-            tokens = match.exhaustion.get(player_id, 0)
-            prompt_message = await send_new_prompt(
-                interaction,
-                f"{mention}, "
-                f"{self.player_label(match, player)} is "
-                "exhausted and owes an injury test: a d12 that has to "
-                f"beat their {tokens} exhaustion "
-                f"{'token' if tokens == 1 else 'tokens'}.",
-                view=InjuryTestView(self, game.game_id, player_id),
-                allowed_mentions=discord.AllowedMentions(
-                    users=True, roles=False, everyone=False,
-                ),
-            )
-            game.turn_message_id = prompt_message.id
-            self.persist(game, match)
-            return
-
-        resume = match.pending_injury_resume
-        match.pending_injury_resume = None
+        result = continue_injury_tests(self.engine, game, match)
         self.persist(game, match)
-
-        await self.dispatch_injury_resume(interaction, game, match, resume)
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def dispatch_injury_resume(
         self,
@@ -1497,6 +1449,7 @@ class CoreMixin:
         game: D12BallGame,
         match: MatchState,
         resume: Optional[dict],
+        lead_in: str = "",
     ) -> None:
         """
         Pick the turn back up where the injury tests interrupted it.
@@ -1505,6 +1458,19 @@ class CoreMixin:
         the long High Pass that borrows its machinery) goes on to its
         run back, and a shootout skill test goes on to the next one --
         or to the end of the game.
+
+        **This is a `FollowOnStep` rather than a lifted step**, because
+        two of those three arrivals are not the spine's and Phase 4 did
+        not move them. See `FollowOnStep.DISPATCH_INJURY_RESUME`.
+
+        `lead_in` is here because every follow-on is called with one,
+        and it is passed on to the only kind with somewhere to put it.
+        It is always `""` today: an injury test interrupts a contest
+        that has already posted its own message, so there is no
+        narration waiting when the queue drains. The parameter is what
+        makes that true by construction rather than by accident -- a
+        later caller that does batch into here reaches `begin_run_back`
+        with its lines instead of dropping them silently.
         """
         kind = (resume or {}).get("kind")
         if kind == "shootout_test":
@@ -1536,6 +1502,7 @@ class CoreMixin:
                 match,
                 distance_moved=resume.get("distance_moved", 1),
                 turnover_occurred=resume.get("turnover_occurred", True),
+                lead_in=lead_in,
             )
             return
         LOGGER.error(
@@ -1868,6 +1835,8 @@ class CoreMixin:
                 self.offer_setup_pass_push_back,
             FollowOnStep.BEGIN_HIGH_PASS_CONTEST:
                 self.begin_high_pass_contest,
+            FollowOnStep.DISPATCH_INJURY_RESUME:
+                self.dispatch_injury_resume,
         }
 
     async def dispatch_step_result(
@@ -1925,11 +1894,34 @@ class CoreMixin:
             return
 
         if isinstance(following, PendingPrompt):
-            await send_new_prompt(
+            prompt_message = await send_new_prompt(
                 interaction,
                 " ".join(filter(None, (lead_in, following.ask))),
                 view=self.view_for_prompt(game.game_id, match, following),
+                # **Every prompt this posts may name a coach**, and
+                # from Phase 4 most of them do -- an injury test, a
+                # run-back choice and a loose-ball pick all open with a
+                # mention. The settings are the ones all twenty-odd
+                # hand-written prompt sites already pass: ping the user
+                # asked, never a role and never the channel. Passing
+                # them here rather than per prompt is what stops a
+                # lifted prompt quietly picking up the library default,
+                # which allows all three.
+                allowed_mentions=discord.AllowedMentions(
+                    users=True, roles=False, everyone=False,
+                ),
             )
+            # **The message a restart re-attaches the view to.** The
+            # sites this method is absorbing each recorded it, and a
+            # prompt that does not is one `on_ready` cannot put live
+            # buttons back on -- the game falls back to
+            # `/d12ball resume`. It is the game record rather than the
+            # match, so it is `save_games` and not `persist`: the
+            # caller has already written the match (principle 9), and
+            # this is the id of the message that write led to. See
+            # `restore_saved_views`.
+            game.turn_message_id = prompt_message.id
+            save_games(self.games)
             return
 
         if lead_in:

@@ -257,7 +257,10 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
             maneuver_key="low_pass",
         )
 
-        with mock.patch(
+        # `dispatch_step_result` records `turn_message_id` for every
+        # prompt it posts since Phase 4, so it reaches the cog's own
+        # `save_games` binding as well as the view's.
+        with suppressed_cog_saves(), mock.patch(
             "cogs.d12ball.core.send_new_prompt", mock.AsyncMock(),
         ) as send:
             await cog.dispatch_step_result(
@@ -298,7 +301,10 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
         )
         cog = build_cog()
 
-        with mock.patch(
+        # `dispatch_step_result` records `turn_message_id` for every
+        # prompt it posts since Phase 4, so it reaches the cog's own
+        # `save_games` binding as well as the view's.
+        with suppressed_cog_saves(), mock.patch(
             "cogs.d12ball.core.send_new_prompt", mock.AsyncMock(),
         ) as send:
             await cog.dispatch_step_result(

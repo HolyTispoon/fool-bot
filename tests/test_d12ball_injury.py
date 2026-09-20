@@ -276,7 +276,7 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
             followup=SimpleNamespace(send=send),
         )
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
+        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
             "discord.File",
         ), mock.patch(
             "random.randint", return_value=7,
