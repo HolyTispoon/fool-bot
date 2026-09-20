@@ -354,20 +354,17 @@ class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
                 # same reason: the position it draws is the one the
                 # run finished on, which is what `BoardRefresher` was
                 # already collapsing several writes into.
-                expected = ["persist"]
                 if driver.runs(member):
-                    expected += [following, "persist"]
+                    expected = [following, "persist"]
                     if fixture.refreshes:
                         expected.append("refresh")
                 else:
+                    expected = ["persist"]
                     if fixture.refreshes:
                         expected.append("refresh")
                     expected.append(following)
                 self.assertEqual(calls, expected)
-                self.assertEqual(
-                    ball_when_saved,
-                    [fixture.ball_space] * expected.count("persist"),
-                )
+                self.assertEqual(ball_when_saved, [fixture.ball_space])
 
     @staticmethod
     def _recorder(calls: list[str], name: str):

@@ -261,7 +261,6 @@ class ManeuverEffectsMixin:
             key=key,
             free=free,
         )
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     # -- Dribble Advance ---------------------------------------------
@@ -325,7 +324,6 @@ class ManeuverEffectsMixin:
         for why the save is here rather than inside the step.
         """
         result = dribble_advance_step(self.engine, game, match, distance)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def resolve_dribble_burst(
@@ -411,7 +409,6 @@ class ManeuverEffectsMixin:
         and the Playmaker's discount live.
         """
         result = dribble_burst_step(self.engine, game, match, distance)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     # -- High Pass -----------------------------------------------------
@@ -482,7 +479,6 @@ class ManeuverEffectsMixin:
         between the two depends on.
         """
         result = setup_pass_speed_step(self.engine, match)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def offer_setup_pass_distance(
@@ -567,7 +563,6 @@ class ManeuverEffectsMixin:
         `setup_pass_step`.
         """
         result = setup_pass_step(self.engine, match, distance)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def apply_setup_pass_out(
@@ -584,7 +579,6 @@ class ManeuverEffectsMixin:
         the branch the pass itself can only meet from a stale click.
         """
         result = setup_pass_out_step(match)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def apply_high_pass(
@@ -603,7 +597,6 @@ class ManeuverEffectsMixin:
         own; see `follow_on_draws_the_board`.
         """
         result = high_pass_step(self.engine, match, distance)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def begin_high_pass_contest(
@@ -622,7 +615,6 @@ class ManeuverEffectsMixin:
         result = begin_high_pass_contest(
             self.engine, game, match, distance_moved, lead_in=lead_in,
         )
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def offer_scoring_attempt_choice(
@@ -650,7 +642,6 @@ class ManeuverEffectsMixin:
             lead_in=lead_in,
             contest_on_decline=contest_on_decline,
         )
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def send_set_up_attempt_prompt(
@@ -704,7 +695,6 @@ class ManeuverEffectsMixin:
         result = decline_scoring_attempt(
             self.engine, game, match, distance_moved, contest=contest,
         )
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
 
@@ -722,7 +712,6 @@ class ManeuverEffectsMixin:
         `d12ball.flow.arrivals.continue_smooth`.
         """
         result = continue_smooth(self.engine, game, match)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def continue_mind_pull(
@@ -736,7 +725,6 @@ class ManeuverEffectsMixin:
         `d12ball.flow.arrivals.continue_mind_pull`.
         """
         result = continue_mind_pull(self.engine, game, match)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def run_smooth(
@@ -837,7 +825,6 @@ class ManeuverEffectsMixin:
         `run_mind_pull`'s call sites.
         """
         result = dispatch_arrival_resume(self.engine, game, match, resume)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def run_mind_pull(
@@ -1086,7 +1073,6 @@ class ManeuverEffectsMixin:
         result = begin_shooter_choice(
             self.engine, game, match, candidates, lead_in=lead_in,
         )
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def send_shooter_prompt(
@@ -1211,7 +1197,6 @@ class ManeuverEffectsMixin:
         docs/design/rate-limits.md.
         """
         result = deflection_step(self.engine, match, key)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def offer_setup_pass_push_back(
@@ -1355,7 +1340,6 @@ class ManeuverEffectsMixin:
         state written the same number of times on either branch.
         """
         result = steal_step(self.engine, match, key)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     # -- Pressure --------------------------------------------------------
@@ -1410,7 +1394,6 @@ class ManeuverEffectsMixin:
         docs/design/rate-limits.md.
         """
         result = pressure_step(self.engine, match, key)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     # -- Ball-speed manipulation (Dribble Advance / Steal) --
@@ -1619,7 +1602,6 @@ class ManeuverEffectsMixin:
         result = begin_own_goal_roll(
             self.engine, game, match, distance_moved, lead_in=lead_in,
         )
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def own_goal_roll_file(

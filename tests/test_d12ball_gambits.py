@@ -60,6 +60,7 @@ from d12ball.game import (
 )
 
 from roster import benched, fielded
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
 
 
@@ -204,6 +205,7 @@ class GambitHarness:
         board_size: int = 7,
     ) -> tuple[D12Ball, D12BallGame, MatchState]:
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         game = build_game(board_size=board_size)
         cog.games[game.game_id] = game
         match = cog.engine.initialize_standard_match(game)

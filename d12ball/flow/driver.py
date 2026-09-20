@@ -96,12 +96,26 @@ def _begin_maneuver_action_selection(
 #: is uniform on purpose: `(engine, game, match, *, lead_in, **kwargs)`,
 #: which is the shape `dispatch_step_result` already called the cog's
 #: wrappers with.
+#:
+#: **`BEGIN_HIGH_PASS_CONTEST` is deliberately not here**, although its
+#: wrapper is the same three lines as the four arrivals above it. It is
+#: the one step in the enum with a board write ordered *in front of*
+#: it: `begin_loose_ball` draws no board for a High Pass -- the ball is
+#: on a receiver both coaches watched catch it -- so rank O3 made it a
+#: member of its own precisely so the board the pass moved is written
+#: before the contest is announced (see
+#: `tests/test_d12ball_high_pass_flow.py`). The loop writes no boards
+#: and runs to the end of what it can, so a step it runs has its board
+#: written *after* it -- which is right everywhere `BoardRefresher` was
+#: already collapsing a cascade, and wrong here. Moving it needs the
+#: loop to be able to stop *before* a step and be re-entered once the
+#: frontend has drawn, which is a `stop_before` to `stop_after`'s
+#: `stop_after` and the next increment rather than this one.
 MODEL_STEPS: Mapping[FollowOnStep, Callable[..., StepResult]] = {
     FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE:
         arrivals.offer_scoring_attempt_choice,
     FollowOnStep.BEGIN_SHOOTER_CHOICE: arrivals.begin_shooter_choice,
     FollowOnStep.BEGIN_OWN_GOAL_ROLL: arrivals.begin_own_goal_roll,
-    FollowOnStep.BEGIN_HIGH_PASS_CONTEST: arrivals.begin_high_pass_contest,
     FollowOnStep.FINISH_RUN_BACK: turnovers.finish_run_back,
     FollowOnStep.BEGIN_MANEUVER_ACTION_SELECTION:
         _begin_maneuver_action_selection,

@@ -30,6 +30,7 @@ cog.
 
 from __future__ import annotations
 
+import contextlib
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -41,6 +42,7 @@ from cogs.d12ball.core import (
 )
 from d12ball.components import MatchState
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
+from d12ball.flow import driver
 from d12ball.flow.effects import (
     high_pass_step,
     setup_pass_out_step,
@@ -55,6 +57,7 @@ from high_pass_fixtures import (
     HIGH_PASS_CONTEST,
     PASS_CASES,
 )
+from flow_stubs import chain_records_at, chain_stops_at, lead_in_of
 from save_patches import suppressed_cog_saves
 from test_d12ball_high_pass_recording import (
     FOLLOW_ONS,
@@ -215,6 +218,11 @@ class PassStepTests(unittest.TestCase):
         """
         cog = build_cog()
         member = FollowOnStep[HIGH_PASS_CONTEST]
+        # **Still the cog's after Phase 6**, and the board write in
+        # front of it is why -- see `MODEL_STEPS` in
+        # `d12ball/flow/driver.py` and
+        # `test_the_high_pass_contest_is_drawn_in_front_of` below.
+        self.assertNotIn(member, driver.MODEL_STEPS)
         self.assertIs(
             D12Ball.follow_on_methods(cog)[member],
             cog.begin_high_pass_contest,
@@ -410,24 +418,38 @@ class PassWrapperTests(unittest.IsolatedAsyncioTestCase):
 
                 cog.persist = persist
                 cog.refresh_match_image = refresh
-                for step, _ in FOLLOW_ONS.values():
-                    setattr(cog, step, self._recorder(calls, step))
+                stack = contextlib.ExitStack()
+                with stack:
+                    for key, (step, _) in FOLLOW_ONS.items():
+                        stack.enter_context(
+                            chain_records_at(
+                                cog, FollowOnStep[key], calls, step,
+                            ),
+                        )
+                    await drive(cog, fixture, SimpleNamespace())
 
-                await drive(cog, fixture, SimpleNamespace())
-
-                expected = ["persist"]
-                if fixture.refreshes:
-                    expected.append("refresh")
-                expected.append(FOLLOW_ONS[fixture.follow_on][0])
+                # **Two saves where the driver runs the next step.**
+                # The wrapper writes its own step and
+                # `dispatch_step_result` writes whatever
+                # `driver.advance` ran after it -- principle 9 with
+                # the dispatcher as the driver's caller. The board
+                # write follows the run rather than preceding it, for
+                # the reason `BoardRefresher` collapses a cascade's
+                # writes already: the position worth drawing is the
+                # one the run finished on.
+                member = FollowOnStep[fixture.follow_on]
+                taken = FOLLOW_ONS[fixture.follow_on][0]
+                if driver.runs(member):
+                    expected = [taken, "persist"]
+                    if fixture.refreshes:
+                        expected.append("refresh")
+                else:
+                    expected = ["persist"]
+                    if fixture.refreshes:
+                        expected.append("refresh")
+                    expected.append(taken)
                 self.assertEqual(calls, expected)
                 self.assertEqual(ball_when_saved, [fixture.ball_space])
-
-    @staticmethod
-    def _recorder(calls: list[str], name: str):
-        async def recorded(*args, **kwargs) -> None:
-            calls.append(name)
-
-        return recorded
 
     async def test_no_branch_posts_a_message_of_its_own(self) -> None:
         """
@@ -444,14 +466,13 @@ class PassWrapperTests(unittest.IsolatedAsyncioTestCase):
                 cog.games[fixture.game.game_id] = fixture.game
                 interaction = build_interaction()
 
-                with suppressed_cog_saves():
+                member = FollowOnStep[fixture.follow_on]
+                with chain_stops_at(cog, member) as taken, \
+                        suppressed_cog_saves():
                     await drive(cog, fixture, interaction)
 
                 interaction.followup.send.assert_not_awaited()
-                taken = getattr(cog, FOLLOW_ONS[fixture.follow_on][0])
-                self.assertEqual(
-                    taken.await_args.kwargs["lead_in"], fixture.narration,
-                )
+                self.assertEqual(lead_in_of(taken), fixture.narration)
 
 
 if __name__ == "__main__":

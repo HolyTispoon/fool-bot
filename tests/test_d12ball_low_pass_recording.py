@@ -41,6 +41,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 
 from low_pass_fixtures import FINISH, LOW_PASS_CASES, SCORING_CHOICE
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
 
 
@@ -92,6 +93,7 @@ class LowPassRecordingTests(unittest.IsolatedAsyncioTestCase):
     async def _check(self, case) -> None:
         fixture = case.build()
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.games[fixture.game.game_id] = fixture.game
         match = fixture.match
         interaction = SimpleNamespace()
@@ -151,6 +153,7 @@ class LowPassRecordingTests(unittest.IsolatedAsyncioTestCase):
             if case.name == "free_pass_off_a_beaten_skilled_pass"
         )
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.games[fixture.game.game_id] = fixture.game
         self.assertIsNotNone(fixture.match.pending_effect_continuation)
 
@@ -189,6 +192,7 @@ class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
             if case.name == "skilled_pass"
         )
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.games[fixture.game.game_id] = fixture.game
         cog.send_field_prompt = mock.AsyncMock()
         cog.apply_low_pass = mock.AsyncMock()

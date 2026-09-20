@@ -224,10 +224,14 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
         )
         cog = build_cog()
 
-        await cog.dispatch_step_result(
-            SimpleNamespace(), fixture.game, fixture.match,
-            StepResult(board_changed=False),
-        )
+        # The dispatcher writes the match once for the run it just
+        # drove (principle 9), so a test calling it directly has to
+        # suppress the save the way a wrapper's test does.
+        with suppressed_cog_saves():
+            await cog.dispatch_step_result(
+                SimpleNamespace(), fixture.game, fixture.match,
+                StepResult(board_changed=False),
+            )
 
         cog.refresh_match_image.assert_not_awaited()
 

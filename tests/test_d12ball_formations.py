@@ -47,6 +47,7 @@ from d12ball.game import (
     GameStatus,
     Team,
 )
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import (
     suppressed_cog_saves,
     suppressed_full_image_links,
@@ -424,6 +425,7 @@ class BoardScopedFormationTests(unittest.TestCase):
         # On board 7 that is not a shape the game plays, so it reads as
         # no shape at all rather than as one the button would refuse.
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         for board_size, expected in ((9, Formation.THREE_TWO_ONE), (7, None)):
             with self.subTest(board_size=board_size):
                 match = MatchState.standard(
@@ -443,6 +445,7 @@ class BoardScopedFormationTests(unittest.TestCase):
 
     def test_a_change_of_shape_is_refused_off_its_board(self) -> None:
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         match = MatchState.standard(
             catalog=self.catalog,
             ruleset=self.rules,
@@ -677,6 +680,7 @@ class FormationReassignmentTests(unittest.TestCase):
 
     def test_the_current_formation_is_read_off_the_zones(self) -> None:
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         match = self.build_match()
 
         self.assertEqual(
@@ -698,6 +702,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
         board_size: int = 7,
     ) -> tuple[D12Ball, D12BallGame, MatchState]:
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         game = build_game(
             status=GameStatus.IN_PROGRESS,
             home_player_number=1,
@@ -850,6 +855,7 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
 
     def build(self, extras: int = 3):
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.finish_maneuver_resolution = mock.AsyncMock()
         cog.offer_scoring_attempt_choice = mock.AsyncMock()
         game = build_game(

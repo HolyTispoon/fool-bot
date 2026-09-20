@@ -242,3 +242,76 @@ def chain_records_at(
     finally:
         if original is not None:
             setattr(cog, attribute, original)
+
+
+#: The cog attribute each step the driver runs still answers to.
+#:
+#: Every one of them kept its cog method -- the driver calls the flow
+#: function directly, but the method is an entry point in its own
+#: right for a click or a test. The name is the member lower-cased for
+#: all of them, which is asserted rather than assumed in
+#: `tests/test_d12ball_package_shape.py`.
+MODEL_STEP_ATTRIBUTES: Mapping[FollowOnStep, str] = {
+    member: member.name.lower() for member in REAL_MODEL_STEPS
+}
+
+
+def _as_a_step(cog: Any, member: FollowOnStep, attribute: str) -> Any:
+    """
+    A sync shim over whatever the cog is holding under `attribute`.
+
+    The driver calls its steps synchronously; a test's stub is an
+    `AsyncMock` and `assert_awaited_once` only counts an *await*. So
+    the shim drives the coroutine the mock returns to completion,
+    which is what an `await` would have done -- and the test's
+    existing `assert_awaited_*` reads true without being rewritten.
+    Returns a `StepResult` that stops the loop, the way an
+    `AsyncMock`'s cog method stopped the old chain.
+
+    **The attribute is read when the step runs, not when the routing
+    is installed.** Plenty of tests build the cog and then stub one
+    more method on the way into the case they are about, and a
+    routing that snapshotted the cog would miss exactly those. Where
+    the attribute is not a stub the real step runs, so installing the
+    routing costs a test that does not use it nothing.
+    """
+
+    real = REAL_MODEL_STEPS[member]
+
+    def run(*args: Any, **kwargs: Any) -> StepResult:
+        stub = getattr(cog, attribute, None)
+        if not isinstance(stub, mock.AsyncMock):
+            return real(*args, **kwargs)
+        coroutine = stub(*args, **kwargs)
+        try:
+            coroutine.send(None)
+        except StopIteration:
+            pass
+        return StepResult()
+
+    return run
+
+
+@contextlib.contextmanager
+def driver_reaches_cog_stubs(cog: Any) -> Iterator[None]:
+    """
+    Point the driver's steps at whatever stubs are already on the cog.
+
+    Dozens of tests build a cog with `cog.some_step = AsyncMock()` and
+    assert on it afterwards. Phase 6 moved some of those steps into
+    `d12ball.flow.driver`, which never looks at the cog -- so the stub
+    is still there and nothing reaches it. This wraps the drive and
+    routes the loop back through it, which keeps the assertions those
+    tests were written with and changes only where the stub is
+    plugged in.
+
+    A test asserting on the *arguments* should prefer
+    `chain_stops_at`: the two sides differ in their first parameter
+    (`interaction` against `engine`), and this shim does not pretend
+    otherwise.
+    """
+    patched = dict(driver.MODEL_STEPS)
+    for member, attribute in MODEL_STEP_ATTRIBUTES.items():
+        patched[member] = _as_a_step(cog, member, attribute)
+    with mock.patch.object(driver, "MODEL_STEPS", patched):
+        yield

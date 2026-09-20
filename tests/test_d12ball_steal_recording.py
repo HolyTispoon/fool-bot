@@ -53,6 +53,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 
+from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
 from steal_fixtures import RUN_BACK, SHOOTER_CHOICE, STEAL_CASES
 
@@ -129,6 +130,7 @@ class StealRecordingTests(unittest.IsolatedAsyncioTestCase):
     async def _check(self, case) -> None:
         fixture = case.build()
         cog = build_cog()
+        self.enterContext(driver_reaches_cog_stubs(cog))
         cog.games[fixture.game.game_id] = fixture.game
         match = fixture.match
 

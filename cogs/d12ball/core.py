@@ -1003,7 +1003,6 @@ class CoreMixin:
         message: the pick that follows is a prompt of its own.
         """
         result = announce_uncontested_maneuver(self.engine, game, match)
-        self.persist(game, match)
         await self.post_then_dispatch(interaction, game, match, result)
 
     async def begin_maneuver_action_selection(
@@ -1026,7 +1025,6 @@ class CoreMixin:
         result = begin_maneuver_action_selection(self.engine, game, match)
         if lead_in:
             result.narration.insert(0, lead_in)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def send_maneuver_action_prompt(
@@ -1227,7 +1225,6 @@ class CoreMixin:
         result = resolve_maneuver(self.engine, game, match)
         if lead_in:
             result.narration.insert(0, lead_in)
-        self.persist(game, match)
         await self.post_then_dispatch(interaction, game, match, result)
 
     async def begin_injury_tests(
@@ -1252,7 +1249,6 @@ class CoreMixin:
         step to.
         """
         result = begin_injury_tests(self.engine, game, match, players, resume)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def continue_injury_tests(
@@ -1269,7 +1265,6 @@ class CoreMixin:
         exit from the queue.
         """
         result = continue_injury_tests(self.engine, game, match)
-        self.persist(game, match)
         await self.dispatch_step_result(interaction, game, match, result)
 
     async def run_injury_test(
@@ -1849,6 +1844,8 @@ class CoreMixin:
             FollowOnStep.OFFER_SPEED_CHOICE: self.offer_speed_choice,
             FollowOnStep.BEGIN_RUN_BACK: self.begin_run_back,
             FollowOnStep.BEGIN_LOOSE_BALL: self.begin_loose_ball,
+            FollowOnStep.BEGIN_HIGH_PASS_CONTEST:
+                self.begin_high_pass_contest,
             FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK:
                 self.offer_setup_pass_push_back,
             FollowOnStep.END_PERIOD: self.end_period,
@@ -1929,14 +1926,22 @@ class CoreMixin:
         run = driver.advance(
             self.engine, game, match, result, stop_after=DRIVER_STOPS,
         )
-        # **One save for the run, after it** -- principle 9. Each of
-        # the steps the driver just ran used to save itself, so a
-        # cascade of four wrote the same file four times; the caller
-        # has already written the match for its own step, and this is
-        # the write the driver's steps owe. A run that ran nothing
-        # owes nothing, which is what `DriverRun.ran` is for.
-        if run.ran:
-            self.persist(game, match)
+        # **The one save, and it is here** -- principle 9. Every step
+        # of the run has mutated the match and none of them has
+        # written it: the wrappers that used to save between their own
+        # step and this call no longer do (41 of them went), and the
+        # steps the driver ran never did. So one write, after
+        # everything that moves has moved and before anything is
+        # posted, which is the ordering the whole principle is about:
+        # a prompt hands the turn to a click that reloads the match
+        # out of the save file, so the file has to be right first.
+        #
+        # It is unconditional rather than `if run.ran`, because the
+        # caller's own step has almost always changed something and
+        # the dispatcher cannot see that from here. One write per
+        # click is what it was before; what has gone is the second,
+        # third and fourth write of the same file inside one cascade.
+        self.persist(game, match)
         result = run.result
 
         lead_in = " ".join(result.narration)
