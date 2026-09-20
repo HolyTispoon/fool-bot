@@ -759,7 +759,7 @@ def even_button_rows(
     Split one side's maneuver buttons into as few rows as Discord
     allows, and then **evenly** across them.
 
-    Six advanced cards do not fit a row, and chunking at the limit
+    Six gambits do not fit a row, and chunking at the limit
     would lay them out five and one -- which reads as a row plus an
     afterthought rather than as one hand. Two rows of three is the same
     number of rows and says what it is.
@@ -840,12 +840,14 @@ class ManeuverActionPromptView(SafeView):
 
         for side in sides:
             # **The hand is the engine's answer, not the whole
-            # catalog.** A basic game is three cards and an advanced one
-            # is six, and an unchallenged maneuver is basic whatever the
-            # mode -- see `RulesEngine.maneuver_tiers`. Asking there is
-            # what keeps these buttons, the hand image above them and
-            # `pick`'s own check from disagreeing about what a coach may
-            # play.
+            # catalog**, and it is asked **per side**: a basic game is
+            # three cards, an unchallenged maneuver is basic whatever
+            # the mode, and a gambit is held only by a coach whose team
+            # is behind -- so one row here can be six buttons and the
+            # other three. See `RulesEngine.maneuver_tiers`. Asking
+            # there is what keeps these buttons, the hand image above
+            # them and `pick`'s own check from disagreeing about what a
+            # coach may play.
             maneuvers = (
                 cog.engine.maneuver_hand(game, match, side)
                 if game is not None and match is not None
@@ -926,9 +928,9 @@ class ManeuverActionPromptView(SafeView):
         # The full-image link is added after the message is posted (the
         # URL does not exist until then -- see `add_full_image_button`),
         # and discord.py drops a rowless button into the *first* row with
-        # space. On an advanced prompt every side's hand is two rows of
-        # three, so that first gap is between a side's basic and advanced
-        # cards. Point it at the reference's row instead, so it lands
+        # space. A side holding gambits has a hand of two rows of
+        # three, so that first gap is between its basic cards and
+        # its gambits. Point it at the reference's row instead, so it lands
         # after every maneuver button. None where the fallback above
         # packed the reference onto a maneuver row -- that row may be
         # full, and the default placement is fine there anyway.
@@ -1008,7 +1010,7 @@ class ManeuverActionPromptView(SafeView):
                 "prompt at the bottom of the channel."
             )
 
-        # Same reason as the rail above: an advanced card clicked off an
+        # Same reason as the rail above: a gambit clicked off an
         # older prompt would be a maneuver this turn does not play.
         playable = {
             maneuver.key

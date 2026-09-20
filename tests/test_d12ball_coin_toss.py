@@ -18,6 +18,7 @@ from cogs.d12ball_helpers import (
     INJURED_EMOJI_FALLBACK,
     ROLE_EMOJI_NAMES,
     ROLE_TEAM_EMOJI_NAMES,
+    SPECIES_ABILITY_EMOJI_NAMES,
     TEAM_EMOJI_FALLBACKS,
     TEAM_EMOJI_NAMES,
     build_setup_message,
@@ -27,10 +28,12 @@ from cogs.d12ball_helpers import (
     get_exhaust_emoji,
     get_exhausted_emoji,
     get_injured_emoji,
+    get_species_ability_emoji,
     get_team_emoji,
     load_coin_emojis,
     load_condition_emojis,
     load_role_emojis,
+    load_species_ability_emojis,
     load_team_emojis,
 )
 from cogs.d12ball_views import CoinFlipView, TeamSelectionView
@@ -47,6 +50,10 @@ from d12ball.game import (
 from d12ball.components import (
     catalog_player_id,
     MatchState,
+    SPECIES_CYBORG,
+    SPECIES_FIRE_DEMON,
+    SPECIES_OOZE,
+    SPECIES_TELEKINETIC,
     TeamSide,
     Zone,
     load_basic_ruleset,
@@ -1416,6 +1423,91 @@ class D12BallRoleEmojiTests(unittest.TestCase):
         bot = FakeBot(error=discord.DiscordException("no application id"))
 
         self.assertEqual(asyncio.run(load_role_emojis(bot)), {})
+
+
+class D12BallSpeciesAbilityEmojiTests(unittest.TestCase):
+    """
+    The mark at the head of an ability's own banner -- that species'
+    ink icon in colour, uploaded to the application. See "Application
+    emoji for the four abilities" in
+    docs/design/species-abilities.md.
+    """
+
+    def test_every_species_has_an_emoji_name(self) -> None:
+        self.assertEqual(
+            set(SPECIES_ABILITY_EMOJI_NAMES),
+            {
+                SPECIES_FIRE_DEMON,
+                SPECIES_CYBORG,
+                SPECIES_TELEKINETIC,
+                SPECIES_OOZE,
+            },
+        )
+
+    def test_application_emoji_are_looked_up_by_name(self) -> None:
+        # Application emoji, not guild emoji, the same as the team and
+        # role sets above -- FakeBot only implements the former.
+        bot = FakeBot(
+            [
+                discord.PartialEmoji(name="telekinetic_color", id=200),
+                discord.PartialEmoji(name="ooze_color", id=201),
+            ]
+        )
+
+        species_ability_emojis = asyncio.run(
+            load_species_ability_emojis(bot),
+        )
+
+        self.assertEqual(
+            species_ability_emojis,
+            {
+                SPECIES_TELEKINETIC: "<:telekinetic_color:200>",
+                SPECIES_OOZE: "<:ooze_color:201>",
+            },
+        )
+
+    def test_an_application_without_the_emoji_is_not_an_error(self) -> None:
+        self.assertEqual(
+            asyncio.run(load_species_ability_emojis(FakeBot([]))), {},
+        )
+
+    def test_a_failed_lookup_is_not_an_error(self) -> None:
+        bot = FakeBot(error=discord.DiscordException("no application id"))
+
+        self.assertEqual(asyncio.run(load_species_ability_emojis(bot)), {})
+
+    def test_a_missing_upload_falls_back_to_that_species_team_badge(
+        self,
+    ) -> None:
+        # Per species, not one shared mark: three uploaded and one
+        # missing still reads as the right species.
+        for species, team in (
+            (SPECIES_FIRE_DEMON, Team.FIRE_DEMONS),
+            (SPECIES_CYBORG, Team.CYBORGS),
+            (SPECIES_TELEKINETIC, Team.TELEKINETICS),
+            (SPECIES_OOZE, Team.OOZES),
+        ):
+            with self.subTest(species=species):
+                self.assertEqual(
+                    get_species_ability_emoji({}, species),
+                    TEAM_EMOJI_FALLBACKS[team],
+                )
+
+    def test_an_uploaded_species_uses_the_application_emoji(self) -> None:
+        species_ability_emojis = {
+            SPECIES_TELEKINETIC: "<:telekinetic_color:200>",
+        }
+
+        self.assertEqual(
+            get_species_ability_emoji(
+                species_ability_emojis, SPECIES_TELEKINETIC,
+            ),
+            "<:telekinetic_color:200>",
+        )
+        self.assertEqual(
+            get_species_ability_emoji(species_ability_emojis, SPECIES_OOZE),
+            TEAM_EMOJI_FALLBACKS[Team.OOZES],
+        )
 
 
 class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):

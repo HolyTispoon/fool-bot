@@ -199,7 +199,7 @@ class D12BallGame:
     status: GameStatus = GameStatus.SETUP
     board_size: int = 7
 
-    # The two modules advanced mode turns on -- the advanced maneuvers
+    # The two modules advanced mode turns on -- the gambits
     # and the species abilities. "Turning it on brings both; a game may
     # take just one of the two" (the author, PR #177 review), so these
     # are opt-*outs* rather than opt-ins: both default True and mean
@@ -214,7 +214,7 @@ class D12BallGame:
     # on, which is what those games actually were.
     #
     # Nothing may read either of these directly to decide a rule:
-    # `RulesEngine.advanced_maneuvers_apply` and
+    # `RulesEngine.gambits_apply` and
     # `RulesEngine.species_abilities_apply` are the two answers, and
     # they fold `mode` in so a caller cannot forget it.
     advanced_maneuvers: bool = True

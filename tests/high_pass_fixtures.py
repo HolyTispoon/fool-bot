@@ -131,12 +131,12 @@ LOOSE_BALL = "BEGIN_LOOSE_BALL"
 HIGH_PASS_CONTEST = "BEGIN_HIGH_PASS_CONTEST"
 
 #: A basic defense card both passes beat, so a contested fixture can
-#: have a challenger standing on the passer with no advanced cost in
+#: have a challenger standing on the passer with no gambit's cost in
 #: the resolution.
 BEATEN_BASIC = "steal"
 
-#: The advanced one, and the only cost a High Pass can ever collect:
-#: an Intercept it beat leaves the reception uncontested.
+#: The gambit on that rank, and the only cost a High Pass can ever
+#: collect: an Intercept it beat leaves the reception uncontested.
 BEATEN_ADVANCED = "intercept"
 
 #: High Pass's own clock cost -- a flat 2 space minutes whatever the
@@ -226,8 +226,8 @@ def advanced_game() -> D12BallGame:
     An advanced game with species abilities off, so nothing but the
     card under test reads into the resolution -- the same guard
     `tests/deflection_fixtures.py` puts on its advanced fixtures.
-    Setup Pass is an advanced card, so every fixture for it is built
-    from this one.
+    Setup Pass is a gambit, so every fixture for it is built from
+    this one.
     """
     return build_game(mode=GameMode.ADVANCED, species_abilities=False)
 
@@ -340,7 +340,6 @@ def stand_a_pass(
     defense_key: Optional[str] = None,
     role: Optional[PlayerRole] = None,
     speed: int = 1,
-    game_mode_advanced: bool = False,
 ) -> tuple[MatchState, str]:
     """
     A match with the ball on a chosen space, the passer standing on it
@@ -492,7 +491,7 @@ def two_spaces_into_a_set_up() -> PassFixture:
 def two_spaces_into_a_set_up_contested() -> PassFixture:
     """
     The same pass with a defender sent against it and beaten on a
-    basic card, so nothing of the contest reaches the resolution. It
+    basic card, so no gambit's cost reaches the resolution. It
     is here because this is an **offense** rank: contested and
     unchallenged are two real halves of it, where a defense card only
     ever resolves contested.

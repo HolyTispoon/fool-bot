@@ -8,7 +8,7 @@ The four abilities as the engine plays them. The rules are
 [Species abilities](../living-rules.md#species-abilities) and are settled;
 what is here is how they are wired, and the reasoning the rules do not carry.
 
-**Advanced mode is one switch over two modules** -- the advanced maneuvers
+**Advanced mode is one switch over two modules** -- the gambits
 and these (the author, PR #177 review). Turning it on brings both, and a game
 may then take just one.
 
@@ -37,22 +37,22 @@ may then take just one.
     right there. That refusal is the reason the two bools need no third
     state.
   - **Picking Basic leaves them as they are.** They mean nothing in a basic
-    game (`advanced_maneuvers_apply` folds the mode in), so undoing them
+    game (`gambits_apply` folds the mode in), so undoing them
     would only cost a coach their pick to a mis-click on the mode.
   - **A rematch carries them**, alongside the mode and board size, which is
     why `open_new_game` takes them at all -- `/d12ball create_game` settles
     everything else in setup and settles these there too.
 - **Nothing may read either bool to decide a rule.**
-  `RulesEngine.advanced_maneuvers_apply` and `species_abilities_apply` are
+  `RulesEngine.gambits_apply` and `species_abilities_apply` are
   the two answers, and each folds `mode` in so a caller cannot check the
   opt-out and forget the mode. `maneuver_tiers` reads the first -- it used to
-  ask `game.mode` directly, which would have dealt six cards to a game that
+  ask `game.mode` directly, which would have dealt the gambits to a game that
   opted the maneuvers out, and `D12Ball.reference_tier` was the same reading
   one step removed: the hexagon a coach is posted is the six-card one only
   when the game is actually playing those six.
 - **What a coach reads about the mode is read off the modules too.**
-  `describe_game_mode` words both the setup and the lobby message -- "six
-  maneuvers a side, species abilities", or one of them alone -- where the
+  `describe_game_mode` words both the setup and the lobby message -- "a
+  gambit on every rank, species abilities", or one of them alone -- where the
   lobby used to say "six maneuvers a side" for every advanced game. A screen
   that advertises a module the game left behind is the same bug as a rule
   site that plays it.
@@ -191,7 +191,7 @@ losing side raises "the opponent's" -- and the opponent of the losing side
 `RulesEngine.volatile_raises_tier` is the reading.
 
 - **It is gated where it is set, not where it is read.**
-  `volatile_raises_tier` asks `advanced_maneuvers_apply` (a game with the
+  `volatile_raises_tier` asks `gambits_apply` (a game with the
   abilities but not the maneuvers has no tier to change), so
   `resolving_maneuver` needs no `game` and stays a question about the match
   alone.
@@ -201,11 +201,11 @@ losing side raises "the opponent's" -- and the opponent of the losing side
   match records it. `reset_maneuver` clears it with the rest of the turn.
 - **It beats the tie downgrade**, which is the case the rules call out
   ("even where the cards tied and the basic card would otherwise resolve"),
-  and it only ever raises -- a card already resolving at advanced gains
-  nothing, which falls out of an advanced card's counterpart being itself.
+  and it only ever raises -- a card already resolving as a gambit gains
+  nothing, which falls out of a gambit's counterpart being itself.
 
 **The rider has a second half: the losing side's own ignite decides their
-advanced cost** (the author, 2026-09-07). `MatchState.volatile_loser_cost`
+gambit's cost** (the author, 2026-09-07). `MatchState.volatile_loser_cost`
 is that, and `RulesEngine.volatile_loser_cost` is the reading.
 
 - **It is a nullable bool because there are three states.** `False` is a
@@ -213,19 +213,19 @@ is that, and `RulesEngine.volatile_loser_cost` is the reading.
   charged one. `True` is a **backfire that lost** -- they pay theirs even
   where the cards alone would not, which makes a backfire the one thing in
   the game that puts a cost in force off the dice. `None` is every other
-  roll, leaving `advanced_cost_applies` the whole answer it always was.
+  roll, leaving `gambit_cost_applies` the whole answer it always was.
 - **It is read off the loser's own die, not the matchup**, which is why it
   is a separate field rather than derivable from `volatile_tier_upgrade`.
   A surge that loses suppresses a cost *and* raises nothing; a backfire
   that loses charges one *and* raises the opponent's card. The two halves
   agree only by coincidence.
-- **`advanced_cost` asks it before `advanced_cost_applies`**, because that
+- **`gambit_cost` asks it before `gambit_cost_applies`**, because that
   is precisely what it overrides -- in both directions. The card checks
   stay above both: the override decides *whether* an advanced cost applies,
   not whether there is one to apply, and a basic losing card has none.
 - **The first build had the tier half and not this one.** It read "resolves
-  that side's maneuver as its advanced version" as a sentence about the
-  card that resolves and nothing else, and left `advanced_cost` asking only
+  that side's maneuver as the gambit on its rank" as a sentence about the
+  card that resolves and nothing else, and left `gambit_cost` asking only
   the cards.
 
 ### Lithium Powered
@@ -807,3 +807,52 @@ Telekinetics the way `continue_mind_pull` skips them, rather than
 Taking the ball over moves who plays the next turn, which is a judgement, and
 Dinky makes none -- the same call as never ceding, never declining a challenge
 and never pulling. In a solo game the ability is the human's alone.
+
+### Application emoji for the four abilities (2026-09-20)
+
+Each species' own ink icon, uploaded to the application in colour under the
+name its file already carries (`telekinetic_color`, `cyborg_color`,
+`fire_demon_color`, `ooze_color`, from `d12ball/images/species/`), is looked
+up the same way the team, role and condition emoji are:
+`load_species_ability_emojis` in `cogs/d12ball_helpers.py` fetches it once in
+`cog_load` off the one `fetch_application_emojis` call the others share, and
+`get_species_ability_emoji(species_ability_emojis, species)` in
+`d12ball/formatting.py` answers the lookup, falling back to that species' own
+team badge (`TEAM_EMOJI_FALLBACKS`) until an upload exists.
+
+**It is an ability's banner that gets one, not a player.** A player is already
+named with their team emoji and role badge (see
+[naming-and-wording.md](naming-and-wording.md)); this is the mark at the head
+of the line that says *which ability just fired* -- Mind Pull's offer and its
+resolution, and Smooth's offer and its take-over, four lines in
+`cogs/d12ball/effects.py` that each opened with a bare 🔮 literal before this
+landed. 🔮 was `TEAM_EMOJI_FALLBACKS[Team.TELEKINETICS]` spelled out by hand,
+so a coach with the uploads in place still read the crystal ball where every
+other mention of a Telekinetic had become the spiral.
+
+- **The dict lives on the engine, not the cog**, beside `team_emojis`,
+  `role_emojis` and `condition_emojis`. Its readers today are all cog-side and
+  could have read a plain cog attribute; it is here so there is one dict
+  rather than two that can disagree about which upload exists, and so the
+  wording keeps it when Mind Pull's and Smooth's narration lifts into
+  `d12ball/flow/`. `condition_emojis` is already there because
+  `describe_exhaustion_gain` words a charge model-side and cannot ask a cog;
+  these two banners are the next lines in that queue.
+  `D12Ball.species_ability_emojis` is a property over
+  `self.engine.species_ability_emojis`, exactly mirroring the other three.
+- **This is still a plain `dict[str, str]`, not a discord.py object.**
+  `RulesEngine` holding it is no different from it already holding
+  `team_emojis`: what the engine may not do is fetch one, only read a dict a
+  cog handed it.
+- **The fallback is per species, not one shared default**, so an application
+  with three of the four uploaded draws the fourth as its own team badge
+  rather than as one anonymous mark. Nothing fails when an upload is missing
+  -- `fetch_application_emojis` already swallows its errors, because the
+  emoji are decoration.
+- **Volatile's own banners still spell 🔥 by hand**, at five sites across
+  `d12ball/engine.py` and `cogs/d12ball_views/rolls.py`. Two of those are
+  `IgniteResult.explain`, a dataclass method with no engine to read the dict
+  off, so wiring them is a change to its signature and its callers rather
+  than a lookup swapped for a literal -- kept apart from the Telekinetic
+  swap deliberately. Overdrive's ⚡ is not the same case: it is a mark chosen
+  for that ability, not a team badge standing in for a missing upload.

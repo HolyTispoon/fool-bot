@@ -61,8 +61,8 @@ class AIStrategy(ABC):
         hand: Optional[Sequence[ManeuverDefinition]] = None,
     ) -> str:
         """The maneuver **key** this side plays. `hand` is what the
-        game actually offers -- three cards in a basic game, six in an
-        advanced one -- and None means the basic three."""
+        game actually offers -- the basic three, or six where this
+        coach holds their gambits -- and None means the basic three."""
         ...
 
     @abstractmethod
@@ -342,13 +342,13 @@ class DinkyAI(AIStrategy):
         **Dinky makes no judgement here and this does not change
         that.** The die picks a rank, exactly as it always has; the
         second draw only decides whether the card is the basic one or
-        its advanced counterpart, which is the same coin-flip
+        its gambit, which is the same coin-flip
         indifference Dinky brings to every other choice it is not
-        maximizing. What it is *not* is a policy: an advanced card
+        maximizing. What it is *not* is a policy: a gambit
         carries a cost as well as a benefit and weighing the two is
         judgement, which Dinky does not do -- see "Dinky never cedes"
         (it calls a time out, which is a different kind of call).
-        The alternative was Dinky never playing an advanced card at
+        The alternative was Dinky never playing a gambit at
         all, which would leave half of advanced mode unreachable in a
         solo game.
         """
@@ -410,7 +410,7 @@ class DinkyAI(AIStrategy):
         real option and Dinky is deliberately not taking it: weighing
         field position against a player's stamina is judgement, and
         Dinky makes none. Same call as never ceding and never playing
-        an advanced card for its cost rather than its benefit.
+        a gambit for its cost rather than its benefit.
         """
         return distances[-1]
 

@@ -81,7 +81,7 @@ Ground rules for every phase:
   of it was done. The live bot is the Windows checkout; nothing you do here
   reaches it until that tree pulls and restarts.
 - When the phase lands, the worksheet is edited the way
-  advanced-maneuver-matrix.md is: the phase's section is cut down to what
+  gambit-matrix.md is: the phase's section is cut down to what
   is still open (or deleted if nothing is), and the phase table's Status
   column marks it done with the PR number. The design doc for each area
   the move touched is corrected in the same PR, with the reasoning, not
@@ -229,7 +229,7 @@ are the driver's belongs wherever the driver's own board decision ends up
 it does not follow the steps into d12ball/flow/.
 
 Golden coverage is the risk here. The tutorial golden covers one basic solo
-game on board 7 -- no advanced maneuver, no species ability, no Mind Pull,
+game on board 7 -- no gambit, no species ability, no Mind Pull,
 no injury test, no own goal, no stacked run back. The worksheet says this
 phase adds a golden for what it moves. Add at least one: a seeded, scripted
 advanced game (both modules on, a board with stacks, a species that can

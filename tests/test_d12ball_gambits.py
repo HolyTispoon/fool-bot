@@ -1,15 +1,15 @@
 """
-Advanced maneuvers: which hand a coach holds, when an advanced effect
+Gambits: which hand a coach holds, when a gambit's effect
 fires, and what each of the six does.
 
 Three layers, and they fail for different reasons:
 
 - **The hand.** `RulesEngine.maneuver_tiers` is the only answer to who
   may play what, and the buttons, the card image and the click that
-  answers all read it. A basic game is three cards; an advanced one is
-  six, except where the maneuver went unchallenged.
-- **The outright rule.** `advanced_benefit_applies` and
-  `advanced_cost_applies` are two questions about two cards -- did
+  answers all read it. A basic game is three cards; a coach holding
+  their gambits has six.
+- **The outright rule.** `gambit_benefit_applies` and
+  `gambit_cost_applies` are two questions about two cards -- did
   *this* card win on the cards, did *this* one lose on them -- rather
   than one question about the matchup. They are asserted against the
   ways a maneuver lands rather than against a list of matchups: the
@@ -20,8 +20,8 @@ Three layers, and they fail for different reasons:
   checked is every claim the card makes that the data could
   contradict.
 
-See "Advanced maneuvers" in docs/living-rules.md and the matrix in
-docs/advanced-maneuver-matrix.md.
+See "Gambits" in docs/living-rules.md and the matrix in
+docs/gambit-matrix.md.
 """
 
 import inspect
@@ -35,11 +35,12 @@ from cogs.d12ball_views import (
     SetupPassChoiceView,
 )
 from d12ball.ai import build_ai_strategies
+from d12ball.cards import maneuver_hand_combinations
 from d12ball.components import (
     CONTESTED_DECISIONS,
     DECISION_UNCONTESTED,
     EVENT_MANEUVER,
-    MANEUVER_TIER_ADVANCED,
+    MANEUVER_TIER_GAMBIT,
     MANEUVER_TIER_BASIC,
     MatchState,
     PlayerRole,
@@ -58,7 +59,7 @@ from d12ball.game import (
     Team,
 )
 
-from roster import fielded
+from roster import benched, fielded
 from save_patches import suppressed_cog_saves
 
 
@@ -84,12 +85,7 @@ def build_cog() -> D12Ball:
     # The hand images are drawn once at startup, which `object.__new__`
     # skips; only the key matters here, not the bytes.
     cog.maneuver_hand_image_bytes = {
-        (sides, tiers): b""
-        for sides in (("offense",), ("defense",), ("offense", "defense"))
-        for tiers in (
-            (MANEUVER_TIER_BASIC,),
-            (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
-        )
+        hands: b"" for hands in maneuver_hand_combinations()
     }
     return cog
 
@@ -180,7 +176,22 @@ def clear_the_defense_off_the_ball(match: MatchState) -> None:
             )
 
 
-class AdvancedHarness:
+def open_gambits(match: MatchState) -> None:
+    """
+    Put **both** coaches in a position that holds their gambits.
+
+    Since 2026-09-20 a hand of six needs a reason (`GambitAccessTests`
+    below is the rule's own suite), and every test above about *what a
+    hand looks like* would otherwise be drawing three cards and
+    asserting nothing. Both routes at once, one per side, because only
+    one team can be trailing: home is a goal down, and the visitors
+    field an injured player home does not.
+    """
+    match.scoreboard.visiting_score += 1
+    match.mark_injured(sorted(match.visiting.field_players)[0])
+
+
+class GambitHarness:
     """
     An advanced-mode game mid-maneuver: home in possession in midfield,
     a challenger from the visitors on the ball, and both cards picked.
@@ -248,7 +259,7 @@ class AdvancedHarness:
         return teammate
 
 
-class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
+class ManeuverHandTests(GambitHarness, unittest.TestCase):
     """
     Which cards a coach is offered. `maneuver_tiers` is the only
     reading of it -- the pick buttons, the hand image and the click
@@ -273,8 +284,9 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
                     ],
                 )
 
-    def test_an_advanced_game_offers_six_in_rank_order(self) -> None:
+    def test_a_coach_holding_gambits_is_offered_six_in_rank_order(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
+        open_gambits(match)
 
         hand = cog.engine.maneuver_hand(game, match, "offense")
 
@@ -290,29 +302,34 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
             ],
         )
 
-    def test_an_unchallenged_maneuver_is_basic_even_in_advanced_mode(
+    def test_an_unchallenged_maneuver_is_basic_even_with_gambits_on(
         self,
     ) -> None:
         """
-        The author: "Advanced maneuver can only be played when a
+        The author: "Gambit can only be played when a
         maneuver is challenged." It is answerable at the moment the
         hand is drawn because every route into the unopposed branch
         settles it before the offense is prompted -- which also makes
         sending nobody a defensive weapon rather than only a saving.
         """
         cog, game, match = self.build("low_pass", "pressure")
+        open_gambits(match)
         clear_the_defense_off_the_ball(match)
         match.offense_maneuver = None
         match.defense_maneuver = None
         match.challenger_id = None
         match.begin_uncontested_maneuver()
 
-        self.assertEqual(
-            cog.engine.maneuver_tiers(game, match), (MANEUVER_TIER_BASIC,),
-        )
+        for side in ("offense", "defense"):
+            with self.subTest(side=side):
+                self.assertEqual(
+                    cog.engine.maneuver_tiers(game, match, side),
+                    (MANEUVER_TIER_BASIC,),
+                )
 
     def test_the_buttons_are_the_hand(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
+        open_gambits(match)
         cog.engine.load_match_state = mock.Mock(return_value=match)
 
         view = ManeuverActionPromptView(cog, game.game_id)
@@ -332,10 +349,10 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
             ],
         )
 
-    def test_the_full_image_link_sits_after_the_advanced_cards(self) -> None:
+    def test_the_full_image_link_sits_after_the_gambits(self) -> None:
         # discord.py drops a rowless button into the first row with
-        # space, which on an advanced prompt (every hand two rows of
-        # three) is between a side's basic and advanced cards.
+        # space, which on a prompt carrying gambits (a hand of two rows of
+        # three) is between a side's basic and gambits.
         # `full_image_row` points it at the reference's row instead.
         import asyncio
 
@@ -345,6 +362,7 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
         )
 
         cog, game, match = self.build("low_pass", "pressure")
+        open_gambits(match)
         cog.engine.load_match_state = mock.Mock(return_value=match)
 
         view = ManeuverActionPromptView(cog, game.game_id)
@@ -372,19 +390,211 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
         )
 
 
-class DinkyAdvancedManeuverPickTests(AdvancedHarness, unittest.TestCase):
+class GambitAccessTests(GambitHarness, unittest.TestCase):
     """
-    In advanced mode Dinky weighs all six cards on a side, not the
-    three advanced ones alone or the three basic ones alone --
+    **A gambit needs a reason** (the author, 2026-09-20): a coach holds
+    their gambits only while their team is behind -- trailing on the
+    scoreboard, or fielding more injured players than the opponent.
+
+    Asserted through `maneuver_hand` as well as through the predicate,
+    because the hand is what a coach actually gets: `maneuver_tiers`
+    takes a side for this rule's sake, and a version of it that
+    answered for the game rather than for the coach would pass every
+    test of `may_play_gambits` and still deal six cards to the side in
+    front.
+    """
+
+    def hands(self, cog, game, match) -> dict[str, int]:
+        return {
+            side: len(cog.engine.maneuver_hand(game, match, side))
+            for side in ("offense", "defense")
+        }
+
+    def test_a_level_game_closes_both_hands(self) -> None:
+        cog, game, match = self.build("low_pass", "pressure")
+
+        self.assertEqual(self.hands(cog, game, match), {
+            "offense": 3, "defense": 3,
+        })
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            with self.subTest(side=side):
+                self.assertFalse(
+                    cog.engine.may_play_gambits(game, match, side)
+                )
+
+    def test_the_trailing_team_holds_them_and_the_leader_does_not(
+        self,
+    ) -> None:
+        cog, game, match = self.build("low_pass", "pressure")
+        match.scoreboard.visiting_score += 1
+
+        self.assertTrue(
+            cog.engine.may_play_gambits(game, match, TeamSide.HOME)
+        )
+        self.assertFalse(
+            cog.engine.may_play_gambits(game, match, TeamSide.VISITING)
+        )
+        # Home has the ball in this harness, so home is the offense.
+        self.assertEqual(self.hands(cog, game, match), {
+            "offense": 6, "defense": 3,
+        })
+
+    def test_fielding_more_injured_players_holds_them(self) -> None:
+        cog, game, match = self.build("low_pass", "pressure")
+        match.mark_injured(fielded(match, PlayerRole.WINGER))
+
+        self.assertTrue(
+            cog.engine.may_play_gambits(game, match, TeamSide.HOME)
+        )
+        self.assertFalse(
+            cog.engine.may_play_gambits(game, match, TeamSide.VISITING)
+        )
+        self.assertEqual(self.hands(cog, game, match), {
+            "offense": 6, "defense": 3,
+        })
+
+    def test_an_even_injury_count_holds_nothing(self) -> None:
+        """
+        **More** than the other team, so a level count closes both
+        hands exactly as a level score does. One apiece is the case a
+        comparison written as "has any injured player" would get
+        wrong.
+        """
+        cog, game, match = self.build("low_pass", "pressure")
+        match.mark_injured(fielded(match, PlayerRole.WINGER))
+        match.mark_injured(
+            fielded(match, PlayerRole.WINGER, TeamSide.VISITING)
+        )
+
+        self.assertEqual(self.hands(cog, game, match), {
+            "offense": 3, "defense": 3,
+        })
+
+    def test_an_injured_player_on_the_bench_does_not_count(self) -> None:
+        """
+        The rule is what a team **fields**: a coach who has already
+        substituted their injured player off is not down a player any
+        more, and `injured_field_players` is read rather than
+        `match.injured`.
+        """
+        cog, game, match = self.build("low_pass", "pressure")
+        match.mark_injured(benched(match, PlayerRole.STRIKER))
+
+        self.assertFalse(
+            cog.engine.may_play_gambits(game, match, TeamSide.HOME)
+        )
+
+    def test_both_coaches_can_hold_them_at_once(self) -> None:
+        """
+        The author called this out: one trailing while the other is the
+        more hurt, and two gambits can still clash. It is why this is a
+        question about one team rather than a comparison returning the
+        side that holds them.
+        """
+        cog, game, match = self.build("low_pass", "pressure")
+        match.scoreboard.visiting_score += 1
+        match.mark_injured(
+            fielded(match, PlayerRole.WINGER, TeamSide.VISITING)
+        )
+
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            with self.subTest(side=side):
+                self.assertTrue(
+                    cog.engine.may_play_gambits(game, match, side)
+                )
+        self.assertEqual(self.hands(cog, game, match), {
+            "offense": 6, "defense": 6,
+        })
+
+    def test_a_basic_game_holds_none_of_it(self) -> None:
+        cog, game, match = self.build("low_pass", "pressure")
+        game.mode = GameMode.BASIC
+        match.scoreboard.visiting_score += 1
+
+        self.assertFalse(
+            cog.engine.may_play_gambits(game, match, TeamSide.HOME)
+        )
+
+    def test_a_gambit_already_played_keeps_its_effect(self) -> None:
+        """
+        The gate is on the hand and nothing else. A coach who legally
+        played a gambit and then equalised still gets its benefit, and
+        the beaten card still pays its cost, because both are read off
+        the two stored keys rather than off the position.
+        """
+        cog, game, match = self.build("skilled_pass", "pressure")
+        match.scoreboard.visiting_score += 1
+        self.assertTrue(
+            cog.engine.gambit_benefit_applies(match, "skilled_pass")
+        )
+
+        match.scoreboard.home_score += 1
+
+        self.assertFalse(
+            cog.engine.may_play_gambits(game, match, TeamSide.HOME)
+        )
+        self.assertTrue(
+            cog.engine.gambit_benefit_applies(match, "skilled_pass")
+        )
+        self.assertEqual(
+            cog.engine.resolving_maneuver(match, "skilled_pass"),
+            "skilled_pass",
+        )
+
+    def test_the_prompt_says_who_holds_them(self) -> None:
+        """
+        Public knowledge said out loud, because the prompt draws a hand
+        only for a side a person still picks for -- in a solo game
+        Dinky's cards never reach the message at all.
+        """
+        cog, game, match = self.build("low_pass", "pressure")
+
+        self.assertEqual(cog.engine.describe_gambit_access(game, match), "")
+
+        match.scoreboard.visiting_score += 1
+        one = cog.engine.describe_gambit_access(game, match)
+        self.assertIn("may play a gambit", one)
+        self.assertIn(game.player_1_name, one)
+        self.assertNotIn(game.player_2_name, one)
+
+        match.mark_injured(
+            fielded(match, PlayerRole.WINGER, TeamSide.VISITING)
+        )
+        self.assertEqual(
+            cog.engine.describe_gambit_access(game, match),
+            "Both coaches may play a gambit this maneuver.",
+        )
+
+    def test_an_unchallenged_maneuver_is_told_nothing(self) -> None:
+        cog, game, match = self.build("low_pass", "pressure")
+        match.scoreboard.visiting_score += 1
+        clear_the_defense_off_the_ball(match)
+        match.offense_maneuver = None
+        match.defense_maneuver = None
+        match.challenger_id = None
+        match.begin_uncontested_maneuver()
+
+        self.assertEqual(cog.engine.describe_gambit_access(game, match), "")
+
+
+class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
+    """
+    Where Dinky holds its gambits it weighs all six cards on a side,
+    not the three gambits alone or the three basic cards alone --
     `DinkyAI.choose_maneuver_action` rolls a rank on the d6 and then
     coin-flips the tier, which lands on each of the six with equal
     odds. See "Dinky rolls its rank as it always has and picks the
     tier at random" in docs/design/maneuvers.md.
     """
 
-    def test_dinky_reaches_every_card_of_an_advanced_hand(self) -> None:
+    def test_dinky_reaches_every_card_of_a_hand_with_gambits(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
+        open_gambits(match)
         strategy = cog.ai_strategies[AIOpponent.DINKY]
+
+        self.assertEqual(
+            len(cog.engine.maneuver_hand(game, match, "offense")), 6,
+        )
 
         for side in ("offense", "defense"):
             with self.subTest(side=side):
@@ -396,7 +606,33 @@ class DinkyAdvancedManeuverPickTests(AdvancedHarness, unittest.TestCase):
 
                 self.assertEqual(picked, {m.key for m in hand})
 
-    def test_a_basic_hand_never_reaches_an_advanced_card(self) -> None:
+    def test_a_closed_hand_leaves_dinky_the_basic_three(self) -> None:
+        """
+        Dinky needs no policy for the gate: it rolls a rank as it
+        always has and picks at random among the cards on that rank
+        that are actually in the hand it was given, so a Dinky the
+        position has closed plays the basic three without knowing why.
+        """
+        cog, game, match = self.build("low_pass", "pressure")
+        strategy = cog.ai_strategies[AIOpponent.DINKY]
+
+        hand = cog.engine.maneuver_hand(game, match, "defense")
+        picked = {
+            strategy.choose_maneuver_action("defense", hand)
+            for _ in range(300)
+        }
+
+        self.assertEqual(
+            picked,
+            {
+                m.key
+                for m in cog.maneuver_catalog.for_tier(
+                    "defense", MANEUVER_TIER_BASIC,
+                )
+            },
+        )
+
+    def test_a_basic_hand_never_reaches_a_gambit(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
         strategy = cog.ai_strategies[AIOpponent.DINKY]
         basic_hand = cog.maneuver_catalog.for_tier(
@@ -411,9 +647,9 @@ class DinkyAdvancedManeuverPickTests(AdvancedHarness, unittest.TestCase):
         self.assertEqual(picked, {m.key for m in basic_hand})
 
 
-class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
+class OutrightRuleTests(GambitHarness, unittest.TestCase):
     """
-    **A benefit fires where the advanced card won on the cards, and a
+    **A benefit fires where the gambit won on the cards, and a
     cost where it lost on them** (the author, 2026-09-07).
 
     It used to be one predicate over the whole matchup -- "the cards
@@ -432,13 +668,13 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         cog, game, match = self.build("skilled_pass", "double_team")
 
         self.assertTrue(
-            cog.engine.advanced_benefit_applies(match, "skilled_pass"),
+            cog.engine.gambit_benefit_applies(match, "skilled_pass"),
         )
         self.assertTrue(
-            cog.engine.advanced_cost_applies(match, "double_team"),
+            cog.engine.gambit_cost_applies(match, "double_team"),
         )
         self.assertEqual(
-            cog.engine.advanced_cost(match, "skilled_pass"), "double_team",
+            cog.engine.gambit_cost(match, "skilled_pass"), "double_team",
         )
 
     def test_the_winning_card_owes_no_cost_and_the_loser_gains_nothing(
@@ -449,10 +685,10 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         cog, game, match = self.build("skilled_pass", "double_team")
 
         self.assertFalse(
-            cog.engine.advanced_cost_applies(match, "skilled_pass"),
+            cog.engine.gambit_cost_applies(match, "skilled_pass"),
         )
         self.assertFalse(
-            cog.engine.advanced_benefit_applies(match, "double_team"),
+            cog.engine.gambit_benefit_applies(match, "double_team"),
         )
 
     def test_a_tie_carries_nothing_and_resolves_as_the_basic_card(
@@ -461,12 +697,12 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         cog, game, match = self.build("skilled_pass", "clear")
 
         self.assertFalse(
-            cog.engine.advanced_benefit_applies(match, "skilled_pass"),
+            cog.engine.gambit_benefit_applies(match, "skilled_pass"),
         )
         self.assertFalse(
-            cog.engine.advanced_cost_applies(match, "clear"),
+            cog.engine.gambit_cost_applies(match, "clear"),
         )
-        self.assertIsNone(cog.engine.advanced_cost(match, "skilled_pass"))
+        self.assertIsNone(cog.engine.gambit_cost(match, "skilled_pass"))
         self.assertEqual(
             cog.engine.resolving_maneuver(match, "skilled_pass"), "low_pass",
         )
@@ -483,7 +719,7 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
             cog.engine.settled_maneuver_winner(match), "skilled_pass",
         )
         self.assertFalse(
-            cog.engine.advanced_benefit_applies(match, "skilled_pass"),
+            cog.engine.gambit_benefit_applies(match, "skilled_pass"),
         )
         self.assertEqual(
             cog.engine.resolving_maneuver(match, "skilled_pass"), "low_pass",
@@ -507,7 +743,7 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
             "skilled_pass",
         )
         self.assertEqual(
-            cog.engine.advanced_cost(match, "skilled_pass"), "double_team",
+            cog.engine.gambit_cost(match, "skilled_pass"), "double_team",
         )
 
     def test_an_injury_forced_test_the_card_loser_wins_carries_neither(
@@ -527,12 +763,12 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         self.assertEqual(
             cog.engine.resolving_maneuver(match, "double_team"), "pressure",
         )
-        self.assertIsNone(cog.engine.advanced_cost(match, "double_team"))
+        self.assertIsNone(cog.engine.gambit_cost(match, "double_team"))
 
     def test_a_basic_winner_over_a_basic_loser_owes_no_cost(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
 
-        self.assertIsNone(cog.engine.advanced_cost(match, "low_pass"))
+        self.assertIsNone(cog.engine.gambit_cost(match, "low_pass"))
 
     def test_an_unchallenged_maneuver_carries_nothing(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
@@ -543,15 +779,15 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
 
         self.assertIsNone(cog.engine.cards_outcome(match))
         self.assertFalse(
-            cog.engine.advanced_benefit_applies(match, "low_pass"),
+            cog.engine.gambit_benefit_applies(match, "low_pass"),
         )
         self.assertFalse(
-            cog.engine.advanced_cost_applies(match, "low_pass"),
+            cog.engine.gambit_cost_applies(match, "low_pass"),
         )
 
 
 class EveryMatchupResolvesTests(
-    AdvancedHarness, unittest.IsolatedAsyncioTestCase
+    GambitHarness, unittest.IsolatedAsyncioTestCase
 ):
     """
     Every one of the thirty-six pairings, on every board, driven
@@ -638,7 +874,7 @@ class EveryMatchupResolvesTests(
         await self.resolve_every_pairing(solo=True)
 
 
-class SkilledPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class SkilledPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     def test_it_reaches_any_teammate_within_three_not_the_nearest_each_way(
         self,
     ) -> None:
@@ -739,7 +975,7 @@ class SkilledPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(match.exhaustion.get(player_id, 0), 0)
 
 
-class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     """
     The run is the coach's now, bounded at
     `DRIBBLE_BURST_MAX_DISTANCE` (the author, 2026-08-26). It used to
@@ -759,7 +995,9 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         match.active_player_id = handler
         match.move_meeple(handler, match.ball.zone, match.ball.space_index)
         start = self.flat_of(match, handler)
+        match.ball.speed = 3
         cog.offer_speed_choice = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
 
         with suppressed_cog_saves():
             await cog.apply_dribble_burst(
@@ -772,7 +1010,17 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.flat(match), end)
         self.assertEqual(match.exhaustion[handler], 2)
         self.assertEqual(match.ball_carrier_id, handler)
-        cog.offer_speed_choice.assert_awaited_once()
+        # The ball is left at 12 and nobody is asked about it (the
+        # author, 2026-09-20: "precisely 12, not any number"), so the
+        # burst ends on the tail rather than the speed choice, and says
+        # the speed the way a speed choice would have.
+        self.assertEqual(match.ball.speed, 12)
+        cog.offer_speed_choice.assert_not_awaited()
+        cog.finish_maneuver_resolution.assert_awaited_once()
+        self.assertIn(
+            "Ball speed is now **12**.",
+            cog.finish_maneuver_resolution.await_args.kwargs["lead_in"],
+        )
 
     def test_the_run_is_bounded_at_four_and_by_the_field(self) -> None:
         """
@@ -816,9 +1064,11 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         """
-        The one position with no run in it. It still gets its speed
-        choice, and it costs nothing -- a burst that moved nowhere is
-        free, Playmaker or not.
+        The one position with no run in it. The ball still goes to 12
+        and it costs nothing -- a burst that moved nowhere is free,
+        Playmaker or not -- and with no distance to pick and no speed
+        to pick, nothing is asked at all: the burst resolves straight
+        through to the tail like a Deflect.
         """
         cog, game, match = self.build("dribble_burst", "clear")
         handler = match.active_player_id
@@ -827,6 +1077,7 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
             handler, *match.board.position_at_flat_index(end_flat),
         )
         cog.offer_speed_choice = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
         interaction = build_interaction()
 
         with suppressed_cog_saves():
@@ -835,7 +1086,9 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         interaction.followup.send.assert_not_awaited()
         self.assertEqual(self.flat_of(match, handler), end_flat)
         self.assertEqual(match.exhaustion.get(handler, 0), 0)
-        cog.offer_speed_choice.assert_awaited_once()
+        self.assertEqual(match.ball.speed, 12)
+        cog.offer_speed_choice.assert_not_awaited()
+        cog.finish_maneuver_resolution.assert_awaited_once()
 
     async def test_a_playmaker_pays_one_token_fewer(self) -> None:
         """
@@ -898,7 +1151,7 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         match.move_meeple(handler, match.ball.zone, match.ball.space_index)
         offered = cog.engine.dribble_burst_distances(match)
         start = self.flat_of(match, handler)
-        cog.offer_speed_choice = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
         interaction = build_interaction()
 
         with suppressed_cog_saves():
@@ -911,6 +1164,7 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
                 start, TeamSide.VISITING, offered[-1],
             ),
         )
+        self.assertEqual(match.ball.speed, 12)
 
     async def test_clears_cost_is_two_exhaustion_on_the_defender(
         self,
@@ -944,7 +1198,7 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.exhaustion[defender], 2)
 
 
-class ClearTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class ClearTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     async def test_it_drives_the_ball_back_three_and_drops_speed_by_three(
         self,
     ) -> None:
@@ -1033,7 +1287,7 @@ class ClearTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.ball.speed, 8)
 
 
-class InterceptTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class InterceptTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     async def test_it_carries_the_ball_forward_not_back(self) -> None:
         """
         The sign is the whole card. A basic Steal falls back toward the
@@ -1153,7 +1407,7 @@ class InterceptTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_high_pass_contest.assert_awaited_once()
 
 
-class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     def test_it_offers_every_distance_that_fits_on_the_field(self) -> None:
         """
         The author, 2026-08-25: a distance is offered because it fits,
@@ -1487,7 +1741,7 @@ class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         )
 
 
-class DoubleTeamTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     async def test_it_pushes_the_handler_back_two_and_brings_a_partner(
         self,
     ) -> None:

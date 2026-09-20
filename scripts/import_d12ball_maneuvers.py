@@ -127,7 +127,7 @@ def import_maneuvers(rows: Iterable[dict[str, str]]) -> dict:
             raise ValueError(f"{name}: Rank must be a number.") from error
 
         # The die values are retained but no longer validated for
-        # uniqueness: an advanced card sits on its basic counterpart's
+        # uniqueness: a gambit sits on its basic counterpart's
         # rank and reuses its faces, and the selection die is off the
         # rules altogether since 2026-08-17. Only the basic rows have
         # to cover all six faces, which is checked below.

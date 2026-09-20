@@ -448,7 +448,7 @@ rewords a result has changed the game.
   of player ids iterated into a message would otherwise vary by machine
   rather than by the change that broke it.
 - **It covers one basic-mode solo game on board 7**, the only multi-turn game
-  the suite can drive today -- no advanced maneuver, no species ability, no
+  the suite can drive today -- no gambit, no species ability, no
   halftime, no shootout, no time out. Rewording two of the three `Ball speed
   is now` sites in `effects.py` did not fail it, because the tutorial only
   reaches the third. Don't read a green golden as "the wording is covered";

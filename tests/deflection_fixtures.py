@@ -440,7 +440,7 @@ def deflect_beats_a_setup_pass() -> DeflectionFixture:
     **Setup Pass's cost**, and the only cost either card of this rank
     can ever collect: Deflect and Clear beat High Pass and Setup Pass
     and tie with both passes on rank O1, so Setup Pass is the one
-    advanced card they ever see lose.
+    gambit they ever see lose.
 
     It is asked inside the deflection rather than as a step after it,
     because a deflection already ends in a loose ball -- the cost only
@@ -504,7 +504,7 @@ def an_overshooting_deflection_skips_the_setup_pass_cost() -> (
 
 def clear_plain() -> DeflectionFixture:
     """
-    The advanced card is Deflect at three spaces, and the speed comes
+    The gambit is Deflect at three spaces, and the speed comes
     off three at a time with it. Everything else about it -- the
     overshoot set-up, the loose ball it leaves behind -- is the same
     card, which is why the two share one step.

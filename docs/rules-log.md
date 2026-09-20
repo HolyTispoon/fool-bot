@@ -124,6 +124,116 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-20 (newest) -- sheet and author, a won Dribble Burst leaves the ball at speed 12
+
+The maneuvers tab's Dribble Burst row now reads *"Adjust ball speed up to 12"* where it read
+*"up to oSkill"*; the beaten branch (*"defender adjusts it up to dSkill"*) is unchanged. The
+author, on the re-import that carried it: *"the dribble burst change (speed up to 12) isn't in
+the rules/engine so update that"* -- and, when the first build read the cell as a choice from
+the whole range: *"dribble burst should set the speed to precisely 12, not to any number."*
+
+**So the burst has no speed step.** The ball is left with the handler at 12, nobody is asked,
+and the maneuver goes straight to its tail -- the one dribble that ends on no choice, and with
+a handler already on the last space of the field (no distance to pick either) the one gambit
+whose effect is entirely choiceless, resolving like a Deflect. The speed is said the way a
+speed choice would have said it, "Ball speed is now **12**.", and only where it changed: a
+ball already at 12 gets no line. A 1-skill Fullback who somehow bursts leaves the ball at 12
+like anybody else. The defender's step after a beaten burst is still a steal's, up to dSkill,
+and a beaten burst still hands the ball over at whatever speed it had.
+
+**The sheet's wording is the author's to settle.** "Adjust ball speed up to 12" is what the
+card prints, and read on its own it is the choice this entry rules out; the rule is the
+author's sentence above. `BALL_SPEED_MAX` is new as a name for the 12 that was written out at
+every clamp, and is what the step sets.
+
+### 2026-09-20 (latest, 2 of 2) -- author, a gambit *is* the advanced version of its rank's basic maneuver
+
+The author, on the entry below: *"a gambit **is** the advanced version of the basic maneuver of
+its rank."* A sharpening of the wording that entry landed, and it cuts the other way from how it
+was written down.
+
+"A kind of" was too loose, and the living rules' table said it in a column header. Double Team is
+not *a kind of* Pressure the way a Low Pass and a High Pass are both kinds of pass -- it **is**
+Pressure, advanced: the same rank, the same beats and loses, a tie against Pressure itself, and a
+tie on the cards resolving as Pressure. The pairing is one to one and
+`ManeuverCatalog.counterpart` has always read it that way. The column is now "Advanced version
+of", and the sentence above it says the identity outright.
+
+**So "advanced" is still the rules' own word, and the 2026-09-20 rename never retired it.** What
+was renamed is the *noun* -- an "advanced maneuver" is a **gambit** -- and what a gambit is, is the
+advanced version of a basic maneuver. Volatile's rider reads "resolves that side's maneuver as its
+advanced version" again, because that is what it does, and naming the gambit is the gloss rather
+than the rule.
+
+**Which withdraws half of that entry's "Not yet done: the sheet".** Two of the three things it
+asked upstream for are not wanted after all:
+
+- The maneuvers tab's `Mode` column reading `basic` / `advanced` is **correct**, so
+  `d12ball/data/maneuvers.json`'s `"tier": "advanced"` is correct too, and
+  `MANEUVER_TIER_GAMBIT = "advanced"` is a constant named for the noun over a value named for the
+  tier rather than the code and the sheet disagreeing. Nothing to re-import.
+- `d12ball/data/species.json`'s Volatile text ("resolves your maneuver as its advanced version")
+  is **correct** as printed. Nothing to re-import.
+
+What is still wanted from the sheet is only what it has never said: nothing on the maneuvers tab
+names the cards "gambits", so a coach reading the printed deck meets the word only on the card
+faces the bot renders (GAMBIT MANEUVER) and in the living rules. Worth a column or a note upstream
+whenever the tab is next edited, but no data in the bot is waiting on it.
+
+### 2026-09-20 (latest, 1 of 2) -- author, advanced maneuvers become gambits, and a gambit needs a reason
+
+Two changes in one, both the author's, in chat: *"we change the name of advanced maneuvers to
+gambits. It should be clear that gambits are a kind of maneuver of their rank - so double team is
+kind of pressure etc. In advanced mode, when gambits are on a coach can use a gambit if and only
+if one of the following is true: Their team has scored fewer goals than the other team (i.e. they
+are trailing); Their team currently fields more injured/damaged players than the opposing team.
+Therefore, who has access to gambits is public knowledge. It's possible that both players would
+have access to gambits. It will be less frequent that two advanced maneuver clash, but still
+likely. dinky still picks at random of the options that it has."*
+
+**The name.** "Advanced maneuver" is now **gambit**, and the point of the word is that a gambit
+is a maneuver rather than a second kind of card: Double Team is a kind of Pressure, on Pressure's
+rank, beating and losing to exactly what Pressure does. That was already the rule -- rank alone
+decides (2026-08-18 below) -- but the old name argued against it, and the living rules' own table
+read "Replaces", which is the one thing a gambit does not do: both cards are in the coach's hand
+at once. The table's third column is now "A kind of", and the section is
+[Gambits](living-rules.md#gambits).
+
+**The gate.** A coach holds their gambits only while their team is **behind**, in one of the two
+senses: behind on the scoreboard, or fielding more injured players than the opponent (only the six
+on the field, and a Cyborg's Damaged counts as injured -- 2026-09-19 above). Neither is hidden,
+which is the property the author called out: gambits are public knowledge, so a coach can read
+their opponent's hand off the scoreboard and the board without being told. Both coaches can hold
+them at once, one trailing while the other is the more hurt, so two gambits can still clash --
+less often than before, which the author expects.
+
+- **It is a second narrowing of the same question, not a new one.** `maneuver_tiers` already
+  answered "which cards may this coach play this turn" for the module switch and for an
+  unchallenged maneuver; the gate joins those, and gains a `side` -- the hand is no longer the
+  same for both coaches, which is the only structural change in the bot. See "Gambits" in
+  docs/design/maneuvers.md.
+- **Nothing is persisted for it.** It is read off the scoreboard and the field when the hands are
+  drawn, so a restart mid-maneuver draws the same hand, and a coach who legally played a gambit
+  keeps its benefit and its cost however the position moves afterwards -- those are read off the
+  two stored keys, as they always were.
+- **Volatile is untouched.** A surge or backfire upgrades a maneuver to its rank's gambit whether
+  or not that coach may play one; the ability is about the dice, not about the hand, and gating it
+  would make a Fire Demon's ignite quietly worthless to the side in front.
+- **Dinky needed no policy.** It rolls a rank and picks at random among the cards on it that are
+  actually in its hand, so a Dinky the gate has closed plays the basic three without knowing why.
+
+**Not yet done: the sheet.** *(Half withdrawn the same day -- see the entry above: the `Mode`
+column and the Volatile text are correct as they stand, because a gambit **is** the advanced
+version of its rank's basic maneuver. Kept as written for the record.)* The maneuvers tab's
+`Mode` column still reads `advanced`, so
+`d12ball/data/maneuvers.json`'s six gambits still carry `"tier": "advanced"` -- that file is
+regenerated whole by `scripts/import_d12ball_maneuvers.py` and never hand-edited
+([gotchas.md](design/gotchas.md)), so the code names the tier `MANEUVER_TIER_GAMBIT` and leaves
+the value upstream's. `d12ball/data/species.json`'s Volatile text still says "its advanced
+version" for the same reason. Both want a sheet edit and a re-import (then
+`scripts/render_maneuver_cards.py`) before the printed cards and the card data agree with this
+entry; the card faces the bot renders already read GAMBIT MANEUVER.
+
 ### 2026-09-20 (later still) -- author, nobody the resolution moved is offered either half
 
 The question this answers was found while gating the overshoot branch, and was true of every
@@ -2226,6 +2336,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Two 15-minute periods, each clocked 0 to 15 | One running clock: 00-15 in the first half, 16-30 in the second, and it keeps counting past a period's last minute for as long as last possession runs |
 | The maneuvers sheet has a "Die value" column, and the component data two head-coach d6s | Maneuvers are chosen from the cards; the selection dice are not part of the rules at all (2026-08-17). The column and `head_coach_dice` are still imported, so a fresh pull rewrites them |
 | Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
+| The maneuvers sheet's `Mode` column reads `basic` / `advanced` | A gambit, on the rank of a basic maneuver. The importer keeps the sheet's word as the tier value, so a fresh pull rewrites it unchanged |
 
 ---
 

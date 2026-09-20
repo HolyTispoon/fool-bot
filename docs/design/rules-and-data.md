@@ -55,9 +55,9 @@ earn their keep when upstream moves:
   do, update the living rules and add a dated entry as its own commit, so each rules change
   stays a reviewable diff.
 
-[docs/advanced-maneuver-matrix.md](../advanced-maneuver-matrix.md) is a third document and a
+[docs/gambit-matrix.md](../gambit-matrix.md) is a third document and a
 different kind of thing: the **worksheet advanced mode was built from**, cut back to what is
-still open. It was a table of every advanced maneuver against every maneuver it could meet,
+still open. It was a table of every gambit against every maneuver it could meet,
 with each assumption named and each undecided cell marked; the author answered, the six cards
 went into the living rules on 2026-08-19, and **the answered parts were deleted rather than
 kept in parallel** -- which is what happens to a worksheet, and the reason a settled rule has

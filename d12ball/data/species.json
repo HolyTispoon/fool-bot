@@ -14,13 +14,13 @@
     },
     "telekinetic": {
       "name": "Mind Pull",
-      "ability": "When the ball moves to or through your space, you may take 1 exhaustion and roll a d12 — on 1–2 you pull it in and take possession.",
-      "ability_short": "Ball passes you: take 1 exhaustion, roll d12; 1–2 = you take the ball."
+      "ability": "Mind pull: When your team doesn't have possession and the ball moves to or through your space, you may take 1 exhaustion and roll a d12 — on 11–12 you pull it in and take possession.\nSmooth: When your team has possession and the ball moves to or through your space, you may take it over instead.",
+      "ability_short": "Ball passes you: take 1 exhaustion, roll d12; 11–12 = you take the ball. Smooth: your own ball moves to or through you — take it over free."
     },
     "ooze": {
       "name": "Slimey",
-      "ability": "Slip in: any Ooze sharing the ball's space may play the handler's turn.\nMerge: an Ooze on the ball's space who isn't one of the two players rolling adds their skill to their own side in skill tests and contests — oSkill attacking, dSkill defending. Every such Ooze adds. In a score attempt it's the attack only, and their oSkill.\nSpreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space.",
-      "ability_short": "Any Ooze on the ball can handle it. A non-rolling Ooze on the ball adds oSkill (attack) or dSkill (defence) to tests & contests — oSkill only on a score attempt. Always counts as 0 toward its zone's occupancy, and is never split out of a stack."
+      "ability": "Merge: an Ooze on the ball's space who isn't one of the two players rolling adds their skill to their own side in skill tests and contests — oSkill attacking, dSkill defending. Every such Ooze adds.\nSpreadable: Ooze  counts as 0 toward its  space's occupancy, and is never made to run back in order to break up a stack.",
+      "ability_short": "A non-rolling Ooze on the ball adds oSkill (attack) or dSkill (defence) to tests & contests. Ooze counts as 0 toward space occupancy."
     }
   }
 }

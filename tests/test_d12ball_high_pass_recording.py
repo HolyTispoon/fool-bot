@@ -43,9 +43,8 @@ from unittest import mock
 
 from cogs.d12ball import D12Ball
 from d12ball.ai import build_ai_strategies
+from d12ball.cards import maneuver_hand_combinations
 from d12ball.components import (
-    MANEUVER_TIER_ADVANCED,
-    MANEUVER_TIER_BASIC,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -113,12 +112,7 @@ def build_cog() -> D12Ball:
     for name, _ in FOLLOW_ONS.values():
         setattr(cog, name, mock.AsyncMock())
     cog.maneuver_hand_image_bytes = {
-        (sides, tiers): b""
-        for sides in (("offense",), ("defense",), ("offense", "defense"))
-        for tiers in (
-            (MANEUVER_TIER_BASIC,),
-            (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
-        )
+        hands: b"" for hands in maneuver_hand_combinations()
     }
     return cog
 

@@ -75,10 +75,14 @@ ENGINE = RulesEngine(
 
 GAME_ID = "g1"
 
-#: The one follow-on step a dribble can end on, by `FollowOnStep`
-#: member name. Spelled as a string so this module stays free of the
-#: package under test.
+#: The two follow-on steps a dribble can end on, by `FollowOnStep`
+#: member name. Spelled as strings so this module stays free of the
+#: package under test. An advance ends on the speed choice; a burst
+#: leaves the ball at 12 and asks nothing, so it ends on the tail.
 SPEED_CHOICE = "OFFER_SPEED_CHOICE"
+FINISH = "FINISH_MANEUVER_RESOLUTION"
+#: What a burst says about the speed, when it changed it.
+BURST_SPEED_LINE = "Ball speed is now **12**."
 
 #: What a message shows for an exhaustion token, and for the
 #: Exhausted condition, when the application has uploaded nothing --
@@ -115,6 +119,9 @@ class DribbleFixture:
     #: the handler and a beaten Clear charges the defender, and both
     #: are read off `match.exhaustion` rather than off the sentence.
     exhaustion: dict[str, int] = field(default_factory=dict)
+    #: The ball's speed afterwards, where the card sets it: a burst
+    #: leaves it at 12, an advance leaves it to the choice that follows.
+    ball_speed: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -201,7 +208,7 @@ def stand_a_beaten_clear(match: MatchState, key: str) -> str:
     leaves it in, and hand back the defender who played it.
 
     The cost is charged inside the dribble that beat it -- see
-    "Advanced maneuvers" in docs/design/maneuvers.md -- so this is the
+    "Gambits" in docs/design/maneuvers.md -- so this is the
     whole of what the fixture needs: a challenger, the two keys, and
     an advanced game around them.
 
@@ -400,12 +407,15 @@ def burst_plain() -> DribbleFixture:
             "spaces forward, past everyone in the way."
             f"\n{label(match, handler)} gains 3 exhaustion tokens "
             f"{EXHAUST * 3} (now 3 total)."
+            f" {BURST_SPEED_LINE}"
         ),
-        follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
+        follow_on=FINISH,
+        follow_on_kwargs={"distance_moved": 1},
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
         exhaustion={handler: 3},
+        ball_speed=12,
     )
 
 
@@ -432,12 +442,15 @@ def burst_playmaker_discount() -> DribbleFixture:
             " That costs them a token less (Playmaker ability)."
             f"\n{label(match, handler)} gains 2 exhaustion tokens "
             f"{EXHAUST * 2} (now 2 total)."
+            f" {BURST_SPEED_LINE}"
         ),
-        follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
+        follow_on=FINISH,
+        follow_on_kwargs={"distance_moved": 1},
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
         exhaustion={handler: 2},
+        ball_speed=12,
     )
 
 
@@ -462,12 +475,15 @@ def burst_playmaker_one_space_is_free() -> DribbleFixture:
             f"**Dribble Burst:** {label(match, handler)} bursts 1 "
             "space forward, past everyone in the way."
             " That costs them a token less (Playmaker ability)."
+            f" {BURST_SPEED_LINE}"
         ),
-        follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
+        follow_on=FINISH,
+        follow_on_kwargs={"distance_moved": 1},
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
         exhaustion={handler: 0},
+        ball_speed=12,
     )
 
 
@@ -492,12 +508,15 @@ def burst_with_nowhere_to_go() -> DribbleFixture:
             f"**Dribble Burst:** {label(match, handler)} is already as "
             "far forward as the field goes, so the ball stays where it "
             "is."
+            f" {BURST_SPEED_LINE}"
         ),
-        follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
+        follow_on=FINISH,
+        follow_on_kwargs={"distance_moved": 1},
         carrier_id=handler,
         ball_space=where,
         handler_space=where,
         exhaustion={handler: 0},
+        ball_speed=12,
     )
 
 
@@ -529,12 +548,49 @@ def burst_beats_a_clear() -> DribbleFixture:
             f"{label(match, defender)} gains 2 exhaustion tokens "
             f"{EXHAUST * 2} (now 3 total)."
             f"\n{label(match, defender)} is now *exhausted* {EXHAUSTED}"
+            f" {BURST_SPEED_LINE}"
         ),
-        follow_on_kwargs={"player_id": handler, "skill_type": "offense"},
+        follow_on=FINISH,
+        follow_on_kwargs={"distance_moved": 1},
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
         exhaustion={handler: 2, defender: 3},
+        ball_speed=12,
+    )
+
+
+def burst_with_the_ball_already_at_twelve() -> DribbleFixture:
+    """
+    The speed is said only where it changed -- a move that costs
+    nothing says nothing, and a ball already at 12 is left there
+    without a line about it.
+    """
+    match = build_match()
+    handler = put_on_the_ball(match, fielded(match, PlayerRole.MIDFIELDER))
+    match.ball.speed = 12
+    origin = match.board.flat_index(match.ball.zone, match.ball.space_index)
+    destination = match.board.position_at_flat_index(
+        match.relative_flat_index(origin, TeamSide.HOME, 1)
+    )
+    return DribbleFixture(
+        game=build_game(),
+        match=match,
+        key="dribble_burst",
+        distance=1,
+        narration=(
+            f"**Dribble Burst:** {label(match, handler)} bursts 1 "
+            "space forward, past everyone in the way."
+            f"\n{label(match, handler)} gains 1 exhaustion token "
+            f"{EXHAUST} (now 1 total)."
+        ),
+        follow_on=FINISH,
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=handler,
+        ball_space=destination,
+        handler_space=destination,
+        exhaustion={handler: 1},
+        ball_speed=12,
     )
 
 
@@ -554,4 +610,8 @@ DRIBBLE_CASES: tuple[DribbleCase, ...] = (
     ),
     DribbleCase("burst_with_nowhere_to_go", burst_with_nowhere_to_go),
     DribbleCase("burst_beats_a_clear", burst_beats_a_clear),
+    DribbleCase(
+        "burst_with_the_ball_already_at_twelve",
+        burst_with_the_ball_already_at_twelve,
+    ),
 )

@@ -17,10 +17,14 @@ from cogs.d12ball import D12Ball
 from cogs.d12ball_views import (
     ManeuverActionPromptView,
 )
-from d12ball.cards import render_maneuver_hands
+from d12ball.cards import (
+    maneuver_hand_combinations,
+    render_maneuver_hands,
+)
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MatchState,
+    PlayerRole,
     Zone,
     load_basic_ruleset,
     load_maneuver_catalog,
@@ -28,6 +32,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
+from roster import fielded
 from save_patches import suppressed_cog_saves, suppressed_full_image_links
 
 
@@ -304,10 +309,12 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         # The sentence version is a caption under a portrait here, next
         # to another player's, so the image takes the abbreviated form
         # the abilities sheet carries. The roster still shows the
-        # sentence.
+        # sentence. The winger, because the test wants a role whose two
+        # forms differ: the Fullback's sentence is short enough that
+        # the sheet carries it in both columns.
         cog = build_cog()
         match = self.build_match()
-        player_id = match.home.field_players[0]
+        player_id = fielded(match, PlayerRole.WINGER)
         profile = cog.player_catalog.effective_profile(
             cog.engine.get_player_definition(player_id),
         )
@@ -363,19 +370,23 @@ class ManeuverPickHarness:
         # Drawn once for the whole class, as the cog draws it once for
         # the whole process -- the cards are most of a second apiece.
         catalog = load_maneuver_catalog()
-        # Keyed the way the cog keys them -- by the sides on the prompt
-        # *and* by the tiers they may play. A basic game is the only one
-        # this harness builds, so the advanced entry is the same bytes
-        # rather than a second render: nothing here reads it, and
-        # drawing thirteen more cards a class is seconds for nothing.
+        # Keyed the way the cog keys them -- one `(side, tiers)` pair
+        # per hand on the prompt. A basic game is the only one this
+        # harness builds, so every entry for a given set of sides is
+        # the same basic bytes rather than a render per tier: nothing
+        # here reads a gambit hand, and drawing thirteen more cards a
+        # class is seconds for nothing.
         drawn = {
-            sides: render_maneuver_hands(catalog, cls.catalog, sides).read()
+            sides: render_maneuver_hands(
+                catalog,
+                cls.catalog,
+                tuple((side, (MANEUVER_TIER_BASIC,)) for side in sides),
+            ).read()
             for sides in (("offense",), ("defense",), ("offense", "defense"))
         }
         cls.hands = {
-            (sides, tiers): image
-            for sides, image in drawn.items()
-            for tiers in (("basic",), ("basic", "advanced"))
+            hands: drawn[tuple(side for side, _ in hands)]
+            for hands in maneuver_hand_combinations()
         }
 
     def build_ready_cog(self) -> D12Ball:

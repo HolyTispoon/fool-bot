@@ -258,14 +258,18 @@ def effect_choice_prompt(
                 PromptKind.DRIBBLE_ADVANCE_CHOICE, EFFECT_ASK,
             )
         # A Dribble Burst asks a distance of everybody, not only a
-        # Playmaker -- unless the handler is already on the last
-        # space of the field, which is the one position with
-        # nothing to ask and so the one that restores straight to
-        # the speed choice.
-        if winner_key == "dribble_burst" and (
-            engine.dribble_burst_distances(match)
-        ):
-            return PendingPrompt(PromptKind.DRIBBLE_BURST_CHOICE, EFFECT_ASK)
+        # Playmaker, and asks nothing else: the ball is left at 12
+        # rather than offered to the handler (the author, 2026-09-20).
+        # So a handler already on the last space of the field has
+        # nothing to be asked at all, and the burst resolves like a
+        # Deflect -- a crash window there falls back to the turn
+        # prompt, the same as every other choiceless effect.
+        if winner_key == "dribble_burst":
+            if engine.dribble_burst_distances(match):
+                return PendingPrompt(
+                    PromptKind.DRIBBLE_BURST_CHOICE, EFFECT_ASK,
+                )
+            return None
         return _speed_delta(match.active_player_id, "offense", winner_key)
     if winner_key in ("steal", "intercept"):
         return _speed_delta(match.challenger_id, "defense", winner_key)
