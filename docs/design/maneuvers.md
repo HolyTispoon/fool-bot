@@ -42,20 +42,26 @@ tutorial rails and every game saved mid-turn.
 
 Six more maneuvers, one on each basic card's rank, turned on by
 `GameMode.ADVANCED`. They were "advanced maneuvers" until 2026-09-20;
-the author renamed them to say what the old name argued against --
-**a gambit is a maneuver of its rank**, Double Team a kind of
-Pressure, which is why rank alone decides. See "Gambits" in the living
+the author renamed the noun, and then sharpened what it names --
+**a gambit is the advanced version of the basic maneuver on its
+rank**. Double Team *is* Pressure, advanced, which is why rank alone
+decides and why a tie on the cards resolves as Pressure. "A kind of"
+was the first wording and was too loose; the relation is one to one,
+and `ManeuverCatalog.counterpart` is it. See "Gambits" in the living
 rules; what is left open is in
 [docs/gambit-matrix.md](../gambit-matrix.md).
 
-The rename is the rules' word and not the sheet's. `maneuvers.json`
-still carries `"tier": "advanced"` from the `Mode` column, so
-`MANEUVER_TIER_GAMBIT` is the constant and `"advanced"` is its value,
-and `MANEUVER_TIER_WORDS` is the one table between that value and
-anything a person reads -- the card's corner label (GAMBIT MANEUVER)
-and the reference image's filename. Same shape as `legacy_maneuver_key`
-above: the code says what the rules say, one line says what upstream
-still says, and a sheet edit plus a re-import retires it.
+**The rename is the noun's, not the tier's**, which is the second half
+of the same ruling: a gambit **is** the advanced version of its rank's
+basic maneuver, so `MANEUVER_TIER_GAMBIT` is `"advanced"` and that is
+not a mismatch to be tidied up. The constant carries what the card is
+called and the value carries what tier it is, `maneuvers.json` and the
+`Mode` column behind it are right as they stand, and nothing here is
+waiting on an import. `MANEUVER_TIER_WORDS` is the one table between
+the value and anything a person reads -- the card's corner label
+(GAMBIT MANEUVER) and the reference image's filename. Unlike
+`legacy_maneuver_key` above, this pair is not a migration waiting to
+die: don't "fix" the value.
 
 **`RulesEngine.maneuver_tiers` is the only answer to who holds what**,
 and the buttons, the hand image and the click that answers all read

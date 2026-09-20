@@ -876,21 +876,23 @@ SKILLED_PASS_REACH = 3
 DRIBBLE_BURST_MAX_DISTANCE = 4
 
 MANEUVER_TIER_BASIC = "basic"
-# **The value is the sheet's own word, not the rules'.** A second
-# maneuver on every rank is a **gambit** as of 2026-09-20, and nothing
-# a coach reads says "advanced" any more -- but the tier is the
-# `maneuvers` tab's `Mode` column, `maneuvers.json` is regenerated
-# whole from it (see docs/design/gotchas.md), and upstream has not
-# renamed the column. So the constant carries the rules' word and the
-# string carries the sheet's, exactly as `legacy_maneuver_key` and
-# `player_board` do. Renaming the column upstream and re-importing is
-# recorded as not-yet-done in docs/rules-log.md.
+# **The constant is the noun and the value is the tier, and both are
+# the rules'.** A second maneuver on every rank is a **gambit** as of
+# 2026-09-20, and a gambit *is* the advanced version of the basic
+# maneuver on its rank (the author, the same day) -- so "advanced" is
+# what the tier still is, and the `maneuvers` tab's `Mode` column
+# saying so is right rather than stale. This is **not** a
+# `legacy_maneuver_key` case: nothing here is waiting on a sheet edit,
+# and a rename of the value would put the code out of step with both
+# the data and the rules. What a person reads is `MANEUVER_TIER_WORDS`
+# below.
 MANEUVER_TIER_GAMBIT = "advanced"
 MANEUVER_TIERS = (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
 # What a tier is called where a person reads it -- a card's corner
 # label, an attachment's name. One table rather than `tier.upper()` at
-# each site, because the value above is upstream's word and these are
-# the rules'.
+# each site, because a coach reads the noun ("GAMBIT MANEUVER") where
+# the tier is the adjective: the card is the advanced version, and
+# "gambit" is what it is called.
 MANEUVER_TIER_WORDS = {
     MANEUVER_TIER_BASIC: "basic",
     MANEUVER_TIER_GAMBIT: "gambit",
