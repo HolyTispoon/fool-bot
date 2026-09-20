@@ -18,8 +18,12 @@ from d12ball.flow.effects import (
     deflection_step,
     dribble_advance_step,
     dribble_burst_step,
+    high_pass_step,
     low_pass_step,
     pressure_step,
+    setup_pass_out_step,
+    setup_pass_speed_step,
+    setup_pass_step,
     steal_step,
 )
 from d12ball.prompts import loose_ball_pick_prompt
@@ -31,8 +35,6 @@ from d12ball.components import (
     MatchState,
     PlayerDefinition,
     PlayerRole,
-    SETUP_PASS_CLOCK_COST,
-    TeamSide,
 )
 from d12ball.game import (
     D12BallGame,
@@ -455,32 +457,14 @@ class ManeuverEffectsMixin:
         opportunity at 0, 1 or 3 spaces, with the speed benefit
         counting toward the shot.
 
-        The order is the card's and it is the reason this is two
-        prompts rather than one. A speed choice has always been the
-        *last* human step of an effect, leading straight into
-        `finish_maneuver_resolution`; here it is the first, so what
-        comes after it is recorded as an effect continuation and picked
-        up by `continue_effect`. A restart between the two comes back
-        to whichever prompt is up, and the continuation is persisted so
-        the pass is not lost with it.
+        The card's own order, the continuation it leaves behind and
+        what it says are `setup_pass_speed_step`'s; this is the save
+        between the step and the prompt it hands to, which a restart
+        between the two depends on.
         """
-        match.pending_effect_continuation = {"kind": "setup_pass_shot"}
+        result = setup_pass_speed_step(self.engine, match)
         self.persist(game, match)
-
-        passer = self.engine.get_player_definition(match.active_player_id)
-        await self.offer_speed_choice(
-            interaction,
-            game,
-            match,
-            player_id=match.active_player_id,
-            skill_type="offense",
-            distance_moved=SETUP_PASS_CLOCK_COST,
-            lead_in=(
-                "**Setup Pass:** "
-                f"{self.player_label(match, passer)} "
-                "sets the ball's speed before picking out the pass."
-            ),
-        )
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def offer_setup_pass_distance(
         self,
@@ -558,77 +542,14 @@ class ManeuverEffectsMixin:
         match: MatchState,
         distance: int,
     ) -> None:
-        offense_side = match.ball.possession
-        # Applied, so the continuation is spent -- see `continue_effect`
-        # for why it survived until now.
-        match.pending_effect_continuation = None
-        actual_distance = match.move_ball_relative(offense_side, distance)
-        receivers = self.engine.high_pass_receiver_candidates(
-            match, offense_side,
-        )
-        if not receivers:
-            if actual_distance == 0:
-                # Only reachable from a stale click: 0 is offered only
-                # while a teammate shares the passer's space, and every
-                # other distance is offered only where it fits on the
-                # field, so nothing legal clamps to a standing still.
-                # A ball that never left the passer is the High Pass's
-                # own 0-space case -- nowhere to throw it and nobody to
-                # throw it to -- so it goes out rather than settling
-                # under the passer's own feet.
-                await self.apply_setup_pass_out(interaction, game, match)
-                return
-
-            # **A pass that lands on nobody is still a pass**
-            # (2026-08-25). The card is a set-up, but missing the
-            # set-up does not un-throw the ball: it settles exactly
-            # where a Deflect's does, so occupancy is what decides it
-            # -- loose on an empty space, the other side's outright
-            # where only they are standing. Refusing
-            # the distance instead is what used to make this the only
-            # pass in the game that could not be thrown badly.
-            #
-            # No refresh_match_image first: begin_loose_ball posts the
-            # board with its announcement, and refreshing here would
-            # write the same board twice (see "Discord's rate limits").
-            space_word = "space" if actual_distance == 1 else "spaces"
-            await self.begin_loose_ball(
-                interaction,
-                game,
-                match,
-                SETUP_PASS_CLOCK_COST,
-                lead_in=(
-                    "**Setup Pass:** the ball is picked out "
-                    f"{actual_distance} {space_word} forward, with nobody "
-                    "there to set up."
-                ),
-            )
-            return
-
-        receiver_id = receivers[0]
-        match.set_ball_carrier(receiver_id)
+        """
+        The second half of the card: the ball goes where the coach
+        picked, and what is standing there settles it --
+        `setup_pass_step`.
+        """
+        result = setup_pass_step(self.engine, match, distance)
         self.persist(game, match)
-
-        receiver = self.engine.get_player_definition(receiver_id)
-        space_word = "space" if actual_distance == 1 else "spaces"
-        movement = (
-            "goes to a teammate in the same space"
-            if distance == 0
-            else f"moves {actual_distance} {space_word} forward"
-        )
-        await self.refresh_match_image(interaction, game)
-        await self.offer_scoring_attempt_choice(
-            interaction,
-            game,
-            match,
-            shooter_id=receiver_id,
-            distance_moved=SETUP_PASS_CLOCK_COST,
-            lead_in=(
-                f"**Setup Pass:** the ball {movement} to "
-                f"{self.player_label(match, receiver)} "
-                f"-- a scoring opportunity! Ball speed is {match.ball.speed}."
-            ),
-        )
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def apply_setup_pass_out(
         self,
@@ -637,116 +558,15 @@ class ManeuverEffectsMixin:
         match: MatchState,
     ) -> None:
         """
-        **Setup Pass cannot overshoot**, so the only way it runs out of
-        play is having nowhere to throw it at all: the passer on the
-        very last space of the field -- the one position from which
-        even 1 space runs off the end -- with no teammate beside them
-        to take it at 0. Then the other team gains possession: a new
-        play, both sides reset, and the gaining side sends the nearest
-        player to fetch the ball -- the out-of-bounds outcome the game
-        already has.
-
-        Any other landing space is a pass that happened; see
-        `apply_setup_pass`, which leaves the ball lying there.
-
-        That makes this a **fourth** `new_play=True` call site, where
-        the other three are the score attempt, a conceded own goal and
-        the out-of-bounds loose ball. It is one for the same reason
-        those are: the ball went dead rather than being taken off
-        anybody.
+        The dead end a Setup Pass with nowhere to throw it reaches --
+        `setup_pass_out_step`. Kept as a method because
+        `offer_setup_pass_distance` reaches it directly when the menu
+        has no distance to offer at all, which is the other half of
+        the branch the pass itself can only meet from a stale click.
         """
-        match.pending_effect_continuation = None
-        match.ball.possession = match.defending_side()
-        match.ball.speed = 1
-        match.clear_ball_carrier()
-        match.pending_ball_recovery = True
+        result = setup_pass_out_step(match)
         self.persist(game, match)
-
-        gaining = match.setup_for_side(match.ball.possession)
-        await self.begin_run_back(
-            interaction,
-            game,
-            match,
-            new_play=True,
-            distance_moved=SETUP_PASS_CLOCK_COST,
-            lead_in=(
-                "**Setup Pass:** there is nobody to pick the ball out to, "
-                "so it runs out of play. "
-                f"{format_team_side_label(gaining)} gain possession."
-            ),
-        )
-
-    def throw_high_pass(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        offense_side: TeamSide,
-        distance: int,
-        handler: PlayerDefinition,
-    ) -> tuple[bool, int, str]:
-        """
-        Put the ball in the air and say what that looked like.
-
-        Returns whether the throw overshot, how far the ball actually
-        travelled, and the line every branch of the pass opens with.
-        The overshoot is read **before** the ball moves, the same way
-        Deflect reads its own and by the same test, so a pass that
-        could not move the ball at all is an overshoot like any other
-        -- which is the whole reason this is one function and not the
-        caller's first three statements.
-        """
-        # Role ability -- Fullback: can choose to pass up to 4 spaces
-        # instead of the usual 2-3 max (see HighPassChoiceView).
-        fullback_bonus = handler.role == PlayerRole.FULLBACK and distance == 4
-
-        overshot = match.high_pass_overshoots(offense_side, distance)
-
-        actual_distance = match.move_ball_relative(offense_side, distance)
-        self.persist(game, match)
-
-        ability_note = " (Fullback ability)" if fullback_bonus else ""
-        if actual_distance:
-            space_word = "space" if actual_distance == 1 else "spaces"
-            content = (
-                f"**High Pass:** the ball moves {actual_distance} "
-                f"{space_word} forward{ability_note}."
-            )
-        else:
-            # Thrown from the final space, so the clamp leaves the ball
-            # exactly where it was. Worth saying in words rather than
-            # as "moves 0 spaces forward", which reads as a bug -- and
-            # a coach sees it now that the passer cannot shoot off it.
-            content = (
-                "**High Pass:** the ball is thrown up from the last space "
-                "and comes straight back down on it."
-            )
-
-        return overshot, actual_distance, content
-
-    async def complete_high_pass_reception(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        receiver_id: str,
-        distance_moved: int,
-        lead_in: str,
-    ) -> None:
-        """
-        A pass that was caught and settles there: the receiver carries
-        it, and the maneuver ends without a contest.
-
-        Two branches reach this -- a 2-space pass out of shooting
-        range, and a pass whose contest a beaten Intercept called off.
-        They differ in what they say and in nothing else.
-        """
-        match.set_ball_carrier(receiver_id)
-        self.persist(game, match)
-        await self.refresh_match_image(interaction, game)
-        await self.finish_maneuver_resolution(
-            interaction, game, match, distance_moved=distance_moved,
-            lead_in=lead_in,
-        )
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def apply_high_pass(
         self,
@@ -755,269 +575,17 @@ class ManeuverEffectsMixin:
         match: MatchState,
         distance: int,
     ) -> None:
-        offense_side = match.ball.possession
-        handler = self.engine.get_player_definition(match.active_player_id)
-
-        overshot, actual_distance, content = self.throw_high_pass(
-            game, match, offense_side, distance, handler,
-        )
-
-        # High Pass's own cost is a flat 2 space minutes regardless of
-        # distance (2026-08-16) -- the one maneuver that isn't 1. Kept
-        # apart from `actual_distance`, which is what the pass actually
-        # did and what the result says.
-        distance_moved = 2
-
-        # Who this pass reached, read once now the ball has landed and
-        # asked by every branch below -- the passer is not among them,
-        # whatever the distance. See high_pass_receiver_candidates.
-        receiver_candidates = self.engine.high_pass_receiver_candidates(
-            match, offense_side,
-        )
-
-        # An overshoot sets up a scoring opportunity whatever distance
-        # was asked for (2026-08-10), on the space closest to the goal
-        # -- which is where the clamp has just put the ball. The shot
-        # is always legal there, as deep into the offense's own
-        # shooting range as the field goes, so no range check: it could
-        # never fail here, and a branch that cannot be taken reads as
-        # if it could. Checked ahead of the ordinary 2-space set-up
-        # below, which it subsumes -- the same shot is offered, but
-        # with the modifier the other way round and a contest behind
-        # it.
-        if overshot and receiver_candidates:
-            await self.offer_overshoot_set_up(
-                interaction,
-                game,
-                match,
-                shooter_id=receiver_candidates[0],
-                distance_moved=distance_moved,
-                lead_in=content,
-            )
-            return
-        # Nobody the pass could reach on the landing space leaves
-        # nothing to set up, so an overshoot falls through to the
-        # ordinary paths below: a loose ball, a clean turnover, or --
-        # the case the passer exclusion opened (2026-08-12) -- the
-        # passer keeping a ball that never left them.
-
-        # A pass of 2 is received cleanly: no contest at all
-        # (2026-08-07), and it may set up a scoring opportunity for
-        # whoever it lands on -- unlike the old fixed-2 High Pass,
-        # this no longer requires overshooting the field. A longer
-        # pass never offers it, whether or not it happens to overshoot.
-        #
-        # A set-up's shot is an ordinary score attempt and obeys the
-        # same rule about where a shot may be taken from: what the
-        # set-up buys is the shot out of turn, not a shot from
-        # anywhere. Out of range the pass is still received, which the
-        # branch below settles -- the range rule takes away the shot,
-        # not the catch.
-        setup_candidates = []
-        if distance == 2 and match.can_attempt_score(offense_side):
-            setup_candidates = receiver_candidates
-
-        if setup_candidates:
-            # Received, so the receiver carries it -- set before the
-            # set-up is offered, because declining resolves this as an
-            # ordinary completed pass and the carrier has to survive
-            # that. Taking the shot makes it moot: a goal or a miss is
-            # a new play, which clears the carrier.
-            match.set_ball_carrier(setup_candidates[0])
-            self.persist(game, match)
-            await self.refresh_match_image(interaction, game)
-            await self.offer_scoring_attempt_choice(
-                interaction,
-                game,
-                match,
-                shooter_id=setup_candidates[0],
-                distance_moved=distance_moved,
-                lead_in=f"{content} That reaches a teammate -- a scoring "
-                "opportunity!",
-            )
-            return
-
-        # No scoring-opportunity option (or the requested distance
-        # wasn't a 2). If the pass reached nobody, this isn't the High
-        # Pass "receiver must win a skill test" contest at all -- it's
-        # a plain loose ball, exactly like any other maneuver that
-        # overshoots into empty territory.
-
-        # A 2-space pass that found its receiver but not shooting range
-        # is just a pass: it was received cleanly, and the only thing
-        # the range rule takes away is the shot. Falling through would
-        # hand it to the long-pass contest below, which a pass of 2 has
-        # never had to win.
-        if distance == 2 and receiver_candidates:
-            # Caught cleanly, just out of shooting range -- the range
-            # rule takes away the shot, not the catch, so the receiver
-            # still carries it.
-            await self.complete_high_pass_reception(
-                interaction, game, match, receiver_candidates[0],
-                distance_moved, content,
-            )
-            return
-
-        if not receiver_candidates:
-            # **A passer never receives their own pass, and since
-            # 2026-08-24 that is no longer a free ride.** The exclusion
-            # above can only bite when the field clamped the throw to 0
-            # spaces -- a High Pass moves the ball, not the handler, so
-            # that is the only way the passer is still standing where
-            # it lands. With nobody else there either, this is a throw
-            # with nowhere to go: there was no field left to put it on
-            # and no teammate to put it to, so it goes out exactly as a
-            # Setup Pass with no legal destination does, rather than
-            # quietly staying with the passer. `actual_distance` (not
-            # `distance`) is the test, because that's what tells the
-            # ball genuinely didn't move from a real empty destination
-            # elsewhere on the field -- which stays an ordinary loose
-            # ball below.
-            if actual_distance == 0:
-                await self.apply_high_pass_out(
-                    interaction, game, match,
-                    distance_moved=distance_moved, lead_in=content,
-                )
-                return
-            await self.refresh_match_image(interaction, game)
-            await self.finish_maneuver_resolution(
-                interaction, game, match, distance_moved=distance_moved,
-                lead_in=content,
-            )
-            return
-
-        # **Intercept's cost**: beaten by a High Pass, the reception is
-        # not contested -- the receiver simply keeps it. It is the one
-        # of the six costs that can be inert, and this is the only
-        # branch it is not: a pass of 2, an overshoot's set-up and a
-        # pass reaching nobody have all already returned above, and
-        # none of them had a contest to skip.
-        if self.engine.advanced_cost(match, "high_pass") == "intercept":
-            receiver = self.engine.get_player_definition(
-                receiver_candidates[0]
-            )
-            await self.complete_high_pass_reception(
-                interaction, game, match, receiver_candidates[0],
-                distance_moved,
-                lead_in=(
-                    f"{content}\n\n**Intercept** was beaten -- the "
-                    "reception is not contested, and "
-                    f"{self.player_label(match, receiver)} "
-                    "keeps the ball."
-                ),
-            )
-            return
-
-        # A teammate is standing right where the pass landed, and the
-        # pass went 3 or more -- a distance of 2 with a teammate there
-        # took the set-up branch above, since both branches ask
-        # high_pass_receiver_candidates the same question. A long
-        # High Pass still forces a skill test to keep the ball, unlike
-        # any other maneuver.
-        await self.refresh_match_image(interaction, game)
-        await self.begin_high_pass_contest(
-            interaction, game, match, distance_moved, lead_in=content,
-        )
-
-    async def apply_high_pass_out(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        distance_moved: int,
-        lead_in: str,
-    ) -> None:
         """
-        A High Pass thrown with nowhere left to put it: the handler is
-        already on the space closest to the opponents' goal, and
-        nobody shares it with them. That is the one position a High
-        Pass can be thrown from without moving the ball at all, so
-        there is no field left to overshoot onto and no teammate to
-        land beside -- the same dead end Setup Pass reaches whenever
-        none of its own distances find anybody (`apply_setup_pass_out`,
-        which this mirrors). The other team gains possession, a new
-        play, and the gaining side sends the nearest player to fetch
-        it -- the out-of-bounds outcome the game already has, rather
-        than the passer quietly keeping a ball that never left them.
+        Play the throw out -- `high_pass_step` -- and let the
+        dispatcher settle what it found where the ball came down.
+
+        Six endings, and the one thing this half decides about them is
+        whether the board is written before the next step draws its
+        own; see `follow_on_draws_the_board`.
         """
-        match.ball.possession = match.defending_side()
-        match.ball.speed = 1
-        match.clear_ball_carrier()
-        match.pending_ball_recovery = True
+        result = high_pass_step(self.engine, match, distance)
         self.persist(game, match)
-
-        gaining = match.setup_for_side(match.ball.possession)
-        await self.begin_run_back(
-            interaction,
-            game,
-            match,
-            new_play=True,
-            distance_moved=distance_moved,
-            lead_in=(
-                f"{lead_in} There is nowhere left to throw it and nobody "
-                "to receive it there -- the ball goes out of play. "
-                f"{format_team_side_label(gaining)} gain possession."
-            ),
-        )
-
-    async def offer_overshoot_set_up(
-        self,
-        interaction: discord.Interaction,
-        game: D12BallGame,
-        match: MatchState,
-        *,
-        shooter_id: str,
-        distance_moved: int,
-        lead_in: str,
-    ) -> None:
-        """
-        The scoring opportunity a High Pass that ran out of field sets
-        up (2026-08-10) -- see "High Pass" in the living rules.
-
-        The pass arrived faster than the receiver could settle it, so
-        `pending_high_pass_overshoot` turns the ball speed modifier
-        around for everything the overshoot leads to: this shot, and
-        the long-pass contest behind it. It is set before either is
-        offered, and cleared with the rest of the turn by
-        reset_maneuver.
-
-        **The two are one choice, not an offer and a fallback.** An
-        overshoot is a shot at a disadvantage or a contest to keep the
-        ball, both paying the modifier, so declining always lands in
-        the contest -- there is no distance here that resolves as a
-        settled pass. A distance of 2 could only overshoot from a
-        position where no distance was ever offered (see
-        resolve_high_pass), so the ordinary "a pass of 2 is received,
-        full stop" rule and this one never meet.
-        """
-        match.pending_high_pass_overshoot = True
-        # Received, so the receiver carries it -- set before the
-        # set-up is offered, for the same reason the ordinary 2-space
-        # set-up does it: declining can resolve this as a completed
-        # pass, and the carrier has to survive that.
-        match.set_ball_carrier(shooter_id)
-        self.persist(game, match)
-
-        penalty = match.ball_speed_modifier()
-        speed_note = (
-            " The ball comes in too fast to settle -- the ball speed "
-            f"modifier counts **against** what follows ({penalty})."
-            if penalty
-            else ""
-        )
-        await self.refresh_match_image(interaction, game)
-        await self.offer_scoring_attempt_choice(
-            interaction,
-            game,
-            match,
-            shooter_id=shooter_id,
-            distance_moved=distance_moved,
-            contest_on_decline=True,
-            lead_in=(
-                f"{lead_in} That overshoots the field -- a scoring "
-                f"opportunity!{speed_note}"
-            ),
-        )
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def begin_high_pass_contest(
         self,

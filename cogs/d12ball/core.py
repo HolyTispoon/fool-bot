@@ -165,6 +165,33 @@ FOLLOW_ONS_THAT_DRAW_THE_BOARD = frozenset({
 })
 
 
+def follow_on_draws_the_board(following: FollowOn) -> bool:
+    """
+    Whether the step a result hands to is about to put the board up
+    itself, so the frontend should not write one in front of it.
+
+    The set above is the whole of it for a step that always draws.
+    **`begin_run_back` is the first that draws only sometimes**, and
+    rank O3 is what met it: a run back after a steal redraws nothing
+    of its own, but a run back opening a *new play* posts and pins a
+    board -- both passes that go out of play reach it that way, and
+    the old cog wrote no board in front of either. So the argument
+    that decides it is read here, beside the set, rather than the
+    model being asked to report a board that did not move.
+
+    Still keyed to the step and its own arguments rather than to the
+    card that named it, which is rank D1's rule and the reason the
+    six callers of `begin_loose_ball` still to be lifted inherit this
+    without deciding it again.
+    """
+    if following.step in FOLLOW_ONS_THAT_DRAW_THE_BOARD:
+        return True
+    return (
+        following.step is FollowOnStep.BEGIN_RUN_BACK
+        and bool(following.kwargs.get("new_play"))
+    )
+
+
 #: Every prompt kind whose view is built from the cog and the game id
 #: alone. The eight that carry something else are branches in
 #: `view_for_prompt`, and `PARAMETERISED_PROMPT_KINDS` names them so
@@ -1782,6 +1809,8 @@ class CoreMixin:
             FollowOnStep.BEGIN_LOOSE_BALL: self.begin_loose_ball,
             FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK:
                 self.offer_setup_pass_push_back,
+            FollowOnStep.BEGIN_HIGH_PASS_CONTEST:
+                self.begin_high_pass_contest,
         }
 
     async def dispatch_step_result(
@@ -1828,7 +1857,7 @@ class CoreMixin:
 
         if result.board_changed and not (
             isinstance(following, FollowOn)
-            and following.step in FOLLOW_ONS_THAT_DRAW_THE_BOARD
+            and follow_on_draws_the_board(following)
         ):
             await self.refresh_match_image(interaction, game)
 
