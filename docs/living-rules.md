@@ -318,7 +318,7 @@ Where the handler is already standing on the space closest to their own goal the
 A coach holds their gambits only while their team is **behind**, which is one of two things:
 
 - Their team has **scored fewer goals** than the other team.
-- Their team **fields more injured players** than the other team. Only the six on the field count, and a Cyborg's [Damaged](#lithium-powered-cyborg) is injured under their own word.
+- Their team **fields more Exhausted-or-Injured players** than the other team. Only the six on the field count, and a Cyborg's [Drained](#lithium-powered-cyborg) and [Damaged](#lithium-powered-cyborg) are Exhausted and Injured under their own words.
 
 It is read when the maneuvers are chosen, off the scoreboard and off the field, so **who is holding gambits is public knowledge**: neither coach learns anything from it the other cannot see for themselves. Both coaches may hold them at once — one trailing while the other is the more hurt — and a coach neither is true of chooses from the basic three.
 
