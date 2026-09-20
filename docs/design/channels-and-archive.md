@@ -255,3 +255,18 @@ frees a slot in the category.
   itself is just the refusals, the two notices, and a fold over the
   per-game results. `delete_channel_with_retries` is the retry loop, and
   is the one piece `reset_channels` shares with it.
+- **A folder exported before `transcript.html` existed can get one without
+  the bot, `scripts/backfill_archive_html.py`.** It is precisely because
+  `render_transcript_html` needs nothing but `game.json` and
+  `transcript.jsonl` off disk -- no catalog, no `discord.Client`, no live
+  channel (see "Player ids are prettified textually" above) -- that this
+  is a standalone script and not another cog command: it walks an export
+  directory's folders and (re)writes `transcript.html` for any that lack
+  one. It runs `migrate_legacy_game_data` on each `game.json` first, the
+  same on-load remap `load_games` applies, so a pre-reshuffle goal log
+  reads with today's player names rather than `prettify_player_id`'s guess
+  at a retired id. **A game against the Dinky AI is skipped by default**
+  (`ai_opponent == "dinky"`, or the legacy tell -- no `player_2_id` and
+  `coin_winner == "the Dinky AI"`, the same fallback
+  `D12BallGame.__post_init__` reads); `--include-dinky` overrides it, and
+  `--force` rebuilds a folder that already has a page.
