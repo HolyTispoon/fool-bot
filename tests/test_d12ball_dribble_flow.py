@@ -32,7 +32,7 @@ from d12ball.flow import FollowOn, FollowOnStep
 from d12ball.flow.effects import dribble_advance_step, dribble_burst_step
 from d12ball.prompts import pending_prompt
 
-from dribble_fixtures import DRIBBLE_CASES, ENGINE, SPEED_CHOICE
+from dribble_fixtures import DRIBBLE_CASES, ENGINE, FINISH, SPEED_CHOICE
 from save_patches import suppressed_cog_saves
 from test_d12ball_dribble_recording import build_cog
 
@@ -90,23 +90,33 @@ class DribbleStepTests(unittest.TestCase):
                     self.assertEqual(
                         match.exhaustion.get(player_id, 0), tokens, player_id,
                     )
+                if fixture.ball_speed is not None:
+                    self.assertEqual(match.ball.speed, fixture.ball_speed)
 
-    def test_both_cards_end_on_the_speed_choice(self) -> None:
+    def test_each_card_ends_where_its_fixtures_say(self) -> None:
         """
-        Rank O2 is self-contained: it moves the handler and stops. The
-        speed choice is the only thing either card hands the turn to,
-        and it is a real `FollowOnStep` member rather than a string
-        this module agrees with itself about.
+        Rank O2 is self-contained: it moves the handler and stops. An
+        advance hands the turn to the speed choice; a burst has left
+        the ball at 12 (the author, 2026-09-20) and hands it straight
+        to the maneuver's tail. Both are real `FollowOnStep` members
+        rather than strings this module agrees with itself about.
         """
         self.assertEqual(
             FollowOnStep.OFFER_SPEED_CHOICE.name, SPEED_CHOICE,
         )
+        self.assertEqual(
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION.name, FINISH,
+        )
         for case in DRIBBLE_CASES:
             with self.subTest(case=case.name):
-                result = run_step(case.build())
-                self.assertIs(
-                    result.next.step, FollowOnStep.OFFER_SPEED_CHOICE,
+                fixture = case.build()
+                result = run_step(fixture)
+                expected = (
+                    FollowOnStep.OFFER_SPEED_CHOICE
+                    if fixture.key == "dribble_advance"
+                    else FollowOnStep.FINISH_MANEUVER_RESOLUTION
                 )
+                self.assertIs(result.next.step, expected)
 
     def test_the_steps_do_not_save(self) -> None:
         """
@@ -188,9 +198,13 @@ class DribbleWrapperTests(unittest.IsolatedAsyncioTestCase):
                 async def speed_choice(*args, **kwargs) -> None:
                     calls.append("offer_speed_choice")
 
+                async def finish(*args, **kwargs) -> None:
+                    calls.append("finish_maneuver_resolution")
+
                 cog.persist = persist
                 cog.refresh_match_image = refresh
                 cog.offer_speed_choice = speed_choice
+                cog.finish_maneuver_resolution = finish
                 apply = (
                     cog.apply_dribble_advance
                     if fixture.key == "dribble_advance"
@@ -204,9 +218,14 @@ class DribbleWrapperTests(unittest.IsolatedAsyncioTestCase):
                     fixture.distance,
                 )
 
-                self.assertEqual(
-                    calls, ["persist", "refresh", "offer_speed_choice"],
+                # The advance ends on the speed choice; the burst has
+                # set the speed itself and ends on the tail.
+                following = (
+                    "offer_speed_choice"
+                    if fixture.key == "dribble_advance"
+                    else "finish_maneuver_resolution"
                 )
+                self.assertEqual(calls, ["persist", "refresh", following])
                 self.assertEqual(
                     carrier_when_saved, [fixture.carrier_id],
                 )

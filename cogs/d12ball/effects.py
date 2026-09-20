@@ -317,8 +317,9 @@ class ManeuverEffectsMixin:
         """
         Dribble Burst: the handler carries the ball **up to
         `DRIBBLE_BURST_MAX_DISTANCE` spaces forward**, defenders no
-        obstacle, at a token a space -- then manipulates ball speed up
-        to their offensive skill, exactly as a Dribble Advance does.
+        obstacle, at a token a space -- and the ball is left at 12,
+        with nobody asked (the author, 2026-09-20), where a Dribble
+        Advance offers a change of up to oSkill.
 
         **The distance is the coach's, and it used to be the board's**
         (the author, 2026-08-26). The run was to the last space of the

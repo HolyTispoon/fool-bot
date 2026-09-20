@@ -874,6 +874,10 @@ SKILLED_PASS_REACH = 3
 # choice at all; the author bounded it on 2026-08-26 and the pick is
 # what the exhaustion is charged against.
 DRIBBLE_BURST_MAX_DISTANCE = 4
+# The ball's speed runs 1 to this. It is the one number a speed choice
+# is clamped to, and since 2026-09-20 also what a won Dribble Burst
+# leaves the ball at -- see `dribble_burst_step`.
+BALL_SPEED_MAX = 12
 
 MANEUVER_TIER_BASIC = "basic"
 # **The constant is the noun and the value is the tier, and both are
@@ -1104,8 +1108,8 @@ class BallState:
     def __post_init__(self) -> None:
         self.zone = Zone(self.zone)
         self.possession = TeamSide(self.possession)
-        if self.speed not in range(1, 13):
-            raise ValueError("Ball speed must be from 1 to 12.")
+        if self.speed not in range(1, BALL_SPEED_MAX + 1):
+            raise ValueError(f"Ball speed must be from 1 to {BALL_SPEED_MAX}.")
 
 
 # One running clock over both periods: 00-15 in the first half, 16-30

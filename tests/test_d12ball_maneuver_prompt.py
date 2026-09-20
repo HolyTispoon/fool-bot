@@ -24,6 +24,7 @@ from d12ball.cards import (
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MatchState,
+    PlayerRole,
     Zone,
     load_basic_ruleset,
     load_maneuver_catalog,
@@ -31,6 +32,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
+from roster import fielded
 from save_patches import suppressed_cog_saves, suppressed_full_image_links
 
 
@@ -307,10 +309,12 @@ class ManeuverChallengeAnnouncementTests(unittest.IsolatedAsyncioTestCase):
         # The sentence version is a caption under a portrait here, next
         # to another player's, so the image takes the abbreviated form
         # the abilities sheet carries. The roster still shows the
-        # sentence.
+        # sentence. The winger, because the test wants a role whose two
+        # forms differ: the Fullback's sentence is short enough that
+        # the sheet carries it in both columns.
         cog = build_cog()
         match = self.build_match()
-        player_id = match.home.field_players[0]
+        player_id = fielded(match, PlayerRole.WINGER)
         profile = cog.player_catalog.effective_profile(
             cog.engine.get_player_definition(player_id),
         )

@@ -124,6 +124,28 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-20 (newest) -- sheet and author, a won Dribble Burst leaves the ball at speed 12
+
+The maneuvers tab's Dribble Burst row now reads *"Adjust ball speed up to 12"* where it read
+*"up to oSkill"*; the beaten branch (*"defender adjusts it up to dSkill"*) is unchanged. The
+author, on the re-import that carried it: *"the dribble burst change (speed up to 12) isn't in
+the rules/engine so update that"* -- and, when the first build read the cell as a choice from
+the whole range: *"dribble burst should set the speed to precisely 12, not to any number."*
+
+**So the burst has no speed step.** The ball is left with the handler at 12, nobody is asked,
+and the maneuver goes straight to its tail -- the one dribble that ends on no choice, and with
+a handler already on the last space of the field (no distance to pick either) the one gambit
+whose effect is entirely choiceless, resolving like a Deflect. The speed is said the way a
+speed choice would have said it, "Ball speed is now **12**.", and only where it changed: a
+ball already at 12 gets no line. A 1-skill Fullback who somehow bursts leaves the ball at 12
+like anybody else. The defender's step after a beaten burst is still a steal's, up to dSkill,
+and a beaten burst still hands the ball over at whatever speed it had.
+
+**The sheet's wording is the author's to settle.** "Adjust ball speed up to 12" is what the
+card prints, and read on its own it is the choice this entry rules out; the rule is the
+author's sentence above. `BALL_SPEED_MAX` is new as a name for the 12 that was written out at
+every clamp, and is what the step sets.
+
 ### 2026-09-20 (latest, 2 of 2) -- author, a gambit *is* the advanced version of its rank's basic maneuver
 
 The author, on the entry below: *"a gambit **is** the advanced version of the basic maneuver of
@@ -211,6 +233,7 @@ the value upstream's. `d12ball/data/species.json`'s Volatile text still says "it
 version" for the same reason. Both want a sheet edit and a re-import (then
 `scripts/render_maneuver_cards.py`) before the printed cards and the card data agree with this
 entry; the card faces the bot renders already read GAMBIT MANEUVER.
+
 ### 2026-09-20 (later still) -- author, nobody the resolution moved is offered either half
 
 The question this answers was found while gating the overshoot branch, and was true of every

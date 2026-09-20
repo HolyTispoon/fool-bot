@@ -42,15 +42,16 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 
-from dribble_fixtures import DRIBBLE_CASES, SPEED_CHOICE
+from dribble_fixtures import DRIBBLE_CASES, FINISH, SPEED_CHOICE
 from save_patches import suppressed_cog_saves
 
 
 def build_cog() -> D12Ball:
     """
     A cog with the engine it really uses and mocks where Discord would
-    be. `offer_speed_choice` is an `AsyncMock` because what it was
-    *called with* is the whole assertion.
+    be. `offer_speed_choice` and `finish_maneuver_resolution` are
+    `AsyncMock`s because what the step's follow-on was *called with*
+    is the whole assertion.
     """
     cog = object.__new__(D12Ball)
     cog.games = {}
@@ -69,6 +70,7 @@ def build_cog() -> D12Ball:
     )
     cog.refresh_match_image = mock.AsyncMock()
     cog.offer_speed_choice = mock.AsyncMock()
+    cog.finish_maneuver_resolution = mock.AsyncMock()
     cog.maneuver_hand_image_bytes = {
         hands: b"" for hands in maneuver_hand_combinations()
     }
@@ -106,9 +108,19 @@ class DribbleRecordingTests(unittest.IsolatedAsyncioTestCase):
                 SimpleNamespace(), fixture.game, match, fixture.distance,
             )
 
-        self.assertEqual(fixture.follow_on, SPEED_CHOICE)
-        cog.offer_speed_choice.assert_awaited_once()
-        kwargs = cog.offer_speed_choice.await_args.kwargs
+        # An advance hands the turn to the speed choice; a burst has
+        # set the speed itself and hands it to the tail. Either way
+        # the narration rides along as the `lead_in`, and the other
+        # step is never reached.
+        follow_ons = {
+            SPEED_CHOICE: cog.offer_speed_choice,
+            FINISH: cog.finish_maneuver_resolution,
+        }
+        followed = follow_ons.pop(fixture.follow_on)
+        followed.assert_awaited_once()
+        for other in follow_ons.values():
+            other.assert_not_awaited()
+        kwargs = followed.await_args.kwargs
         self.assertEqual(kwargs["lead_in"], fixture.narration)
         for name, value in fixture.follow_on_kwargs.items():
             self.assertEqual(kwargs[name], value, name)
@@ -133,6 +145,8 @@ class DribbleRecordingTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 match.exhaustion.get(player_id, 0), tokens, player_id,
             )
+        if fixture.ball_speed is not None:
+            self.assertEqual(match.ball.speed, fixture.ball_speed)
 
 
 if __name__ == "__main__":

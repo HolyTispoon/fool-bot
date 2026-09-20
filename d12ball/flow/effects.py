@@ -37,6 +37,7 @@ from __future__ import annotations
 from typing import Optional
 
 from d12ball.components import (
+    BALL_SPEED_MAX,
     MatchState,
     PlayerDefinition,
     PlayerRole,
@@ -369,8 +370,13 @@ def dribble_burst_step(
     """
     Play a won Dribble Burst: the handler carries the ball up to
     `DRIBBLE_BURST_MAX_DISTANCE` spaces forward, defenders no
-    obstacle, at a token a space -- then manipulates ball speed
-    exactly as a Dribble Advance does.
+    obstacle, at a token a space -- and the ball is left at speed
+    `BALL_SPEED_MAX`, where a Dribble Advance offers the handler a
+    change of up to oSkill (the author, 2026-09-20: "precisely 12, not
+    any number"). Nothing is asked, so unlike the advance the burst
+    ends on the maneuver's tail rather than on a speed choice; the
+    speed is said in the narration the way `apply_speed_choice` says
+    it, and said only where it changed.
 
     Role ability -- Playmaker: one token fewer for the run (the
     author, 2026-08-26) rather than the extra space their sentence
@@ -427,15 +433,16 @@ def dribble_burst_step(
     # **Clear's cost**, the same charge the advance collects.
     content += pay_clear_cost(engine, game, match, "dribble_burst")
 
+    narration = [content]
+    if match.ball.speed != BALL_SPEED_MAX:
+        match.ball.speed = BALL_SPEED_MAX
+        narration.append(f"Ball speed is now **{BALL_SPEED_MAX}**.")
+
     return StepResult(
-        narration=[content],
+        narration=narration,
         board_changed=True,
         next=FollowOn(
-            FollowOnStep.OFFER_SPEED_CHOICE,
-            {
-                "player_id": match.active_player_id,
-                "skill_type": "offense",
-            },
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION, {"distance_moved": 1},
         ),
     )
 

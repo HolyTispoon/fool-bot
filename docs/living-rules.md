@@ -360,7 +360,7 @@ The handler carries the ball **up to 4 spaces forward**, and defenders are no ob
 
 *Playmaker:* pays one token fewer for the run.
 
-They then change the ball's speed by up to their offensive skill, in either direction. The ball is left with the handler.
+The ball is left with the handler **at speed 12** — not a choice, and not bounded by anybody's skill; a Dribble Advance offers a change of up to oSkill, and this is the other thing the card buys over it.
 
 *Beaten:* possession is lost, and the ball **keeps the speed the burst put into it** rather than resetting to 1 — the one exception to [every turnover resetting it](#ball-speed). The defense then changes that speed by up to the challenger's defensive skill, as a steal's would.
 
@@ -496,7 +496,7 @@ The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is ha
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Modifier | 0 | +1 | +2 | +3 | +4 | +5 | +6 |
 
-Only maneuvers change it. In basic mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble Advance and Steal let the player change it by up to their own skill. The [gambits](#gambits) on their ranks do the same in larger amounts — Skilled Pass adds 3, Clear takes 3 off, and Dribble Burst, Setup Pass and Intercept all let the player set it by up to their own skill.
+Only maneuvers change it. In basic mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble Advance and Steal let the player change it by up to their own skill. The [gambits](#gambits) on their ranks do the same in larger amounts — Skilled Pass adds 3, Clear takes 3 off, Setup Pass and Intercept let the player change it by up to their own skill, and a Dribble Burst sets it to 12 outright.
 
 **Every turnover resets it to 1**, with one exception: a Dribble Burst that is beaten hands the ball over at whatever speed the burst put into it.
 

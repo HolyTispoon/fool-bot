@@ -974,7 +974,9 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         match.active_player_id = handler
         match.move_meeple(handler, match.ball.zone, match.ball.space_index)
         start = self.flat_of(match, handler)
+        match.ball.speed = 3
         cog.offer_speed_choice = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
 
         with suppressed_cog_saves():
             await cog.apply_dribble_burst(
@@ -987,7 +989,17 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.flat(match), end)
         self.assertEqual(match.exhaustion[handler], 2)
         self.assertEqual(match.ball_carrier_id, handler)
-        cog.offer_speed_choice.assert_awaited_once()
+        # The ball is left at 12 and nobody is asked about it (the
+        # author, 2026-09-20: "precisely 12, not any number"), so the
+        # burst ends on the tail rather than the speed choice, and says
+        # the speed the way a speed choice would have.
+        self.assertEqual(match.ball.speed, 12)
+        cog.offer_speed_choice.assert_not_awaited()
+        cog.finish_maneuver_resolution.assert_awaited_once()
+        self.assertIn(
+            "Ball speed is now **12**.",
+            cog.finish_maneuver_resolution.await_args.kwargs["lead_in"],
+        )
 
     def test_the_run_is_bounded_at_four_and_by_the_field(self) -> None:
         """
@@ -1031,9 +1043,11 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         """
-        The one position with no run in it. It still gets its speed
-        choice, and it costs nothing -- a burst that moved nowhere is
-        free, Playmaker or not.
+        The one position with no run in it. The ball still goes to 12
+        and it costs nothing -- a burst that moved nowhere is free,
+        Playmaker or not -- and with no distance to pick and no speed
+        to pick, nothing is asked at all: the burst resolves straight
+        through to the tail like a Deflect.
         """
         cog, game, match = self.build("dribble_burst", "clear")
         handler = match.active_player_id
@@ -1042,6 +1056,7 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
             handler, *match.board.position_at_flat_index(end_flat),
         )
         cog.offer_speed_choice = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
         interaction = build_interaction()
 
         with suppressed_cog_saves():
@@ -1050,7 +1065,9 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         interaction.followup.send.assert_not_awaited()
         self.assertEqual(self.flat_of(match, handler), end_flat)
         self.assertEqual(match.exhaustion.get(handler, 0), 0)
-        cog.offer_speed_choice.assert_awaited_once()
+        self.assertEqual(match.ball.speed, 12)
+        cog.offer_speed_choice.assert_not_awaited()
+        cog.finish_maneuver_resolution.assert_awaited_once()
 
     async def test_a_playmaker_pays_one_token_fewer(self) -> None:
         """
@@ -1113,7 +1130,7 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         match.move_meeple(handler, match.ball.zone, match.ball.space_index)
         offered = cog.engine.dribble_burst_distances(match)
         start = self.flat_of(match, handler)
-        cog.offer_speed_choice = mock.AsyncMock()
+        cog.finish_maneuver_resolution = mock.AsyncMock()
         interaction = build_interaction()
 
         with suppressed_cog_saves():
@@ -1126,6 +1143,7 @@ class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
                 start, TeamSide.VISITING, offered[-1],
             ),
         )
+        self.assertEqual(match.ball.speed, 12)
 
     async def test_clears_cost_is_two_exhaustion_on_the_defender(
         self,

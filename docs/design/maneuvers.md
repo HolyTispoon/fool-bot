@@ -163,6 +163,18 @@ the more hurt.
     *whether anyone is asked* is still Discord's decision: Dinky
     answers for itself and a tutorial beat holds the prompt behind a
     note. Nothing either card says changed.
+    - **The burst no longer ends there.** Since 2026-09-20 a won
+      Dribble Burst leaves the ball at exactly 12 -- the author:
+      "precisely 12, not any number" -- so there is no speed to ask
+      and `dribble_burst_step` sets it, says "Ball speed is now
+      **12**." where it changed (a ball already at 12 gets no line),
+      and ends on `FINISH_MANEUVER_RESOLUTION` like a Deflect. It is
+      the one dribble with no speed choice, and the one gambit whose
+      effect can be entirely choiceless: a handler on the last space
+      has no distance to pick either, so `pending_prompt` restores
+      that window to the turn prompt, the choiceless-effect fallback.
+      The beaten burst is unchanged -- the ball keeps whatever speed
+      it had, and the defender's step is a steal's.
     - **A beaten Clear's exhaustion is now saved.** The old
       `apply_dribble_advance` persisted and *then* called
       `pay_clear_cost`, which charges two tokens and re-tests the

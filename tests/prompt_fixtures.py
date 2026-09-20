@@ -521,9 +521,11 @@ def dribble_burst_choice() -> PromptFixture:
     return _settled("dribble_burst", "deflect")
 
 
-def dribble_burst_speed_choice() -> PromptFixture:
-    # From the last space of the field there is no distance to ask, so
-    # the burst restores straight to the speed choice.
+def dribble_burst_with_nothing_to_ask() -> PromptFixture:
+    # From the last space of the field there is no distance to ask,
+    # and a burst asks nothing else -- the ball is left at 12 -- so it
+    # is a choiceless effect there, and restores to the turn prompt
+    # like a Deflect.
     fixture = _settled("dribble_burst", "deflect")
     match = fixture.match
     last = match.board.layout.zone_spaces[Zone.VISITORS_GOAL] - 1
@@ -531,11 +533,6 @@ def dribble_burst_speed_choice() -> PromptFixture:
     match.board.place_meeple(match.active_player_id, Zone.VISITORS_GOAL, last)
     match.ball.zone = Zone.VISITORS_GOAL
     match.ball.space_index = last
-    fixture.params = {
-        "player_id": match.active_player_id,
-        "skill_type": "offense",
-        "maneuver_key": "dribble_burst",
-    }
     return fixture
 
 
@@ -656,8 +653,8 @@ CASES: tuple[PromptCase, ...] = (
                "SpeedDeltaChoiceView", dribble_advance_speed_choice),
     PromptCase("dribble burst", "DRIBBLE_BURST_CHOICE",
                "DribbleBurstChoiceView", dribble_burst_choice),
-    PromptCase("dribble burst speed", "SPEED_DELTA_CHOICE",
-               "SpeedDeltaChoiceView", dribble_burst_speed_choice),
+    PromptCase("dribble burst, nothing to ask", "PLAYER_ACTION",
+               "PlayerActionView", dribble_burst_with_nothing_to_ask),
     PromptCase("steal", "SPEED_DELTA_CHOICE", "SpeedDeltaChoiceView",
                steal_speed_choice),
     PromptCase("intercept", "SPEED_DELTA_CHOICE", "SpeedDeltaChoiceView",
