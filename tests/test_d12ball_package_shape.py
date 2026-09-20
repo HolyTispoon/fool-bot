@@ -215,6 +215,7 @@ class FollowOnStepTests(unittest.TestCase):
         "OFFER_SPEED_CHOICE",
         "BEGIN_RUN_BACK",
         "BEGIN_SHOOTER_CHOICE",
+        "BEGIN_OWN_GOAL_ROLL",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(

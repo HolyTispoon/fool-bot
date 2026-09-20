@@ -2,16 +2,18 @@
 What a maneuver does when it wins, as flow steps.
 
 One function per card, each taking the engine and the match, changing
-the match, and handing back a `StepResult`. Low Pass (rank O1), the
-two dribbles (rank O2) and the two steals (rank D2) are here; the
-other seven are still `cogs/d12ball/effects.py`'s until Phase 3 of
-docs/model-discord-split.md lifts them a rank at a time. See
-"Maneuvers" in docs/design/maneuvers.md for what each card actually
-does.
+the match, and handing back a `StepResult`. Eight of the twelve are
+here -- rank O1's two, rank O2's two, rank D2's two and rank D3's two
+-- as six functions, since four of the cards are their rank-mate
+parameterised. The four still `cogs/d12ball/effects.py`'s are rank
+D1's (Deflect, Clear) and rank O3's (High Pass, Setup Pass), until
+Phase 3 of docs/model-discord-split.md lifts them. See "Maneuvers" in
+docs/design/maneuvers.md for what each card actually does.
 
 A step takes `(engine, match, ...)`, and `game` only where it
-actually reads the record -- `low_pass_step` and `steal_step` do not
-and so do not take one; both dribbles do, because charging an
+actually reads the record -- `low_pass_step`, `steal_step` and
+`pressure_step` do not and so do not take one; both dribbles do,
+because charging an
 exhaustion token tests a threshold the game record decides (a
 Cyborg's is a flat 7, see `RulesEngine.exhaustion_threshold`). None of
 them takes an `interaction`, ever: that is the single clearest test of
@@ -20,7 +22,8 @@ greppable.
 
 **A rank's two cards are one function wherever they differ by a
 parameter**: Low Pass and Skilled Pass by `key`, Steal and Intercept
-by the sign of the carry. Only the dribbles needed two, and they have
+by the sign of the carry, Pressure and Double Team by the push and the
+partner it brings in. Only the dribbles needed two, and they have
 different costs rather than different signs.
 
 **Nothing here saves.** The caller persists once, immediately after the
@@ -39,8 +42,8 @@ from d12ball.components import (
     TeamSide,
 )
 from d12ball.engine import RulesEngine
-from d12ball.formatting import format_team_side_label
-from d12ball.game import D12BallGame
+from d12ball.formatting import format_goal_time, format_team_side_label
+from d12ball.game import D12BallGame, team_display_name
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 
 
@@ -608,4 +611,317 @@ def steal_step(
         next=FollowOn(
             FollowOnStep.BEGIN_RUN_BACK, {"speed_choice_after": True},
         ),
+    )
+
+
+def shove_pressured_handler(
+    match: MatchState,
+    push: int,
+    partner_id: Optional[str],
+) -> int:
+    """
+    Drive the handler and the ball back, and bring the challenger
+    (and a Double Team's partner) onto the space they left.
+
+    Returns how far the handler actually moved, which is less than
+    `push` only when they were already against their own goal -- the
+    caller reads that as the overshoot.
+    """
+    offense_side = match.ball.possession
+
+    actual_distance = match.move_player_relative(
+        match.active_player_id, offense_side, -push,
+    )
+    match.set_ball_space(
+        *match.board.meeple_position(match.active_player_id)
+    )
+
+    # The challenger advances onto the handler's space. A Double
+    # Team brings that teammate onto it as well, free of
+    # exhaustion -- so they are *placed* rather than run, which is
+    # what "no exhaustion cost" means in a game where every other
+    # way to reach a space charges a token a space.
+    handler_zone, handler_space = match.board.meeple_position(
+        match.active_player_id
+    )
+    match.move_meeple(match.challenger_id, handler_zone, handler_space)
+    if partner_id is not None:
+        match.move_meeple(partner_id, handler_zone, handler_space)
+
+    # Losing to a pressure does not lose the ball: the handler was
+    # shoved back still holding it, so they take the next turn.
+    # Set before the caller's overshoot branch, because an own goal
+    # avoided is the same thing -- pressured, and still holding it.
+    # The Defender's steal moves the carry to the Defender, and a
+    # conceded own goal is a new play, which clears it.
+    match.set_ball_carrier(match.active_player_id)
+
+    return actual_distance
+
+
+def pressure_result_text(
+    engine: RulesEngine,
+    match: MatchState,
+    key: str,
+    name: str,
+    actual_distance: int,
+    partner_id: Optional[str],
+) -> str:
+    """
+    What the shove reads as, and -- for a Double Team -- the record
+    of who is left challenging the next maneuver.
+    """
+    handler = engine.get_player_definition(match.active_player_id)
+    defender = engine.get_player_definition(match.challenger_id)
+    space_word = "space" if actual_distance == 1 else "spaces"
+    content = (
+        f"**{name}:** "
+        f"{engine.format_player_label(match, handler)} and the "
+        f"ball go back {actual_distance} {space_word}. "
+        f"{engine.format_player_label(match, defender)} moves "
+        "forward."
+    )
+
+    if key == "double_team" and partner_id is not None:
+        partner = engine.get_player_definition(partner_id)
+        # **The pair is recorded, not the fact that a Double Team
+        # happened.** What the next maneuver needs is who
+        # challenges it, and that is two named cards; a flag would
+        # leave the following turn re-deriving "the nearest
+        # teammate" off a board that has moved since.
+        match.pending_double_team = [match.challenger_id, partner_id]
+        content += (
+            f" {engine.format_player_label(match, partner)} "
+            "joins them -- and **both** will challenge on the next "
+            "maneuver, each adding their defensive skill."
+        )
+
+    return content
+
+
+def apply_pressure_turnover(
+    engine: RulesEngine,
+    match: MatchState,
+    key: str,
+    defense_side: TeamSide,
+) -> tuple[str, bool, bool]:
+    """
+    Whether the pressure also took the ball, and what to say about
+    it. Returns the text to append, and the two facts the caller
+    dispatches on: a Dribble Burst cost paid, and a Defender's
+    steal.
+
+    The two are exclusive and in that order -- a burst cost already
+    turns the ball over, so the Defender's ability has nothing left
+    to take.
+    """
+    defender = engine.get_player_definition(match.challenger_id)
+    content = ""
+
+    # **Dribble Burst's cost**: beaten by a pressure, the offense
+    # loses possession *and* the ball keeps whatever speed it was
+    # carrying while the defense manipulates it. Neither of those
+    # is something a pressure does on its own -- a turnover is the
+    # steal's and so is the speed step -- which is what the matrix
+    # means by the cost borrowing machinery its defeaters do not
+    # have. It is also **the first exception to "every turnover
+    # resets ball speed to 1"**, and the reason nothing here sets
+    # `match.ball.speed = 1`.
+    burst_cost = engine.advanced_cost(match, key) == "dribble_burst"
+    if burst_cost:
+        match.ball.possession = defense_side
+        match.set_ball_carrier(match.challenger_id)
+        content += (
+            "\n\n# Turnover!\n"
+            "**Dribble Burst** was beaten -- "
+            f"{format_team_side_label(match.setup_for_side(defense_side))} "
+            "take the ball, and it keeps the speed the burst put into "
+            f"it ({match.ball.speed})."
+        )
+
+    # Role ability -- Defender: also steals the ball on a won
+    # pressure, on top of the normal effect above.
+    stolen = defender.role == PlayerRole.DEFENDER
+    if stolen and not burst_cost:
+        match.ball.possession = defense_side
+        match.ball.speed = 1
+        match.set_ball_carrier(match.challenger_id)
+        content += (
+            "\n\n# Turnover!\n"
+            f"{engine.format_player_label(match, defender)} "
+            "steals the ball (Defender ability)! "
+            f"{format_team_side_label(match.setup_for_side(defense_side))} "
+            "now has possession."
+        )
+
+    return content, burst_cost, stolen
+
+
+def pressure_step(
+    engine: RulesEngine,
+    match: MatchState,
+    key: str,
+) -> StepResult:
+    """
+    Play a won Pressure -- or a Double Team, which is the same card
+    at two spaces with a second defender brought in free of
+    exhaustion, and the one card whose effect lands on the
+    *following* maneuver. The two differ by the push and by that
+    partner, so they are one function and a `key`, the way Low Pass
+    and Skilled Pass are.
+
+    Rank D3 has no unchallenged branch: a defense card only resolves
+    where a defender was sent, so `match.challenger_id` is always the
+    player who plays it.
+
+    It reads nothing off the game record -- the shove charges no
+    exhaustion, and the cost this card can collect is an engine
+    question -- so it takes no `game`.
+    """
+    offense_side = match.ball.possession
+    defense_side = match.defending_side()
+    name = engine.maneuver_name(key)
+    push = 2 if key == "double_team" else 1
+
+    # Own-goal risk: a pressure is the only thing that threatens
+    # one, and only when the ball-holder is already at the space
+    # closest to their own goal, i.e. pushing them back further
+    # isn't possible.
+    origin_flat = match.board.flat_index(
+        match.ball.zone, match.ball.space_index,
+    )
+    target_flat = match.relative_flat_index(
+        origin_flat, offense_side, -push,
+    )
+    overshot = abs(target_flat - origin_flat) < push
+
+    # **Read before anything moves.** The card says "the teammate
+    # closest to the space where the play started", and the play
+    # started where the ball is standing now -- a moment later the
+    # handler has been shoved back two and the ball with them, and
+    # the nearest defender to *that* space can be somebody else
+    # entirely. Asked here, so the answer is the one the card
+    # describes.
+    partner_id = (
+        engine.double_team_partner(match)
+        if key == "double_team"
+        else None
+    )
+
+    actual_distance = shove_pressured_handler(match, push, partner_id)
+    content = pressure_result_text(
+        engine, match, key, name, actual_distance, partner_id,
+    )
+
+    # Every branch below has moved a meeple: even a shove with
+    # nowhere to go walks the challenger onto the handler's space.
+    # So `board_changed` is True throughout, which is where
+    # `refresh_match_image` sat in the cog on both paths.
+    if overshot:
+        # An own goal takes priority over the Defender's steal
+        # ability: if it's conceded, the point is already over, and
+        # stealing a ball that was just kicked off from the restart
+        # wouldn't mean anything. So this returns before the
+        # turnover below is read at all.
+        #
+        # **The extra sentence is part of the shove's own block**,
+        # not a second one: the blocks are joined on a single space
+        # and this paragraph is separated by a blank line, so a
+        # block of its own would put a stray space in front of its
+        # newlines -- the same reason the Intercept overshoot's
+        # sentence rides inside the turnover's.
+        return StepResult(
+            narration=[
+                content + "\n\nThat overshoots toward their own goal!"
+            ],
+            board_changed=True,
+            next=FollowOn(
+                FollowOnStep.BEGIN_OWN_GOAL_ROLL, {"distance_moved": 1},
+            ),
+        )
+
+    turnover_text, burst_cost, stolen = apply_pressure_turnover(
+        engine, match, key, defense_side,
+    )
+    content += turnover_text
+
+    # Fixed 1 space minute per the rules table, independent of
+    # clamping, same reasoning as a deflection.
+    if burst_cost:
+        # The defense has the ball and the speed step the cost
+        # granted them, which is the steal's shape: run everyone
+        # back first, then let them set the speed.
+        following = FollowOn(
+            FollowOnStep.BEGIN_RUN_BACK,
+            {"speed_choice_after": True, "speed_reset": False},
+        )
+    elif stolen:
+        # The stealing player keeps the ball and stays put --
+        # everyone else who's out of position runs back. Read off
+        # the carrier set in the shove, not passed in.
+        following = FollowOn(FollowOnStep.BEGIN_RUN_BACK)
+    else:
+        following = FollowOn(
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION, {"distance_moved": 1},
+        )
+
+    return StepResult(
+        narration=[content], board_changed=True, next=following,
+    )
+
+
+def apply_own_goal_outcome(
+    engine: RulesEngine,
+    match: MatchState,
+    offense_player: PlayerDefinition,
+    distance_moved: int,
+    safe: bool,
+    exhaustion_text: str,
+) -> str:
+    """
+    Settle the own-goal roll and word it. Both outcomes restart play,
+    which is why the caller's dispatch is the same either way -- what
+    differs is whether a goal went on the board.
+
+    The roll itself is still `D12Ball.run_own_goal_roll`'s: it is a
+    coach's dice and a dice image, which is the frontend's half. This
+    is only what the answer does to the match and what it reads as,
+    and **it no longer saves** -- the caller writes the match down
+    immediately after it, on both branches, where the conceded one
+    used to save in here and the avoided one after two messages had
+    gone out. See principle 9 in CLAUDE.md.
+    """
+    if safe:
+        # A new play resets speed same as any other -- see
+        # begin_run_back -- and nothing else on this path would,
+        # since Pressure's overshoot branch never touches it.
+        match.ball.speed = 1
+        # The ball stays exactly where the overshot Pressure left
+        # it, with no coverage guarantee at all -- not even the
+        # standard deal's, since that position is wherever the play
+        # happened to reach. So, since 2026-08-24, this owes the
+        # same pickup an out-of-bounds ball does rather than a
+        # two-sided loose ball: begin_ball_recovery checks
+        # eligible_ball_handlers() first and asks nobody when the
+        # reset already covers it.
+        match.pending_ball_recovery = True
+        return f"## Own goal avoided!\n\n{exhaustion_text}"
+
+    conceding_side = match.ball.possession
+    # The goal is the other side's; the kick is this player's,
+    # and the log says both -- see concede_own_goal.
+    match.concede_own_goal(offense_player.player_id)
+    match.restart_after_goal(conceding_side)
+    match.pending_run_back = True
+    match.pending_run_back_distance = distance_moved
+    match.pending_run_back_turnover = True
+    return (
+        f"# Own goal!\n"
+        f"{engine.format_player_label(match, offense_player)} "
+        "puts it in their own net on "
+        f"**{format_goal_time(match.goals[-1])}**.\n"
+        f"{team_display_name(match.home.team)} {match.scoreboard.home_score}:"
+        f"{match.scoreboard.visiting_score} "
+        f"{team_display_name(match.visiting.team)}\n\n"
+        f"{exhaustion_text}"
     )

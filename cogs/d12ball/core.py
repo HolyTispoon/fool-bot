@@ -1740,6 +1740,7 @@ class CoreMixin:
             FollowOnStep.OFFER_SPEED_CHOICE: self.offer_speed_choice,
             FollowOnStep.BEGIN_RUN_BACK: self.begin_run_back,
             FollowOnStep.BEGIN_SHOOTER_CHOICE: self.begin_shooter_choice,
+            FollowOnStep.BEGIN_OWN_GOAL_ROLL: self.begin_own_goal_roll,
         }
 
     async def dispatch_step_result(
