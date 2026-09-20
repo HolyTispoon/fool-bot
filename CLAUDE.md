@@ -36,7 +36,7 @@ python3 -m unittest discover -s tests
 | `d12ball/components.py` | Game state model -- `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog`, `MATCH_SAVED_FIELDS` |
 | `d12ball/engine.py` | `RulesEngine` -- every decision and candidate list that never touches Discord, over the fixed catalogs and AI strategies. `D12Ball.engine` is the one instance; call sites read `self.engine.foo(...)`. Includes the prompt-text and matchup-data builders that need only the match and the catalogs |
 | `d12ball/prompts.py` | `PromptKind`, `PendingPrompt` and `pending_prompt` -- the one reading of what a match is waiting on, with no Discord in it. The cog maps a kind to a view and renders the `ask` -- [model-discord-split.md](docs/design/model-discord-split.md) |
-| `d12ball/flow/` | The turn's flow with no Discord in it: `StepResult` and the transitional `FollowOn` in `result.py`, and the maneuver steps lifted so far in `effects.py` (Low Pass and Skilled Pass; Dribble Advance and Dribble Burst; Steal and Intercept; Pressure and Double Team). A step changes the match and says what happened; it sends nothing and saves nothing -- [model-discord-split.md](docs/design/model-discord-split.md) |
+| `d12ball/flow/` | The turn's flow with no Discord in it: `StepResult` and the transitional `FollowOn` in `result.py`, and the maneuver steps lifted so far in `effects.py` (Low Pass and Skilled Pass; Dribble Advance and Dribble Burst; Steal and Intercept; Pressure and Double Team; Deflect and Clear). A step changes the match and says what happened; it sends nothing and saves nothing -- [model-discord-split.md](docs/design/model-discord-split.md) |
 | `d12ball/formatting.py` | Plain-text formatting over match/game/zone data with no Discord dependency -- space codes, side labels, player names |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `TEAM_PAIRS`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board, matchup and dice image rendering (Pillow); `TEAM_COLORS` |
@@ -226,8 +226,10 @@ bot stop each phase ends on.
    five-in-five arithmetic stay exactly where they are; what reaches them
    is `StepResult.board_changed`.
 
-9. **The driver persists; steps do not.** `self.persist(...)` is called at
-   **95 sites** in `cogs/` today, and CLAUDE.md already records the class
+9. **The driver persists; steps do not.** `self.persist(...)` was called at
+   **95 sites** in `cogs/` when this was written -- the phases have been
+   collapsing them a rank at a time since, so measure rather than quote it --
+   and CLAUDE.md already records the class
    of bug that produces: an event recorded without a save in the same
    breath is one the next interaction never sees, which is how beat 1 of
    the tutorial vanished from the log. A step mutates and returns; the
