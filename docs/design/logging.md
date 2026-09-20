@@ -87,6 +87,15 @@ Things to know before changing any of it:
   for which is an empty combined diff — `--name-only` and `--stat` both
   report a clean merge of two branches that touched one file as if it
   carried changes, so `merges_with_content` reads the patch.
+- **Git output is decoded as UTF-8 by name, never as the locale.** That
+  patch is the one git call that prints file contents, and the live bot's
+  locale is cp1252. On Windows, subprocess reads a captured pipe on a
+  thread, and a byte the locale cannot decode kills that thread quietly:
+  exit code 0, `stdout` of `None`, and `announce_startup` down with an
+  `AttributeError` — which is how a merge that resolved a conflict in a
+  file with an em dash silenced every notice after it. `_git` names
+  `encoding="utf-8"` with `errors="replace"` (the patch is only ever
+  checked for emptiness) and treats a `None` stdout as the failure it is.
 
 The channel is created with whatever permissions the server's defaults give
 it. Tracebacks name game ids, channel names and command arguments, so lock
