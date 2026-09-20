@@ -1,11 +1,64 @@
-# The model/Discord split's safety net
+# The model/Discord split
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are
-[living-rules.md](../living-rules.md). The plan this guards is
+[living-rules.md](../living-rules.md). The rules the split is made by are
+CLAUDE.md's, in "The model and the Discord layer"; the plan is
 [model-discord-split.md](../model-discord-split.md) -- a worksheet, not settled
-history; read it for the phases and the principles. This file is for the two
-guards Phase 0 landed, which are permanent regardless of how much of the rest
-of the plan lands.
+history, read it for the phases still open. This file is for what has landed
+and is permanent regardless of how much of the rest of the plan does: the two
+guards from Phase 0, and the seam Phase 1 cut.
+
+## `d12ball/prompts.py`
+
+**Is the seam, in the one place it was cheapest to cut.** `pending_prompt`
+answers "what is this match waiting on?" with a `PendingPrompt` -- a
+`PromptKind`, the line to ask it with, and the few parameters the question
+carries -- and the cog turns that into a `discord.ui.View`. It is the
+principle "one reading, and it is in the model" made concrete, and it was the
+first phase because nothing in it mutates: the whole chain is a read, so the
+move had no rules risk to weigh against it.
+
+- **The chain moved whole, ordering comments and all.** Which branch is
+  checked before which carries real decisions -- setup, halftime, the window
+  before the shootout and a time out are all read ahead of "no ball handler
+  yet" because all four leave `active_player_id` None -- and those decisions
+  live in the comments beside the branches rather than anywhere else. Splitting
+  the chain, or paraphrasing it into a new shape, is how a second reading gets
+  made by accident. See "Recovering a stuck game" in [recovery.md](recovery.md).
+- **One kind per view class.** 26 of them: the chain's own 17 view classes
+  over its 25 `return`s, plus the 9 the three folded-in builders add (6 effect
+  prompts, 2 run-back, 1 loose-ball). A view built with different arguments for
+  different situations is **one** kind carrying the difference in its
+  parameters -- `SPEED_DELTA_CHOICE` is Setup Pass's, the dribbles' and
+  Steal/Intercept's with `maneuver_key` telling them apart, and
+  `LOW_PASS_CHOICE` is the plain and the free one with `free`. The alternative,
+  a kind per situation, makes the cog's table a second copy of the chain's
+  branching, which is the thing the phase exists to prevent.
+- **A prompt carries what its branch decided and nothing else.** The six
+  parameters (`player_ids`, `player_id`, `side`, `maneuver_key`, `skill_type`,
+  `free`) are the ones the branches actually held. Anything else a frontend
+  needs it asks the engine for with the match it already has -- the loose
+  ball's candidate list is read in `view_for_prompt`, not carried, because a
+  prompt is what to ask rather than a rendering brief.
+- **`view_for_prompt` is the only place a kind becomes a view.** A later phase
+  rendering a step's next prompt comes through it rather than growing a second
+  table; two tables is the same failure as two chains, one step further down.
+  `PLAIN_PROMPT_VIEWS` and `PARAMETERISED_PROMPT_KINDS` are asserted to cover
+  `PromptKind` exactly, because a kind with no view would raise inside a
+  restart, one game at a time.
+- **The game became a parameter, so the lookup is eager.** The chain read
+  `self.games[game_id]` inside the run-back branch alone; `pending_prompt`
+  takes the game. Neither production caller can reach it without one --
+  startup iterates `self.games.values()` and resume is handed the game -- but
+  two shootout fixtures had never registered theirs, and now do.
+- **The fixtures are shared, and were recorded first.**
+  `tests/prompt_fixtures.py` stands a match in every branch with no discord in
+  scope; `tests/test_d12ball_prompt_mapping.py` asserts the view and the ask
+  through the cog, `tests/test_d12ball_prompts.py` the kind and the parameters
+  through the model. The mapping test was written against the old chain and run
+  green there before anything moved -- that is what makes it evidence rather
+  than the new code agreeing with itself, and it is the pattern the later
+  phases should copy.
 
 ## `tests/test_model_purity.py`
 

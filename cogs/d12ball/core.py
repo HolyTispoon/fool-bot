@@ -48,6 +48,13 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball.cards import render_maneuver_hands
+from d12ball.prompts import (
+    PendingPrompt,
+    PromptKind,
+    effect_choice_prompt,
+    pending_prompt,
+    run_back_prompt,
+)
 from d12ball import tutorial
 from d12ball.render import (
     TEAM_COLORS,
@@ -67,7 +74,6 @@ from cogs.d12ball_helpers import (
     LOGGER,
     MANEUVER_ROW_COLOURS,
     add_full_image_button,
-    contest_noun,
     fetch_application_emojis,
     format_player_with_team,
     format_team_side_label,
@@ -81,7 +87,6 @@ from cogs.d12ball_helpers import (
     load_team_emojis,
     send_error_fallback,
     send_new_prompt,
-    space_label,
 )
 from cogs.d12ball_views import (
     BallHandlerSelectionView,
@@ -98,6 +103,7 @@ from cogs.d12ball_views import (
     InjuryTestView,
     MindPullView,
     LobbyView,
+    LooseBallChoiceView,
     LooseBallSkillTestView,
     LowPassChoiceView,
     ManeuverActionPromptView,
@@ -121,6 +127,45 @@ from cogs.d12ball_views import (
     TeamSelectionView,
 )
 from cogs.d12ball_boards import BoardRefresher
+
+
+#: Every prompt kind whose view is built from the cog and the game id
+#: alone. The eight that carry something else are branches in
+#: `view_for_prompt`, and `PARAMETERISED_PROMPT_KINDS` names them so
+#: the two together can be checked against `PromptKind` -- a kind with
+#: no view is a prompt the bot cannot put up.
+PLAIN_PROMPT_VIEWS = {
+    PromptKind.COACHING_HUB: CoachingHubView,
+    PromptKind.COACHING_OFFER: CoachingOfferView,
+    PromptKind.OWN_GOAL_ROLL: OwnGoalRollView,
+    PromptKind.SHOOTOUT_ORDER: ShootoutOrderPromptView,
+    PromptKind.SHOOTOUT_PICK: ShootoutPickPromptView,
+    PromptKind.SHOOTOUT_TEST: ShootoutTestView,
+    PromptKind.PLAYER_ACTION: PlayerActionView,
+    PromptKind.BALL_HANDLER_SELECTION: BallHandlerSelectionView,
+    PromptKind.BALL_RECOVERY: BallRecoveryView,
+    PromptKind.LOOSE_BALL_SKILL_TEST: LooseBallSkillTestView,
+    PromptKind.SCORE_ATTEMPT: ScoreAttemptView,
+    PromptKind.MANEUVER_CHALLENGE: ManeuverChallengeView,
+    PromptKind.MANEUVER_ACTION: ManeuverActionPromptView,
+    PromptKind.SKILL_TEST: SkillTestView,
+    PromptKind.HIGH_PASS_CHOICE: HighPassChoiceView,
+    PromptKind.SETUP_PASS_CHOICE: SetupPassChoiceView,
+    PromptKind.DRIBBLE_ADVANCE_CHOICE: DribbleAdvanceChoiceView,
+    PromptKind.DRIBBLE_BURST_CHOICE: DribbleBurstChoiceView,
+}
+
+#: The kinds carrying a parameter their view needs.
+PARAMETERISED_PROMPT_KINDS = frozenset({
+    PromptKind.HALFTIME_EXTRA_TOKEN,
+    PromptKind.MIND_PULL,
+    PromptKind.INJURY_TEST,
+    PromptKind.RUN_BACK_SPACE,
+    PromptKind.RUN_BACK_PLAYER,
+    PromptKind.LOOSE_BALL_PICK,
+    PromptKind.LOW_PASS_CHOICE,
+    PromptKind.SPEED_DELTA_CHOICE,
+})
 
 
 class CoreMixin:
@@ -1499,79 +1544,20 @@ class CoreMixin:
         match: MatchState,
     ) -> Optional[discord.ui.View]:
         """
-        Reconstruct whichever initial effect-choice prompt is pending
-        for a decisively-won maneuver, purely from match state -- used
-        both to restore it on a bot restart and (implicitly, by the
-        same logic) to post it the first time. Returns None for a
-        maneuver that needs no choice (Deflect, Pressure) or an
-        unrecognized winner -- those resolve synchronously and should
-        never actually leave this state persisted except in a narrow
-        crash window, which falls back to PlayerActionView.
+        Whichever initial effect-choice prompt is pending for a
+        decisively-won maneuver, as a view -- used both to restore it
+        on a bot restart and (implicitly, by the same logic) to post it
+        the first time.
 
-        A Playmaker's Dribble Advance has two possible pending prompts
-        (distance, then speed) with nothing in match state to tell
-        them apart, so a restart in that narrow window guesses the
-        first one -- the same class of crash-window gap as the
-        unrecognized-winner case above. A won Low Pass or High Pass
-        that has moved on to its scoring-opportunity attempt/decline
-        choice (SetUpAttemptChoiceView) has the same gap, as does a
-        Low Pass waiting on which of several teammates on the
-        destination space receives it (LowPassReceiverView): this
-        always reconstructs the first-stage distance choice instead.
-        Nothing has been applied by then, so the coach re-picks.
+        The reading is `d12ball.prompts.effect_choice_prompt`, which
+        holds what this used to decide and why; None here is None
+        there, which is a maneuver needing no choice (Deflect,
+        Pressure) or one still owed a skill test.
         """
-        # **An effect continuation is read first**, because it says the
-        # effect is already past the prompt its winner would restore.
-        # Setup Pass's speed choice has been answered by the time one
-        # is set, and a beaten Skilled Pass's Low Pass belongs to the
-        # *defense* -- reading the winner there would put the steal's
-        # speed choice back up and let a coach answer it twice. See
-        # `continue_effect` for why the field outlives its dispatch.
-        continuation = match.pending_effect_continuation or {}
-        if continuation.get("kind") == "setup_pass_shot":
-            return SetupPassChoiceView(self, game_id)
-        if continuation.get("kind") == "free_low_pass":
-            return LowPassChoiceView(self, game_id, key="low_pass", free=True)
-
-        winner_key = self.engine.settled_maneuver_winner(match)
-        if winner_key is None:
-            # Still owed a skill test, so no effect is pending yet.
+        prompt = effect_choice_prompt(self.engine, match)
+        if prompt is None:
             return None
-        # A tie a skill test settled resolves as the basic card, so the
-        # prompt restored has to be that card's -- see
-        # `RulesEngine.resolving_maneuver`.
-        winner_key = self.engine.resolving_maneuver(match, winner_key)
-        if winner_key in ("low_pass", "skilled_pass"):
-            return LowPassChoiceView(self, game_id, key=winner_key)
-        if winner_key == "high_pass":
-            return HighPassChoiceView(self, game_id)
-        if winner_key == "setup_pass":
-            return SpeedDeltaChoiceView(
-                self, game_id, match.active_player_id, "offense",
-            )
-        if winner_key in ("dribble_advance", "dribble_burst"):
-            handler = self.engine.get_player_definition(match.active_player_id)
-            if winner_key == "dribble_advance" and (
-                handler.role == PlayerRole.PLAYMAKER
-            ):
-                return DribbleAdvanceChoiceView(self, game_id)
-            # A Dribble Burst asks a distance of everybody, not only a
-            # Playmaker -- unless the handler is already on the last
-            # space of the field, which is the one position with
-            # nothing to ask and so the one that restores straight to
-            # the speed choice.
-            if winner_key == "dribble_burst" and (
-                self.engine.dribble_burst_distances(match)
-            ):
-                return DribbleBurstChoiceView(self, game_id)
-            return SpeedDeltaChoiceView(
-                self, game_id, match.active_player_id, "offense",
-            )
-        if winner_key in ("steal", "intercept"):
-            return SpeedDeltaChoiceView(
-                self, game_id, match.challenger_id, "defense",
-            )
-        return None
+        return self.view_for_prompt(game_id, match, prompt)
 
     def restore_shootout_menus(
         self,
@@ -1630,280 +1616,76 @@ class CoreMixin:
     ) -> tuple[discord.ui.View, str]:
         """
         The prompt a saved match still owes: the view to put in front
-        of whoever it is waiting on, and a line asking for it.
+        of whoever it is waiting on, and the line asking for it.
 
-        **This is the only reading of "what is this match waiting
-        on?", and it has two callers that must not drift apart.**
-        Startup re-attaches the view to the message the prompt was
-        already posted on (`turn_message_id`); `/d12ball resume` posts
-        a fresh message carrying the same one, for the games where
-        that message is gone, was never recorded, or was left with
-        nothing live on it. A second copy of this branch chain is how
-        a resume ends up offering a different prompt from the one a
-        restart restores.
+        **The reading is the model's** --
+        `d12ball.prompts.pending_prompt` is the branch chain that used
+        to be this method's body, ordering comments and all, so a web
+        app can ask the same question rather than growing a second copy
+        of it (see "The model and the Discord layer" in CLAUDE.md).
+        What is left here is the rendering, and the `ask` passes
+        through untouched.
 
-        Ordering matters more than it looks:
-
-        - Setup and halftime come first because both leave
-          `active_player_id` None, and the "no ball handler yet"
-          branch would otherwise misread either as the kickoff.
-        - `challenger_id` (or `maneuver_uncontested`) is what says a
-          maneuver is under way, not `pending_action`, which
-          `choose_challenger` clears the moment a challenger is
-          picked.
-        - An owed injury test and an owed own-goal roll come next,
-          ahead of everything else, because both are interruptions of
-          a turn whose own state is still set underneath them and
-          would otherwise answer first.
-
-        The three `or PlayerActionView` fallbacks are states whose
-        next step is the bot's, not a coach's -- a run back with only
-        forced placements left, an effect with no choice in it. There
-        is no button to restore for those, so startup falls back to
-        the turn prompt; `resume_pending_prompt` re-drives the
-        pipeline instead, which is the difference between the two
-        callers and the reason this returns a view rather than doing
-        the posting itself.
+        Its two callers must not drift apart: `restore_saved_views`
+        re-attaches what this returns to the message the prompt is
+        already on, and `resume_pending_prompt` posts it on a fresh
+        one. That is also why this returns a view rather than sending
+        it -- see "Recovering a stuck game" in docs/design/recovery.md.
         """
-        if match.pending_setup_stage is not None:
-            # Before kickoff, so active_player_id is None and the "no
-            # ball handler yet" branch below would otherwise misread
-            # this as the kickoff prompt -- the same reason halftime is
-            # checked ahead of it.
-            return (
-                CoachingHubView(self, game_id),
-                "Coaching Choice, before kickoff:",
-            )
+        prompt = pending_prompt(self.engine, self.games[game_id], match)
+        return self.view_for_prompt(game_id, match, prompt), prompt.ask
 
-        if match.pending_full_time_stage is not None:
-            # Between the whistle and the shootout, so the turn is
-            # already reset and every branch below would misread it.
-            # Always the hub: the window is given rather than declared,
-            # so there is no offer to come back to.
-            return (
-                CoachingHubView(self, game_id),
-                "Coaching Choice, before the shootout:",
-            )
+    def view_for_prompt(
+        self,
+        game_id: str,
+        match: MatchState,
+        prompt: PendingPrompt,
+    ) -> discord.ui.View:
+        """
+        The view a `PendingPrompt` is shown as.
 
-        if match.pending_halftime_stage is not None:
-            # Halftime resets active_player_id before its own stages
-            # run, so it has to be checked ahead of the "no ball
-            # handler yet" branch below, which would otherwise misread
-            # halftime as kickoff.
-            stage = self.engine.halftime_stage(match)
-            if stage in ("extra_token_home", "extra_token_visiting"):
-                side = (
-                    TeamSide.HOME
-                    if stage == "extra_token_home"
-                    else TeamSide.VISITING
-                )
-                return (
-                    HalftimeExtraTokenView(self, game_id, side),
-                    "Halftime: choose a player to lose an extra "
-                    "exhaustion token.",
-                )
-            # coaching_home / coaching_visiting. Always the hub:
-            # halftime never asks whether to declare, so there is no
-            # offer to come back to, unlike an ordinary turnover's
-            # window below. A part-made pick inside the flow is not
-            # persisted and restarts here, the same simplification a
-            # run-back choice makes.
-            return (
-                CoachingHubView(self, game_id),
-                "Halftime Coaching Choice:",
-            )
+        **This is the only place a `PromptKind` becomes a
+        `discord.ui.View`.** Later phases render a step's next prompt
+        through here rather than growing a second table -- two tables
+        is the same failure as two copies of the chain, one step
+        further down.
 
-        if match.pending_mind_pull:
-            # Ahead of the injury tests and of everything a maneuver
-            # leaves set, for a stronger version of their reason: a
-            # pull interrupts an arrival that has *not happened yet*,
-            # so the maneuver's own state is still exactly as it was
-            # and every branch below would resolve the arrival this is
-            # holding back. It is also the one interrupt that can
-            # change who has the ball, so answering it first is what
-            # keeps the rest of the chain reading a settled position.
-            player = self.engine.get_player_definition(
-                match.pending_mind_pull[0],
+        Most kinds are a constructor taking the cog and the game id,
+        and those are `PLAIN_PROMPT_VIEWS`; the eight that carry a
+        parameter are the branches below. `match` is here for the one
+        whose view is built from a candidate list rather than from the
+        prompt alone -- the loose ball's pick reads its buttons off the
+        board, and a prompt is what to ask rather than a rendering
+        brief.
+        """
+        kind = prompt.kind
+        if kind is PromptKind.HALFTIME_EXTRA_TOKEN:
+            return HalftimeExtraTokenView(self, game_id, prompt.side)
+        if kind is PromptKind.MIND_PULL:
+            return MindPullView(self, game_id, prompt.player_id)
+        if kind is PromptKind.INJURY_TEST:
+            return InjuryTestView(self, game_id, prompt.player_id)
+        if kind is PromptKind.RUN_BACK_SPACE:
+            return RunBackChoiceView(self, game_id, prompt.player_id)
+        if kind is PromptKind.RUN_BACK_PLAYER:
+            return RunBackPlayerChoiceView(self, game_id, prompt.player_ids)
+        if kind is PromptKind.LOOSE_BALL_PICK:
+            return LooseBallChoiceView(
+                self,
+                game_id,
+                prompt.skill_type,
+                self.engine.loose_ball_candidates(match, prompt.side),
+                match,
             )
-            return (
-                MindPullView(self, game_id, player.player_id),
-                f"{self.player_label(match, player)} can still reach "
-                "for the ball:",
+        if kind is PromptKind.LOW_PASS_CHOICE:
+            return LowPassChoiceView(
+                self, game_id, key=prompt.maneuver_key, free=prompt.free,
             )
-
-        if match.pending_injury_tests:
-            # Ahead of everything a contest leaves set, because that is
-            # all still set: a maneuver's skill test comes back here
-            # with its challenger and both picks in place, and a loose
-            # ball with no active player at all, which the kickoff
-            # branch below would misread.
-            player = self.engine.get_player_definition(match.pending_injury_tests[0])
-            return (
-                InjuryTestView(self, game_id, player.player_id),
-                f"{self.player_label(match, player)} still "
-                "owes an injury test:",
+        if kind is PromptKind.SPEED_DELTA_CHOICE:
+            return SpeedDeltaChoiceView(
+                self, game_id, prompt.player_id, prompt.skill_type,
             )
-
-        if match.pending_own_goal:
-            # Same reason: the Pressure that risked it is still the
-            # live maneuver, so the effect branch would otherwise offer
-            # to resolve it a second time.
-            return (
-                OwnGoalRollView(self, game_id),
-                "Either player can roll for the own goal.",
-            )
-
-        if match.pending_shootout:
-            # The three shootout states, read off the same three
-            # questions `advance_shootout` asks and in the same order.
-            # It comes after the injury queue because a shootout skill
-            # test owes its checks before the next one is set up, and
-            # ahead of everything below because the match underneath a
-            # shootout is still whatever full time left there.
-            if not match.shootout_orders_complete:
-                return (
-                    ShootoutOrderPromptView(self, game_id),
-                    "Extreme shootout — set your shooting order:",
-                )
-            if not match.shootout_shooters_complete:
-                return (
-                    ShootoutPickPromptView(self, game_id),
-                    "Extreme shootout — choose who shoots next:",
-                )
-            return (
-                ShootoutTestView(self, game_id),
-                "Either player can roll the shootout skill test:",
-            )
-
-        if match.pending_time_out:
-            # A time out resets the turn before either window opens,
-            # so active_player_id is None and the kickoff branch below
-            # would misread it -- the same reason setup and halftime
-            # are checked ahead of that one. Always the hub: ceding is
-            # what bought the window, so neither coach is ever asked
-            # whether to take it. With no window open the cascade died
-            # between the second one closing and the tail behind it,
-            # which is resume's to re-drive rather than a click's.
-            if match.pending_coaching_side is not None:
-                return (
-                    CoachingHubView(self, game_id),
-                    "Coaching Choice, on the time out:",
-                )
-            return (
-                PlayerActionView(self, game_id),
-                "Settle the time out:",
-            )
-
-        if match.active_player_id is None:
-            return (
-                BallHandlerSelectionView(self, game_id),
-                "Choose who takes the ball:",
-            )
-
-        if match.pending_coaching_side is not None:
-            # A window mid-flight comes back as either the offer or the
-            # menu. A part-made choice (picked who goes off, not yet
-            # who comes on) is not persisted and restarts at the menu,
-            # the same way a run-back choice does.
-            if match.pending_coaching_declared:
-                return (
-                    CoachingHubView(self, game_id),
-                    "Coaching Choice:",
-                )
-            return (
-                CoachingOfferView(self, game_id),
-                "Coaching Choice — coach, or pass?",
-            )
-
-        if match.pending_run_back:
-            step = self.engine.next_run_back_step(
-                self.games[game_id], match,
-            )
-            return (
-                self.build_run_back_view(game_id, match)
-                or PlayerActionView(self, game_id),
-                "Choose which of your doubled-up players runs back:"
-                if step is not None and len(step[1]) > 1
-                else "Choose where the next player runs back to:",
-            )
-
-        if match.pending_ball_recovery:
-            # An out-of-bounds ball whose run back has already
-            # finished, waiting on the winning side to send someone to
-            # pick it up.
-            return (
-                BallRecoveryView(self, game_id),
-                "Send the nearest player either side of the ball to "
-                "pick it up at "
-                f"{space_label(match.ball.zone, match.ball.space_index)}:",
-            )
-
-        if match.pending_loose_ball:
-            # Named off the position like every other message on this
-            # path: only a ball lying where nobody stands is loose, and
-            # a resume that calls a contest -- or a High Pass -- a
-            # loose ball misreads it in front of the coach about to
-            # act on it. See contest_noun.
-            noun = contest_noun(match)
-            if (
-                match.loose_ball_offense_player is not None
-                and match.loose_ball_defense_player is not None
-            ):
-                return (
-                    LooseBallSkillTestView(self, game_id),
-                    f"Either player can roll for the {noun}:",
-                )
-            return (
-                self.build_loose_ball_view(game_id, match)
-                or PlayerActionView(self, game_id),
-                f"Choose who goes after the {noun}:",
-            )
-
-        if match.pending_action == "shoot":
-            return (
-                ScoreAttemptView(self, game_id),
-                "Either player can roll for the score attempt.",
-            )
-
-        if match.pending_action == "maneuver" and match.challenger_id is None:
-            return (
-                ManeuverChallengeView(self, game_id),
-                "Choose who challenges the maneuver:",
-            )
-
-        if match.challenger_id is not None or match.maneuver_uncontested:
-            # challenger_id is only ever set while a maneuver is in
-            # progress and cleared by reset_maneuver(), so it alone
-            # disambiguates this from any other phase -- pending_action
-            # itself is cleared to None by choose_challenger() right
-            # when the challenger is picked, so it can't be relied on
-            # from here on. maneuver_uncontested says the same thing
-            # for a maneuver that never had a challenger, and is
-            # cleared by the same reset.
-            if not match.maneuver_selections_complete:
-                return (
-                    ManeuverActionPromptView(self, game_id),
-                    "Choose your maneuver:",
-                )
-            if self.engine.settled_maneuver_winner(match) is None:
-                # No winner yet means a skill test is owed -- a tie, or
-                # a decisive maneuver an injured player still has to
-                # roll for. Asking the ranking directly here would get
-                # both wrong.
-                return (
-                    SkillTestView(self, game_id),
-                    "Either player can roll:",
-                )
-            return (
-                self.build_effect_choice_view(game_id, match)
-                or PlayerActionView(self, game_id),
-                "Resolve the maneuver:",
-            )
-
-        return (
-            PlayerActionView(self, game_id),
-            "Choose an action:",
-        )
+        return PLAIN_PROMPT_VIEWS[kind](self, game_id)
 
     def build_run_back_view(
         self,
@@ -1911,27 +1693,15 @@ class CoreMixin:
         match: MatchState,
     ) -> Optional[discord.ui.View]:
         """
-        Reconstruct the run-back prompt for whichever player still
-        needs a real choice. Any forced placements are always applied
-        immediately in continue_run_back, before a message is ever
-        posted, so anything still outstanding by the time this is
-        called is an actual choice.
-
-        Which of the two prompts it is is read back off the position,
-        exactly as the cascade reads it: a stack with more than one
-        player to spare comes back as the question of who runs, and
-        everything else as the question of where. A coach who had
-        already answered the first when the bot went down is asked it
-        again -- that pick lives on the view and nowhere else, the
-        same as a part-made coaching choice.
+        The run-back prompt for whichever player still needs a real
+        choice, as a view -- `d12ball.prompts.run_back_prompt`'s answer
+        through `view_for_prompt`, and None where there is no choice
+        left to make.
         """
-        step = self.engine.next_run_back_step(self.games[game_id], match)
-        if step is None:
+        prompt = run_back_prompt(self.engine, self.games[game_id], match)
+        if prompt is None:
             return None
-        _, candidates = step
-        if len(candidates) == 1:
-            return RunBackChoiceView(self, game_id, candidates[0])
-        return RunBackPlayerChoiceView(self, game_id, candidates)
+        return self.view_for_prompt(game_id, match, prompt)
 
     def record_maneuver(
         self,

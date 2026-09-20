@@ -69,11 +69,20 @@ Three more ways a restart strands a game, none of them about ephemerality:
 
 Two things follow from that:
 
-- **`pending_turn_view` is the only reading of "what is this match waiting
-  on?"** Startup re-attaches the view it returns to the message the prompt is
-  already on; `resume_pending_prompt` posts the same one on a fresh message. A
-  second copy of that branch chain is how a resume comes to offer a different
-  prompt from the one a restart restores. Its ordering carries real decisions —
+- **`pending_prompt` is the only reading of "what is this match waiting
+  on?"** It lives in `d12ball/prompts.py` with no Discord in it -- that is
+  the model/Discord split's first move, and the reasoning is in
+  [model-discord-split.md](model-discord-split.md) -- and answers with a
+  `PendingPrompt`: a `PromptKind`, the line to ask it with, and the few
+  parameters the question carries. `D12Ball.pending_turn_view` is the Discord
+  mapping over it -- `view_for_prompt` is the one place a kind becomes a
+  `discord.ui.View`, and the `ask` passes through untouched. Startup
+  re-attaches the view it returns to the message the prompt is already on;
+  `resume_pending_prompt` posts the same one on a fresh message. A second copy
+  of that branch chain is how a resume comes to offer a different prompt from
+  the one a restart restores -- and, once a web app asks the same question, how
+  the two frontends come to disagree about whose turn it is. Its ordering
+  carries real decisions —
   setup, halftime, the window before the shootout and a
   [time out](time-out.md#the-time-out) are checked ahead of "no ball handler yet"
   because all four leave `active_player_id` None, and a maneuver is recognised
@@ -83,8 +92,9 @@ Two things follow from that:
   drives it**, not re-asked: `continue_run_back`, `begin_ball_recovery`,
   `advance_setup_stage`, `advance_halftime_stage`, `advance_full_time_stage`,
   `run_ai_substitution_window`, `advance_shootout`, `finish_time_out`. That is the
-  whole difference between resume's two callers, and the reason `pending_turn_view` returns a
-  view rather than posting it.
+  whole difference between resume's two callers, and the reason
+  `pending_prompt` returns a prompt, and `pending_turn_view` a view, rather
+  than either posting it.
 
 - **An open Coaching Choice is re-posted, never re-opened.**
   `repost_coaching_prompt` exists because `begin_substitution_window` calls

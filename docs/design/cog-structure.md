@@ -28,7 +28,11 @@ design.
 - **The command module is `slash_commands.py`, not `commands.py`.** A submodule
   binds its own name into the package namespace, so `commands.py` would shadow
   `discord.ext.commands` in the very file that reads `commands.GroupCog`.
-- **`pending_turn_view` moved whole, into `core`.** It is a flat, ordered
+- **`pending_turn_view` moved whole, into `core`.** It was a flat, ordered
   dispatch chain whose ordering is load-bearing and mostly comments explaining
   why each branch sits where it does -- see "Recovering a stuck game" in [recovery.md](recovery.md). A second
   copy of that chain is the failure mode; splitting it is how you get one.
+  That reasoning is why the chain later moved *whole again*, out of the cog
+  and into `d12ball/prompts.py` (Phase 1 of
+  [model-discord-split.md](../model-discord-split.md)); what `core` keeps is
+  the mapping from a `PromptKind` to a view, which carries no ordering at all.

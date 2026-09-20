@@ -510,6 +510,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         cog = build_cog()
         game = build_game()
+        cog.games[game.game_id] = game
         match = self.build_match()
         match.begin_shootout()
 
@@ -534,6 +535,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
     async def test_an_owed_injury_test_is_asked_for_first(self) -> None:
         cog = build_cog()
         game = build_game()
+        cog.games[game.game_id] = game
         match = self.build_match()
         match.begin_shootout()
         for side in (TeamSide.HOME, TeamSide.VISITING):
