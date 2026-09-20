@@ -134,8 +134,8 @@ def challenger_prompt_ask(match: MatchState) -> str:
     """
     if match.may_decline_challenge():
         return (
-            "choose which player will maneuver to challenge for the "
-            "ball, or send nobody and let the maneuver through."
+            "choose which player will move to challenge the maneuver, "
+            "or send nobody and let it through."
         )
     return (
         "these players are already on the ball, so one of them has to "
@@ -357,3 +357,27 @@ def format_player_with_team(
     if team is None:
         return player
     return f"{get_team_emoji(team_emojis, team)} {player}"
+
+
+def format_player_with_team_name(
+    game: D12BallGame,
+    player_number: Optional[int],
+) -> str:
+    """
+    "Dinky AI (Fire Demons)" -- a coach named with their team spelled
+    out in words, for the one place a team emoji can't stand in for
+    it: the board image's title, which Pillow draws as literal
+    characters rather than resolving Discord's custom-emoji markup
+    (see `render_match_png`). Every other surface names a team with
+    its emoji, through `format_player_with_team`; this is the title's
+    own fallback, not a second way to name a coach in a message.
+    """
+    player = format_player(game, player_number)
+    team = (
+        game.player_1_team
+        if player_number == 1
+        else game.player_2_team
+    )
+    if team is None:
+        return player
+    return f"{player} ({team_display_name(team)})"

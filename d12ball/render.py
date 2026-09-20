@@ -387,6 +387,16 @@ EXHAUST_ICON_PATH = (
 )
 EXHAUST_ICON_SIZE = 26
 
+# A Cyborg's own token count -- the same triangle, recoloured teal by
+# `scripts/recolor_exhaust_token.py` so it reads as one thing with their
+# Drained badge rather than an amber count sitting beside a teal
+# condition. `draw_card`'s `cyborg` flag picks it the same way it picks
+# Drained over Exhausted -- see the comment on that flag below.
+EXHAUST_CYBORG_ICON_PATH = (
+    Path(__file__).resolve().parent / "images" / "emoji" / "exhaust_cyborg.png"
+)
+EXHAUST_CYBORG_ICON_SIZE = 26
+
 EXHAUSTED_ICON_PATH = (
     Path(__file__).resolve().parent / "images" / "emoji" / "exhausted.png"
 )
@@ -475,6 +485,16 @@ def load_exhaust_icon() -> Optional[Image.Image]:
     is not available so rendering can gracefully skip it.
     """
     return _load_icon(EXHAUST_ICON_PATH, EXHAUST_ICON_SIZE, "exhaust")
+
+
+def load_exhaust_cyborg_icon() -> Optional[Image.Image]:
+    """
+    Load (and cache) a Cyborg's own exhaustion token icon. Returns None
+    if the image is not available so rendering can gracefully skip it.
+    """
+    return _load_icon(
+        EXHAUST_CYBORG_ICON_PATH, EXHAUST_CYBORG_ICON_SIZE, "exhaust_cyborg"
+    )
 
 
 def load_exhausted_icon() -> Optional[Image.Image]:
@@ -849,22 +869,14 @@ def build_player_card(
     role_bbox = draw.textbbox((0, 0), role_label, font=FONT_CARD_ROLE)
     role_width = role_bbox[2] - role_bbox[0]
     role_height = role_bbox[3] - role_bbox[1]
-    draw.text(
-        (
-            (width - role_width) / 2,
-            name_zone_height
-            + (stats_row_height - role_height) / 2
-            - role_bbox[1],
-        ),
-        role_label,
-        font=FONT_CARD_ROLE,
-        fill="#111111",
-    )
 
-    # The species icon answers the role initials across the stats row,
-    # in the space to their right -- the same pairing the printed card
-    # makes across its header band, so a coach reading one is reading
-    # the other.
+    # The species icon answers the role initials, stacked under them
+    # as one centered block -- not beside them. Beside left the icon
+    # in the same right-edge column the Exhausted, Injured, Drained
+    # and Damaged badges are drawn in afterward (see draw_card), which
+    # covered it completely on the widest role labels rather than the
+    # partial overlap the layout was judged against: that column is
+    # for a badge alone now, whatever a card's own role reads.
     #
     # **It is drawn in ink rather than in a colour**, which is what
     # keeps `rendered_player_card`'s cache key honest: that key is the
@@ -872,27 +884,25 @@ def build_player_card(
     # third thing in it. The shape is the identity here anyway -- and
     # the Oozes' green on a white card is the one colour that could not
     # be read.
-    #
-    # It shares the row with the Exhausted and Injured badges, which
-    # are drawn over the card afterwards at its right edge and will
-    # cover this when either is showing. That is the right way round:
-    # a condition is what has just changed and what a coach has to act
-    # on, where a species is the same every turn of the game.
+    species_icon_gap = 8
+    block_height = role_height + species_icon_gap + CARD_SPECIES_ICON_SIZE
+    block_top = name_zone_height + (stats_row_height - block_height) / 2
+    draw.text(
+        ((width - role_width) / 2, block_top - role_bbox[1]),
+        role_label,
+        font=FONT_CARD_ROLE,
+        fill="#111111",
+    )
+
     icon = species_icon(
         player.species, CARD_SPECIES_ICON_INK, CARD_SPECIES_ICON_SIZE
     )
     if icon is not None:
-        role_right = (width + role_width) / 2
         card.alpha_composite(
             icon,
             (
-                round(
-                    (role_right + width - CARD_SPECIES_ICON_SIZE) / 2
-                ),
-                round(
-                    name_zone_height
-                    + (stats_row_height - CARD_SPECIES_ICON_SIZE) / 2
-                ),
+                round((width - CARD_SPECIES_ICON_SIZE) / 2),
+                round(block_top + role_height + species_icon_gap),
             ),
         )
 
@@ -998,7 +1008,16 @@ def draw_card(
 
     if exhaustion > 0:
         draw_exhaustion_badge(
-            canvas, draw, x, y, exhaustion, player, profile, row_top, row_bottom
+            canvas,
+            draw,
+            x,
+            y,
+            exhaustion,
+            player,
+            profile,
+            row_top,
+            row_bottom,
+            cyborg=cyborg,
         )
     # Injured and Exhausted share the same slot on the stats row: a
     # player who becomes injured loses the Exhausted condition (and
@@ -1006,14 +1025,14 @@ def draw_card(
     # once. The injured badge used to sit in the card's top-left
     # corner, over the name.
     #
-    # `cyborg` only ever changes which icon fills that slot, never
-    # whether one is drawn -- Drained and Damaged are Exhausted and
-    # Injured under a Cyborg's own words (see "Lithium Powered" in
-    # docs/living-rules.md), so the caller who already answered
-    # `exhausted`/`injured` off the match answers this off
-    # `RulesEngine.has_species_ability` the same way `species_icons`
-    # is answered, rather than this module reading the player's own
-    # species to decide it.
+    # `cyborg` only ever changes which icon fills that slot (and, on the
+    # exhaustion badge above, which triangle), never whether one is
+    # drawn -- Drained and Damaged are Exhausted and Injured under a
+    # Cyborg's own words (see "Lithium Powered" in docs/living-rules.md),
+    # so the caller who already answered `exhausted`/`injured` off the
+    # match answers this off `RulesEngine.has_species_ability` the same
+    # way `species_icons` is answered, rather than this module reading
+    # the player's own species to decide it.
     if injured:
         if cyborg:
             draw_damaged_badge(canvas, draw, x, y, row_top, row_bottom)
@@ -1036,6 +1055,7 @@ def draw_exhaustion_badge(
     profile: RoleProfile,
     row_top: int,
     row_bottom: int,
+    cyborg: bool = False,
 ) -> None:
     """
     Draws the exhaust-token badge between the skill numbers and the role
@@ -1044,8 +1064,11 @@ def draw_exhaustion_badge(
     the horizontal center is computed per-card (from the actual offense
     digit width and role label width) to keep the overlap as small as
     possible instead of guessing a fixed position.
+
+    `cyborg` only ever changes which icon fills the slot, the same as
+    `draw_card`'s own flag -- see the comment there.
     """
-    icon = load_exhaust_icon()
+    icon = load_exhaust_cyborg_icon() if cyborg else load_exhaust_icon()
 
     offense_bbox = draw.textbbox(
         (0, 0), str(profile.offense), font=FONT_CARD_STAT

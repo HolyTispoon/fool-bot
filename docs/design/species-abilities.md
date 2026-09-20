@@ -304,6 +304,56 @@ missing other half for Injured, scoped the same way.
   the author's read on a first draft using the exact team hex was that the
   lettering got lost in the sunburst behind it at the 26px the board actually
   draws it.
+- **The exhaustion-token counter got a Cyborg variant the same way,
+  2026-09-19** -- `exhaust_cyborg.png`, in the same teal as Drained, so a
+  Cyborg's own tally and their Drained badge read as one colour rather than
+  an amber count sitting beside a teal condition. Unlike the four condition
+  tokens above, this one is a **recolour, not a redraw**:
+  `exhaust.png` (the amber triangle `draw_exhaustion_badge` draws on any
+  card carrying tokens at all) predates `render_condition_tokens.py` and has
+  no generator of its own, so `scripts/recolor_exhaust_token.py` reads the
+  source's two flat colours (a warm near-black ink and the amber fill,
+  sampled off the art rather than assumed) and re-expresses every pixel at
+  the same position on the ink-to-teal line -- which carries every
+  anti-aliased edge across exactly, rather than risking a redrawn triangle
+  that doesn't quite match the one it sits beside on the card.
+  `draw_card`'s `cyborg` flag now also picks this icon in
+  `draw_exhaustion_badge`, the same "which icon, never whether one is
+  drawn" rule as Drained/Damaged above. That meant widening what
+  `D12Ball.cyborg_condition_ids` answers: it used to be "currently
+  Exhausted or Injured", which left a Cyborg mid-count (tokens above zero
+  but below `CYBORG_DRAINED_AT`) drawing the amber triangle, so it now
+  unions in `match.exhaustion.keys()` too. Board art only, for now -- it
+  has no application emoji of its own, since nothing in the cog's own text
+  messages names an exhaustion *count* the way `describe_exhaustion_gain`
+  names the Drained/Exhausted condition.
+- **`exhaust.png`'s content got its own redraw, same day.** The pill and its
+  small "ZZZ" (black ink on an amber pill, both at the same tiny scale that
+  read as an unbroken bar at 26px) are gone; `scripts/redraw_exhaust_zs.py`
+  erases the pill back to the face's own ink and draws three bold "Z"s
+  straight onto the face in the ring's own amber, stepped down in size
+  top-right to bottom-left, the largest tucked into the triangle's own
+  corner. **The triangle itself is still not regenerated** -- the edge,
+  ring and face are the same pixels they always were, only the content
+  inside the ring changed, for the same "don't risk a shape that doesn't
+  match" reason `recolor_exhaust_token.py` never redraws it either. That
+  leaves `exhaust_cyborg.png` still exactly the **recolour, not a redraw**
+  described above: it is derived from whatever `exhaust.png` currently
+  holds, so `recolor_exhaust_token.py --in-place` has to run again after
+  any change to the amber art, including this one, or the two drift apart.
+  - **The first draft placed each glyph by eye and let them overlap** into
+    one interlocking zigzag, with the biggest Z well short of the corner.
+    The second draft placed every glyph by search instead, scoring the
+    biggest Z's spot by how far a plain "maximise x, minimise y" reading
+    pushed it into the corner -- and still fell short, since that score
+    can't find a position further in along a path other than straight up
+    and right. **The author moved it the rest of the way by hand**
+    (2026-09-19), and the other two Zs are built out from that spot rather
+    than the search's: the smallest as close as it can get to the first
+    draft's own position, the middle roughly between its neighbours, both
+    while keeping a 10px gap from every other glyph's actual ink, not just
+    its bounding box, so a glyph's own diagonal stroke still can't touch
+    its neighbour.
 
 **Overdrive is the only thing in the game declared before a roll**, which is
 what it cost to build. Every roll already sits behind a button any coach may
@@ -375,6 +425,19 @@ resolution named one, and Slimey is the rule that keeps the Oozes in it.
   modules the game is playing. `RulesEngine.slip_in_candidates` computes them
   and `RulesEngine.turn_handler_candidates` is the wrapper every prompt, the
   click and the AI should ask.
+- **The prompt says a slip-in is on offer, rather than posing it as a plain
+  choice.** `build_turn_prompt` used to ask "Choose which player in the
+  ball's space will take an action" whether or not anybody had already won
+  the ball -- which reads the same for a genuine open choice (no carrier
+  named yet) and for a carrier standing there with an Ooze beside them. It
+  now checks `carrier_id in candidates` (true only when Slimey is what
+  widened the list) and says "{carrier} has the ball, but {Ooze(s)} may
+  slip in! 🫧 Who should handle the ball?" instead, so a coach reads who
+  already has it before being asked whether to hand it off (2026-09-19).
+  The bubble is `TEAM_EMOJI_FALLBACKS[Team.OOZES]`, the same one already
+  drawn for the Oozes team -- there is no ability emoji of its own, and
+  reusing the species' own mark flags what just fired without inventing
+  a second symbol for the same species.
 - **"Of the same side" is `eligible_ball_handlers`' own answer**, which is what
   makes this safe on a space both sides are standing on -- that helper is
   already "everyone of the possessing team on the ball", so an opponent's Ooze

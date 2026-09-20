@@ -77,6 +77,7 @@ from d12ball.components import (
     zone_for_area,
 )
 from d12ball.formatting import (
+    TEAM_EMOJI_FALLBACKS,
     ball_space_label,
     contest_noun,
     destination_display_name,
@@ -2793,6 +2794,32 @@ class RulesEngine:
         )
 
         if match.active_player_id is None:
+            candidates = self.turn_handler_candidates(game, match)
+            carrier_id = match.ball_carrier_id
+            # More than one candidate with a carrier among them is
+            # Slimey and nothing else -- MatchState.turn_handler_
+            # candidates only ever widens past a named carrier for a
+            # slip-in Ooze. Say so, rather than the generic line, or a
+            # coach reads a plain multiple-choice where one player
+            # already has the ball and another is only offering to
+            # take it off them.
+            if carrier_id in candidates and len(candidates) > 1:
+                carrier_name = self.format_roster_player_for_message(
+                    carrier_id, match.team_for_player(carrier_id),
+                )
+                slip_in_names = " and ".join(
+                    self.format_roster_player_for_message(
+                        player_id, match.team_for_player(player_id),
+                    )
+                    for player_id in candidates
+                    if player_id != carrier_id
+                )
+                return (
+                    f"{controller}, it is your turn.\n\n"
+                    f"{carrier_name} has the ball, but {slip_in_names} "
+                    f"may slip in! {TEAM_EMOJI_FALLBACKS[Team.OOZES]} Who "
+                    "should handle the ball?"
+                )
             return (
                 f"{controller}, it is your turn.\n\n"
                 "Choose which player in the ball's space will take "

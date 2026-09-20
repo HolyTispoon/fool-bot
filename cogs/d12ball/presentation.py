@@ -45,8 +45,8 @@ from cogs.d12ball_helpers import (
     board_image_filename,
     challenger_prompt_ask,
     format_ai_name,
-    format_player,
     format_player_with_team,
+    format_player_with_team_name,
     format_team_side_label,
     get_damaged_emoji,
     get_drained_emoji,
@@ -951,8 +951,10 @@ class PresentationMixin:
         the result) needs two Files over one render, not two renders.
         """
         match = self.engine.load_match_state(game)
-        home_player = format_player(game, game.home_player_number)
-        visiting_player = format_player(game, game.visiting_player_number)
+        home_player = format_player_with_team_name(game, game.home_player_number)
+        visiting_player = format_player_with_team_name(
+            game, game.visiting_player_number,
+        )
         period = (
             "First Half"
             if match.scoreboard.period.value == "first_half"
@@ -978,17 +980,18 @@ class PresentationMixin:
         match: MatchState,
     ) -> frozenset[str]:
         """
-        Which of the currently Exhausted or Injured players are Cyborgs
-        playing with their own drain -- the answer `render.py`'s
-        `cyborg_ids` needs to draw Drained/Damaged instead of
-        Exhausted/Injured, without this module handing the renderer a
-        `game` or a species to read itself. See "Lithium Powered" in
+        Which of the players currently Exhausted, Injured or carrying an
+        exhaustion token are Cyborgs playing with their own drain -- the
+        answer `render.py`'s `cyborg_ids` needs to draw Drained/Damaged
+        instead of Exhausted/Injured and the teal token count instead of
+        the amber one, without this module handing the renderer a `game`
+        or a species to read itself. See "Lithium Powered" in
         docs/design/species-abilities.md and the `species_icons` flag
         this mirrors.
         """
         return frozenset(
             player_id
-            for player_id in match.exhausted | match.injured
+            for player_id in match.exhausted | match.injured | match.exhaustion.keys()
             if self.engine.has_species_ability(
                 game, player_id, SPECIES_CYBORG,
             )
