@@ -1,0 +1,950 @@
+--- message
+🔮 <@111>, it is your turn.
+
+Quillon [PM] will be handling the ball.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 1: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 2: ManeuverActionPromptView -> 'Low Pass'
+--- message
+You chose **Low Pass**.
+--- message
+🔮 One has picked their maneuver.
+--- message
+🔮 One chose **Low Pass**.
+🔥 Dinky AI chose **Steal**.
+
+## **Steal** wins!
+--- message
+**Steal:**
+# Turnover!
+🔥 Sizzifizik [PM] steals the ball. Fire Demons (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
+
+# Players run back!
+Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+--- message
+🔥 Scorchit [MF] runs back to M1.
+🔥 Scorchit [MF] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 2 total).
+--- message
+Ball speed is now **4**.
+--- message
+Ball is now M3, Fire Demons (Visiting) has possession. Time has advanced 1, now at 01.
+--- message
+Dinky AI will maneuver with 🔥 Sizzifizik [PM].
+
+🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
+=== press 3: ManeuverChallengeView -> 'Quillon [PM] (1)'
+--- message
+Quillon has moved 1 space.
+🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 1 total).
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 4: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 One has picked their maneuver.
+--- message
+🔥 Dinky AI chose **Dribble Advance**.
+🔮 One chose **Deflect**.
+
+## **Dribble Advance** wins!
+--- message
+**Dribble Advance:** 🔥 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
+
+Ball speed is now **8**.
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Spectra [MF], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 5: MindPullView -> 'Spectra [MF] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 1 total).
+The ball slips past them.
+--- message
+Ball is now M1, Fire Demons (Visiting) has possession. Time has advanced 1, now at 02.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 6: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 One has picked their maneuver.
+--- message
+🔥 Dinky AI chose **High Pass**.
+🔮 One chose **Deflect**.
+
+## **Deflect** wins!
+--- message
+🔮 <@111>, choose who contests the loose ball on M2, or send nobody:
+=== press 7: LooseBallChoiceView -> 'Spectra [MF] (M1, 1 space from the ball)'
+--- message
+🔮 Spectra [MF] contests the loose ball (defense).
+--- message
+🔥 Sizzifizik [PM] (offense skill 4) and 🔮 Spectra [MF] (defense skill 4) both contest the loose ball -- skill test!
+🔥 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 2 total).
+
+Either player can roll:
+=== press 8: LooseBallSkillTestView -> 'Roll for the loose ball'
+--- message
+🔥 Sizzifizik [PM] wins the loose ball! 🔥 Dinky AI has possession.
+--- message
+Ball is now M2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 03.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 9: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 One has picked their maneuver.
+--- message
+🔥 Dinky AI chose **Low Pass**.
+🔮 One chose **Deflect**.
+
+**Low Pass** ties with **Deflect** — skill test!
+
+🔥 Sizzifizik [PM]: offense skill 4
+🔮 Spectra [MF]: defense skill 4
+
+🔥 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 3 total).
+--- message
+Either player can roll:
+=== press 10: SkillTestView -> 'Roll the skill test'
+--- message
+## **Low Pass** wins the skill test!
+--- message
+**Low Pass:** the ball moves 1 space forward. Ball speed is now 8.
+
+Ball is now M1, Fire Demons (Visiting) has possession. Time has advanced 1, now at 04.
+--- message
+Dinky AI will maneuver with 🔥 Scorchit [MF].
+
+🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
+=== press 11: ManeuverChallengeView -> 'Dravox [DD] (1)'
+--- message
+Dravox has moved 1 space.
+🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 1 total).
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 12: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 One has picked their maneuver.
+--- message
+🔥 Dinky AI chose **Low Pass**.
+🔮 One chose **Deflect**.
+
+**Low Pass** ties with **Deflect** — skill test!
+
+🔥 Scorchit [MF]: offense skill 3
+🔮 Dravox [DD]: defense skill 5
+
+🔥 Scorchit [MF] gains 1 exhaustion token 😮‍💨 (now 3 total).
+🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 2 total).
+--- message
+Either player can roll:
+=== press 13: SkillTestView -> 'Roll the skill test'
+--- message
+## **Deflect** wins the skill test!
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Spectra [MF], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 14: MindPullView -> 'Spectra [MF] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 4 total).
+
+## 🔮 Spectra [MF] grabs the ball with their telekinetic powers!
+**Turnover!** They take it on **M2** (Midfield).
+
+# Players run back!
+Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+--- message
+<@111>, choose where 🔮 Dravox [DD] runs back to:
+H2 (2 spaces away) or H3 (1 space away).
+=== press 15: RunBackChoiceView -> 'H2 (2 spaces)'
+--- message
+🔮 Dravox [DD] runs back to H2.
+🔮 Dravox [DD] gains 2 exhaustion tokens 😮‍💨😮‍💨 (now 4 total).
+--- message
+Ball is now M2, Telekinetics (Home) has possession. Time has advanced 1, now at 05.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Spectra [MF], who takes this turn.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 16: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 17: ManeuverActionPromptView -> 'Low Pass'
+--- message
+You chose **Low Pass**.
+--- message
+🔮 One has picked their maneuver.
+--- message
+🔮 One chose **Low Pass**.
+🔥 Dinky AI chose **Deflect**.
+
+**Low Pass** ties with **Deflect** — skill test!
+
+🔮 Spectra [MF]: offense skill 3
+🔥 Sizzifizik [PM]: defense skill 3
+
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 5 total).
+🔮 Spectra [MF] is now *exhausted* 🥵
+🔥 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 3 total).
+--- message
+Either player can roll:
+=== press 18: SkillTestView -> 'Roll the skill test'
+--- message
+## **It's a tie (14-14)!**
+The skill test must be rolled again.
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 6 total).
+🔥 Sizzifizik [PM] gains 1 exhaustion token 😮‍💨 (now 4 total).
+🔥 Sizzifizik [PM] is now *exhausted* 🥵
+
+Roll again:
+=== press 19: SkillTestView -> 'Roll the skill test'
+--- message
+## **Low Pass** wins the skill test!
+--- message
+<@111>, 🔮 Spectra [MF] is exhausted and owes an injury test: a d12 that has to beat their 6 exhaustion tokens.
+=== press 20: InjuryTestView -> 'Roll the injury test'
+--- message
+🔮 Spectra [MF] is exhausted and rolls an injury test: 11 beats their 6 exhaustion tokens — safe.
+--- message
+Someone, 🔥 Sizzifizik [PM] is exhausted and owes an injury test: a d12 that has to beat their 4 exhaustion tokens.
+=== press 21: InjuryTestView -> 'Roll the injury test'
+--- message
+🔥 Sizzifizik [PM] is exhausted and rolls an injury test: 3 does not beat their 4 exhaustion tokens — injury! They are **injured** 🤕.
+--- message
+🔮 <@111>, choose your Low Pass:
+=== press 22: LowPassChoiceView -> 'Quillon [PM] -- M3'
+--- message
+**🔮 Coach** chose to pass the ball to 🔮 Quillon [PM] at M3.
+--- message
+**Low Pass:** the ball moves 1 space forward. Ball speed is now 2.
+
+Ball is now M3, Telekinetics (Home) has possession. Time has advanced 1, now at 06.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Quillon [PM], who takes this turn.
+
+Choose an action:
+=== press 23: PlayerActionView -> 'Maneuver'
+--- message
+Blazebulk has moved 1 space.
+🔥 Blazebulk [DD] gains 1 exhaustion token 😮‍💨 (now 1 total).
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔥 Dinky AI may play a gambit this maneuver.
+=== press 24: ManeuverActionPromptView -> 'Low Pass'
+--- message
+You chose **Low Pass**.
+--- message
+🔮 One has picked their maneuver.
+--- message
+🔮 One chose **Low Pass**.
+🔥 Dinky AI chose **Pressure**.
+
+## **Low Pass** wins!
+--- message
+🔮 <@111>, choose your Low Pass:
+=== press 25: LowPassChoiceView -> 'Spectra [MF] -- M2'
+--- message
+**🔮 Coach** chose to pass the ball to 🔮 Spectra [MF] at M2.
+--- message
+**Low Pass:** the ball moves 1 space backward. Ball speed is now 3.
+
+Ball is now M2, Telekinetics (Home) has possession. Time has advanced 1, now at 07.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Spectra [MF], who takes this turn.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 26: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔥 Dinky AI may play a gambit this maneuver.
+=== press 27: ManeuverActionPromptView -> 'Low Pass'
+--- message
+You chose **Low Pass**.
+--- message
+🔮 One has picked their maneuver.
+--- message
+🔮 One chose **Low Pass**.
+🔥 Dinky AI chose **Pressure**.
+
+## **Low Pass** wins!
+--- message
+🔮 <@111>, choose your Low Pass:
+=== press 28: LowPassChoiceView -> 'Quillon [PM] -- M3'
+--- message
+**🔮 Coach** chose to pass the ball to 🔮 Quillon [PM] at M3.
+--- message
+**Low Pass:** the ball moves 1 space forward. Ball speed is now 4.
+
+Ball is now M3, Telekinetics (Home) has possession. Time has advanced 1, now at 08.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Quillon [PM], who takes this turn.
+
+Choose an action:
+=== press 29: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔥 Dinky AI may play a gambit this maneuver.
+=== press 30: ManeuverActionPromptView -> 'Low Pass'
+--- message
+You chose **Low Pass**.
+--- message
+🔮 One has picked their maneuver.
+--- message
+🔮 One chose **Low Pass**.
+🔥 Dinky AI chose **Deflect**.
+
+**Low Pass** ties with **Deflect** — skill test!
+
+🔮 Quillon [PM]: offense skill 4
+🔥 Blazebulk [DD]: defense skill 5
+
+🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🔥 Blazebulk [DD] gains 1 exhaustion token 😮‍💨 (now 2 total).
+--- message
+Either player can roll:
+=== press 31: SkillTestView -> 'Roll the skill test'
+--- message
+## **Deflect** wins the skill test!
+--- message
+🔮 **Smooth** — the ball runs through 🔮 Spectra [MF], who may take it over.
+=== press 32: SmoothView -> 'Spectra [MF] takes it over'
+--- message
+🔮 **Smooth** — 🔮 Spectra [MF] takes the ball over on **M2** (Midfield).
+
+Ball is now M2, Telekinetics (Home) has possession. Time has advanced 1, now at 09.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Spectra [MF], who takes this turn.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 33: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔥 Dinky AI may play a gambit this maneuver.
+=== press 34: ManeuverActionPromptView -> 'Low Pass'
+--- message
+You chose **Low Pass**.
+--- message
+🔮 One has picked their maneuver.
+--- message
+🔮 One chose **Low Pass**.
+🔥 Dinky AI chose **Pressure**.
+
+## **Low Pass** wins!
+--- message
+🔮 <@111>, choose your Low Pass:
+=== press 35: LowPassChoiceView -> 'Quillon [PM] -- M3'
+--- message
+**🔮 Coach** chose to pass the ball to 🔮 Quillon [PM] at M3.
+--- message
+**Low Pass:** the ball moves 1 space forward. Ball speed is now 4.
+
+Ball is now M3, Telekinetics (Home) has possession. Time has advanced 1, now at 10.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Quillon [PM], who takes this turn.
+
+Choose an action:
+=== press 36: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔥 Dinky AI may play a gambit this maneuver.
+=== press 37: ManeuverActionPromptView -> 'Low Pass'
+--- message
+You chose **Low Pass**.
+--- message
+🔮 One has picked their maneuver.
+--- message
+🔮 One chose **Low Pass**.
+🔥 Dinky AI chose **Intercept**.
+
+## **Intercept** wins!
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Spectra [MF], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 38: MindPullView -> 'Spectra [MF] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 7 total).
+The ball slips past them.
+--- message
+**Intercept:**
+# Turnover!
+🔥 Blazebulk [DD] steals the ball. Fire Demons (Visiting) now has possession, then carries it 1 space forward, toward the goal they now attack.
+
+The ball speed goes down to **1**.
+--- message
+Ball speed is now **6**.
+--- message
+Ball is now M2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 11.
+--- message
+Dinky AI calls a time out.
+--- message
+# Fire Demons (Visiting) call a time out
+Both coaches get a Coaching Choice. The ball stays with Fire Demons (Visiting) on M2.
+
+# Coaching Choice
+Fire Demons (Visiting):
+🔥 Emberdash [PM] comes on for 🔥 Sizzifizik [PM] (injured).
+1 substitution left.
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+The other team called a time out.
+Your side is back on the arrangement you last set.
+=== press 39: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 40: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 41: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 42: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 43: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 44: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 45: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 46: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 47: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 48: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 49: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 50: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 51: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 52: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 53: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 54: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 55: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 56: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 57: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 58: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 59: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 60: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 61: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 62: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 63: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 64: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 65: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 66: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 67: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 68: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 69: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 70: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 71: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 72: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 73: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 74: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 75: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 76: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 77: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 78: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 79: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 80: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 81: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 82: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 83: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 84: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 85: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 86: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 87: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 88: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 89: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 90: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 91: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 92: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 93: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 94: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 95: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 96: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 97: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 98: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 99: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 100: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 101: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 102: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 103: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 104: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 105: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 106: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 107: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 108: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 109: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 110: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 111: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 112: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 113: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 114: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 115: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 116: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)
+=== press 117: CoachingHubView -> 'Formation (currently 2-3-1)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 118: CoachingFormationView -> '2-2-2'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-2-2.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2)
+Visitors Third: Zenith [WG] (V1), Noxar [SK] (V2)
+=== press 119: CoachingHubView -> 'Formation (currently 2-2-2)'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Which formation? The numbers read from your own goal forward. Changing shape re-deals your six by defensive skill, best defenders furthest back -- move anyone you want elsewhere afterwards.
+=== press 120: CoachingFormationView -> '2-3-1'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**Telekinetics (Home) switch to 2-3-1.** Best defenders furthest back; rearranging costs no exhaustion.
+Home Third: Umbrik [FB] (H1), Dravox [DD] (H2)
+Midfield: Spectra [MF] (M1), Quillon [PM] (M2), Zenith [WG] (M3)
+Visitors Third: Noxar [SK] (V1)

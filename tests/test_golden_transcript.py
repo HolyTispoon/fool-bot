@@ -24,10 +24,16 @@ What it compares, in order of how likely each is to catch something:
 **A changed golden file is not a failure, it is a review
 conversation.** Regenerate with
 
-    FOOLBOT_UPDATE_GOLDEN=1 python3 -m unittest tests.test_golden_transcript
+    FOOLBOT_UPDATE_GOLDEN=1 python3 -m unittest discover -s tests \
+        -p 'test_golden_transcript.py'
 
 and put the diff in the pull request, where somebody can say whether the
-game was meant to change.
+game was meant to change. It is `discover -s tests` and not
+`unittest tests.test_golden_transcript`, which is what this line said
+until the advanced golden was recorded beside it and found the
+difference: the suite's own helpers (`save_patches`, `roster`) are
+imported as top-level modules, so they only resolve with `tests/` on
+`sys.path` -- which `-s tests` does and the dotted form does not.
 
 **The dice are pinned, and that is allowed here.** CLAUDE.md is explicit
 that the tutorial's closing shot is deliberately *not* scripted -- it is
@@ -38,12 +44,22 @@ transcript if it is the same every time. `GOLDEN_SEED` is chosen so the
 run scores, because that is the path the script is built to reach; a
 seed that missed would pin the unusual branch as the reference.
 
-**What it does not cover, and Phases 4 and 5 will want to.** The
-tutorial is the only multi-turn game the suite can drive today, so this
-golden is one basic-mode solo game on board 7. It watches no advanced
-maneuver, no species ability, no halftime, no shootout and no time out.
-Those want goldens of their own, and the phase that moves each of them
-is the phase to add one.
+**What it does not cover, and Phase 5 will want to.** This golden is
+one basic-mode solo game on board 7, because the tutorial was the only
+multi-turn game the suite could drive when it was written. It watches
+no advanced maneuver, no species ability, no halftime, no shootout and
+no time out.
+
+**The advanced half of that gap is now
+`tests/test_golden_advanced_transcript.py`**, recorded for Phase 4:
+an advanced solo game on board 9 with the Telekinetics in a human's
+hands, which reaches the arrival gate (Mind Pull and Smooth), the loose
+ball both ways, the injury tests and a run back that stops to ask. The
+periods and windows are still nobody's -- no halftime played through,
+no shootout, no time out -- and the phase that moves each of them is
+the phase to add one. A game that is not the tutorial does not need
+rails to be reproducible: a seed and "press the first live button" is
+enough, which is what that file does.
 """
 
 import asyncio
