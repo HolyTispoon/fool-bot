@@ -130,6 +130,40 @@ from cogs.d12ball_views import (
 from cogs.d12ball_boards import BoardRefresher
 
 
+#: The follow-on steps that put the board up themselves, so
+#: `dispatch_step_result` does not write it a second time in front of
+#: them.
+#:
+#: **This is a Discord economy, not a fact about the position.** A step
+#: reports `board_changed` honestly -- the ball moved -- and the
+#: frontend decides what that costs: here, every edit to any message in
+#: a channel shares one five-in-five bucket, so a refresh in front of a
+#: step that is about to draw the same board writes the same bytes
+#: twice for one click. See "Discord's rate limits" in
+#: docs/design/rate-limits.md, and principle 8 in CLAUDE.md for why the
+#: suppression lives here rather than in the step. A web app reading
+#: the same `StepResult` has no such bucket and should redraw.
+#:
+#: Both members reach it by the same route, one of them a beat later.
+#: `begin_loose_ball` announces the position with the board under it --
+#: the ball is lying somewhere nothing in the channel has named, and
+#: the very next question is who to send after it. And every branch of
+#: `offer_setup_pass_push_back` ends in `begin_loose_ball`: the
+#: fallback where no distance fits, Dinky's maximum, and the coach's
+#: own answer. So the board a deflection moved reaches the channel
+#: either way; what this decides is only that it is not *also* drawn in
+#: front of a question whose answer moves the ball again.
+#:
+#: A set rather than a check on one member, because the answer is the
+#: **step's** and not the calling card's: rank D1 lifted the first two
+#: callers of `begin_loose_ball` and there are six more to come, and
+#: every one of them should get this without deciding it again.
+FOLLOW_ONS_THAT_DRAW_THE_BOARD = frozenset({
+    FollowOnStep.BEGIN_LOOSE_BALL,
+    FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK,
+})
+
+
 #: Every prompt kind whose view is built from the cog and the game id
 #: alone. The eight that carry something else are branches in
 #: `view_for_prompt`, and `PARAMETERISED_PROMPT_KINDS` names them so
@@ -1741,6 +1775,9 @@ class CoreMixin:
             FollowOnStep.BEGIN_RUN_BACK: self.begin_run_back,
             FollowOnStep.BEGIN_SHOOTER_CHOICE: self.begin_shooter_choice,
             FollowOnStep.BEGIN_OWN_GOAL_ROLL: self.begin_own_goal_roll,
+            FollowOnStep.BEGIN_LOOSE_BALL: self.begin_loose_ball,
+            FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK:
+                self.offer_setup_pass_push_back,
         }
 
     async def dispatch_step_result(
@@ -1769,16 +1806,27 @@ class CoreMixin:
         8 means. A result that neither asks nor continues has nobody to
         hand its lines to, so those it posts.
 
+        **`board_changed` is the model's answer and the write is
+        this method's decision.** A step says the board moved; whether
+        that costs a request is read here, against
+        `FOLLOW_ONS_THAT_DRAW_THE_BOARD` -- a step about to draw the
+        same board under its own announcement is not drawn in front of.
+        That is rank D1's answer and it is the step's rather than the
+        calling card's, so every caller of `begin_loose_ball` gets it.
+
         A `PendingPrompt` goes through `view_for_prompt`, the same
         table a restart restores through. Two tables is how the live
         flow and the resume come to offer different questions -- see
         "d12ball/prompts.py" in docs/design/model-discord-split.md.
         """
-        if result.board_changed:
-            await self.refresh_match_image(interaction, game)
-
         lead_in = " ".join(result.narration)
         following = result.next
+
+        if result.board_changed and not (
+            isinstance(following, FollowOn)
+            and following.step in FOLLOW_ONS_THAT_DRAW_THE_BOARD
+        ):
+            await self.refresh_match_image(interaction, game)
 
         if isinstance(following, FollowOn):
             await self.follow_on_methods()[following.step](
