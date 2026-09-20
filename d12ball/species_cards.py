@@ -108,7 +108,8 @@ def _paragraphs(ability: str) -> list[str]:
     The ability split into the paragraphs the sheet wrote it in.
 
     Two of the four abilities name their sub-actions -- the Cyborg's
-    Overdrive and Charge-up, the Ooze's Slip in and Merge -- and put
+    Overdrive and Charge-up, the Telekinetic's Mind Pull and Smooth --
+    and put
     each on its own line in `spec_abilities`. Run together into one
     block they stop scanning as separate things, so the line breaks are
     kept and only the wrapping inside a paragraph is the card's to

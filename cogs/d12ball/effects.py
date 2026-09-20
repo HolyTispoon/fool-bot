@@ -56,6 +56,7 @@ from cogs.d12ball_helpers import (
 from cogs.d12ball_views import (
     DribbleAdvanceChoiceView,
     MindPullView,
+    SmoothView,
     DribbleBurstChoiceView,
     HighPassChoiceView,
     LooseBallChoiceView,
@@ -1085,7 +1086,7 @@ class ManeuverEffectsMixin:
         # **A scoring opportunity is an arrival too**, and one the
         # rules name outright among what a pull pre-empts -- so the
         # offer goes out before the shot is put to anybody.
-        if await self.check_for_mind_pull(
+        if await self.check_for_ball_arrival(
             interaction,
             game,
             match,
@@ -1211,6 +1212,204 @@ class ManeuverEffectsMixin:
 
 
 
+    async def check_for_ball_arrival(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        resume: dict,
+    ) -> bool:
+        """
+        **The one gate every ball arrival runs through.** Smooth first,
+        then Mind Pull; True when either took over, so a caller is one
+        `if ...: return` exactly as it was when Mind Pull was the whole
+        of it.
+
+        **Smooth is asked first, and that is a rule rather than an
+        ordering convenience.** Both read the same `last_ball_path`,
+        and a Smooth that is taken stops the ball short of where the
+        movement was going -- so whichever is asked first decides
+        whether the other is asked at all. Asking the possessing side
+        first means their own Telekinetic can take the ball off a
+        movement before an opponent's gets to reach for it -- the
+        author, 2026-09-20, asked directly because the sheet settles
+        what each half does and says nothing about the race.
+
+        **The path is spent by `check_for_mind_pull`, which is the last
+        reader**, so Smooth deliberately does not clear it -- a Smooth
+        that nobody wanted must still leave the pull its movement.
+        """
+        if await self.check_for_smooth(interaction, game, match, resume):
+            return True
+        return await self.check_for_mind_pull(
+            interaction, game, match, resume,
+        )
+
+    async def check_for_smooth(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        resume: dict,
+    ) -> bool:
+        """
+        Did the ball just move to or through one of its **own** side's
+        Telekinetics, who may take it over? The twin of
+        `check_for_mind_pull`, and the same contract: True when the
+        offer has been put and the caller should stop.
+
+        **It does not spend the path.** `check_for_mind_pull` runs
+        after it on the same movement and needs it -- see
+        `check_for_ball_arrival`. That is the one way the two gates
+        differ mechanically, and it is why they are not the same
+        function with a side argument.
+        """
+        candidates = self.engine.smooth_candidates(game, match)
+        if not candidates:
+            return False
+
+        match.pending_smooth = candidates
+        match.pending_smooth_resume = resume
+        self.persist(game, match)
+
+        await self.continue_smooth(interaction, game, match)
+        return True
+
+    async def continue_smooth(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> None:
+        """
+        Put the offer to the next Telekinetic the ball reached, or --
+        when none are left -- hand the movement on to the pull, and
+        then to the arrival this interrupted. **The one exit from the
+        queue**, so a coach who declines and a Telekinetic who was
+        never asked leave by the same door.
+
+        **Dinky never takes a Smooth**, so an AI side's Telekinetics
+        are skipped rather than prompted -- the same call as never
+        ceding and never pulling. Taking the ball over moves who plays
+        the next turn, which is a judgement, and Dinky makes none.
+
+        Injured players are **not** skipped, unlike the pull's queue: a
+        Smooth costs nothing, so there is no charge for an injured
+        player to fail to pay.
+        """
+        while match.pending_smooth:
+            player_id = match.pending_smooth[0]
+            controller = self.engine.controlling_user_id(
+                game, match, player_id,
+            )
+            if controller is None:
+                match.pending_smooth.pop(0)
+                self.persist(game, match)
+                continue
+
+            player = self.engine.get_player_definition(player_id)
+            await send_new_prompt(
+                interaction,
+                f"🔮 **Smooth** — the ball runs through "
+                f"{self.player_label(match, player)}, who may take it "
+                "over: no roll, no token.",
+                view=SmoothView(self, game.game_id, player_id),
+            )
+            return
+
+        resume = match.pending_smooth_resume
+        match.pending_smooth_resume = None
+        self.persist(game, match)
+
+        # Nobody took it, so the movement carries on to the opposing
+        # side's pull -- the second half of `check_for_ball_arrival`,
+        # reached here rather than there because the queue above may
+        # have taken minutes to drain.
+        if await self.check_for_mind_pull(
+            interaction, game, match, resume or {},
+        ):
+            return
+        await self.dispatch_arrival_resume(
+            interaction, game, match, resume,
+        )
+
+    async def run_smooth(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+    ) -> None:
+        """
+        One Telekinetic taking the ball over, off the button they were
+        offered. There is no roll and nothing to charge, so this is the
+        whole of it: stop the ball on them, and finish the maneuver.
+
+        **A Smooth is not a turnover**, which is the one place it parts
+        company with a landed pull. Possession never changed hands, so
+        nobody runs back and the ball keeps the speed the maneuver gave
+        it -- the turn simply ends with a different player holding it.
+
+        **The arrival it pre-empted does not happen.** That is the rule
+        the pull already follows -- what the movement was going to lead
+        to is exactly what taking the ball early takes away -- and it
+        is what makes an overshot Double Team safe: the own-goal roll
+        the shove was about to ask for is never asked, because the ball
+        is no longer sitting on the handler who would have rolled it
+        (the author, 2026-09-20). What it does not drop is the clock:
+        the maneuver that moved the ball still costs its space minute,
+        which rides out in `distance_moved`.
+        """
+        player = self.engine.get_player_definition(player_id)
+        if player_id in match.pending_smooth:
+            match.pending_smooth.remove(player_id)
+
+        resume = match.pending_smooth_resume
+        match.pending_smooth_resume = None
+        match.apply_smooth(player_id)
+        self.persist(game, match)
+
+        # **No refresh here.** Both branches below end in one of their
+        # own -- `finish_maneuver_resolution` redraws the board as its
+        # last act, and the run-back cascade batches to one refresh at
+        # the end -- so drawing it now would be a second write to the
+        # same five-in-five bucket for one click. See
+        # docs/design/rate-limits.md.
+        lead_in = (
+            f"🔮 **Smooth** — {self.player_label(match, player)} takes "
+            f"the ball over on {ball_location_line(match)}."
+        )
+
+        # **A turnover-driven arrival is the exception**, and the only
+        # one. `begin_run_back` is not a question about where the ball
+        # settles -- it is the consequence of a turnover that has
+        # already happened -- so a Smooth cannot pre-empt it, it only
+        # changes who is standing on the ball when everyone runs back.
+        # The carrier this just set is the one who does not run back,
+        # exactly as a landed pull arranges it.
+        if (resume or {}).get("kind") == "run_back":
+            await self.begin_run_back(
+                interaction,
+                game,
+                match,
+                distance_moved=resume.get("distance_moved", 1),
+                turnover_occurred=resume.get("turnover_occurred", True),
+                new_play=resume.get("new_play", False),
+                speed_choice_after=resume.get("speed_choice_after", False),
+                speed_reset=resume.get("speed_reset", True),
+                lead_in=lead_in,
+            )
+            return
+
+        await self.finish_maneuver_resolution(
+            interaction,
+            game,
+            match,
+            distance_moved=(resume or {}).get("distance_moved", 1),
+            turnover_occurred=False,
+            lead_in=lead_in,
+        )
+
     async def check_for_mind_pull(
         self,
         interaction: discord.Interaction,
@@ -1244,6 +1443,13 @@ class ManeuverEffectsMixin:
         a run-back just placed on those spaces rather than who was
         actually standing there when the ball crossed.
 
+        A fifth, `apply_pressure`'s overshoot branch, is the one
+        arrival that is neither a settling nor a turnover: the shove
+        moved the ball and what it led to is an own-goal roll, so the
+        pull has to be offered before the roll rather than after it --
+        see the comment there for why `begin_run_back`'s gate is not
+        enough on its own.
+
         **The path is consumed whether or not anybody may pull.** That
         is what stops the same movement being offered twice when two
         gates run in a row -- `finish_maneuver_resolution` gates and
@@ -1259,8 +1465,11 @@ class ManeuverEffectsMixin:
         candidates = self.engine.mind_pull_candidates(game, match)
         # Spent either way, and before the early return: a movement
         # that offered nobody a pull must not offer one at the next
-        # arrival point either.
+        # arrival point either. The movers go with it -- they are only
+        # disqualified from the movement that moved them, so a second
+        # movement in the same turn must find them eligible again.
         match.last_ball_path = []
+        match.last_ball_movers = []
         if not candidates:
             return False
 
@@ -1287,8 +1496,8 @@ class ManeuverEffectsMixin:
         **Dinky never pulls**, so an AI side's Telekinetics are skipped
         rather than prompted. Paying a token for a one-in-six steal is
         a judgement call, and Dinky makes none -- the same call as
-        never ceding, never declining a challenge and never slipping
-        in. In a solo game the ability is the human's alone, which is
+        never ceding, never declining a challenge and never taking a
+        Smooth. In a solo game the ability is the human's alone, which is
         also what keeps this flow free of an AI branch.
         """
         while match.pending_mind_pull:
@@ -1319,11 +1528,11 @@ class ManeuverEffectsMixin:
         resume = match.pending_mind_pull_resume
         match.pending_mind_pull_resume = None
         self.persist(game, match)
-        await self.dispatch_mind_pull_resume(
+        await self.dispatch_arrival_resume(
             interaction, game, match, resume,
         )
 
-    async def dispatch_mind_pull_resume(
+    async def dispatch_arrival_resume(
         self,
         interaction: discord.Interaction,
         game: D12BallGame,
@@ -1331,10 +1540,14 @@ class ManeuverEffectsMixin:
         resume: Optional[dict],
     ) -> None:
         """
-        Put the turn back where the pull interrupted it -- the twin of
+        Put the turn back where the interrupt found it -- the twin of
         `dispatch_injury_resume`, and read the same way: the kind names
         the arrival, and the rest of the dict is the arguments that
         arrival needs.
+
+        Named for the arrival rather than for Mind Pull because both
+        gates now end here: a Smooth queue that drains hands on to the
+        pull, and a pull queue that drains hands on to this.
 
         An unrecognised kind (or none at all) falls through to the
         ordinary end of a maneuver rather than stranding the turn, the
@@ -1364,6 +1577,16 @@ class ManeuverEffectsMixin:
                 distance_moved=resume.get("distance_moved", 1),
                 lead_in=resume.get("lead_in", ""),
                 contest_on_decline=resume.get("contest_on_decline", False),
+            )
+            return
+
+        if kind == "own_goal":
+            await self.begin_own_goal_roll(
+                interaction,
+                game,
+                match,
+                distance_moved=resume.get("distance_moved", 1),
+                lead_in=resume.get("lead_in", ""),
             )
             return
 
@@ -1597,7 +1820,7 @@ class ManeuverEffectsMixin:
         # `finish_maneuver_resolution` has usually gated already and
         # spent the path; the callers that reach here directly -- a
         # Deflect, and the High Pass contest -- have not.
-        if await self.check_for_mind_pull(
+        if await self.check_for_ball_arrival(
             interaction,
             game,
             match,
@@ -2611,7 +2834,46 @@ class ManeuverEffectsMixin:
         message. It rides above the prompt with a blank line between,
         the way `begin_loose_ball` carries the pass that made the ball
         loose.
+
+        **It gates the shove's own arrival first**, which is the one
+        arrival no other gate reaches. `shove_pressured_handler` drove
+        the ball back through `set_ball_space`, so the shove has a
+        recorded path like any other ball movement, and what that
+        movement led to is this roll -- so a Smooth or a pull is owed
+        *before* it, since "a pull that lands pre-empts whatever the
+        movement would have led to". Left to `begin_run_back`'s gate at
+        the far end it was both too late to pre-empt the roll and, when
+        the own goal is conceded, never reached with the path intact at
+        all: `restart_after_goal` clears it on the way to the kickoff.
+
+        It sits here rather than in `apply_pressure` because
+        `pressure_step` is the model's now and cannot ask a gate -- so
+        the arrival gates itself, the way the other four do, and any
+        later caller gets it for free. **Above `pending_own_goal`**, so
+        a restart mid-offer reads the offer rather than the roll; a
+        decline comes back through the `"own_goal"` resume kind and
+        finds the path spent, so this reading is a no-op the second
+        time. A Smooth that is taken never returns here at all, which
+        is the whole of "there is no own goal risk" (the author,
+        2026-09-20).
+
+        **Only a Double Team can arrive with a path.** A plain Pressure
+        overshoots only from the space closest to the offense's own
+        goal, where the handler does not move and `ball_path_to`
+        answers empty for a move that goes nowhere.
         """
+        if await self.check_for_ball_arrival(
+            interaction,
+            game,
+            match,
+            {
+                "kind": "own_goal",
+                "distance_moved": distance_moved,
+                "lead_in": lead_in,
+            },
+        ):
+            return
+
         match.pending_own_goal = True
         match.pending_own_goal_distance = distance_moved
         self.persist(game, match)

@@ -72,7 +72,7 @@ def build_cog() -> D12Ball:
     # Mind Pull's gate is check_for_loose_ball's twin -- it sits
     # one line above it in finish_maneuver_resolution and answers
     # the same way. Nothing in this file is about it.
-    cog.check_for_mind_pull = mock.AsyncMock(return_value=False)
+    cog.check_for_ball_arrival = mock.AsyncMock(return_value=False)
     cog.send_turn_prompt = mock.AsyncMock()
     # The board the game ends on, which announce_game_over posts under
     # the result.

@@ -90,7 +90,7 @@ class PeriodMixin:
         # Telekinetic's space, so whether the possessing side has
         # anybody where the maneuver *would* have left it is a
         # question that must not be asked yet.
-        if await self.check_for_mind_pull(
+        if await self.check_for_ball_arrival(
             interaction,
             game,
             match,

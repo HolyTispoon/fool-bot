@@ -564,52 +564,79 @@ class RulesEngine:
         modifier = match.overdrive_modifier(player_id)
         return f"+{modifier} Overdrive" if modifier else ""
 
-    def slip_in_candidates(
+    def smooth_candidates(
         self, game: D12BallGame, match: MatchState,
     ) -> list[str]:
         """
-        **Slip in** (Mind Pull, Telekinetic): the Telekinetics standing
-        on the ball who may take the handler's turn from whoever the
-        resolution left it with.
+        **Smooth** (Mind Pull, Telekinetic): the Telekinetics of the
+        side **in possession** that the ball just moved to or through,
+        who may take it over as it passes -- **in the order the ball
+        reached them**, the same ordering a pull is offered in and for
+        the same reason.
 
-        Every one of them is already an eligible ball handler -- a
-        Telekinetic on the ball's space, for the side in possession, is
-        one by definition -- so this narrows that list rather than
-        adding to it. `MatchState.turn_handler_candidates` is where it
-        is spent.
+        The exact twin of `mind_pull_candidates` with two differences,
+        and each is a clause of the rule:
 
-        **"Of the same side" is `eligible_ball_handlers`' own
-        answer**, which is what makes this safe on a space both sides
-        are standing on: that helper is already "everyone of the
-        possessing team on the ball", so an opponent's Telekinetic is
-        never in it. The rules say the same thing twice for the same
-        reason.
+        - **Your own side, not the opponents'.** "When your team has
+          possession" -- so this reads `match.ball.possession` where
+          the pull reads `defending_side()`. The two lists can
+          therefore never share a name on one movement, which is what
+          lets the two queues run one after the other without either
+          having to know about the other's members.
+        - **Anyone this resolution moved is out**, the same as the
+          pull and for the author's same sentence. It matters more
+          here than there: the handler a dribble or a shove carries is
+          on the possessing side and ends up standing on the ball, so
+          without this they would be offered a Smooth on the ball they
+          are already holding.
+        - **Injured players are in.** A pull excludes them because it
+          costs an exhaustion token and an injured player cannot gain
+          one, so `add_exhaustion` would silently hand them a free
+          roll. Smooth costs nothing, so that reasoning does not reach
+          here and an injured Telekinetic may take the ball over like
+          anyone else -- an injured player is still playing (see
+          "Playing injured" in docs/living-rules.md).
 
-        It answers `[]` for the common case -- a resolution that named
-        no carrier at all leaves the coach the whole choice already,
-        and there is nothing to widen.
+        Read off `match.last_ball_path` like the pull, so a restart --
+        which clears the path rather than recording one -- offers
+        nobody a Smooth either.
         """
         if not self.species_abilities_apply(game):
             return []
-        if match.ball_carrier_id is None:
-            return []
-        return [
-            player_id
-            for player_id in match.eligible_ball_handlers()
-            if self.has_species_ability(game, player_id, SPECIES_TELEKINETIC)
-        ]
+
+        ours = set(
+            match.setup_for_side(match.ball.possession).field_players
+        )
+        moved = set(match.last_ball_movers)
+
+        candidates: list[str] = []
+        for zone_value, space_index in match.last_ball_path:
+            for player_id in match.board.spaces[Zone(zone_value)][space_index]:
+                if player_id not in ours or player_id in candidates:
+                    continue
+                if player_id in moved:
+                    continue
+                if not self.has_species_ability(
+                    game, player_id, SPECIES_TELEKINETIC,
+                ):
+                    continue
+                candidates.append(player_id)
+        return candidates
 
     def turn_handler_candidates(
         self, game: D12BallGame, match: MatchState,
     ) -> list[str]:
         """
-        Who may take this turn, Slip in included -- the answer every
-        prompt, the AI and the click that answers should ask, so none
-        of them can offer a different list from the others.
+        Who may take this turn -- the answer every prompt, the AI and
+        the click that answers should ask, so none of them can offer a
+        different list from the others.
+
+        It used to fold Slip in into the answer. Smooth replaced Slip
+        in on 2026-09-20 and settles the same question at the arrival
+        gate instead, so this is now a straight pass-through and is
+        kept for the single-answer rule rather than for what it adds.
         """
-        return match.turn_handler_candidates(
-            self.slip_in_candidates(game, match),
-        )
+        return match.turn_handler_candidates()
 
     def mind_pull_candidates(
         self, game: D12BallGame, match: MatchState,
@@ -631,6 +658,14 @@ class RulesEngine:
           -- a Telekinetic never pulls their own side's ball in, so
           this is the side *not* in possession at the moment the ball
           moved.
+        - **Anyone this resolution moved is out.** "They move with the
+          ball, while Mind Pull only works when the ball moves after"
+          (the author, 2026-09-20). A player the maneuver carried never
+          had the ball move *to or through* their space -- they and it
+          arrived together -- so a Telekinetic who challenges a Pressure
+          is not owed a pull on the ball they just shoved, even though
+          the shove leaves them standing on it.
+          `MatchState.last_ball_movers` is who those are.
         - **Injured players are out**, because a pull costs an
           exhaustion token and an injured player cannot gain one. That
           is the ordinary rule reaching here rather than an exception:
@@ -646,11 +681,14 @@ class RulesEngine:
 
         defending = match.defending_side()
         theirs = set(match.setup_for_side(defending).field_players)
+        moved = set(match.last_ball_movers)
 
         candidates: list[str] = []
         for zone_value, space_index in match.last_ball_path:
             for player_id in match.board.spaces[Zone(zone_value)][space_index]:
                 if player_id not in theirs or player_id in candidates:
+                    continue
+                if player_id in moved:
                     continue
                 if player_id in match.injured:
                     continue
@@ -724,7 +762,7 @@ class RulesEngine:
         what a species is, so this is the id set every occupancy
         reading takes as a parameter (see `open_spaces_in_zone`,
         `placement_spaces_in_zone` and `crowded_candidates` below,
-        and `slip_in_candidates` for the same split elsewhere).
+        and `smooth_candidates` for the same split elsewhere).
         """
         if not self.species_abilities_apply(game):
             return set()
@@ -2954,32 +2992,13 @@ class RulesEngine:
         )
 
         if match.active_player_id is None:
-            candidates = self.turn_handler_candidates(game, match)
-            carrier_id = match.ball_carrier_id
-            # More than one candidate with a carrier among them is
-            # Slip in and nothing else -- MatchState.turn_handler_
-            # candidates only ever widens past a named carrier for a
-            # slip-in Telekinetic. Say so, rather than the generic
-            # line, or a coach reads a plain multiple-choice where one
-            # player already has the ball and another is only offering
-            # to take it off them.
-            if carrier_id in candidates and len(candidates) > 1:
-                carrier_name = self.format_roster_player_for_message(
-                    carrier_id, match.team_for_player(carrier_id),
-                )
-                slip_in_names = " and ".join(
-                    self.format_roster_player_for_message(
-                        player_id, match.team_for_player(player_id),
-                    )
-                    for player_id in candidates
-                    if player_id != carrier_id
-                )
-                return (
-                    f"{controller}, it is your turn.\n\n"
-                    f"{carrier_name} has the ball, but {slip_in_names} "
-                    f"may slip in! {TEAM_EMOJI_FALLBACKS[Team.TELEKINETICS]} "
-                    "Who should handle the ball?"
-                )
+            # There used to be a second line here, for Slip in: a
+            # named carrier *plus* the Telekinetics who could take the
+            # turn off them, which was the one case where this list
+            # held more than one name while somebody already had the
+            # ball. Smooth settles that at the arrival gate instead
+            # (2026-09-20), so a carrier is now always the whole list
+            # and the branch had become unreachable.
             return (
                 f"{controller}, it is your turn.\n\n"
                 "Choose which player in the ball's space will take "

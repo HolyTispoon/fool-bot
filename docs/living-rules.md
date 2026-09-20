@@ -449,9 +449,11 @@ A [new-play reset](#resetting-after-a-new-play) is not a run back and triggers n
 
 ### Mind Pull (Telekinetic)
 
-**When the opponent's ball moves to or through a Telekinetic's space** — it passes over the space on its way somewhere, or comes to rest on it — the Telekinetic may take **1 exhaustion token** and roll one d12. On **1–2** they pull the ball in: it stops on their space, their side takes possession, and the Telekinetic holds it.
+**When the opponent's ball moves to or through a Telekinetic's space** — it passes over the space on its way somewhere, or comes to rest on it — the Telekinetic may take **1 exhaustion token** and roll one d12. On **11–12** they pull the ball in: it stops on their space, their side takes possession, and the Telekinetic holds it.
 
 The token is paid whether or not the pull lands, and Mind Pull is a choice. The roll is not a skill test and owes no [injury check](#the-injury-check). The ball's own starting space does not count as "moved to" — only a ball changing spaces can be pulled, and only the opposing team's ball.
+
+**Whoever the movement itself moved is not offered a pull, or a Smooth.** The ball has to move to or through a space the player was *already standing on* and stayed on: a player the maneuver carried never had it move to them, because they and it arrived together. So the challenger a [Pressure](#pressure) brings forward onto the ball is owed nothing for it, nor is a [Double Team](#double-team)'s partner, nor the handler either card shoves back, nor the handler of a [dribble](#dribble-advance) who moves with the ball by definition. A player shoved nowhere — already against their own goal, with the push clamped to nothing — has not been carried, and is offered whatever they would have been offered standing still.
 
 **One roll per Telekinetic per ball movement.** Where the ball's path crosses two Telekinetics, each may try in the order the ball reaches them; the first to succeed stops the ball there and the rest get no roll.
 
@@ -459,7 +461,15 @@ The token is paid whether or not the pull lands, and Mind Pull is a choice. The 
 
 Mind Pull resolves **before** the ball settles [where it comes to rest](#where-the-ball-comes-to-rest): a pull that lands pre-empts whatever the movement would have led to — a reception, a scoring opportunity, a contest, a loose ball. A pull that misses or is declined leaves all of that to resolve as normal, the Telekinetic included if the ball comes down where they stand. A successful pull is a [steal](#turnovers): ball speed resets to 1, players run back, and the Telekinetic is the carrier who does not. The maneuver that moved the ball still costs its space minute.
 
-**Slip in.** Where a resolution leaves the ball with a particular player and a Telekinetic **of the same side** is standing on that space, the coach may hand the ball to the Telekinetic instead — the Telekinetic becomes the [carrier](#choosing-the-handler) and takes the turn. Where several Telekinetics are there, the coach picks one. This only arises where possession stays with the side that had it — a [Dribble Advance or Burst](#dribble-advance) onto a teammate, a handler [shoved back](#pressure) onto one, a [Setup Pass](#setup-pass) received into a group; a turnover [runs the others back](#running-back-after-a-steal) and leaves the carrier alone.
+**Smooth.** The other half of the ability, and the same interrupt with the price taken off. **When the Telekinetic's own side has possession and the ball moves to or through their space**, they may take it over: no token, no roll, and it cannot fail. The ball stops on their space and they become the [carrier](#choosing-the-handler).
+
+Smooth is read off the ball's path exactly as a pull is, so the same two sentences hold: the ball's own starting space does not count as moved to, and a ball being brought back into play after it has gone dead crosses nobody. Where the ball reaches several of a side's Telekinetics, each is asked in the order it reaches them and the first to take it stops it there.
+
+**Smooth resolves before the ball settles**, and takes with it whatever the movement was going to lead to — a reception, a scoring opportunity, a contest, a loose ball. A handler about to be forced into an [own-goal roll](#own-goal) by an overshooting [Double Team](#double-team) is the sharpest case: if their own Telekinetic takes the ball during the shove, the roll never happens and there is no own-goal risk at all.
+
+**It is not a [turnover](#turnovers).** Possession never changed hands, so nobody runs back, ball speed is untouched, and the turn simply ends with a different player holding the ball. The one movement Smooth cannot pre-empt is a run back that a turnover has already caused: there the Telekinetic takes the ball over and the run back still happens, with them as the carrier who stays.
+
+**Both halves are asked on one movement, Smooth first.** A ball crossing a Telekinetic of each side offers the possessing side's Smooth before the opposing side's pull, so a side can take its own ball out of the air before an opponent reaches for it. A Smooth that is taken ends the movement and no pull is offered; one that is declined leaves the pull exactly as it was.
 
 ### Slimey (Ooze)
 
@@ -824,7 +834,7 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 | --- | --- |
 | Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test: a surge that wins resolves that maneuver at its advanced tier, a backfire that loses upgrades the opponent's and pays its own advanced cost, and a surge that loses pays none. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7, Damaged rather than Injured. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: −1 drain for not moving at all during a run back. |
-| Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 1–2 pull it in and take possession. Slip in: a resolution leaves the ball with a teammate on your space — take over and handle it instead. |
+| Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 11–12 pull it in and take possession. Smooth: your own ball moves to or through your space — take it over, free. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there — offensive on the attack, defensive on the defence — and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
 
 **A turn:** choose the player → choose the action → resolve it → settle the ball → turnover → clock → last-possession check.
