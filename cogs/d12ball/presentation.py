@@ -18,7 +18,6 @@ from typing import Awaitable, Callable, Optional
 
 from discord.ext import commands
 from d12ball.components import (
-    CYBORG_DRAINED_AT,
     SPECIES_CYBORG,
     MatchState,
     PlayerRole,
@@ -211,9 +210,7 @@ class PresentationMixin:
                 drained_emoji = get_drained_emoji(self.condition_emojis)
                 text += (
                     f"\n{self.player_label(match, player)} is now "
-                    f"**Drained** {drained_emoji} — {total} drain "
-                    f"tokens reaches {CYBORG_DRAINED_AT}. Drained counts "
-                    "as Exhausted everywhere the rules use the word."
+                    f"*drained* {drained_emoji}"
                 )
             else:
                 exhausted_emoji = get_exhausted_emoji(self.condition_emojis)
