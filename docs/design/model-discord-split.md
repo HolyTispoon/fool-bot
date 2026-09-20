@@ -447,12 +447,38 @@ rewords a result has changed the game.
   is identical under `PYTHONHASHSEED` 0, 1 and 42 (checked by hand) -- a set
   of player ids iterated into a message would otherwise vary by machine
   rather than by the change that broke it.
-- **It covers one basic-mode solo game on board 7**, the only multi-turn game
-  the suite can drive today -- no gambit, no species ability, no
-  halftime, no shootout, no time out. Rewording two of the three `Ball speed
-  is now` sites in `effects.py` did not fail it, because the tutorial only
-  reaches the third. Don't read a green golden as "the wording is covered";
-  a phase that moves narration the golden doesn't reach should add its own.
+- **It covers one basic-mode solo game on board 7** -- no gambit, no species
+  ability, no halftime, no shootout, no time out. Rewording two of the three
+  `Ball speed is now` sites in `effects.py` did not fail it, because the
+  tutorial only reaches the third. Don't read a green golden as "the wording
+  is covered"; a phase that moves narration the golden doesn't reach should
+  add its own.
+- **Phase 4 did add its own, and it is in the same module.**
+  `AdvancedGoldenTranscriptTests` over `tests/golden/advanced_*` is a whole
+  advanced solo game on board 9, kickoff to full time: both modules on, the
+  human coaching the Telekinetics against Dinky's Cyborgs, so the arrival
+  gate (both halves), the loose ball, the run back's two questions, the
+  injury queue, the own-goal roll and the coaching window a new play opens
+  are all in the transcript. It was recorded on the code as it stood before
+  the phase moved anything, which is what makes it evidence rather than the
+  new code agreeing with itself.
+  - **Its press rule has two exceptions to the tutorial's, and each replaces
+    something the rails did.** The card is rotated on
+    `ManeuverActionPromptView` -- "press the first enabled button" plays Low
+    Pass every turn and never reaches eight of the twelve cards -- and
+    `CoachingHubView` presses Done coaching, because the window is a menu
+    whose first button re-opens a picker that re-opens the window, and the
+    run never comes out of it. Both are one rule each and still
+    reproducible.
+  - **The seed is chosen for what it reaches, not for a score line.**
+    `ADVANCED_VIEWS_THE_RUN_MUST_REACH` is asserted, naming what went
+    missing, because a seed that drifted into a short quiet game would be a
+    green golden that had stopped watching Phase 4's own branches -- the
+    own-goal roll and the stacked run back are the two most seeds miss.
+  - **What it still does not reach**: the shootout (the seed does not finish
+    level), a time out, and `BallRecoveryView` -- the pickup after a ball
+    goes out, a shot misses or an own goal is avoided. Phase 5 is where the
+    first two are due.
 
 ## Two things about running the suite that cost time to rediscover
 

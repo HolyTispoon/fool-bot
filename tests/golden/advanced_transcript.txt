@@ -1,0 +1,1036 @@
+--- message
+🔮 <@111>, it is your turn.
+
+Quillon [PM] will be handling the ball.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 1: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 2: ManeuverActionPromptView -> 'Low Pass'
+--- message
+You chose **Low Pass**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **Low Pass**.
+🤖 Dinky AI chose **Deflect**.
+
+**Low Pass** ties with **Deflect** — skill test!
+
+🔮 Quillon [PM]: offense skill 4
+🤖 Synapse [PM]: defense skill 3
+
+🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🤖 Synapse [PM] gains 1 drain token 😮‍💨 (now 1 total).
+--- message
+Either player can roll:
+=== press 3: SkillTestView -> 'Roll the skill test'
+--- message
+## **Low Pass** wins the skill test!
+--- message
+🔮 <@111>, choose your Low Pass:
+=== press 4: LowPassChoiceView -> 'Spectra [MF] -- M1'
+--- message
+**🔮 Coach** chose to pass the ball to 🔮 Spectra [MF] at M1.
+--- message
+**Low Pass:** the ball moves 1 space backward. Ball speed is now 2.
+
+Ball is now M1, Telekinetics (Home) has possession. Time has advanced 1, now at 01.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Spectra [MF], who takes this turn.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 5: PlayerActionView -> 'Maneuver'
+--- message
+Synapse has moved 1 space.
+🤖 Synapse [PM] gains 1 drain token 😮‍💨 (now 2 total).
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 6: ManeuverActionPromptView -> 'Dribble Advance'
+--- message
+You chose **Dribble Advance**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **Dribble Advance**.
+🤖 Dinky AI chose **Steal**.
+
+**Dribble Advance** ties with **Steal** — skill test!
+
+🔮 Spectra [MF]: offense skill 3
+🤖 Synapse [PM]: defense skill 3
+
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 1 total).
+🤖 Synapse [PM] gains 1 drain token 😮‍💨 (now 3 total).
+--- message
+Either player can roll:
+=== press 7: SkillTestView -> 'Roll the skill test'
+--- message
+## **Steal** wins the skill test!
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Quillon [PM], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 8: MindPullView -> 'Quillon [PM] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Quillon [PM] reaches for the ball.
+🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 2 total).
+The ball slips past them.
+--- message
+**Steal:**
+# Turnover!
+🤖 Synapse [PM] steals the ball. Cyborgs (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
+
+The ball speed goes down to **1**.
+--- message
+🤖 Synapse [PM] holds position — **Charge-up** removes 1 drain (now 2).
+
+Ball speed is now **4**.
+--- message
+Ball is now M2, Cyborgs (Visiting) has possession. Time has advanced 1, now at 02.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 9: ManeuverActionPromptView -> 'Pressure'
+--- message
+You chose **Pressure**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **Low Pass**.
+🔮 Player 1 chose **Pressure**.
+
+## **Low Pass** wins!
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Spectra [MF], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 10: MindPullView -> 'Spectra [MF] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 2 total).
+The ball slips past them.
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Dravox [DD], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 11: MindPullView -> 'Dravox [DD] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
+🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 1 total).
+The ball slips past them.
+--- message
+**Low Pass:** the ball moves 2 spaces forward. Ball speed is now 5.
+
+Ball is now H3, Cyborgs (Visiting) has possession. Time has advanced 1, now at 03.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 12: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **Dribble Advance**.
+🔮 Player 1 chose **Deflect**.
+
+## **Dribble Advance** wins!
+--- message
+**Dribble Advance:** 🤖 Quantor [WG] and the ball move forward 1 space.
+
+Ball speed is now **10**.
+--- message
+Ball is now H2, Cyborgs (Visiting) has possession. Time has advanced 1, now at 04.
+--- message
+Dinky AI will maneuver with 🤖 Quantor [WG].
+
+🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
+=== press 13: ManeuverChallengeView -> 'Umbrik [FB] (1)'
+--- message
+Umbrik has moved 1 space.
+🔮 Umbrik [FB] gains 1 exhaustion token 😮‍💨 (now 1 total).
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 14: ManeuverActionPromptView -> 'Steal'
+--- message
+You chose **Steal**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **High Pass**.
+🔮 Player 1 chose **Steal**.
+
+## **High Pass** wins!
+--- message
+**High Pass:** the ball moves 1 space forward. That overshoots the field -- a scoring opportunity! The ball comes in too fast to settle -- the ball speed modifier counts **against** what follows (-5).
+--- message
+🤖 Tachyon [SK] takes the shot off the set-up.
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+=== press 15: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# GOAL!
+🤖 Tachyon [SK] scores for Cyborgs (Visiting) on **04**!
+Telekinetics 0:1 Cyborgs
+
+🤖 Tachyon [SK] gains 1 drain token 😮‍💨 (now 1 total).
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Coach?
+=== press 16: CoachingOfferView -> 'Coach'
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+=== press 17: CoachingHubView -> 'Done coaching'
+--- message
+# Coaching Choice
+**Telekinetics (Home) are done.**
+No substitutions, and no change of shape.
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now M2, Telekinetics (Home) has possession. Time has advanced 3, now at 07.
+--- message
+🔮 <@111>, it is your turn.
+
+Quillon [PM] will be handling the ball.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 18: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 19: ManeuverActionPromptView -> 'Setup Pass'
+--- message
+You chose **Setup Pass**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **Setup Pass**.
+🤖 Dinky AI chose **Steal**.
+
+## **Setup Pass** wins!
+--- message
+**Setup Pass:** 🔮 Quillon [PM] sets the ball's speed before picking out the pass.
+
+<@111>, manipulate the ball's speed (up to 4):
+=== press 20: SpeedDeltaChoiceView -> '1 (no change)'
+--- message
+Ball speed is now **1**.
+--- message
+🔮 <@111>, choose where your **Setup Pass** lands:
+=== press 21: SetupPassChoiceView -> '1 space (M3, no teammate)'
+--- message
+**🔮 Coach** picks out a **Setup Pass** of 1.
+--- message
+# Turnover!
+🤖 Strider [MF] picks up the ball. Cyborgs (Visiting) now has possession.
+--- message
+The ball speed goes down to **1**.
+--- message
+🤖 Tachyon [SK] holds position — **Charge-up** removes 1 drain (now 0).
+🤖 Synapse [PM] holds position — **Charge-up** removes 1 drain (now 1).
+
+Ball is now M3, Cyborgs (Visiting) has possession. Time has advanced 2, now at 09.
+--- message
+Dinky AI will maneuver with 🤖 Strider [MF].
+
+🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
+=== press 22: ManeuverChallengeView -> 'Quillon [PM] (1)'
+--- message
+Quillon has moved 1 space.
+🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 3 total).
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 23: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **High Pass**.
+🔮 Player 1 chose **Deflect**.
+
+## **Deflect** wins!
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Zenith [WG], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 24: MindPullView -> 'Zenith [WG] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
+🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 1 total).
+The ball slips past them.
+--- message
+🤖 Voltus [DD] (offense skill 2) and 🔮 Zenith [WG] (defense skill 2) both contest the ball -- skill test!
+
+
+Either player can roll:
+=== press 25: LooseBallSkillTestView -> 'Roll for the ball'
+--- message
+## **It's a tie (3-3)!**
+The skill test must be rolled again.
+🤖 Voltus [DD] gains 1 drain token 😮‍💨 (now 1 total).
+🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 2 total).
+
+Roll again:
+=== press 26: LooseBallSkillTestView -> 'Roll for the ball'
+--- message
+# Turnover!
+
+🔮 Zenith [WG] wins the ball! 🔮 <@111> has possession.
+--- message
+The ball speed goes down to **1**.
+--- message
+🤖 Synapse [PM] holds position — **Charge-up** removes 1 drain (now 0).
+🤖 Voltus [DD] holds position — **Charge-up** removes 1 drain (now 0).
+
+Ball is now V1, Telekinetics (Home) has possession. Time has advanced 1, now at 10.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Zenith [WG], who takes this turn.
+
+Choose an action:
+=== press 27: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 28: ManeuverActionPromptView -> 'Skilled Pass'
+--- message
+You chose **Skilled Pass**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **Skilled Pass**.
+🤖 Dinky AI chose **Pressure**.
+
+## **Skilled Pass** wins!
+--- message
+🔮 <@111>, choose your Skilled Pass:
+=== press 29: LowPassChoiceView -> 'Spectra [MF] -- M1'
+--- message
+**🔮 Coach** chose to pass the ball to 🔮 Spectra [MF] at M1.
+--- message
+🔮 **Smooth** — the ball runs through 🔮 Quillon [PM], who may take it over.
+=== press 30: SmoothView -> 'Quillon [PM] takes it over'
+--- message
+🔮 **Smooth** — 🔮 Quillon [PM] takes the ball over on **M3** (Midfield).
+
+Ball is now M3, Telekinetics (Home) has possession. Time has advanced 1, now at 11.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Quillon [PM], who takes this turn.
+
+Choose an action:
+=== press 31: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 32: ManeuverActionPromptView -> 'Dribble Advance'
+--- message
+You chose **Dribble Advance**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **Dribble Advance**.
+🤖 Dinky AI chose **Steal**.
+
+**Dribble Advance** ties with **Steal** — skill test!
+
+🔮 Quillon [PM]: offense skill 4
+🤖 Strider [MF]: defense skill 4
+
+🔮 Quillon [PM] gains 1 exhaustion token 😮‍💨 (now 4 total).
+🔮 Quillon [PM] is now *exhausted* 🥵
+🤖 Strider [MF] gains 1 drain token 😮‍💨 (now 1 total).
+--- message
+Either player can roll:
+=== press 33: SkillTestView -> 'Roll the skill test'
+--- message
+## **Steal** wins the skill test!
+--- message
+<@111>, 🔮 Quillon [PM] is exhausted and owes an injury test: a d12 that has to beat their 4 exhaustion tokens.
+=== press 34: InjuryTestView -> 'Roll the injury test'
+--- message
+🔮 Quillon [PM] is exhausted and rolls an injury test: 1 does not beat their 4 exhaustion tokens — injury! They are **injured** 🤕.
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Zenith [WG], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 35: MindPullView -> 'Zenith [WG] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
+🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 3 total).
+🔮 Zenith [WG] is now *exhausted* 🥵
+The ball slips past them.
+--- message
+**Steal:**
+# Turnover!
+🤖 Strider [MF] steals the ball. Cyborgs (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
+
+The ball speed goes down to **1**.
+--- message
+🤖 Strider [MF] holds position — **Charge-up** removes 1 drain (now 0).
+
+Ball speed is now **5**.
+--- message
+Ball is now V1, Cyborgs (Visiting) has possession. Time has advanced 1, now at 12.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 36: ManeuverActionPromptView -> 'Intercept'
+--- message
+You chose **Intercept**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **Low Pass**.
+🔮 Player 1 chose **Intercept**.
+
+## **Intercept** wins!
+--- message
+**Intercept:**
+# Turnover!
+🔮 Zenith [WG] steals the ball. Telekinetics (Home) now has possession, then carries it 1 space forward, toward the goal they now attack.
+
+# Players run back!
+Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled. The ball speed goes down to **1**.
+--- message
+🤖 Strider [MF] runs back to M1.
+🤖 Strider [MF] gains 3 drain tokens 😮‍💨😮‍💨😮‍💨 (now 3 total).
+--- message
+<@111>, manipulate the ball's speed (up to 2):
+=== press 37: SpeedDeltaChoiceView -> '1 (no change)'
+--- message
+Ball speed is now **1**.
+--- message
+Ball is now V2, Telekinetics (Home) has possession. Time has advanced 1, now at 13.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Zenith [WG], who takes this turn.
+
+Choose an action:
+=== press 38: PlayerActionView -> 'Maneuver'
+--- message
+Bulwark has moved 1 space.
+🤖 Bulwark [FB] gains 1 drain token 😮‍💨 (now 1 total).
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 39: ManeuverActionPromptView -> 'High Pass'
+--- message
+You chose **High Pass**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **High Pass**.
+🤖 Dinky AI chose **Steal**.
+
+## **High Pass** wins!
+--- message
+**High Pass:** the ball moves 1 space forward. That overshoots the field -- a scoring opportunity!
+
+🔮 Noxar [SK] can attempt the scoring opportunity, or let it go:
+=== press 40: SetUpAttemptChoiceView -> 'Noxar [SK] takes the shot'
+--- message
+🔮 Noxar [SK] takes the shot.
+--- message
+🔮 Noxar [SK] takes the shot off the set-up.
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+=== press 41: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# GOAL!
+🔮 Noxar [SK] scores for Telekinetics (Home) on **13**!
+Telekinetics 1:1 Cyborgs
+
+🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
+--- message
+The ball speed goes down to **1**.
+--- message
+The clock reaches 15 -- this is now **last possession**. The turnover that got here doesn't end it -- Cyborgs (Visiting) came out of that maneuver with the ball, so they play last possession out. The clock keeps running.
+--- message
+Ball is now M2, Cyborgs (Visiting) has possession. Time has advanced 3, now at 16.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 42: ManeuverActionPromptView -> 'Double Team'
+--- message
+You chose **Double Team**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **High Pass**.
+🔮 Player 1 chose **Double Team**.
+
+**High Pass** ties with **Double Team**, but 🔮 Quillon [PM] is **injured** 🤕 and automatically loses the tie.
+
+## **High Pass** wins!
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Spectra [MF], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 43: MindPullView -> 'Spectra [MF] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 3 total).
+The ball slips past them.
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Dravox [DD], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 44: MindPullView -> 'Dravox [DD] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
+🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 2 total).
+The ball slips past them.
+--- message
+**High Pass:** the ball moves 2 spaces forward. That reaches a teammate -- a scoring opportunity!
+--- message
+🤖 Quantor [WG] takes the shot off the set-up.
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+=== press 45: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# Missed attempt!
+Telekinetics (Home) manages to avoid a goal! (phew)
+
+🤖 Quantor [WG] gains 1 drain token 😮‍💨 (now 1 total).
+--- message
+**End of the first half!** The ball turns over at 16 under last possession -- the period ends. The second half starts at 16.
+--- message
+# Halftime
+Every fielded player recovers 1 exhaustion token:
+🔮 Umbrik [FB] recovers 1 exhaustion token (now 0).
+🔮 Dravox [DD] recovers 1 exhaustion token (now 1).
+🔮 Spectra [MF] recovers 1 exhaustion token (now 2).
+🔮 Zenith [WG] recovers 1 exhaustion token (now 2).
+🔮 Noxar [SK] recovers 1 exhaustion token (now 0).
+🤖 Quantor [WG] recovers 1 exhaustion token (now 0).
+🤖 Strider [MF] recovers 1 exhaustion token (now 2).
+🤖 Bulwark [FB] recovers 1 exhaustion token (now 0).
+--- message
+Cyborgs (Visiting) removes an extra exhaustion token from 🤖 Strider [MF] (now 1).
+--- message
+<@111>, Telekinetics (Home): choose one fielded player to lose an extra exhaustion token.
+=== press 46: HalftimeExtraTokenView -> 'Umbrik [FB] (0)'
+--- message
+🔮 Umbrik [FB] had no tokens to lose.
+--- message
+## Halftime
+Telekinetics (Home) set up for the second half.
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+🔮 Quillon [PM] is injured and still on the field.
+=== press 47: CoachingHubView -> 'Done coaching'
+--- message
+# Coaching Choice
+**Telekinetics (Home) are done.**
+No substitutions, and no change of shape.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 48: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **High Pass**.
+🔮 Player 1 chose **Deflect**.
+
+**Deflect** would win, but 🔮 Quillon [PM] is **injured** 🤕 -- a skill test decides it instead!
+
+🤖 Synapse [PM]: offense skill 4
+🔮 Quillon [PM]: defense skill 3
+
+🤖 Synapse [PM] gains 1 drain token 😮‍💨 (now 1 total).
+🔮 Quillon [PM] is injured 🤕 and gains no exhaustion tokens.
+--- message
+Either player can roll:
+=== press 49: SkillTestView -> 'Roll the skill test'
+--- message
+## **Deflect** wins the skill test!
+--- message
+🤖 Strider [MF] picks up the ball.
+--- message
+Ball is now M3, Cyborgs (Visiting) has possession. Time has advanced 1, now at 17.
+--- message
+Dinky AI will maneuver with 🤖 Strider [MF].
+
+🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
+=== press 50: ManeuverChallengeView -> 'Quillon [PM] (1)'
+--- message
+Quillon has moved 1 space.
+🔮 Quillon [PM] is injured 🤕 and gains no exhaustion tokens.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 51: ManeuverActionPromptView -> 'Clear'
+--- message
+You chose **Clear**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **High Pass**.
+🔮 Player 1 chose **Clear**.
+
+**Clear** would win, but 🔮 Quillon [PM] is **injured** 🤕 -- a skill test decides it instead!
+
+🤖 Strider [MF]: offense skill 3
+🔮 Quillon [PM]: defense skill 3
+
+🤖 Strider [MF] gains 1 drain token 😮‍💨 (now 2 total).
+🔮 Quillon [PM] is injured 🤕 and gains no exhaustion tokens.
+--- message
+Either player can roll:
+=== press 52: SkillTestView -> 'Roll the skill test'
+--- message
+## **Clear** wins the skill test!
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Zenith [WG], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 53: MindPullView -> 'Zenith [WG] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
+🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 3 total).
+🔮 Zenith [WG] is now *exhausted* 🥵
+The ball slips past them.
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Noxar [SK], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 54: MindPullView -> 'Noxar [SK] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
+🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 1 total).
+
+## 🔮 Noxar [SK] grabs the ball with their telekinetic powers!
+**Turnover!** They take it on **V3** (Visitors Third).
+
+The ball speed goes down to **1**.
+--- message
+🤖 Strider [MF] holds position — **Charge-up** removes 1 drain (now 1).
+🤖 Synapse [PM] holds position — **Charge-up** removes 1 drain (now 0).
+
+Ball is now V3, Telekinetics (Home) has possession. Time has advanced 1, now at 18.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Noxar [SK], who takes this turn.
+
+Choose an action:
+=== press 55: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 56: ManeuverActionPromptView -> 'Dribble Advance'
+--- message
+You chose **Dribble Advance**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **Dribble Advance**.
+🤖 Dinky AI chose **Pressure**.
+
+## **Pressure** wins!
+--- message
+**Pressure:** 🔮 Noxar [SK] and the ball go back 1 space. 🤖 Bulwark [FB] moves forward.
+
+Ball is now V2, Telekinetics (Home) has possession. Time has advanced 1, now at 19.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Noxar [SK], who takes this turn.
+
+Choose an action:
+=== press 57: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 58: ManeuverActionPromptView -> 'Dribble Burst'
+--- message
+You chose **Dribble Burst**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **Dribble Burst**.
+🤖 Dinky AI chose **Pressure**.
+
+## **Pressure** wins!
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Zenith [WG], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 59: MindPullView -> 'Zenith [WG] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
+🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 4 total).
+The ball slips past them.
+--- message
+**Pressure:** 🔮 Noxar [SK] and the ball go back 1 space. 🤖 Bulwark [FB] moves forward.
+
+# Turnover!
+**Dribble Burst** was beaten -- Cyborgs (Visiting) take the ball, and it keeps the speed the burst put into it (1).
+
+# Players run back!
+Players return to an open space in their assigned zone and gain 1 exhaustion token for every space traveled.
+--- message
+<@111>, your players are doubled up while their zone still has a space with nobody on it — choose which of them runs back:
+🔮 Zenith [WG] on V1
+🔮 Noxar [SK] on V1
+=== press 60: RunBackPlayerChoiceView -> 'Zenith [WG] — V1'
+--- message
+<@111>, choose where 🔮 Zenith [WG] runs back to:
+V2 (1 space away) or V3 (2 spaces away).
+=== press 61: RunBackChoiceView -> 'V2 (1 space)'
+--- message
+🔮 Zenith [WG] runs back to V2.
+🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 5 total).
+--- message
+🤖 Voltus [DD] runs back to V2.
+🤖 Voltus [DD] gains 1 drain token 😮‍💨 (now 1 total).
+--- message
+🤖 Strider [MF] holds position — **Charge-up** removes 1 drain (now 0).
+
+Ball speed is now **7**.
+--- message
+Ball is now V1, Cyborgs (Visiting) has possession. Time has advanced 1, now at 20.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 62: ManeuverActionPromptView -> 'Pressure'
+--- message
+You chose **Pressure**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **Dribble Advance**.
+🔮 Player 1 chose **Pressure**.
+
+## **Pressure** wins!
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Zenith [WG], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 63: MindPullView -> 'Zenith [WG] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
+🔮 Zenith [WG] gains 1 exhaustion token 😮‍💨 (now 6 total).
+The ball slips past them.
+--- message
+**Pressure:** 🤖 Bulwark [FB] and the ball go back 1 space. 🔮 Noxar [SK] moves forward.
+
+Ball is now V2, Cyborgs (Visiting) has possession. Time has advanced 1, now at 21.
+--- message
+Dinky AI will maneuver with 🤖 Bulwark [FB].
+
+🔮 <@111>, these players are already on the ball, so one of them has to challenge -- choose which.
+=== press 64: ManeuverChallengeView -> 'Zenith [WG] (0)'
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 65: ManeuverActionPromptView -> 'Double Team'
+--- message
+You chose **Double Team**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **Dribble Advance**.
+🔮 Player 1 chose **Double Team**.
+
+## **Double Team** wins!
+--- message
+**Double Team:** 🤖 Bulwark [FB] and the ball go back 1 space. 🔮 Zenith [WG] moves forward. 🔮 Noxar [SK] joins them -- and **both** will challenge on the next maneuver, each adding their defensive skill.
+
+That overshoots toward their own goal!
+
+**Own goal risk!** Someone, 🤖 Bulwark [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (1). A total of 7 or more and the own goal is avoided.
+=== press 66: OwnGoalRollView -> 'Roll for the own goal'
+--- message
+**Own goal risk!** 🤖 Bulwark [FB] rolls at an advantage: higher of 8/4 is 8, + 1 (offensive skill) = 9
+--- message
+## Own goal avoided!
+
+🤖 Bulwark [FB] gains 1 drain token 😮‍💨 (now 1 total).
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now V3, Cyborgs (Visiting) has possession. Time has advanced 1, now at 22.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 67: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **High Pass**.
+🔮 Player 1 chose **Deflect**.
+
+## **Deflect** wins!
+--- message
+**Deflect:** the ball moves 0 spaces back. Ball speed is now 1. That overshoots the field -- a scoring opportunity!
+--- message
+🔮 Noxar [SK] takes the shot off the set-up.
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+=== press 68: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# Missed attempt!
+Cyborgs (Visiting) manages to avoid a goal! (phew)
+
+🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🔮 Noxar [SK] is now *exhausted* 🥵
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now V3, Cyborgs (Visiting) has possession. Time has advanced 2, now at 24.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 may play a gambit this maneuver.
+=== press 69: ManeuverActionPromptView -> 'Clear'
+--- message
+You chose **Clear**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **Low Pass**.
+🔮 Player 1 chose **Clear**.
+
+**Low Pass** ties with **Clear** — skill test!
+
+🤖 Bulwark [FB]: offense skill 1
+🔮 Noxar [SK]: defense skill 1
+
+🤖 Bulwark [FB] gains 1 drain token 😮‍💨 (now 2 total).
+🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 3 total).
+--- message
+Either player can roll:
+=== press 70: SkillTestView -> 'Roll the skill test'
+--- message
+## **Clear** wins the skill test!
+--- message
+<@111>, 🔮 Noxar [SK] is exhausted and owes an injury test: a d12 that has to beat their 3 exhaustion tokens.
+=== press 71: InjuryTestView -> 'Roll the injury test'
+--- message
+🔮 Noxar [SK] is exhausted and rolls an injury test: 11 beats their 3 exhaustion tokens — safe.
+--- message
+**Deflect:** the ball moves 0 spaces back. Ball speed is now 1. That overshoots the field -- a scoring opportunity!
+--- message
+🔮 Noxar [SK] takes the shot off the set-up.
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+=== press 72: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# GOAL!
+🔮 Noxar [SK] scores for Telekinetics (Home) on **24**!
+Telekinetics 2:1 Cyborgs
+
+🔮 Noxar [SK] gains 1 exhaustion token 😮‍💨 (now 4 total).
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now M2, Cyborgs (Visiting) has possession. Time has advanced 2, now at 26.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+Both coaches may play a gambit this maneuver.
+=== press 73: ManeuverActionPromptView -> 'Steal'
+--- message
+You chose **Steal**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **Skilled Pass**.
+🔮 Player 1 chose **Steal**.
+
+**Steal** would win, but 🔮 Quillon [PM] is **injured** 🤕 -- a skill test decides it instead!
+
+🤖 Synapse [PM]: offense skill 4
+🔮 Quillon [PM]: defense skill 3
+
+🤖 Synapse [PM] gains 1 drain token 😮‍💨 (now 1 total).
+🔮 Quillon [PM] is injured 🤕 and gains no exhaustion tokens.
+--- message
+Either player can roll:
+=== press 74: SkillTestView -> 'Roll the skill test'
+--- message
+## **Skilled Pass** wins the skill test!
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Spectra [MF], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 75: MindPullView -> 'Spectra [MF] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 3 total).
+The ball slips past them.
+--- message
+🔮 **Mind Pull** — the ball crossed 🔮 Dravox [DD], who may reach out for it: 1 exhaustion token and a d12, pulling it in on a 11-12.
+=== press 76: MindPullView -> 'Dravox [DD] reaches for it'
+--- message
+🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
+🔮 Dravox [DD] gains 1 exhaustion token 😮‍💨 (now 2 total).
+The ball slips past them.
+--- message
+**Low Pass:** the ball moves 2 spaces forward. Ball speed is now 2.
+
+Ball is now H3, Cyborgs (Visiting) has possession. Time has advanced 1, now at 27.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+Both coaches may play a gambit this maneuver.
+=== press 77: ManeuverActionPromptView -> 'Intercept'
+--- message
+You chose **Intercept**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🤖 Dinky AI chose **Setup Pass**.
+🔮 Player 1 chose **Intercept**.
+
+## **Setup Pass** wins!
+--- message
+**Setup Pass:** 🤖 Quantor [WG] sets the ball's speed before picking out the pass.
+
+Ball speed is now **7**.
+--- message
+🔮 <@111>, choose who contests the loose ball on H2, or send nobody:
+=== press 78: LooseBallChoiceView -> 'Umbrik [FB] (H1, 1 space from the ball)'
+--- message
+🔮 Umbrik [FB] contests the loose ball (defense).
+--- message
+🤖 Tachyon [SK] (offense skill 6) and 🔮 Umbrik [FB] (defense skill 6) both contest the loose ball -- skill test!
+🤖 Tachyon [SK] gains 1 drain token 😮‍💨 (now 1 total).
+🔮 Umbrik [FB] gains 1 exhaustion token 😮‍💨 (now 1 total).
+
+Either player can roll:
+=== press 79: LooseBallSkillTestView -> 'Roll for the loose ball'
+--- message
+# Turnover!
+
+🔮 Umbrik [FB] wins the loose ball! 🔮 <@111> has possession.
+--- message
+The ball speed goes down to **1**.
+--- message
+🤖 Tachyon [SK] holds position — **Charge-up** removes 1 drain (now 0).
+🤖 Synapse [PM] holds position — **Charge-up** removes 1 drain (now 0).
+🤖 Bulwark [FB] holds position — **Charge-up** removes 1 drain (now 1).
+🤖 Voltus [DD] holds position — **Charge-up** removes 1 drain (now 0).
+
+Ball is now H2, Telekinetics (Home) has possession. Time has advanced 2, now at 29.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Umbrik [FB], who takes this turn.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 80: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+Both coaches may play a gambit this maneuver.
+=== press 81: ManeuverActionPromptView -> 'High Pass'
+--- message
+You chose **High Pass**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **High Pass**.
+🤖 Dinky AI chose **Pressure**.
+
+**High Pass** ties with **Pressure** — skill test!
+
+🔮 Umbrik [FB]: offense skill 1
+🤖 Tachyon [SK]: defense skill 1
+
+🔮 Umbrik [FB] gains 1 exhaustion token 😮‍💨 (now 2 total).
+🤖 Tachyon [SK] gains 1 drain token 😮‍💨 (now 1 total).
+--- message
+Either player can roll:
+=== press 82: SkillTestView -> 'Roll the skill test'
+--- message
+## **High Pass** wins the skill test!
+--- message
+🔮 <@111>, choose your High Pass distance:
+=== press 83: HighPassChoiceView -> '2 spaces (M1-Spectra [MF])'
+--- message
+Chose **2 spaces**.
+--- message
+🔮 **Smooth** — the ball runs through 🔮 Dravox [DD], who may take it over.
+=== press 84: SmoothView -> 'Dravox [DD] takes it over'
+--- message
+🔮 **Smooth** — 🔮 Dravox [DD] takes the ball over on **H3** (Home Third).
+
+The clock reaches 30 -- this is now **last possession**. Play continues until the ball turns over, which ends the period. The clock keeps running.
+--- message
+Ball is now H3, Telekinetics (Home) has possession. Time has advanced 2, now at 31.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Dravox [DD], who takes this turn.
+
+Out of shooting range, and no time out available. Maneuver:
+=== press 85: PlayerActionView -> 'Maneuver'
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+Both coaches may play a gambit this maneuver.
+=== press 86: ManeuverActionPromptView -> 'Setup Pass'
+--- message
+You chose **Setup Pass**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **Setup Pass**.
+🤖 Dinky AI chose **Intercept**.
+
+## **Setup Pass** wins!
+--- message
+**Setup Pass:** 🔮 Dravox [DD] sets the ball's speed before picking out the pass.
+
+<@111>, manipulate the ball's speed (up to 2):
+=== press 87: SpeedDeltaChoiceView -> '1 (no change)'
+--- message
+Ball speed is now **1**.
+--- message
+🔮 <@111>, choose where your **Setup Pass** lands:
+=== press 88: SetupPassChoiceView -> '1 space (M1-Spectra [MF])'
+--- message
+**🔮 Coach** picks out a **Setup Pass** of 1.
+--- message
+**Setup Pass:** the ball moves 1 space forward to 🔮 Spectra [MF] -- a scoring opportunity! Ball speed is 1.
+
+🔮 Spectra [MF] can attempt the scoring opportunity, or let it go:
+=== press 89: SetUpAttemptChoiceView -> 'Spectra [MF] takes the shot'
+--- message
+🔮 Spectra [MF] takes the shot.
+--- message
+🔮 Spectra [MF] takes the shot off the set-up.
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+=== press 90: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# GOAL!
+🔮 Spectra [MF] scores for Telekinetics (Home) on **31**!
+Telekinetics 3:1 Cyborgs
+
+🔮 Spectra [MF] gains 1 exhaustion token 😮‍💨 (now 4 total).
+--- message
+**Full time!** The ball turns over at 31 under last possession -- the game ends.
+
+**Final score:** Telekinetics 3:1 Cyborgs
+
+# Telekinetics wins!
+Congratulations, <@111>!
+
+## Goals
+
+**🔮 Telekinetics (Home)**
+`13`  Noxar [SK]
+`24`  Noxar [SK]
+`31`  Spectra [MF]
+
+**🤖 Cyborgs (Visiting)**
+`04`  Tachyon [SK]
