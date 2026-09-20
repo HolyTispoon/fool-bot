@@ -163,6 +163,30 @@ once.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-20 -- sheet, Mind Pull succeeds on 11-12 rather than 1-2
+
+The `spec_abilities` tab now reads *"you may take 1 exhaustion and roll a d12 -- on 11-12 you
+pull it in and take possession"*. It had been 1-2 since the ability landed on 2026-09-06.
+
+**The sheet is authoritative here.** Abilities are component data, which is the sheet's own
+column ("Where the rules come from" above), so this is upstream moving rather than upstream
+being behind. `MIND_PULL_SUCCESS_FACES` is the one place the numbers live -- the offer's
+wording and the die image's "pulls on 11-12" label are both read off it, so nothing else had
+to be written down twice.
+
+**The probability is unchanged and the Volatile interaction is not.** Two faces out of twelve
+either way, but which two decides what an ignite can do to a pull. A Fire Demon's surge
+*adds* and a backfire *subtracts* (2026-09-06), so on 1-2 only a backfire could ever carry a
+roll into the window and a surge never could; on 11-12 it is exactly the other way round. The
+change is therefore live in advanced mode rather than cosmetic, and `ignite` is asked on this
+roll already -- `run_mind_pull` funnels it like every other d12 -- so no code moved for it.
+
+**Not yet done: the sheet's own text is ahead of this repo in one more place.** The same cell
+now names the Telekinetic's second ability **Smooth** ("When your team has possession and the
+ball moves to or through your space, you may take it over instead"), which is Slip in
+generalised from "a resolution leaves the ball with a teammate on your space" to the ball's
+whole path. That is a feature, not a numbers change, and lands separately.
+
 ### 2026-09-20 -- author, Slip in moves from Oozes to Telekinetics
 
 The author, in chat: *"remove slip in as an ability for oozes. Add a new ability for

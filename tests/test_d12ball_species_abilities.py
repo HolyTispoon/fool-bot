@@ -2175,8 +2175,22 @@ class MindPullOutcomeTests(unittest.TestCase):
         self.assertIsNone(self.match.pending_mind_pull_resume)
 
     def test_the_success_faces_are_the_rules_numbers(self):
-        self.assertEqual(MIND_PULL_SUCCESS_FACES, (1, 2))
+        self.assertEqual(MIND_PULL_SUCCESS_FACES, (11, 12))
         self.assertEqual(MIND_PULL_TOKEN_COST, 1)
+
+
+def a_face_that_misses() -> int:
+    """
+    A d12 face that is **not** a pull, read off the rule rather than
+    written down -- the twin of the success tests' own
+    `MIND_PULL_SUCCESS_FACES[0]`. The faces moved from 1-2 to 11-12 on
+    2026-09-20 and a hard-coded 12 silently turned a miss into a hit,
+    which is the whole reason this is derived.
+    """
+    return next(
+        face for face in range(1, 13)
+        if face not in MIND_PULL_SUCCESS_FACES
+    )
 
 
 def build_mind_pull_cog() -> D12Ball:
@@ -2405,7 +2419,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         was = self.match.ball.possession
         self.cog.finish_maneuver_resolution = mock.AsyncMock()
         with suppressed_cog_saves(), mock.patch(
-            "random.randint", return_value=12,
+            "random.randint", return_value=a_face_that_misses(),
         ):
             await self.cog.run_mind_pull(
                 self.interaction, self.game, self.match, self.puller,
@@ -2429,7 +2443,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         }
         self.cog.finish_maneuver_resolution = mock.AsyncMock()
         with suppressed_cog_saves(), mock.patch(
-            "random.randint", return_value=12,
+            "random.randint", return_value=a_face_that_misses(),
         ):
             await self.cog.run_mind_pull(
                 self.interaction, self.game, self.match, self.puller,

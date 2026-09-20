@@ -449,7 +449,7 @@ A [new-play reset](#resetting-after-a-new-play) is not a run back and triggers n
 
 ### Mind Pull (Telekinetic)
 
-**When the opponent's ball moves to or through a Telekinetic's space** — it passes over the space on its way somewhere, or comes to rest on it — the Telekinetic may take **1 exhaustion token** and roll one d12. On **1–2** they pull the ball in: it stops on their space, their side takes possession, and the Telekinetic holds it.
+**When the opponent's ball moves to or through a Telekinetic's space** — it passes over the space on its way somewhere, or comes to rest on it — the Telekinetic may take **1 exhaustion token** and roll one d12. On **11–12** they pull the ball in: it stops on their space, their side takes possession, and the Telekinetic holds it.
 
 The token is paid whether or not the pull lands, and Mind Pull is a choice. The roll is not a skill test and owes no [injury check](#the-injury-check). The ball's own starting space does not count as "moved to" — only a ball changing spaces can be pulled, and only the opposing team's ball.
 
@@ -824,7 +824,7 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 | --- | --- |
 | Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test: a surge that wins resolves that maneuver at its advanced tier, a backfire that loses upgrades the opponent's and pays its own advanced cost, and a surge that loses pays none. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7, Damaged rather than Injured. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: −1 drain for not moving at all during a run back. |
-| Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 1–2 pull it in and take possession. Slip in: a resolution leaves the ball with a teammate on your space — take over and handle it instead. |
+| Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 11–12 pull it in and take possession. Slip in: a resolution leaves the ball with a teammate on your space — take over and handle it instead. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there — offensive on the attack, defensive on the defence — and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
 
 **A turn:** choose the player → choose the action → resolve it → settle the ball → turnover → clock → last-possession check.

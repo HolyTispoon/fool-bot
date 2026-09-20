@@ -251,7 +251,7 @@ OVERDRIVE_BONUS = 5
 # 2026-09-06, which is the change that makes a 1-space pass pullable
 # at all.
 MIND_PULL_TOKEN_COST = 1
-MIND_PULL_SUCCESS_FACES = (1, 2)
+MIND_PULL_SUCCESS_FACES = (11, 12)
 
 # Volatile's two numbers: the faces that ignite a Fire Demon's die, and
 # the lowest second roll that surges rather than backfires -- see
