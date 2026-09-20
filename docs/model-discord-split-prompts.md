@@ -11,10 +11,10 @@ when that phase lands, and the file goes when the worksheet does. Nothing
 in it is a rule -- the principles are the worksheet's, and CLAUDE.md's from
 Phase 1 on.
 
-Phase 0 has landed (PR #201), so there is no prompt for it. Phase 1 was
-split in two because the worksheet itself said its emoji prerequisite
-"lands first, on its own"; that half (1a) has now landed too, so only
-1b's prompt remains. Phase 3 is one template run six times.
+Phase 0 has landed (PR #201) and so has Phase 1, in the two halves the
+worksheet's own "lands first, on its own" asked for (1a in PR #223, 1b in
+PR #225), so there are no prompts for either. Phase 3 is one template run
+six times.
 
 ---
 
@@ -102,110 +102,6 @@ Ground rules for every phase:
 
 ---
 
-## Phase 1b -- `PendingPrompt`, the keystone
-
-```
-[PREAMBLE]
-
-This is Phase 1 of docs/model-discord-split.md, "PendingPrompt, and the
-keystone". Phase 1a (team_emojis on the engine, RulesEngine.format_player_label)
-has landed on main; the two `ask` lines that name a player depend on it.
-
-Probe:
-`grep -q "def format_player_label" d12ball/engine.py && grep -q "self.team_emojis" d12ball/engine.py`
-
-Read docs/design/recovery.md, docs/design/cog-structure.md and the "Naming
-a player" section of docs/design/naming-and-wording.md (where 1a's
-reasoning now lives) as well. This phase is a pure read: nothing in it
-mutates a match, so if you find yourself writing to one, stop.
-
-What moves -- new module `d12ball/prompts.py`:
-
-- `PromptKind`, one value per distinct prompt the chain can return. The
-  worksheet measured 26: the chain's own View classes plus the 9 the three
-  builders add (6 effect prompts, 2 run-back, 1 loose-ball). The counting
-  rule is one kind per View class; a View built with different arguments
-  for different situations is one kind with the difference in the
-  parameters, not several. That matters for `SpeedDeltaChoiceView`, which
-  `build_effect_choice_view` returns for Setup Pass, for the dribbles when
-  their own view does not apply, and for Steal/Intercept (`maneuver_key`
-  tells them apart), and for `LowPassChoiceView`, built once plain and once
-  with `free=True`. Count them yourself from `pending_turn_view`,
-  `build_effect_choice_view`, `build_run_back_view` and
-  `build_loose_ball_view`; if you get a different number, say which the
-  worksheet missed or double-counted.
-- `PendingPrompt`: `kind`, `ask` (the line put above the view), and only the
-  parameters the branches actually carry (`player_ids`, `player_id`,
-  `side`, `maneuver_key`, `skill_type`, `free` -- verify against the
-  branches; add nothing speculative).
-- `pending_prompt(engine, game, match) -> PendingPrompt`: the whole chain
-  from `D12Ball.pending_turn_view` (cogs/d12ball/core.py), moved, with the
-  three builders folded in as kind-and-parameters:
-  `build_run_back_view` -> RUN_BACK_SPACE(player_id) / RUN_BACK_PLAYER(player_ids)
-  off `next_run_back_step`; `build_loose_ball_view` -> LOOSE_BALL_PICK(side,
-  skill_type) off the loose-ball side helpers; `build_effect_choice_view`
-  -> the effect prompts off `pending_effect_continuation` and
-  `resolving_maneuver`. `self.games[game_id]` becomes the `game` parameter.
-  The `None -> PlayerActionView` fallback becomes `PromptKind.PLAYER_ACTION`
-  and stays exactly as deliberate as it is now; carry its comment over.
-- Preserve the chain's ordering and every comment that explains the
-  ordering. The order is the rule ("what is this match waiting on" has one
-  answer), and this move must not change a single branch's outcome.
-
-What stays in the cog:
-
-- `pending_turn_view` becomes a mapping table: `PromptKind` -> the View
-  constructor, and nothing else. Its two production callers --
-  `restore_saved_views` in core.py, which the cog's `__init__` runs (there
-  is no restore in `on_ready`; the worksheet used to say there was), and
-  `resume_pending_prompt` in turnovers.py -- keep their signatures and are
-  otherwise untouched. The tests call it directly at some thirty sites
-  across five files; those are the fixtures the equivalence test below is
-  built from. Make the mapping a single function
-  (`view_for_prompt(prompt)` or similar) that later phases can also use to
-  render a `StepResult.next`, and say in its docstring that it is the only
-  place a PromptKind becomes a View.
-- The View constructors themselves.
-
-Tests:
-
-- Add tests/test_d12ball_prompts.py: for each PromptKind, a match fixture in
-  that state and an assertion on `pending_prompt(...)`'s kind and
-  parameters. These need no discord and must import under
-  test_model_purity's finder -- that is the point of them. Also a test that
-  the cog mapping covers every PromptKind (no kind without a View).
-- The equivalence test that matters most: for every existing test fixture
-  that reaches `pending_turn_view` today, the View class the new table
-  returns is the class the old chain returned. Build it before you move the
-  chain, run it against the old code to see it pass, commit it on its own
-  as the branch's first commit, then move. It stays in the suite afterwards
-  as the mapping table's own test.
-- Golden transcript unchanged; test_model_purity green.
-
-Docs, in this PR:
-
-- The principles section of docs/model-discord-split.md moves into
-  CLAUDE.md as a section of its own, "The model and the Discord layer", and
-  the worksheet's copy is deleted -- a settled rule has one home. Keep the
-  wording; do not soften principle 9's "until Phase 6 the cog wrapper holds
-  that save" transition note, which every following phase relies on.
-- CLAUDE.md's hard rule that `pending_turn_view` is the only reading of
-  "what is this match waiting on" is rewritten: `pending_prompt` is the one
-  reading, `pending_turn_view` is the Discord mapping over it. Same edit in
-  docs/design/recovery.md.
-- CLAUDE.md's map table: a row for `d12ball/prompts.py`.
-- The worksheet's Phase 1 section is cut down to the milestone note
-  (spectator page) and anything still open.
-
-Bot stop for the author (put this table in the PR): the restart matrix from
-the worksheet's Phase 1 section, every row, once by killing and restarting
-the bot and once through `/d12ball resume`; plus resuming three or four
-pre-branch saves in different states, on both machines. Hand it over; do
-not claim it was run.
-```
-
----
-
 ## Phase 1 milestone (optional, separate repo or scratch) -- the spectator page
 
 ```
@@ -284,7 +180,11 @@ Two things to settle first, and write down in the PR as settled:
 2. A `PendingPrompt` in `next` is rendered by the same
    `view_for_prompt` the restore path uses. From this phase on, the live
    flow and the restart flow build the prompt through one table, which is
-   the drift principle 3 exists to prevent.
+   the drift principle 3 exists to prevent. Its signature is
+   `view_for_prompt(game_id, match, prompt)` -- the match is there for the
+   one kind whose view is built from a candidate list rather than from the
+   prompt alone -- and `pending_prompt(engine, game, match)` takes the game
+   record, not a game id.
 
 What moves:
 
@@ -312,7 +212,11 @@ Tests:
 - Model-side tests for the new step, no discord: narration lines exactly
   equal to what the cog produced before (record them from the old code
   first, on the same fixtures, commit the recording as the branch's first
-  commit, then move), board_changed true/false where
+  commit, then move -- Phase 1b did exactly this, and
+  tests/prompt_fixtures.py plus tests/test_d12ball_prompt_mapping.py are
+  the worked example: a discord-free fixture table two test modules read,
+  one through the model and one through the cog), board_changed true/false
+  where
   the old `refresh_match_image` decision was, `next` correct for a plain
   pass, a pass into a stack (receiver pick), a Winger set-up, a free
   Skilled Pass.

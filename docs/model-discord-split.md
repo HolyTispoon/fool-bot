@@ -3,8 +3,9 @@
 **This is a worksheet, not a specification.** It is the plan the split is
 being built from, and like `advanced-maneuver-matrix.md` the answered parts
 should be deleted as they land rather than kept in parallel with the code.
-The principles in it have one permanent home, and it is CLAUDE.md -- see
-Phase 1. When the last phase is done this file goes.
+The principles it was written around now have their one permanent home:
+"The model and the Discord layer" in CLAUDE.md, moved there when Phase 1
+landed. When the last phase is done this file goes.
 
 **Line numbers quoted below are stale.** They were measured when the
 worksheet was written and the files have moved under them since. Find a
@@ -24,7 +25,7 @@ it happened to have.
 | Phase | What it does | Moves rules code? | Status |
 | --- | --- | --- | --- |
 | **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
-| **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | 1a done (PR #223); 1b open |
+| **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Open |
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Open |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
@@ -132,123 +133,6 @@ because Phase 1 is what turns it into a prompt kind.
 
 ---
 
-## The principles
-
-These are the rules the split is made by. **At the end of Phase 1 they move
-into CLAUDE.md as a section of their own** ("The model and the Discord
-layer"), and this copy is deleted -- a settled rule has exactly one home.
-Until then they live here so the early phases have something to be reviewed
-against.
-
-1. **The model may not import `discord`, and may not be `async`.** Both
-   halves matter. No-discord is the obvious one; not-async is the one that
-   gets given away quietly, because the first `await` in a model function
-   is what drags an event loop, an interaction and a rate-limit bucket in
-   behind it. A step that wants to be async wants to send something, and
-   sending is the frontend's. The line is mechanical, so it is tested
-   mechanically -- see Phase 0.
-   - **Both halves already hold**: `d12ball/` imports no `discord` and
-     contains no `async def` at all today. So the Phase 0 guard is a
-     **ratchet on something already true**, not a cleanup with work behind
-     it -- which is why it is cheap, and why it is worth adding before the
-     phases that would otherwise erode it one convenience at a time.
-
-2. **A rule is a question the model answers. The frontend asks it and
-   renders the answer.** This is `RulesEngine`'s existing shape, extended
-   to the flow.
-   - **The line is between *what* and *how*, not between rules and
-     words.** The model decides what is true and what is said about it --
-     who may act, what the position is, the sentence describing it. The
-     frontend decides how that reaches a person: a message or a `<div>`,
-     an edit or a re-render, which lines are batched together, what a
-     button looks like and what its custom_id is.
-   - Said the short way: **nothing in `cogs/` may decide a rule, and
-     nothing in `d12ball/` may know what a message *is*.** Narration text
-     is the model's (principle 5) and is not a counter-example to this --
-     a sentence is a fact about the position, where a `discord.Embed` is
-     a medium.
-
-3. **One reading of "what is this match waiting on", and it is in the
-   model.** `pending_turn_view` already claims this and already carries the
-   ordering decisions in its comments; what it does not do is answer
-   anywhere a web app can hear it. `pending_prompt(engine, game, match)`
-   is that same chain returning a `PendingPrompt`, and the cog's mapping
-   from kind to `discord.ui.View` is the only thing left in `cogs/`.
-   **A second copy of that chain is the failure mode** -- it is how a
-   resume comes to offer a different prompt from the one a restart
-   restores, and with two frontends it is how the web app and the bot come
-   to disagree about whose turn it is.
-
-4. **A flow step returns what happened. It does not send it.** `StepResult`
-   carries the narration lines, whether the board moved, and the next
-   prompt. The frontend decides what becomes a message, what becomes an
-   edit, and what becomes a websocket frame.
-
-5. **Narration text is the model's, because the wording rules are rules.**
-   "Say what the position is, never what it is not." "Don't answer a
-   question nobody asked." "A move that costs nothing says nothing." Those
-   are in CLAUDE.md as rules about *every message the bot posts*, and they
-   were settled by the author reading a turn back out of a channel. Two
-   frontends wording the same position separately is two voices, and only
-   one of them would be held to those rules. `formatting.py` and the
-   engine's `build_turn_prompt` / `build_loose_ball_prompt` already word
-   things with no discord.py in them -- this extends that, it does not
-   invent it.
-   - The corollary: **do not replace narration with structured events "so
-     the web app can word it itself".** That is the same mistake with an
-     architecture diagram in front of it.
-
-6. **The save format is the contract, and this refactor may not change
-   it.** Not a key, not a default, not a fallback. Both developers run the
-   bot from their own tree against their own saves, and a half-finished
-   game outlives the commit -- which is why `MATCH_SAVED_FIELDS` carries
-   the fallbacks it does. A phase that wants a new persisted field is a
-   phase that has stopped being a refactor. If one is genuinely needed it
-   goes in its own commit, with the table entry and the fallback, reviewed
-   as a change to the game rather than as plumbing.
-
-7. **`interaction` never crosses the seam** -- not as a parameter, not
-   stashed on a match, not smuggled through a callback. It is the single
-   clearest test of whether a function has ended up on the right side, and
-   it is greppable.
-
-8. **The frontend owns batching, and therefore owns the rate limits.** A
-   step returns a list of lines; the cog decides they are one message.
-   `continue_run_back` batching a cascade into one message and one board
-   refresh is a Discord economy, not a rule -- the web app has no such
-   limit and should not inherit the shape. `BoardRefresher` and its
-   five-in-five arithmetic stay exactly where they are; what reaches them
-   is `StepResult.board_changed`.
-
-9. **The driver persists; steps do not.** `self.persist(...)` is called at
-   **95 sites** in `cogs/` today, and CLAUDE.md already records the class
-   of bug that produces: an event recorded without a save in the same
-   breath is one the next interaction never sees, which is how beat 1 of
-   the tutorial vanished from the log. A step mutates and returns; the
-   driver saves once, after it. This is the one place the refactor makes
-   the bot *better* rather than only more portable, so it should be
-   reviewed on its own merits.
-   - **Until Phase 6, the cog wrapper holds that save.** A step lifted in
-     Phases 2-5 stops persisting and the spine below it is still the cog's,
-     so the wrapper persists immediately after the step and before
-     dispatching what comes next; Phase 6 is what collapses those calls into
-     the driver. See
-     [Phase 2](#phase-2----stepresult-on-one-vertical-slice) -- the
-     transition is where the bug this principle fixes can be reintroduced.
-   - **It does not touch the other 52.** `cogs/` calls `save_games(...)`
-     at 53 sites; one of those is inside `persist` itself and the other 52
-     save the *game record* alone -- a message id, a status, a tutorial
-     flag -- and have no match to write. Those stay exactly where they
-     are. Collapsing them too would be widening the job.
-
-10. **The web app may not reach past the flow.** No importing a cog, no
-    re-deriving a candidate list "just for the UI", no second
-    `pending_prompt`. If the web app needs something the flow does not
-    expose, the flow grows a method and the bot gets it too. The moment
-    the web app has a rule of its own, this whole exercise has failed.
-
----
-
 ## Phase 0 -- the safety net
 
 Nothing moves. This phase exists because the phases after it are large
@@ -336,133 +220,17 @@ was planned as -- the two guards are `tests/test_model_purity.py` and
 
 ## Phase 1 -- `PendingPrompt`, and the keystone
 
-**The single highest-leverage change in the project, and the one with no
-rules risk**, because nothing mutates: the whole chain is a read.
+**Done** -- `team_emojis` and `RulesEngine.format_player_label` in PR #223,
+the chain itself in PR #225. `pending_prompt(engine, game, match)` lives in
+`d12ball/prompts.py` and answers with a `PendingPrompt`; `pending_turn_view`
+is the mapping over it and `D12Ball.view_for_prompt` the one place a
+`PromptKind` becomes a view. There are **26 kinds**, which is the count this
+section estimated, confirmed against the tree. The reasoning is in
+["Recovering a stuck game"](design/recovery.md) and the principles are now
+CLAUDE.md's.
 
-### What moves
-
-New `d12ball/prompts.py`:
-
-- `PromptKind` -- one value per distinct prompt. **There are 26**, which is
-  measured rather than estimated: the chain itself names 17 `View` classes
-  over 25 `return` statements, and the three builders it delegates to add
-  9 more (6 effect prompts, 2 run-back, 1 loose-ball). Any count near 20 is
-  a count that forgot the builders.
-- `PendingPrompt` -- `kind`, `ask` (the line put above it), and the handful
-  of parameters the branches actually carry: `player_ids`, `player_id`,
-  `side`, `maneuver_key`, `skill_type`, `free`.
-- `pending_prompt(engine, game, match) -> PendingPrompt` -- the 280-line
-  chain at `core.py:1581`, moved whole.
-
-The chain's dependencies are already almost all model:
-
-```
-match.*                                        the bulk
-engine.{settled_maneuver_winner,
-        next_run_back_step, halftime_stage,
-        get_player_definition}                 pure already
-player_label                                   see below -- one decision owed
-self.games[game_id]                            becomes a `game` parameter
-build_{run_back,loose_ball,effect_choice}_view the only Discord-shaped bits
-```
-
-Those three builders are the interesting part, and they are the same shape:
-each is *already* a pure decision over match state that happens to end in a
-`View` constructor. They become kind-and-parameters:
-
-- `build_run_back_view` -> `RUN_BACK_SPACE(player_id)` or
-  `RUN_BACK_PLAYER(player_ids)`, off `next_run_back_step`.
-- `build_loose_ball_view` -> `LOOSE_BALL_PICK(side, skill_type)`, off
-  `loose_ball_side_on_the_clock` / `loose_ball_prompt_side`.
-- `build_effect_choice_view` -> the effect prompts, off
-  `pending_effect_continuation` and `resolving_maneuver`.
-
-### The prerequisite: where a fetched emoji dict lives
-
-**Done, landed on its own ahead of the rest of Phase 1** -- see "Naming
-a player" in docs/design/naming-and-wording.md for the settled
-reasoning, which now covers both dicts the same way.
-
-`team_emojis` joined `role_emojis` on `RulesEngine`, in the same shape:
-the engine owns the dict, `D12Ball.team_emojis` is a property over it
-whose setter assigns to `engine.team_emojis`, and `cog_load`'s
-`self.team_emojis = await load_team_emojis(...)` rebinds the engine's
-own attribute rather than a second copy existing beside it.
-`build_turn_prompt` and `build_loose_ball_prompt` read it off `self`
-now, rather than taking it as a parameter.
-
-That was the prerequisite because `player_label` crossing the seam is
-what `pending_prompt`'s two `ask` lines (Mind Pull, injury test) need,
-and `player_label` wants both dicts. `RulesEngine.format_player_label`
-is that, engine-side -- **not** `format_roster_player_for_message` with
-a flag added, since that method is a distinct, narrower thing already:
-role badge only, no team emoji, for `apply_formation` and
-`build_turn_prompt`, where a team emoji next to a card already on that
-team's board would say nothing new. `D12Ball.player_label` forwards to
-the new method so no call site moved.
-
-Each returns `None` today and falls back to `PlayerActionView`; that becomes
-`PromptKind.PLAYER_ACTION`, and the fallback stays exactly as deliberate as
-it is now.
-
-### What stays
-
-`pending_turn_view` survives in the cog as a **mapping table** -- kind to
-`View`, nothing else. Both its callers (`restore_saved_views`, which the
-cog's `__init__` runs, and `resume_pending_prompt`) are untouched, which is
-the point: they are the two that must not drift.
-
-### Sizing
-
-**405 lines move**, measured rather than estimated: `pending_turn_view` 280,
-`build_effect_choice_view` 78, `build_run_back_view` 26,
-`build_loose_ball_view` 21. What is left behind in the cog is a mapping
-table of 26 entries and the `View` constructors they name -- call it 150
-lines, which is the one number here that is a guess.
-
-**The emoji prerequisite above is not in that 405.** It was a small,
-separable change -- one dict moved, one property added, two engine builders
-losing a parameter -- and it landed first, on its own.
-
-### Test stop -- and this is a real one
-
-The suite does not exercise restarts, and this chain exists *for* restarts.
-So, from a working tree, with the bot running:
-
-- **The restart matrix.** Get a game into each state below, kill the bot,
-  restart it, and check the prompt that comes back is the one that was
-  there. Then do it again with `/d12ball resume`, which is the other caller.
-
-  | State | How to reach it |
-  | --- | --- |
-  | setup coaching | create a game, get to the window |
-  | halftime | `/debug` the clock to 15, turn over |
-  | full time (level score) | level the score, run the clock out |
-  | mind pull owed | advanced game, Telekinetic on the ball's path |
-  | injury test owed | any skill test that goes badly |
-  | own goal owed | Pressure into a defender's own goal |
-  | shootout (3 sub-states) | play the full-time window out |
-  | time out | call one |
-  | run back, one candidate | steal that displaces one |
-  | run back, a stack | steal on board 6 under 2-3-1 |
-  | ball recovery | out-of-bounds Setup Pass |
-  | loose ball pick / skill test | Deflect onto an empty space |
-  | score attempt | shoot |
-  | maneuver challenge | start a maneuver |
-  | maneuver pick | send a challenger |
-  | skill test | tie the cards |
-  | effect choice | win decisively with a pass |
-  | no handler (kickoff) | finish setup |
-  | plain turn prompt | anything else |
-
-- **Old saves load.** Point the bot at a save written before this branch and
-  resume a game in each of three or four of those states. Nothing in this
-  phase touches persistence, so this is confirming principle 6 rather than
-  testing it -- which is exactly when it is cheap.
-
-- Both developers, on both machines. The live bot is the Windows `K:\`
-  checkout; a fix on the Mac has not reached it until that tree has pulled
-  and **the bot has been restarted there**.
+What is still open is the milestone below, which is a separate piece of work
+and not in this repository.
 
 ### Milestone: the web app can start here
 
@@ -485,13 +253,6 @@ caption -- which it can put on the page around the image instead.
 The page plays nothing, but it proves the seam against a real frontend
 rather than against a plan, and it is worth building before Phase 3 for
 exactly that reason.
-
-### CLAUDE.md
-
-The principles above move in, as a section of their own, and this file's
-copy is deleted. The "Recovering a stuck game" section is edited to point at
-`pending_prompt` as the one reading, with `pending_turn_view` named as the
-Discord mapping over it.
 
 ---
 
@@ -581,7 +342,7 @@ Phases 1-3 didn't already reach:
 
 - **the front half of a turn**: choosing and announcing a challenger
   (`auto_resolve_challenger`, `announce_uncontested_maneuver` -- see
-  [sending-a-player.md](docs/design/sending-a-player.md)),
+  [sending-a-player.md](design/sending-a-player.md)),
   `begin_maneuver_action_selection` and `resolve_maneuver`. Easy to read as
   already covered by "the spine" below, and it isn't -- nothing in Phases
   1-3 touches it. Both a human's pick and `play_ai_turn`'s pass through it,

@@ -35,6 +35,7 @@ python3 -m unittest discover -s tests
 | `cogs/debug.py` | Maintenance commands: the PBD channel-and-count reset, the archive export |
 | `d12ball/components.py` | Game state model -- `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog`, `MATCH_SAVED_FIELDS` |
 | `d12ball/engine.py` | `RulesEngine` -- every decision and candidate list that never touches Discord, over the fixed catalogs and AI strategies. `D12Ball.engine` is the one instance; call sites read `self.engine.foo(...)`. Includes the prompt-text and matchup-data builders that need only the match and the catalogs |
+| `d12ball/prompts.py` | `PromptKind`, `PendingPrompt` and `pending_prompt` -- the one reading of what a match is waiting on, with no Discord in it. The cog maps a kind to a view and renders the `ask` -- [model-discord-split.md](docs/design/model-discord-split.md) |
 | `d12ball/formatting.py` | Plain-text formatting over match/game/zone data with no Discord dependency -- space codes, side labels, player names |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `TEAM_PAIRS`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board, matchup and dice image rendering (Pillow); `TEAM_COLORS` |
@@ -74,7 +75,7 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 - **A new `MatchState` field goes in `MATCH_SAVED_FIELDS`** (or `MATCH_EXPLICIT_FIELDS` when it needs its own handling); the suite fails until it does. The wire format is not the table's to change.
 - **Legacy fallbacks stay** (`player_board`, `tie_mode`, `ceded`, `legacy_maneuver_key`, the reshuffle migration, the `shootout_test` resume kind, ...) until no half-finished game can predate them. Both developers run the bot against their own saves. Don't add migration passes; don't rename saved keys.
 - `data/` is untracked runtime state, per checkout. Never commit it. `save_games` never raises and a save failure never fails the turn.
-- **`pending_turn_view` is the only reading of "what is this match waiting on?"**; a second copy of that chain is how a resume comes to offer a different prompt from the one a restart restores. -- [recovery.md](docs/design/recovery.md)
+- **`d12ball/prompts.py`'s `pending_prompt` is the only reading of "what is this match waiting on?"**; `pending_turn_view` is the Discord mapping over it, and `view_for_prompt` the only place a `PromptKind` becomes a view. A second copy of that chain is how a resume comes to offer a different prompt from the one a restart restores. -- [recovery.md](docs/design/recovery.md)
 - `MatchState.record_goal` and `record_event` are the only writers of the goal log and the event log; nothing in the game may read the event log to decide a rule. -- [clock-and-records.md](docs/design/clock-and-records.md)
 - **Maneuvers are keyed** (`low_pass`, `double_team`), never held or compared by display name; `RulesEngine.maneuver_name` is the only way back to a name, for wording alone. -- [maneuvers.md](docs/design/maneuvers.md)
 - **Nothing reads `game.advanced_maneuvers`, `game.species_abilities` or `PlayerDefinition.species` to decide a rule.** `RulesEngine.advanced_maneuvers_apply`, `species_abilities_apply` and `has_species_ability` are the answers. -- [species-abilities.md](docs/design/species-abilities.md)
@@ -111,6 +112,129 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 - Don't commit one-off diagnostic scripts; `scripts/` is for tools run more than once.
 - Verify git and environment behaviour before asserting it; before concluding "it works here but not there", establish what actually differs between the hosts.
 
+## The model and the Discord layer
+
+These are the rules the model/Discord split is made by, and the standard a
+change under `d12ball/` or `cogs/d12ball/` is reviewed against. They were
+written in [docs/model-discord-split.md](docs/model-discord-split.md) --
+the worksheet the split is being built from -- and moved here when Phase 1
+landed, because a settled rule has exactly one home. The worksheet keeps
+what is still open: the phases, what deliberately does not move, and the
+bot stop each phase ends on.
+
+1. **The model may not import `discord`, and may not be `async`.** Both
+   halves matter. No-discord is the obvious one; not-async is the one that
+   gets given away quietly, because the first `await` in a model function
+   is what drags an event loop, an interaction and a rate-limit bucket in
+   behind it. A step that wants to be async wants to send something, and
+   sending is the frontend's. The line is mechanical, so it is tested
+   mechanically -- see
+   [model-discord-split.md](docs/design/model-discord-split.md).
+   - **Both halves already hold**: `d12ball/` imports no `discord` and
+     contains no `async def` at all today. So the Phase 0 guard is a
+     **ratchet on something already true**, not a cleanup with work behind
+     it -- which is why it is cheap, and why it is worth adding before the
+     phases that would otherwise erode it one convenience at a time.
+
+2. **A rule is a question the model answers. The frontend asks it and
+   renders the answer.** This is `RulesEngine`'s existing shape, extended
+   to the flow.
+   - **The line is between *what* and *how*, not between rules and
+     words.** The model decides what is true and what is said about it --
+     who may act, what the position is, the sentence describing it. The
+     frontend decides how that reaches a person: a message or a `<div>`,
+     an edit or a re-render, which lines are batched together, what a
+     button looks like and what its custom_id is.
+   - Said the short way: **nothing in `cogs/` may decide a rule, and
+     nothing in `d12ball/` may know what a message *is*.** Narration text
+     is the model's (principle 5) and is not a counter-example to this --
+     a sentence is a fact about the position, where a `discord.Embed` is
+     a medium.
+
+3. **One reading of "what is this match waiting on", and it is in the
+   model.** `pending_turn_view` used to claim this and to carry the
+   ordering decisions in its comments; what it did not do was answer
+   anywhere a web app could hear it. `pending_prompt(engine, game, match)`
+   in `d12ball/prompts.py` is that same chain returning a `PendingPrompt`,
+   and `D12Ball.view_for_prompt`, the mapping from kind to
+   `discord.ui.View`, is the only thing left in `cogs/`.
+   **A second copy of that chain is the failure mode** -- it is how a
+   resume comes to offer a different prompt from the one a restart
+   restores, and with two frontends it is how the web app and the bot come
+   to disagree about whose turn it is.
+
+4. **A flow step returns what happened. It does not send it.** `StepResult`
+   carries the narration lines, whether the board moved, and the next
+   prompt. The frontend decides what becomes a message, what becomes an
+   edit, and what becomes a websocket frame.
+
+5. **Narration text is the model's, because the wording rules are rules.**
+   "Say what the position is, never what it is not." "Don't answer a
+   question nobody asked." "A move that costs nothing says nothing." Those
+   are in CLAUDE.md as rules about *every message the bot posts*, and they
+   were settled by the author reading a turn back out of a channel. Two
+   frontends wording the same position separately is two voices, and only
+   one of them would be held to those rules. `formatting.py` and the
+   engine's `build_turn_prompt` / `build_loose_ball_prompt` already word
+   things with no discord.py in them -- this extends that, it does not
+   invent it.
+   - The corollary: **do not replace narration with structured events "so
+     the web app can word it itself".** That is the same mistake with an
+     architecture diagram in front of it.
+
+6. **The save format is the contract, and this refactor may not change
+   it.** Not a key, not a default, not a fallback. Both developers run the
+   bot from their own tree against their own saves, and a half-finished
+   game outlives the commit -- which is why `MATCH_SAVED_FIELDS` carries
+   the fallbacks it does. A phase that wants a new persisted field is a
+   phase that has stopped being a refactor. If one is genuinely needed it
+   goes in its own commit, with the table entry and the fallback, reviewed
+   as a change to the game rather than as plumbing.
+
+7. **`interaction` never crosses the seam** -- not as a parameter, not
+   stashed on a match, not smuggled through a callback. It is the single
+   clearest test of whether a function has ended up on the right side, and
+   it is greppable.
+
+8. **The frontend owns batching, and therefore owns the rate limits.** A
+   step returns a list of lines; the cog decides they are one message.
+   `continue_run_back` batching a cascade into one message and one board
+   refresh is a Discord economy, not a rule -- the web app has no such
+   limit and should not inherit the shape. `BoardRefresher` and its
+   five-in-five arithmetic stay exactly where they are; what reaches them
+   is `StepResult.board_changed`.
+
+9. **The driver persists; steps do not.** `self.persist(...)` is called at
+   **95 sites** in `cogs/` today, and CLAUDE.md already records the class
+   of bug that produces: an event recorded without a save in the same
+   breath is one the next interaction never sees, which is how beat 1 of
+   the tutorial vanished from the log. A step mutates and returns; the
+   driver saves once, after it. This is the one place the refactor makes
+   the bot *better* rather than only more portable, so it should be
+   reviewed on its own merits.
+   - **Until Phase 6, the cog wrapper holds that save.** A step lifted in
+     Phases 2-5 stops persisting and the spine below it is still the cog's,
+     so the wrapper persists immediately after the step and before
+     dispatching what comes next; Phase 6 is what collapses those calls into
+     the driver. See
+     the worksheet's
+     [Phase 2](docs/model-discord-split.md#phase-2----stepresult-on-one-vertical-slice)
+     -- the transition is where the bug this principle fixes can be
+     reintroduced.
+   - **It does not touch the other 52.** `cogs/` calls `save_games(...)`
+     at 53 sites; one of those is inside `persist` itself and the other 52
+     save the *game record* alone -- a message id, a status, a tutorial
+     flag -- and have no match to write. Those stay exactly where they
+     are. Collapsing them too would be widening the job.
+
+10. **The web app may not reach past the flow.** No importing a cog, no
+    re-deriving a candidate list "just for the UI", no second
+    `pending_prompt`. If the web app needs something the flow does not
+    expose, the flow grows a method and the bot gets it too. The moment
+    the web app has a rule of its own, this whole exercise has failed.
+
+---
+
 ## Read this before touching...
 
 | Before touching | Read | What it settles |
@@ -143,7 +267,7 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 | `to_dict`/`from_dict`, `storage.py`, the startup sweep, the full-image link, bundled file names | [gotchas.md](docs/design/gotchas.md) | Every fallback and why it stays; the swallowed save; the case-sensitive name |
 | Writing or moving a test; patching `save_games` | [testing.md](docs/design/testing.md) | The package-split patch trap; the stray-save guard; naming by role |
 | Deploying, the `K:\` host, `update_main_bot.ps1`, a 10062 | [collaboration.md](docs/design/collaboration.md) | Two machines, one live bot; one bot per token |
-| `tests/test_model_purity.py`, `tests/test_golden_transcript.py`, `tests/golden/`, anything that could add a `discord` import or `async def` under `d12ball/` or `gamesaves/d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | The purity ratchet and why it runs in a subprocess; the golden transcript's seeded RNG and what it does not cover; the Python-version and root-test gotchas |
+| `d12ball/prompts.py`, `pending_turn_view`, `view_for_prompt`, `tests/prompt_fixtures.py`; `tests/test_model_purity.py`, `tests/test_golden_transcript.py`, `tests/golden/`, anything that could add a `discord` import or `async def` under `d12ball/` or `gamesaves/d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | Why the chain moved whole and what a prompt may carry; one kind per view class; the purity ratchet and why it runs in a subprocess; the golden transcript's seeded RNG and what it does not cover; the Python-version and root-test gotchas |
 
 ## Notes for Claude
 
