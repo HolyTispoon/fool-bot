@@ -34,6 +34,7 @@ from d12ball.formatting import (
     format_ai_name,
     format_player,
     format_player_with_team,
+    format_player_with_team_name,
     format_team_side_label,
     get_team_emoji,
     player_with_role,
