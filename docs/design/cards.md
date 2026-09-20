@@ -323,6 +323,23 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   MANEUVER" while there was only one set; it now reads the card's own tier,
   and is **the one thing on a card that tells the two sets apart** -- the back
   cannot, and must not.
+- **A gambit's header also says, in words, which basic maneuver it is
+  the advanced version of** (the author, 2026-09-20) -- a line under
+  the title reading "ADVANCED VERSION OF PRESSURE", the same phrase the
+  living rules' own gambit table uses. The matchup band already carried
+  this once, by naming the rank both cards share (see "Each column
+  names the rank it faces" above), but that asks a coach to notice two
+  cards on the same rank badge and infer the relation; the header states
+  it outright, for a coach who has just picked the card up and read no
+  further. `draw_card_header` computes it from `catalog.counterpart`
+  rather than a second table, so it cannot drift from the pairing the
+  matchup band already reads off the same call. Drawn only on a
+  gambit's face -- a basic card is not the advanced version of
+  anything, and keeps the title centred alone at its old, larger size.
+  `fitted_title` takes a lower `max_size` on a gambit's card for the
+  same reason `matchup_content_height` is measured rather than fixed:
+  the subtitle has to fit in the room the title leaves, not the other
+  way round.
 - **The effect text's size is searched, not set.** The effects run from Block
   Deflect's twenty words to Double Team's seventy against a band that is
   whatever the strip, the matchups and the abilities leave behind. A fixed size
@@ -611,3 +628,34 @@ python3 scripts/render_species_icons.py --in-place
 - **`scripts/render_species_icons.py` is a dry run unless told otherwise**,
   because what `--in-place` overwrites is tracked art -- the same reason
   `render_condition_tokens.py` and `recut_player_portraits.py` are.
+
+## The print-and-play kit
+
+`scripts/generate_print_and_play_kit.py` is the one command for
+everything above plus the boards -- every maneuver, player and species
+card, and the field, jumbotron and team boards, into a folder (or a zip)
+meant to leave the repo for a meetup, a playtest table or a con booth.
+
+```bash
+python3 scripts/generate_print_and_play_kit.py
+python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
+```
+
+- **It draws nothing itself.** It runs `render_maneuver_cards.py`,
+  `render_player_cards.py`, `render_species_cards.py` and
+  `render_boards.py` in turn -- the same four scripts a developer
+  already reaches for one at a time -- and is only their sum into one
+  folder. So a rules change, an import or an art fix reaches the kit
+  exactly the way it reaches each script on its own, by re-running it;
+  there is nothing in the kit script itself for a future rule to drift
+  out of step with, because it has no rule of its own to hold.
+- **It also writes a README and a copy of the living rules**, so the
+  kit is self-contained for somebody who has left the repo behind --
+  what's in the box, what paper each component wants, and what a table
+  still has to bring that nothing here prints (a d12 a side, meeples,
+  exhaustion tokens), read off "The ball, the dice, and the tokens" in
+  the living rules rather than kept as a second list here that could
+  drift from it.
+- **`print-and-play/` is generated output and is gitignored**, like
+  `cards/` and `print/` -- run the script again rather than trusting an
+  old copy after the rules move.
