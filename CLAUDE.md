@@ -44,6 +44,7 @@ python3 -m unittest discover -s tests
 | `d12ball/player_cards.py` | The roster as cards, print-only, over `cards.py` |
 | `d12ball/species_cards.py` | The four species abilities as a three-card reference set, print-only |
 | `d12ball/boards.py` | The field, jumbotron and team boards, print-ready for the tabletop game |
+| `d12ball/screentop.py` | Every card, board, meeple, die and token cut for the screentop.gg module -- gapless sheets, backs in reading order, capped at 4096px -- over the modules above; `scripts/export_screentop_assets.py` writes it |
 | `d12ball/rules_doc.py` | Reads `docs/living-rules.md` for the two rules commands |
 | `d12ball/stats.py` | Every statistic `/d12ball stats` reports, as a fold over `MatchState.events`. No Discord and no game flow |
 | `d12ball/tutorial.py` | The scripted opening a tutorial game plays -- the five beats as data, and the rails |
@@ -286,6 +287,7 @@ bot stop each phase ends on.
 | `render.py`, meeples, the matchup image, `render_field_image`, fonts | [board-image.md](docs/design/board-image.md) | Three board images and which is whose; the 76px meeple; the hash-verified refactor |
 | `cards.py`, `player_cards.py`, `species_cards.py`, the species icons, hand images | [cards.md](docs/design/cards.md) | One layout for print and Discord; what the sheet can't carry (`EXTRA_ROLES`, `EXTRA_NOTES`); the icon as one flat ink |
 | `boards.py`, the print sheets, end zones, zone rows | [printed-boards.md](docs/design/printed-boards.md) | Tabloid, the token silos, no die values, why the field board is portrait |
+| `screentop.py`, `export_screentop_assets.py`, anything uploaded to screentop.gg | [screentop.md](docs/design/screentop.md) | The game lives on screentop and the repo owns its pictures; why a tabletop's cut is not a printer's; the manifest is the contract |
 | `Team`, `TEAM_COLORS`, `TEAM_PAIRS`, player ids, `team_for_player`, `duplicate_card_id`, `species` | [teams-and-players.md](docs/design/teams-and-players.md) | Eight teams on two axes; a player fielded on both sides as two cards; the emoji PNGs |
 | Channel names, archiving, `/debug export_archived_games` | [channels-and-archive.md](docs/design/channels-and-archive.md) | The number after the prefix; export before delete; the permission gate rides on the group |
 | `setup_hub`, `LobbyView`, `HUB_ROLES`, the d12 emoji | [hub-and-lobby.md](docs/design/hub-and-lobby.md) | Two hub messages; a lobby is a `SETUP` game with nothing decided; what Start Game finalises |

@@ -659,3 +659,6 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
 - **`print-and-play/` is generated output and is gitignored**, like
   `cards/` and `print/` -- run the script again rather than trusting an
   old copy after the rules move.
+- **The screentop.gg module is the same components cut differently** --
+  gapless sheets, backs in reading order, no bleed -- by
+  `scripts/export_screentop_assets.py`; see [screentop.md](screentop.md).
