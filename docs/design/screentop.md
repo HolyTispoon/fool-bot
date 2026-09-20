@@ -16,6 +16,7 @@ what changed.
 ```bash
 python3 scripts/export_screentop_assets.py                 # ./screentop/
 python3 scripts/export_screentop_assets.py --zip           # and screentop.zip
+python3 scripts/export_screentop_assets.py --format jpeg   # cards and boards lossy
 python3 scripts/export_screentop_assets.py --max-side 2048
 ```
 
@@ -64,8 +65,8 @@ python3 scripts/export_screentop_assets.py --max-side 2048
   - **No bleed.** An eighth of an inch a trimmer takes off is, on a screen, a
     border round every card.
   - **Nothing over `MAX_SIDE` (4096px) a side.** A 300dpi tabloid board is
-    3300 x 5100, which a web canvas has no use for and some renderers refuse
-    as a texture. Images are only ever scaled *down*, and a sheet is capped as
+    3300 x 5100, which a web canvas has no use for and screentop caps an
+    image at 4096 x 4096 (see below for where that is known from). Images are only ever scaled *down*, and a sheet is capped as
     a whole with its cell kept integer, so the grid still divides exactly.
     `--max-side` changes the cap for a table that wants lighter uploads.
 - **The manifest is the contract.** `manifest.json` lists every file the
@@ -87,10 +88,28 @@ python3 scripts/export_screentop_assets.py --max-side 2048
   written too, for a table that wants both boards alike.
 - **`screentop/` is generated output and gitignored**, like `print-and-play/`.
   Run the script again rather than trusting an old copy after the rules move.
-- **What screentop itself needs is not written down here on purpose.** The
-  editor's own dialogs are screentop's to change; the export gives it
-  gapless grids with the grid stated, single images beside every sheet for a
-  component the editor would rather take one at a time, and PNGs with
-  transparency for the tokens and dice. If the editor comes to want something
-  the manifest does not carry, the manifest grows a field and the README the
-  script writes says so.
+- **Bytes are the real limit, so the format is a choice.** A screentop game
+  has a storage cap -- 32 MB on the free tier, as the comparisons put it --
+  and as PNG the eight teams' player sheets alone (a portrait a card) are
+  over it: 3-4 MB a sheet, about 68 MB for everything a table could upload
+  and 20 MB for one match's worth. `--format jpeg` or `--format webp` saves
+  the *opaque* images (cards, sheets, boards) lossy -- everything a table
+  could upload comes to about 36 MB as JPEG and 20 MB as WebP, measured on
+  this export; the tokens and dice are shapes on transparency and stay PNG
+  whatever is asked for. PNG stays the default
+  because it is lossless and every uploader takes it, and the manifest
+  carries every file's bytes and the total a table uploads
+  (`upload_bytes`: the sheets, boards and tokens, not the single card files
+  beside every sheet) so the budget is read off the file rather than found at
+  the upload. Lowering `--max-side` is the other lever.
+- **What is known of the editor's side, and where from.** screentop.gg was
+  not reachable from the environment this was written in, so none of it was
+  read off the editor: the write-ups of the Dextrous and nanDECK exporters
+  say an asset is uploaded and given its rows and columns, which then index
+  its cells; that a component's backs are a second sheet handled the same
+  way; and that an image is capped at 4096 x 4096. The export matches all
+  three -- gapless grids with the grid stated, a backs sheet in the fronts'
+  order, `MAX_SIDE` at 4096 -- with single images beside every sheet for a
+  component the editor would rather take one at a time. If the editor comes
+  to want something the manifest does not carry, the manifest grows a field
+  and the README the script writes says so.

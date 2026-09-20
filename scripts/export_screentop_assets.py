@@ -3,6 +3,7 @@
 
     python3 scripts/export_screentop_assets.py
     python3 scripts/export_screentop_assets.py --out /tmp/screentop --zip
+    python3 scripts/export_screentop_assets.py --format jpeg
     python3 scripts/export_screentop_assets.py --max-side 2048
 
 The game on screentop.gg is built in its own editor and is not checked
@@ -12,6 +13,11 @@ boards, the meeples, the dice and the tokens all come out of the same
 modules the bot and the print-and-play kit draw from, cut the way a
 virtual tabletop wants them rather than a printer (gapless sheets,
 backs in reading order, no bleed, nothing over `--max-side` pixels).
+A screentop game has a storage cap, and the player sheets as PNG are
+most of what an upload weighs; `--format jpeg` (or `webp`) saves the
+cards, sheets and boards lossy at a fraction of the bytes, and the
+tokens and dice keep PNG for their transparency either way. The
+manifest carries every file's bytes and the total a table uploads.
 `d12ball/screentop.py` is that cut and the reasoning; this is only the
 command line round it, plus a README the folder can leave the repo
 with. See "The screentop.gg module" in docs/design/screentop.md.
@@ -32,15 +38,31 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from d12ball.screentop import MAX_SIDE, build_assets, write_kit  # noqa: E402
+from d12ball.screentop import (  # noqa: E402
+    IMAGE_FORMATS,
+    MAX_SIDE,
+    build_assets,
+    write_kit,
+)
 
 README_TEMPLATE = """\
 # D12 Ball -- screentop.gg assets
 
 Generated {generated} by `scripts/export_screentop_assets.py`, from
 the same data and rules the Discord bot plays from. Every image here is
-capped at {max_side}px a side. `manifest.json` lists every file with its
-size and, for a sheet, the grid it is cut on -- read the numbers off it.
+capped at {max_side}px a side; the cards, sheets and boards are saved
+as {image_format}, the tokens and dice as PNG. `manifest.json` lists
+every file with its size in pixels and bytes and, for a sheet, the grid
+it is cut on -- read the numbers off it.
+
+## The storage budget
+
+The sheets, boards and tokens a table uploads come to
+**{upload_mb:.1f} MB** in this run ({total_mb:.1f} MB for the whole
+folder, with the single card files beside every sheet). A screentop
+game has a storage cap, so if this does not fit, rebuild with
+`--format jpeg` or `--format webp`, which save the cards, sheets and
+boards lossy at a fraction of the bytes, or a lower `--max-side`.
 
 ## What's in the folder
 
@@ -84,9 +106,13 @@ repo, and `/d12ball rules_*` in Discord.
 """
 
 
-def write_readme(out_dir: Path, max_side: int) -> None:
+def write_readme(out_dir: Path, listing: dict) -> None:
     readme = README_TEMPLATE.format(
-        generated=date.today().isoformat(), max_side=max_side,
+        generated=date.today().isoformat(),
+        max_side=listing["max_side"],
+        image_format=listing["image_format"].upper(),
+        upload_mb=listing["upload_bytes"] / 1_000_000,
+        total_mb=listing["total_bytes"] / 1_000_000,
     )
     (out_dir / "README.md").write_text(readme)
     print(f"wrote {out_dir / 'README.md'}")
@@ -127,6 +153,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--format",
+        choices=sorted(IMAGE_FORMATS),
+        default="png",
+        help=(
+            "How to save the cards, sheets and boards (default: png). "
+            "jpeg and webp are lossy and a fraction of the bytes; the "
+            "tokens and dice are PNG whatever is chosen."
+        ),
+    )
+    parser.add_argument(
         "--zip",
         action="store_true",
         help="Also bundle the finished folder into <out>.zip.",
@@ -140,7 +176,7 @@ def main() -> None:
     args.out.mkdir(parents=True)
 
     assets = build_assets(args.max_side)
-    listing = write_kit(args.out, args.max_side, assets)
+    listing = write_kit(args.out, args.max_side, assets, args.format)
     for entry in listing["assets"]:
         if entry["kind"].endswith("sheet") or entry["kind"] == "board":
             grid = (
@@ -150,8 +186,13 @@ def main() -> None:
             )
             print(f"wrote {args.out / entry['file']}  {entry['size']}{grid}")
     print(f"wrote {args.out / 'manifest.json'}  ({len(listing['assets'])} files)")
+    print(
+        f"a table uploads {listing['upload_bytes'] / 1_000_000:.1f} MB "
+        f"(sheets, boards, tokens); the whole folder is "
+        f"{listing['total_bytes'] / 1_000_000:.1f} MB"
+    )
 
-    write_readme(args.out, args.max_side)
+    write_readme(args.out, listing)
 
     if args.zip:
         zip_kit(args.out)

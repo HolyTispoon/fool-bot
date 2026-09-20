@@ -46,11 +46,21 @@ restating them, so a change to the disc reaches the token.
   as a whole with its cells kept integer, so the grid still divides
   exactly. `--max-side` on the script changes it; nothing here is ever
   scaled up.
+- **Bytes matter more than pixels.** A screentop game has a storage
+  cap (32 MB on the free tier, as the comparisons put it), and the
+  player sheets, which carry a portrait a card, are three to four
+  megabytes each as PNG -- eight teams' fronts and backs alone are
+  over it. `write_kit` can save the *opaque* images (cards, sheets,
+  boards) as JPEG or WebP instead, which is a fifth to an eighth of
+  the size; the tokens and dice keep PNG for their transparency. The
+  default stays PNG, because it is lossless and every uploader takes
+  it; the manifest records every file's bytes so the budget is read
+  off it rather than discovered at the upload.
 - **The manifest is the contract.** Every file the export writes is
-  listed in `manifest.json` with its kind, its size and, for a sheet,
-  the grid and the order of the cells -- the numbers a person types
-  into the editor, so they are read off the file rather than counted
-  by eye.
+  listed in `manifest.json` with its kind, its size in pixels and in
+  bytes and, for a sheet, the grid and the order of the cells -- the
+  numbers a person types into the editor, so they are read off the
+  file rather than counted by eye.
 """
 from __future__ import annotations
 
@@ -157,6 +167,24 @@ CONDITION_TOKEN_ART: dict[str, Path] = {
 # A species team shares its colour team's hex, so four coloured dice
 # serve all eight teams.
 BALL_DIE = "ball"
+
+# How an opaque image may be saved. A card, a sheet of cards and a
+# board have nothing transparent on them, so a lossy format costs
+# them only what a screen cannot show; a token or a die face is a
+# shape on transparency and stays PNG whatever is asked for.
+IMAGE_FORMATS: dict[str, tuple[str, str, dict]] = {
+    "png": (".png", "PNG", {"optimize": True}),
+    "jpeg": (".jpg", "JPEG", {"quality": 85, "optimize": True}),
+    "webp": (".webp", "WEBP", {"quality": 80, "method": 4}),
+}
+OPAQUE_KINDS = frozenset({"card", "card_back", "card_sheet", "card_back_sheet", "board"})
+# What a table uploads: the sheets, the boards, the one maneuver back
+# and the tokens -- not the single card files beside every sheet,
+# which are there for a component the editor would rather take alone.
+UPLOAD_KINDS = frozenset({
+    "card_sheet", "card_back_sheet", "card_back", "board",
+    "token_sheet", "die_sheet", "token", "coin_face",
+})
 
 
 # ------------------------------------------------------------- sheets
@@ -681,30 +709,102 @@ def build_assets(
     ]
 
 
-def manifest(assets: Iterable[Asset], max_side: int) -> dict:
-    return {
+def manifest(
+    assets: Iterable[Asset],
+    max_side: int,
+    image_format: str = "png",
+    sizes: Optional[dict[str, int]] = None,
+) -> dict:
+    """
+    The listing: every asset with its entry and, once written, its
+    bytes; `total_bytes` is the whole folder and `upload_bytes` what a
+    table actually uploads (`UPLOAD_KINDS`), which is the number to
+    hold against the game's storage cap.
+    """
+    sizes = sizes or {}
+    entries = []
+    for asset in assets:
+        entry = {"file": asset.path, **asset.entry}
+        if asset.path in sizes:
+            entry["bytes"] = sizes[asset.path]
+        entries.append(entry)
+    listing = {
         "game": "D12 Ball",
         "generated": date.today().isoformat(),
         "max_side": max_side,
-        "assets": [{"file": asset.path, **asset.entry} for asset in assets],
+        "image_format": image_format,
+        "assets": entries,
     }
+    if sizes:
+        listing["total_bytes"] = sum(sizes.values())
+        listing["upload_bytes"] = sum(
+            entry["bytes"] for entry in entries if entry["kind"] in UPLOAD_KINDS
+        )
+    return listing
+
+
+def with_format(assets: list[Asset], image_format: str) -> list[Asset]:
+    """
+    The assets with every opaque image's path carrying `image_format`'s
+    extension, and every manifest reference to one (`back`,
+    `back_sheet`) following it. The pixels are untouched; the format
+    is applied when the file is saved.
+    """
+    if image_format not in IMAGE_FORMATS:
+        raise ValueError(
+            f"Unknown image format {image_format!r}; expected one of "
+            f"{', '.join(IMAGE_FORMATS)}."
+        )
+    extension = IMAGE_FORMATS[image_format][0]
+    renamed = {
+        asset.path: str(Path(asset.path).with_suffix(extension))
+        for asset in assets
+        if asset.entry["kind"] in OPAQUE_KINDS
+    }
+    out = []
+    for asset in assets:
+        entry = dict(asset.entry)
+        for key in ("back", "back_sheet"):
+            if key in entry:
+                entry[key] = renamed.get(entry[key], entry[key])
+        out.append(Asset(renamed.get(asset.path, asset.path), asset.image, entry))
+    return out
+
+
+def save_image(image: Image.Image, path: Path) -> int:
+    """Save `image` in the format its suffix names; returns the bytes written."""
+    by_suffix = {suffix: (name, options) for suffix, name, options in IMAGE_FORMATS.values()}
+    name, options = by_suffix[path.suffix]
+    if name == "JPEG" and image.mode != "RGB":
+        # JPEG has no alpha; a padded cell on a sheet lands on white,
+        # the card face's own colour.
+        flat = Image.new("RGB", image.size, "#ffffff")
+        flat.paste(image, mask=image.getchannel("A") if "A" in image.getbands() else None)
+        image = flat
+    image.save(path, name, **options)
+    return path.stat().st_size
 
 
 def write_kit(
     out_dir: Path,
     max_side: int = MAX_SIDE,
     assets: Optional[list[Asset]] = None,
+    image_format: str = "png",
 ) -> dict:
     """
-    Write every asset under `out_dir`, then `manifest.json` listing
-    exactly what was written. Returns the manifest.
+    Write every asset under `out_dir` -- the opaque ones in
+    `image_format`, the rest as PNG -- then `manifest.json` listing
+    exactly what was written, each with its bytes. Returns the
+    manifest.
     """
     assets = build_assets(max_side) if assets is None else assets
+    assets = with_format(assets, image_format)
+    sizes: dict[str, int] = {}
     for asset in assets:
         path = out_dir / asset.path
         path.parent.mkdir(parents=True, exist_ok=True)
-        asset.image.save(path)
-    listing = manifest(assets, max_side)
+        sizes[asset.path] = save_image(asset.image, path)
+    listing = manifest(assets, max_side, image_format, sizes)
     (out_dir / "manifest.json").write_text(json.dumps(listing, indent=2) + "\n")
     return listing
 

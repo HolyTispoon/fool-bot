@@ -46,6 +46,7 @@ from d12ball.screentop import (
     render_die_face,
     render_meeple_token,
     tabletop_sheet,
+    with_format,
     write_kit,
 )
 
@@ -291,6 +292,39 @@ class KitTests(unittest.TestCase):
             for entry in on_disk["assets"]:
                 with Image.open(out / entry["file"]) as image:
                     self.assertEqual(list(image.size), entry["size"], entry["file"])
+                self.assertEqual(entry["bytes"], (out / entry["file"]).stat().st_size)
+            self.assertEqual(
+                on_disk["total_bytes"], sum(e["bytes"] for e in on_disk["assets"])
+            )
+            self.assertLess(on_disk["upload_bytes"], on_disk["total_bytes"])
+
+    def test_a_lossy_format_takes_the_opaque_images_and_leaves_the_tokens_png(self) -> None:
+        subset = [
+            a for a in self.assets
+            if a.path.startswith(("dice/d12-ball-sheet", "tokens/coin", "species-cards/"))
+        ]
+        for image_format, suffix in (("jpeg", ".jpg"), ("webp", ".webp")):
+            with tempfile.TemporaryDirectory() as tmp:
+                out = Path(tmp)
+                listing = write_kit(out, MAX_SIDE, subset, image_format)
+                self.assertEqual(listing["image_format"], image_format)
+                files = {entry["file"]: entry for entry in listing["assets"]}
+                self.assertIn(f"species-cards/fronts-sheet{suffix}", files)
+                self.assertIn("dice/d12-ball-sheet.png", files)
+                self.assertIn("tokens/coin-doom.png", files)
+                front = files[f"species-cards/fronts-sheet{suffix}"]
+                self.assertEqual(front["back_sheet"], f"species-cards/backs-sheet{suffix}")
+                self.assertIn(front["back_sheet"], files)
+                for path in files:
+                    self.assertTrue((out / path).exists(), path)
+                png_bytes = sum(
+                    a.image.tobytes().__len__() for a in subset if a.entry["kind"] == "card_sheet"
+                )
+                self.assertLess(front["bytes"], png_bytes)
+                with Image.open(out / "dice/d12-ball-sheet.png") as die:
+                    self.assertEqual(die.mode, "RGBA")
+        with self.assertRaises(ValueError):
+            with_format(subset, "gif")
 
 
 if __name__ == "__main__":
