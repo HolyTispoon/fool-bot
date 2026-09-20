@@ -16,8 +16,9 @@ sheet.
 
 ## Decided, 2026-09-20
 
-These four were settled by the author before the plan was written and are
-the constraints the rest is built under.
+The first four were settled by the author before the plan was written and
+are the constraints the rest is built under; the rest were the open
+questions of the first draft, answered in review of PR #251 the same day.
 
 1. **The assets are hosted on GitHub**, in a second repository, not on
    Steam Cloud. See "Two repositories" for what goes where and why the
@@ -27,9 +28,25 @@ the constraints the rest is built under.
    player's portrait. See "The meeple".
 3. **The module ships with convenience scripts**: setting a game up,
    saving and resetting a coach's arrangement, and the like. Not with the
-   rules. See "The scripts, and the line they do not cross".
+   rules. See "The scripts, and how they relate to the model".
 4. **The Workshop item is public.** Which makes the art a licensing
-   question rather than a private one -- see "Open questions".
+   question rather than a private one -- answered in 9.
+5. **The plan is on the back burner.** It is written so that it exists,
+   and it is built when a table is wanted, not before. No phase is
+   scheduled; "Phases" below is the order they run in when one is.
+6. **The asset repository is `d12ball-tts`**, or near enough, and it is
+   created when Phase A starts rather than now.
+7. **The meeple carries a role badge**, not hover text alone. See "The
+   meeple"; Phase C lands the textured meeple, not the plain one.
+8. **The rules reach the table as a PDF.** There is work in progress on
+   rulebooks for the physical game, and the same rulebook serves TTS; the
+   build converts it. Until that lands, `docs/living-rules.md` converted
+   is the stopgap, and a converter is a build dependency either way.
+9. **The art is AI-generated**, the portraits and the card art alike, and
+   the Workshop page says so. That is the whole of the licensing line.
+10. **Setup is a box with buttons.** One object on the table whose
+    buttons set up any board -- a button per size, and the advanced tier
+    offered alongside, so a table can start a species game from the box.
 
 ## What a TTS module is
 
@@ -166,7 +183,7 @@ The convenience the module ships, and what the model answered for each:
 
 | Script | What it does | What the model answered, and when |
 | --- | --- | --- |
-| **Set up a game** | Puts the field on the chosen size, deals each side's nine player cards onto its team board, stands each meeple on the space the standard deal gives it, deals twelve maneuver cards to each hand, zeroes the clock and score, and puts the ball on home's kickoff space showing 1 | The deal per board and side as space codes, and the two kickoff spaces: asked of `RulesEngine` and `MatchState` at build time and baked into `data.lua`. The rosters and each meeple's `player_with_role` name, from the catalog, likewise |
+| **Set up a game** | A box on the table with a button per board size and one for the advanced tier (the species teams, the species cards face up, the advanced player-card backs in play). Pressing one puts the field on that size, deals each side's nine player cards onto its team board, stands each meeple on the space the standard deal gives it, deals twelve maneuver cards to each hand, zeroes the clock and score, and puts the ball on home's kickoff space showing 1 | The deal per board and side as space codes, and the two kickoff spaces: asked of `RulesEngine` and `MatchState` at build time and baked into `data.lua`. The rosters and each meeple's `player_with_role` name, from the catalog, likewise |
 | **Formation** (one button per shape a side may play on this board) | Moves that side's six fielded cards into the shape's zones and their meeples onto the placement | Which shapes the board allows (`formations_for_board`) and where `apply_formation` puts the cards on it, per board and side, at build time |
 | **Save arrangement** (one per side) | Reads each of that side's fielded meeples against the field's snap points and records a space code per meeple in the script state, which TTS carries inside the save | Nothing. An arrangement is a position read off the table, not a rule |
 | **Reset to arrangement** (one per side) | Moves that side's meeples back to the recorded spaces. This is what a new play does in the rules ("Every fielded meeple on both sides goes back to the space its coach's arrangement puts it on"); the coaches press it after a goal, a miss or a ball out of bounds. It does not decide that a new play has happened | Nothing |
@@ -252,16 +269,20 @@ meeple's shape is data like everything else on the table, so the next
 person who wants it a little fatter edits a polygon rather than a
 binary. The same mesh serves as its own collider.
 
-**Identity.** A team-coloured pawn does not say which player it is. What
-the first version carries is TTS's own hover text: the meeple's
-**nickname is `player_with_role`** (`Hellguard [FB]`, the same spelling as
-a button in the bot, and the only spelling), and its **description is the
-player's ability** from `players.json`, so hovering a meeple reads its
-card. A **role badge on the body** -- a planar texture on the chest with
-the role icon and species icon the bot already has at 256 px -- is the
-obvious next step and is an open question below, because it turns one
-mesh into thirty-six textured ones and the author should say whether the
-hover text is enough before anybody draws it.
+**Identity.** A team-coloured pawn does not say which player it is, so
+the meeple carries a **role badge on the body** (decided, 7 above): a
+planar texture on the chest with the role icon and the species icon the
+bot already has at 256 px, rendered by the builder with Pillow like every
+other image in the module, over the team's hex from `TEAM_COLORS`. So
+the mesh gets one UV island on the chest and the body colour comes from
+the texture rather than `ColorDiffuse`, one texture per meeple on the
+table; how many that is, given a player who can be fielded on a colour
+team and a species team, is Phase C's to count from `TEAM_PAIRS` rather
+than this file's to guess. The hover text stays as well: the meeple's
+**nickname is `player_with_role`** (`Hellguard [FB]`, the same spelling
+as a button in the bot, and the only spelling), and its **description is
+the player's ability** from `players.json`, so hovering a meeple reads
+its card.
 
 **Scale.** The printed-boards note sizes a meeple's base at about half an
 inch and a space at no less than three-quarters, which is the ratio the
@@ -283,7 +304,7 @@ looked at.
 | --- | --- | --- |
 | **A** | The TTS mode on the renderers (no bleed, no sheet margins, every image at most 4096 px on a side since TTS downscales past that -- the tabloid field board at 3300 x 5100 is the one that has to shrink). The asset repository, with one tag. A save **made by hand in TTS** from those images, which is what calibrates the units-per-inch constant | The table laid by hand: boards, decks, dice, bags. A coach can play a half with nothing scripted |
 | **B** | `d12ball/tts.py` and `scripts/build_tts_mod.py`: the save emitted whole, with snap points from the geometry, the three-state field, the decks, the hands, the bags, the rules PDF. `tests/test_tts.py` | The emitted save loads and matches the hand-made one. Snap points land on the printed spaces |
-| **C** | The meeple: mesh generated, coloured per team, named and described per player | Thirty-six meeples on the table, hover text read |
+| **C** | The meeple: mesh generated, textured per meeple with the role badge over the team colour, named and described per player | The meeples on the table, badges legible at table zoom, hover text read |
 | **D** | `Global.lua` and the generated `data.lua`: set up, save and reset arrangement, clock and score. Script state surviving a save and reload | A whole game played through with the scripts, including a reload mid-game |
 | **E** | The Workshop item, published from a tag. The asset repository's README. This worksheet cut down to `docs/design/tts-module.md` and its CLAUDE.md rows | Somebody who is not either developer subscribes and plays |
 
@@ -316,29 +337,14 @@ What the suite can hold without TTS present:
 
 The suite does not check the table, and cannot; that is the stops.
 
-## Open questions
+## Still open
 
-For the author, and the answers belong in a review comment rather than a
-guess in this file:
+Everything the first draft asked the author is answered in "Decided"
+above. What the plan still does not know, and will find out when a phase
+runs rather than by asking:
 
-1. **The asset repository's name**, and whether it is created empty by
-   hand or by the first `build_tts_mod.py` run.
-2. **A role badge on the meeple**, or is the hover text enough? Deciding
-   after Phase C, with the plain meeples on the table, costs nothing.
-3. **The rules PDF.** `docs/living-rules.md` is Markdown and TTS shows a
-   PDF; the kit copies the Markdown. Either the build converts it (a
-   pandoc dependency for one file) or the module carries the rules as a
-   TTS notebook, which is plain text and loses the tables. Or a link on
-   the Workshop page and nothing on the table.
-4. **Licensing on a public item.** The fonts are fine (DejaVu, and Racing
-   Sans One under the OFL). The thirty-six portraits in
-   `d12ball/images/player_images/` and the card art need a line on the
-   Workshop page saying whose they are, and the author is the one who
-   knows.
-5. **Which board size the module opens on.** The rules say 7 is the
-   default and the field object's first state should agree; the bot's
-   own default is what to check it against.
-6. **The advanced tier.** The species cards and the advanced player-card
-   backs ship in every build (a table can turn them face down); the
-   question is only whether Set up a game offers the species teams, or
-   whether that is a later script.
+- **The rulebook's landing.** Decision 8 hangs on work in progress
+  outside this repository; whichever of the rulebook or Phase B comes
+  first, the build converts what exists at the time.
+- **The units-per-inch constant** (Phase A) and **the meeple texture
+  count** (Phase C), both measured on a table.
