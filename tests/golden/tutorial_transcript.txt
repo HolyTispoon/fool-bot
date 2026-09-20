@@ -143,7 +143,7 @@ Once your challenger is in position, Dinky moves, and then you are asked for a c
 --- message
 Dinky AI will maneuver with 🟣 Glompex [MF].
 
-🟠 <@111>, choose which player will maneuver to challenge for the ball, or send nobody and let the maneuver through.
+🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 16: ManeuverChallengeView -> 'Sizzifizik [PM] (1)'
 --- message
 Sizzifizik has moved 1 space.
