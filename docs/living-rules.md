@@ -300,9 +300,9 @@ Where the handler is already standing on the space closest to their own goal the
 
 **Advanced mode** adds a **gambit** to every rank, and turns on the [species abilities](#species-abilities) alongside them — a game may take just one of the two modules. A gambit does what the basic maneuver on its rank does, plus something more — and costs the coach who played it something when it is beaten.
 
-**A gambit is a maneuver of its rank.** Double Team is a kind of Pressure: it beats what Pressure beats, loses to what Pressure loses to, and ties Pressure itself. Rank alone decides who wins, so [the cycle](#who-wins) is unchanged and the table below is the whole of what a coach has to learn about matchups.
+**A gambit is the advanced version of the basic maneuver on its rank.** Double Team *is* Pressure, advanced: it beats what Pressure beats, loses to what Pressure loses to, ties Pressure itself, and where the cards tie it resolves as Pressure. Rank alone decides who wins, so [the cycle](#who-wins) is unchanged and the table below is the whole of what a coach has to learn about matchups.
 
-| Gambit | Rank | A kind of |
+| Gambit | Rank | Advanced version of |
 | --- | --- | --- |
 | Skilled Pass | O1 | Low Pass |
 | Dribble Burst | O2 | Dribble Advance |
@@ -433,9 +433,9 @@ Every roll a Fire Demon makes is covered: their die in a [skill test](#the-skill
 
 **In a maneuver skill test the surge or backfire decides a tier, and what the loser pays.** Four cases, one for each way an ignite can land:
 
-- **A surge that wins** resolves that side's maneuver as **the gambit on the rank they played** — even where the [cards would have resolved the basic maneuver](#when-a-gambits-effect-fires), and whether or not that coach [may play a gambit](#who-may-play-a-gambit) this turn. That is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve as a gambit on its own, so even a player who *did* play the gambit gets it resolving as one for the first time. A maneuver already resolving as a gambit gains nothing more.
+- **A surge that wins** resolves that side's maneuver as **its advanced version — the gambit on its rank** — even where the [cards would have resolved the basic maneuver](#when-a-gambits-effect-fires), and whether or not that coach [may play a gambit](#who-may-play-a-gambit) this turn. That is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve as a gambit on its own, so even a player who *did* play the gambit gets it resolving as one for the first time. A maneuver already resolving as a gambit gains nothing more.
 - **A surge that loses** upgrades nothing — and **that player pays no [gambit's cost](#when-a-gambits-effect-fires)**, even where the cards would otherwise have charged them one.
-- **A backfire that loses** resolves the *opponent's* maneuver as the gambit on its rank, **and that player pays their own gambit's cost** — a backfire is the one thing that puts a cost in force where the cards alone would not.
+- **A backfire that loses** resolves the *opponent's* maneuver as its advanced version, **and that player pays their own gambit's cost** — a backfire is the one thing that puts a cost in force where the cards alone would not.
 - **A backfire that wins** changes nothing but the number. They won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.
 
 Outside a maneuver skill test — or in a game that took the species abilities without the [gambits](#gambits) — there is no tier to change, and the surge or backfire is only the number.
@@ -841,7 +841,7 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 
 | Species | Ability |
 | --- | --- |
-| Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test: a surge that wins resolves that maneuver as its rank's gambit, a backfire that loses upgrades the opponent's and pays its own gambit's cost, and a surge that loses pays none. |
+| Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test: a surge that wins resolves that maneuver as its advanced version (its rank's gambit), a backfire that loses upgrades the opponent's and pays its own gambit's cost, and a surge that loses pays none. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7, Damaged rather than Injured. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: −1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 11–12 pull it in and take possession. Smooth: your own ball moves to or through your space — take it over, free. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there — offensive on the attack, defensive on the defence — and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |

@@ -146,7 +146,41 @@ card prints, and read on its own it is the choice this entry rules out; the rule
 author's sentence above. `BALL_SPEED_MAX` is new as a name for the 12 that was written out at
 every clamp, and is what the step sets.
 
-### 2026-09-20 (latest) -- author, advanced maneuvers become gambits, and a gambit needs a reason
+### 2026-09-20 (latest, 2 of 2) -- author, a gambit *is* the advanced version of its rank's basic maneuver
+
+The author, on the entry below: *"a gambit **is** the advanced version of the basic maneuver of
+its rank."* A sharpening of the wording that entry landed, and it cuts the other way from how it
+was written down.
+
+"A kind of" was too loose, and the living rules' table said it in a column header. Double Team is
+not *a kind of* Pressure the way a Low Pass and a High Pass are both kinds of pass -- it **is**
+Pressure, advanced: the same rank, the same beats and loses, a tie against Pressure itself, and a
+tie on the cards resolving as Pressure. The pairing is one to one and
+`ManeuverCatalog.counterpart` has always read it that way. The column is now "Advanced version
+of", and the sentence above it says the identity outright.
+
+**So "advanced" is still the rules' own word, and the 2026-09-20 rename never retired it.** What
+was renamed is the *noun* -- an "advanced maneuver" is a **gambit** -- and what a gambit is, is the
+advanced version of a basic maneuver. Volatile's rider reads "resolves that side's maneuver as its
+advanced version" again, because that is what it does, and naming the gambit is the gloss rather
+than the rule.
+
+**Which withdraws half of that entry's "Not yet done: the sheet".** Two of the three things it
+asked upstream for are not wanted after all:
+
+- The maneuvers tab's `Mode` column reading `basic` / `advanced` is **correct**, so
+  `d12ball/data/maneuvers.json`'s `"tier": "advanced"` is correct too, and
+  `MANEUVER_TIER_GAMBIT = "advanced"` is a constant named for the noun over a value named for the
+  tier rather than the code and the sheet disagreeing. Nothing to re-import.
+- `d12ball/data/species.json`'s Volatile text ("resolves your maneuver as its advanced version")
+  is **correct** as printed. Nothing to re-import.
+
+What is still wanted from the sheet is only what it has never said: nothing on the maneuvers tab
+names the cards "gambits", so a coach reading the printed deck meets the word only on the card
+faces the bot renders (GAMBIT MANEUVER) and in the living rules. Worth a column or a note upstream
+whenever the tab is next edited, but no data in the bot is waiting on it.
+
+### 2026-09-20 (latest, 1 of 2) -- author, advanced maneuvers become gambits, and a gambit needs a reason
 
 Two changes in one, both the author's, in chat: *"we change the name of advanced maneuvers to
 gambits. It should be clear that gambits are a kind of maneuver of their rank - so double team is
@@ -188,7 +222,10 @@ less often than before, which the author expects.
 - **Dinky needed no policy.** It rolls a rank and picks at random among the cards on it that are
   actually in its hand, so a Dinky the gate has closed plays the basic three without knowing why.
 
-**Not yet done: the sheet.** The maneuvers tab's `Mode` column still reads `advanced`, so
+**Not yet done: the sheet.** *(Half withdrawn the same day -- see the entry above: the `Mode`
+column and the Volatile text are correct as they stand, because a gambit **is** the advanced
+version of its rank's basic maneuver. Kept as written for the record.)* The maneuvers tab's
+`Mode` column still reads `advanced`, so
 `d12ball/data/maneuvers.json`'s six gambits still carry `"tier": "advanced"` -- that file is
 regenerated whole by `scripts/import_d12ball_maneuvers.py` and never hand-edited
 ([gotchas.md](design/gotchas.md)), so the code names the tier `MANEUVER_TIER_GAMBIT` and leaves
