@@ -119,6 +119,45 @@ halftime and the shootout window hand them their own.
 Left alone until asked: it is a real change to how many players can pass through
 a game, and the current number was settled deliberately.
 
+### Does a Telekinetic challenger get a Mind Pull on the ball they just pressured?
+
+**Found while gating `apply_pressure`'s overshoot branch, 2026-09-20. Not a question about
+that branch -- it is true of every Pressure and Double Team on main today.**
+
+Pressure says "the handler and the ball go 1 space back [...] and the challenger moves 1
+space forward onto the same space", and `shove_pressured_handler` implements exactly that:
+it moves the handler, calls `set_ball_space` on where they ended up, and *then* places the
+challenger (and a Double Team's partner) on that same space. Two facts about Mind Pull then
+collide:
+
+- `MatchState.ball_path_to` excludes where the ball starts, because "the ball's own starting
+  space does not count as moved to". The challenger was standing on that starting space -- on
+  the ball, which is where a challenger stands -- so the crossing itself gave them nothing.
+- `RulesEngine.mind_pull_candidates` reads **current** board occupancy of the path. By the
+  time any gate asks, the shove has already placed the challenger on the arrival space.
+
+So a Telekinetic who challenges a Pressure is offered a pull on the ball they just shoved,
+every time. That is the same shape as the bug the fourth gate was added to fix on 2026-09-20
+-- a Telekinetic offered a pull because a later step put them on a crossed space, rather than
+because the ball crossed them -- except that here the later step is part of the maneuver
+itself, and the two are genuinely simultaneous in the rules' own wording ("go back [...] and
+the challenger moves forward onto the same space").
+
+Which makes it a reading, not plainly a bug, and both readings are defensible:
+
+- **They are there as it lands**, the shove being one motion, so the ball has moved to their
+  space and the pull is owed. A defender who drives the handler back into their own half and
+  reaches out for the loose contact is a scene the ability is for.
+- **They were on the origin**, which the rules exclude outright, and a defender should not be
+  able to manufacture a pull on any ball they can reach by pressuring it -- which is a 1-in-6
+  steal bolted onto a card that already wins possession for Defenders.
+
+**Nothing has been changed either way.** The new gate in the overshoot branch inherits
+whatever the other four do, deliberately, so there is one answer across all five rather than a
+new divergence; if the answer is the second reading, the fix belongs in
+`mind_pull_candidates` or in `shove_pressured_handler`'s ordering and reaches every gate at
+once.
+
 ## Change log
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
