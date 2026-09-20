@@ -21,7 +21,7 @@ with their team emoji, so the fallbacks and the lookup live here.
 
 from typing import Optional
 
-from d12ball.components import MatchState, PlayerRole, Zone
+from d12ball.components import GoalRecord, MatchState, PlayerRole, Zone
 from d12ball.game import AIOpponent, D12BallGame, Team, team_display_name
 
 
@@ -418,3 +418,19 @@ def format_player_with_team_name(
     if team is None:
         return player
     return f"{player} ({team_display_name(team)})"
+
+
+def format_goal_time(goal: GoalRecord) -> str:
+    """
+    The minute a goal was scored, as a coach reads it back.
+
+    **(FH) is the whole of what the clock cannot say by itself.** It
+    runs past a period's last minute and the second half then starts at
+    16, so a first-half goal in the 17th minute and a second-half goal
+    in the 17th are the same number -- the marker is on the one that
+    cannot be reached again. `GoalRecord.in_first_half_overrun` is the
+    rule; this is only the wording.
+    """
+    return f"{goal.time:02d}" + (
+        " (FH)" if goal.in_first_half_overrun else ""
+    )

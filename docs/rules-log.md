@@ -124,7 +124,7 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-09-20 (later the same day) -- author, advanced maneuvers become gambits, and a gambit needs a reason
+### 2026-09-20 (latest) -- author, advanced maneuvers become gambits, and a gambit needs a reason
 
 Two changes in one, both the author's, in chat: *"we change the name of advanced maneuvers to
 gambits. It should be clear that gambits are a kind of maneuver of their rank - so double team is
@@ -174,6 +174,130 @@ the value upstream's. `d12ball/data/species.json`'s Volatile text still says "it
 version" for the same reason. Both want a sheet edit and a re-import (then
 `scripts/render_maneuver_cards.py`) before the printed cards and the card data agree with this
 entry; the card faces the bot renders already read GAMBIT MANEUVER.
+### 2026-09-20 (later still) -- author, nobody the resolution moved is offered either half
+
+The question this answers was found while gating the overshoot branch, and was true of every
+Pressure and Double Team in the bot: `shove_pressured_handler` places the challenger on the
+handler's new space, as the card says ("the challenger moves 1 space forward onto the same
+space"), and `mind_pull_candidates` read *current* occupancy of the path -- so a Telekinetic
+who challenged a Pressure was offered a pull on the ball they had just shoved, every time.
+
+The author, in chat: *"No they should not get that. they move with the ball while mind pull
+only works when the ball moves after"*.
+
+**So the test is whether the player was carried, not where they are standing when the gate
+asks.** A player the resolution moved never had the ball move *to or through* their space --
+they and it arrived together. `MatchState.last_ball_movers` records them, and both
+`mind_pull_candidates` and `smooth_candidates` subtract it.
+
+**It is a general rule and it reaches further than the case that found it.** The same sentence
+disqualifies:
+
+- the **challenger** of a Pressure, and a **Double Team's partner**, both placed on the ball
+  by the shove;
+- the **shoved handler**, who is on the *possessing* side and ends up standing on the ball --
+  so without this they would have been offered a **Smooth on a ball they were already
+  holding**, which is the same bug wearing the other half of the ability;
+- the **handler of every dribble**, who moves with the ball by definition, for the same
+  reason.
+
+**Recorded where the path is recorded, and spent with it.** `move_meeple` and
+`move_player_relative` are the two ways a player moves during play, and both note the mover;
+the deal, a substitution and the run-back reset go to `BoardState.place_meeple` directly and
+are deliberately not noted, because none of them happens while a movement is waiting on a
+gate. A move that goes nowhere -- a clamped shove that leaves a player where they stood -- is
+not a move, the same reading `ball_path_to` already makes of a ball that does not travel. The
+movers are cleared wherever the path is, because the disqualification belongs to the movement
+that caused it and not to the turn: a second movement in the same turn finds everyone eligible
+again.
+
+### 2026-09-20 (later) -- author, Smooth is asked before Mind Pull
+
+Put to the author while building Smooth, because the sheet settles what each half of the
+ability does and says nothing about the race between them. A ball can cross a Telekinetic of
+each side on one movement; both read the same path, and either one taken stops the ball, so
+whichever is asked first decides whether the other is asked at all.
+
+The author, in chat: *"smooth goes first"*.
+
+So the possessing side takes its own ball out of the air before the opponent reaches for it.
+`check_for_ball_arrival` already ran in that order, so nothing changed -- this entry is the
+ruling catching up with the code rather than the other way round.
+
+**What it costs, recorded because it was argued before it was asked.** A Smooth is free and
+cannot fail, where a pull is a token and a 1-in-6. Asking Smooth first therefore means an
+opposing Telekinetic on the path gets no roll at all whenever any of the possessing side's
+Telekinetics is also on it -- against a Telekinetic team, most movements. The alternative
+reading, that the ball meets whoever it meets in path order (which is what Mind Pull's own
+sentence says *within* itself), would have interleaved the two into one ordered queue. It is
+not what the author wanted, and the two-queue shape stands.
+
+**Three places encode this and have to agree**: `check_for_ball_arrival`, `continue_smooth`'s
+hand-off to the pull, and `pending_prompt`'s branch order, which is what a restart mid-offer
+comes back to.
+
+### 2026-09-20 -- sheet, Slip in becomes Smooth, and reads the ball's path
+
+The `spec_abilities` tab's Telekinetic cell now names the second ability and rewrites it:
+*"Smooth: When your team has possession and the ball moves to or through your space, you may
+take it over instead."* Abbreviated: *"Smooth: your own ball moves to or through you -- take
+it over free."*
+
+**This is a bigger change than the name.** Slip in asked its question *after* a resolution had
+already put the ball somewhere -- "a resolution leaves the ball with a teammate on your space"
+-- and answered it by widening who could take the turn. Smooth asks the same question of the
+ball's **path**, in the same words Mind Pull uses, and answers it by stopping the ball. So it
+moved from `turn_handler_candidates` to the arrival gate, and the three cases the living rules
+used to list for Slip in (a dribble onto a teammate, a handler shoved back onto one, a Setup
+Pass received into a group) are now just three movements that end on a Telekinetic, with no
+list needed.
+
+**What the author settled on top of the sheet's wording** (in chat, 2026-09-20):
+
+- **It stops the ball mid-flight**, pre-empting the arrival, exactly as a landed pull does --
+  so a pass can be taken out of the air by a teammate it merely passes over.
+- **An overshooting Double Team's own-goal roll never happens** if the offense's own
+  Telekinetic takes the ball during the shove: *"there is no own goal risk at all"*. This
+  needed no branch of its own -- it falls out of the pre-emption rule, which is the sign the
+  rule was the right shape.
+
+**It is not a turnover**, which is the one place it parts company with a pull: possession never
+changed hands, so ball speed is untouched and nobody runs back. The single exception is a run
+back a turnover has *already* caused -- `begin_run_back` is a consequence, not a question about
+where the ball settles -- where the Telekinetic takes the ball over and the run back still
+happens with them as the carrier who stays.
+
+**Not yet done: the sheet's own data file.** `d12ball/data/species.json` is regenerated whole
+by `scripts/import_d12ball_species.py` and is never hand-edited, so its Ooze row still owns
+"Slip in", its Telekinetic row still says "on 1-2", and neither mentions Smooth. The import
+could not be run from the session that made this change -- its container's egress policy
+denies `docs.google.com` -- so it wants a re-run on a developer machine, followed by
+`scripts/render_species_cards.py` and `scripts/render_player_cards.py`, before the printed
+cards agree with this entry.
+
+### 2026-09-20 -- sheet, Mind Pull succeeds on 11-12 rather than 1-2
+
+The `spec_abilities` tab now reads *"you may take 1 exhaustion and roll a d12 -- on 11-12 you
+pull it in and take possession"*. It had been 1-2 since the ability landed on 2026-09-06.
+
+**The sheet is authoritative here.** Abilities are component data, which is the sheet's own
+column ("Where the rules come from" above), so this is upstream moving rather than upstream
+being behind. `MIND_PULL_SUCCESS_FACES` is the one place the numbers live -- the offer's
+wording and the die image's "pulls on 11-12" label are both read off it, so nothing else had
+to be written down twice.
+
+**The probability is unchanged and the Volatile interaction is not.** Two faces out of twelve
+either way, but which two decides what an ignite can do to a pull. A Fire Demon's surge
+*adds* and a backfire *subtracts* (2026-09-06), so on 1-2 only a backfire could ever carry a
+roll into the window and a surge never could; on 11-12 it is exactly the other way round. The
+change is therefore live in advanced mode rather than cosmetic, and `ignite` is asked on this
+roll already -- `run_mind_pull` funnels it like every other d12 -- so no code moved for it.
+
+**Not yet done: the sheet's own text is ahead of this repo in one more place.** The same cell
+now names the Telekinetic's second ability **Smooth** ("When your team has possession and the
+ball moves to or through your space, you may take it over instead"), which is Slip in
+generalised from "a resolution leaves the ball with a teammate on your space" to the ball's
+whole path. That is a feature, not a numbers change, and lands separately.
 
 ### 2026-09-20 -- author, Slip in moves from Oozes to Telekinetics
 

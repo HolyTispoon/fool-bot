@@ -1372,7 +1372,7 @@ def render_maneuver_card(
     # one -- the two sit side by side in a coach's hand and back to
     # back in the print run, so they have to read as two cards at a
     # glance rather than as the same colour under different light. The
-    # "ADVANCED MANEUVER" corner label is the only other thing on the
+    # "GAMBIT MANEUVER" corner label is the only other thing on the
     # face that says so; the back cannot, since one back serves both.
     if maneuver.is_gambit:
         color = OFFENSE_COLOR_GAMBIT if is_offense else DEFENSE_COLOR_GAMBIT

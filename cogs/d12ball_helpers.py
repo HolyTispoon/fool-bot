@@ -37,6 +37,7 @@ from d12ball.formatting import (
     contest_noun,
     destination_display_name,
     format_ai_name,
+    format_goal_time,
     format_player,
     format_player_with_team,
     format_player_with_team_name,
@@ -724,22 +725,6 @@ async def get_or_create_category(
             return category
 
     return await guild.create_category(name=name, reason=reason)
-
-
-def format_goal_time(goal: GoalRecord) -> str:
-    """
-    The minute a goal was scored, as a coach reads it back.
-
-    **(FH) is the whole of what the clock cannot say by itself.** It
-    runs past a period's last minute and the second half then starts at
-    16, so a first-half goal in the 17th minute and a second-half goal
-    in the 17th are the same number -- the marker is on the one that
-    cannot be reached again. `GoalRecord.in_first_half_overrun` is the
-    rule; this is only the wording.
-    """
-    return f"{goal.time:02d}" + (
-        " (FH)" if goal.in_first_half_overrun else ""
-    )
 
 
 def format_goal_scorer(

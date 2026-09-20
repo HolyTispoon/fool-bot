@@ -67,9 +67,11 @@ match is waiting on; a flow step is what *changes* it. Each takes the
 engine and the match, mutates, and hands back a `StepResult` -- the
 narration, whether the board moved, and what happens next. Phase 2 cut
 this on Low Pass alone and nothing else; Phase 3 follows a rank at a
-time, and rank O2 brought the two dribbles and rank D2 the two steals
--- so `effects.py` holds six cards (four of them two functions
-parameterised) and `cogs/d12ball/effects.py` still holds six. Rank O1
+time, and rank O2 brought the two dribbles, rank D2 the two steals,
+rank D3 the two pressures and rank D1 the two deflections -- so
+`effects.py` holds ten cards as seven functions (five of the cards are
+their rank-mate parameterised) and `cogs/d12ball/effects.py` still
+holds two: rank O3. Rank O1
 landed in between and moved none of them: Skilled Pass had come across
 with Low Pass already, as the same step under a different `key=`.
 
@@ -231,6 +233,104 @@ with Low Pass already, as the same step under a different `key=`.
     it collects none; the behaviour is lifted exactly as it stood and
     the question is in PR #233, deliberately unpinned by any fixture
     -- the same way rank D1's two questions were left in PR #232.
+- **Rank D3 was the first follow-on to post a prompt of its own,
+  and that is where `lead_in` stopped being free.** `pressure_step`
+  is a Pressure and a Double Team both -- the push and the partner
+  are the whole of the difference, so they are one function and a
+  `key` -- and the branch that overshoots toward a side's own goal
+  ends on `BEGIN_OWN_GOAL_ROLL`. `begin_own_goal_roll` took no
+  `lead_in`, because the old branch posted the shove as a message and
+  *then* asked for the roll, so an overshooting Pressure cost two
+  messages where every other resolved maneuver costs one.
+  - **The method grew the parameter rather than the step posting
+    around it.** The narration rides above the prompt with a blank
+    line between, which is exactly `begin_loose_ball`'s shape, and
+    the branch is one message and one board refresh like the rest.
+    Nothing either card says changed -- this is batching, and
+    batching is the frontend's (principle 8). It is the only thing a
+    coach sees differently in the whole rank, and the later ranks
+    should expect to meet it again: a spine step that has never been
+    handed narration has no reason to take any yet.
+  - **The refresh also swapped places with the message**, on that
+    branch alone. The old code posted and then redrew;
+    `dispatch_step_result` redraws first. Same requests, same bucket
+    -- see [rate-limits.md](rate-limits.md).
+  - **A rank can lift something that is not a card.**
+    `apply_own_goal_outcome` settles the roll a Pressure risked and
+    words it, so it belongs to this rank, but the roll itself is a
+    coach's dice and a dice image and stays `run_own_goal_roll`'s
+    until Phase 4. It moved as a free function returning its verdict
+    rather than as a second `StepResult`, and the cog saves once,
+    unconditionally, immediately after it.
+  - **Step-then-save was the rule rather than a fix**, the same as
+    rank D2. The conceded branch saved inside the outcome and the
+    avoided one saved two messages and a board refresh later; nothing
+    between them mutates the match, so both wrote the same state.
+    What collapsing them buys is that the write no longer sits behind
+    three things that can fail. `self.persist` in `cogs/` went
+    94 -> 92.
+  - **`format_goal_time` came down with it**, from
+    `cogs/d12ball_helpers.py` into `d12ball/formatting.py`, which
+    re-exports it the way it re-exports everything else there: the
+    own-goal verdict names the minute a goal went in, and a function
+    that only formats a `GoalRecord` has no Discord in it. No call
+    site moved.
+  - **`pending_double_team` needed nothing at all.** It is set inside
+    the shove's own wording and it was already in
+    `MATCH_SAVED_FIELDS`; what the rank added is the assertion that
+    it survives a `to_dict`/`from_dict` round trip, because it
+    reaches into the *following* maneuver and a restart that lost it
+    would give the next turn one challenger instead of two.
+- **Rank D1 settled what `board_changed` means, which is the one
+  question a rank had left open for another rank to answer.**
+  `deflection_step` is a Deflect and a Clear both, and it calls
+  `begin_loose_ball` directly rather than going through
+  `finish_maneuver_resolution` -- the ball is out of everybody's hands
+  where it stopped, so the question that step asks has an answer that
+  does not matter. The old cog did **not** refresh the board before
+  handing over, even though the ball had plainly moved, because
+  `begin_loose_ball` draws the board under its own announcement.
+  - **The step reports `board_changed=True` anyway, and the frontend
+    skips the write.** The alternative was a step returning False
+    because a Discord bucket says so, which is principle 8 read
+    backwards: the model would have been carrying this channel's
+    five-in-five arithmetic on behalf of every frontend that ever
+    reads a `StepResult`. `FOLLOW_ONS_THAT_DRAW_THE_BOARD` in
+    `cogs/d12ball/core.py` is where it went instead, and
+    `dispatch_step_result` reads it. See
+    [rate-limits.md](rate-limits.md).
+  - **It is keyed to the step, not to the card.** Eight sites in
+    `cogs/d12ball/effects.py` reach `begin_loose_ball` and this rank
+    lifted two of them; the other six inherit the answer as they move,
+    rather than each deciding it again. That is the same failure this
+    flow has already had once -- `restrict_to_occupants` was a flag,
+    and the two call sites that did not pass it kept the old
+    behaviour for two days.
+  - **`OFFER_SETUP_PASS_PUSH_BACK` is in the set one step removed**,
+    and the rank's own recording is what found that: it was written
+    expecting a refresh on that branch and the old cog had not made
+    one. All three of the push-back's branches end in
+    `begin_loose_ball`, so the board arrives with the loose ball, on
+    the far side of the coach's answer rather than in front of a
+    question whose answer moves the ball again.
+  - **Two pre-existing tests read `distance_moved` off
+    `await_args.args[3]`** and broke on a move that changed nothing,
+    which is rank D2's `inspect.signature` lesson turning up in tests
+    that are not the rank's own. The fix is the assertion; the rank
+    added a `loose_ball_distance` helper to each of the two modules
+    rather than making the call positional again.
+  - **Step-then-save was the rule rather than a fix**, the third time
+    of four: `knock_ball_back`'s own persist and the shot branch's
+    both wrote the same state, with nothing between them that could
+    fail. One `self.persist` site fewer in `cogs/` -- 96 -> 95 as
+    merged: two left the step and one arrived in the wrapper.
+  - **What did not move**, deliberately: `resolve_low_pass`'s
+    no-teammate-to-receive branch, which is the eighth caller of
+    `begin_loose_ball` and rank O1's. Two rules questions on it are
+    open (PR #232) and they decide where the lifted step would put it,
+    so lifting it now would have baked in an answer. Its
+    `distance_moved` reaches `begin_loose_ball` positionally still,
+    which is fine -- only a `FollowOn` names arguments.
 - **What is in `FollowOnStep` is asserted in
   `tests/test_d12ball_package_shape.py`**, not in any one rank's own
   tests, along with `D12Ball.follow_on_methods` covering it exactly --

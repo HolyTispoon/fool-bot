@@ -194,6 +194,60 @@ the more hurt.
       position, so the free pass has no moment) or an oversight is
       the author's; the behaviour is preserved exactly and the
       question is written out in PR #233.
+  - **Both pressures followed them (rank D3).** `pressure_step` is
+    the whole of a Pressure and of a Double Team -- the two differ by
+    the push and by the partner the gambit brings in, so they
+    are one function and a `key`. `shove_pressured_handler`,
+    `pressure_result_text` and `apply_pressure_turnover` went with it
+    as free functions, and `D12Ball.apply_pressure` is four lines
+    around it. Nothing either card says changed.
+    - **The overshoot names a new follow-on**,
+      `BEGIN_OWN_GOAL_ROLL`, and it is the first whose method posts a
+      prompt of its own. So `begin_own_goal_roll` grew a `lead_in`
+      and carries the shove above its question: an overshooting
+      Pressure is one message now where it used to be two. The roll,
+      its dice image and the messages around it did not move.
+    - **`apply_own_goal_outcome` moved with the rank** and stopped
+      saving. It is the verdict rather than the card, but it is the
+      Pressure's verdict; `run_own_goal_roll` saves once,
+      immediately after it, on both branches. Both branches already
+      wrote the same state, so this is the rule and not a fix --
+      unlike rank O2's beaten Clear.
+    - **The pair a Double Team leaves is unchanged.**
+      `pending_double_team` is still set inside the shove's own
+      wording, still cleared by `announce_new_play_reset` alone, and
+      still survives a restart mid-effect -- which the rank asserts
+      rather than assumes, since it is the one record here that
+      reaches into the next turn.
+  - **Both deflections followed them (rank D1).** `deflection_step` is
+    the whole of a Deflect and of a Clear -- the two differ by the
+    distance and by how much speed comes off, so they are one function
+    and a `key`. `deflection_numbers` and `knock_ball_back` went with
+    it as free functions, and `D12Ball.apply_deflection` is four lines
+    around it. Nothing either card says changed.
+    - **The Fullback's +1 is still two numbers rather than one.**
+      `deflection_numbers` returns the distance and the speed drop
+      separately, and the ability moves only the first: a Deflect they
+      play goes back 2 and still drops the speed 1, a Clear goes back 4
+      and still drops it 3. Derived from the distance instead, this
+      read correctly right up until the Fullback was let near a Clear.
+    - **The rank named two new follow-ons**, `BEGIN_LOOSE_BALL` and
+      `OFFER_SETUP_PASS_PUSH_BACK`. The push-back is a follow-on rather
+      than a prompt the step returns for rank O2's reason: whether
+      anybody is asked at all is still the cog's, since Dinky drives it
+      as far back as it goes and a ball already at the end of the field
+      has nothing to offer.
+    - **The overshoot's ordering is unchanged and now pinned.** A
+      deflection that runs out of field and finds a defender standing
+      where the ball stopped turns into a scoring opportunity, and the
+      Setup Pass cost is **not** asked on that branch -- the ball is
+      already as far back as it goes. An overshoot onto an empty space
+      is an ordinary loose ball. Neither was asserted anywhere before
+      the rank's fixtures.
+    - **Step-then-save was the rule rather than a fix**, the third time
+      of four. `knock_ball_back` saved the moved ball and the shot
+      branch saved again over the turnover it then applied; nothing
+      between them mutates the match, so both wrote the same state.
 - **Every cost bites inside the winning maneuver's own resolution**,
   which is why there is no cost dispatcher. `gambit_cost` names the
   card that was beaten and the winner's handler asks it: Clear's 2

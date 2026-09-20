@@ -36,7 +36,7 @@ python3 -m unittest discover -s tests
 | `d12ball/components.py` | Game state model -- `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog`, `MATCH_SAVED_FIELDS` |
 | `d12ball/engine.py` | `RulesEngine` -- every decision and candidate list that never touches Discord, over the fixed catalogs and AI strategies. `D12Ball.engine` is the one instance; call sites read `self.engine.foo(...)`. Includes the prompt-text and matchup-data builders that need only the match and the catalogs |
 | `d12ball/prompts.py` | `PromptKind`, `PendingPrompt` and `pending_prompt` -- the one reading of what a match is waiting on, with no Discord in it. The cog maps a kind to a view and renders the `ask` -- [model-discord-split.md](docs/design/model-discord-split.md) |
-| `d12ball/flow/` | The turn's flow with no Discord in it: `StepResult` and the transitional `FollowOn` in `result.py`, and the maneuver steps lifted so far in `effects.py` (Low Pass and Skilled Pass; Dribble Advance and Dribble Burst; Steal and Intercept). A step changes the match and says what happened; it sends nothing and saves nothing -- [model-discord-split.md](docs/design/model-discord-split.md) |
+| `d12ball/flow/` | The turn's flow with no Discord in it: `StepResult` and the transitional `FollowOn` in `result.py`, and the maneuver steps lifted so far in `effects.py` (Low Pass and Skilled Pass; Dribble Advance and Dribble Burst; Steal and Intercept; Pressure and Double Team; Deflect and Clear). A step changes the match and says what happened; it sends nothing and saves nothing -- [model-discord-split.md](docs/design/model-discord-split.md) |
 | `d12ball/formatting.py` | Plain-text formatting over match/game/zone data with no Discord dependency -- space codes, side labels, player names |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `TEAM_PAIRS`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board, matchup and dice image rendering (Pillow); `TEAM_COLORS` |
@@ -227,8 +227,10 @@ bot stop each phase ends on.
    five-in-five arithmetic stay exactly where they are; what reaches them
    is `StepResult.board_changed`.
 
-9. **The driver persists; steps do not.** `self.persist(...)` is called at
-   **95 sites** in `cogs/` today, and CLAUDE.md already records the class
+9. **The driver persists; steps do not.** `self.persist(...)` was called at
+   **95 sites** in `cogs/` when this was written -- the phases have been
+   collapsing them a rank at a time since, so measure rather than quote it --
+   and CLAUDE.md already records the class
    of bug that produces: an event recorded without a save in the same
    breath is one the next interaction never sees, which is how beat 1 of
    the tutorial vanished from the log. A step mutates and returns; the
@@ -270,7 +272,7 @@ bot stop each phase ends on.
 | Challengers, walk-ins, `contest_candidates`, declining a challenge, the uncontested maneuver | [sending-a-player.md](docs/design/sending-a-player.md) | Distance is the measure; two candidates and ties; a count not a flag |
 | `ManeuverActionPromptView`, `send_field_prompt`, any prompt that asks a distance | [maneuver-prompt.md](docs/design/maneuver-prompt.md) | Why the prompt is public and never edited; the field strip under six prompts |
 | Maneuver keys, gambits and who may play one, `maneuver_tiers`, `resolving_maneuver`, `gambit_cost`, `settled_maneuver_winner`, injury tests, own goals | [maneuvers.md](docs/design/maneuvers.md) | Rank decides; a gambit needs a reason; benefit and cost are two questions; every roll is a coach's and what outlives the wait |
-| Volatile, Lithium Powered, Slimey, Mind Pull, `ignite`, `exhaustion_threshold`, Overdrive, `set_ball_space` / `restart_ball_at` | [species-abilities.md](docs/design/species-abilities.md) | One switch, two modules; the roll funnel and the ignition die; the arrival gate |
+| Volatile, Lithium Powered, Slimey, Mind Pull, Smooth, `check_for_ball_arrival`, `ignite`, `exhaustion_threshold`, Overdrive, `set_ball_space` / `restart_ball_at` | [species-abilities.md](docs/design/species-abilities.md) | One switch, two modules; the roll funnel and the ignition die; the arrival gate, and which of its two halves spends the path |
 | The clock, `advance_time`, `GoalRecord`, `events`, `stats.py` | [clock-and-records.md](docs/design/clock-and-records.md) | The clock never stops; the goal log; what the statistics are and are not |
 | `end_period`, the shootout, its two ephemeral menus | [shootout.md](docs/design/shootout.md) | Every game is settled; `advance_shootout` is the one reading; the secret orders |
 | `can_attempt_score`, `ShotDefender`, the High Pass distances and overshoot | [shooting.md](docs/design/shooting.md) | Range is not a zone; halving is per defender; the passer never receives their own pass |

@@ -1087,7 +1087,7 @@ class TurnoverMixin:
         # pressure steal, an own goal avoided) never passes through the
         # three ordinary arrival gates, so this is the one place
         # guaranteed to run before positions change.
-        if await self.check_for_mind_pull(
+        if await self.check_for_ball_arrival(
             interaction,
             game,
             match,

@@ -3910,7 +3910,7 @@ MANEUVER_DIAGRAM_BOX_SIZE = (296, 330)
 MANEUVER_DIAGRAM_TIER_GAP = 14
 MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT = 56
 # d12ball/cards.py imports these four (as OFFENSE_COLOR/DEFENSE_COLOR
-# and their _ADVANCED counterparts) rather than restating the hexes,
+# and their _GAMBIT counterparts) rather than restating the hexes,
 # the same reason TEAM_COLORS below is one dict instead of a hex per
 # call site. Don't add a second definition there.
 #

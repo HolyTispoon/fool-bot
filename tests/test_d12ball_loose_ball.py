@@ -13,6 +13,7 @@ subtly wrong:
   which is the only ordering that leaves that player standing on it.
 """
 
+import inspect
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -31,6 +32,23 @@ from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
 from save_patches import suppressed_cog_saves
 
+
+def loose_ball_distance(call) -> int:
+    """
+    The `distance_moved` a recorded `begin_loose_ball` was called with,
+    read through the real method's signature rather than off
+    `call.args`.
+
+    A deflection reaches it as a `FollowOn` since rank D1 of
+    docs/model-discord-split.md, and `dispatch_step_result` passes a
+    follow-on's arguments **by keyword** -- so an argument the cog used
+    to hand over positionally now arrives named. Binding the call to
+    the signature answers for both shapes, which is the reading rank D2
+    wrote down: fix the assertion, not the call.
+    """
+    return inspect.signature(D12Ball.begin_loose_ball).bind(
+        None, *call.args, **call.kwargs,
+    ).arguments["distance_moved"]
 
 def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)
@@ -683,7 +701,9 @@ class ContestantOnTheBallTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(teammate, match.eligible_ball_handlers())
         cog.finish_maneuver_resolution.assert_not_awaited()
         cog.begin_loose_ball.assert_awaited_once()
-        self.assertEqual(cog.begin_loose_ball.await_args.args[3], 1)
+        self.assertEqual(
+            loose_ball_distance(cog.begin_loose_ball.await_args), 1,
+        )
 
     def test_the_headline_names_which_of_the_three_arrivals_it_is(
         self,
