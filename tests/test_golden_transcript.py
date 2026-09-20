@@ -38,12 +38,19 @@ transcript if it is the same every time. `GOLDEN_SEED` is chosen so the
 run scores, because that is the path the script is built to reach; a
 seed that missed would pin the unusual branch as the reference.
 
-**What it does not cover, and Phases 4 and 5 will want to.** The
-tutorial is the only multi-turn game the suite can drive today, so this
-golden is one basic-mode solo game on board 7. It watches no advanced
-maneuver, no species ability, no halftime, no shootout and no time out.
-Those want goldens of their own, and the phase that moves each of them
-is the phase to add one.
+**What it does not cover.** This golden is one *basic*-mode solo game on
+board 7, so it watches no advanced maneuver, no species ability, no
+halftime, no shootout and no time out. Phase 4 added the second one this
+asked for -- `tests/test_golden_advanced.py`, an advanced game on board 6
+that reaches all twelve maneuvers, both halves of the arrival gate, the
+own-goal roll and a run back that stops to ask. Between them they still
+leave full time and the shootout uncovered, which is Phase 5's ground
+and the phase that moves it is the phase to add one.
+
+The two are deliberately separate files rather than two seeds of one.
+They share the fixtures, the diff and the final-save rendering; what
+they do not share is the press rule, because this one is driven by the
+tutorial's rails and that one has none -- see its docstring.
 """
 
 import asyncio

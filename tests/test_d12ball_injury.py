@@ -134,7 +134,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
 
         cog.begin_effect_resolution.assert_awaited_once()
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "low_pass",
+            cog.begin_effect_resolution.await_args.kwargs["winner_key"], "low_pass",
         )
 
     async def test_decisive_win_by_injured_player_forces_a_skill_test(
@@ -177,7 +177,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         # The healthy side (defense) wins outright, no skill test.
         cog.begin_effect_resolution.assert_awaited_once()
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "deflect",
+            cog.begin_effect_resolution.await_args.kwargs["winner_key"], "deflect",
         )
 
     async def test_an_auto_loss_charges_neither_side_a_token(self) -> None:
@@ -224,7 +224,7 @@ class ManeuverInjuryTests(unittest.IsolatedAsyncioTestCase):
         # so the disadvantage has nothing to bite on.
         cog.begin_effect_resolution.assert_awaited_once()
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "low_pass",
+            cog.begin_effect_resolution.await_args.kwargs["winner_key"], "low_pass",
         )
 
 
@@ -276,7 +276,7 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
             followup=SimpleNamespace(send=send),
         )
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
+        with suppressed_view_saves(), suppressed_cog_saves(), mock.patch(
             "discord.File",
         ), mock.patch(
             "random.randint", return_value=7,

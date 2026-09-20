@@ -36,3 +36,22 @@ design.
   and into `d12ball/prompts.py` (Phase 1 of
   [model-discord-split.md](../model-discord-split.md)); what `core` keeps is
   the mapping from a `PromptKind` to a view, which carries no ordering at all.
+- **What a mixin holds is shrinking, and the six seams are not moving.**
+  Phases 2-4 of [model-discord-split.md](../model-discord-split.md) lifted
+  the decisions out of `core`, `effects`, `periods` and `turnovers` into
+  `d12ball/flow/`, and what each of those mixins keeps is the same
+  responsibility with the rules taken out of it: `core` the turn's Discord
+  spine (`dispatch_step_result`, `post_then_dispatch`, `follow_on_methods`,
+  `view_for_prompt`) and the cog wrappers for the front half of a turn;
+  `effects` one wrapper per card plus the loose ball's and the own goal's
+  posting; `periods` the clock's tail and everything Phase 5 has yet to
+  reach; `turnovers` the coaching windows, the run-back cascade's *batching*
+  and the run-back prompt's field strip. A wrapper is three lines -- run the
+  step, `self.persist(...)`, dispatch -- and the reason it is still a method
+  on a mixin rather than a function is the first bullet above: its callers
+  spell it `self.foo(...)` and there are hundreds of them.
+- **A method that is now only a forwarder stays where its callers are.**
+  `player_label`, `apply_exhaustion`, `injured_word_and_emoji`,
+  `maneuver_prompt_wording` and `run_back_space_prompt` all forward into the
+  engine or the flow. Keeping them is what made each of those lifts a move
+  of one function rather than a rename across ninety call sites.

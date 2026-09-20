@@ -22,6 +22,8 @@ from d12ball.components import (
     Zone,
     kickoff_space_index,
 )
+from d12ball.flow import FollowOn, FollowOnStep
+from d12ball.flow.arrivals import finish_maneuver_resolution
 from d12ball.game import D12BallGame
 from d12ball import tutorial
 from gamesaves.d12ball.storage import save_games
@@ -59,113 +61,61 @@ class PeriodMixin:
         lead_in: str = "",
     ) -> None:
         """
-        The tail of every maneuver-effect path once movement, speed,
-        any turnover, and run-back are all settled: advance the clock,
-        end the period if this turnover closes out last possession,
-        clear the maneuver state, and hand the offensive choice back to
-        whoever now has the ball.
+        The Discord half of the tail of every maneuver-effect path.
 
-        The maneuver that reaches the period's last minute never ends it,
-        even when it is itself a turnover: last possession is the
-        possession that starts there, so whoever comes out of that
-        maneuver with the ball gets to play it out and only loses the
-        period when *they* lose the ball. Only a turnover under a last
-        possession that was already in force ends it -- which is the
-        case begin_run_back catches earlier, before any run back.
+        The step is `d12ball.flow.arrivals.finish_maneuver_resolution`
+        -- the clock, the period, the two gates it opens with and the
+        line that says where the ball ended up. What is left here is
+        the persist, the board, and the snapshot the offensive choice
+        is handed back under.
 
-        `lead_in`, if given, is narration from earlier in the same
-        effect that hasn't been posted yet -- it rides along on this
-        function's own first message instead of being sent separately,
-        so a deterministic effect (no further human choice in between)
-        reads as one message rather than a chain of them.
-
-        Checked first, before the clock moves: does the possessing team
-        actually have a player on the ball's space? If the maneuver left
-        it somewhere they don't -- an empty space, or one only the other
-        team occupies -- this detours into the loose-ball flow instead,
-        which re-enters this function itself once it's settled.
+        **The snapshot is the one bespoke piece.** The board is drawn
+        once and uploaded twice -- onto the persistent message and onto
+        the snapshot under the closing line -- which is a request the
+        rate-limit gate counts, so it is decided here rather than
+        through `dispatch_step_result`'s ordinary redraw. See
+        "Discord's rate limits" in docs/design/rate-limits.md.
         """
-        # **Mind Pull first**, because it pre-empts the arrival rather
-        # than reacting to it: a pull that lands stops the ball on the
-        # Telekinetic's space, so whether the possessing side has
-        # anybody where the maneuver *would* have left it is a
-        # question that must not be asked yet.
-        if await self.check_for_ball_arrival(
-            interaction,
+        result = finish_maneuver_resolution(
+            self.engine,
             game,
             match,
-            {
-                "kind": "finish_maneuver",
-                "distance_moved": distance_moved,
-                "turnover_occurred": turnover_occurred,
-                "lead_in": lead_in,
-            },
-        ):
-            return
-
-        if await self.check_for_loose_ball(
-            interaction, game, match, distance_moved, lead_in=lead_in,
-        ):
-            return
-
-        entered_last_possession = match.advance_time(distance_moved)
-        if entered_last_possession:
-            prefix = f"{lead_in}\n\n" if lead_in else ""
-            possessing_side = format_team_side_label(
-                match.setup_for_side(match.ball.possession)
-            )
-            body = (
-                "The turnover that got here doesn't end it -- "
-                f"{possessing_side} came out of that maneuver with the "
-                "ball, so they play last possession out."
-                if turnover_occurred
-                else "Play continues until the ball turns over, which "
-                "ends the period."
-            )
-            # The minute is the period's own, and the clock does not
-            # stop on it: from here every turn is charged as usual and
-            # only the turnover ends the period.
-            await send_new_prompt(
-                interaction,
-                f"{prefix}The clock reaches "
-                f"{match.scoreboard.last_minute:02d} -- this is now "
-                f"**last possession**. {body} The clock keeps running.",
-            )
-            lead_in = ""
-
-        if (
-            turnover_occurred
-            and match.scoreboard.last_possession
-            and not entered_last_possession
-        ):
-            await self.end_period(interaction, game, match, lead_in=lead_in)
-            return
-
-        match.reset_maneuver()
+            distance_moved=distance_moved,
+            turnover_occurred=turnover_occurred,
+            lead_in=lead_in,
+        )
         self.persist(game, match)
+
+        following = result.next
+        if not (
+            isinstance(following, FollowOn)
+            and following.step is FollowOnStep.SEND_TURN_PROMPT
+        ):
+            await self.dispatch_step_result(
+                interaction, game, match, result,
+            )
+            return
 
         # One last board refresh with everything settled (run-back,
         # speed choice, own-goal, etc. may have landed after the last
-        # refresh inside the effect itself), right before the
-        # offensive choice comes back up. The snapshot below is that
-        # same board, so it is drawn once and uploaded twice.
+        # refresh inside the effect itself), right before the offensive
+        # choice comes back up. The snapshot below is that same board,
+        # so it is drawn once and uploaded twice.
         png = await self.render_match_png(game)
         await self.refresh_match_image(interaction, game, png=png)
-
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-        # Every maneuver costs at least its flat space minute
-        # (2026-08-16), ceding included, so there is no longer a
-        # zero-cost turn to word specially here.
-        clock = (
-            f"Time has advanced {distance_moved}, now "
-            f"at {match.scoreboard.time:02d}."
-        )
+        # **Two messages, not one.** The step hands back its lines in
+        # the order they were said, and the last of them is the one
+        # that goes under the board -- an earlier line is the
+        # last-possession announcement, which is its own beat and was
+        # its own message before the lift. How lines go together is the
+        # frontend's (principle 8), and this is that decision.
+        if len(result.narration) > 1:
+            await send_new_prompt(
+                interaction, " ".join(result.narration[:-1]),
+            )
         snapshot = await send_new_prompt(
             interaction,
-            f"{prefix}Ball is now "
-            f"{space_label(match.ball.zone, match.ball.space_index)}, "
-            f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
-            f"has possession. {clock}",
+            result.narration[-1],
             file=self.match_file_from_png(game, png),
         )
         await add_full_image_button(snapshot)

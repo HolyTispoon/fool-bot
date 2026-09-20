@@ -166,7 +166,17 @@ def build_interaction(recorder=None, user_id: int = 111) -> SimpleNamespace:
         # depends on whether the interaction still had a response to
         # give at that point in the cascade, and the recorder cares
         # about what was said, not which route said it.
-        channel=SimpleNamespace(send=send),
+        # `get_partial_message(...).delete()` is how a view drops a
+        # message it no longer owns -- backing out of a score attempt
+        # deletes the composition image. Stubbed rather than left off
+        # so a free-running game (the advanced golden) can reach the
+        # branch at all; nothing asserts on it.
+        channel=SimpleNamespace(
+            send=send,
+            get_partial_message=lambda message_id: SimpleNamespace(
+                delete=mock.AsyncMock(),
+            ),
+        ),
         message=SimpleNamespace(id=999, content="prompt", attachments=[]),
         user=SimpleNamespace(id=user_id, display_name="Coach"),
         edit_original_response=edit_original_response,

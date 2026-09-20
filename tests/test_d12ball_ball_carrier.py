@@ -32,6 +32,8 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import D12BallGame, GameStatus, Team
+from d12ball.flow.turnovers import announce_new_play_reset
+
 from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
@@ -433,12 +435,10 @@ class CarrierFromResolutionTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_new_play_reset_leaves_nobody_carrying_it(self) -> None:
         cog, game, match, handler, _ = self.build()
         match.set_ball_carrier(handler)
-        cog.post_new_play_board = mock.AsyncMock()
 
-        with suppressed_cog_saves():
-            await cog.announce_new_play_reset(
-                build_interaction(), game, match,
-            )
+        # The reset is a flow step since Phase 4, so the assertion is
+        # on the model rather than on the cog method that posts it.
+        announce_new_play_reset(cog.engine, game, match)
 
         self.assertIsNone(match.ball_carrier_id)
 
@@ -615,7 +615,10 @@ class RunBackExemptionTests(unittest.IsolatedAsyncioTestCase):
     def build(self) -> tuple[D12Ball, D12BallGame, MatchState]:
         cog = build_cog()
         cog.announce_run_back = mock.AsyncMock()
-        cog.announce_new_play_reset = mock.AsyncMock()
+        # `announce_new_play_reset` is a flow step now, so the cog no
+        # longer has one to mock -- `post_new_play_board` is what
+        # `begin_run_back`'s wrapper reaches instead.
+        cog.post_new_play_board = mock.AsyncMock()
         cog.begin_substitution_window = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         cog.end_period = mock.AsyncMock()

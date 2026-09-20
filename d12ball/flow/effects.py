@@ -34,10 +34,13 @@ step and before dispatching whatever comes next -- see
 
 from __future__ import annotations
 
+import random
+from dataclasses import dataclass
 from typing import Optional
 
 from d12ball.components import (
     BALL_SPEED_MAX,
+    EVENT_OWN_GOAL_ROLL,
     MatchState,
     PlayerDefinition,
     PlayerRole,
@@ -933,6 +936,130 @@ def apply_own_goal_outcome(
         f"{match.scoreboard.visiting_score} "
         f"{team_display_name(match.visiting.team)}\n\n"
         f"{exhaustion_text}"
+    )
+
+
+@dataclass(frozen=True)
+class OwnGoalRoll:
+    """
+    The numbers an own-goal roll produced, for the frontend to draw.
+
+    **Not narration and not a `StepResult`.** The two sentences the
+    roll is worth are the model's and are in `own_goal_roll_step`'s
+    result; what is here is the arithmetic a *picture* is made of --
+    two faces, whether it was safe, whether Overdrive was spent. A
+    frontend with no dice image ignores it and posts the two lines.
+    """
+
+    rolls: tuple[int, int]
+    offense_skill: int
+    safe: bool
+    ignite: Optional[object]
+    overdrive: int
+
+
+def own_goal_roll_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> tuple[OwnGoalRoll, StepResult]:
+    """
+    The roll itself, off the button `begin_own_goal_roll` posted: 2d12
+    at an advantage (take the higher), plus the ball-handler's
+    offensive skill, safe on 7+.
+
+    Making the attempt costs the rolling player 1 exhaust token, win or
+    lose, on top of whatever the maneuver that triggered the risk
+    already charged. It is not a skill test, so it owes no injury
+    check.
+
+    **It returns two things, and that is deliberate.** The
+    `StepResult`'s narration is the arithmetic and the verdict, in that
+    order; the `OwnGoalRoll` is the same numbers for the dice image.
+    They are separate because the frontend puts the image *between* the
+    two lines -- a message's attachments render below its content, so a
+    verdict written above the roll would be read before it. How the
+    lines go together is the frontend's (principle 8), which is why
+    this hands over two of them rather than one joined block.
+    """
+    distance_moved = match.pending_own_goal_distance
+    match.pending_own_goal = False
+
+    offense_player = engine.get_player_definition(match.active_player_id)
+    offense_skill = engine.player_catalog.effective_profile(
+        offense_player,
+    ).offense
+
+    rolls = (random.randint(1, 12), random.randint(1, 12))
+    # Volatile reads the die that is **kept**, not both: an own goal is
+    # rolled at an advantage, and the rules name "the die kept in an
+    # own-goal roll".
+    ignite = engine.ignite(game, offense_player.player_id, max(rolls))
+    overdrive = match.overdrive_modifier(offense_player.player_id)
+    match.consume_overdrive()
+    safe = max(rolls) + offense_skill + ignite.modifier + overdrive >= 7
+
+    # Logged ahead of `apply_own_goal_outcome`, which is what concedes
+    # the goal, so the risk sits above the goal it sometimes produced.
+    # Both outcomes, for the reason the injury test logs both: the
+    # interesting number is how often a Pressure that risks an own goal
+    # actually costs one, and that needs the attempts as well as the
+    # concessions.
+    match.record_event(
+        EVENT_OWN_GOAL_ROLL,
+        side=match.ball.possession,
+        player_id=offense_player.player_id,
+        conceded=not safe,
+        rolls=list(rolls),
+        offense_skill=offense_skill,
+    )
+
+    # Charged before the outcome is applied, so the token and any
+    # Exhausted flag it sets are settled with the rest of the roll.
+    exhaustion_text = engine.apply_exhaustion(
+        game, match, offense_player.player_id, 1,
+    )
+
+    taken = max(rolls)
+    modifier = ignite.modifier if ignite else 0
+    breakdown = (
+        f"**Own goal risk!** "
+        f"{engine.format_player_label(match, offense_player)} "
+        f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
+        f"is {taken}, + {offense_skill} (offensive skill)"
+    )
+    if ignite and ignite.detail:
+        breakdown += f", {ignite.detail}"
+    if overdrive:
+        breakdown += f", +{overdrive} Overdrive"
+    breakdown += f" = {taken + offense_skill + modifier + overdrive}"
+
+    verdict = apply_own_goal_outcome(
+        engine, match, offense_player, distance_moved, safe,
+        exhaustion_text,
+    )
+
+    return (
+        OwnGoalRoll(rolls, offense_skill, safe, ignite, overdrive),
+        StepResult(
+            narration=[breakdown, verdict],
+            board_changed=True,
+            # **Both outcomes are new plays.** A conceded own goal
+            # restarts from the kickoff space as any other goal does;
+            # avoiding one is a stoppage too, not a play that carries
+            # on -- both sides reset to their saved arrangement and the
+            # side with the ball may declare. If this closes out last
+            # possession, `begin_run_back`'s own check ends the period
+            # here instead. See "Own goal" in docs/living-rules.md.
+            next=FollowOn(
+                FollowOnStep.BEGIN_RUN_BACK,
+                {
+                    "distance_moved": distance_moved,
+                    "turnover_occurred": True,
+                    "new_play": True,
+                },
+            ),
+        ),
     )
 
 

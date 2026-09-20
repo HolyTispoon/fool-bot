@@ -54,6 +54,19 @@ invariants read as ordinary cog surface among 223 methods.
   of it, not one of each per step -- see `continue_run_back`. Nobody reads the
   intermediate boards; the one worth looking at is the one where everything
   has finished moving.
+- **There are two dispatchers, and which one a step gets is a batching
+  decision.** `D12Ball.dispatch_step_result` hands a step's narration to
+  whatever comes next as its `lead_in`, so a cascade of the bot's own steps
+  is one message. `D12Ball.post_then_dispatch` posts it as a message of its
+  own and carries nothing forward. The second is for the handful of lines
+  that are an *event* rather than a preamble -- where the ball came down,
+  that a new play has started, that everybody is running back -- and a coach
+  reads the channel expecting those to be their own beat. It is a method on
+  the cog rather than a flag on `StepResult` because principle 8 puts
+  batching on this side of the seam: the model says what was said and in
+  what order, and nothing more. Getting it wrong is cheap to catch and
+  invisible by inspection, which is what the two goldens are for -- the
+  advanced one caught three merged pairs the hour it existed.
 - **A step says the board moved; the frontend decides what that costs.**
   `StepResult.board_changed` is a fact about the position -- the ball moved,
   a meeple moved -- and `dispatch_step_result` turns it into *at most* one
@@ -63,12 +76,13 @@ invariants read as ordinary cog surface among 223 methods.
   in the channel has named. Drawing it again in front of that is the same
   bytes twice for one click, so `FOLLOW_ONS_THAT_DRAW_THE_BOARD` in
   `cogs/d12ball/core.py` names the follow-ons it is skipped for.
-  - **The answer is the step's, not the calling card's.** Eight sites in
-    `cogs/d12ball/effects.py` reach `begin_loose_ball`, and they are being
-    lifted a rank at a time; keying the suppression to the step means each
-    one inherits it rather than deciding it again -- which is how the two
-    paths that opted out of `restrict_to_occupants` survived, one floor up in
-    this same flow.
+  - **The answer is the step's, not the calling card's.** Eight sites reach
+    `begin_loose_ball`, and they were lifted a rank at a time and then, in
+    Phase 4, the rest at once -- the step itself is
+    `d12ball/flow/arrivals.py`'s now. Keying the suppression to the step
+    means each caller inherits it rather than deciding it again, which is
+    how the two paths that opted out of `restrict_to_occupants` survived,
+    one floor up in this same flow.
   - **`OFFER_SETUP_PASS_PUSH_BACK` is in the set one step removed**, because
     all three of its branches end in `begin_loose_ball`: the fallback where
     no distance fits, Dinky's maximum, and the coach's own answer. The board

@@ -28,6 +28,7 @@ from d12ball.components import (
 )
 from d12ball.formatting import (
     AI_OPPONENT_NAMES,
+    HIGH_PASS_CONTEST_HEADLINE,
     BENCH_DESTINATIONS,
     DAMAGED_EMOJI_FALLBACK,
     DRAINED_EMOJI_FALLBACK,
@@ -36,7 +37,9 @@ from d12ball.formatting import (
     INJURED_EMOJI_FALLBACK,
     TEAM_EMOJI_FALLBACKS,
     ZONE_LETTERS,
+    ball_location_line,
     ball_space_label,
+    ball_space_phrase,
     challenger_prompt_ask,
     contest_noun,
     destination_display_name,
@@ -107,20 +110,6 @@ FIELD_IMAGE_FILENAME = "d12ball-field.png"
 # error code.
 MAX_PINNED_MESSAGES = 50
 MAX_PINS_ERROR_CODE = 30003
-
-# A High Pass *is* the loose-ball contest (see begin_loose_ball) -- a
-# 3+ space pass, or a declined 2-space one, makes the receiver win a
-# skill test to keep the ball, and since 2026-08-18 that is the
-# ordinary rule rather than this maneuver's own: they contest because
-# they are standing on the ball. This headline replaces the wording
-# build_loose_ball_headline would give it, which says the ball is loose
-# -- true, but not what either coach watched happen. It mentions
-# nobody being sent because both sides usually have their contestant
-# standing there already.
-HIGH_PASS_CONTEST_HEADLINE = (
-    "**High Pass:** the receiving player must win a skill test to keep "
-    "possession."
-)
 
 # What a maneuver row is called in the prompt above it. The colours
 # are the buttons' own (ManeuverActionPromptView builds an offense row
@@ -688,37 +677,6 @@ def format_role_bracket(
 # travel_space_label, travel_space_phrase and ball_space_label are
 # imported above, from d12ball.formatting.
 
-
-def ball_space_phrase(match: MatchState) -> str:
-    """
-    Where the ball is, as a phrase a sentence can be built around --
-    "**M2** (Midfield)".
-
-    The zone is spelled out beside the space code because "M2" alone
-    means nothing to anyone who is not already looking at the board.
-    This is the half `ball_location_line` puts a sentence around, split
-    out so a caller with a sentence of its own does not have to
-    swallow one whole -- Smooth's and Mind Pull's take-over lines each
-    read "... takes the ball over on The ball is at **V1** (Visitors
-    Third).." until 2026-09-20, which is what a sentence-shaped helper
-    used mid-sentence gets you. The two are one wording in two shapes
-    for `travel_space_label` and `travel_space_phrase`'s reason: what
-    the two say about a space cannot drift apart.
-    """
-    zone = destination_display_name(
-        match.ball.zone.value, match.board.layout.board_size
-    )
-    return f"**{ball_space_label(match)}** ({zone})"
-
-
-def ball_location_line(match: MatchState) -> str:
-    """
-    Where the ball has come to rest, in a sentence -- a coach who is
-    about to be asked whether to send somebody after it is being asked
-    about a distance. Use `ball_space_phrase` where the sentence is
-    already somebody else's.
-    """
-    return f"The ball is at {ball_space_phrase(match)}."
 
 
 def space_choices(match: MatchState) -> list[tuple[str, str]]:

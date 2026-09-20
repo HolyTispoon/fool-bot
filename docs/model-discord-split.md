@@ -28,7 +28,7 @@ it happened to have.
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Done (PR #229, PR #232, PR #233, PR #235, PR #236, PR #241) |
-| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
+| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Done (PR #TBD) |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
 
@@ -506,64 +506,46 @@ it, and a rank that wants a paragraph is a rank that moved a rule.
 
 ---
 
-## Phase 4 -- the spine
+## Phase 4 -- the spine (done)
 
-The turn's own machinery, and where `interaction` dies from everything
-Phases 1-3 didn't already reach:
+Landed whole. The turn's own machinery is
+[`d12ball/flow/arrivals.py`](../d12ball/flow/arrivals.py) (the two arrival
+gates and the five arrival points they guard),
+[`turnovers.py`](../d12ball/flow/turnovers.py) (the run back and the
+out-of-bounds pickup), [`turn.py`](../d12ball/flow/turn.py) (the front half
+of a turn) and [`injuries.py`](../d12ball/flow/injuries.py); the own-goal
+roll went into `effects.py` beside `apply_own_goal_outcome`, which it
+already called.
 
-- **the front half of a turn**: choosing and announcing a challenger
-  (`auto_resolve_challenger`, `announce_uncontested_maneuver` -- see
-  [sending-a-player.md](design/sending-a-player.md)),
-  `begin_maneuver_action_selection` and `resolve_maneuver`. Easy to read as
-  already covered by "the spine" below, and it isn't -- nothing in Phases
-  1-3 touches it. Both a human's pick and `play_ai_turn`'s pass through it,
-  which is also why "`interaction` dies" above is qualified: it doesn't,
-  until this moves too.
-- the **three arrival points**, which are where a ball that has moved is
-  settled: `finish_maneuver_resolution` (the tail of every ordinary path),
-  `begin_loose_ball` (a Deflect, and the High Pass contest behind it) and
-  `offer_scoring_attempt_choice` (a set-up). Between them they are every
-  one of the four things a Mind Pull pre-empts.
-- the **two gates** each of those opens with, `check_for_mind_pull` and
-  `check_for_loose_ball` -- which are not the arrival points but the `if
-  ...: return` at the top of them
-- `begin_loose_ball`'s contest
-- `begin_run_back` / `continue_run_back` (the cascade; note principle 8 --
-  the batching stays in the cog, the loop moves). **The loop's own
-  per-pass `self.persist(game, match)` (`turnovers.py:1622`) stays too**, as
-  a named exception to principle 9, and the path that needs it is the
-  **coach's-choice `return`** (`:1657`): when `next_run_back_step` comes
-  back with a question, the loop posts the prompt and returns from inside
-  itself, so nothing after the loop runs. The turn is then waiting on a
-  click that reloads the match out of the save file -- which means this
-  pass's placements have to already be on disk, and the intra-loop persist
-  is what puts them there. Collapse it to one save after the loop and every
-  cascade that stops to ask somebody loses the placements it just made.
-  - **The give-up-after-`MAX_RUN_BACK_PASSES` branch is not that path**,
-    though it reads like it: it `break`s rather than returning, and the two
-    statements after the loop are `flush()` and `finish_run_back`, which
-    persists at `:1505`. So its log line ("the match is saved as it
-    stands") is kept by that save whatever happens to the one in the loop.
-    Worth writing down because the branch *looks* like the fragile one and
-    is the safe one, and the genuinely fragile path has no log line drawing
-    attention to itself.
-- `begin_injury_tests` / `continue_injury_tests`
-- `run_own_goal_roll`
-- `begin_ball_recovery`
+**What is still open out of this phase**, for whoever runs Phase 5 or 6:
 
-This is the biggest single phase and the one to resist splitting badly: the
-arrival gates and the loose-ball check are ordered against each other on
-purpose ("the path is spent whether or not anybody may pull"), and moving
-half of that ordering is worse than moving none of it.
+- **`FollowOnStep` is at 27 members and its meaning widened.** It still
+  reads as "what the cog still dispatches", which is the claim Phase 6
+  needs; it no longer reads as "what has not been lifted". The enum's own
+  docstring names the three kinds now in it. Phase 5 should expect to
+  *remove* `END_PERIOD` and `BEGIN_SUBSTITUTION_WINDOW` rather than add.
+- **`dispatch_injury_resume` is a `FollowOnStep`, not a lift**, because two
+  of the three arrivals it names -- `begin_effect_resolution` and
+  `continue_shootout` -- are not the spine's. It goes when Phase 5 takes
+  the shootout.
+- **`BEGIN_SHOOTER_CHOICE` stayed**, knowingly: the prompt behind it carries
+  its candidate list on the view, which is not a state `pending_prompt` has
+  a branch for.
+- **Three prompts cannot be `PendingPrompt`s yet** for the same reason --
+  `SEND_SET_UP_ATTEMPT_PROMPT` (the view holds `distance_moved` and
+  `contest_on_decline`), `SEND_SHOOTER_PROMPT`, and `SEND_RUN_BACK_PROMPT`
+  (which carries a picture). Closing that means `pending_prompt` growing a
+  branch, which is a change to the game's recovery behaviour and belongs in
+  its own commit rather than in a refactor.
+- **`post_then_dispatch` is a second dispatcher and Phase 6 has to keep
+  both.** Which of the two a step gets is the frontend's decision; the
+  driver will need the same distinction under a different name.
 
 **Bot stop:** a full game, two humans, advanced mode with both modules on,
 on board 6 and again on board 9. Then a solo game against Dinky. Then the
 tutorial end to end -- it is five real turns through the real flow and it
-asserts possession changes hands the three scripted times.
-
-**CLAUDE.md:** "The ball carrier", "Turnovers", "Loose balls and the board"
-and "Mind Pull, and the arrival gate" all describe functions that have moved
-module. Each gets its path corrected in the same commit.
+asserts possession changes hands the three scripted times. And a restart
+inside a run back that stopped to ask, and inside a Mind Pull offer.
 
 ---
 

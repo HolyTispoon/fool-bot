@@ -492,6 +492,19 @@ why there is no `spread_link` on `MatchState` and no `CoachingSpreadView`.
 
 ### Mind Pull, and the arrival gate
 
+**Where the code is.** Since **Phase 4** of the model/Discord split the
+gate and every arrival it guards are flow steps in
+[`d12ball/flow/arrivals.py`](../../d12ball/flow/arrivals.py) --
+`check_for_ball_arrival`, `check_for_smooth`, `check_for_mind_pull`,
+`continue_smooth`, `continue_mind_pull`, `dispatch_arrival_resume`,
+`check_for_loose_ball`, and the five arrival points themselves. They moved
+**together**, because the ordering between them is what this section is
+about and half an ordering on each side of the seam is worse than none.
+A gate returns `Optional[StepResult]` -- a result when it took over, None
+when it did not -- so every caller stays the one `if ...: return` it has
+always been. `run_smooth` and `run_mind_pull` are still the cog's: they
+are dice and a dice image.
+
 **The only ability that interrupts a maneuver rather than modifying one.**
 "Mind Pull resolves before the ball settles: a pull that lands pre-empts
 whatever the movement would have led to -- a reception, a scoring

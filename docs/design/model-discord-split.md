@@ -75,6 +75,36 @@ functions** (five of the cards are their rank-mate parameterised) and
 landed in between and moved none of them: Skilled Pass had come across
 with Low Pass already, as the same step under a different `key=`.
 
+- **Phase 4 made it five modules, and widened what `FollowOn` means.**
+  `arrivals.py` holds the two gates and the five arrival points they
+  guard, `turnovers.py` the run back and the out-of-bounds pickup,
+  `turn.py` the front half of a turn, and `injuries.py` the injury-test
+  queue. The one to read first is `arrivals.py`: the gates and the
+  arrivals moved **together**, because which runs first and which of the
+  two spends `last_ball_path` is a rule, and half an ordering on each
+  side of the seam is worse than none.
+  - **A gate returns `Optional[StepResult]`** rather than a
+    `StepResult`, so a caller stays the one `if ...: return` it has
+    always been.
+  - **The enum grew from 9 members to 27, and that is the honest
+    reading.** Its meaning widened: a member used to name a step still
+    wholly in `cogs/`, and now mostly names one whose decisions have
+    moved and whose cog method is the wrapper that persists and posts.
+    It still reads exactly as "what the cog still dispatches", which is
+    the claim Phase 6 needs -- but not as "what has not been lifted".
+    The `FollowOnStep` docstring names the three kinds now in it.
+  - **`post_then_dispatch` is the other half of principle 8.**
+    `dispatch_step_result` hands a step's lines to the next step as its
+    lead-in, which is right for a maneuver resolving into its effect and
+    wrong where the line is an event in its own right -- where the ball
+    came down, that a new play has started, that everybody is running
+    back. The advanced golden caught all three the moment they were
+    merged. Which of the two a step gets is the frontend's decision, so
+    it is a second method on the cog rather than a flag on `StepResult`.
+  - **The run-back cascade is a generator**, yielding one `StepResult`
+    per pass, which is what lets the loop be the model's while the
+    per-pass persist stays the caller's -- the one named exception to
+    principle 9.
 - **Low Pass was the slice because it is not a toy.** Mid-sized, with a
   role-ability branch (the Winger's set-up, the one path that ends
   somewhere other than `finish_maneuver_resolution`), a continuation
@@ -423,7 +453,14 @@ code starts moving across the line.
   trip that one too (naming `discord` itself, which is not the useful
   message).
 
-## `tests/test_golden_transcript.py`
+## `tests/test_golden_transcript.py` and `tests/test_golden_advanced.py`
+
+There are **two** goldens since Phase 4, and they are separate files rather
+than two seeds of one: they share the fixtures, the diff and the final-save
+rendering, and what they do not share is the press rule, because the
+tutorial is driven by its own rails and the advanced game has none.
+
+### The tutorial golden
 
 Plays the tutorial through the real cog and compares the narration byte for
 byte, the sequence of prompts, and the final `to_dict()` key for key, against
@@ -447,12 +484,45 @@ rewords a result has changed the game.
   is identical under `PYTHONHASHSEED` 0, 1 and 42 (checked by hand) -- a set
   of player ids iterated into a message would otherwise vary by machine
   rather than by the change that broke it.
-- **It covers one basic-mode solo game on board 7**, the only multi-turn game
-  the suite can drive today -- no gambit, no species ability, no
-  halftime, no shootout, no time out. Rewording two of the three `Ball speed
-  is now` sites in `effects.py` did not fail it, because the tutorial only
-  reaches the third. Don't read a green golden as "the wording is covered";
-  a phase that moves narration the golden doesn't reach should add its own.
+- **It covers one basic-mode solo game on board 7** -- no gambit, no species
+  ability, no halftime, no shootout, no time out. Rewording two of the three
+  `Ball speed is now` sites in `effects.py` did not fail it, because the
+  tutorial only reaches the third. Don't read a green golden as "the wording
+  is covered"; a phase that moves narration the golden doesn't reach should
+  add its own. Phase 4 did.
+
+### The advanced golden
+
+An advanced solo game, Telekinetics against Fire Demons on board 6 in 2-3-1,
+recorded on the old code as the Phase 4 branch's first commit so that the
+move is what it is compared against. It reaches all twelve maneuvers, the
+Mind Pull and Smooth offers, a loose ball (contest pick and skill test), an
+injury test, an own-goal roll, a run back that stops to ask, a score
+attempt, a time-out, the halftime extra token and a coaching window. It
+earned its keep inside the hour: it caught three places where a lifted step
+merged two messages into one, which the tutorial golden does not reach.
+
+- **`mode` is load-bearing and easy to miss.** `gambits_apply` and
+  `species_abilities_apply` both read `game.mode` *as well as* their own
+  flag, so a fixture with the two flags set and `mode` left at its `BASIC`
+  default plays a basic game -- and the golden would have recorded nothing
+  this file is for. Every seed swept looked healthy until that was fixed.
+- **A whole-species team, and the human coaches it.** Dinky never pulls and
+  never takes a Smooth, so an AI Telekinetic would be skipped rather than
+  asked and the gate would go unrecorded.
+- **The press rule is the script**, since there are no rails: "Done
+  coaching" wherever a coaching hub offers it -- the hub is the one view in
+  the game that can be walked in a circle -- and otherwise a rotation
+  (`live[step % len(live)]`) rather than the first enabled button.
+  First-always is deterministic too, and it plays Low Pass and Deflect for
+  the whole game: ten of the twelve cards never run.
+- **The coverage is asserted, not trusted.** Two tests name the branches and
+  the cards the run has to keep reaching, the way the tutorial golden
+  asserts that its run scores, so a change that quietly stops reaching the
+  own-goal roll fails here rather than going unnoticed.
+- **What it still does not reach**: the free pickup after a time-out, the
+  stacked run back's *player* prompt, and full time and the shootout, which
+  are past where the step budget stops. Those are Phase 5's ground.
 
 ## Two things about running the suite that cost time to rediscover
 

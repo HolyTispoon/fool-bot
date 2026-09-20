@@ -459,7 +459,8 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             suppressed_cog_saves(),
-            mock.patch("cogs.d12ball.turnovers.LOGGER") as logger,
+            # The give-up log moved with the cascade in Phase 4.
+            mock.patch("d12ball.flow.turnovers.LOGGER") as logger,
         ):
             await cog.continue_run_back(interaction, game, match)
 
@@ -482,6 +483,7 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
     def setUpClass(cls) -> None:
         cls.catalog = load_player_catalog()
         cls.rules = load_basic_ruleset()
+        cls.maneuvers = load_maneuver_catalog()
 
     async def test_the_closing_board_is_drawn_once(self) -> None:
         cog = object.__new__(D12Ball)
@@ -491,11 +493,18 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
         cog.match_file_from_png = mock.Mock(return_value="file")
         cog.refresh_match_image = mock.AsyncMock()
         cog.send_turn_prompt = mock.AsyncMock()
-        cog.check_for_loose_ball = mock.AsyncMock(return_value=False)
-        # Mind Pull's gate is check_for_loose_ball's twin -- it sits
-        # one line above it in finish_maneuver_resolution and answers
-        # the same way. Nothing in this file is about it.
-        cog.check_for_ball_arrival = mock.AsyncMock(return_value=False)
+        # The two gates are inside the flow step since Phase 4, so they
+        # are no longer cog methods a test can mock out. Neither fires
+        # on this position anyway, which is the same thing the mocks
+        # were asserting: the standard deal leaves a player on the
+        # ball's space (nothing loose), and a basic game has no
+        # species abilities (nothing to pull or take over).
+        cog.engine = RulesEngine(
+            self.catalog,
+            self.rules,
+            self.maneuvers,
+            build_ai_strategies(self.catalog, self.maneuvers),
+        )
 
         match = MatchState.standard(
             catalog=self.catalog,

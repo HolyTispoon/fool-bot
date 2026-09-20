@@ -131,6 +131,9 @@ from d12ball.render import (
     zone_bounds_between,
 )
 from roster import benched, field_players, fielded, roles
+from d12ball.flow import FollowOn, FollowOnStep
+from d12ball.flow.arrivals import check_for_loose_ball
+
 from save_patches import suppressed_cog_saves
 
 
@@ -3152,14 +3155,11 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         )
         game = SimpleNamespace(match_state=None)
 
-        with suppressed_cog_saves():
-            detoured = await cog.check_for_loose_ball(
-                interaction, game, match, distance_moved=1,
-            )
+        detoured = check_for_loose_ball(
+            cog.engine, game, match, distance_moved=1,
+        )
 
-        self.assertFalse(detoured)
-        cog.begin_loose_ball.assert_not_awaited()
-        cog.begin_run_back.assert_not_awaited()
+        self.assertIsNone(detoured)
         interaction.followup.send.assert_not_awaited()
 
     async def test_detours_into_begin_loose_ball_when_the_space_is_empty(
@@ -3177,16 +3177,19 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         )
         game = SimpleNamespace(match_state=None)
 
-        with suppressed_cog_saves():
-            detoured = await cog.check_for_loose_ball(
-                interaction, game, match, distance_moved=2, lead_in="Lead-in.",
-            )
-
-        self.assertTrue(detoured)
-        cog.begin_loose_ball.assert_awaited_once_with(
-            interaction, game, match, 2, lead_in="Lead-in.",
+        detoured = check_for_loose_ball(
+            cog.engine, game, match, distance_moved=2, lead_in="Lead-in.",
         )
-        cog.begin_run_back.assert_not_awaited()
+
+        # The detour is named rather than taken: the loose ball
+        # announces the position with the board under it, so it is its
+        # own step and its own message -- see
+        # `FollowOnStep.BEGIN_LOOSE_BALL`.
+        self.assertEqual(
+            detoured.next,
+            FollowOn(FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 2}),
+        )
+        self.assertEqual(detoured.narration, ["Lead-in."])
 
     async def test_opposing_player_alone_on_the_space_is_contested(
         self,
@@ -3221,20 +3224,19 @@ class D12BallCheckForLooseBallTests(unittest.IsolatedAsyncioTestCase):
         )
         game = SimpleNamespace(match_state=None)
 
-        with suppressed_cog_saves():
-            detoured = await cog.check_for_loose_ball(
-                interaction, game, match, distance_moved=1,
-                lead_in="Deflect happened.",
-            )
+        detoured = check_for_loose_ball(
+            cog.engine, game, match, distance_moved=1,
+            lead_in="Deflect happened.",
+        )
 
-        self.assertTrue(detoured)
         # Nothing is settled here any more: possession does not move
         # until somebody wins the contest.
         self.assertEqual(match.ball.possession, TeamSide.HOME)
-        cog.begin_run_back.assert_not_awaited()
-        cog.begin_loose_ball.assert_awaited_once_with(
-            interaction, game, match, 1, lead_in="Deflect happened.",
+        self.assertEqual(
+            detoured.next,
+            FollowOn(FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 1}),
         )
+        self.assertEqual(detoured.narration, ["Deflect happened."])
 
 
 class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):

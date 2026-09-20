@@ -10,7 +10,9 @@ space, from any zone**. `MatchState.contest_candidates` is the whole of it --
 see "Sending a player" in the living rules -- and the three are the maneuver
 challenge (`eligible_challengers`), the loose ball (`loose_ball_candidates`),
 and the pickup after an out-of-bounds ball, a time out, a missed shot or an
-avoided own goal (`begin_ball_recovery`, `recover_out_of_bounds_ball`). It was
+avoided own goal (`begin_ball_recovery` in
+[`d12ball/flow/turnovers.py`](../../d12ball/flow/turnovers.py),
+`recover_out_of_bounds_ball`). It was
 four until 2026-08-18: the long High Pass contest **is** the loose ball now
 rather than borrowing it -- see
 [Loose balls and the board](loose-balls.md#loose-balls-and-the-board).
@@ -111,7 +113,10 @@ nothing downstream has to know which happened.
 - **Which way it happened is read off the candidates, never stored.** Anybody
   still eligible to challenge means the defense was offered the challenge and
   passed, since a defense with nobody to send is never asked.
-  `announce_uncontested_maneuver` and the "no defensive maneuver to pick" reply
+  `announce_uncontested_maneuver` (a flow step in
+  [`d12ball/flow/turn.py`](../../d12ball/flow/turn.py) since Phase 4, with
+  `auto_resolve_challenger` beside it) and the "no defensive maneuver to
+  pick" reply
   both word themselves from that, so nothing has to be persisted to word a
   message after a restart. Both branches survive the 2026-08-16 change even
   though one of them is now practically unreachable -- the wording asks the
