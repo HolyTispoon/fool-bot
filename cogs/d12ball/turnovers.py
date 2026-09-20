@@ -24,6 +24,7 @@ from d12ball.game import (
     Formation,
 )
 from d12ball import tutorial
+from d12ball.flow.turnovers import ball_recovery_step
 from d12ball.render import render_coaching_image
 from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
@@ -1715,83 +1716,27 @@ class TurnoverMixin:
         lead_in: str = "",
     ) -> None:
         """
-        Ask the side that won an out-of-bounds ball, or called a
-        time out, which of
-        their players goes and stands on it: the nearest either side of
-        it, from any zone, at one exhaustion token per space traveled.
-        It is the same choice a loose ball and a challenge put, and
-        since 2026-08-16 it is the same pool -- it used to offer the
-        whole field, which is a distance sum the coach had to do off
-        the board.
+        The Discord half of the out-of-bounds pickup --
+        `ball_recovery_step` in `d12ball/flow/turnovers.py`, which is
+        where the reasoning now lives.
 
-        Deliberately the last thing that happens: both callers reset
-        everyone to their arrangement first, so this player is placed
-        once and stays, where placing them before it would only have
-        them run back off the ball and leave it loose all over again.
+        All three of its branches carry `lead_in` on into whatever
+        comes next, which is why it goes in at the front of the
+        result's narration rather than being handed to the step: how
+        the line before a question joins the question is the
+        frontend's (principle 8), and `dispatch_step_result` is where
+        that is decided for every step at once.
 
-        **Which is also why it asks whether there is anything to do.**
-        A reset can perfectly well put one of the gaining side on the
-        ball's space by itself -- that is the arrangement's own doing,
-        and the rules ask for a pickup "unless one of theirs is
-        already on it". `finish_time_out` decides this before it sets the
-        flag, because it has a second branch to run either way; the
-        out-of-bounds path sets the flag before the reset, so the
-        question can only be asked here.
+        **The persist is the transition rule** (principle 9): the step
+        no longer saves, the spine under it is still the cog's, and
+        two of the three branches hand the turn to a click that
+        reloads the match out of the save file.
         """
-        side = match.ball.possession
-        candidates = (
-            [] if match.eligible_ball_handlers()
-            else match.contest_candidates(side)
-        )
-        if not candidates:
-            # Somebody of theirs is already standing on it, or nobody
-            # is fielded at all. Either way nothing is placed: let the
-            # loose-ball check downstream deal with it, the same way
-            # an empty kickoff is handled.
-            match.pending_ball_recovery = False
-            self.persist(game, match)
-            await self.finish_maneuver_resolution(
-                interaction, game, match,
-                distance_moved=match.pending_run_back_distance,
-                turnover_occurred=True,
-                lead_in=lead_in,
-            )
-            return
-
-        if self.engine.side_is_ai(game, side):
-            # Nearest, not best: this walk costs a token per space and
-            # wins nothing, so the only thing worth optimizing is how
-            # much it costs.
-            await self.apply_ball_recovery(
-                interaction,
-                game,
-                match,
-                min(candidates, key=match.distance_to_ball),
-                lead_in=lead_in,
-            )
-            return
-
-        number = (
-            game.home_player_number
-            if side == TeamSide.HOME
-            else game.visiting_player_number
-        )
-        mention = format_player_with_team(
-            game, number, self.team_emojis, mention=True,
-        )
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-        prompt_message = await send_new_prompt(
-            interaction,
-            f"{prefix}{mention}, everyone is back in position -- send "
-            "the nearest player either side of the ball to pick it up "
-            f"at {space_label(match.ball.zone, match.ball.space_index)}:",
-            view=BallRecoveryView(self, game.game_id),
-            allowed_mentions=discord.AllowedMentions(
-                users=True, roles=False, everyone=False,
-            ),
-        )
-        game.turn_message_id = prompt_message.id
-        save_games(self.games)
+        result = ball_recovery_step(self.engine, game, match)
+        if lead_in:
+            result.narration.insert(0, lead_in)
+        self.persist(game, match)
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def apply_ball_recovery(
         self,

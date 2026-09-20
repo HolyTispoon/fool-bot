@@ -116,6 +116,16 @@ class FollowOnStep(Enum):
     #: already existed as a step, with a second caller in the declined
     #: set-up, so nothing moved to make room for it.
     BEGIN_HIGH_PASS_CONTEST = auto()
+    #: The pickup itself, once `ball_recovery_step` has settled *who*
+    #: goes: walking that player onto the ball, charging them a token a
+    #: space, and saying so. Phase 4's, and a follow-on rather than the
+    #: step doing it because only the AI branch reaches it without a
+    #: coach's click -- a human's answer arrives through
+    #: `BallRecoveryView` instead, which is the `PromptKind` the same
+    #: step returns on its third branch. Both ends meet in
+    #: `D12Ball.apply_ball_recovery`, so there is one placement rather
+    #: than one per route.
+    APPLY_BALL_RECOVERY = auto()
 
 
 @dataclass(frozen=True)

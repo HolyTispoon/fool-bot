@@ -2720,6 +2720,44 @@ class RulesEngine:
             "or send nobody:"
         )
 
+    def build_ball_recovery_prompt(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> str:
+        """
+        Who is being asked to go and pick an out-of-bounds ball up,
+        and from where.
+
+        The twin of `build_loose_ball_prompt`, and it names the coach
+        the same way for the same reason -- both are the question
+        "send somebody to the ball's space", put to a side that has
+        just watched everyone run back.
+
+        **It is not the line a restart asks with**, and that is
+        deliberate rather than a duplicate. `pending_prompt`'s
+        `BALL_RECOVERY` branch words the position cold, because a
+        resume posts it with nothing in front of it; this one is read
+        directly under the reset it follows, so it names the coach and
+        says why everybody is suddenly where they are. Same position,
+        two readings of it, which is the split `pending_prompt` and
+        the live flow already made everywhere else.
+        """
+        side = match.ball.possession
+        number = (
+            game.home_player_number
+            if side == TeamSide.HOME
+            else game.visiting_player_number
+        )
+        mention = format_player_with_team(
+            game, number, self.team_emojis, mention=True,
+        )
+        return (
+            f"{mention}, everyone is back in position -- send "
+            "the nearest player either side of the ball to pick it up "
+            f"at {space_label(match.ball.zone, match.ball.space_index)}:"
+        )
+
     def apply_formation(
         self,
         match: MatchState,

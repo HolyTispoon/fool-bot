@@ -244,6 +244,13 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
         is asked before the pass is applied -- so this is asserted on
         the dispatcher directly, which is where Phase 3's effects will
         meet it.
+
+        **The lead-in and the ask are joined on a blank line**, which
+        is what every spine prompt the cog posted did for itself and
+        what Phase 4 moved into the dispatcher when the spine started
+        ending on prompts for real. The save is the prompt's message
+        id going onto the game record, the same three things
+        `resume_pending_prompt` does.
         """
         fixture = next(
             case.build() for case in LOW_PASS_CASES
@@ -257,7 +264,7 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
             maneuver_key="low_pass",
         )
 
-        with mock.patch(
+        with suppressed_cog_saves(), mock.patch(
             "cogs.d12ball.core.send_new_prompt", mock.AsyncMock(),
         ) as send:
             await cog.dispatch_step_result(
@@ -276,11 +283,17 @@ class LowPassWrapperTests(unittest.IsolatedAsyncioTestCase):
         content = send.await_args.args[1]
         self.assertEqual(
             content,
-            "**Low Pass:** the ball moves 2 spaces forward. "
+            "**Low Pass:** the ball moves 2 spaces forward.\n\n"
             "Choose your Low Pass:",
         )
         self.assertIsInstance(
             send.await_args.kwargs["view"], LowPassChoiceView,
+        )
+        self.assertEqual(
+            fixture.game.turn_message_id,
+            send.return_value.id,
+            "the prompt's message id is what drop_turn_prompt takes "
+            "the prompt down by",
         )
 
     async def test_a_step_with_nothing_next_posts_its_own_lines(

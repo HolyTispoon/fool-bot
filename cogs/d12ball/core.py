@@ -1868,6 +1868,7 @@ class CoreMixin:
                 self.offer_setup_pass_push_back,
             FollowOnStep.BEGIN_HIGH_PASS_CONTEST:
                 self.begin_high_pass_contest,
+            FollowOnStep.APPLY_BALL_RECOVERY: self.apply_ball_recovery,
         }
 
     async def dispatch_step_result(
@@ -1908,6 +1909,27 @@ class CoreMixin:
         table a restart restores through. Two tables is how the live
         flow and the resume come to offer different questions -- see
         "d12ball/prompts.py" in docs/design/model-discord-split.md.
+
+        **That branch is posted exactly the way the cog posted the
+        prompts it replaced**, which is three things and each of them
+        was a site-by-site habit before Phase 4 made it one:
+
+        - the lead-in is joined to the ask on a **blank line**, not a
+          space. Every spine prompt that ever carried narration in
+          front of it built `f"{lead_in}\n\n{ask}"` itself, because
+          a result and the question it leads to are two paragraphs.
+          Nothing reached this branch in production before Phase 4 --
+          only a test did -- so the space it used to join on had never
+          been read by a coach.
+        - `allowed_mentions` is passed, because an ask names the coach
+          it is waiting on and a prompt nobody is pinged by is a turn
+          that stops.
+        - the message id is recorded on the game and saved, so
+          `drop_turn_prompt` and `close_maneuver_prompt` can still find
+          the prompt they are meant to take down. `resume_pending_prompt`
+          does the same three for every kind it re-posts, which is what
+          makes doing them for every kind here the consistent answer
+          rather than a new rule.
         """
         lead_in = " ".join(result.narration)
         following = result.next
@@ -1925,11 +1947,16 @@ class CoreMixin:
             return
 
         if isinstance(following, PendingPrompt):
-            await send_new_prompt(
+            prompt_message = await send_new_prompt(
                 interaction,
-                " ".join(filter(None, (lead_in, following.ask))),
+                "\n\n".join(filter(None, (lead_in, following.ask))),
                 view=self.view_for_prompt(game.game_id, match, following),
+                allowed_mentions=discord.AllowedMentions(
+                    users=True, roles=False, everyone=False,
+                ),
             )
+            game.turn_message_id = prompt_message.id
+            save_games(self.games)
             return
 
         if lead_in:
