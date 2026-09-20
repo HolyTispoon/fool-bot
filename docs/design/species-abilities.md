@@ -760,6 +760,29 @@ that spends a token on a 1-in-6, or one that simply takes the ball.
   player cannot gain, so `add_exhaustion` would silently hand them a free
   roll. Smooth costs nothing, so the reasoning does not reach it, and an
   injured player is still playing.
+- **`ball_carrier_id` is out of Smooth's list, and the pull needs no such
+  clause.** The author, on a Low Pass aimed at a Telekinetic that then
+  offered its own receiver a Smooth (2026-09-20): *"Dravox was already the
+  recipient of the ball so it doesn't make sense"*. Taking it over means
+  taking it off somebody, and a receiver, a thief and the shooter a set-up
+  hands it to each end the movement holding it either way -- so the offer
+  changes nothing and reads as a mechanic firing for its own sake. It is the
+  **same sentence as `last_ball_movers`, read at the other end**: that one
+  disqualifies a player the ball arrived *with*, this one the player the ball
+  is arriving *for*, and between them a Telekinetic can no longer be offered
+  a ball that was already theirs. The pull is exempt for a structural reason
+  rather than by oversight -- a carrier is on the side in possession by
+  definition, and the pull is only ever offered to the side that is not.
+  - **It needed no new state**, which is why it is one `continue`: every
+    effect that completes a delivery sets the carrier *before* the arrival
+    gate is asked (`send_low_pass`, the Setup Pass, the two High Pass set-up
+    branches, the steal and the intercept), and `select_ball_handler` clears
+    it at the top of the turn, so nothing stale reaches the gate.
+  - **What it does not take away is the whole point of the ability**: a
+    Telekinetic the ball passes *through* on its way somewhere else, and a
+    Telekinetic standing on the landing space beside the player the pass was
+    aimed at. The second is Slip in's own case, which is what Smooth
+    replaced it with.
 
 **`check_for_ball_arrival` is the single gate the five arrival points call**,
 and it runs Smooth then Mind Pull. Two things about that order are
@@ -807,6 +830,15 @@ Telekinetics the way `continue_mind_pull` skips them, rather than
 Taking the ball over moves who plays the next turn, which is a judgement, and
 Dinky makes none -- the same call as never ceding, never declining a challenge
 and never pulling. In a solo game the ability is the human's alone.
+
+**The take-over line names a space, not a sentence** (2026-09-20).
+`run_smooth` and `run_mind_pull` each built their narration around
+`ball_location_line`, which is a whole sentence -- so a coach read "takes the
+ball over on The ball is at **V1** (Visitors Third)..". `ball_space_phrase` in
+`cogs/d12ball_helpers.py` is the phrase half and `ball_location_line` is now a
+sentence around it, so the two cannot come to name a space differently. It is
+the split `travel_space_label` and `travel_space_phrase` already make, for the
+same reason: a label and the prose around it are one wording in two shapes.
 
 ### Application emoji for the four abilities (2026-09-20)
 

@@ -1373,6 +1373,38 @@ class SmoothCandidateTests(unittest.TestCase):
             self.engine.mind_pull_candidates(self.game, self.match),
         )
 
+    def test_the_player_the_ball_is_handed_to_is_offered_nothing(self):
+        # The author's case, 2026-09-20: a Low Pass aimed at a
+        # Telekinetic offered its own receiver a Smooth on the ball
+        # they had just caught. Taking it over means taking it off
+        # somebody, and there is nobody to take it off here.
+        self.cross(self.taker)
+        self.match.set_ball_carrier(self.taker)
+        self.assertEqual(
+            self.engine.smooth_candidates(self.game, self.match), [],
+        )
+
+    def test_a_teammate_beside_the_receiver_may_still_take_it(self):
+        # And this is what the ability is *for*: the receiver holds
+        # the ball, and the Telekinetic sharing the landing space may
+        # take it over instead. Slip in's own case, one step earlier.
+        self.cross(self.taker)
+        receiver = next(
+            player_id
+            for player_id in field_players(
+                self.match, self.match.ball.possession,
+            )
+            if player_id != self.taker
+        )
+        self.match.board.place_meeple(
+            receiver, self.match.ball.zone, self.match.ball.space_index,
+        )
+        self.match.set_ball_carrier(receiver)
+        self.assertEqual(
+            self.engine.smooth_candidates(self.game, self.match),
+            [self.taker],
+        )
+
     def test_a_non_telekinetic_teammate_may_not(self):
         # A colour side fields two of each other species, so this is a
         # real case rather than a hypothetical.

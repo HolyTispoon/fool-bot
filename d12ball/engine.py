@@ -598,6 +598,20 @@ class RulesEngine:
           on the possessing side and ends up standing on the ball, so
           without this they would be offered a Smooth on the ball they
           are already holding.
+        - **Whoever the movement is handing the ball to is out**,
+          which is the other way the same player can end up on the
+          ball without the ball having arrived *at* them in any sense
+          they could act on. "You may take it over" is an offer to
+          take it off somebody, and the receiver of a pass, the
+          challenger who has just stolen it and the shooter a set-up
+          hands it to are each already the one holding it -- there is
+          nothing for them to take over, and the button changes
+          nothing (the author, 2026-09-20). `match.ball_carrier_id` is
+          who that is, set by every effect that completes a delivery
+          before the arrival gate is asked. **The pull needs no such
+          clause**: a carrier is by definition on the side in
+          possession, and a pull is only ever offered to the side that
+          is not.
         - **Injured players are in.** A pull excludes them because it
           costs an exhaustion token and an injured player cannot gain
           one, so `add_exhaustion` would silently hand them a free
@@ -617,13 +631,14 @@ class RulesEngine:
             match.setup_for_side(match.ball.possession).field_players
         )
         moved = set(match.last_ball_movers)
+        carrier_id = match.ball_carrier_id
 
         candidates: list[str] = []
         for zone_value, space_index in match.last_ball_path:
             for player_id in match.board.spaces[Zone(zone_value)][space_index]:
                 if player_id not in ours or player_id in candidates:
                     continue
-                if player_id in moved:
+                if player_id in moved or player_id == carrier_id:
                     continue
                 if not self.has_species_ability(
                     game, player_id, SPECIES_TELEKINETIC,
