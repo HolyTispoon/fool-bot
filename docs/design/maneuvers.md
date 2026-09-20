@@ -83,6 +83,17 @@ weapon rather than only a saving.
   A change to what a deflection *is* reaches Clear for free, which is
   the point -- the two differ by a distance and a speed drop and
   nothing else.
+  - **Low Pass's own resolution is not in the cog any more.**
+    `d12ball/flow/effects.py`'s `low_pass_step` moves the ball, words
+    it, charges a beaten Double Team, and decides between the ordinary
+    tail and a Winger's set-up; `D12Ball.apply_low_pass` is four lines
+    around it -- run the step, save, dispatch. `send_low_pass`,
+    `low_pass_movement_note` and `pay_double_team_cost` went with it
+    and are free functions there rather than cog methods. That is
+    Phase 2 of docs/model-discord-split.md and the pattern the other
+    eleven follow; the rule it settled is that the **step does not
+    save and the wrapper does**, immediately, before dispatching. See
+    "The model and the Discord layer" in CLAUDE.md.
 - **Every cost bites inside the winning maneuver's own resolution**,
   which is why there is no cost dispatcher. `advanced_cost` names the
   card that was beaten and the winner's handler asks it: Clear's 2
