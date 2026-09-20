@@ -334,6 +334,14 @@ corrections to what the later ranks expect:
   where it is: it is in the `resolve_*` half this phase does not
   touch, and lifting it would settle `board_changed` for every loose
   ball rather than for one card. See 3e, which is where that is due.
+  A second scheduled run reached that branch before standing down, and
+  turned up **two rules questions on it** that have to be answered
+  before it moves rather than while it moves: a *failed* free pass
+  charges a space minute where a completed one charges none (the
+  branch hardcodes `distance_moved=1` and never reads `free`), and it
+  leaves its `free_low_pass` continuation standing, which
+  `apply_speed_choice` then re-offers. Both are pre-existing on `main`
+  and both are written out in PR #232.
 
 **Bot stop, per rank:** play both cards of the rank, contested and
 unchallenged, on two board sizes, in a basic and an advanced game. Watch the
