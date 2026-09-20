@@ -15,7 +15,7 @@ Phase 0 has landed (PR #201), and so has Phase 1, in the two halves the
 worksheet's own "lands first, on its own" asked for (1a in PR #223, 1b in
 PR #225), and so has Phase 2 (PR #227) -- so there are no prompts for any
 of them. Phase 3 is one template run six times, and **3a has landed
-(PR #PRNUM)**; the template stays until 3f does.
+(PR #229)**; the template stays until 3f does.
 
 ---
 
@@ -154,7 +154,7 @@ Do them in the order given; each assumes the previous has landed.
 
 | Run | RANK block |
 | --- | --- |
-| 3a | **Landed (PR #PRNUM).** `Rank O2 -- Dribble Advance and Dribble Burst.` It handed off to `finish_maneuver_resolution` not at all: both cards end on `offer_speed_choice`, a new `FollowOnStep` member rather than a prompt the step returns. |
+| 3a | **Landed (PR #229).** `Rank O2 -- Dribble Advance and Dribble Burst.` It handed off to `finish_maneuver_resolution` not at all: both cards end on `offer_speed_choice`, a new `FollowOnStep` member rather than a prompt the step returns. |
 | 3b | `Rank O1 -- Skilled Pass, and the shared key= parameter. Low Pass moved in Phase 2 and Skilled Pass already rides its step: d12ball/flow/effects.py's low_pass_step takes key= and cogs/d12ball/effects.py's apply_low_pass wrapper passes it through, so this rank may already be whole. Check resolve_skilled_pass and the free-pass continuation, add the fixtures and tests Phase 2 did not, and if nothing is left to move say so in the PR rather than inventing work.` |
 | 3c | `Rank D2 -- Steal and Intercept. A turnover, so this is the first hand-off to begin_run_back: the step's next is a FollowOn naming it; begin_run_back stays async in the cog. take_ball_by_steal saves itself today -- strip it and the wrapper persists. A steal that does not turn the ball over ends on the same offer_speed_choice the dribbles did, so OFFER_SPEED_CHOICE already exists: inherit it, do not add a second member for it.` |
 | 3d | `Rank D3 -- Pressure and Double Team. The own-goal branch (run_own_goal_roll stays in the cog; apply_own_goal_outcome saves itself today -- strip it and the wrapper persists) and pending_double_team reaching into the next turn. Read docs/design/possession-and-turnovers.md.` |

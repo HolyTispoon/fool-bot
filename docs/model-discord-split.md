@@ -27,7 +27,7 @@ it happened to have.
 | **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
-| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a done (PR #PRNUM); 3b-3f open |
+| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a done (PR #229); 3b-3f open |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
@@ -278,7 +278,7 @@ so the pattern is settled before it meets the hard cases.
 
 | # | Rank | Cards | Why here |
 | --- | --- | --- | --- |
-| 3a | O2 | Dribble Advance, Dribble Burst | **Done (PR #PRNUM.)** Moved the handler and ended; the speed choice was the only prompt |
+| 3a | O2 | Dribble Advance, Dribble Burst | **Done (PR #229).** Moved the handler and ended; the speed choice was the only prompt |
 | 3b | O1 | Low Pass, Skilled Pass | Already done in Phase 2 -- this is Skilled Pass and the shared `apply_low_pass(key=)` |
 | 3c | D2 | Steal, Intercept | A turnover, so it meets `begin_run_back` -- the first hand-off |
 | 3d | D3 | Pressure, Double Team | The own-goal branch, and `pending_double_team` reaching into the next turn |
