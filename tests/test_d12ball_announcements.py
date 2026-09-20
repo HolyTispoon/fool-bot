@@ -36,6 +36,7 @@ from d12ball.components import (
 )
 from d12ball.engine import IgnitedRoll, RulesEngine
 from d12ball.game import D12BallGame, Team
+from follow_on_args import follow_on_argument
 from save_patches import suppressed_cog_saves, suppressed_view_saves
 
 
@@ -301,6 +302,14 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         # "<@id> (Orange) resolves the effect:", which named someone
         # who is either prompted by name a moment later or has nothing
         # to decide at all.
+        #
+        # Read off the `lead_in` the effect is handed rather than off
+        # the messages, since the front half of Phase 4: the reveal is
+        # `resolve_maneuver_step`'s narration now and
+        # `dispatch_step_result` carries it into
+        # `begin_effect_resolution`, which is the mock here. What a
+        # coach reads is unchanged -- both goldens hold it byte for
+        # byte -- and this is the same string one call earlier.
         cog = build_cog()
         match = self.build_match()
         game = build_game()
@@ -325,13 +334,17 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves():
             await cog.resolve_maneuver(interaction, game, match)
 
-        announcement = sent_texts(interaction)[0]
+        cog.begin_effect_resolution.assert_awaited_once()
+        announcement = follow_on_argument(
+            D12Ball.begin_effect_resolution,
+            cog.begin_effect_resolution.await_args,
+            "lead_in",
+        )
         self.assertIn(
             f"## **{cog.engine.maneuver_name(winner)}** wins!", announcement,
         )
         self.assertNotIn("resolves the effect", announcement)
         self.assertNotIn("<@", announcement)
-        cog.begin_effect_resolution.assert_awaited_once()
 
     # -- Score attempt -------------------------------------------------
 

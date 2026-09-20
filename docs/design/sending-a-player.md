@@ -111,9 +111,14 @@ nothing downstream has to know which happened.
 - **Which way it happened is read off the candidates, never stored.** Anybody
   still eligible to challenge means the defense was offered the challenge and
   passed, since a defense with nobody to send is never asked.
-  `announce_uncontested_maneuver` and the "no defensive maneuver to pick" reply
-  both word themselves from that, so nothing has to be persisted to word a
-  message after a restart. Both branches survive the 2026-08-16 change even
+  `RulesEngine.uncontested_maneuver_announcement` and the "no defensive
+  maneuver to pick" reply both word themselves from that, so nothing has to be
+  persisted to word a message after a restart. The sentence came down from
+  `D12Ball.announce_uncontested_maneuver` with the front half of Phase 4 of
+  [model-discord-split.md](../model-discord-split.md), and what the cog
+  method still holds is that it is a message of its own, above the maneuver
+  prompt rather than on it -- which is a batching decision and therefore the
+  frontend's. Both branches survive the 2026-08-16 change even
   though one of them is now practically unreachable -- the wording asks the
   state rather than knowing the answer.
 - **Dinky never declines.** `choose_challenger` still returns a player, so in a

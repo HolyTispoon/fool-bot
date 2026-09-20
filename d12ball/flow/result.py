@@ -43,6 +43,21 @@ class FollowOnStep(Enum):
     by spelling one.
     """
 
+    #: The effect of a maneuver that has been settled -- by the cards,
+    #: by an injured participant's automatic loss, or by there being
+    #: nobody to challenge it. Phase 4's, and the first member named by
+    #: a step in front of the effects rather than by one of them: the
+    #: twelve `resolve_*` handlers and `record_maneuver` are still the
+    #: cog's, so the winner arrives as a `winner_key` in the kwargs and
+    #: `begin_effect_resolution` does what it always did with it.
+    BEGIN_EFFECT_RESOLUTION = auto()
+    #: The skill test a maneuver the cards did not settle goes to.
+    #: Phase 4's. It takes the reveal as its `lead_in` rather than the
+    #: `headline` parameter it used to be handed, which is the same
+    #: string by a name that says whose it is: the narration is the
+    #: result's (principle 4) and how it opens the test's own message
+    #: is the frontend's.
+    BEGIN_MANEUVER_SKILL_TEST = auto()
     #: The tail of every ordinary maneuver path: the clock, the end of
     #: a period, and the offensive choice handed back.
     FINISH_MANEUVER_RESOLUTION = auto()

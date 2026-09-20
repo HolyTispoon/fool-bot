@@ -276,13 +276,18 @@ missing other half for Injured, scoped the same way.
   is untouched; `mark_injured`/`run_injury_test` ask no species question at
   all. Every site that already branched Exhausted/Drained on
   `has_species_ability` picked up the matching Injured/Damaged branch beside
-  it -- `CoreMixin.injured_word_and_emoji` is the shared word+emoji answer for
-  the cog's own message-building sites (mirroring the inline `drain = ...`
+  it -- `RulesEngine.injured_word_and_emoji` is the shared word+emoji answer
+  for every message-building site (mirroring the inline `drain = ...`
   branch `describe_exhaustion_gain` already used for Exhausted/Drained), and
-  the handful of sites the cog doesn't reach -- `RulesEngine.shootout_button_label`,
+  the handful of sites it doesn't reach -- `RulesEngine.shootout_button_label`,
   the contest dice images' `contestant_detail` -- ask `has_species_ability`
   directly, since a button label and a drawn die face carry no emoji to look
-  up.
+  up. It was `CoreMixin.injured_word_and_emoji` until the front half of
+  Phase 4 of [model-discord-split.md](../model-discord-split.md) brought it
+  down: a species' own word for a condition is a rule about what the game
+  says, and `d12ball/flow/turn.py` has to word an injured player's automatic
+  loss without the cog. `D12Ball.injured_word_and_emoji` forwards to it, so
+  none of the six call sites moved.
 - **The board badge is a fourth argument, not a fourth boolean pair.**
   `render.py` already drew Exhausted/Injured as mutually exclusive badges in
   one card-stats slot; `draw_card`'s new `cyborg` flag only ever picks which

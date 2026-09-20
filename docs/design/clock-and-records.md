@@ -127,7 +127,7 @@ fact.
   | kind | recorded by | why there |
   | --- | --- | --- |
   | `turn_action` | `D12Ball.record_turn_action`, from the three buttons on `PlayerActionView` and from `play_ai_turn` | after each one's own stale-view guard -- a refused click is not a turn |
-  | `maneuver` | `begin_effect_resolution` | every maneuver in the game reaches it exactly once, decisive, unchallenged or through the skill test |
+  | `maneuver` | `begin_effect_resolution` | every maneuver in the game reaches it exactly once, decisive, unchallenged or through the skill test. Since the front half of Phase 4 of [model-discord-split.md](../model-discord-split.md) it is also where the reveal `resolve_maneuver_step` worded is posted, above the effect -- which changes nothing about the log, and is named here so the funnel is not read as having moved |
   | `skill_test` | `SkillTestView.roll` | before either branch, so a tie that re-rolls is in the record as well as the roll that settles it |
   | `shot` | `ScoreAttemptView.roll` | before `settle_score_attempt`, which awards the goal |
   | `own_goal_roll` | `run_own_goal_roll` | both outcomes: the rate needs the attempts as well as the concessions |

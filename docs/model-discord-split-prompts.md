@@ -153,15 +153,22 @@ still being planned.
 ```
 [PREAMBLE]
 
-This is Phase 4 of docs/model-discord-split.md, "the spine" -- the biggest
-single phase and the one the worksheet says to resist splitting badly. All
-six Phase 3 ranks have landed.
+This is the rest of Phase 4 of docs/model-discord-split.md, "the spine"
+-- the biggest single phase and the one the worksheet says to resist
+splitting badly. All six Phase 3 ranks have landed, and so has Phase 4's
+**front half** (PR #TBD): `resolve_maneuver_step` and
+`maneuver_selection_step` in d12ball/flow/turn.py, four wording methods
+down onto RulesEngine, and the advanced golden the rest of this phase is
+to be compared against. Read that pull request's "Questions for the
+author" before you start -- the open one is about `StepResult` and it is
+this half's to answer.
 
-Probe: the worksheet's Status column names a PR for every rank 3a-3f, and
-`grep -c "self.persist" cogs/d12ball/effects.py` has fallen to the
-wrappers alone -- say what the number is. It was **32** when 3f landed, of
+Probe: `grep -q "def resolve_maneuver_step" d12ball/flow/turn.py` and
+`test -f tests/golden/advanced_transcript.txt`, and
+`grep -c "self.persist" cogs/d12ball/effects.py` -- say what the number
+is. It was **32** when 3f landed and the front half did not change it, of
 which the twelve cards account for one apiece; the rest are the
-`resolve_*`/prompt half and the spine this phase is here to move, so
+`resolve_*`/prompt half and the spine this half is here to move, so
 expect it to fall a long way rather than to zero.
 
 Read
@@ -175,10 +182,6 @@ can say back why "the path is spent whether or not anybody may pull".
 What moves into d12ball/flow/ as sync functions returning StepResult, with
 `interaction` leaving each of them:
 
-- the front half of a turn: `auto_resolve_challenger`,
-  `announce_uncontested_maneuver`, `begin_maneuver_action_selection`,
-  `resolve_maneuver` (cogs/d12ball/core.py). Nothing in Phases 1-3 touched
-  these; both a human's pick and play_ai_turn's pass through them.
 - the three arrival points: `finish_maneuver_resolution` (periods.py),
   `D12Ball.begin_loose_ball` and `offer_scoring_attempt_choice`
   (effects.py), and the two gates each opens with, `check_for_mind_pull`
@@ -228,15 +231,15 @@ are the driver's belongs wherever the driver's own board decision ends up
 -- it is rate-limit arithmetic and stays the frontend's (principle 8), so
 it does not follow the steps into d12ball/flow/.
 
-Golden coverage is the risk here. The tutorial golden covers one basic solo
-game on board 7 -- no gambit, no species ability, no Mind Pull,
-no injury test, no own goal, no stacked run back. The worksheet says this
-phase adds a golden for what it moves. Add at least one: a seeded, scripted
-advanced game (both modules on, a board with stacks, a species that can
-Mind Pull) driven through the real cog by the same harness
-tests/test_golden_transcript.py uses, recorded on the old code before the
-move so the move is what it is compared against. Say in the PR which
-branches it reaches and which it still does not.
+Golden coverage was the risk here and the front half answered it:
+tests/test_golden_advanced_transcript.py is a seeded advanced solo game on
+board 9, the Telekinetics in the human's hands, recorded on the old code
+and reaching Mind Pull, Smooth, the loose ball both ways, an injury test, a
+challenge walk-in and a run back that stops to ask a coach which space.
+Read its module docstring for what it still does not reach -- no own-goal
+roll, no stacked run back, no window taken up -- and add to it rather than
+beside it if this half needs a branch it misses. It must stay
+byte-identical across the move, and so must the tutorial's.
 
 Tests otherwise: every moved step has a model-side test with no discord;
 nothing moved saves; the cog wrapper (or per-pass loop) saves where the
@@ -249,10 +252,14 @@ byte-identical; test_model_purity green.
 Docs: docs/design/possession-and-turnovers.md, loose-balls.md,
 species-abilities.md (arrival gate), sending-a-player.md, maneuvers.md and
 shooting.md (whose High Pass section names the flow's function names since
-3f) each get their paths corrected and, where the reasoning now lives in a flow
-function's docstring, a pointer to it. CLAUDE.md's map row for
-d12ball/flow/ grows; the cog-structure.md description of what the six
-mixins hold is corrected. The worksheet's Phase 4 section is cut down.
+3f) each get their paths corrected and, where the reasoning now lives in a
+flow function's docstring, a pointer to it. CLAUDE.md's map row for
+d12ball/flow/ grows -- **that row, and the one describing the six mixins,
+is where "what each mixin holds" is written down; docs/design/cog-structure.md
+is about why they are mixins and says nothing to correct here** (this
+prompt said otherwise until the front half went looking). The worksheet's
+Phase 4 section is cut down, and its Status cell says the whole phase is
+done rather than the front half.
 
 Bot stop for the author (in the PR): a full game, two humans, advanced mode
 with both modules on, on board 6 and again on board 9; a solo game against
@@ -273,7 +280,9 @@ Phase 4 has landed.
 
 Probe: `grep -q "def finish_maneuver_resolution" d12ball/flow/*.py`, and
 `FollowOn` in d12ball/flow/result.py has only the members Phase 4 left
-(read the enum; it is the list).
+(read the enum; it is the list -- and note it **grew** during Phase 4
+before it shrank, so "only the members Phase 4 left" is what the enum
+says, not a number smaller than 3f's nine).
 
 Read docs/design/coaching-choice.md, docs/design/shootout.md,
 docs/design/time-out.md, docs/design/clock-and-records.md, and the "The
@@ -303,23 +312,33 @@ What stays: the two ephemeral shootout menus (the secret orders). They are
 Discord-specific. The flow exposes what they need to submit and what to
 show; the menus themselves, and `restore_shootout_menus`, stay in the cog.
 
-Golden: the tutorial golden reaches none of this (no halftime, no shootout,
-no time out). Add a seeded, scripted golden that runs a game through
-halftime with substitutions on both sides, a time out in each half, a level
-score at full time and a shootout into sudden death, recorded on the old
-code before the move. If the harness cannot drive one of those (the
-worksheet notes the tutorial is the only multi-turn game the suite can
-drive today), extending the harness is in scope for this PR and the
-extension is described in docs/design/model-discord-split.md; say which
-window remains unpinned if any does.
+Golden: neither existing golden reaches a window taken up, a shootout or a
+time out. Add a seeded, scripted golden that runs a game through halftime
+with substitutions on both sides, a time out in each half, a level score at
+full time and a shootout into sudden death, recorded on the old code before
+the move.
+
+**The harness already drives a non-tutorial game**, which this prompt
+assumed it could not: tests/test_golden_advanced_transcript.py stands an
+ordinary advanced solo game up from `finish_setup_coaching` and presses the
+first live button on every prompt, with no rails at all -- a seed and a
+press rule is the whole of what makes a game replay. Copy that rather than
+extending the tutorial's. What it does *not* do is steer, so reaching a
+level score at full time will need either a seed search or a press rule
+that is something other than "the leftmost"; say which you used and why.
+Say which window remains unpinned if any does.
 
 Tests otherwise as in Phase 4: model-side tests with no discord for each
-moved step; nothing moved saves; the wrapper saves where the transition rule
-says; pending_prompt agrees before and after a save/load round trip in every
-window state, including each shootout sub-state (recovery.md: these are
-handed back to the routine that drives them -- check that still holds);
-MatchStateSerializationTests green with no new saved field; goldens
-byte-identical; test_model_purity green.
+moved step (tests/test_d12ball_turn_flow.py is the shape); nothing moved
+saves; the wrapper saves where the transition rule says; pending_prompt
+agrees before and after a save/load round trip in every window state,
+including each shootout sub-state (recovery.md: these are handed back to the
+routine that drives them -- check that still holds);
+MatchStateSerializationTests green with no new saved field; **all three**
+goldens byte-identical; test_model_purity green. Expect at least one
+pre-existing `await_args.args[n]` assertion to break on a call that becomes
+a follow-on's keyword -- read it through tests/follow_on_args.py rather than
+making the call positional again.
 
 Docs: coaching-choice.md, shootout.md, time-out.md, clock-and-records.md
 paths corrected; recovery.md's account of what a restart strands and how

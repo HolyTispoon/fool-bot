@@ -28,7 +28,7 @@ it happened to have.
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Done (PR #229, PR #232, PR #233, PR #235, PR #236, PR #241) |
-| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
+| **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | **Front half done (PR #TBD)**; the arrival cluster open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
 
@@ -509,16 +509,33 @@ it, and a rank that wants a paragraph is a rank that moved a rule.
 ## Phase 4 -- the spine
 
 The turn's own machinery, and where `interaction` dies from everything
-Phases 1-3 didn't already reach:
+Phases 1-3 didn't already reach.
 
-- **the front half of a turn**: choosing and announcing a challenger
-  (`auto_resolve_challenger`, `announce_uncontested_maneuver` -- see
-  [sending-a-player.md](design/sending-a-player.md)),
-  `begin_maneuver_action_selection` and `resolve_maneuver`. Easy to read as
-  already covered by "the spine" below, and it isn't -- nothing in Phases
-  1-3 touches it. Both a human's pick and `play_ai_turn`'s pass through it,
-  which is also why "`interaction` dies" above is qualified: it doesn't,
-  until this moves too.
+**The front half is done (PR #TBD)**, and with it the golden the rest of
+this phase is to be compared against. What it moved is in
+[design/model-discord-split.md](design/model-discord-split.md) under
+`d12ball/flow/` and `tests/test_golden_advanced_transcript.py`; three
+things it settled that the rest of the phase inherits:
+
+- **`FollowOnStep` grows before it shrinks.** A Phase 3 rank lifted an
+  effect and named the spine in front of it; Phase 4 lifts the spine, so
+  each step that moves turns its own callees into members and stops
+  being one itself. Prune at the end of the phase, not during it.
+- **Not every sentence is the model's.** The maneuver prompt words
+  itself as "choose a maneuver from the red row", which is a fact about
+  Discord's button rows -- principle 2's line between *what* and *how*,
+  in the one place in the front half where it bites. The step answers
+  "is this ready to resolve" and says nothing about what the stopping
+  looks like.
+- **Moving the deciding does not move `interaction`.** 190 async methods
+  in `cogs/d12ball/` and 163 taking one, unchanged across the front
+  half. The methods that hold an `interaction` are the ones that
+  *send*, and those are the arrival cluster below. Don't read the front
+  half's numbers as the phase stalling; read them as which half of the
+  work it was.
+
+What is left, and it is the larger half:
+
 - the **three arrival points**, which are where a ball that has moved is
   settled: `finish_maneuver_resolution` (the tail of every ordinary path),
   `begin_loose_ball` (a Deflect, and the High Pass contest behind it) and
@@ -551,10 +568,28 @@ Phases 1-3 didn't already reach:
 - `run_own_goal_roll`
 - `begin_ball_recovery`
 
-This is the biggest single phase and the one to resist splitting badly: the
-arrival gates and the loose-ball check are ordered against each other on
-purpose ("the path is spent whether or not anybody may pull"), and moving
-half of that ordering is worse than moving none of it.
+**All of that is one piece and the front half was not part of it**, which
+is what made splitting here safe rather than badly: the arrival gates and
+the loose-ball check are ordered against each other on purpose ("the path
+is spent whether or not anybody may pull"), and moving half of *that*
+ordering is worse than moving none of it. The front half sits in front of
+the effects and reaches no gate, so it came out whole on its own. Nothing
+below should be taken in pieces the same way.
+
+**The open design question the rest of this phase turns on**, written down
+because the front half met the shape of it and the arrival cluster is where
+it bites: a `StepResult` carries one list of narration blocks and one
+`next`, and `dispatch_step_result` joins the blocks on a space and hands
+them to whatever comes next. Several arrival points post **more than one
+message, with an image between them** -- `finish_maneuver_resolution` sends
+the last-possession notice, refreshes the board, and then posts the
+position with the match image on it. A single result cannot say "these two
+blocks are two messages" without the model carrying a batching decision,
+which is principle 8 read backwards. Two ways out, and it is the author's
+call which: split each such arrival into two steps with the cog's wrapper
+posting between them, or let a step return blocks and have the wrapper --
+which knows the arrival it is wrapping -- decide where the message
+boundaries are. See the pull request for the front half.
 
 **Bot stop:** a full game, two humans, advanced mode with both modules on,
 on board 6 and again on board 9. Then a solo game against Dinky. Then the

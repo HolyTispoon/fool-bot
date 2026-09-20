@@ -398,9 +398,14 @@ rules for why the ranking is no longer the whole story.
   to decide whether an effect is pending at all. Both used to ask whether the
   ranking was a tie, which after a restart would have offered a skill test
   nobody owed, or an effect choice for a test that had not been rolled.
-- **`resolve_maneuver` branches on it, and on `outcome` only for wording.**
-  There are four ways a maneuver lands and each reads differently, but which
-  one is a *win* is not decided there.
+- **`resolve_maneuver_step` branches on it, and on `outcome` only for
+  wording.** There are four ways a maneuver lands and each reads differently,
+  but which one is a *win* is not decided there. It is
+  `d12ball/flow/turn.py`'s since the front half of Phase 4 of
+  [model-discord-split.md](../model-discord-split.md) -- `D12Ball.resolve_maneuver`
+  is the wrapper that dispatches what it hands back -- and `outcome` is read
+  through `RulesEngine.cards_outcome` rather than off the catalog a second
+  time.
 - **An uncontested maneuver wins whatever the offense picked, injured or
   not** -- no opponent to be disadvantaged against, no challenge to lose. Same
   for a tie where *both* participants are injured: it is an ordinary tie,

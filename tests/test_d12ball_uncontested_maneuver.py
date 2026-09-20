@@ -44,7 +44,21 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import AIOpponent, D12BallGame, GameStatus, Team
+from follow_on_args import follow_on_argument
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+
+
+def effect_winner_key(call) -> str:
+    """
+    The `winner_key` a recorded `begin_effect_resolution` was called
+    with, through `follow_on_argument` -- since the front half of
+    Phase 4 a settled maneuver reaches it as a `FollowOn`, so the key
+    arrives by keyword where the cog used to hand it over
+    positionally. See `tests/follow_on_args.py`.
+    """
+    return follow_on_argument(
+        D12Ball.begin_effect_resolution, call, "winner_key",
+    )
 
 
 def build_cog() -> D12Ball:
@@ -223,7 +237,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[-1],
+            effect_winner_key(cog.begin_effect_resolution.await_args),
             "dribble_advance",
         )
 

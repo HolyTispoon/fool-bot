@@ -13,7 +13,6 @@ subtly wrong:
   which is the only ordering that leaves that player standing on it.
 """
 
-import inspect
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -30,25 +29,19 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.game import AIOpponent, D12BallGame, Team
+from follow_on_args import follow_on_argument
 from save_patches import suppressed_cog_saves
 
 
 def loose_ball_distance(call) -> int:
     """
-    The `distance_moved` a recorded `begin_loose_ball` was called with,
-    read through the real method's signature rather than off
-    `call.args`.
-
-    A deflection reaches it as a `FollowOn` since rank D1 of
-    docs/model-discord-split.md, and `dispatch_step_result` passes a
-    follow-on's arguments **by keyword** -- so an argument the cog used
-    to hand over positionally now arrives named. Binding the call to
-    the signature answers for both shapes, which is the reading rank D2
-    wrote down: fix the assertion, not the call.
+    The `distance_moved` a recorded `begin_loose_ball` was called
+    with, through `follow_on_argument` -- see `tests/follow_on_args.py`
+    for why a follow-on's arguments arrive by keyword.
     """
-    return inspect.signature(D12Ball.begin_loose_ball).bind(
-        None, *call.args, **call.kwargs,
-    ).arguments["distance_moved"]
+    return follow_on_argument(
+        D12Ball.begin_loose_ball, call, "distance_moved",
+    )
 
 def build_cog() -> D12Ball:
     cog = object.__new__(D12Ball)

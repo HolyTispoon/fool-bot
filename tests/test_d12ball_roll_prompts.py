@@ -35,7 +35,21 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.game import D12BallGame, GameStatus, Team
+from follow_on_args import follow_on_argument
 from save_patches import suppressed_cog_saves, suppressed_view_saves
+
+
+def effect_winner_key(call) -> str:
+    """
+    The `winner_key` a recorded `begin_effect_resolution` was called
+    with, through `follow_on_argument` -- since the front half of
+    Phase 4 a settled maneuver reaches it as a `FollowOn`, so the key
+    arrives by keyword where the cog used to hand it over
+    positionally. See `tests/follow_on_args.py`.
+    """
+    return follow_on_argument(
+        D12Ball.begin_effect_resolution, call, "winner_key",
+    )
 
 
 def build_cog() -> D12Ball:
@@ -321,7 +335,8 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
 
         cog.begin_effect_resolution.assert_awaited_once()
         self.assertEqual(
-            cog.begin_effect_resolution.await_args.args[3], "low_pass",
+            effect_winner_key(cog.begin_effect_resolution.await_args),
+            "low_pass",
         )
         saved = cog.engine.load_match_state(game)
         self.assertEqual(saved.pending_injury_tests, [])

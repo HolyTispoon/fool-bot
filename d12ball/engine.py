@@ -102,6 +102,7 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball.render import TEAM_COLORS, ChallengeSide
+from d12ball import tutorial
 
 
 @dataclass(frozen=True)
@@ -1454,6 +1455,112 @@ class RulesEngine:
             defense = self.player_catalog.effective_profile(player).defense
             defenders.append(ShotDefender(player, defense, on_ball))
         return defenders
+
+    def tutorial_beat(self, game: D12BallGame):
+        """
+        The beat now in progress, or None when no rail applies -- an
+        ordinary game, or a tutorial whose script has run out or been
+        skipped.
+
+        **One answer to "is this coach being taught right now"**, which
+        is why it is here rather than in each of the places that ask.
+        It came down from `D12Ball.tutorial_beat` with Phase 4 of
+        docs/model-discord-split.md: a flow step that writes the AI's
+        maneuver has to know whether a beat names the card, and a cog
+        method cannot be called from the model's side of the seam. The
+        cog keeps a forwarding method, so none of the rails moved --
+        the same shape `apply_exhaustion` took in rank O2.
+        """
+        if not game.in_tutorial:
+            return None
+        return tutorial.beat_for_step(game.tutorial_step)
+
+    def injured_word_and_emoji(
+        self,
+        game: D12BallGame,
+        player_id: str,
+    ) -> tuple[str, str]:
+        """
+        "injured"/"damaged" and the matching emoji for `player_id` --
+        Damaged is a Cyborg's own word for Injured (see "Lithium
+        Powered" in docs/living-rules.md), asked the same way
+        `describe_exhaustion_gain` asks it for Exhausted/Drained.
+
+        A species' own word for a condition is a rule about what the
+        game says, so it belongs beside the other one rather than in
+        the cog that used to hold it; `D12Ball.injured_word_and_emoji`
+        forwards here and no call site moved.
+        """
+        if self.has_species_ability(game, player_id, SPECIES_CYBORG):
+            return "damaged", get_damaged_emoji(self.condition_emojis)
+        return "injured", get_injured_emoji(self.condition_emojis)
+
+    def describe_challenger_walk_in(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        defender_id: str,
+        distance: int,
+    ) -> str:
+        """
+        The challenger's walk-in and what it cost, or "" when they were
+        already on the ball's space.
+
+        Like every other exhaustion message this tests the Exhausted
+        threshold as it writes it, so it has to be built before `match`
+        is saved -- see `apply_exhaustion`.
+
+        It came down from `D12Ball.describe_challenger_walk_in` with
+        Phase 4 of docs/model-discord-split.md, and the cog keeps a
+        forwarding method so neither of the two routes into a
+        challenge moved -- the pick a defending coach makes, and the
+        one settled without asking. What the move buys is that the
+        sentence and the threshold test it writes are on the same side
+        of the seam as the walk-in itself.
+        """
+        if distance <= 0:
+            return ""
+
+        defender = self.get_player_definition(defender_id)
+        space_word = "space" if distance == 1 else "spaces"
+        return (
+            f"{defender.name} has moved {distance} {space_word}."
+            f"\n{self.describe_exhaustion_gain(game, match, defender_id, distance)}"
+        )
+
+    def uncontested_maneuver_announcement(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> str:
+        """
+        That there is nobody to challenge, and which of the two ways
+        that happened.
+
+        **The message asks the state rather than taking a flag**:
+        anyone still eligible means the defense was offered the
+        challenge and sent nobody, since a defense with somebody to
+        send is the only defense that gets the choice. Since 2026-08-16
+        that is practically always the answer -- the other branch needs
+        a side with nobody on the field at all -- and the wording still
+        asks, because a state that answers for itself cannot be
+        persisted wrong. See "The maneuver with nobody to challenge it"
+        in docs/design/sending-a-player.md.
+        """
+        handler = self.get_player_definition(match.active_player_id)
+        defense_setup = match.setup_for_side(match.defending_side())
+
+        if match.eligible_challengers():
+            reason = "have sent nobody in to challenge"
+        else:
+            reason = "have nobody left to challenge"
+
+        return (
+            f"**Unchallenged!** {format_team_side_label(defense_setup)} "
+            f"{reason} "
+            f"{self.format_player_label(match, handler)}, "
+            "so whichever maneuver the offense picks succeeds."
+        )
 
     def settled_maneuver_winner(self, match: MatchState) -> Optional[str]:
         """

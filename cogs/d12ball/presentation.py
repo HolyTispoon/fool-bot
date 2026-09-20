@@ -168,20 +168,16 @@ class PresentationMixin:
     ) -> str:
         """
         The challenger's walk-in and what it cost, or "" when they were
-        already on the ball's space.
+        already on the ball's space -- a forwarding method over
+        `RulesEngine.describe_challenger_walk_in`, which is where the
+        sentence lives since Phase 4 of docs/model-discord-split.md.
 
-        Like every other exhaustion message this tests the Exhausted
-        threshold as it writes it, so it has to be built before `match`
-        is saved -- see apply_exhaustion.
+        Like every other exhaustion message it tests the Exhausted
+        threshold as it writes it, so it still has to be built before
+        `match` is saved -- see apply_exhaustion.
         """
-        if distance <= 0:
-            return ""
-
-        defender = self.engine.get_player_definition(defender_id)
-        space_word = "space" if distance == 1 else "spaces"
-        return (
-            f"{defender.name} has moved {distance} {space_word}."
-            f"\n{self.describe_exhaustion_gain(game, match, defender_id, distance)}"
+        return self.engine.describe_challenger_walk_in(
+            game, match, defender_id, distance,
         )
 
 
@@ -651,10 +647,13 @@ class PresentationMixin:
         ordinary game, or a tutorial whose script has run out or been
         skipped. Every rail in the views comes through here, so there
         is one answer to "is this coach being taught right now".
+
+        A forwarding method over `RulesEngine.tutorial_beat` since
+        Phase 4 of docs/model-discord-split.md: the flow step that
+        writes Dinky's maneuver has to ask the same question and
+        cannot call a cog method to do it. Nothing else moved.
         """
-        if not game.in_tutorial:
-            return None
-        return tutorial.beat_for_step(game.tutorial_step)
+        return self.engine.tutorial_beat(game)
 
     def tutorial_railed_option(
         self,

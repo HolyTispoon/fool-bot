@@ -75,6 +75,66 @@ functions** (five of the cards are their rank-mate parameterised) and
 landed in between and moved none of them: Skilled Pass had come across
 with Low Pass already, as the same step under a different `key=`.
 
+**`turn.py` is the front half of a turn**, added by the first
+instalment of Phase 4: `resolve_maneuver_step`, which says which of the
+four ways a maneuver landed and words the reveal, and
+`maneuver_selection_step`, which writes whatever Dinky picks for itself
+and answers whether anybody is left to ask. Nothing in Phases 1 to 3
+touched this -- the ranks lifted what a card *does* once it has won and
+left everything in front of them where it was -- and both routes into a
+maneuver come through it, a human's pick and `play_ai_turn`'s.
+
+- **The enum grows before it shrinks, and that is the phase working
+  rather than the phase slipping.** A rank of Phase 3 lifted an effect
+  and named the spine in front of it, so `FollowOnStep` collected the
+  spine's entry points. Phase 4 lifts the spine, and each step that
+  moves turns *its own* callees into members and stops being one
+  itself. `BEGIN_EFFECT_RESOLUTION` and `BEGIN_MANEUVER_SKILL_TEST` are
+  the two `resolve_maneuver` named on its way out;
+  `tests/test_d12ball_package_shape.py` is where the list is asserted.
+- **The maneuver prompt's own wording stayed in the cog, deliberately.**
+  It reads "choose a maneuver from the red row", which is a fact about
+  Discord's button rows (`MANEUVER_ROW_COLOURS`) and not about the
+  position -- principle 2's line between *what* and *how*, in the one
+  place in this stretch where it actually bites. So
+  `maneuver_selection_step` answers "is this ready to resolve" and
+  returns a `StepResult` with nothing in `next` when it is not: the
+  model says the turn stops here, and does not say what the stopping
+  looks like. A web app asks the same question of the same state and
+  words it for whatever it draws.
+- **`resolve_maneuver` is the one wrapper with no `persist` after it**,
+  because its step is a reading -- it changes nothing. Both callers
+  have already saved the pick that got there. `self.persist` in `cogs/`
+  stayed at 91 across the whole instalment, which is the honest shape
+  of it: nothing moved a save, because the front half was already
+  saving in the right place.
+- **`interaction` did not leave anything, and the counts say so.** 190
+  async methods in `cogs/d12ball/` and 163 taking an `interaction`,
+  before and after; the `grep -c interaction` total went 683 to 680.
+  What moved here is the *deciding* and the *wording*, which is the
+  half that had never been anywhere else. The methods that hold an
+  `interaction` are the ones that send, and those are the arrival
+  cluster, still to come.
+- **Four things came down to `RulesEngine` with cog forwarders**, the
+  shape rank O2 set with `apply_exhaustion`: `injured_word_and_emoji`,
+  `describe_challenger_walk_in`, `uncontested_maneuver_announcement`
+  and `tutorial_beat`. The last is the one worth naming --
+  `write_ai_maneuver_picks` has to know whether a beat scripts Dinky's
+  card, and a model step cannot call a cog method to ask. No call site
+  moved for any of them.
+- **`outcome` is read through `cards_outcome` now**, not off
+  `maneuver_catalog.resolve()` a second time. Same answer by
+  construction at the point it is asked -- an unchallenged maneuver has
+  already returned, and both picks are in -- and one reading fewer of
+  the ranking.
+- **A fourth copy of rank D2's signature-binding helper is what
+  `tests/follow_on_args.py` exists to stop.** `begin_effect_resolution`'s
+  `winner_key` arrives by keyword now, so three more modules'
+  `await_args.args[3]` broke on a move that changed nothing -- the
+  lesson for the third time. The three existing `loose_ball_distance`
+  copies read through the shared helper too, which is what let the
+  comment listing the other copies go.
+
 - **Low Pass was the slice because it is not a toy.** Mid-sized, with a
   role-ability branch (the Winger's set-up, the one path that ends
   somewhere other than `finish_maneuver_resolution`), a continuation
@@ -448,11 +508,56 @@ rewords a result has changed the game.
   of player ids iterated into a message would otherwise vary by machine
   rather than by the change that broke it.
 - **It covers one basic-mode solo game on board 7**, the only multi-turn game
-  the suite can drive today -- no gambit, no species ability, no
-  halftime, no shootout, no time out. Rewording two of the three `Ball speed
+  the suite could drive when it was written -- no gambit, no species ability,
+  no halftime, no shootout, no time out. Rewording two of the three `Ball speed
   is now` sites in `effects.py` did not fail it, because the tutorial only
   reaches the third. Don't read a green golden as "the wording is covered";
   a phase that moves narration the golden doesn't reach should add its own.
+
+## `tests/test_golden_advanced_transcript.py`
+
+**Phase 4 added its own, and recorded it on the old code first.** The
+spine is almost entirely off the tutorial's path, so a mechanical move
+of it would have had nothing watching the wording it carries. This one
+plays an **advanced solo game on board 9** through the same harness,
+against `tests/golden/advanced_*`.
+
+- **The Telekinetics are the human's side, and that is the whole reason
+  the game was set up the way it was.** Mind Pull and Smooth are the two
+  halves of `check_for_ball_arrival`, and **Dinky never pulls** -- an AI
+  side's Telekinetics are skipped rather than prompted (see
+  [species-abilities.md](species-abilities.md)). A recording that wanted
+  to watch the gate had to put the ability in the hands of the side that
+  is asked.
+- **Board 9 is what reaches the fragile branch.** A run back with the
+  furthest to travel is the one that stops to ask a coach *which space*,
+  where `continue_run_back` returns from inside its own loop -- the path
+  whose intra-loop `persist` Phase 4's brief singles out as a named
+  exception to principle 9.
+- **What it reaches is asserted separately from what it says.** A change
+  that stopped the run reaching Mind Pull would rewrite the transcript,
+  and a regenerated transcript would be green again and no longer
+  covering the branch it was recorded for. `SPINE_PROMPTS` is checked
+  against the presses, which is the job `GOLDEN_SEED`'s "the run that
+  scores" assertion does for the tutorial.
+- **No rails, and it does not need any.** The tutorial's playthrough
+  presses the one live button the script leaves; this presses the
+  leftmost of however many are offered, which is arbitrary and is
+  exactly why it replays. A seed and a press rule is the whole of what
+  makes a game reproducible.
+- **What it still does not reach**, said in the module rather than left
+  to be found: no own-goal roll, no shootout, no time out, no window
+  taken up, no stacked run back (the *space* question is asked, the
+  "which of these players goes" question is not), and seven of the
+  twelve cards.
+- **Stability checked the same two ways**: two runs on the seed agree
+  (asserted), and the transcript is identical under `PYTHONHASHSEED` 0,
+  1 and 42.
+- **Both modules' regenerate command was wrong until this landed.** They
+  said `python3 -m unittest tests.<module>`, which cannot work from the
+  repository root -- the suite's helpers (`save_patches`, `roster`) are
+  imported as top-level modules and only resolve with `tests/` on
+  `sys.path`. `discover -s tests -p '<module>.py'` is what does that.
 
 ## Two things about running the suite that cost time to rediscover
 

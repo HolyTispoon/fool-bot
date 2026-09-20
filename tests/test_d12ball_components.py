@@ -131,6 +131,7 @@ from d12ball.render import (
     zone_bounds_between,
 )
 from roster import benched, field_players, fielded, roles
+from follow_on_args import follow_on_argument
 from save_patches import suppressed_cog_saves
 
 
@@ -139,20 +140,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def loose_ball_distance(call) -> int:
     """
-    The `distance_moved` a recorded `begin_loose_ball` was called with,
-    read through the real method's signature rather than off
-    `call.args`.
-
-    A deflection reaches it as a `FollowOn` since rank D1 of
-    docs/model-discord-split.md, and `dispatch_step_result` passes a
-    follow-on's arguments **by keyword** -- so an argument the cog used
-    to hand over positionally now arrives named. Binding the call to
-    the signature answers for both shapes, which is the reading rank D2
-    wrote down: fix the assertion, not the call.
+    The `distance_moved` a recorded `begin_loose_ball` was called
+    with, through `follow_on_argument` -- see `tests/follow_on_args.py`
+    for why a follow-on's arguments arrive by keyword.
     """
-    return inspect.signature(D12Ball.begin_loose_ball).bind(
-        None, *call.args, **call.kwargs,
-    ).arguments["distance_moved"]
+    return follow_on_argument(
+        D12Ball.begin_loose_ball, call, "distance_moved",
+    )
 
 class D12BallComponentTests(unittest.TestCase):
     @classmethod
