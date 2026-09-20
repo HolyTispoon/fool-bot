@@ -598,6 +598,20 @@ class RulesEngine:
           on the possessing side and ends up standing on the ball, so
           without this they would be offered a Smooth on the ball they
           are already holding.
+        - **Whoever the movement is handing the ball to is out**,
+          which is the other way the same player can end up on the
+          ball without the ball having arrived *at* them in any sense
+          they could act on. "You may take it over" is an offer to
+          take it off somebody, and the receiver of a pass, the
+          challenger who has just stolen it and the shooter a set-up
+          hands it to are each already the one holding it -- there is
+          nothing for them to take over, and the button changes
+          nothing (the author, 2026-09-20). `match.ball_carrier_id` is
+          who that is, set by every effect that completes a delivery
+          before the arrival gate is asked. **The pull needs no such
+          clause**: a carrier is by definition on the side in
+          possession, and a pull is only ever offered to the side that
+          is not.
         - **Injured players are in.** A pull excludes them because it
           costs an exhaustion token and an injured player cannot gain
           one, so `add_exhaustion` would silently hand them a free
@@ -617,13 +631,14 @@ class RulesEngine:
             match.setup_for_side(match.ball.possession).field_players
         )
         moved = set(match.last_ball_movers)
+        carrier_id = match.ball_carrier_id
 
         candidates: list[str] = []
         for zone_value, space_index in match.last_ball_path:
             for player_id in match.board.spaces[Zone(zone_value)][space_index]:
                 if player_id not in ours or player_id in candidates:
                     continue
-                if player_id in moved:
+                if player_id in moved or player_id == carrier_id:
                     continue
                 if not self.has_species_ability(
                     game, player_id, SPECIES_TELEKINETIC,
@@ -870,14 +885,21 @@ class RulesEngine:
         visiting = match.scoreboard.visiting_score
         return home < visiting if side == TeamSide.HOME else visiting < home
 
-    def carrying_more_injuries(
+    def carrying_more_conditions(
         self, match: MatchState, side: TeamSide,
     ) -> bool:
         """
-        Whether this team **fields** more injured players than the
-        other -- the bench does not count, and a Cyborg's Damaged is
-        injured under their own word (`match.injured` holds both; the
-        word is `injured_word_and_emoji`'s).
+        Whether this team **fields** more Exhausted-or-Injured players
+        than the other -- the bench does not count, and a Cyborg's
+        Drained and Damaged are Exhausted and Injured under their own
+        words (`match.exhausted` and `match.injured` hold both; the
+        words are `injured_word_and_emoji`'s and the drain wording in
+        `describe_exhaustion_gain`).
+
+        Widened from injured-only on 2026-09-20: an Exhausted player is
+        already carrying a real disadvantage (one skill test roll away
+        from being taken out entirely), so counting only the players
+        already lost undercounted which side is actually hurting.
 
         Strictly more, so it is false for both sides on a level count,
         exactly as `trailing` is on a level score.
@@ -885,8 +907,8 @@ class RulesEngine:
         side = TeamSide(side)
         other = TeamSide.VISITING if side == TeamSide.HOME else TeamSide.HOME
         return (
-            len(match.injured_field_players(side))
-            > len(match.injured_field_players(other))
+            len(match.conditioned_field_players(side))
+            > len(match.conditioned_field_players(other))
         )
 
     def may_play_gambits(
@@ -898,10 +920,11 @@ class RulesEngine:
         is that the team is behind.
 
         Two positions count and either is enough: behind on the
-        scoreboard, or fielding more injured players than the opponent.
-        Both coaches can hold them at once -- one trailing while the
-        other is the more hurt -- which is why this is a question about
-        one team rather than a comparison returning a side.
+        scoreboard, or fielding more Exhausted-or-Injured players than
+        the opponent. Both coaches can hold them at once -- one trailing
+        while the other is the more hurt -- which is why this is a
+        question about one team rather than a comparison returning a
+        side.
 
         **Both are on the board, which is the point.** The author
         called it out as public knowledge: a coach can work out what
@@ -921,7 +944,7 @@ class RulesEngine:
         """
         if not self.gambits_apply(game):
             return False
-        return self.trailing(match, side) or self.carrying_more_injuries(
+        return self.trailing(match, side) or self.carrying_more_conditions(
             match, side,
         )
 

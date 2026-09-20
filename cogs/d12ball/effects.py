@@ -66,6 +66,7 @@ from gamesaves.d12ball.storage import save_games
 from cogs.d12ball_helpers import (
     HIGH_PASS_CONTEST_HEADLINE,
     ball_location_line,
+    ball_space_phrase,
     contest_noun,
     format_goal_time,
     format_player_with_team,
@@ -786,7 +787,7 @@ class ManeuverEffectsMixin:
         lead_in = (
             f"{smooth_emoji} **Smooth** — "
             f"{self.player_label(match, player)} takes the ball over on "
-            f"{ball_location_line(match)}."
+            f"{ball_space_phrase(match)}."
         )
 
         # **A turnover-driven arrival is the exception**, and the only
@@ -974,7 +975,7 @@ class ManeuverEffectsMixin:
                 f"{note}\n\n## {self.player_label(match, player)} grabs "
                 "the ball with their telekinetic powers!\n"
                 f"**Turnover!** They take it on "
-                f"{ball_location_line(match)}."
+                f"{ball_space_phrase(match)}."
             ),
         )
 

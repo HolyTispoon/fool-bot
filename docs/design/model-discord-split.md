@@ -405,7 +405,7 @@ with Low Pass already, as the same step under a different `key=`.
     nothing**, reading `begin_loose_ball`'s `distance_moved` off
     `await_args.args[3]` -- rank D2's `inspect.signature` lesson for
     the third rank running.
-    `tests/test_d12ball_advanced_maneuvers.py` gained the same
+    `tests/test_d12ball_gambits.py` gained the same
     `loose_ball_distance` helper rank D1 put in two other modules.
   - **What it did not move**, deliberately, is the same thing rank D1
     left: `resolve_low_pass`'s no-teammate-to-receive branch, rank

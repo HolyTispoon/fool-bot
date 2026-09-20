@@ -4013,6 +4013,23 @@ class MatchState:
             if player_id in self.injured
         ]
 
+    def conditioned_field_players(self, side: TeamSide) -> list[str]:
+        """
+        Field players carrying either condition -- Exhausted or
+        Injured, Drained or Damaged under a Cyborg's own words. The
+        two sets are already mutually exclusive (`mark_injured` clears
+        a player's Exhausted flag), so this is a plain union with
+        nothing to double-count. Used by
+        `RulesEngine.carrying_more_conditions`, the gambit gate's other
+        half.
+        """
+        setup = self.setup_for_side(side)
+        return [
+            player_id
+            for player_id in setup.field_players
+            if player_id in self.injured or player_id in self.exhausted
+        ]
+
     def may_take_time_out(self, side: TeamSide) -> bool:
         """
         A side takes at most one time out per half, and that is the

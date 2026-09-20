@@ -39,6 +39,7 @@ from d12ball.formatting import (
     ZONE_LETTERS,
     ball_location_line,
     ball_space_label,
+    ball_space_phrase,
     challenger_prompt_ask,
     contest_noun,
     destination_display_name,

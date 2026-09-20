@@ -318,7 +318,7 @@ Where the handler is already standing on the space closest to their own goal the
 A coach holds their gambits only while their team is **behind**, which is one of two things:
 
 - Their team has **scored fewer goals** than the other team.
-- Their team **fields more injured players** than the other team. Only the six on the field count, and a Cyborg's [Damaged](#lithium-powered-cyborg) is injured under their own word.
+- Their team **fields more Exhausted-or-Injured players** than the other team. Only the six on the field count, and a Cyborg's [Drained](#lithium-powered-cyborg) and [Damaged](#lithium-powered-cyborg) are Exhausted and Injured under their own words.
 
 It is read when the maneuvers are chosen, off the scoreboard and off the field, so **who is holding gambits is public knowledge**: neither coach learns anything from it the other cannot see for themselves. Both coaches may hold them at once — one trailing while the other is the more hurt — and a coach neither is true of chooses from the basic three.
 
@@ -473,6 +473,8 @@ Mind Pull resolves **before** the ball settles [where it comes to rest](#where-t
 **Smooth.** The other half of the ability, and the same interrupt with the price taken off. **When the Telekinetic's own side has possession and the ball moves to or through their space**, they may take it over: no token, no roll, and it cannot fail. The ball stops on their space and they become the [carrier](#choosing-the-handler).
 
 Smooth is read off the ball's path exactly as a pull is, so the same two sentences hold: the ball's own starting space does not count as moved to, and a ball being brought back into play after it has gone dead crosses nobody. Where the ball reaches several of a side's Telekinetics, each is asked in the order it reaches them and the first to take it stops it there.
+
+**Taking it over means taking it off somebody, so the player the movement is delivering it to is not offered a Smooth.** A [Low Pass](#low-pass) aimed at a Telekinetic, a Telekinetic who catches a [High Pass](#high-pass) or a [Setup Pass](#setup-pass), a Telekinetic who has just taken the ball by [Steal](#steal) or [Intercept](#intercept) — each of them ends the movement holding the ball anyway, and there is nothing left for the ability to change. It is the same sentence as the one above about whoever the movement moved, read at the other end: a Smooth is for a ball that was going somewhere else. A teammate standing on the same space as the intended receiver *is* offered one, and taking it is what makes them the carrier instead.
 
 **Smooth resolves before the ball settles**, and takes with it whatever the movement was going to lead to — a reception, a scoring opportunity, a contest, a loose ball. A handler about to be forced into an [own-goal roll](#own-goal) by an overshooting [Double Team](#double-team) is the sharpest case: if their own Telekinetic takes the ball during the shove, the roll never happens and there is no own-goal risk at all.
 

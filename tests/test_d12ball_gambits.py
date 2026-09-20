@@ -394,7 +394,9 @@ class GambitAccessTests(GambitHarness, unittest.TestCase):
     """
     **A gambit needs a reason** (the author, 2026-09-20): a coach holds
     their gambits only while their team is behind -- trailing on the
-    scoreboard, or fielding more injured players than the opponent.
+    scoreboard, or fielding more Exhausted-or-Injured players than the
+    opponent (widened from injured-only the same day; see
+    docs/rules-log.md).
 
     Asserted through `maneuver_hand` as well as through the predicate,
     because the hand is what a coach actually gets: `maneuver_tiers`
@@ -479,6 +481,65 @@ class GambitAccessTests(GambitHarness, unittest.TestCase):
         """
         cog, game, match = self.build("low_pass", "pressure")
         match.mark_injured(benched(match, PlayerRole.STRIKER))
+
+        self.assertFalse(
+            cog.engine.may_play_gambits(game, match, TeamSide.HOME)
+        )
+
+    def test_fielding_more_exhausted_players_holds_them(self) -> None:
+        """
+        Widened from injured-only on 2026-09-20: an Exhausted player,
+        not yet Injured, counts toward the same comparison.
+        """
+        cog, game, match = self.build("low_pass", "pressure")
+        match.exhausted.add(fielded(match, PlayerRole.WINGER))
+
+        self.assertTrue(
+            cog.engine.may_play_gambits(game, match, TeamSide.HOME)
+        )
+        self.assertFalse(
+            cog.engine.may_play_gambits(game, match, TeamSide.VISITING)
+        )
+
+    def test_exhausted_and_injured_combine_on_the_same_side(self) -> None:
+        """
+        The comparison is a combined count, not two separate ones: one
+        Exhausted plus one Injured on the same side outweighs a single
+        Injured player on the other.
+        """
+        cog, game, match = self.build("low_pass", "pressure")
+        match.mark_injured(fielded(match, PlayerRole.WINGER))
+        match.exhausted.add(fielded(match, PlayerRole.STRIKER))
+        match.mark_injured(
+            fielded(match, PlayerRole.WINGER, TeamSide.VISITING)
+        )
+
+        self.assertTrue(
+            cog.engine.may_play_gambits(game, match, TeamSide.HOME)
+        )
+        self.assertFalse(
+            cog.engine.may_play_gambits(game, match, TeamSide.VISITING)
+        )
+
+    def test_an_even_combined_count_holds_nothing(self) -> None:
+        """
+        **More** than the other team, so an Exhausted player on one
+        side and an Injured player on the other is a level count and
+        closes both hands, the same as a level score.
+        """
+        cog, game, match = self.build("low_pass", "pressure")
+        match.exhausted.add(fielded(match, PlayerRole.WINGER))
+        match.mark_injured(
+            fielded(match, PlayerRole.WINGER, TeamSide.VISITING)
+        )
+
+        self.assertEqual(self.hands(cog, game, match), {
+            "offense": 3, "defense": 3,
+        })
+
+    def test_an_exhausted_player_on_the_bench_does_not_count(self) -> None:
+        cog, game, match = self.build("low_pass", "pressure")
+        match.exhausted.add(benched(match, PlayerRole.STRIKER))
 
         self.assertFalse(
             cog.engine.may_play_gambits(game, match, TeamSide.HOME)
