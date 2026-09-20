@@ -248,14 +248,14 @@ weapon rather than only a saving.
   read the card as a set-up that either happens or does not and left a
   passer with nobody ahead of them unable to play it at all.
   - **A pass landing on nobody settles where it lands**, exactly as a
-    Deflect's does: `apply_setup_pass` hands it to `begin_loose_ball`,
+    Deflect's does: `setup_pass_step` names `BEGIN_LOOSE_BALL`,
     which since 2026-08-26 settles every arrival by what is standing
     there -- see [Where the ball comes to rest](loose-balls.md#where-the-ball-comes-to-rest).
     It pays `SETUP_PASS_CLOCK_COST` there, the card's flat 2 minutes,
     however far the ball actually travelled.
   - **That leaves one position a Setup Pass goes out from, and it is
     still a fourth `new_play=True` call site.** The card cannot
-    overshoot, so `apply_setup_pass_out` is reached only where nothing
+    overshoot, so `setup_pass_out_step` is reached only where nothing
     is on the menu at all: the passer on the very last space of the
     field -- the one place even 1 space runs off the end -- with no
     teammate beside them. The other three call sites are the score

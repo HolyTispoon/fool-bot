@@ -66,12 +66,12 @@ move had no rules risk to weigh against it.
 match is waiting on; a flow step is what *changes* it. Each takes the
 engine and the match, mutates, and hands back a `StepResult` -- the
 narration, whether the board moved, and what happens next. Phase 2 cut
-this on Low Pass alone and nothing else; Phase 3 follows a rank at a
+this on Low Pass alone and nothing else; Phase 3 followed a rank at a
 time, and rank O2 brought the two dribbles, rank D2 the two steals,
-rank D3 the two pressures and rank D1 the two deflections -- so
-`effects.py` holds ten cards as seven functions (five of the cards are
-their rank-mate parameterised) and `cogs/d12ball/effects.py` still
-holds two: rank O3. Rank O1
+rank D3 the two pressures, rank D1 the two deflections and rank O3 the
+two passes -- so **`effects.py` holds all twelve cards, as nine
+functions** (five of the cards are their rank-mate parameterised) and
+`cogs/d12ball/effects.py` holds none of them. Rank O1
 landed in between and moved none of them: Skilled Pass had come across
 with Low Pass already, as the same step under a different `key=`.
 
@@ -331,6 +331,58 @@ with Low Pass already, as the same step under a different `key=`.
     so lifting it now would have baked in an answer. Its
     `distance_moved` reaches `begin_loose_ball` positionally still,
     which is fine -- only a `FollowOn` names arguments.
+- **Rank O3 was the last of the twelve, and the hardest, and what it
+  had to settle was the board again.** `high_pass_step` is the throw
+  and its six endings; `setup_pass_speed_step`, `setup_pass_step` and
+  `setup_pass_out_step` are the other card, which is three steps
+  rather than one because its speed choice comes **first** -- the only
+  card in the game where it does -- and because the dead end its menu
+  falls to is reachable without a pass being thrown at all. The two
+  cards share a landing space and nothing else, so unlike the four
+  ranks before it neither is the other parameterised.
+  - **`BEGIN_HIGH_PASS_CONTEST` is the member it added, rather than
+    `BEGIN_LOOSE_BALL` with a `headline=` and `is_high_pass=True`.**
+    The brief expected the latter, since the long pass borrows the
+    loose ball's machinery and `begin_high_pass_contest` is a
+    two-line wrapper over `begin_loose_ball`. What that missed is
+    that the two do different things with the board: a High Pass is
+    not a loose ball, so `begin_loose_ball` announces it plainly and
+    draws nothing (see [loose-balls.md](loose-balls.md)), and the
+    board the pass moved has to be written **before** it. Naming the
+    loose ball's member would have put the branch in
+    `FOLLOW_ONS_THAT_DRAW_THE_BOARD` and lost that write. That is the
+    answer being keyed to the step working exactly as rank D1
+    intended, rather than an exception to it: two members because
+    there are two steps.
+  - **`begin_run_back` is the first follow-on that draws a board only
+    sometimes**, and that is what `follow_on_draws_the_board` in
+    `cogs/d12ball/core.py` exists for. A new play posts and pins one
+    (`announce_new_play_reset`); an ordinary run back after a steal
+    draws nothing, and rank D2 refreshed before handing to it. Both
+    passes that run out of play reach it with `new_play=True` and the
+    old cog wrote no board in front of either, so the argument is
+    read beside the set rather than the model being asked to report a
+    board that did not move. The set is still the shape of the
+    answer; this is one step whose own arguments decide it.
+  - **Step-then-save was the rule rather than a fix**, the fourth
+    time of five. Every branch of both cards already persisted after
+    its own mutations, and the one branch that persisted nowhere of
+    its own (a Setup Pass landing on nobody) reached
+    `begin_loose_ball`, whose two arrival gates persist before
+    returning. `self.persist` in `cogs/` went 95 -> 91: eight left
+    the steps, four arrived in the wrappers.
+  - **One pre-existing assertion broke on a move that changed
+    nothing**, reading `begin_loose_ball`'s `distance_moved` off
+    `await_args.args[3]` -- rank D2's `inspect.signature` lesson for
+    the third rank running.
+    `tests/test_d12ball_advanced_maneuvers.py` gained the same
+    `loose_ball_distance` helper rank D1 put in two other modules.
+  - **What it did not move**, deliberately, is the same thing rank D1
+    left: `resolve_low_pass`'s no-teammate-to-receive branch, rank
+    O1's, with two rules questions open on it (PR #232). It is the
+    last caller of `begin_loose_ball` in the `resolve_*` half and it
+    is due whenever the author answers, not with a rank.
+
 - **What is in `FollowOnStep` is asserted in
   `tests/test_d12ball_package_shape.py`**, not in any one rank's own
   tests, along with `D12Ball.follow_on_methods` covering it exactly --

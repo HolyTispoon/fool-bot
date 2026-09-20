@@ -20,7 +20,7 @@ whole rule, over `BoardState.is_in_shooting_range`.
 - **A set-up's shot obeys it too.** A scoring opportunity sends a player into an
   ordinary score attempt, so what it buys is the shot out of turn, not a shot
   from anywhere. Only the 2-space High Pass's set-up still checks it --
-  `can_attempt_score` over `high_pass_receiver_candidates`, in `apply_high_pass`
+  `can_attempt_score` over `high_pass_receiver_candidates`, in `high_pass_step`
   -- because it is the only set-up whose landing space can be short of range.
   There used to be a `set_up_shot_candidates` wrapping the two, which never had
   a second caller.
@@ -103,8 +103,8 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
     still on the ball, and since 2026-08-24 it is not a free ride either.** It
     is neither loose (the passer is standing there) nor a contest (there is no
     receiver to fight for what they never let go of) -- but with nowhere left
-    to throw it and nobody to throw it to, `apply_high_pass_out` sends it out
-    exactly as `apply_setup_pass_out` already did, rather than letting
+    to throw it and nobody to throw it to, that branch sends it out
+    exactly as `setup_pass_out_step` already did, rather than letting
     `finish_maneuver_resolution` hand it straight back to the passer. The
     branch is read off `actual_distance == 0`, not `receiver_candidates`
     alone -- an ordinary loose ball landing on a genuinely empty space
@@ -112,7 +112,7 @@ living rules. `MatchState.pending_high_pass_overshoot` is the flag and
     before. It is also why that function words a 0-space result rather than
     reporting "the ball moves 0 spaces forward", which no coach saw until this
     rule.
-  - **It still costs High Pass's own 2 minutes**, which is why `apply_high_pass`
+  - **It still costs High Pass's own 2 minutes**, which is why `high_pass_step`
     carries a `distance_moved` apart from the `actual_distance` the result
     reports. Every maneuver's clock cost is flat and distance-independent
     (2026-08-16) -- 1 for everything but High Pass, 2 for it -- so this is no
