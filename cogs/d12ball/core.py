@@ -12,7 +12,7 @@ import discord
 import io
 import random
 import time
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 from discord import app_commands
 from discord.ext import commands
@@ -48,6 +48,7 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball.cards import render_maneuver_hands
+from d12ball.flow import FollowOn, FollowOnStep, StepResult
 from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
@@ -1686,6 +1687,84 @@ class CoreMixin:
                 self, game_id, prompt.player_id, prompt.skill_type,
             )
         return PLAIN_PROMPT_VIEWS[kind](self, game_id)
+
+    def follow_on_methods(self) -> dict[FollowOnStep, Callable]:
+        """
+        Which method each `FollowOnStep` names.
+
+        **A table, not a `getattr` on the member's name.** The model
+        hands back a member of a closed enum and this is the only
+        thing that turns one into a call, so nothing on the model's
+        side can reach a cog method by spelling it. It is transitional
+        and dies with `FollowOnStep` in Phase 6 of
+        docs/model-discord-split.md, when the driver runs follow-ons
+        itself.
+
+        Built per call rather than at startup because the values are
+        bound methods of a mixin assembled at import time; there is
+        one dispatch per resolved maneuver, so the dictionary is not
+        worth caching.
+        """
+        return {
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION:
+                self.finish_maneuver_resolution,
+            FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE:
+                self.offer_scoring_attempt_choice,
+        }
+
+    async def dispatch_step_result(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        result: StepResult,
+    ) -> None:
+        """
+        Turn a `StepResult` into Discord: redraw the board if anything
+        moved, then ask what it asks or run what it names.
+
+        **The caller persists before calling this**, and that ordering
+        is the transition rule for Phases 2 to 5 -- a lifted step no
+        longer saves itself, and everything below is still the cog's,
+        so a dispatch that ends in a prompt hands the turn to a click
+        that reloads the match out of the save file. See
+        `D12Ball.apply_low_pass` and principle 9 in CLAUDE.md.
+
+        The narration is joined on a single space and carried into
+        whatever comes next rather than posted on its own: a cascade of
+        the bot's own steps is one message and one board refresh (see
+        "Discord's rate limits" in docs/design/rate-limits.md), and the
+        batching is the frontend's to decide -- which is what principle
+        8 means. A result that neither asks nor continues has nobody to
+        hand its lines to, so those it posts.
+
+        A `PendingPrompt` goes through `view_for_prompt`, the same
+        table a restart restores through. Two tables is how the live
+        flow and the resume come to offer different questions -- see
+        "d12ball/prompts.py" in docs/design/model-discord-split.md.
+        """
+        if result.board_changed:
+            await self.refresh_match_image(interaction, game)
+
+        lead_in = " ".join(result.narration)
+        following = result.next
+
+        if isinstance(following, FollowOn):
+            await self.follow_on_methods()[following.step](
+                interaction, game, match, lead_in=lead_in, **following.kwargs,
+            )
+            return
+
+        if isinstance(following, PendingPrompt):
+            await send_new_prompt(
+                interaction,
+                " ".join(filter(None, (lead_in, following.ask))),
+                view=self.view_for_prompt(game.game_id, match, following),
+            )
+            return
+
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
 
     def build_run_back_view(
         self,

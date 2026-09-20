@@ -26,7 +26,7 @@ it happened to have.
 | --- | --- | --- | --- |
 | **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
-| **2** | `StepResult`, proved on Low Pass alone | One maneuver | Open |
+| **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #226) |
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Open |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
@@ -107,24 +107,25 @@ already *mutate -> word it -> refresh the image -> dispatch the next step*,
 and only the last two of those four are Discord's. This plan finishes a
 split the code has already begun rather than starting a new one.
 
-**Five of the thirteen save themselves, and that is the one thing a step may
-not do** (principle 9). Every mutator on the list does it -- `send_low_pass`
-(`effects.py:196`), `throw_high_pass` (`:928`), `knock_ball_back` (`:2297`),
-`take_ball_by_steal` (`:2550`) and `apply_own_goal_outcome` (`:3253`) each
-call `self.persist(game, match)` in their own body. So they are on the
+**Five of the thirteen saved themselves, and that is the one thing a step
+may not do** (principle 9). `send_low_pass`, `throw_high_pass`,
+`knock_ball_back`, `take_ball_by_steal` and `apply_own_goal_outcome` each
+called `self.persist(game, match)` in their own body. So they are on the
 model's side in everything but their address *and* their save, and lifting
-one means stripping the persist out of it first.
+one means stripping the persist out of it first. **Four are left**: Phase 2
+took `send_low_pass`.
 
-**That is not a free deletion, because the wrapper is not currently saving
-either.** `apply_low_pass` never persists: it relies on `send_low_pass`
-having done so before `finish_maneuver_resolution` or
-`offer_scoring_attempt_choice` run. Strip the step's save and add none to
-the wrapper, and the match reaches the spine unsaved -- and a spine step that
-ends in a prompt hands the turn to a click that reloads the match out of the
-save file. That is the beat-1 event-log bug CLAUDE.md already records,
-reintroduced by the refactor meant to fix it. So the persist moves rather
-than being removed: see the wrapper in
-[Phase 2](#phase-2----stepresult-on-one-vertical-slice).
+**That is not a free deletion, because the wrapper was not saving either.**
+`apply_low_pass` never persisted: it relied on `send_low_pass` having done
+so before `finish_maneuver_resolution` or `offer_scoring_attempt_choice`
+ran. Strip the step's save and add none to the wrapper, and the match
+reaches the spine unsaved -- and a spine step that ends in a prompt hands
+the turn to a click that reloads the match out of the save file. That is
+the beat-1 event-log bug CLAUDE.md already records, reintroduced by the
+refactor meant to fix it. So the persist moves rather than being removed,
+and the wrapper it moved into is `D12Ball.apply_low_pass` -- the shape the
+other four follow. See "The model and the Discord layer" in CLAUDE.md, and
+`d12ball/flow/` in [design/model-discord-split.md](design/model-discord-split.md).
 
 A fourteenth sync function in that file, `build_loose_ball_view`, is **not**
 one of them: it constructs a `discord.ui.View` and stays where it is. It is
@@ -258,48 +259,14 @@ exactly that reason.
 
 ## Phase 2 -- `StepResult`, on one vertical slice
 
-Prove the write-side seam on one maneuver before committing to twelve.
-
-- `d12ball/flow/__init__.py`, `d12ball/flow/result.py`:
-
-  ```
-  @dataclass
-  class StepResult:
-      narration: list[str]              # what the cog builds inline today
-      board_changed: bool               # what refresh_match_image decided
-      next: PendingPrompt | None        # or a follow-on step to run
-  ```
-
-- Move **Low Pass** and nothing else: `send_low_pass` (already sync) plus
-  the wording, into `d12ball/flow/effects.py` as a sync function returning
-  `StepResult`, with the `self.persist(game, match)` currently inside it
-  stripped out. `apply_low_pass` in the cog becomes: call it, **persist**,
-  post the narration, refresh if `board_changed`, dispatch `next`.
-
-**The persist is in that list on purpose, and it is the transition rule for
-every phase up to the last.** Through Phases 2-5 the cog wrapper saves
-immediately after the step and before dispatching `next`; Phase 6 collapses
-those wrapper calls into the one in the driver. Principle 9 is right about
-the destination and says nothing about the way there, and the way there is
-where this can break: a lifted step no longer saves, the spine underneath it
-is still the cog's, and a spine step ending in a prompt hands the turn to a
-click that reloads the match from the file. Drop the persist at this stage
-and Low Pass's own events are gone by the next interaction -- which is the
-bug principle 9 exists to fix, reproduced by the move that was meant to fix
-it. The same applies to the four other self-saving steps as Phase 3 lifts
-them.
-
-Low Pass is the right slice because it is mid-sized (96 lines, 4 awaits), it
-has a role-ability branch (the Winger's set-up) so it is not a toy, and it
-has a continuation (Skilled Pass's free pass) so the `pending_effect_continuation`
-machinery is exercised.
-
-**Bot stop:** play three or four Low Passes -- one plain, one into a stack
-(board 6) so the receiver pick fires, one as a Winger for the set-up, one
-free off a beaten Skilled Pass. Golden transcript must be unchanged.
-
-**CLAUDE.md:** `StepResult` and the flow package described, under the new
-section.
+**Done** (PR #226). `d12ball/flow/` holds `StepResult`, the transitional
+`FollowOn`, and `low_pass_step`; `D12Ball.apply_low_pass` is the wrapper
+and `D12Ball.dispatch_step_result` the whole of the Discord side. What it
+settled -- the shape of `next`, the narration staying out of the
+follow-on's arguments, the persist between the step and the dispatch --
+is in CLAUDE.md's "The model and the Discord layer" and in
+[design/model-discord-split.md](design/model-discord-split.md). Nothing
+about it is still open.
 
 ---
 

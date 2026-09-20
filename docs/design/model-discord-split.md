@@ -6,7 +6,7 @@ CLAUDE.md's, in "The model and the Discord layer"; the plan is
 [model-discord-split.md](../model-discord-split.md) -- a worksheet, not settled
 history, read it for the phases still open. This file is for what has landed
 and is permanent regardless of how much of the rest of the plan does: the two
-guards from Phase 0, and the seam Phase 1 cut.
+guards from Phase 0, the seam Phase 1 cut, and the write side Phase 2 opened.
 
 ## `d12ball/prompts.py`
 
@@ -59,6 +59,68 @@ move had no rules risk to weigh against it.
   green there before anything moved -- that is what makes it evidence rather
   than the new code agreeing with itself, and it is the pattern the later
   phases should copy.
+
+## `d12ball/flow/`
+
+**Is the write side of the same seam.** `pending_prompt` answers what a
+match is waiting on; a flow step is what *changes* it. Each takes the
+engine and the match, mutates, and hands back a `StepResult` -- the
+narration, whether the board moved, and what happens next. Phase 2 cut
+this on Low Pass alone and nothing else, which is why `effects.py` holds
+one card and `cogs/d12ball/effects.py` still holds eleven.
+
+- **Low Pass was the slice because it is not a toy.** Mid-sized, with a
+  role-ability branch (the Winger's set-up, the one path that ends
+  somewhere other than `finish_maneuver_resolution`), a continuation
+  (the free pass a beaten Skilled Pass hands the defense), a shared
+  function with Skilled Pass, and an advanced cost charged in the middle
+  of its own sentence. A slice with one branch would have settled
+  nothing.
+- **`FollowOn` is transitional and the enum is the record.** The spine a
+  step ends by naming -- `finish_maneuver_resolution`,
+  `offer_scoring_attempt_choice`, later `begin_run_back` and
+  `begin_loose_ball` -- is still async and still in the cog through
+  Phase 5. A step names one as a member of the closed `FollowOnStep`
+  enum with its arguments, and `D12Ball.follow_on_methods` is the only
+  thing that turns a member into a call. Closed rather than a callable
+  or a method name the cog would `getattr`, for two reasons: nothing on
+  the model's side can reach into `cogs/` by spelling a string, and the
+  enum's membership *is* the list of what the cog still dispatches, so
+  Phase 6 reads the file rather than six pull request descriptions.
+- **The narration never rides in the follow-on's arguments.** A Low Pass
+  posts no message of its own: what it says opens the message the next
+  step sends. So `StepResult.narration` is a list of blocks, and
+  `dispatch_step_result` joins them on a space and passes them as that
+  step's `lead_in`. Putting the joined string in `FollowOn.kwargs`
+  instead would have worked and would have been wrong -- batching is the
+  frontend's (principle 8), and a web app with no five-in-five bucket
+  should not inherit Discord's answer to it. It is also what keeps the
+  move from costing a request; see [rate-limits.md](rate-limits.md).
+- **A `PendingPrompt` in `next` renders through `view_for_prompt`**, the
+  same table a restart restores through. No Low Pass branch ends on one
+  today (the receiver pick is asked before the pass is applied), so the
+  dispatcher's branch is asserted directly rather than through a
+  fixture. It is there from this phase on so the branch Phase 3 needs
+  cannot arrive as a second table.
+- **The step does not save; the wrapper does, immediately, before the
+  dispatch.** `send_low_pass` persisted inside itself and
+  `apply_low_pass` relied on it -- so stripping the save and adding none
+  would have left the match reaching the spine unwritten, and a spine
+  step ending in a prompt hands the turn to a click that reloads the
+  match from the file. That is the beat-1 event-log bug in
+  [gotchas.md](gotchas.md) reintroduced by the refactor meant to fix it.
+  The `self.persist` count in `cogs/` is unchanged at 95 across this
+  phase, which is the shape of the transition in one number: one left
+  the step, one arrived in the wrapper.
+- **The fixtures were recorded first, the same way Phase 1b's were.**
+  `tests/low_pass_fixtures.py` stands a match in every branch with no
+  discord in scope; `tests/test_d12ball_low_pass_recording.py` asserts
+  the narration, the board flag and the follow-on **through the cog**
+  and was run green before anything moved, and
+  `tests/test_d12ball_low_pass_flow.py` asks the model the same
+  questions. The table names the follow-on by `FollowOnStep` member
+  name, a string, which is what let it be written before the package
+  existed.
 
 ## `tests/test_model_purity.py`
 

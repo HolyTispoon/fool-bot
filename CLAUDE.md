@@ -36,6 +36,7 @@ python3 -m unittest discover -s tests
 | `d12ball/components.py` | Game state model -- `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog`, `MATCH_SAVED_FIELDS` |
 | `d12ball/engine.py` | `RulesEngine` -- every decision and candidate list that never touches Discord, over the fixed catalogs and AI strategies. `D12Ball.engine` is the one instance; call sites read `self.engine.foo(...)`. Includes the prompt-text and matchup-data builders that need only the match and the catalogs |
 | `d12ball/prompts.py` | `PromptKind`, `PendingPrompt` and `pending_prompt` -- the one reading of what a match is waiting on, with no Discord in it. The cog maps a kind to a view and renders the `ask` -- [model-discord-split.md](docs/design/model-discord-split.md) |
+| `d12ball/flow/` | The turn's flow with no Discord in it: `StepResult` and the transitional `FollowOn` in `result.py`, and the maneuver steps lifted so far in `effects.py` (Low Pass, and no more yet). A step changes the match and says what happened; it sends nothing and saves nothing -- [model-discord-split.md](docs/design/model-discord-split.md) |
 | `d12ball/formatting.py` | Plain-text formatting over match/game/zone data with no Discord dependency -- space codes, side labels, player names |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `TEAM_PAIRS`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board, matchup and dice image rendering (Pillow); `TEAM_COLORS` |
@@ -167,6 +168,27 @@ bot stop each phase ends on.
    carries the narration lines, whether the board moved, and the next
    prompt. The frontend decides what becomes a message, what becomes an
    edit, and what becomes a websocket frame.
+   - **It lives in `d12ball/flow/`**, one module per group of steps, and
+     `d12ball/flow/result.py` holds the three types. A step takes
+     `(engine, match, ...)` and adds `game` only where it actually reads
+     the record -- never an `interaction`. `D12Ball.dispatch_step_result`
+     is the whole of the Discord side: redraw if `board_changed`, then
+     ask or continue.
+   - **`StepResult.next` has a second shape, `FollowOn`, and it is
+     transitional.** Through Phases 2-5 the spine of a turn is still
+     async and still in `cogs/`, so a lifted step ends by naming the step
+     that has not moved -- a member of the closed `FollowOnStep` enum,
+     with its arguments, turned into a call by one table in
+     `D12Ball.follow_on_methods`. Closed rather than a callable or a
+     method name, so **the enum is the record of what the cog still
+     dispatches**: later phases add and remove members, and Phase 6 reads
+     it rather than a pull request. It dies with that table when the
+     driver runs follow-ons itself.
+   - **The narration is the result's, never the follow-on's.** The cog
+     joins the lines on a space and hands them to whatever comes next as
+     its `lead_in`, which is why a resolved maneuver is still one message
+     and one board refresh. How the lines go together is the frontend's
+     (principle 8), so nothing in the model says.
 
 5. **Narration text is the model's, because the wording rules are rules.**
    "Say what the position is, never what it is not." "Don't answer a
@@ -216,11 +238,13 @@ bot stop each phase ends on.
      Phases 2-5 stops persisting and the spine below it is still the cog's,
      so the wrapper persists immediately after the step and before
      dispatching what comes next; Phase 6 is what collapses those calls into
-     the driver. See
-     the worksheet's
-     [Phase 2](docs/model-discord-split.md#phase-2----stepresult-on-one-vertical-slice)
-     -- the transition is where the bug this principle fixes can be
-     reintroduced.
+     the driver. `D12Ball.apply_low_pass` is the shape, and the first one:
+     call the step, `self.persist(game, match)`, dispatch. The transition
+     is where the bug this principle fixes can be reintroduced, because
+     the wrapper was not saving before -- it relied on the step doing it,
+     so the line is added rather than moved. The count above did not
+     change when Low Pass moved for exactly that reason: one persist left
+     the step and one arrived in the wrapper.
    - **It does not touch the other 52.** `cogs/` calls `save_games(...)`
      at 53 sites; one of those is inside `persist` itself and the other 52
      save the *game record* alone -- a message id, a status, a tutorial
@@ -267,7 +291,7 @@ bot stop each phase ends on.
 | `to_dict`/`from_dict`, `storage.py`, the startup sweep, the full-image link, bundled file names | [gotchas.md](docs/design/gotchas.md) | Every fallback and why it stays; the swallowed save; the case-sensitive name |
 | Writing or moving a test; patching `save_games` | [testing.md](docs/design/testing.md) | The package-split patch trap; the stray-save guard; naming by role |
 | Deploying, the `K:\` host, `update_main_bot.ps1`, a 10062 | [collaboration.md](docs/design/collaboration.md) | Two machines, one live bot; one bot per token |
-| `d12ball/prompts.py`, `pending_turn_view`, `view_for_prompt`, `tests/prompt_fixtures.py`; `tests/test_model_purity.py`, `tests/test_golden_transcript.py`, `tests/golden/`, anything that could add a `discord` import or `async def` under `d12ball/` or `gamesaves/d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | Why the chain moved whole and what a prompt may carry; one kind per view class; the purity ratchet and why it runs in a subprocess; the golden transcript's seeded RNG and what it does not cover; the Python-version and root-test gotchas |
+| `d12ball/prompts.py`, `pending_turn_view`, `view_for_prompt`, `tests/prompt_fixtures.py`; `d12ball/flow/`, `StepResult`, `FollowOn`, `dispatch_step_result`, `tests/low_pass_fixtures.py`; `tests/test_model_purity.py`, `tests/test_golden_transcript.py`, `tests/golden/`, anything that could add a `discord` import or `async def` under `d12ball/` or `gamesaves/d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | Why the chain moved whole and what a prompt may carry; one kind per view class; the purity ratchet and why it runs in a subprocess; the golden transcript's seeded RNG and what it does not cover; the Python-version and root-test gotchas |
 
 ## Notes for Claude
 

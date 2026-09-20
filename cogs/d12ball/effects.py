@@ -13,6 +13,7 @@ import time
 from typing import Optional
 
 from d12ball.engine import IgnitedRoll, RulesEngine
+from d12ball.flow.effects import low_pass_step
 from d12ball.prompts import loose_ball_pick_prompt
 from d12ball.components import (
     EVENT_OWN_GOAL_ROLL,
@@ -194,68 +195,6 @@ class ManeuverEffectsMixin:
             LowPassChoiceView(self, game.game_id, key=key, free=free),
         )
 
-    def send_low_pass(
-        self,
-        game: D12BallGame,
-        match: MatchState,
-        offense_side: TeamSide,
-        distance: int,
-        key: str,
-        receiver_id: Optional[str],
-    ) -> tuple[int, int]:
-        """
-        Move the ball, step its speed up, and hand it to whoever the
-        pass was aimed at. Returns how far the ball went and how far
-        the passer advanced.
-        """
-        actual_distance = match.move_ball_relative(offense_side, distance)
-        match.ball.speed = min(
-            12, match.ball.speed + self.engine.pass_speed_bonus(key)
-        )
-        # A pass across a shared space sends the passer a space forward
-        # (2026-08-07) -- the ball hasn't gone anywhere, so this is what
-        # the maneuver buys. Clamped at the far end of the field, where
-        # there is nowhere to run to.
-        passer_advance = (
-            match.move_player_relative(match.active_player_id, offense_side, 1)
-            if distance == 0
-            else 0
-        )
-        # The pass was aimed at somebody, and it is the same somebody a
-        # Winger's set-up would hand the shot to -- so they receive it
-        # and take the next turn. A receiver of None means the pass had
-        # no legal destination, which rolls the ball forward loose
-        # instead of completing; nobody carries a loose ball.
-        match.set_ball_carrier(receiver_id)
-        self.persist(game, match)
-
-        return actual_distance, passer_advance
-
-    def low_pass_movement_note(
-        self,
-        match: MatchState,
-        handler: PlayerDefinition,
-        distance: int,
-        actual_distance: int,
-        passer_advance: int,
-    ) -> str:
-        """
-        What the ball did, worded. A pass of 0 crosses a shared space
-        and so is described by what the *passer* did instead.
-        """
-        if distance != 0:
-            direction = "forward" if distance > 0 else "backward"
-            space_word = "space" if actual_distance == 1 else "spaces"
-            return f"moves {actual_distance} {space_word} {direction}"
-
-        movement_note = "goes to a teammate in the same space"
-        if passer_advance:
-            movement_note += (
-                f", and {self.player_label(match, handler)} "
-                "moves a space forward"
-            )
-        return movement_note
-
     async def apply_low_pass(
         self,
         interaction: discord.Interaction,
@@ -266,93 +205,35 @@ class ManeuverEffectsMixin:
         key: str = "low_pass",
         free: bool = False,
     ) -> None:
-        name = self.engine.maneuver_name(key)
-        # A pass granted by Skilled Pass's cost is a continuation, and
-        # applying it is what spends it -- see `continue_effect`.
-        if free:
-            match.pending_effect_continuation = None
-        offense_side = match.ball.possession
-        handler = self.engine.get_player_definition(match.active_player_id)
-        # Read before the ball moves, because the receivers are
-        # relative to where it is now. `receiver_id` is who the passer
-        # picked out of a shared space; without one -- a single
-        # occupant, so nothing was asked -- it is whoever is standing
-        # there. Either way this is the player the pass was aimed at,
-        # which is not always the same as whoever the landing space's
-        # occupant list happens to start with -- see the Winger branch
-        # below.
-        receivers = self.engine.low_pass_receivers(match, distance)
-        if receiver_id not in receivers:
-            receiver_id = receivers[0] if receivers else None
+        """
+        The Discord half of a won Low Pass: run the step, save what it
+        did, then post and dispatch what it handed back.
 
-        # Read before the ball moves too, and for the same reason a
-        # won Double Team reads it before the push: "the closest
-        # teammate" is measured from where the play started, which is
-        # where the ball is standing right now. See
-        # `pay_double_team_cost`.
-        double_team_partner = (
-            self.engine.double_team_partner(match)
-            if self.engine.advanced_cost(match, key) == "double_team"
-            else None
-        )
+        **The persist is not optional, and it is before the
+        dispatch.** `low_pass_step` no longer saves itself -- a step
+        mutates and returns, and the caller writes it down (principle
+        9 in CLAUDE.md) -- while the spine underneath is still the
+        cog's, and a spine step ending in a prompt hands the turn to a
+        click that reloads the match out of the save file. Drop this
+        line and the pass's own events are gone by the next
+        interaction, which is the bug principle 9 exists to fix,
+        reintroduced by the move meant to fix it. It is the transition
+        rule through Phase 5; Phase 6 collapses it into the driver.
 
-        actual_distance, passer_advance = self.send_low_pass(
-            game, match, offense_side, distance, key, receiver_id,
-        )
-
-        content = (
-            f"**{name}:** the ball "
-            f"{self.low_pass_movement_note(match, handler, distance, actual_distance, passer_advance)}. "
-            f"Ball speed is now {match.ball.speed}."
-        )
-
-        # **Double Team's cost**: beaten by a pass, the defender who
-        # played it and the teammate who would have joined them are
-        # each shoved a space forward, away from their own goal.
-        content += self.pay_double_team_cost(match, key, double_team_partner)
-        # Low Pass's own cost is a flat 1 space minute regardless of
-        # distance (2026-08-16), the same as every maneuver but High
-        # Pass. A pass granted by Skilled Pass's cost is not this
-        # side's maneuver and charges nothing: the clock was already
-        # spent on the steal that produced it.
-        distance_moved = 0 if free else 1
-
-        # Role ability -- Winger: the receiving player may attempt a
-        # scoring opportunity right where the pass lands, whatever the
-        # distance -- unlike High Pass's set-up, this doesn't require
-        # reaching the space nearest the goal. It does require shooting
-        # range, like any other shot: the ability frees the set-up from
-        # a distance, not from where a goal can be scored from.
-        if handler.role != PlayerRole.WINGER or not match.can_attempt_score(
-            offense_side,
-        ):
-            await self.refresh_match_image(interaction, game)
-            await self.finish_maneuver_resolution(
-                interaction,
-                game,
-                match,
-                distance_moved=distance_moved,
-                lead_in=content,
-            )
-            return
-
-        if receiver_id is None:
-            # Only reachable if the board changed under a stale
-            # choice; fall back to whoever is on the ball's space.
-            receiver_id = match.eligible_ball_handlers()[0]
-        await self.refresh_match_image(interaction, game)
-        await self.offer_scoring_attempt_choice(
-            interaction,
-            game,
+        The wrapper used to rely on `send_low_pass` having saved for
+        it, which is why this is an added line rather than a moved
+        one.
+        """
+        result = low_pass_step(
+            self.engine,
             match,
-            shooter_id=receiver_id,
-            distance_moved=distance_moved,
-            lead_in=(
-                f"{content} "
-                f"{self.player_label(match, handler)}'s Winger "
-                "ability can turn this into a scoring opportunity!"
-            ),
+            distance,
+            receiver_id=receiver_id,
+            key=key,
+            free=free,
         )
+        self.persist(game, match)
+        await self.dispatch_step_result(interaction, game, match, result)
 
     # -- Dribble Advance ---------------------------------------------
 
@@ -585,45 +466,6 @@ class ManeuverEffectsMixin:
             player_id=match.active_player_id,
             skill_type="offense",
             lead_in=lead_in,
-        )
-
-    def pay_double_team_cost(
-        self,
-        match: MatchState,
-        winner_key: str,
-        partner_id: Optional[str],
-    ) -> str:
-        """
-        Double Team's cost, charged inside the pass that beat it: the
-        defender who played it and the nearest teammate each move a
-        space forward, away from their own goal.
-
-        `partner_id` is passed rather than looked up, because by the
-        time this runs the pass has already moved the ball and "the
-        closest teammate" would be measured from the wrong space -- the
-        card means the space the play started from. Its caller reads it
-        before the ball moves, the same way a won Double Team does.
-
-        No exhaustion -- nobody chose to go, and every per-space charge
-        in the game is for a move somebody was sent on. Empty string
-        when Double Team was not the card beaten, which is nearly
-        always.
-        """
-        if self.engine.advanced_cost(match, winner_key) != "double_team":
-            return ""
-        defense_side = match.defending_side()
-        moved = []
-        for player_id in (match.challenger_id, partner_id):
-            if player_id is None:
-                continue
-            match.move_player_relative(player_id, defense_side, 1)
-            moved.append(self.player_id_label(match, player_id))
-        if not moved:
-            return ""
-        return (
-            "\n\n**Double Team** was beaten -- "
-            + " and ".join(moved)
-            + " are each shoved a space forward, away from their own goal."
         )
 
     def pay_clear_cost(

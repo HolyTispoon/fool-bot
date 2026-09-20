@@ -11,10 +11,10 @@ when that phase lands, and the file goes when the worksheet does. Nothing
 in it is a rule -- the principles are the worksheet's, and CLAUDE.md's from
 Phase 1 on.
 
-Phase 0 has landed (PR #201) and so has Phase 1, in the two halves the
+Phase 0 has landed (PR #201), and so has Phase 1, in the two halves the
 worksheet's own "lands first, on its own" asked for (1a in PR #223, 1b in
-PR #225), so there are no prompts for either. Phase 3 is one template run
-six times.
+PR #225), and so has Phase 2 (PR #226) -- so there are no prompts for any
+of them. Phase 3 is one template run six times.
 
 ---
 
@@ -139,104 +139,9 @@ Rules: the page imports nothing from cogs/, derives no candidate list and no
 "what is it waiting on" of its own (principle 10 -- if something is missing
 from `pending_prompt`, that is a finding to bring back to the bot, not a gap
 to fill here). It plays nothing. Report what the seam was missing, if
-anything, as a list; that list is the input to Phase 2.
-```
-
----
-
-## Phase 2 -- `StepResult`, proved on Low Pass alone
-
-```
-[PREAMBLE]
-
-This is Phase 2 of docs/model-discord-split.md, "StepResult, on one
-vertical slice". Phase 1 has landed (d12ball/prompts.py exists and
-pending_turn_view is a mapping table).
-
-Probe:
-`grep -q "class PromptKind" d12ball/prompts.py && grep -q "def pending_prompt" d12ball/prompts.py`
-
-Read
-docs/design/maneuvers.md, docs/design/gotchas.md (the swallowed save) and
-the "The model and the Discord layer" section of CLAUDE.md, which is now
-the principles' home.
-
-Two things to settle first, and write down in the PR as settled:
-
-1. The shape of `StepResult.next`. The worksheet writes it as
-   `PendingPrompt | None  # or a follow-on step to run`, and Phase 3 relies
-   on the second half: a lifted effect ends by naming a spine step that is
-   still async and still in the cog (`finish_maneuver_resolution`,
-   `offer_scoring_attempt_choice`, later `begin_run_back`,
-   `begin_loose_ball`). So `next` needs a second variant, a small
-   `FollowOn` naming that step by key with its arguments -- and it is
-   transitional: Phase 6's driver runs follow-ons itself and the cog's
-   dispatch of them goes. Design it as a closed set of keys, not a
-   callable or a method name string the cog `getattr`s, and mark it
-   transitional in its docstring. Because it is a closed set, the enum
-   itself is the record of what the cog still dispatches: Phases 3-5 add
-   and remove members, and Phase 6 reads the enum rather than a PR
-   description to learn what is left.
-2. A `PendingPrompt` in `next` is rendered by the same
-   `view_for_prompt` the restore path uses. From this phase on, the live
-   flow and the restart flow build the prompt through one table, which is
-   the drift principle 3 exists to prevent. Its signature is
-   `view_for_prompt(game_id, match, prompt)` -- the match is there for the
-   one kind whose view is built from a candidate list rather than from the
-   prompt alone -- and `pending_prompt(engine, game, match)` takes the game
-   record, not a game id.
-
-What moves:
-
-- `d12ball/flow/__init__.py`, `d12ball/flow/result.py` with
-  `StepResult(narration: list[str], board_changed: bool, next: PendingPrompt
-  | FollowOn | None)`.
-- Low Pass and nothing else: `D12Ball.send_low_pass` (already sync, in
-  cogs/d12ball/effects.py) plus `low_pass_movement_note` and the wording
-  that `apply_low_pass` builds inline, into `d12ball/flow/effects.py` as a
-  sync function returning StepResult. The `self.persist(game, match)` inside
-  send_low_pass is stripped out -- and here is the one rule of this phase:
-  `apply_low_pass` in the cog becomes call the step -> `self.persist(game,
-  match)` -> post the narration -> refresh the board if `board_changed` ->
-  dispatch `next`. The persist is not optional and it is before the
-  dispatch. The worksheet explains why (a spine step ending in a prompt
-  hands the turn to a click that reloads the match from disk); read that
-  paragraph twice. This is the transition rule for Phases 2-5.
-- The Winger set-up branch and the Skilled Pass continuation
-  (`pending_effect_continuation`) come with it; they are why Low Pass is the
-  slice. `send_low_pass` is shared by Skilled Pass's free pass, so that path
-  is touched too -- test it.
-
-Tests:
-
-- Model-side tests for the new step, no discord: narration lines exactly
-  equal to what the cog produced before (record them from the old code
-  first, on the same fixtures, commit the recording as the branch's first
-  commit, then move -- Phase 1b did exactly this, and
-  tests/prompt_fixtures.py plus tests/test_d12ball_prompt_mapping.py are
-  the worked example: a discord-free fixture table two test modules read,
-  one through the model and one through the cog), board_changed true/false
-  where
-  the old `refresh_match_image` decision was, `next` correct for a plain
-  pass, a pass into a stack (receiver pick), a Winger set-up, a free
-  Skilled Pass.
-- A test that the step does not save: run it under
-  tests/save_patches.py's suppression and assert nothing tried to.
-- A test on the cog wrapper that a save happens between the step and the
-  dispatch (patch persist, patch the dispatched spine method, assert order).
-- Golden transcript byte-identical (it reaches Low Pass); test_model_purity
-  green; EveryMatchupResolvesTests green.
-
-Docs: CLAUDE.md's new section gains `StepResult`, `FollowOn` (marked
-transitional), the flow package and the transition rule for the persist;
-map row for `d12ball/flow/`; docs/design/maneuvers.md notes where Low Pass
-now lives; the worksheet's Phase 2 section is cut down.
-
-Bot stop for the author (in the PR): three or four Low Passes -- one plain,
-one into a stack on board 6 so the receiver pick fires, one as a Winger for
-the set-up, one free off a beaten Skilled Pass -- and a restart in the
-middle of the receiver pick, which is the effect-choice branch of Phase 1
-catching it.
+anything, as a list. Phase 2 has landed since this was written, so that
+list is a finding to take to the author rather than the input to a phase
+still being planned.
 ```
 
 ---
@@ -249,7 +154,7 @@ Do them in the order given; each assumes the previous has landed.
 | Run | RANK block |
 | --- | --- |
 | 3a | `Rank O2 -- Dribble Advance and Dribble Burst. Self-contained: moves the handler and ends; the speed choice is the only prompt. No hand-off to the spine beyond finish_maneuver_resolution.` |
-| 3b | `Rank O1 -- Skilled Pass, and the shared apply_low_pass(key=) wrapper. Low Pass moved in Phase 2; this is the rest of the rank. Expect it to be small; if it is not, something in Phase 2 was left half-moved and this PR says what.` |
+| 3b | `Rank O1 -- Skilled Pass, and the shared key= parameter. Low Pass moved in Phase 2 and Skilled Pass already rides its step: d12ball/flow/effects.py's low_pass_step takes key= and cogs/d12ball/effects.py's apply_low_pass wrapper passes it through, so this rank may already be whole. Check resolve_skilled_pass and the free-pass continuation, add the fixtures and tests Phase 2 did not, and if nothing is left to move say so in the PR rather than inventing work.` |
 | 3c | `Rank D2 -- Steal and Intercept. A turnover, so this is the first hand-off to begin_run_back: the step's next is a FollowOn naming it; begin_run_back stays async in the cog. take_ball_by_steal saves itself today -- strip it and the wrapper persists.` |
 | 3d | `Rank D3 -- Pressure and Double Team. The own-goal branch (run_own_goal_roll stays in the cog; apply_own_goal_outcome saves itself today -- strip it and the wrapper persists) and pending_double_team reaching into the next turn. Read docs/design/possession-and-turnovers.md.` |
 | 3e | `Rank D1 -- Deflect and Clear. Calls begin_loose_ball directly rather than through finish_maneuver_resolution; knock_ball_back saves itself today -- strip it and the wrapper persists. Read docs/design/loose-balls.md.` |
@@ -262,10 +167,12 @@ This is one rank of Phase 3 of docs/model-discord-split.md, "the effects, a
 rank per pull request". Phases 1 and 2 have landed, and so has every rank
 listed before this one in the worksheet's Phase 3 table.
 
-Probe: d12ball/flow/effects.py exists, and for each card of every rank
-listed before this one the worksheet's Status column names its PR and
-`grep -c "def .*<card key>" d12ball/flow/effects.py` is not 0. If either
-fails, stop.
+Probe: `grep -q "def low_pass_step" d12ball/flow/effects.py`, and the
+worksheet's Status column names a PR for every rank listed before this one.
+Do not probe for a function per card: a rank whose two cards are the same
+card parameterised has one step between them, which is the shape Phase 2
+landed -- Skilled Pass is `low_pass_step(key="skilled_pass")` and there is
+no `skilled_pass` function to find. If either check fails, stop.
 
 Read docs/design/maneuvers.md and the "The
 model and the Discord layer" section of CLAUDE.md, plus the design doc the
@@ -274,16 +181,30 @@ rank block names.
 RANK: <paste the rank block here>
 
 The pattern is Phase 2's, applied to both cards of this rank, and this PR
-does not invent a new one. For each card's `apply_*` in
+does not invent a new one. Read `low_pass_step` and `D12Ball.apply_low_pass`
+before you start; they are the worked example. For each card's `apply_*` in
 cogs/d12ball/effects.py: the mutation and the wording move into
-d12ball/flow/effects.py as a sync function returning StepResult; any
-`self.persist` inside the moved code is stripped; the cog wrapper becomes
-step -> persist -> post narration -> refresh if board_changed -> dispatch
-`next`. Where the effect hands off to spine machinery that is still the
-cog's (finish_maneuver_resolution, begin_run_back, begin_loose_ball,
+d12ball/flow/effects.py as a sync function `<card key>_step(engine, match,
+...)` returning StepResult -- taking `game` only where it actually reads the
+record, and never an `interaction`; any `self.persist` inside the moved code
+is stripped; and the cog wrapper becomes step -> `self.persist(game, match)`
+-> `await self.dispatch_step_result(interaction, game, match, result)`.
+That last call is already written (cogs/d12ball/core.py) and does the rest:
+it redraws the board if `board_changed` and then asks or continues. **Do not
+post the narration as a message of its own** -- `dispatch_step_result` joins
+the lines and hands them to whatever `next` names as its `lead_in`, which is
+what keeps a resolved maneuver at one message and one board refresh.
+
+Where the effect hands off to spine machinery that is still the cog's
+(finish_maneuver_resolution, begin_run_back, begin_loose_ball,
 offer_scoring_attempt_choice, run_own_goal_roll, begin_ball_recovery), `next`
 is a `FollowOn` naming it -- the spine does not move in this phase, under
-any provocation. Advanced-mode cost and benefit (`advanced_cost`,
+any provocation. `FollowOnStep` is a closed enum in d12ball/flow/result.py
+and `D12Ball.follow_on_methods` is the table under it, so a spine step this
+rank is the first to hand off to needs a member in the one and a row in the
+other. A follow-on whose method does not take a `lead_in` is a case
+`dispatch_step_result` has not met yet; widen it there rather than posting
+around it. Advanced-mode cost and benefit (`advanced_cost`,
 `settled_maneuver_winner`) are engine questions already; the step asks them,
 it does not re-derive them.
 
@@ -297,7 +218,12 @@ narration lines and the refresh decision, and write those into the
 model-side tests for the new step, committed before the move as the
 branch's first commit. A rank whose lifted narration differs by
 a character from the recording is a rank that moved a rule, and that is a
-finding, not a regeneration.
+finding, not a regeneration. tests/low_pass_fixtures.py with
+tests/test_d12ball_low_pass_recording.py (the cog) and
+tests/test_d12ball_low_pass_flow.py (the model) is the worked pair: one
+discord-free fixture table, read twice. Name the follow-on by `FollowOnStep`
+member name in the table, so the recording can be written before the step
+exists.
 
 Tests, beyond that: the step does not save (under save_patches suppression);
 the wrapper saves between step and dispatch; `next` is right on every
