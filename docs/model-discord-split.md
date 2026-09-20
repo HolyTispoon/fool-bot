@@ -27,7 +27,7 @@ it happened to have.
 | **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
-| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a-3b done (PR #229, PR #232); 3c-3f open |
+| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a-3c done (PR #229, PR #232, PR #233); 3d-3f open |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
@@ -112,8 +112,8 @@ may not do** (principle 9). `send_low_pass`, `throw_high_pass`,
 `knock_ball_back`, `take_ball_by_steal` and `apply_own_goal_outcome` each
 called `self.persist(game, match)` in their own body. So they are on the
 model's side in everything but their address *and* their save, and lifting
-one means stripping the persist out of it first. **Four are left**: Phase 2
-took `send_low_pass`.
+one means stripping the persist out of it first. **Three are left**: Phase 2
+took `send_low_pass` and rank D2 took `take_ball_by_steal`.
 
 **That is not a free deletion, because the wrapper was not saving either.**
 `apply_low_pass` never persisted: it relied on `send_low_pass` having done
@@ -280,7 +280,7 @@ so the pattern is settled before it meets the hard cases.
 | --- | --- | --- | --- |
 | 3a | O2 | Dribble Advance, Dribble Burst | **Done (PR #229).** Moved the handler and ended; the speed choice was the only prompt |
 | 3b | O1 | Low Pass, Skilled Pass | **Done (PR #232).** Nothing was left to move -- Phase 2's step already carried both cards -- so the rank is its evidence: ten fixtures and the `key=` round trip |
-| 3c | D2 | Steal, Intercept | A turnover, so it meets `begin_run_back` -- the first hand-off |
+| 3c | D2 | Steal, Intercept | **Done (PR #233).** One step and a sign for both cards, and the first hand-off into the spine: `BEGIN_RUN_BACK` and `BEGIN_SHOOTER_CHOICE` |
 | 3d | D3 | Pressure, Double Team | The own-goal branch, and `pending_double_team` reaching into the next turn |
 | 3e | D1 | Deflect, Clear | Calls `begin_loose_ball` directly rather than going through `finish_maneuver_resolution` |
 | 3f | O3 | High Pass, Setup Pass | Hardest by a distance: 169 lines, 10 awaits, the overshoot, the contest, the out-of-bounds |
@@ -298,8 +298,9 @@ in [design/model-discord-split.md](design/model-discord-split.md)):
   3a's. `offer_speed_choice` is not a `PendingPrompt` the step returns,
   because whether anybody is asked at all is still the cog's decision --
   Dinky answers for itself and a tutorial beat holds the prompt behind a
-  note. 3c inherits the member rather than adding it: a steal ends on the
-  same choice.
+  note. 3c did **not** inherit it: a steal owes the same choice but
+  reaches it through `finish_run_back`, so it named `BEGIN_RUN_BACK`
+  and let the flag carry the question.
 - **A step takes `game` where it reads the record**, which for anything
   charging exhaustion is always: `RulesEngine.apply_exhaustion` and
   `describe_exhaustion_gain` moved onto the engine with
@@ -317,16 +318,10 @@ itself was empty -- `low_pass_step(key="skilled_pass")` is the whole of
 a Skilled Pass and Phase 2 landed it -- so what it produced is two
 corrections to what the later ranks expect:
 
-- **A steal does not reach `offer_speed_choice` directly.**
-  `apply_steal` ends on `begin_run_back(speed_choice_after=True)`, and
-  `finish_run_back` is what offers the speed choice; the only two
-  direct callers left in `cogs/` are `resolve_setup_pass` (rank O3)
-  and `finish_run_back` itself. So 3c's follow-on is `BEGIN_RUN_BACK`
-  carrying that flag rather than the `OFFER_SPEED_CHOICE` it was
-  expected to inherit -- and the Intercept overshoot branch needs a
-  third one, for `begin_shooter_choice`. `apply_steal` also holds a
-  **second** `self.persist`, in the Skilled Pass cost branch, on top
-  of the one inside `take_ball_by_steal`.
+- **`offer_speed_choice` has one direct caller left in `cogs/` that
+  has not moved**: `resolve_setup_pass`, which is rank O3's.
+  `finish_run_back` is the other, and it is the spine's. (The rest of
+  this bullet was 3c's brief and 3c has run -- see below.)
 - **`begin_loose_ball` is not rank D1's alone.** Eight call sites in
   `cogs/d12ball/effects.py` reach it, and one of them is rank O1's own
   -- `resolve_low_pass`'s no-teammate-to-receive branch, which moves
@@ -342,6 +337,50 @@ corrections to what the later ranks expect:
   leaves its `free_low_pass` continuation standing, which
   `apply_speed_choice` then re-offers. Both are pre-existing on `main`
   and both are written out in PR #232.
+
+**What 3c settled, for 3d to 3f and for Phase 4.** It was the first
+rank to hand off to the spine rather than to another effect, so most
+of what it produced is about the seam rather than about the cards:
+
+- **A rank may add more than one member, and D2 added two.**
+  `BEGIN_RUN_BACK` (with `speed_choice_after` in its kwargs) and
+  `BEGIN_SHOOTER_CHOICE`. Phase 4's "three arrival points" list does
+  not name `begin_shooter_choice`; it is a dispatched follow-on from
+  this rank on, so Phase 4 either moves it or leaves the member in the
+  enum knowingly.
+- **`dispatch_step_result` passes a follow-on's arguments by
+  keyword.** Every spine method a rank hands off to is called
+  `method(interaction, game, match, lead_in=..., **kwargs)`, so a
+  parameter the cog used to pass positionally arrives named -- and an
+  existing test reading `await_args.args[n]` breaks on a move that
+  changed nothing. `begin_shooter_choice(…, [challenger], …)` was one.
+  The fix is the assertion, not the call; binding a recorded call to
+  the real method's `inspect.signature` is how the rank's own fixture
+  table answered for both shapes at once.
+- **Step-then-save is not always a fix.** Rank O2 found a write that
+  was being lost; D2 found two persists that both already carried
+  everything -- `take_ball_by_steal`'s own, and a second in the
+  Skilled Pass cost branch on top of it. Collapsing them changed the
+  number of writes and nothing else. Say which of the two a rank found
+  rather than assuming O2's.
+- **A defense rank has no unchallenged branch.** A defense card only
+  resolves where a defender was sent, so "contested and unchallenged"
+  in the bot stop is one half only for D1, D2 and D3 -- and
+  `match.challenger_id` can be read without a None check in their
+  steps.
+- **A paragraph inside a branch's narration stays one block.**
+  `dispatch_step_result` joins blocks on a single space, so a second
+  block separated by a blank line would carry a stray space in front
+  of its newlines. The Intercept overshoot's "no field left ahead of
+  them" rides inside the turnover's block, the way a beaten Clear's
+  cost rides inside the dribble's.
+- **One ordering is open, and the behaviour was left as it was.** An
+  Intercept that overshoots returns before the Skilled Pass cost is
+  read, so it collects none. Whether that is the rule (nobody goes
+  back in position, so the free pass has no moment) or an oversight is
+  the author's to say; it is written out in PR #233 under "Questions
+  for the author", and deliberately **not** pinned in a fixture, the
+  same way 3e's two questions were left unpinned in PR #232.
 
 **Bot stop, per rank:** play both cards of the rank, contested and
 unchallenged, on two board sizes, in a basic and an advanced game. Watch the

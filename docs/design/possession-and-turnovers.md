@@ -29,13 +29,21 @@ ball's space -- see "Choosing the handler" in the living rules.
   field existed, narrows nothing. Correctness does not rest on having found
   every place to clear it.
 - **The setting sites are the effects, not one dispatcher.** Nine of them:
-  `apply_dribble_advance`, `resolve_steal_intercept`, `resolve_pressure`
+  `dribble_advance_step`, `take_ball_by_steal`, `resolve_pressure`
   (twice -- the handler, then the Defender's steal over the top of it),
-  `apply_low_pass`, the two High Pass branches where a pass of 2 is received,
+  `send_low_pass`, the two High Pass branches where a pass of 2 is received,
   the two unopposed branches of `resolve_loose_ball`, and
   `LooseBallSkillTestView.roll`. There is no single "who has the ball now" to
   derive it from after the fact, which is why each says so itself. A new
   maneuver has to decide, the same way it decides steal-or-new-play.
+  - **`dribble_advance_step`, `take_ball_by_steal` and `send_low_pass`
+    are no longer in `cogs/`**, and the list was renamed as each one
+    moved rather than annotated: Phase 3 of
+    [model-discord-split.md](../model-discord-split.md) has been lifting
+    the effects a rank at a time, and all three are free functions in
+    `d12ball/flow/effects.py` now. Which side of the seam a site sits on
+    changes nothing about the rule -- the point of the bullet is that
+    there are nine of them and each decides for itself.
 - **Pressure sets it before the overshoot branch returns.** An own goal
   survived is still a handler who was pressured and kept the ball; a conceded
   one is a new play and gets cleared with everything else.
