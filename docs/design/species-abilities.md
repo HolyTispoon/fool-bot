@@ -414,45 +414,6 @@ people, and **not** who was displaced.
 
 ### Slimey
 
-**Slip in declines to narrow; it adds nobody.** An Ooze standing on the ball
-for the side in possession is *already* an eligible ball handler -- what
-`turn_handler_candidates` does is cut that list down to the carrier when a
-resolution named one, and Slimey is the rule that keeps the Oozes in it.
-
-- **`MatchState.turn_handler_candidates` takes the ids rather than asking.**
-  `slip_in_ids` is a parameter for the reason `mark_exhausted_if_needed` takes
-  a threshold: `MatchState` does not know what a species is, let alone which
-  modules the game is playing. `RulesEngine.slip_in_candidates` computes them
-  and `RulesEngine.turn_handler_candidates` is the wrapper every prompt, the
-  click and the AI should ask.
-- **The prompt says a slip-in is on offer, rather than posing it as a plain
-  choice.** `build_turn_prompt` used to ask "Choose which player in the
-  ball's space will take an action" whether or not anybody had already won
-  the ball -- which reads the same for a genuine open choice (no carrier
-  named yet) and for a carrier standing there with an Ooze beside them. It
-  now checks `carrier_id in candidates` (true only when Slimey is what
-  widened the list) and says "{carrier} has the ball, but {Ooze(s)} may
-  slip in! 🫧 Who should handle the ball?" instead, so a coach reads who
-  already has it before being asked whether to hand it off (2026-09-19).
-  The bubble is `TEAM_EMOJI_FALLBACKS[Team.OOZES]`, the same one already
-  drawn for the Oozes team -- there is no ability emoji of its own, and
-  reusing the species' own mark flags what just fired without inventing
-  a second symbol for the same species.
-- **"Of the same side" is `eligible_ball_handlers`' own answer**, which is what
-  makes this safe on a space both sides are standing on -- that helper is
-  already "everyone of the possessing team on the ball", so an opponent's Ooze
-  is never in the list to be filtered out.
-- **The carrier stays first**, so a coach reads who actually won the ball ahead
-  of who may take it off them.
-- **Dinky never slips in**, which is why `DinkyAI.choose_ball_handler` still
-  asks the *match* rather than the engine. Weighing whether to hand the ball to
-  a different player is a judgement call, and Dinky makes none -- the same call
-  as never declining a challenge and never leaving a loose ball
-  uncontested. In a solo game the option is the human's alone.
-- **It is the one thing that can add a click to a turn.** Everywhere else a
-  single candidate is selected without asking; a carrier with an Ooze beside
-  them is two buttons where there was none.
-
 **Merge is a sum, not a pick.** "Every such Ooze adds -- two of them add
 twice", so `RulesEngine.merge_bonus` totals them and returns the detail lines
 with it.
@@ -651,3 +612,48 @@ the same door.
   interrupts an arrival that has *not happened yet*, so the maneuver's state
   is still exactly as it was and every branch below would resolve the arrival
   this is holding back.
+
+**Slip in declines to narrow; it adds nobody** (moved here from Slimey,
+2026-09-20, when the ability changed species -- the author: *"remove slip in
+as an ability for oozes. Add a new ability for telekinetics ... they can do
+the same thing slip in"*; see the 2026-09-20 entry in
+[rules-log.md](../rules-log.md)). The mechanic itself is untouched, only
+`SPECIES_OOZE` becoming `SPECIES_TELEKINETIC` throughout. A Telekinetic
+standing on the ball for the side in possession is *already* an eligible ball
+handler -- what `turn_handler_candidates` does is cut that list down to the
+carrier when a resolution named one, and this is the rule that keeps the
+Telekinetics in it.
+
+- **`MatchState.turn_handler_candidates` takes the ids rather than asking.**
+  `slip_in_ids` is a parameter for the reason `mark_exhausted_if_needed` takes
+  a threshold: `MatchState` does not know what a species is, let alone which
+  modules the game is playing. `RulesEngine.slip_in_candidates` computes them
+  and `RulesEngine.turn_handler_candidates` is the wrapper every prompt, the
+  click and the AI should ask.
+- **The prompt says a slip-in is on offer, rather than posing it as a plain
+  choice.** `build_turn_prompt` used to ask "Choose which player in the
+  ball's space will take an action" whether or not anybody had already won
+  the ball -- which reads the same for a genuine open choice (no carrier
+  named yet) and for a carrier standing there with a Telekinetic beside them.
+  It now checks `carrier_id in candidates` (true only when Slip in is what
+  widened the list) and says "{carrier} has the ball, but {Telekinetic(s)}
+  may slip in! 🔮 Who should handle the ball?" instead, so a coach reads who
+  already has it before being asked whether to hand it off (2026-09-19). The
+  bubble is `TEAM_EMOJI_FALLBACKS[Team.TELEKINETICS]`, the same one already
+  drawn for the Telekinetics team -- there is no ability emoji of its own,
+  and reusing the species' own mark flags what just fired without inventing
+  a second symbol for the same species.
+- **"Of the same side" is `eligible_ball_handlers`' own answer**, which is what
+  makes this safe on a space both sides are standing on -- that helper is
+  already "everyone of the possessing team on the ball", so an opponent's
+  Telekinetic is never in the list to be filtered out.
+- **The carrier stays first**, so a coach reads who actually won the ball ahead
+  of who may take it off them.
+- **Dinky never slips in**, which is why `DinkyAI.choose_ball_handler` still
+  asks the *match* rather than the engine. Weighing whether to hand the ball to
+  a different player is a judgement call, and Dinky makes none -- the same call
+  as never declining a challenge and never leaving a loose ball
+  uncontested. In a solo game the option is the human's alone.
+- **It is the one thing that can add a click to a turn.** Everywhere else a
+  single candidate is selected without asking; a carrier with a Telekinetic
+  beside them is two buttons where there was none.

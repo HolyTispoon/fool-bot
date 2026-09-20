@@ -24,16 +24,18 @@ Layers, and they fail for different reasons:
   roll, spent by it), and Charge-up (`charge_up_players`, read off who
   actually *moved* during the run back -- which is what makes a stack
   a decision).
-- **Slimey.** Slip in widens `turn_handler_candidates` rather than
-  adding to it -- an Ooze on the ball is already an eligible handler --
-  and Merge is a sum over the bystanders, not a pick.
+- **Slimey.** Merge is a sum over the bystanders, not a pick, and
+  Spreadable is a passive occupancy exemption over every fielded Ooze.
 - **Mind Pull**, which is the one ability that interrupts a maneuver
   rather than modifying it. Three layers again: the path
   (`ball_path_to`, recorded by `set_ball_space`), who it offers a pull
   to (`mind_pull_candidates`), and the gate actually stopping the turn
   to ask -- that last one through the **real cog**, because a gate
   wired to the wrong function, or one that forgets to spend the path,
-  is invisible to a unit test on the engine.
+  is invisible to a unit test on the engine. Slip in widens
+  `turn_handler_candidates` rather than adding to it -- a Telekinetic
+  on the ball is already an eligible handler (moved here from Slimey,
+  2026-09-20).
 
 The rules are "Species abilities" in docs/living-rules.md. Nothing here
 asserts the wording of a message -- that is prose and will be revised;
@@ -1292,14 +1294,14 @@ class ChargeUpTests(unittest.TestCase):
 
 class SlipInTests(unittest.TestCase):
     """
-    "Where a resolution leaves the ball with a particular player and an
-    Ooze of the same side is standing on that space, the coach may hand
-    the ball to the Ooze instead."
+    "Where a resolution leaves the ball with a particular player and a
+    Telekinetic of the same side is standing on that space, the coach
+    may hand the ball to the Telekinetic instead."
     """
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        self.game = build_game(player_1_team=Team.OOZES)
+        self.game = build_game(player_1_team=Team.TELEKINETICS)
         self.match = build_match(self.engine, self.game)
 
     def put_two_on_the_ball(self) -> tuple[str, str]:
@@ -1316,7 +1318,7 @@ class SlipInTests(unittest.TestCase):
         self.match.set_ball_carrier(carrier)
         return carrier, teammate
 
-    def test_an_ooze_on_the_ball_may_take_the_carrier_s_turn(self):
+    def test_a_telekinetic_on_the_ball_may_take_the_carrier_s_turn(self):
         carrier, teammate = self.put_two_on_the_ball()
         candidates = self.engine.turn_handler_candidates(
             self.game, self.match,
@@ -1334,16 +1336,18 @@ class SlipInTests(unittest.TestCase):
 
     def test_without_the_module_the_carrier_takes_the_turn_alone(self):
         carrier, _ = self.put_two_on_the_ball()
-        basic = build_game(player_1_team=Team.OOZES, mode=GameMode.BASIC)
+        basic = build_game(
+            player_1_team=Team.TELEKINETICS, mode=GameMode.BASIC,
+        )
         self.assertEqual(
             self.engine.turn_handler_candidates(basic, self.match),
             [carrier],
         )
 
-    def test_a_non_ooze_teammate_may_not_slip_in(self):
+    def test_a_non_telekinetic_teammate_may_not_slip_in(self):
         # A colour side fields two of each other species, so this is a
         # real case rather than a hypothetical.
-        game = build_game(player_1_team=Team.PURPLE)
+        game = build_game(player_1_team=Team.SLIME)
         match = build_match(self.engine, game)
         carrier = match.eligible_ball_handlers()[0]
         teammate = next(
@@ -1351,7 +1355,7 @@ class SlipInTests(unittest.TestCase):
                 player_id
                 for player_id in field_players(match)
                 if player_id != carrier
-                and self.engine.species_of(player_id) != SPECIES_OOZE
+                and self.engine.species_of(player_id) != SPECIES_TELEKINETIC
             ),
             None,
         )
@@ -1364,7 +1368,7 @@ class SlipInTests(unittest.TestCase):
             self.engine.turn_handler_candidates(game, match), [carrier],
         )
 
-    def test_an_opposing_ooze_may_not_slip_in(self):
+    def test_an_opposing_telekinetic_may_not_slip_in(self):
         # "Of the same side" -- and `eligible_ball_handlers` is already
         # only the possessing team, which is what makes it safe on a
         # space both sides are standing on.
@@ -1431,7 +1435,7 @@ class SlipInTests(unittest.TestCase):
 
     def test_no_carrier_is_never_read_as_a_slip_in(self):
         # No carrier named at all (a fresh pickup with nobody resolved
-        # yet) is an ordinary open choice, not Slimey -- more than one
+        # yet) is an ordinary open choice, not Slip in -- more than one
         # candidate here must not trip the same branch a real slip-in
         # does, even though both put more than one candidate in play.
         self.match.clear_ball_carrier()

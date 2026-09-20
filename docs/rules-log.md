@@ -124,6 +124,26 @@ a game, and the current number was settled deliberately.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-20 -- author, Slip in moves from Oozes to Telekinetics
+
+The author, in chat: *"remove slip in as an ability for oozes. Add a new ability for
+telekinetics - they can do the same thing slip in. When a teammate handling the ball arrives
+at their space, they may take over and handle the ball instead (have the coach choose with a
+similar prompt to the one we have now for slip-in."*
+
+The mechanic is untouched -- only which species holds it. Slimey (Ooze) keeps Merge and
+Spreadable and loses Slip in; Mind Pull (Telekinetic) keeps the pull and gains it. Implemented
+as the `SPECIES_OOZE` check in `RulesEngine.slip_in_candidates` becoming `SPECIES_TELEKINETIC`
+-- see "Mind Pull, and the arrival gate" in docs/design/species-abilities.md for the reasoning
+carried over from where it used to sit under "Slimey".
+
+**Not yet done: the sheet.** `d12ball/data/species.json`'s `ooze`/`telekinetic` rows (the
+printed species and player cards' ability text) still read the old split, and per
+[gotchas.md](design/gotchas.md) that file is never hand-edited -- it wants a `spec_abilities`
+tab update and a re-run of `scripts/import_d12ball_species.py` (then
+`scripts/render_species_cards.py` and `scripts/render_player_cards.py`) before the physical
+cards agree with this entry.
+
 ### 2026-09-19 -- author, Damaged joins Drained as a Cyborg's own word for Injured
 
 Drained already existed as the Cyborgs' own word for Exhausted (2026-09-06 below). The author,
