@@ -327,6 +327,31 @@ missing other half for Injured, scoped the same way.
   has no application emoji of its own, since nothing in the cog's own text
   messages names an exhaustion *count* the way `describe_exhaustion_gain`
   names the Drained/Exhausted condition.
+- **`exhaust.png`'s content got its own redraw, same day.** The pill and its
+  small "ZZZ" (black ink on an amber pill, both at the same tiny scale that
+  read as an unbroken bar at 26px) are gone; `scripts/redraw_exhaust_zs.py`
+  erases the pill back to the face's own ink and draws three bold "Z"s
+  straight onto the face in the ring's own amber, stepped down in size
+  top-right to bottom-left, the largest tucked into the triangle's own
+  corner. **The triangle itself is still not regenerated** -- the edge,
+  ring and face are the same pixels they always were, only the content
+  inside the ring changed, for the same "don't risk a shape that doesn't
+  match" reason `recolor_exhaust_token.py` never redraws it either. That
+  leaves `exhaust_cyborg.png` still exactly the **recolour, not a redraw**
+  described above: it is derived from whatever `exhaust.png` currently
+  holds, so `recolor_exhaust_token.py --in-place` has to run again after
+  any change to the amber art, including this one, or the two drift apart.
+  - **The first draft placed each glyph by eye and let them overlap** into
+    one interlocking zigzag, with the biggest Z well short of the corner.
+    The version that shipped places every glyph by search instead: the
+    biggest Z's spot is whichever clears the face's row-by-row width (the
+    triangle narrowing toward its point, sampled the same way the erase
+    mask is built) while maximising how far into the corner it sits; the
+    other two are placed as close as they can get to a target spot -- the
+    smallest near the first draft's own position, the middle roughly
+    between its neighbours -- while keeping a 10px gap from every other
+    glyph's actual ink, not just its bounding box, so a glyph's own
+    diagonal stroke still can't touch its neighbour.
 
 **Overdrive is the only thing in the game declared before a roll**, which is
 what it cost to build. Every roll already sits behind a button any coach may
