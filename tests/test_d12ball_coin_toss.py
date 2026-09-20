@@ -589,7 +589,6 @@ class D12BallRunBackAnnouncementTests(
         cog.basic_ruleset = self.rules
         cog.engine = RulesEngine(cog.player_catalog, cog.basic_ruleset, None, {})
         cog.team_emojis = {}
-        cog.condition_emojis = {}
         cog.continue_run_back = mock.AsyncMock()
         cog.begin_substitution_window = mock.AsyncMock()
         cog.end_period = mock.AsyncMock()
@@ -842,7 +841,6 @@ class D12BallNewPlayKickoffTests(
         cog.basic_ruleset = self.rules
         cog.engine = RulesEngine(cog.player_catalog, cog.basic_ruleset, None, {})
         cog.team_emojis = {}
-        cog.condition_emojis = {}
         cog.refresh_match_image = mock.AsyncMock()
         cog.finish_maneuver_resolution = mock.AsyncMock()
         self.stub_new_play_board(cog)
@@ -1440,7 +1438,6 @@ class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
         cog = object.__new__(D12Ball)
         cog.bot = bot
         cog.coin_emojis = {}
-        cog.condition_emojis = {}
         # cog_load hands the team and role emoji to the engine, which
         # is where they live -- see `D12Ball.team_emojis` and
         # `D12Ball.role_emojis`.

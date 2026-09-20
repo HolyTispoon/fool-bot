@@ -66,7 +66,6 @@ def build_cog() -> D12Ball:
         cog.maneuver_catalog,
         cog.ai_strategies,
     )
-    cog.condition_emojis = {}
     cog.refresh_match_image = mock.AsyncMock()
     cog.offer_speed_choice = mock.AsyncMock()
     cog.maneuver_hand_image_bytes = {

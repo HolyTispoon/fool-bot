@@ -200,9 +200,10 @@ class CoreMixin:
         # as it comes up, 0.0 reads as "asked a moment ago" and skips
         # the first retry.
         self.coin_emojis_checked_at: Optional[float] = None
-        self.condition_emojis: dict[str, str] = {}
-        # The team and role emoji live on the engine -- see
-        # `team_emojis` and `role_emojis` below.
+        # The condition, team and role emoji all live on the engine --
+        # see `condition_emojis`, `team_emojis` and `role_emojis`
+        # below. The engine's `__init__` starts each of the three at
+        # `{}`, so there is nothing to initialise here.
         # The `<:d12dice:id>` string for the hub message and the lobby
         # heading, and the lighter `<:d12dicecream:id>` for the hub
         # button (its blue fill swallowed the darker die) -- both None
@@ -630,6 +631,29 @@ class CoreMixin:
             action=action,
             by_ai=by_ai,
         )
+
+    @property
+    def condition_emojis(self) -> dict[str, str]:
+        """
+        The condition emoji, `"exhaust" -> "<:exhaust:id>"` and the
+        four conditions beside it, once cog_load has fetched them and
+        `{}` before -- read by `RulesEngine.describe_exhaustion_gain`
+        and by the roster and coaching lines that show a player's
+        state.
+
+        On the engine for the same reason as `team_emojis` and
+        `role_emojis` below, and arrived there for a sharper one: the
+        sentence an exhaustion charge writes is narration, narration
+        is the model's, and a flow step charging a token cannot ask a
+        cog what an exhaustion token looks like. This is a view of
+        that one copy, not a second dict -- cog_load *replaces* the
+        dict on every fetch.
+        """
+        return self.engine.condition_emojis
+
+    @condition_emojis.setter
+    def condition_emojis(self, condition_emojis: dict[str, str]) -> None:
+        self.engine.condition_emojis = condition_emojis
 
     @property
     def team_emojis(self) -> dict[Team, str]:

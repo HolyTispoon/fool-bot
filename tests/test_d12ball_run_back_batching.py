@@ -53,7 +53,6 @@ class RunBackBatchingTests(unittest.IsolatedAsyncioTestCase):
         cog.player_catalog = self.catalog
         cog.basic_ruleset = self.rules
         cog.maneuver_catalog = self.maneuvers
-        cog.condition_emojis = {}
         cog.ai_strategies = build_ai_strategies(
             self.catalog, self.maneuvers,
         )
@@ -429,7 +428,6 @@ class RunBackTerminationTests(unittest.IsolatedAsyncioTestCase):
         cog.player_catalog = self.catalog
         cog.basic_ruleset = self.rules
         cog.maneuver_catalog = self.maneuvers
-        cog.condition_emojis = {}
         cog.engine = RulesEngine(
             cog.player_catalog, cog.basic_ruleset, cog.maneuver_catalog, {},
         )
@@ -489,7 +487,6 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
         cog = object.__new__(D12Ball)
         cog.games = {}
         cog.player_catalog = self.catalog
-        cog.condition_emojis = {}
         cog.render_match_png = mock.AsyncMock(return_value=b"png")
         cog.match_file_from_png = mock.Mock(return_value="file")
         cog.refresh_match_image = mock.AsyncMock()
