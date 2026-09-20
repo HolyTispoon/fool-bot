@@ -276,7 +276,12 @@ class SkillTestIsNotAContestTests(unittest.IsolatedAsyncioTestCase):
             followup=SimpleNamespace(send=send),
         )
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
+        # Both, which is the usual shape for a view: since Phase 4 the
+        # injury queue's own step is dispatched through
+        # `D12Ball.persist` even when no test is owed -- the driver
+        # writes once after a step rather than the step deciding
+        # whether the write is worth it (principle 9).
+        with suppressed_cog_saves(), suppressed_view_saves(), mock.patch(
             "discord.File",
         ), mock.patch(
             "random.randint", return_value=7,

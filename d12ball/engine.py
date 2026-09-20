@@ -2758,6 +2758,34 @@ class RulesEngine:
             f"at {space_label(match.ball.zone, match.ball.space_index)}:"
         )
 
+    def build_injury_test_prompt(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        player_id: str,
+    ) -> str:
+        """
+        The injury test a coach is asked to roll, and what it has to
+        beat.
+
+        **The token count is in the sentence**, for the reason the die
+        image draws it too: a d12 means nothing until you know what it
+        was chasing, and the number is the whole of why a coach might
+        have spent the token differently. See "Every roll is a
+        coach's" in docs/design/maneuvers.md.
+        """
+        player = self.get_player_definition(player_id)
+        controller_id = self.controlling_user_id(game, match, player_id)
+        mention = f"<@{controller_id}>" if controller_id else "Someone"
+        tokens = match.exhaustion.get(player_id, 0)
+        return (
+            f"{mention}, "
+            f"{self.format_player_label(match, player)} is "
+            "exhausted and owes an injury test: a d12 that has to "
+            f"beat their {tokens} exhaustion "
+            f"{'token' if tokens == 1 else 'tokens'}."
+        )
+
     def apply_formation(
         self,
         match: MatchState,

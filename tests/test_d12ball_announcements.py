@@ -147,7 +147,10 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         interaction = build_interaction()
 
         view = SkillTestView(cog, game.game_id)
-        with suppressed_view_saves(), mock.patch(
+        # Both, the usual shape for a view: since Phase 4 the injury
+        # queue is a flow step and the cog writes once after it even
+        # when no test is owed (principle 9).
+        with suppressed_cog_saves(), suppressed_view_saves(), mock.patch(
             "random.randint", side_effect=[12, 1],
         ), mock.patch("cogs.d12ball_views.base.render_skill_test_dice"), mock.patch(
             "discord.File",

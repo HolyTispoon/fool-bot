@@ -53,6 +53,10 @@ from d12ball.cards import (
     render_maneuver_hands,
 )
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.rolls import (
+    begin_injury_tests_step,
+    continue_injury_tests_step,
+)
 from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
@@ -1406,42 +1410,22 @@ class CoreMixin:
         resume: dict,
     ) -> None:
         """
-        Hand the injury tests a resolved contest owes to the coaches,
-        one button each, and remember what the contest was going to do
-        next.
+        The Discord half of the injury queue --
+        `begin_injury_tests_step` in `d12ball/flow/rolls.py`, which is
+        where the reasoning now lives.
 
-        **A contest cannot simply carry on into its effect any more**:
-        the tests are now clicks, and the last of them may be several
-        minutes after the roll that owed them. `resume` is that
-        continuation, persisted with the queue because a restart in
-        between has nothing else to reconstruct it from -- the skill
-        test's winner is not derivable once the roll has happened
-        (`settled_maneuver_winner` answers None while a test is owed),
-        and a loose ball's distance is gone with the state that
-        cleared it. `dispatch_injury_resume` is the other half.
-
-        A player already injured owes nothing, so the queue is
-        filtered here rather than refused at the prompt -- an injured
-        player gains no exhaustion tokens and can never be asked
-        again.
+        **The save moved and did not multiply.** The old pair wrote
+        once when a queue was set up and once more when the last test
+        emptied it, and wrote nothing at all when none was owed. This
+        persists once, after the step, on every branch -- including
+        the nothing-owed one, where the step changed nothing and the
+        write is the price of the rule being one rule (principle 9).
         """
-        owed = [
-            player.player_id
-            for player in players
-            if player.player_id not in match.injured
-        ]
-        if not owed:
-            # Nothing owed is the common case, and it writes nothing:
-            # the contest carries straight on into its continuation,
-            # exactly as it did before the tests became clicks.
-            await self.dispatch_injury_resume(interaction, game, match, resume)
-            return
-
-        match.pending_injury_tests = owed
-        match.pending_injury_resume = resume
+        result = begin_injury_tests_step(
+            self.engine, game, match, players, resume,
+        )
         self.persist(game, match)
-
-        await self.continue_injury_tests(interaction, game, match)
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def continue_injury_tests(
         self,
@@ -1450,46 +1434,18 @@ class CoreMixin:
         match: MatchState,
     ) -> None:
         """
-        Ask for the next injury test still owed, or -- when there are
-        none left -- do what the contest that owed them was going to
-        do. The one exit from the queue, so a test that is rolled and
-        a test that turns out not to be owed leave by the same door.
+        The Discord half of `continue_injury_tests_step` -- the one
+        exit from the queue, so a test that is rolled and a test that
+        turns out not to be owed leave by the same door.
+
+        The old code posted the prompt and *then* persisted. This
+        saves first, which is the transition rule (principle 9) and
+        closes the window where the message went out and the queue it
+        was read off never reached the disk.
         """
-        while match.pending_injury_tests:
-            player_id = match.pending_injury_tests[0]
-            if player_id in match.injured:
-                # Injured since the queue was built -- by the other
-                # participant's test, which cannot happen today, but a
-                # player who cannot be injured twice should never be
-                # asked to roll for it.
-                match.pending_injury_tests.pop(0)
-                continue
-
-            player = self.engine.get_player_definition(player_id)
-            controller_id = self.engine.controlling_user_id(game, match, player_id)
-            mention = f"<@{controller_id}>" if controller_id else "Someone"
-            tokens = match.exhaustion.get(player_id, 0)
-            prompt_message = await send_new_prompt(
-                interaction,
-                f"{mention}, "
-                f"{self.player_label(match, player)} is "
-                "exhausted and owes an injury test: a d12 that has to "
-                f"beat their {tokens} exhaustion "
-                f"{'token' if tokens == 1 else 'tokens'}.",
-                view=InjuryTestView(self, game.game_id, player_id),
-                allowed_mentions=discord.AllowedMentions(
-                    users=True, roles=False, everyone=False,
-                ),
-            )
-            game.turn_message_id = prompt_message.id
-            self.persist(game, match)
-            return
-
-        resume = match.pending_injury_resume
-        match.pending_injury_resume = None
+        result = continue_injury_tests_step(self.engine, game, match)
         self.persist(game, match)
-
-        await self.dispatch_injury_resume(interaction, game, match, resume)
+        await self.dispatch_step_result(interaction, game, match, result)
 
     async def dispatch_injury_resume(
         self,
@@ -1497,6 +1453,7 @@ class CoreMixin:
         game: D12BallGame,
         match: MatchState,
         resume: Optional[dict],
+        lead_in: str = "",
     ) -> None:
         """
         Pick the turn back up where the injury tests interrupted it.
@@ -1505,7 +1462,19 @@ class CoreMixin:
         the long High Pass that borrows its machinery) goes on to its
         run back, and a shootout skill test goes on to the next one --
         or to the end of the game.
+
+        `lead_in` is here because this is a `FollowOnStep` target
+        since Phase 4 and every one of those is called with one. The
+        injury steps narrate nothing, so nothing sends a non-empty one
+        today -- and it is posted rather than dropped, because a step
+        losing its lines silently is the failure the dispatcher's own
+        "nothing next" branch exists to prevent. The three kinds below
+        take no lead-in of their own, which is why it is a message
+        rather than an argument.
         """
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
+
         kind = (resume or {}).get("kind")
         if kind == "shootout_test":
             # Nothing writes this any more -- a shootout test stopped
@@ -1869,6 +1838,8 @@ class CoreMixin:
             FollowOnStep.BEGIN_HIGH_PASS_CONTEST:
                 self.begin_high_pass_contest,
             FollowOnStep.APPLY_BALL_RECOVERY: self.apply_ball_recovery,
+            FollowOnStep.DISPATCH_INJURY_RESUME:
+                self.dispatch_injury_resume,
         }
 
     async def dispatch_step_result(

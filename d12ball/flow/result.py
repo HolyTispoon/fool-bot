@@ -126,6 +126,14 @@ class FollowOnStep(Enum):
     #: `D12Ball.apply_ball_recovery`, so there is one placement rather
     #: than one per route.
     APPLY_BALL_RECOVERY = auto()
+    #: What the contest that owed an injury test was going to do next,
+    #: once the queue is empty -- a maneuver's skill test into its
+    #: winner's effect, a loose ball into its run back, a shootout
+    #: test into the next one. Phase 4's. It stays the cog's because
+    #: `dispatch_injury_resume` is a table over `resume["kind"]` whose
+    #: rows are the spine steps this phase did not reach, so lifting
+    #: it would have meant lifting all of them at once.
+    DISPATCH_INJURY_RESUME = auto()
 
 
 @dataclass(frozen=True)

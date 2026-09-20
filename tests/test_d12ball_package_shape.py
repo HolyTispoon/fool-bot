@@ -220,6 +220,7 @@ class FollowOnStepTests(unittest.TestCase):
         "OFFER_SETUP_PASS_PUSH_BACK",
         "BEGIN_HIGH_PASS_CONTEST",
         "APPLY_BALL_RECOVERY",
+        "DISPATCH_INJURY_RESUME",
     }
 
     def test_the_enum_holds_exactly_the_steps_the_cog_still_runs(
