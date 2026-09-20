@@ -509,16 +509,18 @@ split is the whole design.
   exactly "to or through" plus "the ball's own starting space does not count
   as moved to". A move that goes nowhere is an empty path, so a clamped pass
   offers nobody a pull.
-- **Reading is four places**, and they are the functions that settle an
+- **Reading is five places**, and they are the functions that settle an
   arrival: `finish_maneuver_resolution` (the tail of every ordinary path,
   receptions included), `begin_loose_ball` (a Deflect, which calls it
   directly, and the High Pass contest, which comes through it),
-  `offer_scoring_attempt_choice` (a set-up), and `begin_run_back` (a
+  `offer_scoring_attempt_choice` (a set-up), `begin_run_back` (a
   turnover a maneuver settles for itself -- Steal, Intercept, a Defender's
   pressure steal, an own goal avoided -- and hands straight to run-back
-  without passing through any of the other three). Between them they are
-  every one of the four things the rules say a pull pre-empts, plus the one
-  the first three don't reach on their own: a steal's own carry.
+  without passing through any of the other three), and `apply_pressure`'s
+  own overshoot branch. Between them they are every one of the four things
+  the rules say a pull pre-empts, plus the two the first three don't reach
+  on their own: a steal's own carry, and a shove that ends in an own-goal
+  roll.
   - **The fourth was missing until 2026-09-20** (the author, from a bot
     transcript): Steal/Intercept, a Defender's pressure steal, and an own
     goal avoided all move the ball with `set_ball_space` and then call
@@ -538,6 +540,37 @@ split is the whole design.
     gate has already run (and spent the path) by the time `begin_run_back`
     is reached, so this reading is a no-op there, the same as the existing
     "second gate reached with the path already spent" case.
+  - **The fifth was missing until 2026-09-20 as well**, and for a reason
+    the fourth did not cover: `apply_pressure`'s overshoot branch is
+    neither a settling nor a turnover. `shove_pressured_handler` drives the
+    ball back through `set_ball_space` like every other effect, so the
+    shove has a path; the branch then handed straight to
+    `begin_own_goal_roll`. That put the pull in the wrong place **both**
+    ways the roll can go. An own goal *avoided* eventually reaches
+    `begin_run_back` with the path still intact, so the offer did come --
+    after the roll, which is too late for "a pull that lands pre-empts
+    whatever the movement would have led to", and after the handler had
+    already paid the roll's exhaustion token. An own goal *conceded* never
+    reaches it at all: `restart_after_goal` clears `last_ball_path` on the
+    way to the kickoff, exactly as it should, and the pull was simply lost.
+    Gating before `begin_own_goal_roll` is what makes the own-goal risk
+    one of the things a pull can pre-empt rather than a hole beside them.
+    - **Only a Double Team can reach the branch with a path at all.** The
+      overshoot is read before anything moves, as `abs(target - origin) <
+      push`, so a 1-space Pressure overshoots only from the space closest
+      to the offense's own goal -- where the handler does not move, and
+      `ball_path_to` answers empty for a move that goes nowhere. A Double
+      Team pushing 2 from one space short of it shoves them a real space
+      and clamps on the second. So the gate is a no-op for the ordinary
+      Pressure and is asked there anyway, the way every other arrival asks
+      it rather than deciding for itself that it has nothing to offer.
+    - **`pending_own_goal` is not set yet when the gate runs**, because
+      `begin_own_goal_roll` is what sets it. That is what keeps a restart
+      mid-offer unambiguous: `pending_prompt` reads `pending_mind_pull`
+      before `pending_own_goal`, and here there is no second flag for it to
+      read. A pull that lands leaves no own-goal state behind to clean up;
+      one that is declined reaches the roll through the `"own_goal"` resume
+      kind, which sets the flag then.
 - **`check_for_mind_pull` returns True when it took over**, exactly the shape
   `check_for_loose_ball` has, so a gate is one `if ...: return` at the top of
   each. It sits *above* the loose-ball check in

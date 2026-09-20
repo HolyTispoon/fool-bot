@@ -2580,5 +2580,179 @@ class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.match.pending_mind_pull, [])
 
 
+class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
+    """
+    **The fifth gate: a shove that overshoots into an own-goal roll.**
+
+    `shove_pressured_handler` drives the ball back through
+    `set_ball_space`, so an overshot Pressure has a recorded path like
+    any other ball movement -- but `apply_pressure`'s overshoot branch
+    used to hand straight to `begin_own_goal_roll` without gating it.
+    That left the pull in the wrong place both ways round: after the
+    roll when the own goal was avoided (too late to pre-empt anything,
+    where the rules say "a pull that lands pre-empts whatever the
+    movement would have led to"), and nowhere at all when it was
+    conceded, because `restart_after_goal` clears `last_ball_path` on
+    its way to the kickoff.
+
+    **Only a Double Team can reach the branch with a path.** A plain
+    Pressure overshoots only from the space closest to the offense's
+    own goal, where the handler does not move at all and
+    `ball_path_to` answers empty; a Double Team pushing 2 from one
+    space short of it shoves them a real space first. Both are asserted
+    here, because "the gate is a no-op for the common case" is the
+    claim that makes adding it safe.
+    """
+
+    def setUp(self) -> None:
+        self.cog = build_mind_pull_cog()
+        # The two ends of the branch under test: the gate is real, and
+        # what it is supposed to defer stands in for itself.
+        self.cog.begin_own_goal_roll = mock.AsyncMock()
+        self.game = build_game(
+            player_1_team=Team.PURPLE, player_2_team=Team.ORANGE,
+        )
+        self.cog.games[self.game.game_id] = self.game
+        self.match = self.cog.engine.initialize_standard_match(self.game)
+        self.interaction = build_mind_pull_interaction()
+
+        offense = self.match.ball.possession
+        defense = self.match.defending_side()
+        board = self.match.board
+
+        # A colour team fields a species mix, which is what lets the
+        # puller be somebody other than the two defenders the shove
+        # itself places on the arrival space -- the point of the test is
+        # a Telekinetic who was *already standing there*.
+        self.puller = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, defense,
+        )
+        others = [
+            player_id
+            for player_id in field_players(self.match, defense)
+            if player_id != self.puller
+        ]
+        self.challenger, self.partner = others[0], others[1]
+
+        # Everyone else out of the way, so `double_team_partner` -- the
+        # nearest defender to the ball that is not the challenger -- is
+        # the one this fixture named.
+        for player_id in others[2:]:
+            board.place_meeple(player_id, Zone.VISITORS_GOAL, 1)
+
+        self.handler = field_players(self.match, offense)[0]
+        # One space short of the offense's own goal: far enough back
+        # that a 2-space Double Team overshoots, near enough that it
+        # still moves them a real space first.
+        board.place_meeple(self.handler, Zone.HOME_GOAL, 1)
+        board.place_meeple(self.challenger, Zone.HOME_GOAL, 1)
+        board.place_meeple(self.partner, Zone.HOME_GOAL, 1)
+        board.place_meeple(self.puller, Zone.HOME_GOAL, 0)
+
+        self.match.active_player_id = self.handler
+        self.match.challenger_id = self.challenger
+        # `restart_ball_at` rather than `set_ball_space`: placing the
+        # ball for a fixture must not leave a path behind for the gate
+        # under test to read.
+        self.match.restart_ball_at(Zone.HOME_GOAL, 1)
+
+    def sent_views(self) -> list:
+        return [
+            call.kwargs.get("view")
+            for call in self.interaction.followup.send.await_args_list
+        ]
+
+    def offered_a_pull(self) -> bool:
+        return any(
+            isinstance(view, MindPullView) for view in self.sent_views()
+        )
+
+    async def test_an_overshooting_double_team_offers_the_pull_before_the_roll(
+        self,
+    ):
+        with suppressed_cog_saves():
+            await self.cog.apply_pressure(
+                self.interaction, self.game, self.match, "double_team",
+            )
+
+        self.assertTrue(self.offered_a_pull())
+        self.assertEqual(self.match.pending_mind_pull, [self.puller])
+        self.assertEqual(
+            self.match.pending_mind_pull_resume["kind"], "own_goal",
+        )
+        # The whole point of the gate's position: the roll has not been
+        # put yet, so a pull that lands still pre-empts it.
+        self.cog.begin_own_goal_roll.assert_not_awaited()
+        # Spent on the way through, like every other gate.
+        self.assertEqual(self.match.last_ball_path, [])
+
+    async def test_the_shove_really_moved_the_ball_a_space(self):
+        # The fixture's own claim, asserted rather than assumed: a
+        # Double Team from here overshoots *and* moves the ball, which
+        # is what gives the gate a path to read.
+        with suppressed_cog_saves():
+            await self.cog.apply_pressure(
+                self.interaction, self.game, self.match, "double_team",
+            )
+        self.assertEqual(
+            self.match.board.meeple_position(self.handler),
+            (Zone.HOME_GOAL, 0),
+        )
+        self.assertEqual(self.match.ball.zone, Zone.HOME_GOAL)
+        self.assertEqual(self.match.ball.space_index, 0)
+
+    async def test_declining_the_pull_hands_the_own_goal_roll_back(self):
+        with suppressed_cog_saves():
+            await self.cog.apply_pressure(
+                self.interaction, self.game, self.match, "double_team",
+            )
+            # What the decline button does: drop this Telekinetic and
+            # let the one exit from the queue run.
+            self.match.pending_mind_pull.remove(self.puller)
+            await self.cog.continue_mind_pull(
+                self.interaction, self.game, self.match,
+            )
+
+        # The arrival the gate interrupted, put back exactly where it
+        # was -- the roll the branch was about to ask for.
+        self.cog.begin_own_goal_roll.assert_awaited_once()
+        self.assertEqual(
+            self.cog.begin_own_goal_roll.await_args.kwargs["distance_moved"],
+            1,
+        )
+        self.assertIsNone(self.match.pending_mind_pull_resume)
+
+    async def test_a_plain_pressure_overshoot_offers_nobody(self):
+        # Already on the space closest to their own goal, which is the
+        # only way a 1-space Pressure overshoots at all: the handler
+        # does not move, so there is no path and nothing to gate. The
+        # puller is standing right on them.
+        self.match.board.place_meeple(self.handler, Zone.HOME_GOAL, 0)
+        self.match.restart_ball_at(Zone.HOME_GOAL, 0)
+
+        with suppressed_cog_saves():
+            await self.cog.apply_pressure(
+                self.interaction, self.game, self.match, "pressure",
+            )
+
+        self.assertFalse(self.offered_a_pull())
+        self.assertEqual(self.match.pending_mind_pull, [])
+        self.cog.begin_own_goal_roll.assert_awaited_once()
+
+    async def test_the_gate_is_silent_when_the_module_is_off(self):
+        # Species abilities off is the ordinary game, and the branch has
+        # to behave exactly as it did before the gate existed.
+        self.game.species_abilities = False
+
+        with suppressed_cog_saves():
+            await self.cog.apply_pressure(
+                self.interaction, self.game, self.match, "double_team",
+            )
+
+        self.assertFalse(self.offered_a_pull())
+        self.assertEqual(self.match.pending_mind_pull, [])
+        self.cog.begin_own_goal_roll.assert_awaited_once()
+
+
 if __name__ == "__main__":
     unittest.main()

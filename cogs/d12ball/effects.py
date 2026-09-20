@@ -1241,6 +1241,13 @@ class ManeuverEffectsMixin:
         a run-back just placed on those spaces rather than who was
         actually standing there when the ball crossed.
 
+        A fifth, `apply_pressure`'s overshoot branch, is the one
+        arrival that is neither a settling nor a turnover: the shove
+        moved the ball and what it led to is an own-goal roll, so the
+        pull has to be offered before the roll rather than after it --
+        see the comment there for why `begin_run_back`'s gate is not
+        enough on its own.
+
         **The path is consumed whether or not anybody may pull.** That
         is what stops the same movement being offered twice when two
         gates run in a row -- `finish_maneuver_resolution` gates and
@@ -1361,6 +1368,15 @@ class ManeuverEffectsMixin:
                 distance_moved=resume.get("distance_moved", 1),
                 lead_in=resume.get("lead_in", ""),
                 contest_on_decline=resume.get("contest_on_decline", False),
+            )
+            return
+
+        if kind == "own_goal":
+            await self.begin_own_goal_roll(
+                interaction,
+                game,
+                match,
+                distance_moved=resume.get("distance_moved", 1),
             )
             return
 
@@ -2683,6 +2699,34 @@ class ManeuverEffectsMixin:
                 f"{content}\n\nThat overshoots toward their own goal!",
             )
             await self.refresh_match_image(interaction, game)
+            # **The shove is a ball movement, so it gates like one.**
+            # `shove_pressured_handler` drove the ball back through
+            # `set_ball_space`, which recorded the path, and an
+            # opposing Telekinetic standing where it arrived is owed
+            # their pull *before* the roll: "a pull that lands pre-empts
+            # whatever the movement would have led to", and what this
+            # movement led to is the own-goal risk. Gated here rather
+            # than left to `begin_run_back`'s gate at the far end,
+            # which is both too late to pre-empt the roll and, when the
+            # own goal is conceded, never reached with the path intact
+            # at all -- `restart_after_goal` clears it on the way to the
+            # kickoff.
+            #
+            # **Only a Double Team can reach here with a path.** A
+            # plain Pressure overshoots only from the last space, where
+            # the handler does not move and `ball_path_to` answers
+            # empty; a Double Team pushing 2 from one space short of it
+            # shoves them a real space first and overshoots on the
+            # second. So this is a no-op for the common case and the
+            # gate is asked anyway, the same way every other arrival
+            # asks it.
+            if await self.check_for_mind_pull(
+                interaction,
+                game,
+                match,
+                {"kind": "own_goal", "distance_moved": 1},
+            ):
+                return
             # An own goal takes priority over the Defender's steal
             # ability: if it's conceded, the point is already over, and
             # stealing a ball that was just kicked off from the restart
