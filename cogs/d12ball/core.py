@@ -1873,6 +1873,13 @@ class CoreMixin:
             FollowOnStep.RESOLVE_LOOSE_BALL: self.resolve_loose_ball,
             FollowOnStep.START_SET_UP_SHOT: self.start_set_up_shot,
             FollowOnStep.ASK_SHOOTER_CHOICE: self.ask_shooter_choice,
+            FollowOnStep.END_PERIOD: self.end_period,
+            FollowOnStep.HAND_BACK_THE_TURN: self.hand_back_the_turn,
+            FollowOnStep.ANNOUNCE_LAST_POSSESSION:
+                self.announce_last_possession,
+            FollowOnStep.DECLINE_SCORING_ATTEMPT:
+                self.decline_scoring_attempt,
+            FollowOnStep.ASK_SET_UP_ATTEMPT: self.ask_set_up_attempt,
         }
 
     async def dispatch_step_result(

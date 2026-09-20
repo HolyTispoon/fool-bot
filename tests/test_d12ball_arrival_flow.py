@@ -40,10 +40,11 @@ from d12ball.flow.arrival import (
     check_for_smooth,
     high_pass_contest_step,
     loose_ball_step,
+    scoring_attempt_choice_step,
     shooter_choice_step,
 )
 from d12ball.formatting import HIGH_PASS_CONTEST_HEADLINE
-from d12ball.game import Formation, GameMode, Team
+from d12ball.game import AIOpponent, Formation, GameMode, Team
 from d12ball.prompts import PromptKind
 
 from low_pass_fixtures import ENGINE, build_game, build_match, take_the_ball
@@ -296,6 +297,82 @@ class ShooterChoiceStepTests(unittest.TestCase):
 
         self.assertIs(result.next.step, FollowOnStep.ASK_SHOOTER_CHOICE)
         self.assertEqual(result.next.kwargs, {"candidates": candidates})
+
+
+class ScoringAttemptChoiceStepTests(unittest.TestCase):
+    """
+    The set-up offer, and the three ways it is answered.
+    """
+
+    def build(self, solo: bool = False):
+        game = build_game()
+        match = build_match()
+        if solo:
+            # Dinky is player 2, so the offense is only the AI's once
+            # the visiting side has the ball.
+            game.player_2_id = None
+            game.ai_opponent = AIOpponent.DINKY
+            match.ball.possession = TeamSide.VISITING
+        take_the_ball(match)
+        return game, match
+
+    def test_a_human_offense_is_asked_in_one_message(self) -> None:
+        """
+        The pass's lines and the offer are one thing said, so the
+        model words them together -- and the view under them is the
+        one a restart cannot rebuild, which is why what comes next is
+        a follow-on rather than a prompt.
+        """
+        game, match = self.build()
+        shooter = match.active_player_id
+
+        result = scoring_attempt_choice_step(
+            ENGINE, game, match,
+            shooter_id=shooter,
+            distance_moved=2,
+            lead_in="**High Pass:** the ball moves 2 spaces forward.",
+        )
+
+        self.assertIs(result.next.step, FollowOnStep.ASK_SET_UP_ATTEMPT)
+        self.assertEqual(len(result.narration), 1)
+        self.assertTrue(
+            result.narration[0].startswith("**High Pass:**"),
+        )
+        self.assertIn("can attempt", result.narration[0])
+        self.assertEqual(
+            result.next.kwargs["contest_on_decline"], False,
+        )
+
+    def test_an_ai_offense_answers_inline(self) -> None:
+        """
+        Dinky decides for itself, so the pass's lines have no prompt
+        to open and go out on their own -- which is what the two
+        follow-ons below are for.
+        """
+        game, match = self.build(solo=True)
+        shooter = match.active_player_id
+
+        result = scoring_attempt_choice_step(
+            ENGINE, game, match,
+            shooter_id=shooter,
+            distance_moved=2,
+            lead_in="The pass.",
+            contest_on_decline=True,
+        )
+
+        self.assertIn(
+            result.next.step,
+            (
+                FollowOnStep.START_SET_UP_SHOT,
+                FollowOnStep.DECLINE_SCORING_ATTEMPT,
+            ),
+        )
+        self.assertEqual(result.narration, ["The pass."])
+        if result.next.step is FollowOnStep.DECLINE_SCORING_ATTEMPT:
+            # An overshoot declined is the contest, not a settled ball.
+            self.assertTrue(result.next.kwargs["contest"])
+        else:
+            self.assertEqual(result.next.kwargs["maneuver_cost"], 2)
 
 
 if __name__ == "__main__":

@@ -22,6 +22,10 @@ from d12ball.components import (
     Zone,
     kickoff_space_index,
 )
+from d12ball.flow.resolution import (
+    finish_maneuver_resolution_step,
+    hand_back_the_turn_line,
+)
 from d12ball.game import D12BallGame
 from d12ball import tutorial
 from gamesaves.d12ball.storage import save_games
@@ -84,88 +88,73 @@ class PeriodMixin:
         it somewhere they don't -- an empty space, or one only the other
         team occupies -- this detours into the loose-ball flow instead,
         which re-enters this function itself once it's settled.
+
+        **The gates, the clock and the period decision are
+        `d12ball.flow.resolution.finish_maneuver_resolution_step`'s**
+        since Phase 4. What is left here is the save the transition
+        rule owes (principle 9) and the dispatch -- and, in the two
+        methods below, the messages this used to send itself.
         """
-        # **Mind Pull first**, because it pre-empts the arrival rather
-        # than reacting to it: a pull that lands stops the ball on the
-        # Telekinetic's space, so whether the possessing side has
-        # anybody where the maneuver *would* have left it is a
-        # question that must not be asked yet.
-        if await self.check_for_ball_arrival(
-            interaction,
+        result = finish_maneuver_resolution_step(
+            self.engine,
             game,
             match,
-            {
-                "kind": "finish_maneuver",
-                "distance_moved": distance_moved,
-                "turnover_occurred": turnover_occurred,
-                "lead_in": lead_in,
-            },
-        ):
-            return
-
-        if await self.check_for_loose_ball(
-            interaction, game, match, distance_moved, lead_in=lead_in,
-        ):
-            return
-
-        entered_last_possession = match.advance_time(distance_moved)
-        if entered_last_possession:
-            prefix = f"{lead_in}\n\n" if lead_in else ""
-            possessing_side = format_team_side_label(
-                match.setup_for_side(match.ball.possession)
-            )
-            body = (
-                "The turnover that got here doesn't end it -- "
-                f"{possessing_side} came out of that maneuver with the "
-                "ball, so they play last possession out."
-                if turnover_occurred
-                else "Play continues until the ball turns over, which "
-                "ends the period."
-            )
-            # The minute is the period's own, and the clock does not
-            # stop on it: from here every turn is charged as usual and
-            # only the turnover ends the period.
-            await send_new_prompt(
-                interaction,
-                f"{prefix}The clock reaches "
-                f"{match.scoreboard.last_minute:02d} -- this is now "
-                f"**last possession**. {body} The clock keeps running.",
-            )
-            lead_in = ""
-
-        if (
-            turnover_occurred
-            and match.scoreboard.last_possession
-            and not entered_last_possession
-        ):
-            await self.end_period(interaction, game, match, lead_in=lead_in)
-            return
-
-        match.reset_maneuver()
+            distance_moved=distance_moved,
+            turnover_occurred=turnover_occurred,
+            lead_in=lead_in,
+        )
         self.persist(game, match)
+        await self.dispatch_step_result(interaction, game, match, result)
 
-        # One last board refresh with everything settled (run-back,
-        # speed choice, own-goal, etc. may have landed after the last
-        # refresh inside the effect itself), right before the
-        # offensive choice comes back up. The snapshot below is that
-        # same board, so it is drawn once and uploaded twice.
+    async def announce_last_possession(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        distance_moved: int,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Say that the clock has reached the period's last minute, and
+        then hand the turn back.
+
+        `lead_in` **is** that announcement: the step worded it, this
+        posts it, and the board that follows is a message of its own.
+        Keeping the two apart is the whole reason this is a method
+        rather than another narration block -- see
+        `FollowOnStep.ANNOUNCE_LAST_POSSESSION`.
+        """
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
+        await self.hand_back_the_turn(
+            interaction, game, match, distance_moved,
+        )
+
+    async def hand_back_the_turn(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        distance_moved: int,
+        lead_in: str = "",
+    ) -> None:
+        """
+        The settled position, and the offensive choice back to
+        whoever now has the ball.
+
+        One last board refresh with everything settled -- run back,
+        speed choice, own goal and the rest may have landed after the
+        last refresh inside the effect itself -- right before the
+        offensive choice comes back up. The snapshot below is that
+        same board, so it is drawn once and uploaded twice.
+        """
         png = await self.render_match_png(game)
         await self.refresh_match_image(interaction, game, png=png)
 
         prefix = f"{lead_in}\n\n" if lead_in else ""
-        # Every maneuver costs at least its flat space minute
-        # (2026-08-16), ceding included, so there is no longer a
-        # zero-cost turn to word specially here.
-        clock = (
-            f"Time has advanced {distance_moved}, now "
-            f"at {match.scoreboard.time:02d}."
-        )
         snapshot = await send_new_prompt(
             interaction,
-            f"{prefix}Ball is now "
-            f"{space_label(match.ball.zone, match.ball.space_index)}, "
-            f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
-            f"has possession. {clock}",
+            f"{prefix}{hand_back_the_turn_line(match, distance_moved)}",
             file=self.match_file_from_png(game, png),
         )
         await add_full_image_button(snapshot)

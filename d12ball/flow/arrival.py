@@ -493,3 +493,97 @@ def shooter_choice_step(
             FollowOnStep.ASK_SHOOTER_CHOICE, {"candidates": list(candidates)},
         ),
     )
+
+
+def scoring_attempt_choice_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    shooter_id: str,
+    distance_moved: int,
+    lead_in: str,
+    contest_on_decline: bool = False,
+) -> StepResult:
+    """
+    Offer the offense a chance to attempt a scoring-opportunity shot
+    instead of letting a maneuver resolve normally -- used by a High
+    Pass's 2-space pass, a High Pass that overshoots, and a Winger's
+    Low Pass.
+
+    Declining nearly always resolves the maneuver as a normal pass; a
+    2-space High Pass stopped forcing a contest instead on
+    2026-08-07. `contest_on_decline` is the one exception: an
+    overshoot is a shot or a contest, both at the same disadvantage,
+    so declining lands in the contest rather than settling the ball
+    (2026-08-10). It is passed rather than derived because by the time
+    this runs, an overshot pass and an ordinary 2-space one have left
+    the match in the same state.
+
+    **A scoring opportunity is an arrival too**, and one the rules
+    name outright among what a pull pre-empts -- so the gate is asked
+    before the shot is put to anybody.
+
+    `contest_on_decline` rides on the view rather than on the match
+    (see [shooting.md](../../docs/design/shooting.md)), which is why
+    the coach's branch is a follow-on and not a `PendingPrompt`:
+    `SetUpAttemptChoiceView` is the one view a restart cannot
+    reconstruct, so it has no `PromptKind` to be rendered through.
+    """
+    taken = check_for_ball_arrival(
+        engine,
+        game,
+        match,
+        {
+            "kind": "scoring_attempt",
+            "shooter_id": shooter_id,
+            "distance_moved": distance_moved,
+            "lead_in": lead_in,
+            "contest_on_decline": contest_on_decline,
+        },
+    )
+    if taken is not None:
+        return taken
+
+    if engine.side_controlled_by_ai(game, match, "offense"):
+        attempt = engine.get_ai_strategy(
+            game
+        ).choose_scoring_opportunity_attempt(match)
+        if attempt:
+            return StepResult(
+                narration=[lead_in] if lead_in else [],
+                next=FollowOn(
+                    FollowOnStep.START_SET_UP_SHOT,
+                    {
+                        "shooter_id": shooter_id,
+                        "maneuver_cost": distance_moved,
+                    },
+                ),
+            )
+        return StepResult(
+            narration=[lead_in] if lead_in else [],
+            next=FollowOn(
+                FollowOnStep.DECLINE_SCORING_ATTEMPT,
+                {
+                    "distance_moved": distance_moved,
+                    "contest": contest_on_decline,
+                },
+            ),
+        )
+
+    shooter = engine.get_player_definition(shooter_id)
+    return StepResult(
+        narration=[
+            f"{lead_in}\n\n"
+            f"{engine.format_player_label(match, shooter)} can attempt "
+            "the scoring opportunity, or let it go:"
+        ],
+        next=FollowOn(
+            FollowOnStep.ASK_SET_UP_ATTEMPT,
+            {
+                "shooter_id": shooter_id,
+                "distance_moved": distance_moved,
+                "contest_on_decline": contest_on_decline,
+            },
+        ),
+    )

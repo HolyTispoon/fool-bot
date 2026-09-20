@@ -657,48 +657,44 @@ class ManeuverEffectsMixin:
         settling the ball (2026-08-10). It is passed rather than
         derived because by the time this runs, an overshot pass and an
         ordinary 2-space one have left the match in the same state.
+
+        **The gate, the AI's answer and the sentence the coach is
+        asked in are `d12ball.flow.arrival`'s** since Phase 4; what is
+        left here is the save and the dispatch.
         """
-        # **A scoring opportunity is an arrival too**, and one the
-        # rules name outright among what a pull pre-empts -- so the
-        # offer goes out before the shot is put to anybody.
-        if await self.check_for_ball_arrival(
-            interaction,
+        result = arrival.scoring_attempt_choice_step(
+            self.engine,
             game,
             match,
-            {
-                "kind": "scoring_attempt",
-                "shooter_id": shooter_id,
-                "distance_moved": distance_moved,
-                "lead_in": lead_in,
-                "contest_on_decline": contest_on_decline,
-            },
-        ):
-            return
+            shooter_id=shooter_id,
+            distance_moved=distance_moved,
+            lead_in=lead_in,
+            contest_on_decline=contest_on_decline,
+        )
+        self.persist(game, match)
+        await self.dispatch_step_result(interaction, game, match, result)
 
-        if self.engine.side_controlled_by_ai(game, match, "offense"):
-            attempt = self.engine.get_ai_strategy(
-                game
-            ).choose_scoring_opportunity_attempt(match)
-            if lead_in:
-                await send_new_prompt(interaction, lead_in)
-            if attempt:
-                await self.start_set_up_shot(
-                    interaction, game, match, shooter_id,
-                    maneuver_cost=distance_moved,
-                )
-            else:
-                await self.decline_scoring_attempt(
-                    interaction, game, match, distance_moved,
-                    contest=contest_on_decline,
-                )
-            return
+    async def ask_set_up_attempt(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        shooter_id: str,
+        distance_moved: int,
+        contest_on_decline: bool = False,
+        lead_in: str = "",
+    ) -> None:
+        """
+        Put the scoring opportunity to the coach whose side has it.
 
-        shooter = self.engine.get_player_definition(shooter_id)
+        `lead_in` **is** the whole message here: the step worded the
+        pass's lines and the offer together, because they are one
+        thing said. What this adds is the view, which is the one a
+        restart cannot rebuild -- see `FollowOnStep.ASK_SET_UP_ATTEMPT`.
+        """
         prompt_message = await send_new_prompt(
             interaction,
-            f"{lead_in}\n\n"
-            f"{self.player_label(match, shooter)} can attempt "
-            "the scoring opportunity, or let it go:",
+            lead_in,
             view=SetUpAttemptChoiceView(
                 self, game.game_id, shooter_id, distance_moved,
                 contest_on_decline=contest_on_decline,
@@ -717,6 +713,7 @@ class ManeuverEffectsMixin:
         match: MatchState,
         distance_moved: int,
         contest: bool = False,
+        lead_in: str = "",
     ) -> None:
         """
         Let go of a scoring opportunity: the maneuver that offered it
@@ -725,7 +722,16 @@ class ManeuverEffectsMixin:
         For an overshot High Pass that is the long-pass contest, not a
         settled ball -- the shot and the contest are the two halves of
         one choice. See offer_scoring_attempt_choice.
+
+        `lead_in` is narration from the pass, and it is posted **on
+        its own**: an AI offense answers the offer inline, so there is
+        no prompt for those lines to open. `offer_scoring_attempt_choice`
+        used to post it a line before calling this, which is the same
+        two messages in the same order.
         """
+        if lead_in:
+            await send_new_prompt(interaction, lead_in)
+
         if contest:
             await self.begin_high_pass_contest(
                 interaction,

@@ -491,11 +491,22 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
         cog.match_file_from_png = mock.Mock(return_value="file")
         cog.refresh_match_image = mock.AsyncMock()
         cog.send_turn_prompt = mock.AsyncMock()
-        cog.check_for_loose_ball = mock.AsyncMock(return_value=False)
-        # Mind Pull's gate is check_for_loose_ball's twin -- it sits
-        # one line above it in finish_maneuver_resolution and answers
-        # the same way. Nothing in this file is about it.
-        cog.check_for_ball_arrival = mock.AsyncMock(return_value=False)
+        # **The two gates are not stubbed any more**, because since
+        # Phase 4 they are the model's and
+        # `finish_maneuver_resolution_step` asks them off the engine
+        # rather than off the cog. They answer "nobody" for this
+        # fixture anyway: a basic game has no species abilities, and
+        # the standard deal leaves the possessing side standing on the
+        # ball. Nothing in this file is about either of them.
+        cog.maneuver_catalog = load_maneuver_catalog()
+        cog.basic_ruleset = self.rules
+        cog.ai_strategies = build_ai_strategies(
+            self.catalog, cog.maneuver_catalog,
+        )
+        cog.engine = RulesEngine(
+            self.catalog, self.rules, cog.maneuver_catalog,
+            cog.ai_strategies,
+        )
 
         match = MatchState.standard(
             catalog=self.catalog,

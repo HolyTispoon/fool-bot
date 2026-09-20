@@ -125,6 +125,36 @@ class FollowOnStep(Enum):
     #: comes back through the score attempt rather than through this
     #: question. Phase 4's.
     ASK_SHOOTER_CHOICE = auto()
+    #: A scoring opportunity the offense let go -- the maneuver
+    #: resolves as an ordinary pass, or, for an overshoot, falls into
+    #: the contest instead. Phase 4's.
+    DECLINE_SCORING_ATTEMPT = auto()
+    #: A scoring opportunity put to the coach whose side has it. A
+    #: follow-on rather than a `PendingPrompt` because
+    #: `SetUpAttemptChoiceView` carries `contest_on_decline` on the
+    #: view and not on the match, so it is the one prompt a restart
+    #: cannot reconstruct and has no `PromptKind` -- see
+    #: docs/design/shooting.md. Phase 4's.
+    ASK_SET_UP_ATTEMPT = auto()
+    #: The turnover that closes out last possession: the second half,
+    #: or full time -- which on a level score means the shootout
+    #: rather than the end of anything. Phase 4's; Phase 5 is where
+    #: the period itself moves.
+    END_PERIOD = auto()
+    #: The settled position handed back to whoever now has the ball:
+    #: the board, the sentence under it, and the offensive choice.
+    #: Phase 4's, and it stays the cog's because the message it words
+    #: carries the board image.
+    HAND_BACK_THE_TURN = auto()
+    #: The clock reaching the period's last minute. Phase 4's, and a
+    #: member rather than another narration block for the one reason
+    #: the phase had to settle: the old flow said this and then said
+    #: where the ball was, in **two** messages, and a step whose
+    #: blocks are one message by contract can only keep them two by
+    #: naming what comes after the first. Its own `lead_in` is the
+    #: announcement, posted before the board rather than on it --
+    #: `start_set_up_shot` is the same shape.
+    ANNOUNCE_LAST_POSSESSION = auto()
     #: The long pass's contest: the receiver standing where a High
     #: Pass of 3 or 4 landed still has to win a skill test to keep it.
     #: Rank O3's, and a member of its own rather than `BEGIN_LOOSE_BALL`
