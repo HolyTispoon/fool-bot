@@ -204,13 +204,26 @@ still being planned.
 This is Phase 6 of docs/model-discord-split.md, "the driver" -- the last
 phase, after which the cog is a frontend. Phases 1-5 have landed.
 
-Probe: the worksheet's Status column names a PR for Phases 0-5, and the
-`FollowOn` enum in d12ball/flow/result.py is what the cog still dispatches
-(read the enum; it is the list, and it dies in this phase). It has **29**
-members: Phase 5 removed `DISPATCH_INJURY_RESUME` and added
-`FINISH_SETUP_COACHING`, `FINISH_HALFTIME` and `ANNOUNCE_GAME_OVER`.
-`END_PERIOD` and `BEGIN_SUBSTITUTION_WINDOW` are still there despite Phase
-5 being expected to take them; each says on its own entry why.
+Probe: the worksheet's Status column names a PR for Phases 0-5 and marks
+Phase 6 part-landed, `d12ball/flow/driver.py` exists, and
+`driver.MODEL_STEPS` has **5** members against
+`D12Ball.follow_on_methods`'s 24 -- the two tables are disjoint and
+together they are the 29-member `FollowOn` enum, which is asserted in
+tests/test_d12ball_package_shape.py. Read that assertion; it is the list of
+what is left, and the enum dies when the cog's table is empty.
+
+**Read the worksheet's Phase 6 section first: part of this phase has
+already landed and the section says what and what it cost.** The loop is
+the model's (`driver.advance`) and the save has collapsed (83 -> 43); what
+is open is the frontend's entry points, and the four blockers the section
+names. Two of them decide how much of the rest is even possible:
+
+- the loop can only stop *after* a step, and `BEGIN_HIGH_PASS_CONTEST`
+  among others needs it to stop *before* one (a `stop_before`);
+- `driver.apply(action)` and the full-game-through-the-driver test are
+  **blocked** on the four prompts that cannot be `PendingPrompt`s, which
+  Phases 4 and 5 both ruled a change to recovery behaviour and its own
+  commit. Do not fake it with a fifth shape; ask.
 
 Read docs/design/cog-structure.md, docs/design/recovery.md,
 docs/design/rate-limits.md and docs/design/permissions.md, and the "The
@@ -237,18 +250,15 @@ What this phase builds:
   already `d12ball/ai.py`'s; what moves is the sequencing. Nothing rolls
   dice on its own -- the AI's rolls still wait behind a button either coach
   may press, so the AI turn ends where a human's would, on a PendingPrompt.
-- `persist` collapses to one call in the driver's caller (principle 9). Be
-  exact about what that means: every `self.persist(game, match)` in cogs/
-  that follows a step the driver now runs goes; the run-back per-pass
-  persist is either the driver's, one save per yielded pass, or is
-  documented as the one exception with its reason. The `save_games` calls
-  that save the game record alone (a message id, a status, a tutorial
-  flag) are not touched -- count them before and after and put both
-  numbers in the PR. **Measure both counts from this branch's base rather
-  than quoting CLAUDE.md**, which deliberately stopped naming a number for
-  the second one: `dispatch_step_result` absorbed a batch of "remember this
-  prompt's message id" saves in Phases 4 and 5, so the figure has moved
-  twice since it was written.
+- `persist` **has collapsed** to the dispatcher (principle 9): 41 wrappers
+  stopped saving and `self.persist(` in cogs/ went 83 -> 43. What is left
+  is the wrappers that post rather than dispatch, the run-back per-pass
+  persist (still the cog's, still undocumented as an exception -- do that),
+  and the own-goal roll's deliberate early save, which is now the one path
+  that writes twice and says so in its test. The `save_games` calls that
+  save the game record alone are untouched at **46** -- count them again
+  rather than quoting that, which is the worksheet's standing rule about
+  every figure in this plan.
 - The cog becomes: click -> authorize -> `driver.apply(...)` -> persist ->
   render (`view_for_prompt`, one message for the narration, one board
   refresh through BoardRefresher if board_changed). **The driver needs all
@@ -264,12 +274,19 @@ What this phase builds:
 
 Tests:
 
-- Driver tests with no discord: for each PromptKind, an action that answers
-  it and one that does not (`tests/prompt_fixtures.py` already stands a
-  match in every one of them); the returned PendingPrompt matches
-  pending_prompt on the resulting match; a full scripted game plays to a
-  result through the driver alone, with no cog imported -- this is the test
-  the web app inherits.
+- Driver tests with no discord: `tests/test_d12ball_driver.py` exists and
+  covers the loop (carrying, the or, the stops, the saves, and that what a
+  run stops on agrees with `pending_prompt`). What it does **not** cover is
+  the action half, because `driver.apply` is not built -- see the probe.
+  When it is: for each PromptKind, an action that answers it and one that
+  does not (`tests/prompt_fixtures.py` already stands a match in every one
+  of them), and a full scripted game played to a result through the driver
+  alone with no cog imported. That last one is the test the web app
+  inherits and it needs the four non-`PendingPrompt` prompts closed first.
+- **`tests/flow_stubs.py` is how a test stubs a step now.** Sixty-odd tests
+  stubbed a step by the cog method it named; which side of the seam runs a
+  member is a fact about the seam, so it is answered there once. A phase
+  that moves a member edits that module and not each test.
 - A stray-save guard on the driver (it saves nothing); an ordering test on
   the cog that persist happens after driver.apply and before any send.
 - All **three** goldens byte-identical (tutorial, advanced, and Phase 5's
@@ -277,25 +294,24 @@ Tests:
   shootout), EveryMatchupResolvesTests, TutorialPlaythroughTests,
   MatchStateSerializationTests, StraySaveGuardTests, test_model_purity
   green.
-- Report the two figures the worksheet says the split is measured by: the
-  count of async cog methods taking `interaction` (from the AST, by the
-  worksheet's counting rule under "Where the line already is") and
-  `grep -c interaction cogs/d12ball/*.py`, before and after; and how many
-  of the test files still need discord.py installed to import. "Before" is
-  measured on this branch's base, not taken from the worksheet, whose
-  figures date from before Phase 1. This PR deletes the worksheet, so
-  first move the counting rule and the final figures into
-  docs/design/model-discord-split.md under a heading of their own; the
-  rule outlives the plan because it is how a regression would be noticed.
+- Report the figures the split is measured by. **The counting rule and the
+  last measurement have moved** into docs/design/model-discord-split.md,
+  under "How the split is measured" -- read it there rather than from the
+  worksheet, and add a measurement rather than replacing one. The last
+  reading was 190 async methods, 159 taking an `interaction`, 611 grep
+  lines, 62 of 86 test files needing discord.py; none of the three moved
+  when the loop did, and the reason is written down.
 
-Docs: docs/design/cog-structure.md ("Why the cog is mixins") is rewritten to
-say what the cog is now rather than what it used to defend -- the reasoning
-"these methods co-operate through the cog's own state and call each other
-by the hundred" stops being true and the section must not keep saying it.
-recovery.md is re-read against the code end to end. The worksheet
-docs/model-discord-split.md is deleted, and docs/model-discord-split-prompts.md
-with it, and the CLAUDE.md map rows for both go; docs/design/model-discord-split.md (the safety net) stays and its
-first paragraph stops pointing at a worksheet that no longer exists.
+Docs: docs/design/cog-structure.md ("Why the cog is mixins") already says
+which half of its reasoning the remaining work makes false; finish that
+rewrite when the cog stops being where a click lands, and not before --
+the section must describe the code, not the plan. recovery.md is re-read
+against the code end to end. **Delete the worksheet only when the phase is
+actually done**: docs/model-discord-split.md goes, and
+docs/model-discord-split-prompts.md with it, and the CLAUDE.md map rows for
+both; docs/design/model-discord-split.md (the safety net, and now the
+driver and the counting rule) stays and its first paragraph stops pointing
+at a worksheet that no longer exists.
 
 Bot stop for the author (in the PR, and this is the one the worksheet says
 earns a week of play before it lands): a full game each way (two humans,

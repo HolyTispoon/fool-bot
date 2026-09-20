@@ -109,6 +109,19 @@ Two things follow from that:
     in `WindowStateSurvivesASaveTests` (`tests/test_d12ball_periods_flow.py`).
     A window is the longest wait in the game, so it is where a lift would show
     up as a game that comes back asking something else.
+  - **Phase 6 moved the write that all of this rests on, and moved it the
+    right way.** A resume reads the match out of the save file, so what is on
+    disk when a prompt goes up is the whole of what a restart has. Until
+    Phase 6 each cog wrapper saved between its own step and the next, so a
+    cascade wrote the file several times and the *last* of those writes sat
+    behind whatever had already been posted; `dispatch_step_result` now
+    writes once, after `driver.advance` has run everything that moves and
+    **before** anything is sent. Fewer writes, and the one that matters is no
+    longer behind a request that can fail. `driver.waiting_on` is
+    `pending_prompt` re-exported and never a second reading, so a frontend
+    that puts up what a run handed back and a restart that reads the file
+    reach the same question -- which is the property this whole section is
+    about.
 
 - **An open Coaching Choice is re-posted, never re-opened.**
   `repost_coaching_prompt` exists because opening a window calls

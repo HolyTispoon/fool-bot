@@ -37,19 +37,34 @@ design.
   [model-discord-split.md](../model-discord-split.md)); what `core` keeps is
   the mapping from a `PromptKind` to a view, which carries no ordering at all.
 - **What a mixin holds is shrinking, and the six seams are not moving.**
-  Phases 2-4 of [model-discord-split.md](../model-discord-split.md) lifted
+  Phases 2-6 of [model-discord-split.md](../model-discord-split.md) lifted
   the decisions out of `core`, `effects`, `periods` and `turnovers` into
   `d12ball/flow/`, and what each of those mixins keeps is the same
   responsibility with the rules taken out of it: `core` the turn's Discord
-  spine (`dispatch_step_result`, `post_then_dispatch`, `follow_on_methods`,
-  `view_for_prompt`) and the cog wrappers for the front half of a turn;
+  spine (the three dispatchers, `follow_on_methods`, `view_for_prompt`) and
+  the cog wrappers for the front half of a turn;
   `effects` one wrapper per card plus the loose ball's and the own goal's
-  posting; `periods` the clock's tail and everything Phase 5 has yet to
-  reach; `turnovers` the coaching windows, the run-back cascade's *batching*
-  and the run-back prompt's field strip. A wrapper is three lines -- run the
-  step, `self.persist(...)`, dispatch -- and the reason it is still a method
-  on a mixin rather than a function is the first bullet above: its callers
-  spell it `self.foo(...)` and there are hundreds of them.
+  posting; `periods` the clock's tail; `turnovers` the coaching windows, the
+  run-back cascade's *batching* and the run-back prompt's field strip.
+  **A wrapper is two lines now** -- run the step, dispatch -- because Phase
+  6 moved the save into `dispatch_step_result`, the driver's caller
+  (principle 9 in [CLAUDE.md](../../CLAUDE.md)). The reason a wrapper is
+  still a method on a mixin rather than a function is the first bullet
+  above: its callers spell it `self.foo(...)` and there are hundreds of
+  them.
+- **The first bullet is still true, and Phase 6 is what would make it
+  false.** "These methods co-operate through the cog's own state and call
+  each other by the hundred" was the argument for mixins, and the phase
+  that empties the cog is the phase that retires it. It has not happened
+  yet: `d12ball/flow/driver.py` took the **loop** -- what runs after a step
+  -- but the cog kept every entry point a click arrives at, and the figures
+  say so. 190 async methods in `cogs/d12ball/`, 159 of them taking an
+  `interaction`, both unchanged by the move. What did change is that none
+  of them decides what happens next any more; five of the steps they used
+  to dispatch are run by the driver, and the rest are pictures, pins and
+  gates waiting on a loop that can stop *before* a step as well as after
+  one. Until then this section says what it always said, because the code
+  it describes has not moved.
 - **A method that is now only a forwarder stays where its callers are.**
   `player_label`, `apply_exhaustion`, `injured_word_and_emoji`,
   `maneuver_prompt_wording` and `run_back_space_prompt` all forward into the

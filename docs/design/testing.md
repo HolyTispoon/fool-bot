@@ -68,6 +68,46 @@ the fold and the two suites that already play real games cover the writing:
 `EveryMatchupResolvesTests` (all thirty-six pairings). See "Where the
 statistics are tested".
 
+## Stubbing a step
+
+**Which side of the seam runs a step is a fact about the seam, not about
+the test**, so it is answered in one place: `tests/flow_stubs.py`.
+
+Until Phase 6 of [model-discord-split.md](../model-discord-split.md) there
+was one way to stop a turn's chain at a named step and assert what it was
+handed: stub the cog method `D12Ball.follow_on_methods` named for that
+`FollowOnStep`, and read its `await_args`. `d12ball.flow.driver` runs some
+of those steps now, and a member it runs has no cog method to stub -- which
+is how **sixty-odd tests failed on a move that changed nothing a coach can
+see**. Moving a member in a later phase would have done it again.
+
+- **`chain_stops_at(cog, member)`** puts the stub on whichever side owns
+  the step today and hands back the recorder. `chain_records_at` is the
+  same for a test asserting the *order* things happen in rather than the
+  arguments, and `every_step_stubbed` the same for a recording table that
+  stubs every step a rank can end on.
+- **`driver_reaches_cog_stubs(cog)`** is the cheap one, and it is what
+  most of the sixty needed: dozens of tests build a cog with
+  `cog.some_step = AsyncMock()` and assert on it afterwards, so this
+  points the loop back at the stubs that are already there and leaves
+  every assertion alone. `self.enterContext(...)` beside the builder is
+  the whole edit. It reads the attribute **when the step runs**, because
+  plenty of tests stub one more method on the way into the case they are
+  about; where the attribute is not a stub the real step runs, so
+  installing it costs a test that does not use it nothing.
+- **It drives the coroutine an `AsyncMock` returns to completion**, which
+  is what an `await` would have done, so `assert_awaited_once` reads true
+  from a driver-side call. The one trap it exists to avoid: a sync
+  `Mock`'s `await_args_list` is an **auto-created child mock and therefore
+  truthy**, so a test asking that way reads every step as reached and
+  asserts nothing. `was_reached` uses `call_args_list`, which both kinds
+  of mock fill.
+- **A test asserting arguments should prefer `chain_stops_at`**, because
+  the two sides differ in their first parameter (`interaction` against
+  `engine`) and the shim does not pretend otherwise. `named_arguments`
+  binds a recorded call against whichever signature is real and drops the
+  plumbing.
+
 **A test names a player by their role, not by their name.** The roster is data
 the author revises, and a revision is not a code change: 36250a9 renamed five
 orange players and broke the suite on `main`, independently of the branch it

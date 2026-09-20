@@ -36,7 +36,7 @@ python3 -m unittest discover -s tests
 | `d12ball/components.py` | Game state model -- `MatchState`, `BoardState`, `TeamSetup`, `PlayerCatalog`, `MATCH_SAVED_FIELDS` |
 | `d12ball/engine.py` | `RulesEngine` -- every decision and candidate list that never touches Discord, over the fixed catalogs and AI strategies. `D12Ball.engine` is the one instance; call sites read `self.engine.foo(...)`. Includes the prompt-text and matchup-data builders that need only the match and the catalogs |
 | `d12ball/prompts.py` | `PromptKind`, `PendingPrompt` and `pending_prompt` -- the one reading of what a match is waiting on, with no Discord in it. The cog maps a kind to a view and renders the `ask` -- [model-discord-split.md](docs/design/model-discord-split.md) |
-| `d12ball/flow/` | The turn's flow with no Discord in it, seven modules: `result.py` (`StepResult` and the transitional `FollowOn`), `effects.py` (**all twelve maneuvers** as nine steps -- five cards are their rank-mate parameterised, Setup Pass is three -- and the own-goal roll), `arrivals.py` (the two arrival gates and the five arrival points they guard, which moved together because the ordering between them is a rule), `turnovers.py` (the run back, as a generator yielding a `StepResult` per pass, and the out-of-bounds pickup), `turn.py` (the front half: the challenger, the picks, and which card won), `injuries.py` (the injury-test queue and the three arrivals it drains into), `periods.py` (the whistle, halftime, the window before the shootout, and the shootout -- four stage machines of one shape) and `windows.py` (the Coaching Choice on all five occasions, and the time out that buys one). A step changes the match and says what happened; it sends nothing and saves nothing -- [model-discord-split.md](docs/design/model-discord-split.md) |
+| `d12ball/flow/` | The turn's flow with no Discord in it, eight modules: `result.py` (`StepResult` and the transitional `FollowOn`), `effects.py` (**all twelve maneuvers** as nine steps -- five cards are their rank-mate parameterised, Setup Pass is three -- and the own-goal roll), `arrivals.py` (the two arrival gates and the five arrival points they guard, which moved together because the ordering between them is a rule), `turnovers.py` (the run back, as a generator yielding a `StepResult` per pass, and the out-of-bounds pickup), `turn.py` (the front half: the challenger, the picks, and which card won), `injuries.py` (the injury-test queue and the three arrivals it drains into), `periods.py` (the whistle, halftime, the window before the shootout, and the shootout -- four stage machines of one shape) `windows.py` (the Coaching Choice on all five occasions, and the time out that buys one) and `driver.py` (**the loop**: it runs a turn's chain of steps until only a frontend can carry on, and is what a second frontend runs instead of writing its own). A step changes the match and says what happened; it sends nothing and saves nothing -- [model-discord-split.md](docs/design/model-discord-split.md) |
 | `d12ball/formatting.py` | Plain-text formatting over match/game/zone data with no Discord dependency -- space codes, side labels, player names |
 | `d12ball/game.py` | `D12BallGame` (per-channel game record), `Team`, `TEAM_PAIRS`, `GameMode`, `Formation` |
 | `d12ball/render.py` | Board, matchup and dice image rendering (Pillow); `TEAM_COLORS` |
@@ -54,7 +54,7 @@ python3 -m unittest discover -s tests
 | `gamesaves/d12ball/archive_export.py` | Writing one finished game's export to disk for `/debug export_archived_games` |
 | `gamesaves/d12ball/hub.py` | The per-guild hub message pointers, in `data/d12ball_hubs.json` |
 | `scripts/` | CLI tools used repeatedly (not one-off scratch work) |
-| `tests/roster.py`, `tests/save_patches.py` | Naming a test's player by role; suppressing saves -- [testing.md](docs/design/testing.md) |
+| `tests/roster.py`, `tests/save_patches.py`, `tests/flow_stubs.py` | Naming a test's player by role; suppressing saves; stubbing a step on whichever side of the seam runs it -- [testing.md](docs/design/testing.md) |
 | `docs/living-rules.md` | **The whole ruleset as it currently stands.** The one thing to check a mechanic against |
 | `docs/rules-log.md` | Every rules change, dated and sourced; what is still open; where upstream is behind |
 | `docs/gambit-matrix.md` | The worksheet the gambits were built from, cut to what is still open. **Nothing in it is a rule** |
@@ -245,6 +245,15 @@ bot stop each phase ends on.
    driver saves once, after it. This is the one place the refactor makes
    the bot *better* rather than only more portable, so it should be
    reviewed on its own merits.
+   - **Phase 6's first increment moved that save into the
+     dispatcher.** `d12ball/flow/driver.py` runs the chain and
+     `D12Ball.dispatch_step_result` -- the driver's caller -- writes
+     the match once, after the run and before anything is posted. The
+     forty-one wrappers that used to save between their own step and
+     the dispatch no longer do, and `self.persist(` in `cogs/` went 83
+     to 43. What follows is the arrangement that held through Phases 2
+     to 5 and still holds for a wrapper that posts rather than
+     dispatches.
    - **Until Phase 6, the cog wrapper holds that save.** A step lifted in
      Phases 2-5 stops persisting and the spine below it is still the cog's,
      so the wrapper persists immediately after the step and before
@@ -307,7 +316,7 @@ bot stop each phase ends on.
 | `to_dict`/`from_dict`, `storage.py`, the startup sweep, the full-image link, bundled file names | [gotchas.md](docs/design/gotchas.md) | Every fallback and why it stays; the swallowed save; the case-sensitive name |
 | Writing or moving a test; patching `save_games` | [testing.md](docs/design/testing.md) | The package-split patch trap; the stray-save guard; naming by role |
 | Deploying, the `K:\` host, `update_main_bot.ps1`, a 10062 | [collaboration.md](docs/design/collaboration.md) | Two machines, one live bot; one bot per token |
-| `d12ball/prompts.py`, `pending_turn_view`, `view_for_prompt`, `tests/prompt_fixtures.py`; `d12ball/flow/`, `StepResult`, `FollowOn`, the three dispatchers (`dispatch_step_result`, `post_then_dispatch`, `post_blocks_then_dispatch`), `tests/low_pass_fixtures.py`, `tests/dribble_fixtures.py`; `tests/test_model_purity.py`, the three goldens, `tests/golden/`, anything that could add a `discord` import or `async def` under `d12ball/` or `gamesaves/d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | Why the chain moved whole and what a prompt may carry; one kind per view class; the purity ratchet and why it runs in a subprocess; the golden transcript's seeded RNG and what it does not cover; the Python-version and root-test gotchas |
+| `d12ball/prompts.py`, `pending_turn_view`, `view_for_prompt`, `tests/prompt_fixtures.py`; `d12ball/flow/`, `StepResult`, `FollowOn`, `driver.advance`, `tests/flow_stubs.py`, the three dispatchers (`dispatch_step_result`, `post_then_dispatch`, `post_blocks_then_dispatch`), `tests/low_pass_fixtures.py`, `tests/dribble_fixtures.py`; `tests/test_model_purity.py`, the three goldens, `tests/golden/`, anything that could add a `discord` import or `async def` under `d12ball/` or `gamesaves/d12ball/` | [model-discord-split.md](docs/design/model-discord-split.md) | Why the chain moved whole and what a prompt may carry; one kind per view class; why the loop is the model's and what it may not run; the purity ratchet and why it runs in a subprocess; the golden transcript's seeded RNG and what it does not cover; the Python-version and root-test gotchas |
 
 ## Notes for Claude
 
