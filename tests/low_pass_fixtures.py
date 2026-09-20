@@ -439,6 +439,337 @@ def double_team_cost() -> LowPassFixture:
     )
 
 
+# -- Skilled Pass's own branches ---------------------------------------
+
+
+def skilled_pass_at_full_reach() -> LowPassFixture:
+    """
+    Three spaces, which is the whole of what the card buys over a Low
+    Pass: `SKILLED_PASS_REACH` is 3 and a Low Pass stops at 2. The
+    step itself never checks the reach -- `pass_candidates` decides
+    what was on the menu -- so what this pins is that a distance only
+    Skilled Pass can offer travels through the shared function
+    unchanged.
+    """
+    match = build_match()
+    take_the_ball(match)
+    match.ball.speed = 1
+    receiver = fielded(match, PlayerRole.STRIKER)
+    stand_at(match, receiver, 3)
+    return LowPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        distance=3,
+        receiver_id=receiver,
+        key="skilled_pass",
+        narration=(
+            "**Skilled Pass:** the ball moves 3 spaces forward. "
+            "Ball speed is now 4."
+        ),
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=receiver,
+        ball_space=(Zone.VISITORS_GOAL, 1),
+        ball_speed=4,
+    )
+
+
+def skilled_pass_backward() -> LowPassFixture:
+    """
+    The reach is "either way" (`skilled_pass_candidates`), so three
+    spaces back is as legal as three forward, and the direction is
+    still read off the sign of the distance rather than off where the
+    ball ended up.
+    """
+    match = build_match()
+    take_the_ball(match)
+    match.ball.speed = 1
+    receiver = fielded(match, PlayerRole.FULLBACK)
+    stand_at(match, receiver, -3)
+    return LowPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        distance=-3,
+        receiver_id=receiver,
+        key="skilled_pass",
+        narration=(
+            "**Skilled Pass:** the ball moves 3 spaces backward. "
+            "Ball speed is now 4."
+        ),
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=receiver,
+        ball_space=(Zone.HOME_GOAL, 0),
+        ball_speed=4,
+    )
+
+
+def skilled_pass_across_a_shared_space() -> LowPassFixture:
+    """
+    A Skilled Pass of 0 is a Low Pass of 0 -- the ball does not
+    travel, the passer steps forward, and only the banner and the
+    bonus tell the two apart. The branch that words the pass by what
+    the *passer* did is shared, so it is worth holding both cards to
+    it.
+    """
+    match = build_match()
+    handler = take_the_ball(match)
+    match.ball.speed = 1
+    receiver = fielded(match, PlayerRole.MIDFIELDER)
+    stand_at(match, receiver, 0)
+    return LowPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        distance=0,
+        receiver_id=receiver,
+        key="skilled_pass",
+        narration=(
+            "**Skilled Pass:** the ball goes to a teammate in the same "
+            f"space, and {label(match, handler)} moves a space forward. "
+            "Ball speed is now 4."
+        ),
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=receiver,
+        ball_space=(Zone.MIDFIELD, 1),
+        ball_speed=4,
+    )
+
+
+def skilled_pass_winger_set_up() -> LowPassFixture:
+    """
+    The Winger's set-up is the one branch that ends somewhere other
+    than `finish_maneuver_resolution`, and it is read off the passer's
+    role rather than off the card -- so a Skilled Pass reaches it on
+    exactly the same terms a Low Pass does.
+    """
+    match = build_match()
+    winger = fielded(match, PlayerRole.WINGER)
+    zone, space_index = match.board.meeple_position(winger)
+    match.set_ball_space(zone, space_index)
+    match.ball.possession = TeamSide.HOME
+    match.select_ball_handler(winger)
+    match.ball.speed = 1
+    receiver = fielded(match, PlayerRole.STRIKER)
+    stand_at(match, receiver, 1)
+    return LowPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        distance=1,
+        receiver_id=receiver,
+        key="skilled_pass",
+        narration=(
+            "**Skilled Pass:** the ball moves 1 space forward. "
+            "Ball speed is now 4. "
+            f"{label(match, winger)}'s Winger ability can turn this "
+            "into a scoring opportunity!"
+        ),
+        follow_on=SCORING_CHOICE,
+        follow_on_kwargs={"distance_moved": 1, "shooter_id": receiver},
+        carrier_id=receiver,
+        ball_space=(Zone.VISITORS_GOAL, 1),
+        ball_speed=4,
+    )
+
+
+def skilled_pass_at_the_speed_cap() -> LowPassFixture:
+    """
+    Ball speed is capped at 12 the way every speed change is, and +3
+    is the bonus that actually reaches the cap from a speed a game
+    plausibly holds -- a Low Pass's +1 would need 12 already.
+    """
+    match = build_match()
+    take_the_ball(match)
+    match.ball.speed = 10
+    receiver = fielded(match, PlayerRole.WINGER)
+    stand_at(match, receiver, 2)
+    return LowPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        distance=2,
+        receiver_id=receiver,
+        key="skilled_pass",
+        narration=(
+            "**Skilled Pass:** the ball moves 2 spaces forward. "
+            "Ball speed is now 12."
+        ),
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=receiver,
+        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_speed=12,
+    )
+
+
+def skilled_pass_contested_without_a_cost() -> LowPassFixture:
+    """
+    Contested, in an advanced game, by a card that carries no cost:
+    the pass says nothing about the defense at all. "A move that costs
+    nothing says nothing" is a wording rule (see
+    docs/design/naming-and-wording.md), and the cost note is appended
+    by the same sentence that would carry a Double Team's -- so the
+    silent case is worth pinning beside the loud one.
+    """
+    match = build_match()
+    take_the_ball(match)
+    match.ball.speed = 1
+    challenger = min(match.visiting.field_players, key=match.distance_to_ball)
+    match.choose_challenger(challenger)
+    match.choose_offense_maneuver("skilled_pass")
+    match.choose_defense_maneuver("pressure")
+    receiver = fielded(match, PlayerRole.WINGER)
+    stand_at(match, receiver, 2)
+    return LowPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        distance=2,
+        receiver_id=receiver,
+        key="skilled_pass",
+        narration=(
+            "**Skilled Pass:** the ball moves 2 spaces forward. "
+            "Ball speed is now 4."
+        ),
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=receiver,
+        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_speed=4,
+    )
+
+
+def skilled_pass_double_team_cost() -> LowPassFixture:
+    """
+    **Double Team's cost**, collected by a Skilled Pass rather than a
+    Low Pass. `advanced_cost(match, key)` is asked with whichever card
+    is resolving, so this is the branch that proves the cost rides on
+    the `key=` parameter and not on the function's name.
+    """
+    match = build_match()
+    take_the_ball(match)
+    match.ball.speed = 1
+    challenger = min(match.visiting.field_players, key=match.distance_to_ball)
+    match.choose_challenger(challenger)
+    match.choose_offense_maneuver("skilled_pass")
+    match.choose_defense_maneuver("double_team")
+    partner = ENGINE.double_team_partner(match)
+    receiver = fielded(match, PlayerRole.WINGER)
+    stand_at(match, receiver, 2)
+    return LowPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        distance=2,
+        receiver_id=receiver,
+        key="skilled_pass",
+        narration=(
+            "**Skilled Pass:** the ball moves 2 spaces forward. "
+            "Ball speed is now 4."
+            "\n\n**Double Team** was beaten -- "
+            f"{label(match, challenger)} and {label(match, partner)} "
+            "are each shoved a space forward, away from their own goal."
+        ),
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=receiver,
+        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_speed=4,
+    )
+
+
+# -- Where the pick and the board disagree -----------------------------
+
+
+def stale_receiver_pick() -> LowPassFixture:
+    """
+    The receiver named is not standing on the landing space any more,
+    which is what a click on a stale prompt looks like. The step falls
+    back to whoever *is* there rather than handing the ball to
+    somebody a space away.
+    """
+    match = build_match()
+    take_the_ball(match)
+    match.ball.speed = 1
+    standing_there = fielded(match, PlayerRole.WINGER)
+    stand_at(match, standing_there, 2)
+    elsewhere = fielded(match, PlayerRole.STRIKER)
+    stand_at(match, elsewhere, 3)
+    return LowPassFixture(
+        game=build_game(),
+        match=match,
+        distance=2,
+        receiver_id=elsewhere,
+        narration=(
+            "**Low Pass:** the ball moves 2 spaces forward. "
+            "Ball speed is now 2."
+        ),
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=standing_there,
+        ball_space=(Zone.VISITORS_GOAL, 0),
+        ball_speed=2,
+    )
+
+
+def nobody_on_the_landing_space() -> LowPassFixture:
+    """
+    Nobody left on the space the pass was aimed at -- the other half
+    of a stale choice, and the one branch that ends with **no
+    carrier**: nobody carries a loose ball. `resolve_low_pass` keeps
+    this off the menu, so it is only reachable if the board moved
+    under a prompt already on screen; it is recorded because "the ball
+    arrives uncarried" is the sort of thing a later rank could quietly
+    turn into a crash.
+    """
+    match = build_match()
+    take_the_ball(match)
+    match.ball.speed = 1
+    return LowPassFixture(
+        game=build_game(),
+        match=match,
+        distance=1,
+        receiver_id=None,
+        narration=(
+            "**Low Pass:** the ball moves 1 space forward. "
+            "Ball speed is now 2."
+        ),
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=None,
+        ball_space=(Zone.MIDFIELD, 2),
+        ball_speed=2,
+    )
+
+
+def free_pass_across_a_shared_space() -> LowPassFixture:
+    """
+    The unopposed pass **Skilled Pass's cost** hands the defense,
+    played across a shared space: it charges no space minute (the
+    clock was spent on the steal that produced it) and still steps the
+    passer forward, because that step is what a pass of 0 buys rather
+    than a part of the maneuver being paid for.
+    """
+    match = build_match()
+    passer = fielded(match, PlayerRole.MIDFIELDER, TeamSide.VISITING)
+    zone, space_index = match.board.meeple_position(passer)
+    match.set_ball_space(zone, space_index)
+    match.ball.possession = TeamSide.VISITING
+    match.select_ball_handler(passer)
+    match.ball.speed = 4
+    match.pending_effect_continuation = {
+        "kind": "free_low_pass",
+        "player_id": passer,
+    }
+    receiver = fielded(match, PlayerRole.DEFENDER, TeamSide.VISITING)
+    stand_at(match, receiver, 0, TeamSide.VISITING)
+    return LowPassFixture(
+        game=build_game(mode=GameMode.ADVANCED),
+        match=match,
+        distance=0,
+        receiver_id=receiver,
+        free=True,
+        narration=(
+            "**Low Pass:** the ball goes to a teammate in the same "
+            f"space, and {label(match, passer)} moves a space forward. "
+            "Ball speed is now 5."
+        ),
+        follow_on_kwargs={"distance_moved": 0},
+        carrier_id=receiver,
+        ball_space=(Zone.MIDFIELD, 2),
+        ball_speed=5,
+    )
+
+
 LOW_PASS_CASES: tuple[LowPassCase, ...] = (
     LowPassCase("plain_forward", plain_forward),
     LowPassCase("backward_pass", backward_pass),
@@ -451,4 +782,26 @@ LOW_PASS_CASES: tuple[LowPassCase, ...] = (
     ),
     LowPassCase("skilled_pass", skilled_pass),
     LowPassCase("double_team_cost", double_team_cost),
+    LowPassCase("skilled_pass_at_full_reach", skilled_pass_at_full_reach),
+    LowPassCase("skilled_pass_backward", skilled_pass_backward),
+    LowPassCase(
+        "skilled_pass_across_a_shared_space",
+        skilled_pass_across_a_shared_space,
+    ),
+    LowPassCase("skilled_pass_winger_set_up", skilled_pass_winger_set_up),
+    LowPassCase(
+        "skilled_pass_at_the_speed_cap", skilled_pass_at_the_speed_cap,
+    ),
+    LowPassCase(
+        "skilled_pass_contested_without_a_cost",
+        skilled_pass_contested_without_a_cost,
+    ),
+    LowPassCase(
+        "skilled_pass_double_team_cost", skilled_pass_double_team_cost,
+    ),
+    LowPassCase("stale_receiver_pick", stale_receiver_pick),
+    LowPassCase("nobody_on_the_landing_space", nobody_on_the_landing_space),
+    LowPassCase(
+        "free_pass_across_a_shared_space", free_pass_across_a_shared_space,
+    ),
 )
