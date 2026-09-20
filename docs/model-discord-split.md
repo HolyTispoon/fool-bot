@@ -30,7 +30,7 @@ it happened to have.
 | **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Done (PR #229, PR #232, PR #233, PR #235, PR #236, PR #241) |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Done (PR #249) |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Done (PR #254) |
-| **6** | The driver, and the cog becomes a frontend | The last of it | Part landed (PR #TBD): the loop and the save. Open: the cog is still the frontend's entry points |
+| **6** | The driver, and the cog becomes a frontend | The last of it | Part landed (PR #255): the loop and the save. Open: the cog is still the frontend's entry points |
 
 The Status column is the record of what has landed; a phase's PR updates
 its row (and, for Phase 3, names the ranks done) in the same commit that
@@ -605,7 +605,9 @@ step. Five members moved with it
 `BEGIN_OWN_GOAL_ROLL`, `FINISH_RUN_BACK`,
 `BEGIN_MANEUVER_ACTION_SELECTION`), and `persist` collapsed the way
 principle 9 asks: 41 wrappers stopped saving, the dispatcher saves once,
-`self.persist(` in `cogs/` went **83 to 43**. The reasoning is in
+`self.persist(` in `cogs/` went **83 to 43**. That is PR #255, and it
+changed no wording and no picture -- all three goldens byte-identical.
+The reasoning is in
 [design/model-discord-split.md](design/model-discord-split.md) under
 `d12ball/flow/driver.py`, with the counting rule and the figures.
 
