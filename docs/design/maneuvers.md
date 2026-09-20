@@ -1,4 +1,4 @@
-# Maneuvers: keys, advanced mode, who wins, and every roll
+# Maneuvers: keys, gambits, who wins, and every roll
 
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md).
 
@@ -27,7 +27,7 @@ tutorial rails and every game saved mid-turn.
   print it asks; a caller that wants to *decide* something compares
   keys.
 - **Relations are by rank.** `ManeuverDefinition.defeats_rank`
-  replaced `defeats`, because since advanced mode each rank carries
+  replaced `defeats`, because since the gambits each rank carries
   two cards -- the basic one and its counterpart -- and **rank alone
   decides** who wins (the author, 2026-08-18). Naming one of the two
   would be naming half a relation. `ManeuverCatalog.counterpart` is
@@ -38,12 +38,12 @@ tutorial rails and every game saved mid-turn.
   rewriting its own four references to it -- which can be dropped once
   upstream catches up.
 
-## Advanced maneuvers
+## Gambits
 
 Six more cards, one per basic card's rank, turned on by
-`GameMode.ADVANCED`. See "Advanced maneuvers" in the living rules;
+`GameMode.ADVANCED`. See "Gambits" in the living rules;
 what is left open is in
-[docs/advanced-maneuver-matrix.md](../advanced-maneuver-matrix.md).
+[docs/gambit-matrix.md](../gambit-matrix.md).
 
 **`RulesEngine.maneuver_tiers` is the only answer to who holds what**,
 and the buttons, the hand image and the click that answers all read
@@ -55,11 +55,11 @@ offense is prompted. That also makes declining a challenge a defensive
 weapon rather than only a saving.
 
 - **The outright rule is two questions about two cards**, not one
-  about the matchup: `advanced_benefit_applies` (this card **won on
-  the cards**) and `advanced_cost_applies` (this card **lost on
+  about the matchup: `gambit_benefit_applies` (this card **won on
+  the cards**) and `gambit_cost_applies` (this card **lost on
   them**) -- the author, 2026-09-07. `resolving_maneuver` asks the
   first and substitutes the basic counterpart when it answers no;
-  `advanced_cost` asks the second.
+  `gambit_cost` asks the second.
   - **It replaced a single `advanced_effects_apply`**, which asked
     only whether the cards were decisive. That is right in every case
     but one, and the one is real: a decisive matchup whose card-winner
@@ -135,13 +135,13 @@ weapon rather than only a saving.
       rather than a fix -- worth saying so, because the two read
       alike in a diff.
     - **One ordering is open.** An Intercept that overshoots returns
-      before `advanced_cost` is read, so it collects no beaten
+      before `gambit_cost` is read, so it collects no beaten
       Skilled Pass. Whether that is the rule (nobody goes back in
       position, so the free pass has no moment) or an oversight is
       the author's; the behaviour is preserved exactly and the
       question is written out in PR #233.
 - **Every cost bites inside the winning maneuver's own resolution**,
-  which is why there is no cost dispatcher. `advanced_cost` names the
+  which is why there is no cost dispatcher. `gambit_cost` names the
   card that was beaten and the winner's handler asks it: Clear's 2
   exhaustion and Double Team's shove are charged by the card that beat
   them, Intercept's uncontested reception is a branch of the High
@@ -213,8 +213,8 @@ weapon rather than only a saving.
 - **A role ability is inherited by rank, and what carries is the rule
   rather than the number.** Each sentence in `players.json` was written
   against one card and states a number, so read literally three of them
-  are nonsense on their advanced counterpart: a Fullback's "ball goes
-  back 2" is a *reduction* on a 3-space Clear, its "high pass up to 4"
+  are nonsense on the gambit that inherits it: a Fullback's "ball
+  goes back 2" is a *reduction* on a 3-space Clear, its "high pass up to 4"
   is a fourth number against a card offering 0/1/3, and a Playmaker's
   "may advance 2" was no bonus at all on a run to the end of the field.
   The author settled all three on 2026-08-19 -- **the Fullback's
@@ -243,9 +243,9 @@ weapon rather than only a saving.
     hatch Steal's ball speed modifier uses, and for the same reason.
 - **Dinky rolls its rank as it always has and picks the tier at
   random.** That is not a policy and is not meant to be one: an
-  advanced card carries a cost as well as a benefit, and weighing the
+  gambit carries a cost as well as a benefit, and weighing the
   two is judgement, which Dinky makes none of. The alternative was
-  Dinky never playing an advanced card, which leaves half of advanced
+  Dinky never playing a gambit, which leaves half of advanced
   mode unreachable in a solo game.
 - **`EveryMatchupResolvesTests` is the guard worth keeping.** It walks
   all thirty-six pairings on all three boards through the real

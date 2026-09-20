@@ -27,8 +27,9 @@ from d12ball.components import (
     EVENT_MANEUVER,
     EVENT_SKILL_TEST,
     EVENT_TURN_ACTION,
-    MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
+    MANEUVER_TIER_GAMBIT,
+    MANEUVER_TIER_WORDS,
     MatchState,
     PlayerDefinition,
     PlayerRole,
@@ -242,15 +243,15 @@ class CoreMixin:
         reference hexagon depends on the match, so none of these can go
         stale.
         """
-        # One hexagon per tier: a basic-mode coach has no advanced
-        # cards to read a matchup for, so its hexagon shows one box a
+        # One hexagon per tier: a basic-mode coach has no gambits
+        # to read a matchup for, so its hexagon shows one box a
         # rank rather than the pair an advanced game's does -- see
         # render_maneuver_reference_image.
         self.maneuver_reference_image_bytes = {
             tier: render_maneuver_reference_image(
                 self.maneuver_catalog, tier
             ).read()
-            for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
+            for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
         }
         # The cards the maneuver prompt carries.
         #
@@ -271,7 +272,7 @@ class CoreMixin:
             )
             for tiers in (
                 (MANEUVER_TIER_BASIC,),
-                (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
+                (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT),
             )
         }
 
@@ -729,15 +730,15 @@ class CoreMixin:
 
     def reference_tier(self, game: Optional[D12BallGame]) -> str:
         """
-        Which hexagon to post: the advanced one for a game actually
-        playing the advanced maneuvers, the basic one everywhere else
+        Which hexagon to post: the one with the gambits on it for a
+        game actually playing them, the basic one everywhere else
         -- including outside a game's channel, where there is nothing
-        to ask. Through `advanced_maneuvers_apply` rather than off
+        to ask. Through `gambits_apply` rather than off
         `game.mode`, or an advanced game that opted the maneuvers out
         would be handed a reference to six cards it will never hold.
         """
-        if game is not None and self.engine.advanced_maneuvers_apply(game):
-            return MANEUVER_TIER_ADVANCED
+        if game is not None and self.engine.gambits_apply(game):
+            return MANEUVER_TIER_GAMBIT
         return MANEUVER_TIER_BASIC
 
     def build_maneuver_reference_file(
@@ -745,7 +746,9 @@ class CoreMixin:
     ) -> discord.File:
         return discord.File(
             io.BytesIO(self.maneuver_reference_image_bytes[tier]),
-            filename=f"maneuver_reference_{tier}.png",
+            filename=(
+                f"maneuver_reference_{MANEUVER_TIER_WORDS[tier]}.png"
+            ),
         )
 
     def build_maneuver_hand_file(
@@ -1908,9 +1911,9 @@ class CoreMixin:
             "double_team": self.resolve_double_team,
         }
         # **A tie settled by a skill test resolves as the basic card.**
-        # An advanced effect follows the cards, so a winner that only
+        # A gambit's effect follows the cards, so a winner that only
         # won on the dice runs its counterpart's effect and the loser
-        # pays nothing -- see `RulesEngine.advanced_cost_applies`.
+        # pays nothing -- see `RulesEngine.gambit_cost_applies`.
         # Substituting the key here rather than branching inside six
         # handlers is what keeps that one rule in one place.
         handler = handlers.get(

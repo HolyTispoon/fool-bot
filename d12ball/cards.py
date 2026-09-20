@@ -30,17 +30,18 @@ from typing import NamedTuple, Optional, Sequence
 from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.components import (
-    MANEUVER_TIER_ADVANCED,
     MANEUVER_TIER_BASIC,
+    MANEUVER_TIER_GAMBIT,
+    MANEUVER_TIER_WORDS,
     ManeuverCatalog,
     ManeuverDefinition,
     PlayerCatalog,
 )
 from d12ball.render import (
     MANEUVER_DEFENSE_COLOR as DEFENSE_COLOR,
-    MANEUVER_DEFENSE_COLOR_ADVANCED as DEFENSE_COLOR_ADVANCED,
+    MANEUVER_DEFENSE_COLOR_GAMBIT as DEFENSE_COLOR_GAMBIT,
     MANEUVER_OFFENSE_COLOR as OFFENSE_COLOR,
-    MANEUVER_OFFENSE_COLOR_ADVANCED as OFFENSE_COLOR_ADVANCED,
+    MANEUVER_OFFENSE_COLOR_GAMBIT as OFFENSE_COLOR_GAMBIT,
     _maneuver_cycle_order,
     arrowhead_triangle,
     draw_dashed_line,
@@ -357,16 +358,16 @@ BALL_SPEED_NOTE = (
     "BALL SPEED",
     "The defender adds the ball speed modifier to this skill test.",
 )
-# **Three abilities that reach an advanced card their sentence does not
+# **Three abilities that reach a gambit their sentence does not
 # name** (the author, 2026-08-19). Each role's sentence is written
 # against its basic counterpart and states a *number*; what carries to
-# the advanced card is the rule behind the number, which for the
+# the gambit is the rule behind the number, which for the
 # Fullback is +1 distance and for the Playmaker is one less token. So
 # the sentence cannot be matched or reused, and the card says what the
 # ability does *there* instead.
 EXTRA_NOTES: dict[str, tuple[tuple[str, str], ...]] = {
     "steal": (BALL_SPEED_NOTE,),
-    # Intercept is the advanced Steal and settles the same way, so it
+    # Intercept is the Steal gambit and settles the same way, so it
     # carries the same modifier -- the sheet's Interactions column says
     # so for both rows.
     "intercept": (BALL_SPEED_NOTE,),
@@ -394,12 +395,12 @@ def role_abilities(
     in step with an import -- a new ability mentioning a maneuver
     reaches the card without anything here being edited.
 
-    **No role ability names an advanced maneuver, and that is the
+    **No role ability names a gambit, and that is the
     data being honest rather than a gap in the match.** Advanced mode
     has two halves -- the second set of maneuvers and a unique ability
     per player -- and only the first is built; the sheet's `Abilities`
     column for the advanced roster is empty for all thirty-six. So an
-    advanced card lists the one thing that *is* settled about how it
+    gambit lists the one thing that *is* settled about how it
     resolves: what it does when a skill test decides it.
     """
     # Matched on **whole words**, not as a substring. It was a
@@ -420,7 +421,7 @@ def role_abilities(
         if needle.search(profile.ability.lower()) or role.value in extra
     ]
     rows.extend(EXTRA_NOTES.get(maneuver.key, ()))
-    if maneuver.is_advanced and maneuvers is not None:
+    if maneuver.is_gambit and maneuvers is not None:
         rows.append(cards_note(maneuvers, maneuver))
     return rows
 
@@ -429,7 +430,7 @@ def cards_note(
     catalog: ManeuverCatalog, maneuver: ManeuverDefinition
 ) -> tuple[str, str]:
     """
-    The line every advanced card carries: **an advanced effect follows
+    The line every gambit carries: **a gambit's effect follows
     the cards, not the dice.**
 
     A card carries its benefit where it **won on the cards** and its
@@ -550,7 +551,7 @@ STRIP_MOVES: dict[str, tuple[Move, ...]] = {
         Move(-1, "handler + ball", "offense", start=-19, end=-19),
         Move(-1, "challenger", "defense", start=19, end=19, lift=26, row=1),
     ),
-    # -- advanced ------------------------------------------------------
+    # -- gambits -------------------------------------------------------
     # Three spaces either way, which is what the card says since the
     # 2026-08-26 rename -- it used to read "any teammate" and the arcs
     # were drawn to the ends of the strip because there was no number
@@ -630,17 +631,17 @@ STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
 # **The basic strip is the standard seven-space board with the ball on
 # the third space, which is the only position from which every basic
 # maneuver fits**: a High Pass of 4 lands on the last space and a
-# Fullback's Deflect of 2 on the first. The advanced cards do not fit
+# Fullback's Deflect of 2 on the first. The gambits do not fit
 # it -- a Fullback's Clear drives the ball back 4 and a Dribble Burst
 # runs it 4 forward -- so they are drawn on the **nine-space board**,
 # which is a real board and not a made-up strip, with the ball in the
 # middle. That gives 4 either way, which is exactly the range the six
-# advanced cards need once the Fullback is allowed near a Clear and a
+# gambits need once the Fullback is allowed near a Clear and a
 # Setup Pass: before that ruling the ball sat a space back and a
 # Fullback's clearance ran off the end of the panel.
 STRIP_GEOMETRY: dict[str, tuple[int, int]] = {
     MANEUVER_TIER_BASIC: (7, 2),
-    MANEUVER_TIER_ADVANCED: (9, 4),
+    MANEUVER_TIER_GAMBIT: (9, 4),
 }
 
 
@@ -1007,16 +1008,16 @@ def matchup_rank_groups(
 ]:
     """
     The three opposing ranks this maneuver beats, ties and loses to,
-    each as `(rank, (basic, advanced))` -- **both tiers of that rank**,
+    each as `(rank, (basic, gambit))` -- **both tiers of that rank**,
     because rank alone decides who beats whom (the author,
     2026-08-18) and a card naming only its own tier's opponent reads
     as though the twelve maneuvers were two separate cycles rather
-    than one, which is exactly backwards: a tie between two advanced
-    cards resolves as their basic counterparts, so the basic pair is
+    than one, which is exactly backwards: a tie between two gambits
+    resolves as their basic counterparts, so the basic pair is
     never not in play.
 
     Read off `maneuver`'s own rank and `defeats_rank` -- identical
-    between a rank's basic and advanced card, so it makes no
+    between a rank's basic card and its gambit, so it makes no
     difference which tier `maneuver` itself is.
     """
     side = "offense" if is_offense else "defense"
@@ -1074,10 +1075,10 @@ def matchup_content_height(
     max_width = column_width - 14
     name_font = font(MATCHUP_NAME_SIZE, bold=True)
     max_lines = 0
-    for _, (basic, advanced) in groups:
+    for _, (basic, gambit) in groups:
         lines = sum(
             len(pen.wrapped(name, name_font, max_width))
-            for name in (basic.name, advanced.name)
+            for name in (basic.name, gambit.name)
         )
         max_lines = max(max_lines, lines)
     return (
@@ -1097,14 +1098,14 @@ def draw_matchups(
 ) -> None:
     """
     Who this beats, ties and loses to -- named by **rank**, with both
-    the basic and advanced card on it, since rank rather than the card
+    the basic card and the gambit on it, since rank rather than the card
     itself is what a matchup is decided by. All three opponents are on
     the other side of the ball, so the column headers carry the
     "beats/ties/loses to" meaning and the rank badge is coloured the
     opposing side's colour rather than this card's own.
 
     It used to name only this card's own tier's opponent, which reads
-    naturally for a basic card but makes an advanced card look like it
+    naturally for a basic card but makes a gambit look like it
     belongs to a cycle of its own -- see `matchup_rank_groups`.
     """
     opposing_letter = "D" if is_offense else "O"
@@ -1119,7 +1120,7 @@ def draw_matchups(
     )
 
     labels = ("BEATS", "TIES", "LOSES TO")
-    for index, (label, (rank, (basic, advanced))) in enumerate(
+    for index, (label, (rank, (basic, gambit))) in enumerate(
         zip(labels, groups)
     ):
         cx = MARGIN + column_width * (index + 0.5)
@@ -1136,7 +1137,7 @@ def draw_matchups(
         name_font = font(MATCHUP_NAME_SIZE, bold=True)
         for name, color in (
             (basic.name, INK),
-            (advanced.name, DEFENSE_COLOR_ADVANCED if is_offense else OFFENSE_COLOR_ADVANCED),
+            (gambit.name, DEFENSE_COLOR_GAMBIT if is_offense else OFFENSE_COLOR_GAMBIT),
         ):
             for line in pen.wrapped(name, name_font, max_width):
                 pen.text((cx, name_y), line, name_font, color, anchor="mm")
@@ -1260,13 +1261,19 @@ def draw_card_header(
 
     # What kind of card this is, rather than which die faces it stands
     # in for. The faces were printed here while the cards and the
-    # selection die had to coexist; naming the mode is what still means
+    # selection die had to coexist; naming the tier is what still means
     # something now that the second set of maneuvers exists -- and this
     # is the one thing on the *face* that tells the two sets apart,
     # since the back cannot (see `render_maneuver_card_back`).
+    #
+    # **"GAMBIT MANEUVER", not "GAMBIT".** A gambit is a maneuver of
+    # its rank (the author, 2026-09-20) -- the badge beside this says
+    # which rank, and the matchup band below names the basic card it
+    # shares it with. Through `MANEUVER_TIER_WORDS` rather than the
+    # tier itself, which is still the sheet's word.
     pen.text(
         (CARD_WIDTH - FRAME - 62, header_top + header_height / 2),
-        f"{maneuver.tier.upper()}\nMANEUVER",
+        f"{MANEUVER_TIER_WORDS[maneuver.tier].upper()}\nMANEUVER",
         font(15, bold=True),
         "#ffffff",
         anchor="mm",
@@ -1361,14 +1368,14 @@ def render_maneuver_card(
     is_offense: bool,
     bleed: bool,
 ) -> Image.Image:
-    # A distinct shade for an advanced card, not a tint of the basic
+    # A distinct shade for a gambit, not a tint of the basic
     # one -- the two sit side by side in a coach's hand and back to
     # back in the print run, so they have to read as two cards at a
     # glance rather than as the same colour under different light. The
     # "ADVANCED MANEUVER" corner label is the only other thing on the
     # face that says so; the back cannot, since one back serves both.
-    if maneuver.is_advanced:
-        color = OFFENSE_COLOR_ADVANCED if is_offense else DEFENSE_COLOR_ADVANCED
+    if maneuver.is_gambit:
+        color = OFFENSE_COLOR_GAMBIT if is_offense else DEFENSE_COLOR_GAMBIT
     else:
         color = OFFENSE_COLOR if is_offense else DEFENSE_COLOR
     pen = Pen((CARD_WIDTH, CARD_HEIGHT), CARD_FACE)
@@ -1426,10 +1433,10 @@ def render_maneuver_card(
 #
 # **A node carries both cards on its rank, which is what keeps this
 # one back for all twelve.** A coach in advanced mode holds six -- the
-# three basic cards and the three advanced ones -- and must not show
+# three basic cards and their three gambits -- and must not show
 # which they are reading, so a second back is not available as a way
 # out. What is available is that the two tiers are the same cycle:
-# rank alone decides (the author, 2026-08-18), so an advanced card
+# rank alone decides (the author, 2026-08-18), so a gambit
 # sits exactly where its basic counterpart does and the node is one
 # position with two names on it rather than two positions.
 #
@@ -1461,7 +1468,7 @@ CYCLE_LINE_GAP = 6
 # inside the circle and reads as bursting out of it.
 CYCLE_LABEL_MARGIN = 24
 
-# The advanced half of a node: how far under the basic name it sits,
+# The gambit half of a node: how far under the basic name it sits,
 # and the hairline that separates the two. Without the rule the four
 # lines read as one four-word name.
 CYCLE_TIER_GAP = 13
@@ -1511,7 +1518,7 @@ def tie_pairs(
     the diagram.
 
     Asked of the basic six alone, because the hexagon has six nodes
-    and each node is a rank: an advanced card ties exactly what its
+    and each node is a rank: a gambit ties exactly what its
     basic counterpart ties, so walking all twelve would return the same
     three lines four times over.
 
@@ -1543,7 +1550,7 @@ def fit_node_block(
     "Intercept" only has what a chord below the middle allows.
 
     Several **stacks** of words are kept apart by `CYCLE_TIER_GAP` -- a
-    node carrying a rank's basic name over its advanced one is two
+    node carrying a rank's basic name over its gambit is two
     stacks, and both are set at one size so neither reads as the more
     important of the two.
 
@@ -1675,7 +1682,8 @@ def draw_cycle_arrows(pen: Pen, points: list[tuple[float, float]]) -> None:
 def node_stack(
     catalog: ManeuverCatalog, maneuver: ManeuverDefinition, both_tiers: bool,
 ) -> list[list[str]]:
-    """A node's words: the basic name, over its counterpart's on an advanced back."""
+    """A node's words: the basic name, over its gambit's on a back
+    that carries both tiers."""
     basic_words = maneuver.name.split(" ")
     if not both_tiers:
         return [basic_words]
@@ -1699,7 +1707,7 @@ def draw_cycle_node(
     # The rank, outside the circle rather than inside it -- a node
     # already carries two names, and O1/D2 is what says the two
     # cards on it resolve by rank rather than as six basic and six
-    # advanced maneuvers with no relation to each other. Placed
+    # gambits with no relation to each other. Placed
     # straight above or below the node -- whichever side faces away
     # from the ring's own centre -- rather than out along the
     # spoke: the spoke direction pushed the four off-axis nodes
@@ -1773,7 +1781,7 @@ def draw_back_captions(pen: Pen, both_tiers: bool) -> None:
     # straight down into where the caption block used to start.
     pen.text(
         (CARD_WIDTH / 2, CARD_HEIGHT - 76),
-        "each node is one rank: basic maneuvers above advanced"
+        "each node is one rank: basic maneuvers above gambits"
         if both_tiers
         else "each node is one rank",
         font(19),
@@ -1792,17 +1800,17 @@ def draw_back_captions(pen: Pen, both_tiers: bool) -> None:
 def render_maneuver_card_back(
     catalog: ManeuverCatalog,
     bleed: bool,
-    tier: str = MANEUVER_TIER_ADVANCED,
+    tier: str = MANEUVER_TIER_GAMBIT,
 ) -> Image.Image:
     """
     One back for all twelve in advanced mode, because a coach holding
     both sets must not show which side of the ball -- or which tier --
     they are reading: the offense there holds six, the three basic
-    cards and the three advanced ones. It carries the defeat cycle,
+    cards and their three gambits. It carries the defeat cycle,
     which is public information every coach is entitled to see at any
     time.
 
-    **`tier` picks which back a coach needs.** `MANEUVER_TIER_ADVANCED`
+    **`tier` picks which back a coach needs.** `MANEUVER_TIER_GAMBIT`
     (the default) draws all twelve, for the reason above.
     `MANEUVER_TIER_BASIC` draws six -- a basic-mode coach's own hand is
     never anything but the three basic cards, so there is no tier to
@@ -1812,7 +1820,7 @@ def render_maneuver_card_back(
     **The cycle is six nodes however many cards are on it**, because
     rank alone decides who beats whom (the author, 2026-08-18). In
     advanced mode each node carries the two cards on its rank -- the
-    basic name over its advanced counterpart -- so the picture a coach
+    basic name over its gambit -- so the picture a coach
     reads a matchup off is one hexagon rather than one per tier.
 
     The cycle is two relations, not one: a solid arrow to what a
@@ -1821,7 +1829,7 @@ def render_maneuver_card_back(
     one thing on the card a coach had to work out rather than look up,
     and a tie is the branch that costs a skill test and a token each.
     """
-    both_tiers = tier == MANEUVER_TIER_ADVANCED
+    both_tiers = tier == MANEUVER_TIER_GAMBIT
 
     pen = Pen((CARD_WIDTH, CARD_HEIGHT), BACK_COLOR)
     pen.rect(
@@ -1833,7 +1841,7 @@ def render_maneuver_card_back(
     )
     draw_back_title(pen)
 
-    # The basic tier gives the six positions; the advanced card on each
+    # The basic tier gives the six positions; the gambit on each
     # rank is looked up rather than walked, because it is the same
     # cycle and walking it twice would only prove that again.
     order = _maneuver_cycle_order(catalog, MANEUVER_TIER_BASIC)
@@ -1912,23 +1920,23 @@ def hand_card_rows(
     Split out because `render_maneuver_hands` lays two sides out on one
     image and needs each side's rows as a block of its own.
 
-    **A tier is a row: the basic three above their advanced
-    counterparts** (the author). The six of an advanced hand wrapped at
+    **A tier is a row: the basic three above their gambits**
+    (the author). The six of a hand holding gambits wrapped at
     `HAND_MAX_COLUMNS` came out four and three, which splits a rank's
     pair across two rows and reads as seven unrelated cards; a row a
-    tier puts every advanced card directly under the basic one it
+    tier puts every gambit directly under the basic one it
     shares a rank with, which is the relation that decides the matchup.
     Each row is in rank order, so the columns line up.
 
     **`tiers` is what a coach may actually play, not a display
     option.** A basic game is the three basic cards; an advanced game
     is all six, and an *unchallenged* maneuver in an advanced game is
-    the three basic ones again -- an advanced maneuver can only be
+    the three basic ones again -- a gambit can only be
     played when a maneuver is challenged (the author). So the caller
     passes the hand, and this draws it.
     """
     rows: list[list[Image.Image]] = []
-    for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED):
+    for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT):
         if tier not in tiers:
             continue
         maneuvers = [
@@ -1950,11 +1958,11 @@ def hand_back_image(catalog: ManeuverCatalog) -> Image.Image:
     The shared back that closes out a hand.
 
     **It is the basic back, because a hand is the only thing that
-    carries a back and an advanced hand no longer carries one** (the
+    carries a back and a hand holding gambits no longer carries one** (the
     author) -- see `render_maneuver_hands`. A basic-mode coach's hand
     is never anything but the three basic cards, so there is no tier to
     hide and the hexagon shows one name a node rather than the two-tier
-    hairline design a mixed deck calls for. The advanced back is still
+    hairline design a mixed deck calls for. The gambit back is still
     what the print run deals out; `render_maneuver_card_back` is where
     the pair lives.
     """
@@ -2068,8 +2076,8 @@ def render_maneuver_hands(
     which is hidden by the ephemeral reply to the click rather than by
     the menu being private. See "The maneuver cards" in docs/design/cards.md.
 
-    **An advanced hand is two rows -- the basic three, and the advanced
-    card of each rank under it -- and carries no back at all** (the
+    **A hand holding gambits is two rows -- the basic three, and the
+    gambit on each rank under it -- and carries no back at all** (the
     author). The rows are `hand_card_rows`' doing; what is decided here
     is the back, and dropping it is what makes those rows line up:
     riding on the last row it made an image four columns wide to hold
@@ -2094,7 +2102,7 @@ def render_maneuver_hands(
     headings: list[Optional[tuple[str, str]]] = [
         (HAND_HEADINGS[side], SIDE_COLORS[side]) for side in sides
     ]
-    if len(sides) < 2 and MANEUVER_TIER_ADVANCED not in tiers:
+    if len(sides) < 2 and MANEUVER_TIER_GAMBIT not in tiers:
         # The back rides on the end of the hand's own row rather than
         # starting one of its own: alone it is a row one card wide,
         # which pushes the whole image to a second row for one card.

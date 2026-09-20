@@ -171,15 +171,15 @@ class SkillTestView(SafeView):
         # Role ability -- Midfielder: +3 on a skill test when
         # attempting Low Pass (offense) or Pressure (defense).
         #
-        # **Read by rank, so an advanced card inherits it.** The
+        # **Read by rank, so a gambit inherits it.** The
         # Midfielder's +3 and the ball speed modifier below are listed
         # against both cards on their rank in the sheet's own
         # `Interactions` column, and neither contradicts what the
-        # advanced card does. The three that *do* contradict -- the
+        # gambit does. The three that *do* contradict -- the
         # Fullback on Clear, the Playmaker on Dribble Burst, the
         # Fullback's pass distance on Setup Pass -- are the author's to
         # settle and are deliberately not inherited anywhere; see
-        # "Still open" in docs/advanced-maneuver-matrix.md.
+        # "Still open" in docs/gambit-matrix.md.
         if (
             offense_player.role == PlayerRole.MIDFIELDER
             and match.offense_maneuver in ("low_pass", "skilled_pass")
@@ -384,7 +384,7 @@ class SkillTestView(SafeView):
             game, winner_ignite, loser_ignite,
         )
         # The other half: the losing side's own ignite decides whether
-        # they pay their advanced card's cost, whatever the cards said.
+        # they pay their gambit's cost, whatever the cards said.
         match.volatile_loser_cost = self.cog.engine.volatile_loser_cost(
             game, loser_ignite,
         )
@@ -398,7 +398,7 @@ class SkillTestView(SafeView):
                 + ("the surge" if winner_ignite.surge else "the backfire")
                 + f" raises it to **{raised}**."
             )
-        # Said only where there is an advanced cost for it to have
+        # Said only where there is a gambit's cost for it to have
         # changed: a coach told "the surge spares them the cost" of a
         # card that carried none is being answered a question nobody
         # asked (see "What a message says" in docs/design/naming-and-wording.md).
@@ -408,14 +408,14 @@ class SkillTestView(SafeView):
         if (
             match.volatile_loser_cost is not None
             and loser_card is not None
-            and loser_card.is_advanced
+            and loser_card.is_gambit
         ):
             volatile_lines.append(
                 "🔥 **Volatile** — the backfire also costs them their "
-                "advanced card's price."
+                "gambit's price."
                 if match.volatile_loser_cost
                 else "🔥 **Volatile** — the surge spares them their "
-                "advanced card's cost."
+                "gambit's cost."
             )
         volatile_note = (
             "\n" + "\n".join(volatile_lines) if volatile_lines else ""

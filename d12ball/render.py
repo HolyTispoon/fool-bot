@@ -9,7 +9,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 from d12ball.components import (
     duplicate_card_id,
-    MANEUVER_TIER_ADVANCED,
     MIND_PULL_SUCCESS_FACES,
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
@@ -18,6 +17,7 @@ from d12ball.components import (
     VOLATILE_IGNITE_FACES,
     VOLATILE_SURGE_MINIMUM,
     MANEUVER_TIER_BASIC,
+    MANEUVER_TIER_GAMBIT,
     ManeuverCatalog,
     ManeuverDefinition,
     MatchState,
@@ -3915,17 +3915,17 @@ MANEUVER_DIAGRAM_RANK_LABEL_HEIGHT = 56
 # call site. Don't add a second definition there.
 #
 # **Deliberately a different shade, not a tint of the same one.** A
-# basic and an advanced card on the same rank sit side by side on the
+# basic and a gambit on the same rank sit side by side on the
 # reference image and back to back on the printed card's own edge, so
 # they have to read as two cards at a glance -- a lighter or darker
 # version of the same hue reads as the same card under different
 # lighting instead.
 MANEUVER_OFFENSE_COLOR = "#E24B4A"
 MANEUVER_DEFENSE_COLOR = "#97C459"
-MANEUVER_OFFENSE_COLOR_ADVANCED = "#7A2038"
-MANEUVER_DEFENSE_COLOR_ADVANCED = "#2F5D3A"
+MANEUVER_OFFENSE_COLOR_GAMBIT = "#7A2038"
+MANEUVER_DEFENSE_COLOR_GAMBIT = "#2F5D3A"
 MANEUVER_CARD_TEXT_COLOR = "#14202b"
-MANEUVER_CARD_TEXT_COLOR_ADVANCED = "#f4efe4"
+MANEUVER_CARD_TEXT_COLOR_GAMBIT = "#f4efe4"
 
 
 def wrap_text(
@@ -4130,7 +4130,7 @@ def _maneuver_cycle_order(
 
     **One tier at a time, and the two hexagons are the same shape.**
     Rank alone decides who beats whom (the author, 2026-08-18), so an
-    advanced card sits exactly where its basic counterpart does; the
+    gambit sits exactly where its basic counterpart does; the
     advanced diagram is the basic one with six names swapped. Walking
     both tiers at once would be walking two cycles laid on top of each
     other, which is not a hexagon.
@@ -4290,10 +4290,10 @@ def draw_reference_rank(
         advanced = catalog.counterpart(basic)
         boxes.append((
             advanced,
-            MANEUVER_OFFENSE_COLOR_ADVANCED
+            MANEUVER_OFFENSE_COLOR_GAMBIT
             if is_offense
-            else MANEUVER_DEFENSE_COLOR_ADVANCED,
-            MANEUVER_CARD_TEXT_COLOR_ADVANCED,
+            else MANEUVER_DEFENSE_COLOR_GAMBIT,
+            MANEUVER_CARD_TEXT_COLOR_GAMBIT,
         ))
     for offset, (maneuver, fill, text_color) in enumerate(boxes):
         box_left = pair_left + offset * (box_width + MANEUVER_DIAGRAM_TIER_GAP)
@@ -4325,9 +4325,9 @@ def draw_reference_legend(draw: ImageDraw.ImageDraw, both_tiers: bool) -> None:
 
     if both_tiers:
         legend_swatch(MANEUVER_OFFENSE_COLOR, "Offense (basic)")
-        legend_swatch(MANEUVER_OFFENSE_COLOR_ADVANCED, "Offense (advanced)")
+        legend_swatch(MANEUVER_OFFENSE_COLOR_GAMBIT, "Offense (gambit)")
         legend_swatch(MANEUVER_DEFENSE_COLOR, "Defense (basic)")
-        legend_swatch(MANEUVER_DEFENSE_COLOR_ADVANCED, "Defense (advanced)")
+        legend_swatch(MANEUVER_DEFENSE_COLOR_GAMBIT, "Defense (gambit)")
     else:
         legend_swatch(MANEUVER_OFFENSE_COLOR, "Offense")
         legend_swatch(MANEUVER_DEFENSE_COLOR, "Defense")
@@ -4369,7 +4369,7 @@ def draw_reference_legend(draw: ImageDraw.ImageDraw, both_tiers: bool) -> None:
 
 def render_maneuver_reference_image(
     catalog: ManeuverCatalog,
-    tier: str = MANEUVER_TIER_ADVANCED,
+    tier: str = MANEUVER_TIER_GAMBIT,
 ) -> BytesIO:
     """
     Every maneuver arranged in the defeat cycle its rank sits on: arrows
@@ -4378,18 +4378,18 @@ def render_maneuver_reference_image(
     prominent rank badge (O1, D2, ...).
 
     **`tier` picks how many maneuvers a rank shows.**
-    `MANEUVER_TIER_ADVANCED` (the default) draws both -- the basic card
-    and its advanced counterpart side by side -- since rank alone
-    decides who beats whom (2026-08-18), so an advanced card sits
+    `MANEUVER_TIER_GAMBIT` (the default) draws both -- the basic card
+    and its gambit side by side -- since rank alone
+    decides who beats whom (2026-08-18), so a gambit sits
     exactly where its basic counterpart does and the two cannot be
     drawn as two unrelated cycles without implying a second rule that
     does not exist. `MANEUVER_TIER_BASIC` draws one box a rank instead:
-    a basic-mode coach has no advanced cards to read a matchup for, so
+    a basic-mode coach has no gambits to read a matchup for, so
     showing them anyway would be describing a rule this game is not
     playing by. The one box keeps the same shape it always had rather
     than stretching to the width the pair would have shared.
     """
-    both_tiers = tier == MANEUVER_TIER_ADVANCED
+    both_tiers = tier == MANEUVER_TIER_GAMBIT
     canvas = Image.new(
         "RGBA",
         (MANEUVER_DIAGRAM_WIDTH, MANEUVER_DIAGRAM_HEIGHT),

@@ -8,7 +8,7 @@ The four abilities as the engine plays them. The rules are
 [Species abilities](../living-rules.md#species-abilities) and are settled;
 what is here is how they are wired, and the reasoning the rules do not carry.
 
-**Advanced mode is one switch over two modules** -- the advanced maneuvers
+**Advanced mode is one switch over two modules** -- the gambits
 and these (the author, PR #177 review). Turning it on brings both, and a game
 may then take just one.
 
@@ -37,13 +37,13 @@ may then take just one.
     right there. That refusal is the reason the two bools need no third
     state.
   - **Picking Basic leaves them as they are.** They mean nothing in a basic
-    game (`advanced_maneuvers_apply` folds the mode in), so undoing them
+    game (`gambits_apply` folds the mode in), so undoing them
     would only cost a coach their pick to a mis-click on the mode.
   - **A rematch carries them**, alongside the mode and board size, which is
     why `open_new_game` takes them at all -- `/d12ball create_game` settles
     everything else in setup and settles these there too.
 - **Nothing may read either bool to decide a rule.**
-  `RulesEngine.advanced_maneuvers_apply` and `species_abilities_apply` are
+  `RulesEngine.gambits_apply` and `species_abilities_apply` are
   the two answers, and each folds `mode` in so a caller cannot check the
   opt-out and forget the mode. `maneuver_tiers` reads the first -- it used to
   ask `game.mode` directly, which would have dealt six cards to a game that
@@ -191,7 +191,7 @@ losing side raises "the opponent's" -- and the opponent of the losing side
 `RulesEngine.volatile_raises_tier` is the reading.
 
 - **It is gated where it is set, not where it is read.**
-  `volatile_raises_tier` asks `advanced_maneuvers_apply` (a game with the
+  `volatile_raises_tier` asks `gambits_apply` (a game with the
   abilities but not the maneuvers has no tier to change), so
   `resolving_maneuver` needs no `game` and stays a question about the match
   alone.
@@ -202,7 +202,7 @@ losing side raises "the opponent's" -- and the opponent of the losing side
 - **It beats the tie downgrade**, which is the case the rules call out
   ("even where the cards tied and the basic card would otherwise resolve"),
   and it only ever raises -- a card already resolving at advanced gains
-  nothing, which falls out of an advanced card's counterpart being itself.
+  nothing, which falls out of a gambit's counterpart being itself.
 
 **The rider has a second half: the losing side's own ignite decides their
 advanced cost** (the author, 2026-09-07). `MatchState.volatile_loser_cost`
@@ -213,19 +213,19 @@ is that, and `RulesEngine.volatile_loser_cost` is the reading.
   charged one. `True` is a **backfire that lost** -- they pay theirs even
   where the cards alone would not, which makes a backfire the one thing in
   the game that puts a cost in force off the dice. `None` is every other
-  roll, leaving `advanced_cost_applies` the whole answer it always was.
+  roll, leaving `gambit_cost_applies` the whole answer it always was.
 - **It is read off the loser's own die, not the matchup**, which is why it
   is a separate field rather than derivable from `volatile_tier_upgrade`.
   A surge that loses suppresses a cost *and* raises nothing; a backfire
   that loses charges one *and* raises the opponent's card. The two halves
   agree only by coincidence.
-- **`advanced_cost` asks it before `advanced_cost_applies`**, because that
+- **`gambit_cost` asks it before `gambit_cost_applies`**, because that
   is precisely what it overrides -- in both directions. The card checks
   stay above both: the override decides *whether* an advanced cost applies,
   not whether there is one to apply, and a basic losing card has none.
 - **The first build had the tier half and not this one.** It read "resolves
-  that side's maneuver as its advanced version" as a sentence about the
-  card that resolves and nothing else, and left `advanced_cost` asking only
+  that side's maneuver as the gambit on its rank" as a sentence about the
+  card that resolves and nothing else, and left `gambit_cost` asking only
   the cards.
 
 ### Lithium Powered

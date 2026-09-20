@@ -1002,7 +1002,7 @@ class TurnoverMixin:
         set `match.ball.speed` to whatever it should read by the time
         this runs, so this is wording, not state -- it says whether
         that was a reset to 1 (every other turnover) or the burst's
-        speed carrying over (see the comment on `advanced_cost`).
+        speed carrying over (see the comment on `gambit_cost`).
 
         `new_play` says the ball changed hands because play stopped and
         is restarting -- a goal, an own goal, a missed attempt, a ball

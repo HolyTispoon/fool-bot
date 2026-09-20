@@ -1,9 +1,9 @@
-# Advanced maneuvers — what is left
+# Gambits — what is left
 
-**Status: the maneuvers are built.** The six advanced cards are in
+**Status: the maneuvers are built.** The six gambits are in
 [living-rules.md](living-rules.md) under [Advanced
 maneuvers](living-rules.md#advanced-maneuvers), and in the bot behind the game's mode, as of
-2026-08-19. This file used to be the worksheet that got them there — every advanced maneuver
+2026-08-19. This file used to be the worksheet that got them there — every gambit
 against every maneuver it could meet, with each assumption named and each undecided cell
 marked. **All of that is deleted rather than kept in parallel**, which is what happens to a
 worksheet's answered parts: the rules live in one place, and a second copy of a settled rule is
@@ -17,12 +17,12 @@ of it stops a game being played.
 ## The interaction table is in the code, not here
 
 The 6×6 grid the worksheet spent most of its length on collapsed to one sentence the author
-gave on 2026-08-18: **"Rank alone decides."** Every advanced card sits on a basic card's rank
+gave on 2026-08-18: **"Rank alone decides."** Every gambit sits on a basic card's rank
 and beats exactly what that card beats, so the grid is the existing 3×3 cycle repeated four
 times and there is nothing to tabulate.
 
 `ManeuverCatalog.resolve` is that, and
-`tests/test_d12ball_advanced_maneuvers.py::test_an_advanced_card_resolves_exactly_as_its_counterpart`
+`tests/test_d12ball_gambits.py::test_an_advanced_card_resolves_exactly_as_its_counterpart`
 walks the whole grid asserting that swapping either card for its counterpart cannot change the
 outcome. That test is the table now. It is worth more than a table was, because it fails when
 the data drifts.
@@ -36,7 +36,7 @@ the data drifts.
 The other half of what the author asked for on 2026-08-17, and the half with no data: the
 sheet's `Advanced` ability column is empty for all thirty-six players. Nothing can be imported
 and nothing can be built until it is filled. It also holds up the back of a printed player
-card, which is that player's advanced version (the author, 2026-08-12).
+card, which is that player's gambit (the author, 2026-08-12).
 
 A coach playing advanced mode today gets six cards a side and the roster they already know.
 
@@ -73,7 +73,7 @@ changing any of it should know these are load-bearing.
   that. This was the first step and it shrank every step after it.
 - **Relations are by rank, not by name.** `defeats_rank` replaced `defeats`, because each rank
   carries two cards and naming one of them is naming half a relation.
-- **The importer stopped validating one die face per side.** An advanced card reuses its
+- **The importer stopped validating one die face per side.** A gambit reuses its
   counterpart's faces. The die has been off the rules since 2026-08-17.
 - **`pending_effect_continuation`** is what lets an effect reach past its own maneuver. Two do:
   Setup Pass sets the speed and *then* picks the pass out, and a beaten Skilled Pass hands the

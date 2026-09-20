@@ -1,15 +1,15 @@
 """
-Advanced maneuvers: which hand a coach holds, when an advanced effect
+Gambits: which hand a coach holds, when a gambit's effect
 fires, and what each of the six does.
 
 Three layers, and they fail for different reasons:
 
 - **The hand.** `RulesEngine.maneuver_tiers` is the only answer to who
   may play what, and the buttons, the card image and the click that
-  answers all read it. A basic game is three cards; an advanced one is
-  six, except where the maneuver went unchallenged.
-- **The outright rule.** `advanced_benefit_applies` and
-  `advanced_cost_applies` are two questions about two cards -- did
+  answers all read it. A basic game is three cards; a coach holding
+  their gambits has six.
+- **The outright rule.** `gambit_benefit_applies` and
+  `gambit_cost_applies` are two questions about two cards -- did
   *this* card win on the cards, did *this* one lose on them -- rather
   than one question about the matchup. They are asserted against the
   ways a maneuver lands rather than against a list of matchups: the
@@ -20,8 +20,8 @@ Three layers, and they fail for different reasons:
   checked is every claim the card makes that the data could
   contradict.
 
-See "Advanced maneuvers" in docs/living-rules.md and the matrix in
-docs/advanced-maneuver-matrix.md.
+See "Gambits" in docs/living-rules.md and the matrix in
+docs/gambit-matrix.md.
 """
 
 import unittest
@@ -38,7 +38,7 @@ from d12ball.components import (
     CONTESTED_DECISIONS,
     DECISION_UNCONTESTED,
     EVENT_MANEUVER,
-    MANEUVER_TIER_ADVANCED,
+    MANEUVER_TIER_GAMBIT,
     MANEUVER_TIER_BASIC,
     MatchState,
     PlayerRole,
@@ -87,7 +87,7 @@ def build_cog() -> D12Ball:
         for sides in (("offense",), ("defense",), ("offense", "defense"))
         for tiers in (
             (MANEUVER_TIER_BASIC,),
-            (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
+            (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT),
         )
     }
     return cog
@@ -159,7 +159,7 @@ def clear_the_defense_off_the_ball(match: MatchState) -> None:
             )
 
 
-class AdvancedHarness:
+class GambitHarness:
     """
     An advanced-mode game mid-maneuver: home in possession in midfield,
     a challenger from the visitors on the ball, and both cards picked.
@@ -227,7 +227,7 @@ class AdvancedHarness:
         return teammate
 
 
-class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
+class ManeuverHandTests(GambitHarness, unittest.TestCase):
     """
     Which cards a coach is offered. `maneuver_tiers` is the only
     reading of it -- the pick buttons, the hand image and the click
@@ -252,7 +252,7 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
                     ],
                 )
 
-    def test_an_advanced_game_offers_six_in_rank_order(self) -> None:
+    def test_a_coach_holding_gambits_is_offered_six_in_rank_order(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
 
         hand = cog.engine.maneuver_hand(game, match, "offense")
@@ -269,11 +269,11 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
             ],
         )
 
-    def test_an_unchallenged_maneuver_is_basic_even_in_advanced_mode(
+    def test_an_unchallenged_maneuver_is_basic_even_with_gambits_on(
         self,
     ) -> None:
         """
-        The author: "Advanced maneuver can only be played when a
+        The author: "Gambit can only be played when a
         maneuver is challenged." It is answerable at the moment the
         hand is drawn because every route into the unopposed branch
         settles it before the offense is prompted -- which also makes
@@ -311,10 +311,10 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
             ],
         )
 
-    def test_the_full_image_link_sits_after_the_advanced_cards(self) -> None:
+    def test_the_full_image_link_sits_after_the_gambits(self) -> None:
         # discord.py drops a rowless button into the first row with
-        # space, which on an advanced prompt (every hand two rows of
-        # three) is between a side's basic and advanced cards.
+        # space, which on a prompt carrying gambits (a hand of two rows of
+        # three) is between a side's basic and gambits.
         # `full_image_row` points it at the reference's row instead.
         import asyncio
 
@@ -351,17 +351,17 @@ class ManeuverHandTests(AdvancedHarness, unittest.TestCase):
         )
 
 
-class DinkyAdvancedManeuverPickTests(AdvancedHarness, unittest.TestCase):
+class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
     """
-    In advanced mode Dinky weighs all six cards on a side, not the
-    three advanced ones alone or the three basic ones alone --
+    Where Dinky holds its gambits it weighs all six cards on a side,
+    not the three gambits alone or the three basic cards alone --
     `DinkyAI.choose_maneuver_action` rolls a rank on the d6 and then
     coin-flips the tier, which lands on each of the six with equal
     odds. See "Dinky rolls its rank as it always has and picks the
     tier at random" in docs/design/maneuvers.md.
     """
 
-    def test_dinky_reaches_every_card_of_an_advanced_hand(self) -> None:
+    def test_dinky_reaches_every_card_of_a_hand_with_gambits(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
         strategy = cog.ai_strategies[AIOpponent.DINKY]
 
@@ -375,7 +375,7 @@ class DinkyAdvancedManeuverPickTests(AdvancedHarness, unittest.TestCase):
 
                 self.assertEqual(picked, {m.key for m in hand})
 
-    def test_a_basic_hand_never_reaches_an_advanced_card(self) -> None:
+    def test_a_basic_hand_never_reaches_a_gambit(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
         strategy = cog.ai_strategies[AIOpponent.DINKY]
         basic_hand = cog.maneuver_catalog.for_tier(
@@ -390,9 +390,9 @@ class DinkyAdvancedManeuverPickTests(AdvancedHarness, unittest.TestCase):
         self.assertEqual(picked, {m.key for m in basic_hand})
 
 
-class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
+class OutrightRuleTests(GambitHarness, unittest.TestCase):
     """
-    **A benefit fires where the advanced card won on the cards, and a
+    **A benefit fires where the gambit won on the cards, and a
     cost where it lost on them** (the author, 2026-09-07).
 
     It used to be one predicate over the whole matchup -- "the cards
@@ -411,13 +411,13 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         cog, game, match = self.build("skilled_pass", "double_team")
 
         self.assertTrue(
-            cog.engine.advanced_benefit_applies(match, "skilled_pass"),
+            cog.engine.gambit_benefit_applies(match, "skilled_pass"),
         )
         self.assertTrue(
-            cog.engine.advanced_cost_applies(match, "double_team"),
+            cog.engine.gambit_cost_applies(match, "double_team"),
         )
         self.assertEqual(
-            cog.engine.advanced_cost(match, "skilled_pass"), "double_team",
+            cog.engine.gambit_cost(match, "skilled_pass"), "double_team",
         )
 
     def test_the_winning_card_owes_no_cost_and_the_loser_gains_nothing(
@@ -428,10 +428,10 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         cog, game, match = self.build("skilled_pass", "double_team")
 
         self.assertFalse(
-            cog.engine.advanced_cost_applies(match, "skilled_pass"),
+            cog.engine.gambit_cost_applies(match, "skilled_pass"),
         )
         self.assertFalse(
-            cog.engine.advanced_benefit_applies(match, "double_team"),
+            cog.engine.gambit_benefit_applies(match, "double_team"),
         )
 
     def test_a_tie_carries_nothing_and_resolves_as_the_basic_card(
@@ -440,12 +440,12 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         cog, game, match = self.build("skilled_pass", "clear")
 
         self.assertFalse(
-            cog.engine.advanced_benefit_applies(match, "skilled_pass"),
+            cog.engine.gambit_benefit_applies(match, "skilled_pass"),
         )
         self.assertFalse(
-            cog.engine.advanced_cost_applies(match, "clear"),
+            cog.engine.gambit_cost_applies(match, "clear"),
         )
-        self.assertIsNone(cog.engine.advanced_cost(match, "skilled_pass"))
+        self.assertIsNone(cog.engine.gambit_cost(match, "skilled_pass"))
         self.assertEqual(
             cog.engine.resolving_maneuver(match, "skilled_pass"), "low_pass",
         )
@@ -462,7 +462,7 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
             cog.engine.settled_maneuver_winner(match), "skilled_pass",
         )
         self.assertFalse(
-            cog.engine.advanced_benefit_applies(match, "skilled_pass"),
+            cog.engine.gambit_benefit_applies(match, "skilled_pass"),
         )
         self.assertEqual(
             cog.engine.resolving_maneuver(match, "skilled_pass"), "low_pass",
@@ -486,7 +486,7 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
             "skilled_pass",
         )
         self.assertEqual(
-            cog.engine.advanced_cost(match, "skilled_pass"), "double_team",
+            cog.engine.gambit_cost(match, "skilled_pass"), "double_team",
         )
 
     def test_an_injury_forced_test_the_card_loser_wins_carries_neither(
@@ -506,12 +506,12 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
         self.assertEqual(
             cog.engine.resolving_maneuver(match, "double_team"), "pressure",
         )
-        self.assertIsNone(cog.engine.advanced_cost(match, "double_team"))
+        self.assertIsNone(cog.engine.gambit_cost(match, "double_team"))
 
     def test_a_basic_winner_over_a_basic_loser_owes_no_cost(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
 
-        self.assertIsNone(cog.engine.advanced_cost(match, "low_pass"))
+        self.assertIsNone(cog.engine.gambit_cost(match, "low_pass"))
 
     def test_an_unchallenged_maneuver_carries_nothing(self) -> None:
         cog, game, match = self.build("low_pass", "pressure")
@@ -522,15 +522,15 @@ class OutrightRuleTests(AdvancedHarness, unittest.TestCase):
 
         self.assertIsNone(cog.engine.cards_outcome(match))
         self.assertFalse(
-            cog.engine.advanced_benefit_applies(match, "low_pass"),
+            cog.engine.gambit_benefit_applies(match, "low_pass"),
         )
         self.assertFalse(
-            cog.engine.advanced_cost_applies(match, "low_pass"),
+            cog.engine.gambit_cost_applies(match, "low_pass"),
         )
 
 
 class EveryMatchupResolvesTests(
-    AdvancedHarness, unittest.IsolatedAsyncioTestCase
+    GambitHarness, unittest.IsolatedAsyncioTestCase
 ):
     """
     Every one of the thirty-six pairings, on every board, driven
@@ -617,7 +617,7 @@ class EveryMatchupResolvesTests(
         await self.resolve_every_pairing(solo=True)
 
 
-class SkilledPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class SkilledPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     def test_it_reaches_any_teammate_within_three_not_the_nearest_each_way(
         self,
     ) -> None:
@@ -718,7 +718,7 @@ class SkilledPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(match.exhaustion.get(player_id, 0), 0)
 
 
-class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class DribbleBurstTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     """
     The run is the coach's now, bounded at
     `DRIBBLE_BURST_MAX_DISTANCE` (the author, 2026-08-26). It used to
@@ -923,7 +923,7 @@ class DribbleBurstTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.exhaustion[defender], 2)
 
 
-class ClearTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class ClearTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     async def test_it_drives_the_ball_back_three_and_drops_speed_by_three(
         self,
     ) -> None:
@@ -1012,7 +1012,7 @@ class ClearTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.ball.speed, 8)
 
 
-class InterceptTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class InterceptTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     async def test_it_carries_the_ball_forward_not_back(self) -> None:
         """
         The sign is the whole card. A basic Steal falls back toward the
@@ -1132,7 +1132,7 @@ class InterceptTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         cog.begin_high_pass_contest.assert_awaited_once()
 
 
-class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     def test_it_offers_every_distance_that_fits_on_the_field(self) -> None:
         """
         The author, 2026-08-25: a distance is offered because it fits,
@@ -1464,7 +1464,7 @@ class SetupPassTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
         )
 
 
-class DoubleTeamTests(AdvancedHarness, unittest.IsolatedAsyncioTestCase):
+class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     async def test_it_pushes_the_handler_back_two_and_brings_a_partner(
         self,
     ) -> None:

@@ -850,9 +850,9 @@ class BasicRuleset:
 
 
 # The two tiers a maneuver can belong to. Basic is the game as it has
-# always been played; advanced is the second set the 2026-08-17 ruling
-# added, one card per basic card at the same rank -- see "Advanced
-# maneuvers" in docs/living-rules.md.
+# always been played; the gambit tier is the second set the 2026-08-17
+# ruling added, one card per basic card at the same rank -- see
+# "Gambits" in docs/living-rules.md.
 # Setup Pass's three distances, and its clock cost. It is High Pass's
 # rank and carries High Pass's two space minutes; 0 is a teammate
 # sharing the passer's own space.
@@ -876,8 +876,25 @@ SKILLED_PASS_REACH = 3
 DRIBBLE_BURST_MAX_DISTANCE = 4
 
 MANEUVER_TIER_BASIC = "basic"
-MANEUVER_TIER_ADVANCED = "advanced"
-MANEUVER_TIERS = (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
+# **The value is the sheet's own word, not the rules'.** A second
+# maneuver on every rank is a **gambit** as of 2026-09-20, and nothing
+# a coach reads says "advanced" any more -- but the tier is the
+# `maneuvers` tab's `Mode` column, `maneuvers.json` is regenerated
+# whole from it (see docs/design/gotchas.md), and upstream has not
+# renamed the column. So the constant carries the rules' word and the
+# string carries the sheet's, exactly as `legacy_maneuver_key` and
+# `player_board` do. Renaming the column upstream and re-importing is
+# recorded as not-yet-done in docs/rules-log.md.
+MANEUVER_TIER_GAMBIT = "advanced"
+MANEUVER_TIERS = (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
+# What a tier is called where a person reads it -- a card's corner
+# label, an attachment's name. One table rather than `tier.upper()` at
+# each site, because the value above is upstream's word and these are
+# the rules'.
+MANEUVER_TIER_WORDS = {
+    MANEUVER_TIER_BASIC: "basic",
+    MANEUVER_TIER_GAMBIT: "gambit",
+}
 
 
 def maneuver_key(name: str) -> str:
@@ -890,7 +907,7 @@ def maneuver_key(name: str) -> str:
     sites compared against those literals, which meant a rename
     upstream was a code change and a saved game held a display string.
     The author renamed the basic D2 card from "Steal Intercept" to
-    "Steal" on 2026-08-18, when the advanced D2 card became
+    "Steal" on 2026-08-18, when the D2 gambit became
     "Intercept", and that is exactly the change that would have
     silently broken every one of them.
     """
@@ -913,7 +930,7 @@ def maneuver_key(name: str) -> str:
 LEGACY_MANEUVER_KEYS = {
     "steal_intercept": "steal",
     "block_deflect": "deflect",
-    # The author renamed the advanced O1 card from "Precise Pass" to
+    # The author renamed the O1 gambit from "Precise Pass" to
     # "Skilled Pass" on 2026-08-26, when its reach was bounded at 3.
     "precise_pass": "skilled_pass",
 }
@@ -936,7 +953,7 @@ class ManeuverDefinition:
     `name` is only ever displayed. `defeats_rank` is the *rank* this
     maneuver beats rather than a name, because since advanced mode
     landed each rank has two cards on it -- the basic one and its
-    advanced counterpart -- and **rank alone decides** who wins (the
+    gambit -- and **rank alone decides** who wins (the
     author, 2026-08-18). Naming one of the two would be naming half a
     relation.
     """
@@ -951,8 +968,8 @@ class ManeuverDefinition:
     time: str
 
     @property
-    def is_advanced(self) -> bool:
-        return self.tier == MANEUVER_TIER_ADVANCED
+    def is_gambit(self) -> bool:
+        return self.tier == MANEUVER_TIER_GAMBIT
 
 
 @dataclass(frozen=True)
@@ -961,7 +978,7 @@ class ManeuverCatalog:
     Every maneuver in the game, both tiers, split by side.
 
     **Lookups are by key, never by printed name.** `offense`/`defense`
-    hold basic and advanced together, ordered by rank then tier, and a
+    hold basic and gambit together, ordered by rank then tier, and a
     caller that wants only one tier asks `for_tier`. Which maneuvers a
     particular game offers is the game's mode to decide, not the
     catalog's -- see `RulesEngine.maneuver_hand`.
@@ -1013,18 +1030,18 @@ class ManeuverCatalog:
     def counterpart(self, maneuver: ManeuverDefinition) -> ManeuverDefinition:
         """
         The card on the same side and rank in the other tier -- an
-        advanced maneuver's basic equivalent, or the other way round.
+        gambit's basic equivalent, or the other way round.
 
-        The pairing is by **rank**, not by a table: every advanced card
+        The pairing is by **rank**, not by a table: every gambit
         is identical to its basic counterpart in every column but
-        `Effect` (see docs/advanced-maneuver-matrix.md), which is what
+        `Effect` (see docs/gambit-matrix.md), which is what
         makes "a skill test resolves it as the basic card" a rule the
         data can answer rather than six sentences somebody wrote down.
         """
         other = (
             MANEUVER_TIER_BASIC
-            if maneuver.is_advanced
-            else MANEUVER_TIER_ADVANCED
+            if maneuver.is_gambit
+            else MANEUVER_TIER_GAMBIT
         )
         for candidate in self.for_tier(self.side_of(maneuver.key), other):
             if candidate.rank == maneuver.rank:
@@ -1059,9 +1076,9 @@ class ManeuverCatalog:
         "offense" or "defense" if one defeats the other, otherwise
         "tie".
 
-        **Rank alone decides** (the author, 2026-08-18), so advanced
-        mode adds no new way to win a maneuver: the 12x12 grid is the
-        existing 3x3 cycle repeated four times. An advanced card beats
+        **Rank alone decides** (the author, 2026-08-18), so the
+        gambits add no new way to win a maneuver: the 12x12 grid is the
+        existing 3x3 cycle repeated four times. A gambit beats
         exactly what its basic counterpart beats, including that
         counterpart itself.
         """
@@ -1698,7 +1715,7 @@ class MatchState:
     defense_maneuver: Optional[str] = None
     # **Volatile's tier rider**: the skill test that just resolved was
     # ignited in a way that raises the *winner's* maneuver to its
-    # advanced version -- see "Volatile (Fire Demon)" in
+    # gambit -- see "Volatile (Fire Demon)" in
     # docs/living-rules.md.
     #
     # The rules name two cases and both come to the same one: a surge
@@ -1709,7 +1726,7 @@ class MatchState:
     #
     # **It is already gated when it is set.** `SkillTestView.roll` only
     # raises it in a game playing both modules, so a game that took the
-    # species abilities without the advanced maneuvers -- where there
+    # species abilities without the gambits -- where there
     # is no tier to change and the ignite is only the number -- never
     # sets it, and the reader needs no `game` to ask.
     #
@@ -1719,14 +1736,14 @@ class MatchState:
     # `reset_maneuver` clears it with the rest of the turn.
     volatile_tier_upgrade: bool = False
     # **Volatile's other half**: what the *losing* side's own ignite
-    # does to the advanced cost they would otherwise pay (the author,
+    # does to the gambit's cost they would otherwise pay (the author,
     # 2026-09-07).
     #
     # Three states, which is why it is a nullable bool rather than a
     # flag: `False` is a **surge that lost** and pays no cost even
     # where the cards would have charged one; `True` is a **backfire
     # that lost** and pays theirs even where the cards alone would not;
-    # `None` is every other roll, where `advanced_cost_applies` is the
+    # `None` is every other roll, where `gambit_cost_applies` is the
     # whole answer as it always was.
     #
     # It is the loser's own ignite that decides it, not the matchup's
@@ -1808,7 +1825,7 @@ class MatchState:
     # been answered**, as `{"kind": ..., ...}` -- or None, which is
     # nearly always.
     #
-    # Two of the advanced effects reach past their own maneuver.
+    # Two of the gambits' effects reach past their own maneuver.
     # Setup Pass adjusts ball speed and *then* sets up a scoring
     # opportunity; Skilled Pass, when it is beaten, hands the defense
     # an unopposed Low Pass once the steal has settled. Both sit behind

@@ -1,7 +1,7 @@
 # Separating the model from the Discord layer
 
 **This is a worksheet, not a specification.** It is the plan the split is
-being built from, and like `advanced-maneuver-matrix.md` the answered parts
+being built from, and like `gambit-matrix.md` the answered parts
 should be deleted as they land rather than kept in parallel with the code.
 The principles it was written around now have their one permanent home:
 "The model and the Discord layer" in CLAUDE.md, moved there when Phase 1
@@ -203,7 +203,7 @@ was planned as -- the two guards are `tests/test_model_purity.py` and
      player ids iterated into a message would have made it vary between
      machines rather than on the change that broke it.
    - **It covers one basic-mode solo game on board 7**, which is the only
-     multi-turn game the suite can drive today. No advanced maneuver, no
+     multi-turn game the suite can drive today. No gambit, no
      species ability, no halftime, no shootout, no time out. Proof that
      the gap is real rather than theoretical: rewording *two* of the
      three `Ball speed is now` sites in `effects.py` did not fail it,

@@ -5,7 +5,7 @@ themselves.
 Layers, and they fail for different reasons:
 
 - **The switch.** Advanced mode is one setting over two modules, and
-  `advanced_maneuvers_apply` / `species_abilities_apply` are the only
+  `gambits_apply` / `species_abilities_apply` are the only
   two answers to which of them a game is playing. A rule that reads
   `game.mode` or `game.species_abilities` on its own has skipped one
   half of the question.
@@ -16,8 +16,8 @@ Layers, and they fail for different reasons:
   through. On top of it the rider has two halves, both read off the
   igniting player's own die: `volatile_raises_tier` plus
   `resolving_maneuver` for the winner's tier, and
-  `volatile_loser_cost` plus `advanced_cost` for whether the loser
-  pays their advanced card's price.
+  `volatile_loser_cost` plus `gambit_cost` for whether the loser
+  pays their gambit's price.
 - **Lithium Powered.** Three separate things sharing one ability: the
   Drained line (`exhaustion_threshold`, which every exhaustion charge
   and every recovery now asks), Overdrive (declared and paid before a
@@ -146,12 +146,12 @@ class ModuleSwitchTests(unittest.TestCase):
 
     def test_advanced_mode_brings_both_modules(self):
         game = build_game()
-        self.assertTrue(self.engine.advanced_maneuvers_apply(game))
+        self.assertTrue(self.engine.gambits_apply(game))
         self.assertTrue(self.engine.species_abilities_apply(game))
 
     def test_a_basic_game_has_neither(self):
         game = build_game(mode=GameMode.BASIC)
-        self.assertFalse(self.engine.advanced_maneuvers_apply(game))
+        self.assertFalse(self.engine.gambits_apply(game))
         self.assertFalse(self.engine.species_abilities_apply(game))
 
     def test_a_basic_game_ignores_the_opt_outs_entirely(self):
@@ -163,17 +163,17 @@ class ModuleSwitchTests(unittest.TestCase):
             advanced_maneuvers=True,
             species_abilities=True,
         )
-        self.assertFalse(self.engine.advanced_maneuvers_apply(game))
+        self.assertFalse(self.engine.gambits_apply(game))
         self.assertFalse(self.engine.species_abilities_apply(game))
 
     def test_a_game_may_take_the_abilities_without_the_maneuvers(self):
         game = build_game(advanced_maneuvers=False)
-        self.assertFalse(self.engine.advanced_maneuvers_apply(game))
+        self.assertFalse(self.engine.gambits_apply(game))
         self.assertTrue(self.engine.species_abilities_apply(game))
 
     def test_a_game_may_take_the_maneuvers_without_the_abilities(self):
         game = build_game(species_abilities=False)
-        self.assertTrue(self.engine.advanced_maneuvers_apply(game))
+        self.assertTrue(self.engine.gambits_apply(game))
         self.assertFalse(self.engine.species_abilities_apply(game))
 
     def test_the_hand_follows_the_maneuver_module_not_the_mode(self):
@@ -198,7 +198,7 @@ class ModuleSwitchTests(unittest.TestCase):
         game = D12BallGame.from_dict(saved)
         self.assertTrue(game.advanced_maneuvers)
         self.assertTrue(game.species_abilities)
-        self.assertTrue(self.engine.advanced_maneuvers_apply(game))
+        self.assertTrue(self.engine.gambits_apply(game))
         self.assertTrue(self.engine.species_abilities_apply(game))
 
 
@@ -620,7 +620,7 @@ class IgnitionIsShownEverywhereTests(unittest.TestCase):
 class VolatileTierRiderTests(unittest.TestCase):
     """
     "A surge on the winning side resolves that side's maneuver as its
-    advanced version ... a backfire on the losing side resolves the
+    gambit ... a backfire on the losing side resolves the
     opponent's."
 
     Both raise the **winner's** card -- the opponent of the losing side
@@ -674,7 +674,7 @@ class VolatileTierRiderTests(unittest.TestCase):
 
     def test_a_surge_that_loses_pays_no_advanced_cost(self):
         # "If a player loses a skill test on the surge, they do not
-        # resolve the advanced maneuver cost." A surge protects its
+        # resolve the gambit cost." A surge protects its
         # player even where the cards would have charged them.
         self.assertIs(
             self.engine.volatile_loser_cost(self.game, self.surge), False,
@@ -682,7 +682,7 @@ class VolatileTierRiderTests(unittest.TestCase):
 
     def test_a_backfire_that_loses_pays_it(self):
         # "However, if a volatile player loses on a backfire, they
-        # resolve the cost of the advanced maneuver" -- the one thing
+        # resolve the cost of the gambit" -- the one thing
         # in the game that puts a cost in force off the dice.
         self.assertIs(
             self.engine.volatile_loser_cost(self.game, self.backfire), True,
@@ -702,7 +702,7 @@ class VolatileTierRiderTests(unittest.TestCase):
 
     def test_no_tier_to_change_without_the_advanced_maneuvers(self):
         # "in a game that took the species abilities without the
-        # advanced maneuvers -- there is no tier to change, and the
+        # gambits -- there is no tier to change, and the
         # surge or backfire is only the number."
         without = build_game(advanced_maneuvers=False)
         self.assertFalse(
@@ -763,7 +763,7 @@ class ResolvingManeuverTests(unittest.TestCase):
 
     def test_the_rider_beats_the_tie_downgrade(self):
         # "even where the cards tied and the basic card would otherwise
-        # resolve" -- an advanced card that wins a tie normally drops
+        # resolve" -- a gambit that wins a tie normally drops
         # to its basic counterpart, and the rider keeps it up.
         _, advanced = self.basic_and_advanced("low_pass")
         self.match.offense_maneuver = advanced
@@ -787,24 +787,24 @@ class ResolvingManeuverTests(unittest.TestCase):
 
     def test_a_surge_that_lost_suppresses_a_cost_the_cards_would_charge(self):
         # The cards were decisive and the loser played an advanced
-        # card, so `advanced_cost_applies` would charge them -- the
+        # card, so `gambit_cost_applies` would charge them -- the
         # surge is what takes it off.
         self.match.offense_maneuver = "dribble_advance"
         self.match.defense_maneuver = "clear"
         self.assertTrue(
-            self.engine.advanced_cost_applies(self.match, "clear"),
+            self.engine.gambit_cost_applies(self.match, "clear"),
         )
         self.assertEqual(
-            self.engine.advanced_cost(self.match, "dribble_advance"), "clear",
+            self.engine.gambit_cost(self.match, "dribble_advance"), "clear",
         )
 
         self.match.volatile_loser_cost = False
         self.assertIsNone(
-            self.engine.advanced_cost(self.match, "dribble_advance"),
+            self.engine.gambit_cost(self.match, "dribble_advance"),
         )
 
     def test_a_backfire_that_lost_pays_where_the_cards_would_not(self):
-        # A tie carries no advanced effect at all, so nothing here is
+        # A tie carries no gambit's effect at all, so nothing here is
         # chargeable off the cards -- the backfire is the whole reason
         # a cost applies.
         self.match.offense_maneuver = "low_pass"
@@ -814,13 +814,13 @@ class ResolvingManeuverTests(unittest.TestCase):
         ) != "tie":
             self.skipTest("that pairing is no longer a tie")
         self.assertFalse(
-            self.engine.advanced_cost_applies(self.match, "clear"),
+            self.engine.gambit_cost_applies(self.match, "clear"),
         )
-        self.assertIsNone(self.engine.advanced_cost(self.match, "low_pass"))
+        self.assertIsNone(self.engine.gambit_cost(self.match, "low_pass"))
 
         self.match.volatile_loser_cost = True
         self.assertEqual(
-            self.engine.advanced_cost(self.match, "low_pass"), "clear",
+            self.engine.gambit_cost(self.match, "low_pass"), "clear",
         )
 
     def test_a_basic_losing_card_carries_no_cost_either_way(self):
@@ -831,7 +831,7 @@ class ResolvingManeuverTests(unittest.TestCase):
         for override in (True, False, None):
             self.match.volatile_loser_cost = override
             self.assertIsNone(
-                self.engine.advanced_cost(self.match, "dribble_advance"),
+                self.engine.gambit_cost(self.match, "dribble_advance"),
                 override,
             )
 

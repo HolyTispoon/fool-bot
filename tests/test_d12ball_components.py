@@ -31,7 +31,7 @@ from d12ball.cards import (
     tie_pairs,
 )
 from d12ball.components import (
-    MANEUVER_TIER_ADVANCED,
+    MANEUVER_TIER_GAMBIT,
     SPECIES_ORDER,
     MANEUVER_TIER_BASIC,
     MATCH_EXPLICIT_FIELDS,
@@ -2541,7 +2541,7 @@ class D12BallManeuverTests(unittest.TestCase):
         for side in ("offense", "defense"):
             with self.subTest(side=side):
                 self.assertEqual(len(self.catalog.side(side)), 6)
-                for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED):
+                for tier in (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT):
                     self.assertEqual(
                         sorted(
                             m.rank
@@ -2569,7 +2569,7 @@ class D12BallManeuverTests(unittest.TestCase):
     def test_die_faces_cover_one_through_six_with_no_overlap(self) -> None:
         # The die is off the rules (2026-08-17) but the data and
         # DinkyAI still carry it -- see "The printed boards". Only the
-        # basic rows have to cover the six: an advanced card sits on
+        # basic rows have to cover the six: a gambit sits on
         # its counterpart's rank and reuses its faces, which is why the
         # importer stopped validating them for uniqueness.
         for side in ("offense", "defense"):
@@ -2632,8 +2632,8 @@ class D12BallManeuverTests(unittest.TestCase):
 
     def test_an_advanced_hand_is_a_row_a_tier(self) -> None:
         """
-        The basic three above their advanced counterparts, three
-        columns wide either way, so every advanced card sits under the
+        The basic three above their gambits, three
+        columns wide either way, so every gambit sits under the
         basic card it shares a rank with (the author). The suite cannot
         see the picture, so the claim is checked as the shape of the
         canvas: three columns and two card rows, where a hand wrapped
@@ -2666,7 +2666,7 @@ class D12BallManeuverTests(unittest.TestCase):
         # tiers, columns, card rows -- one side, so one caption band.
         cases = (
             ((MANEUVER_TIER_BASIC,), 4, 1),
-            ((MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED), 3, 2),
+            ((MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT), 3, 2),
         )
         for side in ("offense", "defense"):
             for tiers, columns, card_rows in cases:
@@ -2704,7 +2704,7 @@ class D12BallManeuverTests(unittest.TestCase):
             )
 
         both = ("offense", "defense")
-        advanced = (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED)
+        advanced = (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
         cases = (
             # sides, tiers, columns -- the widest row of the image
             (both, (MANEUVER_TIER_BASIC,), 3),
@@ -2747,7 +2747,7 @@ class D12BallManeuverTests(unittest.TestCase):
             (("offense", "defense"), (MANEUVER_TIER_BASIC,), 2),
             (
                 ("offense", "defense"),
-                (MANEUVER_TIER_BASIC, MANEUVER_TIER_ADVANCED),
+                (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT),
                 4,
             ),
         )
@@ -2770,7 +2770,7 @@ class D12BallManeuverTests(unittest.TestCase):
         maneuvers. Three pairs, each a genuine tie, and every maneuver
         in exactly one.
         """
-        # Six nodes, so three lines: an advanced card ties exactly what
+        # Six nodes, so three lines: a gambit ties exactly what
         # its basic counterpart ties, and drawing all twelve would put
         # the same three diagonals down four times over.
         basic = self.catalog.for_tier(
@@ -2879,10 +2879,10 @@ class D12BallManeuverTests(unittest.TestCase):
         self.assertEqual(by_maneuver["steal"], {"BALL SPEED"})
         self.assertEqual(by_maneuver["pressure"], {"DEFENDER", "MIDFIELDER"})
 
-        # **No role ability names an advanced maneuver**, which is the
+        # **No role ability names a gambit**, which is the
         # data being honest rather than a gap: advanced mode's other
         # half is a unique ability per player and the sheet's column
-        # for it is empty for all thirty-six. What every advanced card
+        # for it is empty for all thirty-six. What every gambit
         # does carry is the skill-test line, and Intercept carries the
         # ball speed modifier its rank has always carried.
         self.assertEqual(by_maneuver["skilled_pass"], {"CARDS"})

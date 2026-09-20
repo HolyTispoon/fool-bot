@@ -2185,7 +2185,7 @@ def draw_maneuver_legend(
     **Three rows a column, however many cards there are.** A rank
     carries one card per tier and rank alone decides who beats whom, so
     a row is a rank with both its names on it -- the basic card, and
-    its advanced counterpart under the same number. Twelve rows in a
+    its gambit under the same number. Twelve rows in a
     panel sized for three is what listing them per card would give, and
     it would print two O1s with nothing saying they are the same rank.
 
@@ -2246,7 +2246,7 @@ def draw_maneuver_legend(
                 color,
                 anchor="lm",
             )
-            # Basic over advanced, the same order and the same reason
+            # Basic over gambit, the same order and the same reason
             # as a node on the printed card back.
             on_rank = sorted(
                 (m for m in side if m.rank == rank),
@@ -2262,7 +2262,7 @@ def draw_maneuver_legend(
                     (column_left + rank_left, row_y + offset),
                     maneuver.name,
                     name_face,
-                    INK if not maneuver.is_advanced else MUTED,
+                    INK if not maneuver.is_gambit else MUTED,
                     anchor="lm",
                 )
     return bottom
