@@ -548,12 +548,35 @@ split is the whole design.
   exactly "to or through" plus "the ball's own starting space does not count
   as moved to". A move that goes nowhere is an empty path, so a clamped pass
   offers nobody a pull.
-- **Reading is three places**, and they are the functions that settle an
+- **Reading is four places**, and they are the functions that settle an
   arrival: `finish_maneuver_resolution` (the tail of every ordinary path,
   receptions included), `begin_loose_ball` (a Deflect, which calls it
-  directly, and the High Pass contest, which comes through it), and
-  `offer_scoring_attempt_choice` (a set-up). Between them they are every one
-  of the four things the rules say a pull pre-empts.
+  directly, and the High Pass contest, which comes through it),
+  `offer_scoring_attempt_choice` (a set-up), and `begin_run_back` (a
+  turnover a maneuver settles for itself -- Steal, Intercept, a Defender's
+  pressure steal, an own goal avoided -- and hands straight to run-back
+  without passing through any of the other three). Between them they are
+  every one of the four things the rules say a pull pre-empts, plus the one
+  the first three don't reach on their own: a steal's own carry.
+  - **The fourth was missing until 2026-09-20** (the author, from a bot
+    transcript): Steal/Intercept, a Defender's pressure steal, and an own
+    goal avoided all move the ball with `set_ball_space` and then call
+    `begin_run_back` directly, so `last_ball_path` sat unread through the
+    whole run-back cascade and was only finally checked from
+    `finish_run_back`'s own tail call into `finish_maneuver_resolution` --
+    by which point run-back had already repositioned players onto those
+    spaces. `mind_pull_candidates` reads *current* board occupancy of the
+    path, not who was standing there when the ball actually crossed, so a
+    Telekinetic who merely ran back onto one of those spaces was wrongly
+    offered a pull that belonged to whoever the ball had actually passed.
+    Gating `begin_run_back` itself, before any run-back state is set up,
+    is the one place every turnover-driven run-back funnels through
+    regardless of which maneuver produced it -- patching each maneuver
+    individually would have left the same trap for the next one that
+    settles its own turnover this way. For every ordinary maneuver the
+    gate has already run (and spent the path) by the time `begin_run_back`
+    is reached, so this reading is a no-op there, the same as the existing
+    "second gate reached with the path already spent" case.
 - **`check_for_mind_pull` returns True when it took over**, exactly the shape
   `check_for_loose_ball` has, so a gate is one `if ...: return` at the top of
   each. It sits *above* the loose-ball check in
