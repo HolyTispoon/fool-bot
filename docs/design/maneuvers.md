@@ -183,8 +183,12 @@ weapon rather than only a saving.
     being no distance left to add to; a run of up to 4 has one, and the
     ability is still a token off rather than a fifth space. So the
     distances a Playmaker is offered are everybody's, and the discount
-    comes out of the total in `apply_dribble_burst` -- named once
+    comes out of the total in `dribble_burst_step` -- named once
     beside the run rather than subtracted from each button's price.
+    (It was `apply_dribble_burst`'s until rank O2 of the
+    model/Discord split lifted the card into `d12ball/flow/`; the
+    cog method of that name is now the four-line wrapper around it.
+    The ruling did not move, only the address.)
   - **A Fullback's extra space is distance, not speed.** A Block
     Deflect of 2 has always cost 1 speed, so a Clear of 4 still costs
     3. `apply_deflection` keeps `speed_drop` as the card's own number

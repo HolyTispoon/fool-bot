@@ -14,7 +14,8 @@ Phase 1 on.
 Phase 0 has landed (PR #201), and so has Phase 1, in the two halves the
 worksheet's own "lands first, on its own" asked for (1a in PR #223, 1b in
 PR #225), and so has Phase 2 (PR #227) -- so there are no prompts for any
-of them. Phase 3 is one template run six times.
+of them. Phase 3 is one template, run once per rank; **rank 3a has landed
+(PR #PRNUM)** and its row is gone from the table below.
 
 ---
 
@@ -153,11 +154,10 @@ Do them in the order given; each assumes the previous has landed.
 
 | Run | RANK block |
 | --- | --- |
-| 3a | `Rank O2 -- Dribble Advance and Dribble Burst. Self-contained: moves the handler and ends; the speed choice is the only prompt. No hand-off to the spine beyond finish_maneuver_resolution.` |
 | 3b | `Rank O1 -- Skilled Pass, and the shared key= parameter. Low Pass moved in Phase 2 and Skilled Pass already rides its step: d12ball/flow/effects.py's low_pass_step takes key= and cogs/d12ball/effects.py's apply_low_pass wrapper passes it through, so this rank may already be whole. Check resolve_skilled_pass and the free-pass continuation, add the fixtures and tests Phase 2 did not, and if nothing is left to move say so in the PR rather than inventing work.` |
 | 3c | `Rank D2 -- Steal and Intercept. A turnover, so this is the first hand-off to begin_run_back: the step's next is a FollowOn naming it; begin_run_back stays async in the cog. take_ball_by_steal saves itself today -- strip it and the wrapper persists.` |
 | 3d | `Rank D3 -- Pressure and Double Team. The own-goal branch (run_own_goal_roll stays in the cog; apply_own_goal_outcome saves itself today -- strip it and the wrapper persists) and pending_double_team reaching into the next turn. Read docs/design/possession-and-turnovers.md.` |
-| 3e | `Rank D1 -- Deflect and Clear. Calls begin_loose_ball directly rather than through finish_maneuver_resolution; knock_ball_back saves itself today -- strip it and the wrapper persists. Read docs/design/loose-balls.md.` |
+| 3e | `Rank D1 -- Deflect and Clear. Calls begin_loose_ball directly rather than through finish_maneuver_resolution; knock_ball_back saves itself today -- strip it and the wrapper persists. Note that Clear's own cost is already in the model: rank O2 moved pay_clear_cost into d12ball/flow/effects.py, because the two dribbles are what charge it. This rank is the card, not its cost. Read docs/design/loose-balls.md.` |
 | 3f | `Rank O3 -- High Pass and Setup Pass. The hardest by a distance: the overshoot, the contest, out-of-bounds into begin_ball_recovery. throw_high_pass saves itself today -- strip it and the wrapper persists. Read docs/design/shooting.md and docs/design/loose-balls.md (the High Pass exemption).` |
 
 ```
@@ -168,7 +168,9 @@ rank per pull request". Phases 1 and 2 have landed, and so has every rank
 listed before this one in the worksheet's Phase 3 table.
 
 Probe: `grep -q "def low_pass_step" d12ball/flow/effects.py`, and the
-worksheet's Status column names a PR for every rank listed before this one.
+worksheet's Status column names a PR for every rank listed before this one
+(it names the ranks done in the Phase 3 row of the phase table, and again
+in the Phase 3 section's own table).
 Do not probe for a function per card: a rank whose two cards are the same
 card parameterised has one step between them, which is the shape Phase 2
 landed -- Skilled Pass is `low_pass_step(key="skilled_pass")` and there is
@@ -181,12 +183,24 @@ rank block names.
 RANK: <paste the rank block here>
 
 The pattern is Phase 2's, applied to both cards of this rank, and this PR
-does not invent a new one. Read `low_pass_step` and `D12Ball.apply_low_pass`
+does not invent a new one. **Two cards of a rank share one step only where
+they share an effect**: Skilled Pass is `low_pass_step(key="skilled_pass")`
+because it is a Low Pass with bigger numbers, while rank O2's two dribbles
+are two functions, because a burst charges by distance and words a run that
+covered no ground. If parameterising would mean a branch at every line,
+write two. Read `low_pass_step` and `D12Ball.apply_low_pass`
 before you start; they are the worked example. For each card's `apply_*` in
 cogs/d12ball/effects.py: the mutation and the wording move into
 d12ball/flow/effects.py as a sync function `<card key>_step(engine, match,
 ...)` returning StepResult -- taking `game` only where it actually reads the
-record, and never an `interaction`; any `self.persist` inside the moved code
+record, and never an `interaction`. **A step that charges exhaustion takes
+`game`**, because the Exhausted line is a Cyborg's own in a game playing the
+species abilities; that is most of the ranks left. Rank O2 moved the
+charging and the wording of it to the model as its keystone, so
+`RulesEngine.apply_exhaustion` and `describe_exhaustion_gain` are already
+there and `condition_emojis` is already on the engine -- call them, do not
+move them again, and leave the forwarding methods on the cog alone.
+Continuing: any `self.persist` inside the moved code
 is stripped; and the cog wrapper becomes step -> `self.persist(game, match)`
 -> `await self.dispatch_step_result(interaction, game, match, result)`.
 That last call is already written (cogs/d12ball/core.py) and does the rest:
@@ -196,13 +210,25 @@ the lines and hands them to whatever `next` names as its `lead_in`, which is
 what keeps a resolved maneuver at one message and one board refresh.
 
 Where the effect hands off to spine machinery that is still the cog's
-(finish_maneuver_resolution, begin_run_back, begin_loose_ball,
-offer_scoring_attempt_choice, run_own_goal_roll, begin_ball_recovery), `next`
-is a `FollowOn` naming it -- the spine does not move in this phase, under
-any provocation. `FollowOnStep` is a closed enum in d12ball/flow/result.py
-and `D12Ball.follow_on_methods` is the table under it, so a spine step this
-rank is the first to hand off to needs a member in the one and a row in the
-other. A follow-on whose method does not take a `lead_in` is a case
+(finish_maneuver_resolution, offer_speed_choice, begin_run_back,
+begin_loose_ball, offer_scoring_attempt_choice, run_own_goal_roll,
+begin_ball_recovery), `next` is a `FollowOn` naming it -- the spine does not
+move in this phase, under any provocation. `offer_speed_choice` is on that
+list and is easy to miss, because it reads like part of the effect rather
+than like the spine: it is `FollowOnStep.OFFER_SPEED_CHOICE`, rank O2 added
+it, and rank O3's Setup Pass ends there too (its speed choice is the
+*first* step of the effect rather than the last, and what follows is
+recorded as an effect continuation). Rank D2's Steal also reaches a speed
+choice, but not as its own follow-on: it hands off to begin_run_back, and
+the run-back tail in cogs/d12ball/turnovers.py is what offers it -- so D2's
+`next` names begin_run_back and nothing about the speed choice. **In no case
+is it FINISH_MANEUVER_RESOLUTION** -- the speed choice runs the resolution
+itself, so a step naming both resolves the maneuver twice. `FollowOnStep` is a
+closed enum in d12ball/flow/result.py and `D12Ball.follow_on_methods` is the
+table under it, so a spine step this rank is the first to hand off to needs
+a member in the one and a row in the other, and a line in
+`tests/test_d12ball_follow_on_steps.py`, which asserts the membership whole
+and checks that every member has a row and every row takes a `lead_in`. A follow-on whose method does not take a `lead_in` is a case
 `dispatch_step_result` has not met yet; widen it there rather than posting
 around it. Advanced-mode cost and benefit (`advanced_cost`,
 `settled_maneuver_winner`) are engine questions already; the step asks them,

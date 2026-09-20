@@ -66,8 +66,10 @@ move had no rules risk to weigh against it.
 match is waiting on; a flow step is what *changes* it. Each takes the
 engine and the match, mutates, and hands back a `StepResult` -- the
 narration, whether the board moved, and what happens next. Phase 2 cut
-this on Low Pass alone and nothing else, which is why `effects.py` holds
-one card and `cogs/d12ball/effects.py` still holds eleven.
+this on Low Pass alone; rank O2 of Phase 3 added the two dribbles, so
+`effects.py` holds three cards (four counting Skilled Pass, which is
+Low Pass parameterised) and `cogs/d12ball/effects.py` still holds the
+rest.
 
 - **Low Pass was the slice because it is not a toy.** Mid-sized, with a
   role-ability branch (the Winger's set-up, the one path that ends
@@ -112,6 +114,46 @@ one card and `cogs/d12ball/effects.py` still holds eleven.
   The `self.persist` count in `cogs/` is unchanged at 95 across this
   phase, which is the shape of the transition in one number: one left
   the step, one arrived in the wrapper.
+- **Two cards of a rank share a step only where they share an
+  effect.** Skilled Pass is `low_pass_step(key="skilled_pass")`,
+  because it is a Low Pass with more reach and a bigger bonus and
+  nothing else. The dribbles are two functions: a Dribble Burst is not
+  a Dribble Advance with a longer run -- it charges a token a space,
+  words a run that covered no ground, and reads the Playmaker's
+  ability as a token off the cost rather than a space onto the run.
+  Parameterising those two would have been one function with a branch
+  at every line, which is two functions with extra steps.
+- **A step takes `game` where it reads the record, and exhaustion is
+  why.** Low Pass reads none, so it takes none. Both dribbles charge
+  tokens, and the Exhausted line a charge is tested against is a
+  Cyborg's own in a game playing the species abilities -- a fact about
+  the game record. Most of the ranks still to come charge something,
+  so most of them will take it.
+- **The exhaustion wording came down with them**, as rank O2's
+  keystone: `RulesEngine.apply_exhaustion` and
+  `describe_exhaustion_gain`, with `condition_emojis` beside the team
+  and role dicts and `D12Ball.condition_emojis` a property over it.
+  The five `get_*_emoji` accessors and their fallbacks moved to
+  `formatting.py`; `cogs/d12ball_helpers.py` kept the `*_EMOJI_NAME`
+  constants and `load_condition_emojis`, which is the half that needs
+  Discord. It had to move because a Dribble Burst's cost is part of
+  the sentence describing the run rather than a message after it --
+  narration is the model's (principle 5), and this was narration the
+  model could not write. `D12Ball.apply_exhaustion` forwards, so none
+  of the twenty-odd call sites moved; the only churn is that a test
+  building a bare cog now sets `condition_emojis` after the engine,
+  because it is a property over it.
+- **`OFFER_SPEED_CHOICE` is the third member, and it is not
+  `FINISH_MANEUVER_RESOLUTION`.** Both dribbles end on the speed
+  choice, and the speed choice is what runs the resolution afterwards
+  -- a step naming both would resolve the maneuver twice. The whole
+  membership is asserted in `tests/test_d12ball_follow_on_steps.py`,
+  which is also where the two invariants nobody had checked live:
+  every member has a row in `follow_on_methods` (a missing one is a
+  `KeyError` on a coach's click, after the match has been changed and
+  saved) and every row takes a `lead_in`. Phase 2 had put the
+  membership assertion inside the Low Pass tests, where it read as a
+  fact about that card and broke the moment a second rank landed.
 - **The fixtures were recorded first, the same way Phase 1b's were.**
   `tests/low_pass_fixtures.py` stands a match in every branch with no
   discord in scope; `tests/test_d12ball_low_pass_recording.py` asserts
@@ -120,7 +162,13 @@ one card and `cogs/d12ball/effects.py` still holds eleven.
   `tests/test_d12ball_low_pass_flow.py` asks the model the same
   questions. The table names the follow-on by `FollowOnStep` member
   name, a string, which is what let it be written before the package
-  existed.
+  existed. `tests/dribble_fixtures.py` with
+  `tests/test_d12ball_dribble_recording.py` and
+  `tests/test_d12ball_dribble_flow.py` is the same pair for rank O2,
+  over eleven branches. Its one addition is that a number read *off a
+  player* is built rather than spelled: a fixture that runs a handler
+  past their Exhausted line reads the threshold from the engine,
+  because a defensive skill is roster data the way a name is.
 
 ## `tests/test_model_purity.py`
 

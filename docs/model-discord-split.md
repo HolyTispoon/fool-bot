@@ -27,7 +27,7 @@ it happened to have.
 | **0** | The safety net: the purity guard and the golden transcript | No | Done (PR #201) |
 | **1** | `PendingPrompt` -- "what is this match waiting on", into the model | No (a pure read) | Done (PR #223, PR #225) |
 | **2** | `StepResult`, proved on Low Pass alone | One maneuver | Done (PR #227) |
-| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | Open |
+| **3** | The twelve effects, a rank per pull request (3a-3f) | Six ranks | 3a done (PR #PRNUM); 3b-3f open |
 | **4** | The spine: resolution, arrivals, run back, injuries, own goal | Yes | Open |
 | **5** | Periods and windows: coaching, halftime, full time, shootout, time out | Yes | Open |
 | **6** | The driver, and the cog becomes a frontend | The last of it | Open |
@@ -278,7 +278,7 @@ so the pattern is settled before it meets the hard cases.
 
 | # | Rank | Cards | Why here |
 | --- | --- | --- | --- |
-| 3a | O2 | Dribble Advance, Dribble Burst | Moves the handler and ends. Speed choice is the only prompt. |
+| 3a | O2 | Dribble Advance, Dribble Burst | **Done** (PR #PRNUM). Moves the handler and ends; the speed choice is the only prompt, and is `FollowOnStep.OFFER_SPEED_CHOICE` |
 | 3b | O1 | Low Pass, Skilled Pass | Already done in Phase 2 -- this is Skilled Pass and the shared `apply_low_pass(key=)` |
 | 3c | D2 | Steal, Intercept | A turnover, so it meets `begin_run_back` -- the first hand-off |
 | 3d | D3 | Pressure, Double Team | The own-goal branch, and `pending_double_team` reaching into the next turn |
@@ -295,6 +295,30 @@ own.
 unchallenged, on two board sizes, in a basic and an advanced game. Watch the
 advanced cost fire. Restart mid-effect once per rank -- the effect-choice
 branch of Phase 1 is what catches it.
+
+**What rank O2 settled, so the ranks after it need not reopen it:**
+
+- **Two cards of a rank share a step only where they share an
+  effect.** Skilled Pass rides `low_pass_step(key=...)`; the two
+  dribbles are two functions, because a burst charges by distance and
+  words a run of nowhere. Parameterising them would be one function
+  branching at every line.
+- **Exhaustion is the model's now.** `RulesEngine.apply_exhaustion`
+  and `describe_exhaustion_gain` moved down with `condition_emojis`,
+  so a step that charges tokens can say so inside its own sentence.
+  Every rank left charges something; none of them has to move this
+  again, and `D12Ball.apply_exhaustion` still forwards, so no call
+  site outside the lifted step changes.
+- **A step takes `game` where it reads the record.** Charging
+  exhaustion does, because a Cyborg's threshold is the game's.
+- **`offer_speed_choice` is a follow-on** (`OFFER_SPEED_CHOICE`), not
+  a thing a step calls and not `FINISH_MANEUVER_RESOLUTION` -- the
+  speed choice runs the resolution itself. Ranks D2 and O3 end there
+  too, so the member is already in place for them.
+- **The enum's membership is asserted in
+  `tests/test_d12ball_follow_on_steps.py`**, with the two invariants
+  that catch a rank getting it wrong: every member has a row in
+  `D12Ball.follow_on_methods`, and every row takes a `lead_in`.
 
 **CLAUDE.md:** the maneuver's own section gains a line only where the move
 changed something worth recording. Most of these should change nothing in
