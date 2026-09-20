@@ -1,6 +1,6 @@
 # D12 Ball — Living Rules
 
-This is the whole of the game as it currently stands — **basic mode**, and the **advanced mode** a game may be played in instead. Advanced mode turns on two modules: the [advanced maneuvers](#advanced-maneuvers) and the [species abilities](#species-abilities). Both come on with it, and a game may take just one of the two. It states each rule once and settled: history, open questions and the places upstream has not caught up yet all belong in [rules-log.md](rules-log.md).
+This is the whole of the game as it currently stands — **basic mode**, and the **advanced mode** a game may be played in instead. Advanced mode turns on two modules: the [gambits](#gambits) and the [species abilities](#species-abilities). Both come on with it, and a game may take just one of the two. It states each rule once and settled: history, open questions and the places upstream has not caught up yet all belong in [rules-log.md](rules-log.md).
 
 ## Contents
 
@@ -10,7 +10,7 @@ This is the whole of the game as it currently stands — **basic mode**, and the
 - [The turn](#the-turn)
 - [Score attempt](#score-attempt)
 - [Maneuvers](#maneuvers)
-- [Advanced maneuvers](#advanced-maneuvers)
+- [Gambits](#gambits)
 - [Species abilities](#species-abilities)
 - [Ball speed](#ball-speed)
 - [Scoring opportunities](#scoring-opportunities)
@@ -200,7 +200,7 @@ With no challenger, the maneuver the offense chooses succeeds outright: there is
 
 Both coaches secretly choose one of their maneuvers and reveal together. The offense chooses from Low Pass, Dribble Advance and High Pass; the defense from Deflect, Steal and Pressure.
 
-In a game played with [advanced maneuvers](#advanced-maneuvers) each coach chooses from six instead of three — but only when the maneuver is challenged. An unchallenged maneuver is always played with a basic card.
+In a game played with [gambits](#gambits) a coach who [may play one](#who-may-play-a-gambit) chooses from six instead of three — but only when the maneuver is challenged. An unchallenged maneuver is always played with a basic card.
 
 ### Who wins
 
@@ -296,11 +296,13 @@ Where the handler is already standing on the space closest to their own goal the
 
 *Defender:* a won Pressure also steals the ball — unless the push overshot into an own-goal roll, which takes priority whichever way it goes.
 
-## Advanced maneuvers
+## Gambits
 
-**Advanced mode** adds a second set of six maneuvers, and turns on the [species abilities](#species-abilities) alongside them — a game may take just one of the two modules. Each advanced card sits on the rank of a basic card and does what that card does, plus something more — and costs the coach who plays it something when it is beaten.
+**Advanced mode** adds a **gambit** to every rank, and turns on the [species abilities](#species-abilities) alongside them — a game may take just one of the two modules. A gambit does what the basic maneuver on its rank does, plus something more — and costs the coach who played it something when it is beaten.
 
-| Advanced | Rank | Replaces |
+**A gambit is a maneuver of its rank.** Double Team is a kind of Pressure: it beats what Pressure beats, loses to what Pressure loses to, and ties Pressure itself. Rank alone decides who wins, so [the cycle](#who-wins) is unchanged and the table below is the whole of what a coach has to learn about matchups.
+
+| Gambit | Rank | A kind of |
 | --- | --- | --- |
 | Skilled Pass | O1 | Low Pass |
 | Dribble Burst | O2 | Dribble Advance |
@@ -309,19 +311,26 @@ Where the handler is already standing on the space closest to their own goal the
 | Intercept | D2 | Steal |
 | Double Team | D3 | Pressure |
 
-**Rank alone decides who wins.** An advanced card beats exactly what the basic card on its rank beats, including that card itself, so [the cycle](#who-wins) is unchanged and the table above is the whole of what a coach has to learn about matchups.
+**A gambit can only be played against a challenge.** Where the defense sends nobody, the offense plays a basic maneuver — so declining a challenge is a defensive weapon as well as a saving.
 
-**An advanced card can only be played against a challenge.** Where the defense sends nobody, the offense plays a basic maneuver — so declining a challenge is a defensive weapon as well as a saving.
+### Who may play a gambit
 
-### When an advanced effect fires
+A coach holds their gambits only while their team is **behind**, which is one of two things:
+
+- Their team has **scored fewer goals** than the other team.
+- Their team **fields more injured players** than the other team. Only the six on the field count, and a Cyborg's [Damaged](#lithium-powered-cyborg) is injured under their own word.
+
+It is read when the maneuvers are chosen, off the scoreboard and off the field, so **who is holding gambits is public knowledge**: neither coach learns anything from it the other cannot see for themselves. Both coaches may hold them at once — one trailing while the other is the more hurt — and a coach neither is true of chooses from the basic three.
+
+### When a gambit's effect fires
 
 **The cards decide, not the dice — and they decide about each card separately.**
 
-| An advanced card | Carries |
+| A gambit | Carries |
 | --- | --- |
-| **Won on the cards** | Its **benefit**, when it is the card that resolves. |
+| **Won on the cards** | Its **benefit**, when it is the maneuver that resolves. |
 | **Lost on the cards** | Its **cost**, paid by the side that played it. |
-| Tied on the cards | Neither. The winner of the skill test resolves the **basic** card on their rank instead. |
+| Tied on the cards | Neither. The winner of the skill test resolves the **basic** maneuver on their rank instead. |
 
 A tie is the commonest case where nothing fires, but it is not the test. What matters is what the cards said about **that card**.
 
@@ -329,7 +338,7 @@ Everything else follows from it, and none of it is an exception:
 
 - An [injured](#playing-injured) participant's automatic loss of a tie carries nothing. Nobody won or lost on the cards; the injury only settled it without a roll.
 - Where the cards were decisive and the card-winner also wins the skill test their injury forced, both effects land where the cards put them: their benefit, and the loser's cost.
-- **Where the card-winner is injured and *loses* that skill test, neither fires.** The card now resolving lost on the cards, so it resolves at its basic rank; and the card that won on the cards is not paying a cost for a matchup it won.
+- **Where the card-winner is injured and *loses* that skill test, neither fires.** The card now resolving lost on the cards, so it resolves as the basic maneuver on its rank; and the card that won on the cards is not paying a cost for a matchup it won.
 
 Twenty-four of the thirty-six pairings are decisive; twelve are ties and carry nothing either way.
 
@@ -407,7 +416,7 @@ Possession does not change and the ball is left with the handler. Where the hand
 
 ## Species abilities
 
-**Advanced mode only**, and the second of the two modules it turns on, alongside the [advanced maneuvers](#advanced-maneuvers) — a game may take just one of the two. In basic mode species is only a name on the card, and every player follows the standard rules.
+**Advanced mode only**, and the second of the two modules it turns on, alongside the [gambits](#gambits) — a game may take just one of the two. In basic mode species is only a name on the card, and every player follows the standard rules.
 
 There is one ability per species, and every player of that species has it whichever team is fielding them. A player fielded on both sides of one game — the same person in two kits — carries it on both cards.
 
@@ -424,12 +433,12 @@ Every roll a Fire Demon makes is covered: their die in a [skill test](#the-skill
 
 **In a maneuver skill test the surge or backfire decides a tier, and what the loser pays.** Four cases, one for each way an ignite can land:
 
-- **A surge that wins** resolves that side's maneuver as **the advanced version of the rank they played** — even where the [cards would have resolved the basic one](#when-an-advanced-effect-fires). That is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve advanced on its own, so even a player who *did* play the advanced card gets it resolving as advanced for the first time. A card already resolving at advanced gains nothing more.
-- **A surge that loses** upgrades nothing — and **that player pays no [advanced cost](#when-an-advanced-effect-fires)**, even where the cards would otherwise have charged them one.
-- **A backfire that loses** resolves the *opponent's* maneuver as its advanced version, **and that player pays their own advanced card's cost** — a backfire is the one thing that puts a cost in force where the cards alone would not.
+- **A surge that wins** resolves that side's maneuver as **the gambit on the rank they played** — even where the [cards would have resolved the basic maneuver](#when-a-gambits-effect-fires), and whether or not that coach [may play a gambit](#who-may-play-a-gambit) this turn. That is an upgrade nearly every time: a skill test usually means the cards tied, and a card that did not win on the cards does not resolve as a gambit on its own, so even a player who *did* play the gambit gets it resolving as one for the first time. A maneuver already resolving as a gambit gains nothing more.
+- **A surge that loses** upgrades nothing — and **that player pays no [gambit's cost](#when-a-gambits-effect-fires)**, even where the cards would otherwise have charged them one.
+- **A backfire that loses** resolves the *opponent's* maneuver as the gambit on its rank, **and that player pays their own gambit's cost** — a backfire is the one thing that puts a cost in force where the cards alone would not.
 - **A backfire that wins** changes nothing but the number. They won carrying a penalty; the rider is the loser's to hand over, not theirs to earn.
 
-Outside a maneuver skill test — or in a game that took the species abilities without the [advanced maneuvers](#advanced-maneuvers) — there is no tier to change, and the surge or backfire is only the number.
+Outside a maneuver skill test — or in a game that took the species abilities without the [gambits](#gambits) — there is no tier to change, and the surge or backfire is only the number.
 
 ### Lithium Powered (Cyborg)
 
@@ -477,7 +486,7 @@ The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is ha
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Modifier | 0 | +1 | +2 | +3 | +4 | +5 | +6 |
 
-Only maneuvers change it. In basic mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble Advance and Steal let the player change it by up to their own skill. Their [advanced counterparts](#advanced-maneuvers) do the same in larger amounts — Skilled Pass adds 3, Clear takes 3 off, and Dribble Burst, Setup Pass and Intercept all let the player set it by up to their own skill.
+Only maneuvers change it. In basic mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble Advance and Steal let the player change it by up to their own skill. The [gambits](#gambits) on their ranks do the same in larger amounts — Skilled Pass adds 3, Clear takes 3 off, and Dribble Burst, Setup Pass and Intercept all let the player set it by up to their own skill.
 
 **Every turnover resets it to 1**, with one exception: a Dribble Burst that is beaten hands the ball over at whatever speed the burst put into it.
 
@@ -822,7 +831,7 @@ A level round goes to **sudden death**: each coach secretly picks one of their p
 
 | Species | Ability |
 | --- | --- |
-| Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test: a surge that wins resolves that maneuver at its advanced tier, a backfire that loses upgrades the opponent's and pays its own advanced cost, and a surge that loses pays none. |
+| Fire Demon | **Volatile.** A natural 6 or 7 on any d12 ignites: reroll and add it (5–12) or subtract it (1–4). In a maneuver skill test: a surge that wins resolves that maneuver as its rank's gambit, a backfire that loses upgrades the opponent's and pays its own gambit's cost, and a surge that loses pays none. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7, Damaged rather than Injured. Overdrive: 3 drain for +5 on a roll, declared before it. Charge-up: −1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: take 1 token, roll d12, on 1–2 pull it in and take possession. Slip in: a resolution leaves the ball with a teammate on your space — take over and handle it instead. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there — offensive on the attack, defensive on the defence — and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
